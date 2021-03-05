@@ -330,19 +330,19 @@ export class SplitDateField extends MultiInputSubstition
     {
       if( i == day_pos )
       {
-        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line day">
+        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line wh-form__dateinputgroup__day">
                                       {this.daynode}
                                     </div>); //
       }
       if( i == month_pos )
       {
-        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line month">
+        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line wh-form__dateinputgroup__month">
                                      {this.monthnode}
                                     </div>); //
       }
       if( i == year_pos )
       {
-        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line year">
+        this.inputgroup.appendChild(<div class="wh-form__dateinputgroup__line wh-form__dateinputgroup__year">
                                      {this.yearnode}
                                     </div>); //
       }
@@ -554,10 +554,10 @@ export class SplitTimeField extends MultiInputSubstition
                              />;
 
     this.inputgroup = <div class="wh-form__timeinputgroup" role="group">
-                        <div class="wh-form__timeinputgroup__line hour">
+                        <div class="wh-form__timeinputgroup__line wh-form__timeinputgroup__hour">
                           {this.hournode}
                         </div>
-                        <div class="wh-form__timeinputgroup__line minute">
+                        <div class="wh-form__timeinputgroup__line wh-form__timeinputgroup__minute">
                           {this.minutenode}
                         </div>
                      </div>;
@@ -575,7 +575,7 @@ export class SplitTimeField extends MultiInputSubstition
                                placeholder={this.placeholder.seconds}
                                aria-label={getTid("publisher:site.forms.splitdatetime-seconds-arialabel")}
                                />;
-      this.inputgroup.appendChild( <div class="wh-form__timeinputgroup__line second">
+      this.inputgroup.appendChild( <div class="wh-form__timeinputgroup__line wh-form__timeinputgroup__second">
                                      {this.secondnode}
                                    </div> );
 
