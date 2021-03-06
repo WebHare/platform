@@ -29,4 +29,8 @@ PUBLIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser
   {
     RETURN TRUE;
   }
+  UPDATE PUBLIC BOOLEAN FUNCTION ShowDeveloperOptions()
+  {
+    RETURN TRUE;
+  }
 >;
