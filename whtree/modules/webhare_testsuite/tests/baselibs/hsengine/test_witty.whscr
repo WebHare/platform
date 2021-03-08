@@ -681,6 +681,7 @@ MACRO WittyEncoding()
   scriptid := ParseWitty("Test: [test:json]", "HTML");
   TestEq(FALSE, scriptid=0);
   TestEq('Test: 42', CaptureWTE(scriptid,[ test := 42 ]));
+  TestEq('Test: 42.123', CaptureWTE(scriptid,[ test := 42.123 ]));
   TestEq('Test: "42"', CaptureWTE(scriptid,[ test := "42" ]));
   TestEq('Test: {"x":42}', CaptureWTE(scriptid,[ test := [ x := 42 ]]));
   TestEq('Test: {"x":"42"}', CaptureWTE(scriptid,[ test := [ x := "42" ]]));
@@ -689,6 +690,7 @@ MACRO WittyEncoding()
 
   scriptid := ParseWitty("Test: [test:jsonvalue]", "HTML");
   TestEq(EncodeValue('Test: 42'), CaptureWTE(scriptid,[ test := 42 ]));
+  TestEq(EncodeValue('Test: 42.123'), CaptureWTE(scriptid,[ test := 42.123 ]));
   TestEq(EncodeValue('Test: "42"'), CaptureWTE(scriptid,[ test := "42" ]));
   TestEq(EncodeValue('Test: {"x":42}'), CaptureWTE(scriptid,[ test := [ x := 42 ]]));
   TestEq(EncodeValue('Test: {"x":"42"}'), CaptureWTE(scriptid,[ test := [ x := "42" ]]));
