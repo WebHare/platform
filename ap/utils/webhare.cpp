@@ -119,11 +119,11 @@ struct ServiceInfo
 };
 
 const ServiceInfo services[WHService::NumberOfServices]=
-{ { NULL,                  "Service manager",    ""}
+{ { nullptr,        "Service manager",    ""}
 , { "whcompile",    "Compile server",     "--listen"}
 , { "dbserver.sh",  "Database server",    ""}
 , { "webserver",    "Webserver",          ""}
-, { "runscript",    "Startup script",     "mod::system/scripts/internal/webhareservice-startup.whscr" }
+, { "runscript",    "Startup script",     "--workerthreads\t4\tmod::system/scripts/internal/webhareservice-startup.whscr" }
 , { "runscript",    "Application runner", "mod::system/scripts/internal/apprunner.whscr"}
 , { "whmanager",    "WebHare manager",    ""}
 , { "runscript",    "Cluster services",   "--workerthreads\t4\tmod::system/scripts/internal/clusterservices.whscr"}

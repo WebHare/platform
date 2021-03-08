@@ -229,6 +229,17 @@ MACRO BootstrapDatabase()
   GetPrimary()->CommitWork();
 }
 
+PUBLIC MACRO UpdateAllModuleSchemasAsync()
+{
+  OpenPrimary();
+  UpdateAllModuleSchemas();
+}
+PUBLIC MACRO RecompileSiteProfilesAsync()
+{
+  OpenPrimary();
+  RecompileSiteProfiles();
+}
+
 PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug)
 {
   RECORD confinfo := LoadServerConfig();
@@ -294,21 +305,29 @@ PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug)
   }
 
   IF (debug)
-    Print("WRD schemas\n");
-  UpdateAllModuleSchemas();
+    Print("WRD schemas, siteprofiles\n");
 
   //TODO when installing, initdb_phase2 will have taken care of siteprofile compilation through UpdateBackendSite. we might see if we can have initdb_phase2 stop doing that ?
-  IF (debug)
-    Print("Site profiles\n");
+  OBJECT update_moduleschemas := AsyncCallFunctionFromJob(Resolve("#UpdateAllModuleSchemasAsync"));
+  OBJECT update_siteprofiles := AsyncCallFunctionFromJob(Resolve("#RecompileSiteProfilesAsync"));
 
   TRY
   {
-    RecompileSiteProfiles();
+    WaitForPromise(update_moduleschemas);
   }
   CATCH(OBJECT e)
   {
     LogHarescriptException(e);
-    Print("Errors recompiling site profiles: " || e->what || "\n");
+    PrintTo(2, `Fatal error updating WRD schemas: ${e->what}\n`);
+  }
+  TRY
+  {
+    WaitForPromise(update_siteprofiles);
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    PrintTo(2, `Fatal error recompiling site profiles: ${e->what}\n`);
   }
 
   IF (debug)
