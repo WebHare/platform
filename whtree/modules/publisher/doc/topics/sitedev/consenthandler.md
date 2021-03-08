@@ -100,6 +100,15 @@ whResetConsent();
 If you use our testing GTM container GTM-TN7QQM, you will see the consent triggers
 in the console.
 
+## GA4 compatibility
+Make sure your `<googleanalytics4>` node has its launch property set to `manual`. Then add the following JavaScript code
+to link it to the consent layer:
+
+```js
+import * as ga4 from '@mod-publisher/js/analytics/ga4.es';
+ga4.initOnConsent();
+```
+
 ## GTM compatibility
 Make sure you use the publisher version of the gtm plugin in your siteprofile - in general, `<gtm />` should have no `xmlns=` attribute.
 
