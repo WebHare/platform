@@ -2,17 +2,7 @@
 
 You can use your site profile to automatically add Google Analytics or Google Tag Manager to your web site.
 
-## GOOGLE ANALYTICS (UNIVERSAL)
-```xml
-<googleanalytics account="UA-XXXXXXXX-X" />
-```
-
-This will automatically add the analytics snippet to your HTML.
-
-You should also import `@mod-publisher/js/analytics/googleanalytics` in JavaScript
-for better debugging and pxl forwarding.
-
-## GOOGLE TAG MANAGER
+## Google tag manager
 ```xml
 <gtm account="GTM-XXXXX" />
 ```
@@ -33,3 +23,33 @@ RECORD evt := [ event := "mycustomevent", ... ];
 OBJECT gtm := webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
 gtm->DataLayerPush(evt);
 ```
+
+## Google Analytics 4
+
+For your siteprofile
+```xml
+  <apply>
+    <to type="all" />
+    <googleanalytics4 account="G-XXXXXXXX" />
+  </apply>
+```
+
+You also need to `import "@mod-publisher/js/analytics/ga4";` to do the actual loading.
+
+By default the actual script loaded is done by the ga4 library. You can set `integration="inpage"` on `<googleanalytics4/>`
+to embed the script directly, or set integration to `manual` for manual control when the GA4 script is loaded. You can
+then invoke the 'initOnConsent' function exported by our ga4 library to link initialization to the consent handler.
+
+Any change to `<googleanalytics4/>` requires a republish of the relevant files
+
+
+## Google Analytics (legacy version)
+```xml
+<googleanalytics account="UA-XXXXXXXX-X" />
+```
+
+This will automatically add the analytics snippet to your HTML.
+
+You should also import `@mod-publisher/js/analytics/googleanalytics` in JavaScript
+for better debugging and pxl forwarding.
+

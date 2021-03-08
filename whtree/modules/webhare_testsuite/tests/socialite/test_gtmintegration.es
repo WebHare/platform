@@ -15,7 +15,7 @@ function forceResetConsent()
 function checkForGTM(opts)
 {
   test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted?'':'NOT '}be loaded`);
-  test.eq(opts.remote ? 1 : 0,     test.qSA("script[src*='googletagmanager.com']").length, `googletagmanager.com should ${opts.remote?'':'NOT '}be loaded`);
+  test.eq(opts.remote ? 1 : 0,     test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote?'':'NOT '}be loaded`);
   test.eq(opts.snippet ? 1 : 0,    test.qSA("script:not([src])").filter(n=>n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet?'':'NOT '}be present`);
 }
 
@@ -26,7 +26,7 @@ test.registerTests(
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
       checkForGTM({selfhosted:1});
@@ -38,7 +38,7 @@ test.registerTests(
   , "Test assetpack mode"
   , async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=assetpack');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=assetpack&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
       checkForGTM({remote:1});
@@ -50,7 +50,7 @@ test.registerTests(
   , "Test script integration"
   , async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=script');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=script&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
       checkForGTM({remote:1,snippet:1}); //snippet loads remote, so both should be here
@@ -62,7 +62,7 @@ test.registerTests(
   , "The new debugflag 'sne' should disable selfhosting"
   , async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?wh-debug=sne');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?wh-debug=sne&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
       checkForGTM({remote:1});
@@ -74,7 +74,7 @@ test.registerTests(
       //forcibly clear cookie first
       forceResetConsent();
 
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_integration=script&gtmplugin_launch=manual');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_integration=script&gtmplugin_launch=manual&ga4_integration=none');
       await new Promise(resolve => window.setTimeout(resolve, 200)); //give GTM time to not appear
 
       test.false(test.getWin().webharetestcontainer);
@@ -102,7 +102,7 @@ test.registerTests(
       test.false(test.getWin().got_consent_remarketing);
 
       //reload, should not show cookiebar
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual&ga4_integration=none');
       await waitForGTM();
       test.eq("analytics", test.getWin().gtm_consent);
       test.false(test.qS(".mydialog"));
@@ -117,7 +117,7 @@ test.registerTests(
       test.false(test.getWin().hasConsent("analytics"));
       test.eq("denied", test.getDoc().documentElement.dataset.whConsent);
       test.eq("denied", test.getWin().gtm_event_consent, "event should have triggered dynamic change");
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_launch=manual&ga4_integration=none');
       await waitForGTM();
       test.eq("denied", test.getWin().gtm_consent);
       test.false(test.qS(".mydialog"));
@@ -126,7 +126,7 @@ test.registerTests(
 
       //test more specific settings
       test.getWin().whResetConsent();
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_integration=script&gtmplugin_launch=manual');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?consent=1&gtmplugin_integration=script&gtmplugin_launch=manual&ga4_integration=none');
 
       test.click('[data-messagebox-result="remarketing"]');
       await waitForGTM();

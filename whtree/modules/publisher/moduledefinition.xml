@@ -973,6 +973,7 @@
     <webdesignplugin name="forumplugin" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forum/forumplugin.whlib#forumplugin" hooksfeatures="objectprops" />
     <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" hooksfeatures="debugsettings" />
     <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />
+    <webdesignplugin name="googleanalytics4" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/ga4plugin.whlib#GoogleAnalytics4Plugin" />
     <webdesign name="blank" title="Blank webdesign" siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" istemplate="true" path="data/webdesigntemplates/blank" />
     <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml" />
     <webfeature name="savedurlhistory" tid="webfeatures.savedurlhistory.webfeaturetitle"  siteprofile="webfeatures/savedurlhistory/savedurlhistory.siteprl.xml"/>
