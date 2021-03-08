@@ -507,7 +507,8 @@
   <apply>
     <to type="file" pathmask="/testpages/dynamicpage" />
     <to type="file" pathmask="/testpages/staticpage" />
-    <gtm xmlns="http://www.webhare.net/xmlns/socialite" account="GTM-TN7QQM" integration="selfhosted" />
+    <gtm account="GTM-TN7QQM" integration="selfhosted" />
+    <googleanalytics4 account="G-WQHC6J2JN0" />
   </apply>
 
   <apply>
