@@ -67,7 +67,7 @@ PUBLIC OBJECTTYPE VideoWidgetBase EXTEND WidgetBase
     IF(NOT RecordExists(this->data.thumbnail))
       INSERT "wh-video--noposter" INTO classes AT END;
 
-    Print(`<div class="${Detokenize(classes," ")}" data-wh-video="${EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data)))}" title="${EncodeValue(this->data.title)}" data-duration="${this->data.duration}}"`);
+    Print(`<div class="${Detokenize(classes," ")}" data-wh-video="${EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data)))}" title="${EncodeValue(this->data.title)}" data-duration="${this->data.duration}"`);
     IF(settings.requireconsent!="")
       Print(` data-wh-consent-required="${EncodeValue(settings.requireconsent)}"`);
     Print(">");
