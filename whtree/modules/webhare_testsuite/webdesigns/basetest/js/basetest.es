@@ -54,6 +54,7 @@ setupGoogleRecaptcha();
 
 //////////////////////////////////////////////////////////////////////////////
 // Consent system
+import * as ga4 from '@mod-publisher/js/analytics/ga4.es';
 import * as gtm from '@mod-publisher/js/analytics/gtm.es';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
 
@@ -71,12 +72,17 @@ async function startCookieRequest()
     consenthandler.setConsent([]);
 }
 
-if (location.href.includes("consent=1") || location.href.includes("testpages/consenttest"))
+let urlparams = new URL(location.href).searchParams;
+if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest"))
 {
   window.got_consent_analytics=false;
   window.got_consent_remarketing = false;
 
-  gtm.initOnConsent();
+  if(urlparams.get("gtmplugin_integration") != "none")
+    gtm.initOnConsent();
+  if(urlparams.get("ga4_integration") != "none")
+    ga4.initOnConsent();
+
   consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
   consenthandler.onConsent('analytics', () => window.got_consent_analytics=true);
   consenthandler.onConsent('remarketing', () => window.got_consent_remarketing=true);

@@ -986,6 +986,7 @@
       <!-- former 'socialite' plugins -->
       <xs:element name="gtm" type="GTMPlugin" />
       <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
+      <xs:element name="googleanalytics4" type="GoogleAnalytics4Plugin" />
 
       <xs:element name="pollsettings" minOccurs="0" maxOccurs="1">
         <xs:complexType>
@@ -1910,6 +1911,31 @@
           <xs:enumeration value="manual">
             <xs:annotation>
               <xs:documentation>Manually control when the script is started</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="GoogleAnalytics4Plugin">
+    <xs:attribute name="account" />
+    <xs:attribute name="integration">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="inpage">
+            <xs:annotation>
+              <xs:documentation>Integrates GA4 code directly into every page. Be careful when combining this with Content-Security-Policy</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="onload">
+            <xs:annotation>
+              <xs:documentation>Initialize GA4 during page load (default). Requires you to import the @mod-publisher/js/analytics/ga4 script</xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="manual">
+            <xs:annotation>
+              <xs:documentation>Manually control when GA4 is started</xs:documentation>
             </xs:annotation>
           </xs:enumeration>
         </xs:restriction>
