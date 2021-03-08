@@ -40,7 +40,7 @@ By default the actual script loaded is done by the ga4 library. You can set `int
 to embed the script directly, or set integration to `manual` for manual control when the GA4 script is loaded. You can
 then invoke the 'initOnConsent' function exported by our ga4 library to link initialization to the consent handler.
 
-Any change to `<googleanalytics4/>` requires a republish of the relevant files
+Any change to `<googleanalytics4/>` requires a republish of the relevant files.
 
 
 ## Google Analytics (legacy version)
