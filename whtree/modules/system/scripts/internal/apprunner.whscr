@@ -7,6 +7,7 @@
    wh console --dontlaunch=apprunner
    wh run mod::system/scripts/internal/apprunner.whscr --debug
 */
+LOADLIB "wh::async.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
@@ -229,6 +230,8 @@ PUBLIC STATIC OBJECTTYPE AppRunner
   INTEGER timercallback;
   DATETIME nextcheck;
 
+  OBJECT serializer;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties
@@ -242,14 +245,16 @@ PUBLIC STATIC OBJECTTYPE AppRunner
   MACRO NEW()
   {
     this->nextcheck := MAX_DATETIME;
+    this->serializer := MakeCallSerializer();
   }
+
   PUBLIC MACRO BootUp()
   {
     RegisterEventCallback("system:softreset", PTR this->GotReloadEvent(TRUE, #1, #2));
     RegisterEventCallback("system:apprunner.internal.rescan", PTR this->GotReloadEvent(FALSE, #1, #2));
     RegisterEventCallback("system:systemconfig", PTR this->GotReloadEvent(FALSE, #1, #2));
 
-    this->IntegrateApplications(ListExpectedApps(), NOT RecordExists(PollWHServiceState("poststartdone")));
+    this->ReloadApplications(NOT RecordExists(PollWHServiceState("poststartdone")));
   }
 
   // ---------------------------------------------------------------------------
@@ -269,7 +274,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
 
   MACRO HandleReloadEvent(BOOLEAN issoftreset, STRING event, RECORD data)
   {
-    this->IntegrateApplications(ListExpectedApps(), issoftreset);
+    this->ReloadApplications(issoftreset);
   }
 
   // ---------------------------------------------------------------------------
@@ -326,6 +331,18 @@ PUBLIC STATIC OBJECTTYPE AppRunner
   OBJECT FUNCTION GetAppByName(STRING name)
   {
     RETURN SELECT AS OBJECT obj FROM ToRecordArray(this->applications,'obj') AS apps WHERE apps.obj->name=name;
+  }
+
+  ASYNC MACRO ReloadApplications(BOOLEAN issoftreset)
+  {
+    // ListExpectedApps has internal waitforpromise calls, so it needs to run within a serializer
+    OBJECT lock := AWAIT this->serializer->GetRunPermission();
+    TRY
+    {
+      this->IntegrateApplications(ListExpectedApps(), issoftreset);
+    }
+    FINALLY
+      lock->Close();
   }
 
   MACRO IntegrateApplications(RECORD ARRAY newapps, BOOLEAN launchsoftresetapps)
@@ -492,7 +509,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
            ];
   }
 
-  PUBLIC RECORD FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
+  PUBLIC ASYNC FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
   {
     OBJECT appobj := this->GetAppByName(servicename);
     IF(NOT ObjectExists(appobj))
@@ -503,7 +520,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
     ELSE IF(enable = FALSE AND servicename NOT IN this->disabledtasks)
       INSERT servicename INTO this->disabledtasks AT END;
 
-    this->IntegrateApplications(ListExpectedApps(), FALSE);
+    AWAIT this->ReloadApplications(FALSE);
     RETURN [ app := appobj->app, args := appobj->args ];
   }
 >;
@@ -527,7 +544,7 @@ OBJECTTYPE AppRunnerControl
   {
     RETURN theapprunner->GetReport();
   }
-  PUBLIC RECORD FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
+  PUBLIC ASYNC FUNCTION SetEnabled(STRING servicename, BOOLEAN enable)
   {
     RETURN theapprunner->SetEnabled(servicename, enable);
   }
