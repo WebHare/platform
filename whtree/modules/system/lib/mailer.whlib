@@ -1508,9 +1508,9 @@ STATIC OBJECTTYPE WittyMailComposer
 
         STRING substid := GenerateUFS128Bitid();
         INSERT CELL [ substid, render := PTR embeddedobject->RenderEmail(this) ] INTO substitutions AT END;
-        embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
+        embeddedobj->parentnode->InsertBefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
       }
-      embeddedobj->parentnode->removechild(embeddedobj);
+      embeddedobj->parentnode->RemoveChild(embeddedobj);
     }
     IF(options.wittyhyperlinks)
     {
@@ -1534,16 +1534,11 @@ STATIC OBJECTTYPE WittyMailComposer
     STRING text := NormalizeWhitespace(content->body->innerhtml);
     FOREVERY(RECORD subst FROM substitutions)
     {
-      IF (CellExists(subst, "render"))
-      {
-        INTEGER widgettext := CreateStream();
-        INTEGER oldredirect := RedirectOutputTo(widgettext);
-        subst.render();
-        RedirectOutputTo(oldredirect);
-        text := Substitute(text, subst.substid, BlobToString(MakeBlobFromStream(widgettext)));
-      }
-      ELSE
-        text := Substitute(text, subst.substid, subst.html);
+      INTEGER widgettext := CreateStream();
+      INTEGER oldredirect := RedirectOutputTo(widgettext);
+      subst.render();
+      RedirectOutputTo(oldredirect);
+      text := Substitute(text, subst.substid, BlobToString(MakeBlobFromStream(widgettext)));
     }
 
     IF(options.rawwittytags)

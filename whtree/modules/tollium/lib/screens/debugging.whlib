@@ -48,23 +48,19 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
   */
   MACRO Init(RECORD params)
   {
-    RECORD reflectoptions;
-    IF (CellExists(params, "reflectoptions"))
-    {
-      reflectoptions := ValidateOptions([ format := "tree:3"
-                                        , showprivate := TRUE
-                                        , expandlevel := 1
-                                        , hidestacktrace := FALSE
-                                        , hidedebugbutton := FALSE
-                                        ]
-                                        , params.reflectoptions);
+    RECORD reflectoptions := ValidateOptions(
+        [ format := "tree:3"
+        , showprivate := TRUE
+        , expandlevel := 1
+        , hidestacktrace := FALSE
+        , hidedebugbutton := FALSE
+        ], CellExists(params, "reflectoptions") ? params.reflectoptions : DEFAULT RECORD);
 
-      ^valuedisplay->showprivate := reflectoptions.showprivate;
-      ^valuedisplay->expandlevel := reflectoptions.expandlevel;
+    ^valuedisplay->showprivate := reflectoptions.showprivate;
+    ^valuedisplay->expandlevel := reflectoptions.expandlevel;
 
-      IF (reflectoptions.hidedebugbutton)
-        ^openindebuggerbutton->visible := FALSE;
-    }
+    ^openindebuggerbutton->visible := NOT reflectoptions.hidedebugbutton
+                                      AND this->contexts->user->ShowDeveloperOptions(); //ShowDeveloperOptions implies sysop check
 
     VARIANT data := params.data;      // The data to be shown
     BOOLEAN tree := params.tree;      // =True -> convert to a tree
@@ -79,7 +75,7 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
     ELSE
       this->ShowText(data);
 
-    IF(CellExists(params.settings, 'stacktrace') AND NOT (RecordExists(reflectoptions) AND reflectoptions.hidestacktrace))
+    IF(CellExists(params.settings, 'stacktrace') AND NOT reflectoptions.hidestacktrace)
       ^stacktrace->rows := params.settings.stacktrace;
     ELSE
       ^stacktrace->visible := FALSE;
