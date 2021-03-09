@@ -14,7 +14,7 @@ function load()
     return;
 
   window.gtag('js', new Date); //firing this too early causes issues with the GTM initialization, it causes it not to fire pageview triggers. they probably shouldn't mix until we figure this out (send only once for both GTM/GA?)
-  window.gtag('config', ga4settings.a);
+  window.gtag('config', ga4settings.a, { anonymize_ip: !ga4settings.ip });
   promiseScript("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(ga4settings.a));
   loaded = true;
 }
