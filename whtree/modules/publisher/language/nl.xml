@@ -444,10 +444,7 @@
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="webhare">   <!-- contentproviders.webhare -->
       <text tid="folder">Te indexeren map</text>
-      <text tid="http_password">Wachtwoord</text>
-      <text tid="http_username">Inlognaam</text>
       <text tid="lastcontentscheck">Laatste automatische update dynamische pagina's</text>
-      <text tid="loginrequired">Voor deze map moet worden ingelogd</text>
       <text tid="never">Nooit</text>
       <text tid="providertitle">WebHare-map</text>
       <textgroup gid="messages">   <!-- contentproviders.webhare.messages -->

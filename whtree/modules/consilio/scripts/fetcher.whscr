@@ -164,7 +164,7 @@ ELSE
   // Dispatch incoming command
   //
 
-  RegisterEventCallback("consilio:fetchers.config", PTR ClearCaches);
+  RegisterEventCallback("consilio:contentsourceschanged", PTR ClearCaches);
 
   WHILE (TRUE)
   {

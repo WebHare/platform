@@ -10,6 +10,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 // Public error codes (returned by the public search functions)
 PUBLIC CONSTANT INTEGER
@@ -81,11 +82,12 @@ PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, R
           that search root.
     @param folder WebHare folder to add to the catalog
     @param catalog_name The catalog to add the folder to
-    @param http_user An optional HTTP user name to access the folder with
-    @param http_password An optional HTTP password to access the folder with
     @return Result code */
 PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, STRING http_user, STRING http_password)
 {
+   IF(http_user != "" OR http_password != "")
+     THROW NEW Exception(`Consilio no longer supports username/password authentication but expects you to whitelist ${whconstant_consilio_fetcher_trusted_ip}`);
+
   RECORD indexrec :=
       SELECT id
            , type
@@ -104,12 +106,9 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
     RETURN CatalogFolderAlreadyIndexed;
 
   STRING contentprovider := "publisher:webhare";
-  RECORD data := [ http_username := http_user
-                 , http_password := http_password
-                 ];
   INTEGER srcid := MakeAutoNumber(consilio.contentsources, "id");
   INSERT INTO consilio.contentsources(id, indexid, contentprovider, data, fsobject)
-         VALUES (srcid, indexrec.id, contentprovider, EncodeHSON(data), folder);
+         VALUES (srcid, indexrec.id, contentprovider, EncodeHSON(DEFAULT RECORD), folder);
 
   UpdateContentSourceFieldsById(srcid);
   STRING result := EnsureIndexManagerContentSource(indexrec.id, srcid);

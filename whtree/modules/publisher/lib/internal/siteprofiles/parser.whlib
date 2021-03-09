@@ -1367,8 +1367,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                            , tag := addtoindex->GetAttribute("tag")
                            , maxgroupobjects := ParseXSInt(addtoindex->GetAttribute("maxgroupobjects"))
                            , discardsummaries := ParseXSBoolean(addtoindex->GetAttribute("discardsummaries"))
-                           , http_username := addtoindex->GetAttribute("http_username")
-                           , http_password := addtoindex->GetAttribute("http_password")
                            , module := this->module
                            , siteprofile := this->siteprof->name
                            , line := addtoindex->linenum
@@ -1391,8 +1389,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
                            , maxgroupobjects := ParseXSInt(addtocatalog->GetAttribute("maxgroupobjects"))
                            , discardsummaries := ParseXSBoolean(addtocatalog->GetAttribute("discardsummaries"))
-                           , http_username := addtocatalog->GetAttribute("http_username")
-                           , http_password := addtocatalog->GetAttribute("http_password")
                            */
                            , module := this->module
                            , siteprofile := this->siteprof->name

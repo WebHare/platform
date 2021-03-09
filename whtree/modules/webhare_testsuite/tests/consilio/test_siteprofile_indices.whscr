@@ -18,11 +18,17 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   TestEq([ '/WebHare testsuite site/portal1/' //portal1 is added through ongetsources=
          , '/WebHare testsuite site/testpages/'
          , '/WebHare testsuite site/webtools/'
-         ], SELECT AS STRING ARRAY whfspath FROM contentsources ORDER BY whfspath);
+         ], SELECT AS STRING ARRAY whfspath FROM contentsources WHERE whfspath != "" ORDER BY whfspath);
+  TestEq([ 'webhare_testsuite:dbindex'
+         , 'webhare_testsuite:loremindex'
+         ], SELECT AS STRING ARRAY tag FROM contentsources WHERE tag != "" ORDER BY tag);
 
   WaitForCatalogDone(maincatalog);
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
+  TestEq(TRUE, Length(result.results) > 0);
+
+  result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("Pellentesque"));
   TestEq(TRUE, Length(result.results) > 0);
 
   result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("Welcome"));

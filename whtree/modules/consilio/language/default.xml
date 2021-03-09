@@ -196,15 +196,6 @@
         <text tid="invalidobject">The object '<param p="1"/>:<param p="2"/>' is not a valid custom content object</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="external">   <!-- contentproviders.external -->
-      <text tid="http_password">Password</text>
-      <text tid="http_username">Login name</text>
-      <text tid="lastcontentscheck">Last checked</text>
-      <text tid="loginrequired">This URL requires logging on</text>
-      <text tid="never">never</text>
-      <text tid="providertitle">External webserver</text>
-      <text tid="url">URL</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->

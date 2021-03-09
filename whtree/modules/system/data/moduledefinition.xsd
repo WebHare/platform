@@ -2111,6 +2111,27 @@
     <xs:annotation>
       <xs:documentation>A consilio catalog (backed by either indexmanager or elasticsearch index)</xs:documentation>
     </xs:annotation>
+
+    <xs:sequence>
+      <xs:element name="customsource" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Define a module supplied content source</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="tag" use="required">
+            <xs:annotation>
+              <xs:documentation>Tag for this content source (must be unique inside module)</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="contentobject" use="required">
+            <xs:annotation>
+              <xs:documentation>Library#objecttype implementing the content source. </xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+
     <!-- FIXME I'm not yet sure if we should explicitly add fields here (IndexField), if it should be wrapepd like <members> or if we should point to a fieldgroup -->
     <xs:attribute name="tag" type="Name" use="required" />
     <xs:attribute name="priority" type="xs:integer" />

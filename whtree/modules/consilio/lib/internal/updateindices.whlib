@@ -41,7 +41,19 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     IF(ongetsources != "")
       catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
                                                   , fsobject := 0
+                                                  , contentobject := ""
+                                                  , tag := ""
                                                  ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), INTEGER[])());
+
+    FOREVERY(OBJECT customsource FROM catalognode.node->ListElements(catalognode.node->namespaceuri, "customsource"))
+    {
+      INSERT [[ definedby :=  "<customsource> " || catalognode.resource || ":" || customsource->linenum
+              , fsobject := 0
+              , contentobject := MakeAbsoluteResourcePath(catalognode.resource, customsource->GetAttribute("contentobject"))
+              , tag := `${catalognode.module}:${customsource->GetAttribute("tag")}`
+              ]
+             ] INTO catalog.contentsources AT END;
+    }
 
     INSERT catalog INTO wantcatalogs AT END;
   }
@@ -70,7 +82,11 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
         PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting folder '${addtocatalog.folder}' in site '${site->name}'\n`);
         CONTINUE;
       }
-      INSERT CELL[ ...addtocatalog, fsobject := target->id ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+      INSERT CELL[ ...addtocatalog
+                 , fsobject := target->id
+                 , contentobject := ""
+                 , tag := ""
+                 ] INTO wantcatalogs[matchcatalog].contentsources AT END;
     }
   }
 
@@ -99,15 +115,24 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
     OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag);
     IF(catalog->definedby != want.definedby)
       catalog->UpdateCatalog( CELL[ want.definedby ]);
-    RECORD ARRAY currentsources := catalog->ListContentSources();
 
+    RECORD ARRAY currentsources := catalog->ListContentSources();
     FOREVERY(RECORD source FROM want.contentsources)
     {
-      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1 FROM currentsources WHERE contentprovider = "publisher:webhare" AND fsobject = source.fsobject) - 1;
+      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1 FROM currentsources WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare") AND fsobject = source.fsobject AND tag = source.tag) - 1;
       IF(matchpos >= 0)
       {
-        IF(currentsources[matchpos].definedby != source.definedby)
-          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[source.definedby]);
+        STRING expect_library, expect_contentobject;
+        IF(source.contentobject != "")
+        {
+          expect_library := Tokenize(source.contentobject,'#')[0];
+          expect_contentobject := Tokenize(source.contentobject,'#')[1];
+        }
+
+        IF(currentsources[matchpos].definedby != source.definedby
+           OR currentsources[matchpos].contentobject != source.contentobject)
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[source.definedby, settings := CELL[library := expect_library, contentobject := expect_contentobject]]);
+
         IF(currentsources[matchpos].isorphan)
           catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
 
@@ -117,7 +142,10 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 
       TRY
       {
-        catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+        IF(source.contentobject = "")
+          catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+        ELSE
+          catalog->AddCustomContentSource(source.tag, source.contentobject, CELL[ source.definedby ]);
       }
       CATCH(OBJECT e)
       {
@@ -342,10 +370,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       {
         // Add the existing username and password to the new data
         RECORD existingdata := DecodeHSON(existing.data);
-        IF (CellExists(existingdata, "http_username"))
-          INSERT CELL http_username := existingdata.http_username INTO data;
-        IF (CellExists(existingdata, "http_password"))
-          INSERT CELL http_password := existingdata.http_password INTO data;
 
         srcid := existing.id;
         IF(srcid IN unreferredsources)
@@ -432,9 +456,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         CONTINUE;
       }
       STRING whfspath := OpenWHFSObject(siteid)->whfspath;
-      FOREVERY (STRING field FROM [ "http_username", "http_password" ])
-        IF (GetCell(addtoindex, field) != "")
-          data := CellInsert(data, field, GetCell(addtoindex, field));
 
       // If a folder was specified, check if it's not already covered within the index
       RECORD existing;
@@ -508,10 +529,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           // Add the existing username and password to the new data
           RECORD existingdata := DecodeHSON(existing.data);
-          IF (CellExists(existingdata, "http_username"))
-            INSERT CELL http_username := existingdata.http_username INTO data;
-          IF (CellExists(existingdata, "http_password"))
-            INSERT CELL http_password := existingdata.http_password INTO data;
 
           // Update the existing content source
           IF (existing.contentprovider != contentprovider.name
