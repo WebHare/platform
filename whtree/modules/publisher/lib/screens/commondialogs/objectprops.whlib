@@ -290,6 +290,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   */
   RECORD ARRAY scheduledmessageboxes;
 
+  RECORD basesettings;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties and variables
@@ -659,6 +661,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     {
       ABORT("objectprops dialog get a unknown 'why' (expected 'duplicate', 'edit', 'newfile' or 'newfolder')");
     }
+
+    //configure settings that depend on the applytester
+    this->basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -697,7 +702,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       {
         // Create a new file name based on the type name
         newname := GetTid(this->curtype.title);
-        IF (Length(this->curtype.extensions) > 0)
+        IF (Length(this->curtype.extensions) > 0 AND (this->curtype.extensions[0] != ".rtd" OR NOT this->basesettings.striprtdextension))
           newname := newname || this->curtype.extensions[0];
         //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
         //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
@@ -849,10 +854,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO SetupObjectProps()
   {
-    RECORD basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE ]);
-    ^title->visible := basesettings.title;
-    ^description->visible := basesettings.description;
-    ^keywords->visible := basesettings.keywords;
+    ^title->visible := this->basesettings.title;
+    ^description->visible := this->basesettings.description;
+    ^keywords->visible := this->basesettings.keywords;
   }
 
   BOOLEAN FUNCTION CanWriteCurrentItem()

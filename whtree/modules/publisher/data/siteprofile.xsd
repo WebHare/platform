@@ -1108,6 +1108,11 @@
       <xs:attribute name="title" type="xs:boolean" />
       <xs:attribute name="description" type="xs:boolean" />
       <xs:attribute name="keywords" type="xs:boolean" />
+      <xs:attribute name="striprtdextension" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>Strip .rtd extension from newly created files</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
