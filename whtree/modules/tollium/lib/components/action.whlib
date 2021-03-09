@@ -448,7 +448,7 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
     IF(path!="")
       THROW NEW TolliumException(this, "<action>s do not support any subactions");
     IF(NOT this->TolliumClick())
-      THROW NEW TolliumException(this, "Did not find an actionhandle to execute");
+      THROW NEW TolliumException(this, "Did not find an actionhandler to execute");
   }
 
   /** @short ExtUpdatedConditions

@@ -21,7 +21,7 @@ PUBLIC OBJECT FUNCTION OpenVersioningPolicy(STRING versioningpolicy)
       {
         OBJECT policyobject := MakeObject(policy.library, policy.objectname);
         IF(NOT (policyobject EXTENDSFROM VersioningPolicyBase))
-          THROW NEW Exception("The policyobject '" || policy.objectname || "' in libary '" || policy.library || "' must extend from VersioningPolicyBase");
+          THROW NEW Exception("The policyobject '" || policy.objectname || "' in library '" || policy.library || "' must extend from VersioningPolicyBase");
         RETURN policyobject;
       }
   THROW NEW Exception("Undefined versioning policy '" || versioningpolicy || "'");

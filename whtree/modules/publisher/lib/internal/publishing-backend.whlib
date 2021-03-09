@@ -608,7 +608,7 @@ STATIC OBJECTTYPE PublicationRun
       IF (ObjectExists(this->contentfiletype) AND
           (this->contentfiletype->id = 29/*profile*/
             OR this->contentfiletype->id = 28/*template*/
-            OR this->contentfiletype->id = 16/*libary*/
+            OR this->contentfiletype->id = 16/*harescript library*/
             OR (this->contentfiletype->id >= 18 AND this->contentfiletype->id <= 20)/*link*/))
       {
         this->errordata := "Illegal type for linked file";

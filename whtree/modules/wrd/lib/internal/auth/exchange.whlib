@@ -12,23 +12,37 @@ RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
   RETURN allobjs[authobjectpos.position];
 }
 
-RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allobjs, INTEGER authobjectid)
+RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD ARRAY allobjs, INTEGER authobjectid)
 {
   RECORD authobject := GetAuthObjectById(allobjs, authobjectid);
   IF(NOT RecordExists(authobject))
     RETURN DEFAULT RECORD;
 
   RECORD userobjpos := RecordLowerBound(allusers, [ guid := authobject.guid ], [ "GUID" ]);
-  IF(NOT userobjpos.found)
-    RETURN DEFAULT RECORD;
+  IF(userobjpos.found)
+  {
+    RECORD userrec := allusers[userobjpos.position];
+    RETURN CELL[ login := authobject.name
+               , userrec.realname
+               , userrec.email
+               , authobject.unitid
+               , authobject.unitname
+               ];
+  }
 
-  RECORD userrec := allusers[userobjpos.position];
-  RETURN CELL[ login := authobject.name
-             , userrec.realname
-             , userrec.email
-             , authobject.unitid
-             , authobject.unitname
-             ];
+  RECORD roleobjpos := RecordLowerBound(allroles, [ wrd_guid := authobject.guid ], [ "WRD_GUID" ]);
+  IF(roleobjpos.found)
+  {
+    RECORD rolerec := allroles[roleobjpos.position];
+    RETURN CELL[ login := rolerec.wrd_title
+               , realname := ""
+               , email := ""
+               , authobject.unitid
+               , authobject.unitname
+               ];
+  }
+
+  RETURN DEFAULT RECORD;
 }
 
 STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordata)
@@ -63,6 +77,13 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
                   ])
     ORDER BY guid;
 
+  RECORD ARRAY allroles :=
+      SELECT *
+        FROM userapi->wrdschema->^whuser_role->RunQuery(
+            [ outputcolumns := CELL[ "WRD_GUID", "WRD_TITLE" ]
+            ])
+    ORDER BY wrd_guid;
+
 /*
 TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
                                , realname :=  up.found ? allusers[up.position].realname : "<other schema>"
@@ -96,7 +117,7 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
     RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
     FOREVERY(RECORD grant FROM grants)
     {
-      RECORD granteerec := GetGrantee(allusers, allobjs, grant.grantee);
+      RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
       IF(NOT RecordExists(granteerec))
         CONTINUE;
 
@@ -134,7 +155,7 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
   RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
   FOREVERY(RECORD grant FROM rolegrants)
   {
-    RECORD granteerec := GetGrantee(allusers, allobjs, grant.grantee);
+    RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
     RECORD roleinfo := GetAuthObjectById(allobjs, grant.role);
     IF(NOT RecordExists(granteerec) OR NOT RecordExists(roleinfo))
       CONTINUE;
