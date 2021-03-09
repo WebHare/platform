@@ -1,0 +1,36 @@
+@mixin dompack-pulldown($height) //We expect the user to give us a fixed height
+{
+  display: inline-block;
+  height: $height; //we _must_ set a fixed height, otherwise our measurement protocol fails
+  cursor: default;
+  vertical-align:middle; // prevent it from being on the baseline
+
+  &--replaced //this is descendent of your style, allowing you to combine pulldown replacements with media queries
+  {
+    display:none;
+  }
+  &__area
+  {
+    height:100%; /* This area */
+    overflow:hidden;
+  }
+  &__control
+  {
+    height:100%;
+    position:relative;
+  }
+  &__items
+  {
+    /*min-height:100%;*/
+  }
+  &__items--open
+  {
+    position: fixed;
+    cursor: default;
+    overflow: auto;
+  }
+  &__item--disabled:first-child //hide the first element if its disabled, usually a '--choose--'
+  {
+    display:none;
+  }
+}

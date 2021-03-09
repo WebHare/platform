@@ -1,0 +1,10 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testhelpers.es">
+  <jstest file="test_utils.es" />
+  <jstest file="test_browser.es" />
+  <jstest file="test_pulldown.es" />
+  <jstest file="test_selectlists_register.es" />
+  <jstest file="test_autosuggest.es" />
+  <jstest file="test_merge.es" />
+  <jstest file="test_datatransfer.es" />
+  <jstest file="test_dialogapi.es" />
+</group>

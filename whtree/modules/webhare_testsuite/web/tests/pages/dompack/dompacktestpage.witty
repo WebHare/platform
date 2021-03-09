@@ -1,0 +1,221 @@
+[component pulldown]
+  <button id="refill_justenough" type="button">refill just enough</button>
+  <button id="fillridiculous" type="button">refill ridiculous</button>
+  <button id="scrollable" type="button">scrollable</button>
+  <button id="toggleclass" type="button">toggleclass</button>
+  <div id="topmiddle">
+    <select class="scrollable" id="alwaysopendown">
+      <option selected disabled value="" class="copyclass" data-wh-form-placeholder>Should always open down</option>
+      <option value="1" class="copy2">One</option>
+      <option id="togglethisclass" value="2">Two</option>
+      <option value="3">Third item that should always be opening down</option>
+    </select>
+    <select class="scrollable" id="ridiculous">
+      <option selected disabled value="">Should also open down</option>
+      <option value="1">D_One</option>
+      <option value="2">D_Two</option>
+      <option disabled value="3">D_Three</option>
+    </select>
+  </div>
+  <form id="onepixelshort">
+    <select class="scrollable" id="onepixelshortselect">
+      <option value="1">Upwards, one pixel short</option>
+      <option value="2" disabled>U_Two</option>
+      <option value="3">U_Three</option>
+    </select>
+  </form>
+  <div id="justenoughbottom">
+    <select class="scrollable" id="justenoughselect">
+      <option value="1">Downwards, EXACTLY enough space</option>
+      <option value="2">E_Two</option>
+      <option value="3">E_Three</option>
+      <option class="hidden" value="4">I'm not here</option>
+    </select>
+  </div>
+  <div id="ridiculousbottom">
+    <select class="scrollable" id="ridiculousbottomselect" style="width: 60px;">
+      <option selected disabled value="">Many</option>
+      <option value="1">One</option>
+      <option value="2">Two</option>
+      <option value="3">Three</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="6">Six</option>
+    </select>
+  </div>
+  <div id="withoptgroups">
+    <select>
+      <option value="1" class="copy-1" data-copy="1">1</option>
+      <optgroup class="copy-2" data-copy="2" label="Group 2">
+        <option class="copy-2a" data-copy="2a" value="2a">2a</option>
+      </optgroup>
+      <optgroup class="copy-3" data-copy="3" label="Group 3">
+        <option class="copy-3a" data-copy="3a" value="3a">3a</option>
+        <option class="copy-3b" data-copy="3b" value="3b">3b</option>
+        <option class="copy-3c" data-copy="3c" value="3c">3c</option>
+        <option class="copy-3d" data-copy="3d" value="3d">3d</option>
+      </optgroup>
+      <option value="4" class="copy-4" data-copy="4">4</option>
+    </select>
+  </div>
+[/component]
+
+[component autosuggest]
+  <button id="refill_justenough" type="button">refill just enough</button>
+  <button id="fillridiculous" type="button">refill ridiculous</button>
+  <button id="scrollable" type="button">scrollable</button>
+  <div id="topmiddle">
+    <input id="alwaysopendown" class="directsuggest">
+    <select class="scrollable" id="ridiculous">
+      <option selected disabled value="">Should always open down</option>
+      <option value="1">One</option>
+      <option value="2">Two</option>
+      <option disabled value="3">Three</option>
+    </select>
+  </div>
+  <div class="fieldexamples">
+    <!-- note: the data- options here are implemented by dompackexample.es - it's not a standard thing -->
+    <div>
+      <label for="staticlist">Disabled list:</label> <input id="disabledlist" class="staticlistsuggest" data-minlength="0" disabled />
+    </div>
+    <div>
+      <label for="staticlist">Readonly list:</label> <input id="readonlylist" class="staticlistsuggest" data-minlength="0" readonly />
+    </div>
+    <div>
+      <label for="staticlist">Simple list:</label> <input id="simplelist" class="staticlistsuggest" data-minlength="1" />
+    </div>
+    <div>
+      <label for="staticlist">Case sensitive list:</label> <input id="casesensitivelist" class="staticlistsuggest" data-minlength="1" data-casesensitive="true" data-triminput="false"/>
+    </div>
+    <div>
+      <label for="staticlist">Immediate list:</label> <input id="immediatelist" class="staticlistsuggest" data-minlength="0" />
+    </div>
+    <div>
+      <label for="staticlist">With titles list:</label> <input id="withtitleslist" class="titleslistsuggest" />
+    </div>
+  </div>
+
+  <form id="onepixelshort">
+    <select class="scrollable" id="onepixelshortselect">
+      <option value="1">Upwards, one pixel short</option>
+      <option value="2" disabled>Two</option>
+      <option value="3">Three</option>
+    </select>
+  </form>
+  <div id="justenoughbottom">
+    <select class="scrollable" id="justenoughselect">
+      <option value="1">Downwards, EXACTLY enough space</option>
+      <option value="2">Two</option>
+      <option value="3">Three</option>
+      [! <option class="hidden" value="4">I'm not here</option> !]
+    </select>
+  </div>
+  <div id="ridiculousbottom">
+    <select class="scrollable" id="ridiculousbottomselect" style="width: 60px;">
+      <option selected disabled value="">Many</option>
+      <option value="1">One</option>
+      <option value="2">Two</option>
+      <option value="3">Three</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+      <option value="4">Four</option>
+    </select>
+  </div>
+[/component]
+
+[component merge]
+  <p id="mergetest1">Come on <span data-merge="textContent:a.b">not-set</span>, just one more page!</p>
+  <p id="mergetest2">Test my formula <span data-merge="textContent:makeupper(a.b)">not-set</span></p>
+  <p id="mergetest3">Link <a href="not-set" data-merge="href:a.l;textContent:makeupper(a.b)">not-set</a></p>
+  <p id="mergetest4">Link <span data-merge="upd(*)">not-set</a></p>
+  <p id="mergetest5">Link <span data-merge="upd(subdata)">not-set</a></p>
+  <p id="mergetest6">Link <span data-merge="textContent:selectsubtext(*)">not-set</a></p>
+[/component]
+
+[component dialog]
+  <div data-dialog-counter="0">
+    <button class="opendialog">Open a dialog</button>
+  </div>
+  <div id="dialoglog"></div>
+[/component]

@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/testfw/testpage.whlib";
+
+MACRO RunBody(OBJECT testcontext)
+{
+  LoadWittyLibrary(Resolve("dompacktestpage.witty"),"HTML")->RunComponent(GetWebVariable("testpage"), DEFAULT RECORD);
+}
+
+InvokeTestPage(PTR RunBody, [ jsfile := "dompackexample.es"
+                             ]);
