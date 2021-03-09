@@ -1762,7 +1762,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       suggestedname := "webhare";
 
     // Add extension for file type
-    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0)
+    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0 AND (this->curtype.extensions[0] != ".rtd" OR NOT this->basesettings.striprtdextension))
       suggestedname := suggestedname || this->curtype.extensions[0];
 
     RETURN this->parentfolder->GenerateUniqueName(suggestedname);
