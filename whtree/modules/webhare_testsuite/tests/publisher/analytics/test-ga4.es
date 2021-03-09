@@ -17,6 +17,13 @@ function checkForGTM(opts)
   test.eq(opts.remote ? 1 : 0,     test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote?'':'NOT '}be loaded`);
   test.eq(opts.snippet ? 1 : 0,    test.qSA("script:not([src])").filter(n=>n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet?'':'NOT '}be present`);
 }
+function checkForAnonymizeIp(expect)
+{
+  let config = test.getWin().dataLayer.find(_ => _[0]=='config');
+  test.true(config);
+  let anonymize_ip = config[2].anonymize_ip;
+  test.eq(!!expect, !!anonymize_ip);
+}
 
 export function getAnalyticsHits(regex)
 {
@@ -28,7 +35,7 @@ export function hasAnalyticsHit(regex)
 }
 
 test.registerTests(
-  [ "Test basic integration"
+  [ "Test integration=inpage (raw <script> tags)"
   , async function()
     {
       //forcibly clear cookie first, so we can see the consent not firing
@@ -43,7 +50,7 @@ test.registerTests(
       // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
     }
 
-  , "Test script mode"
+  , "Test integration=onload (auto activation by ga4.es)"
   , async function()
     {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none');
@@ -79,7 +86,7 @@ test.registerTests(
       await test.wait( () => test.qS("script[src*='googletagmanager.com/gtag']"));
     }
 
-  , "Deep test of basic integration" //actually communicate with GA4, this is slow so we put these tests last..
+  , "Deep test integration=inpage (raw <script> tags)"
   , async function()
     {
       //forcibly clear cookie first, so we can see the consent not firing
@@ -90,9 +97,10 @@ test.registerTests(
 
       await test.wait( () => getAnalyticsHits(/.*/).length > 0);
       checkForGTM({selfhosted: false, remote: false, snippet:false});
+      checkForAnonymizeIp(true);
     }
 
-  , "Test script mode"
+  , "Deep test integration=onload (auto activation by ga4.es)"
   , async function()
     {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none');
@@ -100,6 +108,24 @@ test.registerTests(
       await test.wait( () => getAnalyticsHits(/.*/).length > 0);
 
       checkForGTM({selfhosted: false, remote: false, snippet:false});
+      checkForAnonymizeIp(true);
     }
+
+  , "Test not anonymous"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none&ga4_anonymizeip=false');
+      await test.wait( () => getAnalyticsHits(/.*/).length > 0);
+      checkForGTM({selfhosted: false, remote: false, snippet:false});
+      checkForAnonymizeIp(false);
+
+      // test.eq(undefined, test.getWin().gtm_consent);
+      // checkForGTM({remote:1});
+
+      //Check datalayerpush
+      // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
+    }
+
+
 
   ]);

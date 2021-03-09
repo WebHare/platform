@@ -1,4 +1,7 @@
 <?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -39,7 +42,11 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
     }
     ELSE
     {
-      ga4plugin->integration := GetWebVariable("ga4_integration") ?? ga4plugin->integration;
+      IF(GetWebVariable("ga4_integration") != "")
+        ga4plugin->integration := GetWebVariable("ga4_integration");
+
+      IF(GetWebVariable("ga4_anonymizeip") != "")
+        ga4plugin->anonymizeip := ParseXSBoolean(GetWebVariable("ga4_anonymizeip"));
     }
     RETURN PTR Print(`<div id="dynamicpage"></div>`);
   }

@@ -1941,6 +1941,11 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
+    <xs:attribute name="anonymizeip" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Anonymize the user's IP address. Defaults to true</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="GoogleAnalyticsPlugin">
