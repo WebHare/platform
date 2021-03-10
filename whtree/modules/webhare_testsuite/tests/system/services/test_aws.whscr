@@ -105,11 +105,16 @@ MACRO Test_S3_MultipartUploads()
   FOREVERY(RECORD oldupload FROM s3->ListMultipartUploads(bucket).uploads)
     s3->AbortMultipartUpload(bucket, oldupload.uploadkey, oldupload.uploadid);
 
-  RECORD upload := s3->CreateMultipartUpload(bucket,"/testmultipart");
-  TestEq(TRUE, RecordExists(SELECT FROM s3->ListMultipartUploads(bucket).uploads WHERE uploadkey = "testmultipart" AND uploadid = upload.uploadid));
-
   INTEGER uploadsize := 5*1024*1024 + 5;
-  RECORD ARRAY uploadurls := s3->GenerateUploadPartURLs(upload, uploadsize); //generat URLs for 5MB + 5 bytes
+  BLOB toupload := StringToBlob(`[${RepeatText(".", 5*1024*1024 - 2)}(123)]`);
+  TestEq(uploadsize, Length(toupload));
+
+  RECORD upload := s3->CreateMultipartUpload(bucket,"/testmultipart-cancelled");
+  TestEq(TRUE, RecordExists(SELECT FROM s3->ListMultipartUploads(bucket).uploads WHERE uploadkey = "testmultipart-cancelled" AND uploadid = upload.uploadid));
+  s3->AbortMultipartUpload(bucket, upload.uploadkey, upload.uploadid);
+
+  RECORD putpartsresult := s3->PutObjectInParts(bucket, "/testmultipart", toupload);
+  RECORD ARRAY uploadurls := putpartsresult.uploadurls; //generated URLs for 5MB + 5 bytes
   TestEq(2, Length(uploadurls));
   TestEq(5*1024*1024, uploadurls[0].size);
   TestEq(0i64, uploadurls[0].off);
@@ -119,23 +124,10 @@ MACRO Test_S3_MultipartUploads()
   TestEqLike("https://*", uploadurls[0].url);
   TestEqLike("https://*", uploadurls[1].url);
 
-  BLOB toupload := StringToBlob(`[${RepeatText(".", 5*1024*1024 - 2)}(123)]`);
-  TestEq(uploadsize, Length(toupload));
-  STRING ARRAY etags;
-
-  TestEq(TRUE, testfw->browser->SendRawRequest("PUT", uploadurls[0].url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(toupload, uploadurls[0].off, uploadurls[0].size)));
-  Testeq(TRUE, testfw->browser->GetResponseHeader("ETag") != "");
-  INSERT testfw->browser->GetResponseHeader("ETag") INTO etags AT END;
-
-  TestEq(TRUE, testfw->browser->SendRawRequest("PUT", uploadurls[1].url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(toupload, uploadurls[1].off, uploadurls[1].size)));
-  Testeq(TRUE, testfw->browser->GetResponseHeader("ETag") != "");
-  INSERT testfw->browser->GetResponseHeader("ETag") INTO etags AT END;
-
-  RECORD uploadresult := s3->CompleteMultipartUpload(upload, etags);
   RECORD obj := s3->GetObject(bucket, "/testmultipart");
   TestEq(obj.body, toupload);
 
-  RECORD uploadhead := s3->HeadObject(bucket, uploadresult.objectkey);
+  RECORD uploadhead := s3->HeadObject(bucket, putpartsresult.objectkey);
   TestEQ(INTEGER64(uploadsize), uploadhead.contentlength);
 
   TestEq(RECORD[], s3->ListMultipartUploads(bucket).uploads);

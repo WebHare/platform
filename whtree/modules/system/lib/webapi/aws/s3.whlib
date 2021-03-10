@@ -488,6 +488,31 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
                , etag := Pickfirst(completemultipartuploadresult->ListChildren("*","ETag"))->textcontent
                ];
   }
+
+  /** Upload an object using the multipart API */
+  PUBLIC RECORD FUNCTION PutObjectInParts(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD uploadinfo := this->CreateMultipartUpload(bucket, path, options);
+    RECORD ARRAY uploadurls := this->GenerateUploadPartURLs(uploadinfo, Length64(data));
+
+    STRING ARRAY etags;
+    FOREVERY(RECORD url FROM uploadurls)
+    {
+      IF(NOT this->browser->SendRawRequest("PUT", url.url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(data, url.off, url.size)))
+        THROW NEW Exception(`Failed to upload part #${#url}`);
+
+      STRING etag := this->browser->GetResponseHeader("ETag");
+      IF(etag = "")
+        THROW NEW Exception(`Did not get an ETag for part #${#url}`);
+
+      INSERT etag INTO etags AT END;
+    }
+
+    RECORD uploadresult := this->CompleteMultipartUpload(uploadinfo, etags);
+    RETURN CELL [ uploadurls
+                , uploadresult.objectkey
+                ];
+  }
 >;
 
 
