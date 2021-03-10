@@ -92,4 +92,6 @@ ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # Control core sizes with ulimit... so that we can still raise them later!
 ulimit -Sc 0
 
-exec /usr/bin/dumb-init -- /usr/bin/runsvdir /etc/service
+# If runsvdir receives a HUP signal, it sends a TERM signal to each runsv(8) process it is monitoring and then exits with 111.
+# docker stop sends us a TERM. so we need to make sure a TERM on us becomes a HUP.
+exec /usr/bin/dumb-init --rewrite 15:1 -- /usr/bin/runsvdir /etc/service
