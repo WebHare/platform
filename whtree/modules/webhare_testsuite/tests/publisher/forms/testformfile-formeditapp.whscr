@@ -199,9 +199,15 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   //Test adding a page and moving it to top. This crashed earlier once the form had handlers
   TTClick("doceditor->addpage");
   TestEq("Page 2", TT("doceditor->questions")->selection.title);
+
+  //Make sure move actions dirty the form
+  TestEq(TRUE, TTClick("save"));
+  TestEq(FALSE, topscreen->frame->flags.isdirty, "Doc should now be dirty");
+
   TTClick("doceditor->movetotop");
   TestEq("Page 1", TT("doceditor->questions")->selection.title);
 
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Doc should now be dirty");
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 

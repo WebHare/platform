@@ -635,18 +635,21 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     OBJECT node := ^questions->selection.node;
     node->parentnode->InsertBefore(node, this->curform->GetPage(0)->node);
+    this->MarkFormAsDirty();
     this->ReloadList();
   }
   MACRO DoMoveUp()
   {
     OBJECT node := ^questions->selection.node;
     node->parentnode->InsertBefore(node, node->previouselementsibling);
+    this->MarkFormAsDirty();
     this->ReloadList();
   }
   MACRO DoMoveDown()
   {
     OBJECT node := ^questions->selection.node;
     node->parentnode->InsertBefore(node, node->nextelementsibling->nextelementsibling);
+    this->MarkFormAsDirty();
     this->ReloadList();
   }
   MACRO DoMoveToBottom()
@@ -661,11 +664,13 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       {
         IF (refnode->IsSameNode(node))
           RETURN; // Nothing to do
+
         IF (refnode->namespaceuri = "http://www.webhare.net/xmlns/publisher/forms"
             AND refnode->localname = "page"
             AND refnode->GetAttribute("role") = "")
         {
           node->parentnode->InsertBefore(node, refnode->nextelementsibling);
+          this->MarkFormAsDirty();
           this->ReloadList();
           RETURN;
         }
@@ -674,6 +679,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     }
 
     node->parentnode->AppendChild(node);
+    this->MarkFormAsDirty();
     this->ReloadList();
   }
 
