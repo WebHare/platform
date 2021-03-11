@@ -29,6 +29,7 @@ ARGS="--disable-gpu
       --window-size=1280,1024
       --force-color-profile=srgb
       --disable-dev-shm-usage
+      --mute-audio
       --user-data-dir=$PROFILEDIR"
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
