@@ -63,23 +63,31 @@ function registerJSTests(steps)
 {
   //get our parent test framework
   if(!testfw)
-    return console.error("This page is not being invoked by the test framework");
+    throw new Error("This page is not being invoked by the test framework");
 
-  let outsteps = steps.map(node =>
+  let lasttestname, finalsteps = [];
+  for(let step of steps)
   {
-    if(typeof node == "string")
-      return { name: node };
-    if(typeof node == "function")
-    {
-      if (node.name)
-        return { test: node, name: node.name };
-      else
-        return { test: node };
-    }
-    return node;
-  });
+    if(!step)
+      continue;  //strip empty items. allows you to be careless with commas when commenting out tests
 
-  document.addEventListener("DOMContentLoaded", () => initialize_tests(outsteps));
+    if(typeof step == "string")
+    {
+      lasttestname = step;
+      continue;
+    }
+
+    if(typeof step == "function")
+      step = { test: step };
+
+    if(lasttestname && !step.name) //merge name into the next test for more reliable counters
+    {
+      step.name = lasttestname;
+      lasttestname = null;
+    }
+    finalsteps.push(step);
+  }
+  dompack.onDomReady( () => initialize_tests(finalsteps));
 }
 function getTestArgument(idx)
 {
@@ -621,12 +629,15 @@ async function invoke(libfunc, ...params)
     params.shift();
   }
 
+
+  console.log(`test.invoke ${libfunc}`,params);
   let result = await jstestsrpc.invoke(libfunc, params);
   if (typeof result == "object" && result && result.__outputtoolsdata)
   {
     dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles:false, cancelable: false, detail: result.__outputtoolsdata});
     delete result.__outputtoolsdata;
   }
+  console.log(`test.invoke result`,result);
 
   return result;
 }

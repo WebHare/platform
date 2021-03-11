@@ -643,7 +643,7 @@ class TestFramework
 
       if (filtered.length)
       {
-        console.log(`Wait location: ${filtered[0].filename}:${filtered[0].line}:${filtered[0].col}`);
+        console.warn(`Wait location: ${filtered[0].filename}:${filtered[0].line}:${filtered[0].col}`);
       }
     }
 
