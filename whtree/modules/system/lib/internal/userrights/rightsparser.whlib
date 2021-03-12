@@ -46,7 +46,7 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
     {
       STRING localname := Tokenize(right.name,':')[1];
       RECORD match := RecordLowerBound(db_rights, CELL[module := moduleid, name := localname ], ["module","name"]);
-      IF(NOT RecordExists(match))
+      IF(NOT match.found)
       {
         INSERT `Right '${right.name}' isn't in system.module_rights yet` INTO issues AT END;
         CONTINUE;
