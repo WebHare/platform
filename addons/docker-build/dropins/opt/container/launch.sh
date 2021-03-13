@@ -92,6 +92,23 @@ ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # Control core sizes with ulimit... so that we can still raise them later!
 ulimit -Sc 0
 
+# 1) apparently bash can reap orphans. so we can keep ourselves running
+# 2) our runsv change still wasn't good enough, it sends the terminates but doesn't wait for the children to die.
+#    but the container will SIGKILL everything once PID 1 goes away
+
 # If runsvdir receives a HUP signal, it sends a TERM signal to each runsv(8) process it is monitoring and then exits with 111.
-# docker stop sends us a TERM. so we need to make sure a TERM on us becomes a HUP.
-exec /usr/bin/dumb-init --rewrite 15:1 -- /usr/bin/runsvdir /etc/service
+/usr/bin/runsvdir /etc/service &
+RUNSVDIR_PID=$!
+
+function shutdown()
+{
+  kill -HUP $RUNSVDIR_PID
+  while /opt/wh/whtree/bin/wh isrunning; do
+    sleep .1
+  done
+  exit 0
+}
+
+trap shutdown TERM
+
+wait $RUNSVDIR_PID
