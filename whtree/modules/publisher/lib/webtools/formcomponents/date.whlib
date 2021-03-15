@@ -233,4 +233,18 @@ PUBLIC OBJECTTYPE DateField EXTEND FormFieldBase
             , type := "date"
            ]];
   }
+
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FormFieldBase::ValidateValue(work);
+
+    IF(this->IsSet())
+    {
+      IF(this->value < this->min)
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.min", FormatDatetime("%Y-%m-%d", this->min)));
+      IF(this->value > this->max)
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.max", FormatDatetime("%Y-%m-%d", this->max)));
+    }
+  }
 >;
