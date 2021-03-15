@@ -490,13 +490,13 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     RETURN GetDateFormatString(shortformat ? this->shortdateformat : this->longdateformat, shortformat);
   }
 
-  STRING FUNCTION GetTimeFormatString(STRING precision)
+  STRING FUNCTION GetTimeFormatString(STRING precision, BOOLEAN timestamp)
   {
     SWITCH(precision)
     {
-      CASE 'minutes'      { RETURN this->timemilitary ? "%H:%M"       : "%#I:%M %p"; }
-      CASE 'seconds'      { RETURN this->timemilitary ? "%H:%M:%S"    : "%#I:%M:%S %p"; }
-      CASE 'milliseconds' { RETURN this->timemilitary ? "%H:%M:%S.%Q" : "%#I:%M:%S.%Q %p"; }
+      CASE 'minutes'      { RETURN timestamp ? "%#&H:%M"       : this->timemilitary ? "%H:%M"       : "%#I:%M %p"; }
+      CASE 'seconds'      { RETURN timestamp ? "%#&H:%M:%S"    : this->timemilitary ? "%H:%M:%S"    : "%#I:%M:%S %p"; }
+      CASE 'milliseconds' { RETURN timestamp ? "%#&H:%M:%S.%Q" : this->timemilitary ? "%H:%M:%S.%Q" : "%#I:%M:%S.%Q %p"; }
       DEFAULT  { ABORT("Unsupported precision '" || precision || "', supported: minutes, seconds, milliseconds"); }
     }
   }
@@ -603,7 +603,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   */
   PUBLIC STRING FUNCTION FormatTime(DATETIME value, STRING precision, BOOLEAN stored_utc)
   {
-    RETURN FormatDateTime(this->GetTimeFormatString(precision), stored_utc ? this->UTCToLocal(value) : value, this->language);
+    RETURN FormatDateTime(this->GetTimeFormatString(precision, FALSE), stored_utc ? this->UTCToLocal(value) : value, this->language);
   }
 
   /** @short Format a given timestamp according to the user's preferences
@@ -613,7 +613,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   */
   PUBLIC STRING FUNCTION FormatTimestamp(INTEGER64 value, STRING precision)
   {
-    RETURN FormatTimestamp(this->GetTimeFormatString(precision), value, this->language);
+    RETURN FormatTimestamp(this->GetTimeFormatString(precision, TRUE), value, this->language);
   }
 
   /** @short Format a given UTC date and time according to the user's preferences
@@ -628,7 +628,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   */
   PUBLIC STRING FUNCTION FormatDateTime(DATETIME value, STRING precision, BOOLEAN stored_utc, BOOLEAN shortformat)
   {
-    RETURN FormatDateTime(this->GetDateFormatString(shortformat) || " " || this->GetTimeFormatString(precision)
+    RETURN FormatDateTime(this->GetDateFormatString(shortformat) || " " || this->GetTimeFormatString(precision, FALSE)
                          , stored_utc ? this->UTCToLocal(value) : value
                          , this->language
                          );

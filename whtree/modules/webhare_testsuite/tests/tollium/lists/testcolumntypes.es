@@ -81,8 +81,8 @@ test.registerTests(
         test.eq("10-11-2012", row2cells[7].textContent);
 
         //time
-        test.eq("09:08", row1cells[8].textContent);
-        test.eq("00:00", row2cells[8].textContent);
+        test.eq("9:08", row1cells[8].textContent);
+        test.eq("0:00", row2cells[8].textContent);
 
         // ADDME: test datetime
         // ADDME: also test integer, integer64, money and blobrecord

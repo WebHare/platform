@@ -6,6 +6,13 @@ LOADLIB "relative::data/listtest.whlib";
 
 OBJECT list;
 RECORD ARRAY currentitems;
+CONSTANT RECORD ARRAY initialitems :=
+    [[ rowkey := 1, title := "One", country := "DE", timestamp := 25*3600000 + 12*60000 + 18*1000 ]
+    ,[ rowkey := 2, title := "Two", country := "NL", timestamp := 12*1000, subnodes :=
+       [[ rowkey := 3, title := "Three", country := "AU", timestamp := -1 ]
+       ]
+     ]
+    ];
 
 STRING ARRAY queries;
 
@@ -47,9 +54,42 @@ RECORD ARRAY FUNCTION GenerateListTree(RECORD parent)
 
 ASYNC MACRO TestList_XML()
 {
-  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("data/listtest.xml#xmllist")));
-  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "component" AND target = TT("list")->toddname;
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none">
+      <body>
+        <list name="list">
+          <column name="title" type="text" />
+          <column name="country" type="text" onmapvalue="${Resolve("data/listtest.whlib#ExpandCountry")}" />
+        </list>
+      </body>
+    </screen>`)));
+
+  GetTestController()->GrabInstructions();
+  TT("list")->rows := initialitems;
+
+  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "update" AND target = TT("list")->toddname;
   TestEq(TRUE, "Germany" IN listinstr.rows[0]);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none">
+      <body>
+        <list name="list">
+          <column name="title" type="text" />
+          <column name="timestamp" type="time" />
+        </list>
+      </body>
+    </screen>`)));
+
+  TT("list")->rows := [[ rowkey := 1, title := "One", timestamp := 25*3600000 + 12*60000 + 18*1000 ]
+                      ,[ rowkey := 2, title := "Two", timestamp := 13*60000]
+                      ];
+
+  listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "update" AND target = TT("list")->toddname;
+  TestEq(TRUE, "0:13" IN listinstr.rows[1]);
+  TestEq(TRUE, "25:12" IN listinstr.rows[0], "Check time duration not capped to 24h");
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -63,7 +103,7 @@ ASYNC MACRO TestList(STRING mode)
                  , ongetrows :=     mode="getrows"     ? PTR GenerateListItems : DEFAULT FUNCTION PTR
                  , rows :=          mode="static"      ? currentitems : DEFAULT RECORD ARRAY
                  , columns := [[ name := "title", type := "text" ]
-                              ,[ name := "country", type := "text", onmapvalue := PTR ExpandCountry ]
+                              ,[ name := "country", type := "text", onmapvalue := PTR ExpandCountry(DEFAULT OBJECT,#1) ]
                               ]
                  , eventmasks := DEFAULT STRING ARRAY
                  ]
