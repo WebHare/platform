@@ -1497,6 +1497,8 @@ VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER
     { RETURN DeTokenize(value, ", "); }
   CASE 22 //Record
     { RETURN RecordExists(value) ? EncodeHSON(value) : ""; }
+  CASE 28 //Authentication settings
+    { RETURN RecordExists(value) ? "WEBHARE-AUTHENTICATIONSETTINGS:" || EncodeUFS(EncodeHSON(value)) : ""; }
   DEFAULT { ABORT("Cannot print these kinds of types yet (" || attributetype || ")"); }
   }
 }

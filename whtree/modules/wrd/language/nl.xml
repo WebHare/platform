@@ -1071,6 +1071,7 @@
       <textgroup gid="types">   <!-- types.attributes.types -->
         <text tid="address">Adres</text>
         <text tid="array">Array (Lijst)</text>
+        <text tid="authenticationsettings">Authenticatie instellingen</text>
         <text tid="boolean">Boolean</text>
         <text tid="date">Datum</text>
         <text tid="datetime">Datum en tijd</text>

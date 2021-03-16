@@ -1071,6 +1071,7 @@
       <textgroup gid="types" keepemptyreason="Validated by wrd consistencytest">   <!-- types.attributes.types -->
         <text tid="address">Address</text>
         <text tid="array">Array</text>
+        <text tid="authenticationsettings">Authentication settings</text>
         <text tid="boolean">Boolean</text>
         <text tid="date">Date</text>
         <text tid="datetime">Date and time</text>

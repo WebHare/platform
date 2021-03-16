@@ -1,19 +1,23 @@
 ﻿<?wh
-LOADLIB "mod::wrd/lib/database.whlib";
+
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
+
 LOADLIB "mod::system/lib/cache.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+
 
 // ----------------------------------------------------------------------------
 //
@@ -1439,7 +1443,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                 query->AddConstraint("SETTINGS.attribute", "=", attrinfo.id);
 
                 // The DB cannot handle it, we must execute it ourself. Make sure the needed cells are retrieved and GO!
-                query->RequestAdditionalColumns("SETTINGS", [ "rawdata", "setting" ]);
+                accessor->RequestNeededColumns(query, "SETTINGS");
                 STRING match_type:= cond->match_type;
                 BOOLEAN match_case := cond->match_case;
 
@@ -3087,6 +3091,16 @@ STATIC OBJECTTYPE WRDDBPasswordValue EXTEND WRDDBValue
   */
   UPDATE PUBLIC VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
+    IF (IsValueSet(entity_settings[settings_start].blobdata) OR entity_settings[settings_start].rawdata LIKE "hson:*")
+    {
+      // authentication settings, get current password (last one)
+      RECORD settings := IsValueSet(entity_settings[settings_start].rawdata)
+          ? DecodeHSON(entity_settings[settings_start].rawdata)
+          : DecodeHSONBlob(entity_settings[settings_start].blobdata);
+
+      RETURN IsValueSet(settings.passwords) ? settings.passwords[END-1].passwordhash : "";
+    }
+
     RETURN entity_settings[settings_start].rawdata;
   }
 
@@ -3098,24 +3112,13 @@ STATIC OBJECTTYPE WRDDBPasswordValue EXTEND WRDDBValue
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
   {
-    STRING comparetype := condition->match_type;
-    BOOLEAN match_case := condition->match_case;
-    BOOLEAN ignoreallowedvalues := condition->ignoreallowedvalues;
-
-    //only != "" is something we can handle, because that is just a 'setting must exist'
-    IF(comparetype = "!=" AND value = "")
-    {
-      INTEGER transaction := GetBindingFromTable(wrd.types).transaction;
-      query->AddDeclaredTable(settings_source, wrd.entity_settings, DEFAULT STRING ARRAY);
-      query->AddConstraint(settings_source || ".rawdata", "!=", "");
-      RETURN [ canhandle := TRUE, canhandlepartially := FALSE, noresults := FALSE ];
-    }
+    // Since backconversion from authentication settings, we need to parse the db value to get the password
     RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
   }
 
   PUBLIC UPDATE MACRO RequestNeededColumns(OBJECT dynquery, STRING settings_source)
   {
-    dynquery->RequestAdditionalColumns(settings_source, [ "rawdata" ]);
+    dynquery->RequestAdditionalColumns(settings_source, [ "rawdata", "blobdata" ]);
   }
 >;
 
@@ -3521,6 +3524,42 @@ STATIC OBJECTTYPE WRDDBIntExtLinkValue EXTEND WRDDBIncomparableValue
   }
 >;
 
+STATIC OBJECTTYPE WRDDBAuthenticationSettingsValue EXTEND WRDDBIncomparableValue
+< PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
+  {
+    IF(settings_start = settings_limit)
+      RETURN DEFAULT RECORD;
+
+    // If the data doesn't start with `hson:` we'll assume it is a converted password
+    VARIANT data;
+    IF (entity_settings[settings_start].rawdata != "")
+    {
+      IF (entity_settings[settings_start].rawdata NOT LIKE "hson:*")
+        RETURN CreateAuthenticationSettingsFromPasswordHash(entity_settings[settings_start].rawdata);
+      data := DecodeHSON(entity_settings[settings_start].rawdata);
+    }
+    ELSE
+    {
+      IF (BlobToString(entity_settings[settings_start].blobdata, 5) != "hson:")
+        RETURN CreateAuthenticationSettingsFromPasswordHash(BlobToString(entity_settings[settings_start].blobdata));
+      data := DecodeHSONBlob(entity_settings[settings_start].blobdata);
+    }
+    IF(TypeID(data) != TypeID(RECORD))
+      THROW NEW Exception(`Entity setting #${entity_settings[settings_start].id} incorrectly contains a non-record value`);
+    RETURN data;
+  }
+
+  PUBLIC UPDATE MACRO RequestNeededColumns(OBJECT query, STRING settings_source)
+  {
+    query->RequestAdditionalColumns(settings_source, [ "id", "rawdata", "blobdata" ]);
+  }
+>;
+
 /// Object accessor for attribute metadata (#ordering)
 STATIC OBJECTTYPE WRDDBAttributeMetadataValue EXTEND WRDDBVALUE
 < // --------------------------------------------------------------------------
@@ -3729,6 +3768,8 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBPaymentValue(wrd_type, attrinfo); }
   CASE 27 /* STATUSRECORD */
     { RETURN NEW WRDDBStatusRecordValue(wrd_type, attrinfo); }
+  CASE 28 /* STATUSRECORD */
+    { RETURN NEW WRDDBAuthenticationSettingsValue(wrd_type, attrinfo); }
 
   DEFAULT
     { THROW NEW Exception(`Type ${GetAttributeTypeNameByTypeId(attributetype)} has not been implemented in the query interface yet`); }
