@@ -109,6 +109,6 @@ function shutdown()
   exit 0
 }
 
-trap shutdown TERM
+trap shutdown TERM INT
 
 wait $RUNSVDIR_PID
