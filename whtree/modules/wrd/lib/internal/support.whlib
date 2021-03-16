@@ -34,48 +34,157 @@ PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
   RETURN attributetype IN [1,8,26];
 }
 
+PUBLIC CONSTANT INTEGER wrd_attributetype_domain := 1;
+PUBLIC CONSTANT INTEGER wrd_attributetype_free := 2;
+PUBLIC CONSTANT INTEGER wrd_attributetype_address := 3;
+PUBLIC CONSTANT INTEGER wrd_attributetype_email := 4;
+PUBLIC CONSTANT INTEGER wrd_attributetype_telephone := 5;
+PUBLIC CONSTANT INTEGER wrd_attributetype_date := 6;
+PUBLIC CONSTANT INTEGER wrd_attributetype_password := 7;
+PUBLIC CONSTANT INTEGER wrd_attributetype_domainarray := 8;
+PUBLIC CONSTANT INTEGER wrd_attributetype_image := 9;
+PUBLIC CONSTANT INTEGER wrd_attributetype_file := 10;
+PUBLIC CONSTANT INTEGER wrd_attributetype_time := 11;
+PUBLIC CONSTANT INTEGER wrd_attributetype_datetime := 12;
+PUBLIC CONSTANT INTEGER wrd_attributetype_array := 13;
+PUBLIC CONSTANT INTEGER wrd_attributetype_money := 14;
+PUBLIC CONSTANT INTEGER wrd_attributetype_integer := 15;
+PUBLIC CONSTANT INTEGER wrd_attributetype_boolean := 16;
+PUBLIC CONSTANT INTEGER wrd_attributetype_richdocument := 17;
+PUBLIC CONSTANT INTEGER wrd_attributetype_integer64 := 18;
+PUBLIC CONSTANT INTEGER wrd_attributetype_whfsinstance := 19;
+PUBLIC CONSTANT INTEGER wrd_attributetype_whfsintextlink := 20;
+PUBLIC CONSTANT INTEGER wrd_attributetype_url := 21;
+PUBLIC CONSTANT INTEGER wrd_attributetype_record := 22;
+PUBLIC CONSTANT INTEGER wrd_attributetype_enum := 23;
+PUBLIC CONSTANT INTEGER wrd_attributetype_enumarray := 24;
+PUBLIC CONSTANT INTEGER wrd_attributetype_paymentprovider := 25;
+PUBLIC CONSTANT INTEGER wrd_attributetype_payment := 26;
+PUBLIC CONSTANT INTEGER wrd_attributetype_statusrecord := 27;
+
 //possible valid options are: domain, required, isunique, ordered, checklinks, multiline, allowedvalues
 RECORD wrdattributes :=
- [ "domain" :=          [ attributetype :=  1, image := "domain.gif"   , options := [ "domain" ]
-                                                                       , canchangeto := ["DOMAINARRAY"] ]
- , "free" :=            [ attributetype :=  2, image := "free.gif"     , options := [ "isunique", "checklinks", "multiline" ]
-                                                                       , canchangeto := ["URL","TELEPHONE"] ]
- , "address" :=         [ attributetype :=  3, image := "dummy.gif"    , options := [ "isunique" ]  ]
- , "email" :=           [ attributetype :=  4, image := "email.gif"    , options := [ "isunique" ]
-                                                                       , canchangeto := ["FREE"]  ]
- , "telephone" :=       [ attributetype :=  5, image := "dummy.gif"    , options := [ "isunique" ]
-                                                                       , canchangeto := [ "FREE" ] ]
- , "date" :=            [ attributetype :=  6, image := "date.gif"     , options := [ "isunique" ]
-                                                                       , canchangeto := [ "DATETIME" ] ]
- , "password" :=        [ attributetype :=  7, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
- , "domainarray" :=     [ attributetype :=  8, image := "checkbox.gif" , options := [ "domain" ] ]
- , "image" :=           [ attributetype :=  9, image := "image.gif"    , options := DEFAULT STRING ARRAY
-                                                                       , canchangeto := [ "FILE" ] ]
- , "file" :=            [ attributetype := 10, image := "file.gif"     , options := DEFAULT STRING ARRAY
-                                                                       , canchangeto := [ "IMAGE" ] ]
- , "time" :=            [ attributetype := 11, image := "dummy.gif"    , options := [ "isunique" ]  ]
- , "datetime" :=        [ attributetype := 12, image := "dummy.gif"    , options := [ "isunique" ]
-                                                                       , canchangeto := [ "DATE" ] ]
- , "array" :=           [ attributetype := 13, image := "dummy.gif"    , options := [ "ordered" ] ]
- , "money" :=           [ attributetype := 14, image := "dummy.gif"    , options := [ "isunique" ]  ]
- , "integer" :=         [ attributetype := 15, image := "dummy.gif"    , options := [ "isunique" ]
-                                                                       , canchangeto := ["INTEGER64"] ]
- , "boolean" :=         [ attributetype := 16, image := "boolean.gif"  , options := DEFAULT STRING ARRAY ]
- , "richdocument" :=    [ attributetype := 17, image := "dummy.gif"    , options := [ "checklinks" ]
-                                                                       , defaults := ["checklinks"] ]
- , "integer64" :=       [ attributetype := 18, image := "dummy.gif"    , options := [ "isunique" ]  ]
- , "whfsinstance" :=    [ attributetype := 19, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
- , "whfsintextlink" :=  [ attributetype := 20, image := "dummy.gif"    , options := [ "checklinks" ]
-                                                                       , defaults := ["checklinks"] ]
- , "url" :=             [ attributetype := 21, image := "dummy.gif"    , options := [ "checklinks", "isunique" ]
-                                                                       , canchangeto := ["FREE"]
-                                                                       , defaults := ["checklinks"] ]
- , "record" :=          [ attributetype := 22, image := "dummy.gif"    , options := DEFAULT STRING ARRAY ]
- , "enum" :=            [ attributetype := 23, image := "dummy.gif"    , options := [ "allowedvalues" ] ]
- , "enumarray" :=       [ attributetype := 24, image := "dummy.gif"    , options := [ "allowedvalues" ] ]
- , "paymentprovider" := [ attributetype := 25, image := "dummy.gif"    , options := DEFAULT STRING ARRAY  ]
- , "payment" :=         [ attributetype := 26, image := "dummy.gif"    , options := [ "domain" ] ]
- , "statusrecord" :=    [ attributetype := 27, image := "dummy.gif"    , options := [ "allowedvalues" ]  ]
+ [ "domain" :=                  [ attributetype := wrd_attributetype_domain
+                                , image := "domain.gif"
+                                , options := [ "domain" ]
+                                , canchangeto := ["DOMAINARRAY"]
+                                ]
+ , "free" :=                    [ attributetype := wrd_attributetype_free
+                                , image := "free.gif"
+                                , options := [ "isunique", "checklinks", "multiline" ]
+                                , canchangeto := ["URL","TELEPHONE"]
+                                ]
+ , "address" :=                 [ attributetype := wrd_attributetype_address
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                ]
+ , "email" :=                   [ attributetype := wrd_attributetype_email
+                                , image := "email.gif"
+                                , options := [ "isunique" ]
+                                , canchangeto := ["FREE"]
+                                ]
+ , "telephone" :=               [ attributetype := wrd_attributetype_telephone
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                , canchangeto := [ "FREE" ]
+                                ]
+ , "date" :=                    [ attributetype := wrd_attributetype_date
+                                , image := "date.gif"
+                                , options := [ "isunique" ]
+                                , canchangeto := [ "DATETIME" ]
+                                ]
+ , "password" :=                [ attributetype := wrd_attributetype_password
+                                , image := "dummy.gif"
+                                , options := DEFAULT STRING ARRAY
+                                ]
+ , "domainarray" :=             [ attributetype := wrd_attributetype_domainarray
+                                , image := "checkbox.gif"
+                                , options := [ "domain" ]
+                                ]
+ , "image" :=                   [ attributetype := wrd_attributetype_image
+                                , image := "image.gif"
+                                , options := DEFAULT STRING ARRAY
+                                , canchangeto := [ "FILE" ]
+                                ]
+ , "file" :=                    [ attributetype := wrd_attributetype_file
+                                , image := "file.gif"
+                                , options := DEFAULT STRING ARRAY
+                                , canchangeto := [ "IMAGE" ]
+                                ]
+ , "time" :=                    [ attributetype := wrd_attributetype_time
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                ]
+ , "datetime" :=                [ attributetype := wrd_attributetype_datetime
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                , canchangeto := [ "DATE" ]
+                                ]
+ , "array" :=                   [ attributetype := wrd_attributetype_array
+                                , image := "dummy.gif"
+                                , options := [ "ordered" ]
+                                ]
+ , "money" :=                   [ attributetype := wrd_attributetype_money
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                ]
+ , "integer" :=                 [ attributetype := wrd_attributetype_integer
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                , canchangeto := ["INTEGER64"]
+                                ]
+ , "boolean" :=                 [ attributetype := wrd_attributetype_boolean
+                                , image := "boolean.gif"
+                                , options := DEFAULT STRING ARRAY
+                                ]
+ , "richdocument" :=            [ attributetype := wrd_attributetype_richdocument
+                                , image := "dummy.gif"
+                                , options := [ "checklinks" ]
+                                , defaults := ["checklinks"]
+                                ]
+ , "integer64" :=               [ attributetype := wrd_attributetype_integer64
+                                , image := "dummy.gif"
+                                , options := [ "isunique" ]
+                                ]
+ , "whfsinstance" :=            [ attributetype := wrd_attributetype_whfsinstance
+                                , image := "dummy.gif"
+                                , options := DEFAULT STRING ARRAY
+                                ]
+ , "whfsintextlink" :=          [ attributetype := wrd_attributetype_whfsintextlink
+                                , image := "dummy.gif"
+                                , options := [ "checklinks" ]
+                                , defaults := ["checklinks"]
+                                ]
+ , "url" :=                     [ attributetype := wrd_attributetype_url
+                                , image := "dummy.gif"
+                                , options := [ "checklinks", "isunique" ]
+                                , canchangeto := ["FREE"]
+                                , defaults := ["checklinks"]
+                                ]
+ , "record" :=                  [ attributetype := wrd_attributetype_record
+                                , image := "dummy.gif"
+                                , options := DEFAULT STRING ARRAY
+                                ]
+ , "enum" :=                    [ attributetype := wrd_attributetype_enum
+                                , image := "dummy.gif"
+                                , options := [ "allowedvalues" ]
+                                ]
+ , "enumarray" :=               [ attributetype := wrd_attributetype_enumarray
+                                , image := "dummy.gif"
+                                , options := [ "allowedvalues" ]
+                                ]
+ , "paymentprovider" :=         [ attributetype := wrd_attributetype_paymentprovider
+                                , image := "dummy.gif"
+                                , options := DEFAULT STRING ARRAY
+                                ]
+ , "payment" :=                 [ attributetype := wrd_attributetype_payment
+                                , image := "dummy.gif"
+                                , options := [ "domain" ]
+                                ]
+ , "statusrecord" :=            [ attributetype := wrd_attributetype_statusrecord
+                                , image := "dummy.gif"
+                                , options := [ "allowedvalues" ]
+                                ]
  ];
 
 

@@ -1605,6 +1605,22 @@ OBJECTTYPE readonlyhat
 `);
 }
 
+OBJECTTYPE variant_array_member
+< PUBLIC VARIANT ARRAY arr;
+  PUBLIC MACRO SetIdx(INTEGER idx, VARIANT value)
+  {
+    this->arr[idx] := value;
+  }
+>;
+
+MACRO VariantArrayUpdateTest()
+{
+  OBJECT o := NEW variant_array_member;
+  o->arr := VARIANT[ 1 ];
+  o->arr[0] := "change type";
+  o->SetIdx(0, TRUE);
+}
+
 PRINT("\n === Running TestObjects\n");
 BaseTest();
 InsertMemberTest();
@@ -1629,3 +1645,4 @@ RegressionsTest();
 TestHat();
 TestWeakObjects();
 TestReadWriteOnlyProperties();
+VariantArrayUpdateTest();

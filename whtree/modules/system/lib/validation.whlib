@@ -58,12 +58,13 @@ RECORD FUNCTION ValidateTidsSyntax(RECORD ARRAY intids)
 
 BOOLEAN FUNCTION IsTidTranslatedAnywhere(STRING tid)
 {
-  IF(GetTid(tid) != `(cannot find text: ${tid})`)
+  STRING canonicaltid := GetCanonicalTid(tid);
+  IF(GetTid(tid) != `(cannot find text: ${canonicaltid})`)
     RETURN TRUE;
 
   //Try all the other languages, for validating, if just one matches it's fine with us. cross-reference checks of language files are not our problem
-  FOREVERY(STRING trylang FROM GetSupportedLanguageCodes(Tokenize(tid,':')[0]))
-    IF(GetTidForLanguage(trylang, tid) != `(cannot find text: ${tid})`)
+  FOREVERY(STRING trylang FROM GetSupportedLanguageCodes(Tokenize(canonicaltid,':')[0]))
+    IF(GetTidForLanguage(trylang, canonicaltid) != `(cannot find text: ${canonicaltid})`)
       RETURN TRUE;
 
   RETURN FALSE;

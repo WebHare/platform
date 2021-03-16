@@ -1195,9 +1195,9 @@ void SemanticChecker::V_DeepOperation (AST::DeepOperation *obj, bool)
                                                         field = hatfield;
                                             }
                                             else if (objectdef->flags & ObjectTypeFlags::Static)
-                                                context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::MemberDoesNotExist, obj->clvalue.layers[0].name); 
+                                                context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::MemberDoesNotExist, obj->clvalue.layers[0].name);
                                     }
-                                    
+
                                     // check property getter/setter (also for ^ property, if found as fallback)
                                     if (field && field->type == ObjectCellType::Property)
                                     {
@@ -1817,6 +1817,9 @@ void SemanticChecker::V_FunctionPtrRebind (AST::FunctionPtrRebind *obj, bool)
 void SemanticChecker::V_InitializeStatement (InitializeStatement *obj, bool)
 {
         CheckToken(obj->symbol);
+
+        if (obj->symbol->variabledef->is_constant && !obj->symbol->variabledef->constexprvalue)
+            obj->symbol->variabledef->constexprvalue = coder.ImConstantDefault(obj->position, obj->symbol->variabledef->type);
 }
 
 void SemanticChecker::V_LoopStatement (LoopStatement *obj, bool)
@@ -2129,7 +2132,7 @@ void SemanticChecker::V_ObjectMemberSet (ObjectMemberSet *obj, bool)
                             break; // Ignore for now
                         }
                 }
-                
+
         }
 
 //        VerifyTypeWithCast(obj->name, VariableTypes::String);

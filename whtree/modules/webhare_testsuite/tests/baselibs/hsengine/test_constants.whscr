@@ -11,6 +11,20 @@ INTEGER FUNCTION DefFunc(INTEGER i DEFAULTSTO globaltestval + INTEGER(pi) + 1)
   RETURN i;
 }
 
+CONSTANT INTEGER testdefaultval;
+
+MACRO ConstantsTest()
+{
+  TestEQ(TRUE, testdefaultval = 0);
+
+  TestAnnotatedCompile(`
+<?wh
+CONSTANT VARIANT val;
+//               ^ E:63 VARIANT
+`);
+
+}
+
 MACRO SwitchTest()
 {
   OpenTest("TestSyntax: EmbeddingTest");
@@ -31,4 +45,5 @@ MACRO SwitchTest()
 }
 
 PRINT("\n === Running TestConstants\n");
+ConstantsTest();
 SwitchTest();
