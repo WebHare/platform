@@ -31,7 +31,7 @@ STRING FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING f
   //workaround for tollium. but we should be smarter and more generic in matching
   IF(modulename="tollium" AND resourcepath LIKE "mod::tollium/lib/components/*.whlib")
   {
-    assume_screensfile := Substring(resourcepath, 35); //strip mod::tollium/lib/components/
+    assume_screensfile := Substring(resourcepath, 28); //strip mod::tollium/lib/components/
     assume_screensfile := "mod::tollium/screens/components/" || Left(assume_screensfile, Length(assume_screensfile) - 6) || ".xml"; //strip .whlib
   }
 
@@ -39,7 +39,7 @@ STRING FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING f
   {
     STRING prefix := "mod::" || modulename;
 
-    //a heuristic to find the screen file: assume /include/screens/xxx/yyy.whlib mapss to screens/xxx/yyy.xml
+    //a heuristic to find the screen file: assume /include/screens/xxx/yyy.whlib maps to screens/xxx/yyy.xml
     //Print(resourcepath || "\n" || prefix || "\n");
     IF(resourcepath LIKE prefix || "/include/screens/*.whlib")
     {
