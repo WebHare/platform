@@ -1,0 +1,38 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.payments.pay_nl" library="pay_nl.whlib">
+
+  <tabsextension name="configpaynl" implementation="lib">
+    <actions>
+      <action name="connect" onexecute="doconnect" tid="tolliumapps.payments.common.connect" />
+    </actions>
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <textedit composition="methodsettings" cellname="apiuser" name="apiuser" placeholder="AT-nnnn-nnnnn" required="true" />
+      <textedit composition="methodsettings" cellname="apitoken" name="apitoken" required="true" />
+      <textedit composition="methodsettings"
+                cellname="saleslocation"
+                name="saleslocation"
+                placeholder="SL-nnnn-nnnnn"
+                required="true" />
+      <lines layout="left">
+        <checkbox composition="methodsettings" cellname="testmode" name="testmode" tid="tolliumapps.payments.common.testmode" />
+        <checkbox composition="methodsettings"
+                  cellname="webhooks"
+                  name="webhooks"
+                  labeltid="tolliumapps.payments.common.webhooks"
+                  title="" />
+      </lines>
+      <button action="connect" />
+      <select name="methods" type="checkbox" height="1pr" gid="tolliumapps.payments.common" rowkeytype="string" />
+    </insert>
+  </tabsextension>
+
+  <screen name="payinfo" title="">
+    <body>
+      <textedit name="paymentid" enabled="false" />
+      <textedit name="status" enabled="false" />
+    </body>
+  </screen>
+
+</screens>
