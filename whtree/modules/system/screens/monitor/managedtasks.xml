@@ -35,7 +35,7 @@
     </menus>
 
     <compositions>
-      <eventlistener name="listener" masks="system:managedtasks.any.*" onevents="onmanagedtaskevent" />
+      <eventlistener name="listener" masks="system:managedtasks.any.*" onevents="onmanagedtaskevent" groupinterval="250"/>
     </compositions>
 
     <body height="1pr">
