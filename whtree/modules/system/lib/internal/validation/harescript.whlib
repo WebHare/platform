@@ -4,6 +4,7 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
@@ -23,7 +24,8 @@ PUBLIC RECORD FUNCTION GetNextTok(INTEGER fileid)
 }
 
 STRING lastlookuperror;
-STRING FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING find_objecttype)
+
+RECORD FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING find_objecttype)
 {
   STRING assume_screensfile;
   lastlookuperror := "";
@@ -78,17 +80,17 @@ STRING FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING f
         IF(localgid="")
           lastlookuperror := `No gid attribute on ${screen->localname} '${ToLowercase(find_objecttype)}'`;
 
-        RETURN localgid;
+        RETURN [ gid := localgid, eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
       }
     }
 
     lastlookuperror := `Unable to find screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
-    RETURN "";
+    RETURN [ gid := "", eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
   }
   CATCH
   {
     lastlookuperror := `Unable to find file '${ToLowercase(assume_screensfile)}' for screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
-    RETURN "";
+    RETURN [ gid := "", eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
   }
 }
 
@@ -114,6 +116,7 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
            , texts    := DEFAULT RECORD ARRAY
            , screens  := DEFAULT RECORD ARRAY
            , skipped  := TRUE
+           , eventmasks := STRING[]
            ];
 
   INTEGER file := OpenHareScriptFile(libdata);
@@ -123,6 +126,8 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
 
   STRING current_objecttype;
   STRING current_screen_gid;
+
+  STRING ARRAY eventmasks;
 
   WHILE(TRUE)
   {
@@ -165,7 +170,11 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
           is_this_gettid := TRUE;
 
           IF(current_screen_gid = "")
-            current_screen_gid := LookupScreenGid(modulename, resourcepath, current_objecttype);
+          {
+            RECORD lookupres := LookupScreenGid(modulename, resourcepath, current_objecttype);
+            current_screen_gid := lookupres.gid;
+            eventmasks := eventmasks CONCAT lookupres.eventmasks;
+          }
         }
       }
 
@@ -244,6 +253,7 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
          , texts    := texts
          , screens  := screens
          , skipped  := FALSE
+         , eventmasks := GetSortedSet(eventmasks)
          ];
 }
 
@@ -261,7 +271,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
   IF (resourcename LIKE "whfs::*" OR resourcename LIKE "site::*")
     THROW NEW Exception("Validation of HareScript code in the Publisher is no longer supported - future versions of WebHare will remove support for WHFS/site HareScript code completely!");
 
-  RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[] ];
+  RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[], eventmasks := STRING[] ];
 
   OBJECT scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
 
@@ -291,6 +301,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
   UPDATE scaninfo.texts SET tid := FixSpacesInTid(tid) WHERE tid LIKE "* *";
   retval.tids := scaninfo.texts;
   retval.warnings := retval.warnings CONCAT scaninfo.warnings;
+  retval.eventmasks := retval.eventmasks CONCAT scaninfo.eventmasks;
 
   IF (ObjectExists(devcheck))
   {
