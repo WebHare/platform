@@ -255,7 +255,7 @@ setup_buildsystem()
          [ "$TODAY" != "`cat $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install`" ]; then
         mkdir -p $WEBHARE_CHECKEDOUT_TO/.checkoutstate
         echo -n "Brew: "
-        if ! brew install --only-dependencies $WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare.rb ; then exit ; fi
+        if ! brew install --only-dependencies --formula $WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare.rb ; then exit ; fi
         echo "$TODAY" > $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install
       fi
     fi
