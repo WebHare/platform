@@ -2662,6 +2662,27 @@ PUBLIC RECORD FUNCTION RepackRecord(RECORD ARRAY fields)
   RETURN res;
 }
 
+/** @short Returns a subset of cells of a record
+    @param data Source record
+    @param cells Names of cells to get from the source record (if they exist). No duplicates allowed.
+    @return Record with the picked cells
+*/
+PUBLIC RECORD FUNCTION PickCells(RECORD data, STRING ARRAY cells)
+{
+  IF (IsDefaultValue(data))
+    RETURN data;
+
+  RECORD retval := CELL[];
+  FOREVERY (STRING name FROM cells)
+    IF (CellExists(data, name))
+    {
+      IF(CellExists(retval, name))
+        THROW NEW Exception(`Duplicate cell ${EncodeJSON(name)}`);
+      retval := CellInsert(retval, name, GetCell(data, name));
+    }
+
+  RETURN retval;
+}
 
 STRING FUNCTION ReadFromFile(INTEGER filehandle, INTEGER numbytes)
 {
