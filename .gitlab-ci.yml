@@ -22,8 +22,6 @@ default:
     - ( which apk && apk add bash curl git ) || true    # execute on alpine only
   after_script:
     - docker logout $CI_REGISTRY
-    - docker logout
-
 
 builddocker:
   stage: build

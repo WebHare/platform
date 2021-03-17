@@ -29,12 +29,27 @@ for P in $BRANCH_IMAGES; do
   fi
 done
 
+function logout()
+{
+  [ -n "$DOCKERHUB_REGISTRY_USER" ] && docker logout
+  [ -n "$FALLBACK_REGISTRY_IMAGE" ] && docker logout $FALLBACK_REGISTRY_IMAGE
+}
+
+trap logout exit INT TERM
+
 if [ -n "$PUBLIC_IMAGES" ]; then
   echo "-----------------------------------------------------------------------"
   echo "Tagging and pushing external images"
   if ! echo $DOCKERHUB_REGISTRY_PASSWORD | docker login -u $DOCKERHUB_REGISTRY_USER --password-stdin ; then
     echo "Failed to log in to the registry"
     exit 1
+  fi
+
+  if [ -n "$FALLBACK_REGISTRY_IMAGE" ]; then
+    if ! echo $FALLBACK_REGISTRY_PASSWORD | docker login -u $FALLBACK_REGISTRY_USER --password-stdin $FALLBACK_REGISTRY_IMAGE ; then
+      echo "Failed to log in to the fallback registry"
+      exit 1
+    fi
   fi
 
   for P in $PUBLIC_IMAGES ; do
