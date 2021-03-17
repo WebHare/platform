@@ -1,0 +1,133 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/pay_nl.whlib";
+
+BOOLEAN offlineonly;
+FOREVERY(STRING envvar FROM ["TESTSECRET_PAY_NL_APIUSER","TESTSECRET_PAY_NL_APITOKEN","TESTSECRET_PAY_NL_SALESLOCATION"])
+  IF(GetEnvironmentVariable(envvar) = "")
+  {
+    Print(`*** Skipping some tests because ${envvar} is not set\n\n`);
+    offlineonly := TRUE;
+    BREAK;
+  }
+
+MACRO TestAPIS()
+{
+  TestEq("WebHre431", MakePayNLAlphaNumeric("WebHâre-4.31"));
+}
+
+ASYNC MACRO SetupPayNL()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  TT("methods")->value := "wrd:pay_nl";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT("paymentextension->apiuser")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_APIUSER") ?? "AT-0000-0000";
+  TT("paymentextension->apitoken")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_APITOKEN") ?? "dummytoken";
+  TT("paymentextension->saleslocation")->value := GetEnvironmentVariable("TESTSECRET_PAY_NL_SALESLOCATION") ?? "SL-0000-0000";
+  TT("paymentextension->testmode")->value := TRUE;
+
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
+  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
+  TestEQ(TRUE, TT("paymentextension->testmode")->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+ASYNC MACRO TestPaymentPayNL()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) LIKE "IDEAL*";
+  TestEq(TRUE, RecordExists(idealmethod));
+  Testeq(1, Length(methods)); //no other methods should be offered
+  Testeq(TRUE, Length(idealmethod.issuers) > 3);
+
+  testfw->BeginWork();
+  OBJECT testperson := paymentapi->wrdschema->^wrd_person->CreateEntity(
+      [ wrd_gender := 1
+      , wrd_firstname := "John"
+      , wrd_lastname := "Doe"
+      , wrd_contact_email := "testbetaling@pay.nl"
+      , wrd_dateofbirth := MakeDate(1999,2,15)
+      , wrd_contact_phone := "0612345678"
+      ]);
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
+                          , paymentoptiontag := idealmethod.paymentoptiontag
+                          , issuer := idealmethod.issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+
+                          , ipaddress := "127.0.0.1"
+                          , wrdpersonentity := testperson
+                          , billingaddress := [ street := "Teststraat"
+                                              , city :="Testplaats"
+                                              , country := "NL"
+                                              , nr_detail := "1"
+                                              , zip := "8443 ER"
+                                              ]
+                          , orderlines := [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := 131.20 - 2m, vatpercentage := 21m ]
+                                          ,[ title := "Something else", sku := "", amount := 1, linetotal := 2m, vatpercentage := 21m ]
+                                          ]
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 131.20, properrequest);
+  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq("pending", entity->GetField("DATA").status);
+
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
+
+  //Should be at the pay.nl page
+  OBJECT paynlform := testfw->browser->QS("form[id=simulationForm]");
+  TestEq(TRUE, ObjectExists(paynlform), "Expecing a form#simulationForm");
+  testfw->browser->QS("input[name=token]")->SetAttribute("value", GetEnvironmentVariable("TESTSECRET_PAY_NL_APITOKEN"));
+  TestEQ(TRUE, testfw->browser->SubmitForm(testfw->browser->QS("button[name=payed][value=0]"))); //success button
+
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("approved", status.payinfo.status);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  TestEqLike("?*", TT("paymentinfo")->contents->^paymentid->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+}
+
+
+
+RunTestframework([ PTR TestAPIS
+                 , PTR CreateWRDTestSchema
+                 , PTR SetupPayNL
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentPayNL
+                 ]);

@@ -943,12 +943,14 @@
       </textgroup>
       <textgroup gid="common">   <!-- tolliumapps.payments.common -->
         <text tid="approved">Approved</text>
+        <text tid="connect">Check connection</text>
         <text tid="connectionsucceeded">Connection succeeded</text>
         <text tid="failed">Failed</text>
         <text tid="incorrectcredentials">Connection failed - incorrect credentials ?</text>
         <text tid="methods">Methods</text>
         <text tid="pending">Pending</text>
         <text tid="testmode">Test mode</text>
+        <text tid="webhooks">Enable webhooks</text>
       </textgroup>
       <textgroup gid="commondialogs">   <!-- tolliumapps.payments.commondialogs -->
         <text tid="amountpayable">Amount payable</text>
@@ -1020,7 +1022,6 @@
         <text tid="connect">Test</text>
         <text tid="paymentid">Payment ID</text>
         <text tid="status">Status</text>
-        <text tid="webhooks">Enable webhooks</text>
       </textgroup>
       <textgroup gid="multisafepay">   <!-- tolliumapps.payments.multisafepay -->
         <text tid="apikey">API Key</text>
@@ -1029,6 +1030,13 @@
         <text tid="testmode">Testmode</text>
         <text tid="testmode-live">Live</text>
         <text tid="testmode-test">Test</text>
+      </textgroup>
+      <textgroup gid="pay_nl">   <!-- tolliumapps.payments.pay_nl -->
+        <text tid="apitoken">API token</text>
+        <text tid="apiuser">API user</text>
+        <text tid="paymentid">Transaction ID</text>
+        <text tid="saleslocation">Sales location</text>
+        <text tid="status">Status</text>
       </textgroup>
       <textgroup gid="sisow">   <!-- tolliumapps.payments.sisow -->
         <text tid="connect">Test</text>

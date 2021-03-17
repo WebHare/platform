@@ -5,7 +5,7 @@
 
   <tabsextension name="configmollie" implementation="lib">
     <actions>
-      <action name="connect" onexecute="doconnect" />
+      <action name="connect" onexecute="doconnect" tid="tolliumapps.payments.common.connect" />
     </actions>
     <compositions>
       <record name="methodsettings" />
@@ -13,7 +13,7 @@
     <insert position="providertab" where="atend">
       <textedit composition="methodsettings" cellname="apikey" required="true" name="apikey" />
       <line layout="left">
-        <checkbox composition="methodsettings" cellname="webhooks" name="webhooks" />
+        <checkbox composition="methodsettings" cellname="webhooks" name="webhooks" title="" labeltid="tolliumapps.payments.common.webhooks" />
       </line>
       <button action="connect" />
       <select type="checkbox" height="1pr" name="methods" gid="tolliumapps.payments.common" rowkeytype="string" />

@@ -5,7 +5,7 @@
 
   <tabsextension name="configmultisafepay" implementation="lib">
     <actions>
-      <action name="connect" onexecute="doconnect" />
+      <action name="connect" onexecute="doconnect" tid="tolliumapps.payments.common.connect" />
     </actions>
     <compositions>
       <record name="methodsettings" />

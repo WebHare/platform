@@ -1,0 +1,52 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/pay_nl.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ConfigPayNL EXTEND PSPSettingsExtensionBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue()
+  {
+    RECORD value := ^methodsettings->value;
+    value := CELL[ ...value
+                 , methods := SELECT rowkey, title FROM ^methods->selection
+                 ];
+
+    RETURN value;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings)
+  {
+    STRING ARRAY currentoptions := SELECT AS STRING ARRAY rowkey FROM ^methods->options;
+
+    ^methodsettings->value := settings;
+    ^methods->options := ^methods->options
+                         CONCAT
+                         (SELECT rowkey, title FROM settings.methods WHERE rowkey NOT IN currentoptions);
+    ^methods->value := SELECT AS STRING ARRAY rowkey FROM settings.methods;
+  }
+  MACRO DoConnect()
+  {
+    RECORD merchantinfo := CheckpayNLMerchant(^apiuser->value, ^apitoken->value, ^saleslocation->value);
+    dumpvalue(merchantinfo,'tree');
+    IF(NOT RecordExists(merchantinfo))
+    {
+      this->owner->RunSimpleScreen("error", GetTid("wrd:tolliumapps.payments.common.incorrectcredentials"));
+      RETURN;
+    }
+
+    ^methods->options := merchantinfo.methods;
+    this->owner->RunSimpleScreen("info", GetTid("wrd:tolliumapps.payments.common.connectionsucceeded"));
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD meta := data.payment->__GetPaymentData();
+    ^paymentid->value := meta.transactionid;
+    ^status->value := meta.status;
+  }
+>;
