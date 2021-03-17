@@ -29,4 +29,5 @@
   <test name="browser" path="browser/" />
   <test name="demoapp" path="demoapp/" />
   <test name="saml" path="saml/" />
+  <test name="dialogs" path="dialogs/" />
 </group>

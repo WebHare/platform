@@ -191,6 +191,16 @@
         <text tid="verificationok">Verificatie geslaagd</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="auth">   <!-- commondialogs.auth -->
+      <textgroup gid="backendauthorization">   <!-- commondialogs.auth.backendauthorization -->
+        <text tid="backendauthorizationdialog">Authenticeren</text>
+        <text tid="incorrectcode">Ongeldige code ingevoerd</text>
+        <text tid="incorrectpassword">Ongeldig wachtwoord</text>
+        <text tid="pleaseentercurrentpassword">Voer je huidige wachtwoord in</text>
+        <text tid="pleaseentersecondfactor">Voer de eenmalige toegangcode in</text>
+        <text tid="totpcode">Eenmalige toegangcode</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="editaddress">   <!-- commondialogs.editaddress -->
       <text tid="btn_verify">Verifieer adres</text>
       <text tid="country">Land</text>

@@ -1,0 +1,179 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+ASYNC MACRO TestAuthorization()
+{
+  TestEQ("WHUSER_PASSWORD", testfw->GetWRDSchema()->accountpasswordtag);
+
+  // STORY: login with password when password type is PASSWORD
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WHUSER_PASSWORD", [ attributetypename := "PASSWORD" ]);
+  testfw->GetUserObject("bert")->entity->UpdateEntity(
+      [ whuser_password :=    testfw->hashedpasswords.secret
+      ]);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("bert");
+
+  RECORD screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [
+      ]));
+
+  TTFillByTitle(":Password", "wrong");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+
+  // STORY: auto-close when password is not needed
+  PRINT("open\n");
+  AWAIT ExpectNoScreenChange(PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [ askpassword := FALSE
+      ]));
+
+  // STORY: login with only password when password type is AUTHENTICATIONSETTINGS
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WHUSER_PASSWORD", [ attributetypename := "AUTHENTICATIONSETTINGS" ]);
+  testfw->GetUserObject("bert")->entity->UpdateEntity(
+      [ whuser_password :=
+          [ version :=    1
+          , passwords :=  [ [ validfrom :=    DEFAULT DATETIME
+                            , passwordhash := testfw->hashedpasswords.secret
+                            ]
+                          ]
+          , totp :=       DEFAULT RECORD
+          ]
+      ]);
+  testfw->CommitWork();
+
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [
+      ]));
+
+  TTFillByTitle(":password", "wrong");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+
+  TTFillByTitle(":password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+
+  // STORY: login with password and TOTP code
+  STRING totpurl := GetTOTPUrl(GenerateOTPSecret(), "bert", "Webhare");
+  STRING totpsecret := GetVariableFromURL(totpurl, "secret");
+  RECORD totpparsed := UnpackOTPUrl(totpurl);
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WHUSER_PASSWORD", [ attributetypename := "AUTHENTICATIONSETTINGS" ]);
+  testfw->GetUserObject("bert")->entity->UpdateEntity(
+      [ whuser_password :=
+          [ version :=    1
+          , passwords :=  [ [ validfrom :=    DEFAULT DATETIME
+                            , passwordhash := testfw->hashedpasswords.secret
+                            ]
+                          ]
+          , totp :=       [ url :=          totpurl
+                          , backupcodes :=  [ [ code := "A" ], [ code := "B" ] ]
+                          ]
+          ]
+      ]);
+  testfw->CommitWork();
+
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [
+      ]));
+
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectNoScreenChange(PTR TTClick(":Next ››"));
+
+  TTFillByTitle(":One-time access code", GetTOTPCode(totpparsed.secret, CELL[ ...totpparsed.options, now := AddTimeToDate(-90*1000, GetCurrentDateTime()) ]));
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+
+  TTFillByTitle(":One-time access code", GetTOTPCode(totpparsed.secret, CELL[ ...totpparsed.options ]));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+
+  // FIXME: test disallowing reuse of OTP codes
+
+  // FIXME: test locking after too many failures
+
+  // Story: Test using backup codes
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [
+      ]));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectNoScreenChange(PTR TTClick(":Next ››"));
+  TTFillByTitle(":One-time access code", "A");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+
+  // don't allow backup code re-use
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [
+      ]));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectNoScreenChange(PTR TTClick(":Next ››"));
+  TTFillByTitle(":One-time access code", "A");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+  TestEQ("cancel", AWAIT screen.expectcallreturn());
+
+
+  // STORY: test locked TOTP + skipping password
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WHUSER_PASSWORD", [ attributetypename := "AUTHENTICATIONSETTINGS" ]);
+  testfw->GetUserObject("bert")->entity->UpdateEntity(
+      [ whuser_password :=
+          [ version :=    1
+          , passwords :=  [ [ validfrom :=    DEFAULT DATETIME
+                            , passwordhash := testfw->hashedpasswords.secret
+                            ]
+                          ]
+          , totp :=       [ url :=          totpurl
+                          , backupcodes :=  [ [ code := "A" ], [ code := "B" ] ]
+                          , locked :=       GetCurrentDateTime()
+                          ]
+          ]
+      ]);
+  testfw->CommitWork();
+
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [ askpassword :=    FALSE
+      ]));
+
+  // generated codes are not allowed, backup codes are
+  TTFillByTitle(":One-time access code", GetTOTPCode(totpparsed.secret, CELL[ ...totpparsed.options ]));
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+  TTFillByTitle(":One-time access code", "B");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+
+  // STORY: not asking for second factor
+  screen := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", CELL
+      [ asksecondfactor :=  FALSE
+      ]));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEQ("ok", AWAIT screen.expectcallreturn());
+}
+
+
+RunTestFramework(
+    [ PTR TestAuthorization
+    ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                      , [ login := "bert" ]
+                      ]
+       , debug := TRUE
+       ]);
