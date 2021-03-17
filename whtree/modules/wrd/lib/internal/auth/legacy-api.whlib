@@ -280,15 +280,13 @@ STATIC OBJECTTYPE WRDAuth
   /** Verifies the password for an entity
       @param the_entity Entity to check
       @param password Password
-      @return 0: no match, 1: user password matched, 2: master password matched
+      @return FALSE: no match, TRUE: user password matched
   */
-  PUBLIC INTEGER FUNCTION VerifyEntityPassword(OBJECT the_entity, STRING password)
+  BOOLEAN FUNCTION VerifyEntityPassword(OBJECT the_entity, STRING password)
   {
     IF(NOT ObjectExists(the_entity) OR password="")
-      RETURN 0;
-    IF(the_entity->VerifyPassword(this->passwordfield.tag, password))
-      RETURN 1;
-    RETURN 0;
+      RETURN FALSE;
+    RETURN the_entity->VerifyPassword(this->passwordfield.tag, password);
   }
 
   /** Updates the last login date for an entity
@@ -438,19 +436,10 @@ STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    INTEGER res;
-    IF(NOT skippasswordcheck)
-    {
-      IF(CellExists(options,'verifypassword') AND options.verifypassword != DEFAULT FUNCTION PTR)
-        res := options.verifypassword(the_entity, password);
-      ELSE
-        res := this->VerifyEntityPassword(the_entity, password);
+    IF(NOT skippasswordcheck AND NOT this->VerifyEntityPassword(the_entity, password))
+      RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
 
-      IF(res=0)
-        RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
-    }
-
-    RETURN this->FinalizeLogin(the_entity, res=2, persistent, login, ip, TRUE, options);
+    RETURN this->FinalizeLogin(the_entity, FALSE, persistent, login, ip, TRUE, options);
   }
 
   PUBLIC RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
@@ -501,7 +490,7 @@ STATIC OBJECTTYPE WRDAuth
   PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(INTEGER entityid, STRING password)
   {
     OBJECT the_entity := this->accounttype->GetEntity(entityid);
-    RETURN this->VerifyEntityPassword(the_entity, password) IN [1,2];
+    RETURN this->VerifyEntityPassword(the_entity, password);
   }
 >;
 
@@ -1166,8 +1155,6 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
       @param atsubmit Whether the data is being submitted (might have more stringent rules)
       @return Policy record
       @cell(boolean) return.haspassword Whether the user can set a password in WebHare (eg not synced to AD or LDAP)
-      @cell(string) return.passwordpolicy Password policy
-      @cell(function ptr) return.passwordcheck Function to call to check the password policy, should return FALSE if not set
       @cell(string) return.passwordvalidationchecks Password validation checks
       @cell(record) return.searchablefields For every authorixation object (unit, role and person) the list of searchable fields
       @cell(string array) return.searchablefields.unit List of searchable fields for a unit
@@ -1188,8 +1175,6 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
                               , person := [ "WRD_FIRSTNAME", "WRD_FIRSTNAMES", "WRD_FULLNAME", "WRD_LASTNAME", "WHUSER_LOGIN", "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
                               ]
         , screenextension := DEFAULT RECORD
-        , passwordpolicy := ""
-        , passwordcheck := DEFAULT FUNCTION PTR
         , passwordvalidationchecks := ""
         ];
 
@@ -1197,15 +1182,6 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
       retval := CELL[ ...retval, ...GetDefaultWRDSchemaPasswordPolicy(this->plugin->wrdschema) ];
 
     RETURN retval;
-  }
-
-  PUBLIC INTEGER FUNCTION VerifyPassword(OBJECT userentity, STRING password)
-  {
-    IF(password="")
-      RETURN 0;
-    IF(userentity->VerifyPassword(this->plugin->GetPasswordFieldTag(), password))
-      RETURN 1;
-    RETURN 0;
   }
 >;
 

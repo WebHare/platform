@@ -60,12 +60,12 @@ test.registerTests(
     }
   , async function(doc,win)
     {
-      test.setTodd('newpassword', "secret");
-      test.setTodd('confirmpassword', "secret");
+      test.setTodd('newpassword', "SECRET");
+      test.setTodd('confirmpassword', "SECRET");
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/does not comply/, test.getCurrentScreen().getNode().textContent);
+      test.eqMatch(/doesn't have/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 

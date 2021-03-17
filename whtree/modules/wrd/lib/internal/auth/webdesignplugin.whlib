@@ -687,7 +687,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     //FIXME throw on saml?
     OBJECT obj := this->GetLoggedinWRDEntity();
-    RETURN ObjectExists(obj) AND this->GetSupportObject()->VerifyPassword(obj, currentpwd) != 0;
+    IF (NOT ObjectExists(obj))
+      RETURN FALSE;
+    IF (currentpwd = "")
+      RETURN FALSE;
+    RETURN obj->VerifyPassword(this->GetPasswordFieldTag(), currentpwd);
   }
 
   OBJECT FUNCTION GetLoggedinWRDEntity()
@@ -803,7 +807,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , allowlogout := TRUE
                                , firstloginfield := ""
                                , lastloginfield := ""
-                               , verifypassword := PTR this->GetSupportObject()->VerifyPassword
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();

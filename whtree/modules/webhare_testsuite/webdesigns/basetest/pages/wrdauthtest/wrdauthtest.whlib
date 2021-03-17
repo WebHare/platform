@@ -36,15 +36,8 @@ PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
   UPDATE PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
   {
     RECORD policy := WRDAuthSupportBase::GetUserEditPolicy(userid, fields, atsubmit);
-    policy.passwordpolicy := "May not start with a 's'";
-    policy.passwordcheck := PTR this->OnCheckPassword;
+    policy.passwordvalidationchecks := "lowercase:1";
     RETURN policy;
-  }
-  RECORD FUNCTION OnCheckPassword(STRING pass)
-  {
-    RETURN pass NOT LIKE "s*"
-        ? [ success := TRUE, message := "" ]
-        : [ success := FALSE, message := "Password does not comply with policy, it starts with an 's'" ];
   }
 >;
 
