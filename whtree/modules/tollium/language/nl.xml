@@ -959,6 +959,7 @@
     <text tid="mailcc">Cc</text>
     <text tid="mailfrom">Van</text>
     <text tid="mailto">Aan</text>
+    <text tid="manage">Beheren</text>
     <text tid="mimetype">MIME type</text>
     <text tid="modificationdate">Wijzigingsdatum</text>
     <text tid="moveto">Verplaatsen naar</text>
