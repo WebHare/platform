@@ -107,6 +107,19 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , testmode := FALSE
                                ]
           ]
+         ,[ tag := "wrd:pay_nl"
+          , title := "Pay.nl"
+          , objectname := "mod::wrd/lib/internal/psp/pay_nl.whlib#PayNLPaymentProvider"
+          , configextensions := "mod::wrd/tolliumapps/payments/pay_nl.xml#configpaynl"
+          , payinfoscreen := "mod::wrd/tolliumapps/payments/pay_nl.xml#payinfo"
+          , metadataoptions := [ apiuser := ""
+                               , apitoken := ""
+                               , saleslocation := "'"
+                               , methods := RECORD[]
+                               , testmode := FALSE
+                               , webhooks := TRUE
+                               ]
+          ]
 /*         ,[ tag := "wrd:klarna"
           , title := "Klarna"
           , objectname := "mod::wrd/lib/internal/psp/klarna.whlib#KlarnaPaymentProvider"

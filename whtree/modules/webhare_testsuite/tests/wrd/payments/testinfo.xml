@@ -11,4 +11,5 @@
   <test script="test_afterpay.whscr" tags="external"/>
   <test script="test_spraypay.whscr" tags="external"/>
   <test script="test_stripe.whscr" tags="external"/>
+  <test script="test_pay_nl.whscr" tags="external"/>
 </group>
