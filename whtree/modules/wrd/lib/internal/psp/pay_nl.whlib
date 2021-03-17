@@ -90,7 +90,7 @@ RECORD FUNCTION DoPayNLRequest(RECORD creds, STRING method, STRING endpoint, REC
     RECORD httpstatus := paynlbrowser->GetHTTPStatus();
     INTEGER code := paynlbrowser->GetHTTPStatusCode();
     IF (NOT RecordExists(httpstatus))
-      THROW NEW Exception("Could not connect to Mollie");
+      THROW NEW Exception("Could not connect to Pay.nl");
 
     STRING error;
     IF(httpstatus.code = 401)
@@ -211,7 +211,7 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
     IF(this->paymentdata.customerinfo.wrd_contact_phone != "")
       INSERT [ name := "enduser[phoneNumber]", value := this->paymentdata.customerinfo.wrd_contact_phone ] INTO req AT END;
 
-    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go right
+    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesn't go right
     RECORD ARRAY cart  := this->paymentdata.cart;
     UPDATE cart SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
     DELETE FROM cart WHERE linetotal = 0; //doesn't seem useful to send 0 lines
