@@ -534,7 +534,6 @@
     <contentprovider
       name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database"
       library="contentproviders/customcontent.whlib" contentproviderobject="CustomContentProvider"
-      settingsscreen="contentproviders.custom"
     />
 
     <fieldgroup tag="pxl_data">

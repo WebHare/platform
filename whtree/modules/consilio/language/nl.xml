@@ -97,15 +97,16 @@
       <text tid="updatecatalog">Nalopen</text>
     </textgroup>
     <textgroup gid="contentsourceeditor">   <!-- catalog.contentsourceeditor -->
-      <text tid="contentsource">Type contentbron</text>
+      <text tid="contentcheckinterval">Interval voor nalopen</text>
+      <text tid="contentsourcetype">Type contentbron</text>
       <text tid="disablesource-description">Schakel deze contentbron uit</text>
       <text tid="discardsummaries-description">Genereer geen samenvattingen</text>
+      <text tid="folder">Te indexeren map</text>
       <text tid="generalsettings">Geavanceerde instellingen</text>
-      <text tid="id">Contentbron ID</text>
+      <text tid="lastcontentscheck">Laatste automatische update dynamische pagina's</text>
       <text tid="maxgroupobjects">Maximum objecten per groep</text>
       <text tid="maxgroupobjects-description">(Laat leeg voor standaardwaarde)</text>
-      <text tid="selecttype">Type content dat toegevoegd moet worden</text>
-      <text tid="tag">Tag</text>
+      <text tid="minutes">minuten (Laat leeg voor standaardwaarde)</text>
       <text tid="title-edit">Contentbron bewerken</text>
       <text tid="title-new">Nieuwe contentbron</text>
     </textgroup>
@@ -185,11 +186,9 @@
   </textgroup>
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="custom">   <!-- contentproviders.custom -->
-      <text tid="contentcheckinterval">Interval voor nalopen</text>
       <text tid="contentobject">Indexeringsobject</text>
       <text tid="lastcontentscheck">Laatst nagelopen</text>
       <text tid="library">Indexeringsbibliotheek</text>
-      <text tid="minutes">minuten (Laat leeg voor standaardwaarde)</text>
       <text tid="never">nooit</text>
       <text tid="providertitle">Database-inhoud</text>
       <textgroup gid="messages">   <!-- contentproviders.custom.messages -->

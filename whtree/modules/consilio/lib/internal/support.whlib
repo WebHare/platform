@@ -49,6 +49,13 @@ PUBLIC CONSTANT INTEGER fetcher_search_window := 1000;
 /// The default number of results to return when using RunConsilioSearch
 PUBLIC CONSTANT INTEGER default_consilio_search_count := 100;
 
+PUBLIC CONSTANT INTEGER default_contentcheckinterval:= 1440;
+
+/** @short Default maximum number of group objects
+*/
+PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
+
+
 PUBLIC INTEGER FUNCTION GetBuiltinElasticSearchId()
 {
   RETURN SELECT AS INTEGER id

@@ -153,7 +153,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
   {
     this->contentproviders := SELECT *
                                    , title := GetTid(title)
-                                   , settingsscreen := DEFAULT OBJECT
                                 FROM GetContentProviders();
 
     this->RefreshActionVisibility();
@@ -247,81 +246,19 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
   {
     INTEGER newcatalog := this->RunScreen("#catalogeditor");
     IF(newcatalog != 0)
-      ^catalogs->selection := SELECT * FROM ^catalogs->rows WHERE COLUMN catalog AND id = newcatalog;
+      ^catalogs->selection := SELECT * FROM ^catalogs->rows WHERE catalog = TRUE AND id = newcatalog;
   }
 
   MACRO DoAddContentSource()
   {
-    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.catalog)
-    {
-      OBJECT dlg := this->LoadScreen(".contentsourceeditor", [ contentproviders := this->contentproviders ]);
-      IF (dlg->RunModal() = "ok")
-      {
-        RECORD src := dlg->contentsource;
-        RECORD data := dlg->contentproviderdata;
-
-        OBJECT work := this->BeginWork();
-        INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, fsobject)
-               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, src.tag, EncodeHSON(CELL[...data, DELETE folder]), src.maxgroupobjects, src.discardsummaries, data.folder);
-        this->UpdateContentSourceFields(work, srcid, src, data);
-
-        IF (work->Finish())
-        {
-          BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
-          ^catalogs->selection := SELECT * FROM ^catalogs->rows
-                                        WHERE contentsource
-                                              AND id = srcid;
-          IF (NOT UpdateConsilioContentSource(srcid))
-            this->RunMessageBox(".sendingcommandfailed");
-        }
-      }
-    }
+    INTEGER newcontentsource := this->RunScreen("#contentsourceeditor" , [ catalog := ^catalogs->selection.id ]);
+    IF(newcontentsource != 0)
+      ^catalogs->selection := SELECT * FROM ^catalogs->rows WHERE contentsource = TRUE AND id = newcontentsource;
   }
 
   MACRO DoEditContentSource()
   {
-    IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.contentsource)
-    {
-      OBJECT dlg := this->LoadScreen(".contentsourceeditor", [ contentproviders := this->contentproviders
-                                                             , contentsource := ^catalogs->selection
-                                                             ]);
-      IF (dlg->RunModal() = "ok")
-      {
-        INTEGER srcid := ^catalogs->selection.id;
-        RECORD src := dlg->contentsource;
-        RECORD newdata := dlg->contentproviderdata;
-
-        OBJECT work := this->BeginWork();
-        UPDATE consilio.contentsources
-           SET tag := src.tag
-             , data := EncodeHSON(newdata)
-             , maxgroupobjects := src.maxgroupobjects
-             , discardsummaries := src.discardsummaries
-         WHERE id = srcid;
-        this->UpdateContentSourceFields(work, ^catalogs->selection.id, src, newdata);
-
-        IF (^catalogs->selection.srcinactive != src.disablesource)
-        {
-          LogDebug("consilio", "ContentSourceStatus",
-              SELECT id
-                   , status := src.disablesource ? -1 : 0
-                FROM consilio.contentsources
-               WHERE id = srcid);
-          UPDATE consilio.contentsources
-             SET status := src.disablesource ? -1 : 0
-           WHERE id = srcid;
-        }
-
-        IF (work->Finish())
-        {
-          BroadcastEvent("consilio:contentsource." || srcid, DEFAULT RECORD);
-          BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
-          IF (NOT CheckConsilioContentSource(srcid))
-            this->RunMessageBox(".sendingcommandfailed");
-        }
-      }
-    }
+    this->RunScreen("#contentsourceeditor", [ catalog := ^catalogs->selection.catalogid, contentsource := ^catalogs->selection.id ]);
   }
 
   MACRO UpdateContentSourceFields(OBJECT work, INTEGER contentsourceid, RECORD contentsource, RECORD data)
@@ -588,6 +525,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , error := 0
                                           , errorhint := ""
                                           , haserrors := FALSE
+                                          , catalogid := catalog.id
                                           , contentsourceid := id
                                           , definedby := definedby
                                        FROM sources
@@ -1215,183 +1153,80 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
-< RECORD ARRAY contentproviders;
-  OBJECT cursettings;
-  STRING contentprovider;
-
-  PUBLIC PROPERTY contentsource(GetContentSource, -);
-
-  PUBLIC PROPERTY contentproviderdata(GetContentProviderData, -);
-
-  RECORD FUNCTION GetContentSource()
-  {
-    RETURN [ contentprovider := Length(this->types->options) > 0 ? this->types->value : this->contentprovider
-           , tag := ToUppercase(this->tag->value)
-           , maxgroupobjects := this->maxgroupobjects->value
-           , discardsummaries := this->discardsummaries->value
-           , disablesource := this->disablesource->value
-           ];
-  }
-
-  RECORD FUNCTION GetContentProviderData()
-  {
-    IF (ObjectExists(this->providersettings->contents))
-    {
-      IF (TypeID(this->cursettings->settings) = TypeID(OBJECT))
-        RETURN this->providersettings->contents->settings->value; // Composition
-      ELSE
-        RETURN this->providersettings->contents->settings; // Property
-    }
-    RETURN DEFAULT RECORD;
-  }
+PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
+<
+  OBJECT catalog;
+  OBJECT contentsource;
 
   MACRO Init(RECORD data)
   {
-    this->contentproviders := data.contentproviders;
+    data := ValidateOptions([ catalog := 0, contentsource := 0 ], data, [ required := ["catalog"]]);
+    this->catalog := OpenConsilioCatalogById(data.catalog);
 
-    IF (CellExists(data, "contentsource"))
+    STRING cptype := "publisher:webhare";
+    IF(data.contentsource != 0)
     {
-      // Editing content source, load content provider settings screen
-      this->contentprovider := data.contentsource.contentprovider;
-      RECORD provdata := DecodeHSON(data.contentsource.data);
-      this->cursettings := this->LoadProviderSettings(this->contentprovider, provdata);
-      IF (ObjectExists(this->cursettings))
-      {
-        // Initialize settings and show screen on settings tab
-        IF (TypeID(this->cursettings->settings) = TypeID(OBJECT))
-        {
-          // Not all composition fields may be present in the content source data, update default value with content source fields
-          RECORD value := this->cursettings->settings->value;
-          FOREVERY (RECORD field FROM UnpackRecord(provdata)) // Not using MakeUpdatedRecord because RECORD fields won't get updated from default record to non-existing record
-            value := CellUpdate(value, field.name, field.value);
-          this->cursettings->settings->value := value;
-        }
-        ELSE
-          this->cursettings->settings := provdata; // Property
+      this->contentsource := this->catalog->OpenContentSourceById(data.contentsource);
+      IF(NOT ObjectExists(this->contentsource))
+        THROW NEW Exception(`Unable to open contentsource #${data.contentsource}`);
 
-        this->providersettings->contents := this->cursettings;
-        this->providerbox->title := SELECT AS STRING title FROM this->contentproviders WHERE name = this->contentprovider;
+      cptype := this->contentsource->contentprovider;
+    }
 
-        this->id->value := ToString(data.contentsource.id);
-        this->tag->value := data.contentsource.tag;
-        this->maxgroupobjects->value := data.contentsource.maxgroupobjects;
-        this->discardsummaries->value := data.contentsource.discardsummaries;
-        this->disablesource->value := data.contentsource.srcinactive;
+    //NOTE: we didn't clear out the contentprovider infrastructure because it already exists anyway, but we might still
+    //      freeze them in their current state and remove extensibility anyway?
+    RECORD contentprovider := SELECT * FROM GetContentProviders() WHERE name = cptype;
+    IF(NOT RecordExists(contentprovider))
+      THROW NEW Exception(`Unable to describe contentproviders of type '${cptype}'`);
 
-        // Select the settings tab and focus its first component
-        this->tabs->selectedtab := this->settingstab;
-        this->frame->focused := this->providersettings->GetChildComponents()[0];
+    ^contentsourcetype->value := GetTid(contentprovider.title);
+    ^folder->visible := cptype = "publisher:webhare";
+    ^contentcheckinterval->placeholder := ToString(default_contentcheckinterval);
+    ^maxgroupobjects->placeholder := ToString(default_maxgroupobjects);
 
-        // This is no longer a wizard, hide the previous button and set the title of the next button to "Ok"
-        this->settingsprev->visible := FALSE;
-        this->settingsnext->title := GetTid("tollium:common.actions.ok");
-      }
-      ELSE
-        THROW NEW Exception("Could not load settings screen");
+    IF (data.contentsource != 0)
+    {
+      //For now we'll keep lowlevel options out of the API.
+      RECORD dbsettings := SELECT * FROM consilio.contentsources WHERE id = this->contentsource->id;
+      ^folder->value := this->contentsource->fsobject;
+      ^id->value := ToString(this->contentsource->id);
+      ^tag->value := dbsettings.tag;
+      ^maxgroupobjects->value := dbsettings.maxgroupobjects;
+      ^discardsummaries->value := dbsettings.discardsummaries;
+      ^disablesource->value := dbsettings.status < 0;
 
       this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-edit");
     }
     ELSE
     {
-      // New content source, fill list of content providers
-      this->types->options := SELECT rowkey := name
-                                   , title
-                                FROM this->contentproviders
-                               ORDER BY name != "publisher:webhare" // Make the WebHare folder the first choice
-                                      , ToUppercase(title);
-
-      this->id->visible := FALSE;
-      this->disablesource->visible := FALSE;
-
-      // This is a wizard, set the title of the next button to "Finish"
-      this->settingsnext->title := GetTid("tollium:common.actions.finish");
+      ^id->visible := FALSE;
+      ^lastcontentscheck->visible := FALSE;
 
       this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-new");
     }
   }
 
-  MACRO DoNext()
-  {
-    IF (this->tabs->selectedtab = this->providertab)
-    {
-      // Try to load the settings screen for the selected provider
-      this->cursettings := this->LoadProviderSettings(this->types->value, DEFAULT RECORD);
-      IF (ObjectExists(this->cursettings))
-      {
-        // Show the screen on the settings tab
-        this->providersettings->contents := this->cursettings;
-        this->providerbox->title := SELECT AS STRING title FROM this->contentproviders WHERE name = this->types->value;
-
-        // Select the settings tab and focus its first component
-        this->tabs->selectedtab := this->settingstab;
-        this->frame->focused := this->providersettings->GetChildComponents()[0];
-      }
-      ELSE
-      {
-        // Cannot load settings, show a message
-        this->providersettings->contents := DEFAULT OBJECT;
-        this->RunMessageBox(".cannotloadsettings", this->types->selection.title);
-      }
-    }
-  }
-
-  BOOLEAN FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
+    OBJECT finalsource := this->contentsource;
 
-    // If the current provider's settings screen has a Validate function, call it to validate the entered settings
-    IF (NOT work->HasFailed()
-          AND ObjectExists(this->cursettings) // Should exist, but checking anyway...
-          AND GetMemberType(this->cursettings, "Validate") = "FUNCTION")
-      this->cursettings->Validate(work);
+    IF(NOT ObjectExists(finalsource))
+      finalsource := this->catalog->AddPublisherContentSource(^folder->value, [ definedby := this->contexts->user->login ]);
 
-    BOOLEAN result := work->Finish();
-    BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
-    RETURN result;
-  }
+    //TODO - api ?
+    UPDATE consilio.contentsources
+           SET maxgroupobjects := ^maxgroupobjects->value
+             , discardsummaries := ^discardsummaries->value
+             , status := ^disablesource->value ? -1 : status = -1 ? 0 : status //flip status to -1 to disable, 0 to re-enable and otherwise leave alone
+             , fsobject := ^folder->value
+         WHERE id = finalsource->id;
 
-  MACRO DoPrevious()
-  {
-    IF (this->tabs->selectedtab = this->settingstab)
-    {
-      // Select the providers tab and focus its first component
-      this->tabs->selectedtab := this->providertab;
-      this->frame->focused := this->providertab->GetChildComponents()[0];
-    }
-  }
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    IF(ObjectExists(this->contentsource)) //we were editing
+      CheckConsilioContentSource(finalsource->id); //FIXME postpone until after commit! an update API should do that for us
 
-  OBJECT FUNCTION LoadProviderSettings(STRING contentprovider, RECORD contentsourcedata)
-  {
-    RECORD cp := SELECT * FROM this->contentproviders WHERE name = contentprovider;
-    IF (RecordExists(cp))
-    {
-      // Did we already load this screen?
-      IF (ObjectExists(cp.settingsscreen))
-        RETURN cp.settingsscreen;
-
-      // Load the provider's settings screen
-      OBJECT settings := this->LoadScreen(cp.settings, contentsourcedata);
-      IF (ObjectExists(settings))
-      {
-        // Check if it has a "settings" member which we can access
-        STRING settingstype := GetMemberType(settings, "settings");
-        IF (settingstype IN [ "VARIABLE", "PROPERTY" ])
-        {
-          UPDATE this->contentproviders
-             SET settingsscreen := settings
-           WHERE name = contentprovider;
-          RETURN settings;
-        }
-        ELSE
-          Print("The settings screen '" || cp.settings || "' does not have an accessible 'settings' member (" || settingstype || ")\n");
-      }
-      ELSE
-        Print("The settings screen '" || cp.settings || "' could not be loaded\n");
-    }
-    ELSE
-      Print("Unknown content provider '" || contentprovider || "'\n");
-    RETURN DEFAULT OBJECT;
+    RETURN work->Finish() ? finalsource->id : 0;
   }
 >;
 

@@ -701,6 +701,12 @@ STATIC OBJECTTYPE ContentSource
   /// @type(string) Tag of this contentsource
   PUBLIC PROPERTY tag(this->contentsource.tag, -);
 
+  /// @type(string) Contentprovidertype (generally publisher:webhare or consilio:custom)
+  PUBLIC PROPERTY contentprovider(this->contentsource.contentprovider, -);
+
+ /// @type(integer) Base object for this content source
+  PUBLIC PROPERTY fsobject(this->contentsource.fsobject, -);
+
   MACRO NEW(OBJECT catalog, RECORD contentsource)
   {
     this->catalog := catalog;
@@ -749,7 +755,7 @@ STATIC OBJECTTYPE ContentSource
     // Add the contentlinksonly flag (in the future this might be made configurable)
     INSERT CELL contentlinksonly := ReadRegistryKey("consilio.linkchecker.contentlinksonly") INTO source;
 
-    source := CELL[...source
+    source := CELL[ ...source
                   , contentsourceid := this->contentsource.id
                   , contentsourcetag := this->contentsource.tag
                   , catalogtag := this->catalog->tag
@@ -800,8 +806,8 @@ STATIC OBJECTTYPE ContentSource
     UPDATE consilio.contentsources
        SET tag := "$consilio$deleted$" || id
      WHERE id = this->id;
-    this->contentsource.id := 0; //to be safe
 
+    this->contentsource.id := 0; //to be safe
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove deleted contentsources async
   }
 
@@ -816,6 +822,7 @@ STATIC OBJECTTYPE ContentSource
   {
     IF(this->contentsource.fsobject = 0)
       RETURN "";
+
     RETURN SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->contentsource.fsobject;
   }
 
@@ -913,6 +920,9 @@ STATIC OBJECTTYPE Catalog
     //TODO CheckFolderInIndex ?
     OBJECT contentsource := this->OpenContentSourceById(srcid);
     INSERT PTR contentsource->RebuildCatalog() INTO GetConsilioFinishHandler()->execoncommit AT END;
+
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+
     RETURN contentsource;
   }
 

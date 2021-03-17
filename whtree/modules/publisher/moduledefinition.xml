@@ -945,7 +945,7 @@
   <!-- NOTE: for performance and chicken/egg reasons, publisher registry is initialized by system -->
 
   <consilio>
-    <contentprovider name="webhare" tid="contentproviders.webhare.providertitle" icon="tollium:folders/site" library="internal/contentprovider.whlib" contentproviderobject="WebHareContentProvider" settingsscreen="contentproviders.webhare"/>
+    <contentprovider name="webhare" tid="contentproviders.webhare.providertitle" icon="tollium:folders/site" library="internal/contentprovider.whlib" contentproviderobject="WebHareContentProvider" />
   </consilio>
 
   <publisher>

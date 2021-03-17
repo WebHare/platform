@@ -7,6 +7,9 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 PUBLIC MACRO TestModernSiteProfileIndices()
 {
@@ -83,9 +86,40 @@ PUBLIC MACRO TestLegacySiteProfileIndices()
   TestEq(0, contentsource.maxgroupobjects);
 }
 
+ASYNC MACRO TestCatalogApp()
+{
+  testfw->BeginWork();
+  OBJECT toindexfolder1 := GetTestsuiteTempFolder()->CreateFolder([name := "index-me-1"]);
+  OBJECT toindexfolder2 := GetTestsuiteTempFolder()->CreateFolder([name := "index-me-2"]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("consilio"));
+  TestEq(1, Length(SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testsitecatalog"));
+  TT("catalogs")->selection := SELECT * FROM TT("catalogs")->rows WHERE tag = "webhare_testsuite:testsitecatalog";
+
+  AWAIT ExpectScreenChange(+1,  PTR TTClick("addcontentsource"));
+  TestEq("WebHare folder", TT("contentsourcetype")->value);
+  TT("folder")->value := toindexfolder1->id;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEqMembers([[ tag := "/WebHare testsuite site/tmp/index-me-1/" ]], TT("catalogs")->selection, "*");
+
+  AWAIT ExpectScreenChange(+1,  PTR TTClick("edititem"));
+  TestEq(toindexfolder1->id, TT("folder")->value);
+  TT("folder")->value := toindexfolder2->id;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEqMembers([[ tag := "/WebHare testsuite site/tmp/index-me-2/" ]], TT("catalogs")->selection, "*");
+
+  //TODO check if the content source is indeed restarting, cleaning out old stuff and indexing new!
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
 RunTestFramework( [ PTR TestModernSiteProfileIndices
                   , PTR TestLegacySiteProfileIndices
-                  ],
-                  [ consilio := TRUE
-                  ]);
+                  , PTR TestCatalogApp
+                  ], [ consilio := TRUE
+                     , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

@@ -1180,7 +1180,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   [ name                  := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
                   , library               := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library"))
                   , contentproviderobject := subchild->GetAttribute("contentproviderobject")
-                  , settingsscreen        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "settingsscreen"))
                   , title                 := this->ParseXMLTidTitle(subchild, "title", subchildgid)
                   , icon                  := ParseXMLModuleNamed(modulename, subchild, "icon")
                   ];

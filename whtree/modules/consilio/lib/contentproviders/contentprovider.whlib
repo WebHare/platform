@@ -21,10 +21,6 @@ RECORD defaultemptysearchrecord := [ score   := 0f
                                    , summary := ""
                                    ];
 
-/** @short Default maximum number of group objects
-*/
-PUBLIC INTEGER defaultmaxgroupobjects := 500;
-
 /** @short Exception that must be thrown when an exception must not be logged in the errorlist
 */
 PUBLIC OBJECTTYPE ConsilioIgnoredException EXTEND Exception
@@ -557,7 +553,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
 
   INTEGER FUNCTION GetMaxGroupObjects()
   {
-    RETURN this->pvt_maxgroupobjects > 0 ? this->pvt_maxgroupobjects : defaultmaxgroupobjects;
+    RETURN this->pvt_maxgroupobjects > 0 ? this->pvt_maxgroupobjects : default_maxgroupobjects;
   }
   MACRO SetMaxGroupObjects(INTEGER newmax)
   {
@@ -580,7 +576,6 @@ PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
               , title
               , icon
               , library
-              , settings
               , createcontentprovider := PTR MakeObject(library, contentproviderobject)
            FROM contentproviders;
 }
@@ -596,7 +591,6 @@ RECORD FUNCTION GetContentProviders_Uncached()
              , title := cp.title
              , icon := cp.icon
              , library := cp.library
-             , settings := cp.settingsscreen
              , contentproviderobject := cp.contentproviderobject
              ] INTO contentproviders AT END;
     }

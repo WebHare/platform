@@ -193,7 +193,6 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
 
     RECORD ARRAY contentproviders := SELECT *
                                          , title := GetTid(title)
-                                         , settingsscreen := DEFAULT OBJECT
                                       FROM GetContentProviders();
 
     RECORD status := __ConsilioGetQueueManagerStatus();

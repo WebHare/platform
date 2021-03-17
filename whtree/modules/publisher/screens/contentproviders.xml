@@ -7,14 +7,6 @@
       <record name="mysettings" />
     </compositions>
     <body>
-      <publisher:browseforobject composition="mysettings" cellname="folder" name="folder" required="true"
-                                 acceptfiles="false" width="1pr" />
-      <!-- The lastcontentscheck and contentcheckinterval fields are just here to prevent them from being deleted (they're used by the executeindextasks script) -->
-      <textedit composition="mysettings" cellname="contentcheckinterval" title="" valuetype="integer" visible="false" />
-      <textedit composition="mysettings" cellname="lastcontentscheck" title="" visible="false" />
-      <line layout="left">
-        <text name="lastcontentscheck" />
-      </line>
     </body>
   </screen>
 
