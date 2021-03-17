@@ -217,7 +217,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
   {
     IF(NOT RecordExists(this->paymentdata) OR NOT CellExists(this->paymentdata,"mollieid")) //we don't have the payment ID yet
     {
-      IF(this->creationdate != DEFAULT DATETIME AND AddTimeToDate(wait_for_startpayment, this->creationdate) > GetCurrentDatetime()) //payment request never sent? this requires a very specific crash...
+      IF(this->creationdate != DEFAULT DATETIME AND AddTimeToDate(wait_for_startpayment, this->creationdate) > GetCurrentDatetime()) //webhook callback was faster than our UpdatePaymentMetadata
         RETURN;
       this->pvt_status := "failed";
       RETURN;

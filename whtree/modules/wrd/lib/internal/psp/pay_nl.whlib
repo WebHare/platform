@@ -1,0 +1,491 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+
+OBJECT paynlbrowser;
+INTEGER wait_for_startpayment := 60*1000;
+
+PUBLIC STRING FUNCTION MakePayNLAlphaNumeric(STRING input)
+{
+  RETURN NEW RegEx("[^A-Za-z0-9]+","g")->Replace(input,"");
+}
+
+RECORD FUNCTION DoPayNLRequest(RECORD creds, STRING method, STRING endpoint, RECORD ARRAY variables DEFAULTSTO DEFAULT RECORD ARRAY, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  STRING apibase := "https://rest-api.pay.nl/";
+  STRING url := apibase || endpoint;
+
+  IF (NOT ObjectExists(paynlbrowser))
+  {
+    paynlbrowser := NEW WebBrowser;
+    LogRPCForWebbrowser("wrd:payments.pay_nl", "", paynlbrowser);
+  }
+
+  INSERT [[ name := "serviceId", value := creds.saleslocation ]] INTO variables AT END;
+
+  options := ValidateOptions([nofail := FALSE], options);
+
+  RECORD ARRAY headers :=
+        [ [ field :=  "Authorization"
+          , value :=  "Basic " || EncodeBase64(creds.apiuser || ":" || creds.apitoken)
+          ]
+        ];
+
+  BLOB request_body;
+  SWITCH (method)
+  {
+    CASE "GET"
+    {
+      FOREVERY (RECORD repl FROM variables)
+      {
+        IF (repl.value="")
+          url := DeleteVariableFromURL(url, repl.name);
+        ELSE
+          url := ReplaceVariableInURL(url, repl.name, repl.value);
+      }
+    }
+    CASE "POST"
+    {
+      RECORD rec := CreateHTTPUrlencodedRequest(variables, "utf-8");
+      headers := headers CONCAT rec.headers;
+      request_body := rec.body;
+    }
+    CASE "DELETE"
+    {
+      IF (RecordExists(variables))
+        THROW NEW Exception("Variables not allowed with DELETE method");
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Unsupported method " || method);
+    }
+  }
+
+  BOOLEAN result := paynlbrowser->SendRawRequest(
+        method,
+        url,
+        headers,
+        request_body);
+
+  RECORD data := DecodeJSONBlob(paynlbrowser->content);
+
+  IF (NOT result)
+  {
+    RECORD httpstatus := paynlbrowser->GetHTTPStatus();
+    INTEGER code := paynlbrowser->GetHTTPStatusCode();
+    IF (NOT RecordExists(httpstatus))
+      THROW NEW Exception("Could not connect to Pay.nl");
+
+    STRING error;
+    IF(httpstatus.code = 401)
+      error := "Pay.nl authorization failed - is your API key correct?";
+    ELSE IF(httpstatus.code = 422 AND CellExists(data, "ERROR") AND CellExists(data.error, "MESSAGE"))
+      error := data.error.message;
+    ELSE
+      error := "Request to the paymentprovider failed, HTTP code " || httpstatus.code || ", message: " || httpstatus.message;
+
+    IF(options.nofail)
+      RETURN CELL[ error ];
+    THROW NEW Exception(error);
+  }
+
+  RETURN data;
+}
+
+RECORD ARRAY FUNCTION AddAddress(STRING prefix, RECORD address)
+{
+  IF(NOT RecordExists(address))
+    RETURN RECORD[];
+
+  RECORD split := SplitHousenumber(address.nr_detail);
+
+  RETURN [[ name := `${prefix}[streetName]`, value := address.street ]
+         ,[ name := `${prefix}[streetNumber]`, value := split.nr ]
+         ,[ name := `${prefix}[streetNumberExtension]`, value := split.detail ]
+         ,[ name := `${prefix}[zipCode]`, value := address.zip ]
+         ,[ name := `${prefix}[city]`, value := address.city ]
+         ,[ name := `${prefix}[countryCode]`, value := address.country ]
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
+<
+  RECORD paymentdata;
+
+  MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:pay_nl", "redirect", settings)
+  {
+    this->needspaymentref := TRUE;
+  }
+
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RECORD methodsresponse := GetAdhocCached(CELL[ type := "methods", apiuser := this->settings.apiuser, saleslocation := this->settings.saleslocation ], PTR GetCacheableMethods(this->settings));
+    IF(NOT RecordExists(methodsresponse))
+      THROW NEW Exception(`Unable to request payment methods`);
+
+    RECORD ARRAY methods := methodsresponse.methods;
+    DELETE FROM methods WHERE rowkey NOT IN (SELECT AS STRING ARRAY rowkey FROM this->settings.methods);
+
+    RETURN SELECT paymentoptiontag := rowkey
+                , title
+                , issuers
+                , islive := this->settings.testmode = FALSE
+             FROM methods;
+
+    RETURN methods;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
+  {
+    RETURN this->paymentdata;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+
+    RECORD customerinfo := this->GetCustomerInfo(paymentmethod, [ requirements := ["ipaddress"] ]);
+    this->paymentdata := CELL[ customerinfo
+                             , cart := paymentmethod.orderlines
+                             ];
+  }
+
+  UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
+  {
+    WRDPaymentProviderBase::__SetupExistingTransaction(payment);
+    this->paymentdata := payment.__paymentdata.m;
+  }
+
+  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  {
+//    IF (this->paymentmetadata.issuer = "")
+//      THROW NEW Exception("No issuerid set!");
+
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING webhookurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ]);
+
+    // https://docs.pay.nl/developers#transaction-start
+    RECORD ARRAY req :=
+        [ [ name := "amount",               value := ToString(INTEGER(this->amountpayable * 100)) ]
+        , [ name := "ipAddress",            value := this->paymentdata.customerinfo.ipaddress ]
+        , [ name := "finishUrl",            value := returnurl ]
+        , [ name := "paymentOptionId",      value := this->paymentoptiontag ]
+        , [ name := "paymentOptionSubId",   value := this->issuer ]
+        , [ name := "testMode",             value := this->settings.testmode ? "1" : "0" ]
+
+        , [ name := "transaction[description]",      value := Left(MakePayNLAlphaNumeric(this->orderid),32) ]
+        , [ name := "transaction[orderNumber]",      value := Left(MakePayNLAlphaNumeric(this->paymentref),16) ]
+
+        , [ name := "enduser[initials]",    value := this->paymentdata.customerinfo.wrd_initials ?? this->paymentdata.customerinfo.wrd_firstname ]
+        , [ name := "enduser[lastname]",    value := this->paymentdata.customerinfo.wrd_lastname ]
+        ];
+
+    IF(this->paymentdata.customerinfo.wrd_gender IN [1,2])
+      INSERT [ name := "enduser[gender]", value := this->paymentdata.customerinfo.wrd_gender = 1 ? "M" : "F" ] INTO req AT END;
+    IF(this->paymentdata.customerinfo.wrd_dateofbirth != DEFAULT DATETIME)
+      INSERT [ name := "enduser[dob]", value := FormatDatetime("%d-%m-%Y", this->paymentdata.customerinfo.wrd_dateofbirth) ] INTO req AT END;
+    IF(this->paymentdata.customerinfo.wrd_contact_email != "")
+      INSERT [ name := "enduser[emailAddress]", value := this->paymentdata.customerinfo.wrd_contact_email ] INTO req AT END;
+    IF(this->paymentdata.customerinfo.wrd_contact_phone != "")
+      INSERT [ name := "enduser[phoneNumber]", value := this->paymentdata.customerinfo.wrd_contact_phone ] INTO req AT END;
+
+    req := req CONCAT AddAddress("enduser[invoiceAddress]", this->paymentdata.customerinfo.billingaddress);
+    req := req CONCAT AddAddress("enduser[address]", this->paymentdata.customerinfo.shippingaddress);
+
+    IF(this->paymentdata.customerinfo.wrd_contact_phone != "")
+      INSERT [ name := "enduser[phoneNumber]", value := this->paymentdata.customerinfo.wrd_contact_phone ] INTO req AT END;
+
+    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesn't go right
+    RECORD ARRAY cart  := this->paymentdata.cart;
+    UPDATE cart SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
+    DELETE FROM cart WHERE linetotal = 0; //doesn't seem useful to send 0 lines
+
+    FOREVERY(RECORD line FROM cart)
+    {
+       req := req CONCAT
+           [[ name := `saleData[orderData][${#line}][productId]`,     value := line.sku ?? line.type ]
+           ,[ name := `saleData[orderData][${#line}][productType]`,   value := line.type = "shipping" ? "SHIPPING" : line.type = "payment" ? "HANDLING" : "ARTICLE" ] //TODO "DISCOUNT"
+           ,[ name := `saleData[orderData][${#line}][description]`,   value := line.title ]
+           ,[ name := `saleData[orderData][${#line}][price]`,         value := ToString(INTEGER(100 * line.linetotal / (line.amount ?? 1))) ]
+           ,[ name := `saleData[orderData][${#line}][quantity]`,      value := ToString(line.amount ?? 1) ]
+           ,[ name := `saleData[orderData][${#line}][vatCode]`,       value := line.vatpercentage >= 15 ? "H" : line.vatpercentage > 0 ? "L" : "N" ]
+           ,[ name := `saleData[orderData][${#line}][vatPercentage]`, value := FormatMoney(line.vatpercentage, 0, ".", "", FALSE) ]
+           ];
+    }
+
+    IF(this->settings.webhooks)
+      INSERT [ name := "transaction[orderExchangeUrl]", value := webhookurl ] INTO req AT END;
+
+    RECORD result := DoPayNLRequest(this->settings, "POST", "v13/Transaction/start/json", req);
+
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ transactionid :=  result.transaction.transactionId
+                                      ]);
+    GetPrimary()->CommitWork();
+    RETURN result.transaction.paymentURL;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
+  {
+    IF(this->pvt_status = "pending")
+      this->RecheckPayment();
+
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO RecheckPayment()
+  {
+    IF(NOT RecordExists(this->paymentdata) OR NOT CellExists(this->paymentdata,"transactionid")) //we don't have the payment ID yet
+    {
+      IF(this->creationdate != DEFAULT DATETIME AND AddTimeToDate(wait_for_startpayment, this->creationdate) > GetCurrentDatetime()) //webhook callback was faster than our UpdatePaymentMetadata
+        RETURN;
+      this->pvt_status := "failed";
+      RETURN;
+    }
+
+    RECORD result := DoPayNLRequest(this->settings, "POST", "v13/Transaction/status/json",
+        [[ name := "transactionId", value := this->paymentdata.transactionid ]]);
+
+    this->paymentdata := CELL[ ...this->paymentdata
+                             , status :=         result.paymentdetails.state
+                             , statename :=      result.paymentdetails.stateName
+                             ];
+
+    /* Statuscode: 100: De betaling is succesvol
+       Statuscode: NEGATIEF: De betaling is geannuleerd of teruggeboekt
+       Statuscode: POSITIEF: De betaling is nog steeds wachtende, er is nog geen eindstatus bekend
+    */
+    BOOLEAN pvt_paymentdone     := result.paymentDetails.state = "100" OR ToInteger(result.paymentDetails.state,0) < 0;
+    BOOLEAN pvt_paymentapproved := result.paymentDetails.state = "100";
+    this->pvt_status := pvt_paymentdone ? pvt_paymentapproved ? "approved" : "failed" : "pending";
+  }
+>;
+
+RECORD FUNCTION GetCacheableMethods(RECORD creds)
+{
+  //https://docs.pay.nl/developers#services
+  RECORD methodsresponse := DoPayNLRequest(creds, "POST", "v16/Transaction/getService/json", RECORD[]);
+
+  /*
+   +RECORD
+ +SETTINGS: ''
+ +COUNTRYOPTIONLIST: RECORD
+  +BE: RECORD
+   +ID: 'BE'
+   +IMG: 'be.gif'
+   +IN_EU: '1'
+   +NAME: 'Belgi\u00EB'
+   +PATH: '/flags/'
+   +VISIBLENAME: 'Belgi\u00EB'
+   +PAYMENTOPTIONLIST: RECORD
+    +436: RECORD
+     +ID: '436'
+     +IMAGE: '/payment_profiles/436.gif'
+     +MAX_AMOUNT: '1000000'
+     +MIN_AMOUNT: '1'
+     +NAME: 'Bancontact'
+     +PAYMENTMETHODID: '4'
+     +PAYMENTOPTIONSUBLIST: ''
+     +STATE: '1'
+     +USEONLYINSTORE: '0'
+     +VISIBLENAME: 'Bancontact'
+     +BRAND: RECORD
+      +ID: '2'
+      +IMAGE: '/payment_profile_brands/100x100/2.png'
+      +NAME: 'Bancontact'
+      +PUBLIC_DESCRIPTION: 'U kunt met Bancontact vertrouwd, veilig en gemakkelijk betalen via internetbankieren van uw eigen bank, wanneer u een Belgische bankrekening heeft.'
+  +NL: RECORD
+   +ID: 'NL'
+   +IMG: 'nl.gif'
+   +IN_EU: '1'
+   +NAME: 'Nederland'
+   +PATH: '/flags/'
+   +VISIBLENAME: 'Nederland'
+   +PAYMENTOPTIONLIST: RECORD
+    +10: RECORD
+     +ID: '10'
+     +IMAGE: '/payment_profiles/10.gif'
+     +MAX_AMOUNT: '1000000'
+     +MIN_AMOUNT: '1'
+     +NAME: 'iDEAL'
+     +PAYMENTMETHODID: '4'
+     +STATE: '1'
+     +USEONLYINSTORE: '0'
+     +VISIBLENAME: 'iDEAL'
+     +BRAND: RECORD
+      +ID: '1'
+      +IMAGE: '/payment_profile_brands/100x100/1.png'
+      +NAME: 'iDEAL'
+      +PUBLIC_DESCRIPTION: 'Met iDEAL kunt  u met een Nederlandse bankrekening vertrouwd, veilig en gemakkelijk betalen via internetbankieren van uw eigen bank.'
+     +PAYMENTOPTIONSUBLIST: RECORD
+      +1: RECORD
+       +ID: '1'
+       +IMAGE: '/payment_banks/1.png'
+       +NAME: 'ABN Amro'
+       +STATE: '1'
+       +VISIBLENAME: 'ABN Amro'
+      +10: RECORD
+       +ID: '10'
+       +IMAGE: '/payment_banks/10.png'
+       +NAME: 'Triodos Bank'
+       +STATE: '1'
+       +VISIBLENAME: 'Triodos Bank'
+      +11: RECORD
+       +ID: '11'
+       +IMAGE: '/payment_banks/11.png'
+       +NAME: 'Van Lanschot'
+       +STATE: '1'
+       +VISIBLENAME: 'Van Lanschot'
+      +12: RECORD
+       +ID: '12'
+       +IMAGE: '/payment_banks/12.png'
+       +NAME: 'Knab'
+       +STATE: '1'
+       +VISIBLENAME: 'Knab'
+      +2: RECORD
+       +ID: '2'
+       +IMAGE: '/payment_banks/2.png'
+       +NAME: 'Rabobank'
+       +STATE: '1'
+       +VISIBLENAME: 'Rabobank'
+      +4: RECORD
+       +ID: '4'
+       +IMAGE: '/payment_banks/4.png'
+       +NAME: 'ING'
+       +STATE: '1'
+       +VISIBLENAME: 'ING'
+      +5: RECORD
+       +ID: '5'
+       +IMAGE: '/payment_banks/5.png'
+       +NAME: 'SNS'
+       +STATE: '1'
+       +VISIBLENAME: 'SNS'
+      +5080: RECORD
+       +ID: '5080'
+       +IMAGE: '/payment_banks/5080.png'
+       +NAME: 'Bunq'
+       +STATE: '1'
+       +VISIBLENAME: 'Bunq'
+      +5081: RECORD
+       +ID: '5081'
+       +IMAGE: '/payment_banks/5081.png'
+       +NAME: 'Moneyou'
+       +STATE: '1'
+       +VISIBLENAME: 'Moneyou'
+      +5082: RECORD
+       +ID: '5082'
+       +IMAGE: '/payment_banks/5082.png'
+       +NAME: 'Svenska Handelsbanken'
+       +STATE: '1'
+       +VISIBLENAME: 'Svenska Handelsbanken'
+      +5084: RECORD
+       +ID: '5084'
+       +IMAGE: '/payment_banks/5084.png'
+       +NAME: 'Revolut'
+       +STATE: '1'
+       +VISIBLENAME: 'Revolut'
+      +8: RECORD
+       +ID: '8'
+       +IMAGE: '/payment_banks/8.png'
+       +NAME: 'ASN Bank'
+       +STATE: '1'
+       +VISIBLENAME: 'ASN Bank'
+      +9: RECORD
+       +ID: '9'
+       +IMAGE: '/payment_banks/9.png'
+       +NAME: 'RegioBank'
+       +STATE: '1'
+       +VISIBLENAME: 'RegioBank'
+    +1813: RECORD
+     +ID: '1813'
+     +IMAGE: '/payment_profiles/1813.gif'
+     +MAX_AMOUNT: '300000'
+     +MIN_AMOUNT: '10000'
+     +NAME: 'in3 (Gespreid betalen)'
+     +PAYMENTMETHODID: '4'
+     +PAYMENTOPTIONSUBLIST: ''
+     +STATE: '1'
+     +USEONLYINSTORE: '0'
+     +VISIBLENAME: 'in3 termijnen betalen, 0% rente'
+     +BRAND: RECORD
+      +ID: '19'
+      +IMAGE: '/payment_profile_brands/100x100/19.png'
+      +NAME: 'IN3 (in 60 dagen)'
+      +PUBLIC_DESCRIPTION: 'IN3 (in 60 dagen)'
+ +MERCHANT: RECORD
+  +ID: 'M-9823-5151'
+  +NAME: 'WebHare bv'
+  +PUBLICNAME: 'WebHare bv'
+  +STATE: '1'
+ +REQUEST: RECORD
+  +ERRORID: ''
+  +ERRORMESSAGE: ''
+  +RESULT: '1'
+ +SERVICE: RECORD
+  +DESCRIPTION: 'Een testwiknel'
+  +ID: 'SL-4578-1771'
+  +NAME: 'WebHare testwinkel'
+  +PUBLICATION: 'https://www.webhare.nl/'
+  +SECRET: 'ffef***'
+  +STATE: '1'
+  +TEMPLATE_URL: ''
+  +TRADENAME: '''.
+     */
+
+  IF(NOT CellExists(methodsresponse,'COUNTRYOPTIONLIST')) //guess it failed
+    RETURN [ value := DEFAULT RECORD
+           , ttl := 1
+           ];
+
+  RECORD ARRAY methods;
+  FOREVERY(RECORD country FROM UnpackRecord(methodsresponse.countryoptionlist))
+    FOREVERY(RECORD paymentoption FROM UnpackRecord(country.value.paymentoptionlist))
+    {
+      RECORD ARRAY issuers;
+      IF(CellExists(paymentoption.value, 'PAYMENTOPTIONSUBLIST') AND TypeID(paymentoption.value.paymentoptionsublist) = TYPEID(RECORD))
+      {
+        FOREVERY(RECORD subopt FROM UnpackRecord(paymentoption.value.paymentoptionsublist))
+          INSERT CELL [ rowkey := subopt.value.id
+                      , title := subopt.value.name
+                      ] INTO issuers AT END;
+      }
+
+      INSERT CELL[ rowkey := paymentoption.value.id
+                 , title := paymentoption.value.name
+                 , issuers
+                 ] INTO methods AT END;
+    }
+
+  RETURN CELL[ value := CELL[ methods
+                            ]
+             , ttl := 15*60*1000
+             ];
+}
+
+PUBLIC RECORD FUNCTION CheckPayNLMerchant(STRING apiuser, STRING apitoken, STRING saleslocation)
+{
+  IF(apitoken = "" OR apiuser = "" OR saleslocation = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD methods := GetCacheableMethods(CELL[apiuser, apitoken, saleslocation]).value;
+  IF(NOT RecordExists(methods))
+    RETURN DEFAULT RECORD;
+
+  RETURN CELL[methods.methods];
+}
