@@ -602,7 +602,7 @@ PUBLIC MACRO ApplyDraftByVersionedFields(OBJECT draftobject, RECORD fields, RECO
     IF (updates.parent = 0)
     {
       isdeleted := TRUE;
-      RunAnyDelete([ INTEGER(source->id) ], "accept version deletion request");
+      RunAnyDelete([ INTEGER(source->id) ], "publisher:versiondelete");
     }
     ELSE
     {
