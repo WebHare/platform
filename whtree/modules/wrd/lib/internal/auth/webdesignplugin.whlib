@@ -13,9 +13,9 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -772,9 +772,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
         submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
-
-        IF (IsRPCTrafficLogged("wrd:saml"))
-          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
       }
     }
 
@@ -905,9 +903,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         {
           RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
           submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
-
-          IF (IsRPCTrafficLogged("wrd:saml"))
-            LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
         }
         ELSE IF (options.returnto != "")
           submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);
@@ -1027,8 +1023,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
         submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
 
-        IF (IsRPCTrafficLogged("wrd:saml"))
-          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
       }
       ELSE IF (options.returnto != "")
         submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);

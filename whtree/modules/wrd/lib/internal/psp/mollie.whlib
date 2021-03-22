@@ -10,8 +10,8 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -33,8 +33,7 @@ RECORD FUNCTION DoMollieRequest(STRING apikey, STRING method, STRING endpoint, R
   IF (NOT ObjectExists(molliebrowser))
   {
     molliebrowser := NEW WebBrowser;
-    IF(IsRPCTrafficLogged("wrd:payments.mollie"))
-      LogRPCForWebbrowser("wrd:payments.mollie", "", molliebrowser);
+    LogRPCForWebbrowser("wrd:payments.mollie", "", molliebrowser);
   }
 
   RECORD ARRAY headers :=

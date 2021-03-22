@@ -1,6 +1,6 @@
 ﻿<?wh
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 PUBLIC RECORD FUNCTION RPC_ReportJavascriptError(RECORD details)
 {

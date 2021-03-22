@@ -4,7 +4,8 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/saml.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
@@ -176,8 +177,7 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
       {
         RECORD samlaction := GenerateSAMLLoginResponse(wrdauthplugin, authrequest_data);
 
-        IF (IsRPCTrafficLogged("wrd:saml"))
-          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, samlaction);
+        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, samlaction);
 
         ExecuteSubmitInstruction(samlaction);
       }
@@ -203,8 +203,7 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
             ];
       }
 
-      IF (IsRPCTrafficLogged("wrd:saml"))
-        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+      LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
 
       ExecuteSubmitInstruction(submitinstr);
     }

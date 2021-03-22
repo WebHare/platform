@@ -7,7 +7,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/webapi/aws/s3.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 /** Base class for blob part storage
@@ -341,7 +340,7 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
     IF (this->settings.prefix LIKE "*//*")
       THROW NEW Exception(`Illegal blob storage prefix '${this->settings.prefix}'`);
 
-    this->awsapi := NEW AmazonAWSS3Interface(
+    this->awsapi := MakeObject("mod::system/lib/webapi/aws/s3.whlib#AmazonAWSS3Interface",
         this->settings.region,
         this->settings.accesskey,
         this->settings.secretkey,

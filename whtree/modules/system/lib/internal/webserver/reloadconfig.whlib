@@ -7,8 +7,9 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -88,8 +89,7 @@ MACRO ReconfigureProxies(RECORD config)
 
         trans->BeginWork();
         OBJECT browser := NEW WebBrowser;
-        IF(IsRPCTrafficLogged("system:webservers.proxies"))
-          LogRPCForWebbrowser("system:webservers.proxies", "register", browser);
+        LogRPCForWebbrowser("system:webservers.proxies", "register", browser);
 
         browser->onauth := PTR FixedAuthHandler(rec.password, #1, #2);
         browser->timeout := 120000;

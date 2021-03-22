@@ -4,8 +4,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
@@ -21,8 +21,7 @@ LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 
 IF(NOT IsRequestPost())
   AbortWithHTTPError(400, "This endpoint only accepts POST");
-IF(IsRPCTrafficLogged("system:mail-sns-endpoint"))
-  LogCurrentRequestToRPCLog("system:mail-sns-endpoint");
+LogCurrentRequestToRPCLog("system:mail-sns-endpoint");
 IF(NOT VerifySNSVerificationKey(GetWebVariable("key")))
   AbortWithHTTPError(403, "Invalid verification key");
 
@@ -37,8 +36,7 @@ IF(data.type = "SubscriptionConfirmation")
   IF(UnpackURL(data.SubscribeURL).host NOT LIKE "*.amazonaws.com")
     Abort(`Untrusted subscription host '${UnpackURL(data.SubscribeURL).host}'`);
 
-  IF(IsRPCTrafficLogged("system:mail-sns-endpoint"))
-    LogRPCForWebbrowser("system:mail-sns-endpoint", "confirmation", browser);
+  LogRPCForWebbrowser("system:mail-sns-endpoint", "confirmation", browser);
   browser->GotoWebPage(data.SubscribeURL);
   RETURN;
 }

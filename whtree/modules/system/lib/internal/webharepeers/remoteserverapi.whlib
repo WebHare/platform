@@ -7,8 +7,8 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 
 
@@ -114,8 +114,7 @@ OBJECTTYPE RemoteWebHareConnection
   {
     this->__marshall := CELL[ url, username, encpassword ];
     this->__browser := NEW WebBrowser;
-    IF(IsRPCTrafficLogged("system:adminclient"))
-      LogRPCForWebbrowser("system:adminclient", "", this->__browser);
+    LogRPCForWebbrowser("system:adminclient", "", this->__browser);
 
     this->__url := ResolvetoAbsoluteURL(url,'/');
 

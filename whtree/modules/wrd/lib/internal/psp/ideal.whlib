@@ -8,9 +8,9 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/signature.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
@@ -158,8 +158,7 @@ STATIC OBJECTTYPE IdealRequest
   {
     OBJECT browser := NEW WEBBrowser;
     browser->timeout := 10 * 1000; // iDEAL specs chapter 2.6 (performance) heeft het over een time-out na 4 seconden
-    IF(IsRPCTrafficLogged("wrd:payments.ideal"))
-      LogRPCForWebbrowser("wrd:payments.ideal", "", browser); //ADDME specify paymentref and/or remote customer ip as second parameter, if we have it, so we can easily correlate requests
+    LogRPCForWebbrowser("wrd:payments.ideal", "", browser); //ADDME specify paymentref and/or remote customer ip as second parameter, if we have it, so we can easily correlate requests
 
     /*
     STRING contenttype;

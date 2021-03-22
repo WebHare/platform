@@ -6,6 +6,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog;
+LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";
 
 /** Flushes a specific module log
     @param name Name of the log (module:logname) to flush
@@ -166,6 +167,9 @@ PUBLIC MACRO LogRPCTraffic(STRING logsource, STRING transport, BOOLEAN outgoing,
     THROW NEW Exception("A log source must be specified");
   IF(transport="")
     THROW NEW Exception("A transport must be specified");
+  IF(NOT IsRPCTrafficLogged(logsource))
+    RETURN;
+
   IF(sourcetracker="")
     sourcetracker := "-";
   IF(transactionid ="")
@@ -194,6 +198,8 @@ PUBLIC MACRO LogRPCForWebbrowser(STRING logsource, STRING sourcetracker, OBJECT 
     THROW NEW Exception("Logsource is required");
   IF (logsource NOT LIKE "*:*")
     THROW NEW Exception("Logsource must have the format <modulename>:<rpcname>");
+  IF(NOT IsRPCTrafficLogged(logsource))
+    RETURN;
 
   //ADDME nicer register api, check whether logsource has been disabled, etc..
   INSERT PTR WBTrafficHook(logsource, sourcetracker, #1,#2,#3,#4,#5) INTO webbrowser->pvt_traffichooks AT END;

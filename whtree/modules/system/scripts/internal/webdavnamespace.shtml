@@ -6,9 +6,9 @@ LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::adhoccache.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/virtualfs/api.whlib";
@@ -41,8 +41,6 @@ STRING scripturl;
 BOOLEAN prop_displayname,      prop_name,            prop_ishidden,     prop_isreadonly,
         prop_creationdate,     prop_getlastmodified, prop_resourcetype, prop_getcontenttype,
         prop_getcontentlength, prop_getlock;
-
-BOOLEAN debugwebdav := IsRPCTrafficLogged("system:webdav", [ autoenable := FALSE ]);
 
 call_method := ToUppercase(GetWebVariable("method")) ?? GetRequestMethod();
 
@@ -182,13 +180,11 @@ RECORD FUNCTION GetWebdavConfig()
 
 ****************************************************************** */
 
-IF(debugwebdav)
-  LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), FALSE, GetClientRemoteIP(), "", [ headers := GetAllWebHeaders(), body := MakeSlicedBlob(GetRequestBody(), 0, 2000), bodylength := Length(GetRequestBody())]);
+LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), FALSE, GetClientRemoteIP(), "", [ headers := GetAllWebHeaders(), body := MakeSlicedBlob(GetRequestBody(), 0, 2000), bodylength := Length(GetRequestBody())]);
 
 MACRO SendResponse(RECORD ARRAY headers, BLOB response)
 {
-  IF(debugwebdav)
-    LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), TRUE, GetClientRemoteIP(), "", [ headers := headers, body := MakeSlicedBlob(response, 0, 2000), bodylength := Length(response)]);
+  LogRPCTraffic("system:webdav", call_method || " " || GetRequestURL(), TRUE, GetClientRemoteIP(), "", [ headers := headers, body := MakeSlicedBlob(response, 0, 2000), bodylength := Length(response)]);
 
   FOREVERY(RECORD hdr FROM headers)
     AddHTTPHeader(hdr.field, hdr.value, hdr.field in ["DAV"]);
