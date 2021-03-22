@@ -3,7 +3,7 @@
 
   <meta>
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
-    <version excludefromfeedbackversions="true">1.0.0</version>
+    <version excludefromfeedbackversions="true">4.31.0</version>
     <validation>
       <exclude mask="tests/tollium/language/gettid.whscr" why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
       <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />

@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 PUBLIC STRING FUNCTION ExpandCountry(OBJECT contexts, STRING countrycode)

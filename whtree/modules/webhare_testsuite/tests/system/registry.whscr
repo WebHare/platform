@@ -5,7 +5,6 @@ LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "wh::files.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 MACRO DoKeyTests(STRING basename, STRING nodebasename)
 {

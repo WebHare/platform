@@ -9,8 +9,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/testfw/testpage.whlib";
 
-LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
-
 
 
 MACRO RunBody(OBJECT testcontext)

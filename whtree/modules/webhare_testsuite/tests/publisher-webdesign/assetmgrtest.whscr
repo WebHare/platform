@@ -4,7 +4,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
