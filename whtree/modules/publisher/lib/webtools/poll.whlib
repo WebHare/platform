@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::witty.whlib";
-LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";

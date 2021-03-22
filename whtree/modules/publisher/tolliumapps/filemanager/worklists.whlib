@@ -6,7 +6,6 @@ LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
-LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

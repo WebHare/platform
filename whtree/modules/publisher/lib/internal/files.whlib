@@ -6,9 +6,9 @@
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT MimetypeToFiletype;
-LOADLIB "mod::system/lib/cluster.whlib";
 
 PUBLIC MACRO RunAddFileHooks(INTEGER fileid)
 {

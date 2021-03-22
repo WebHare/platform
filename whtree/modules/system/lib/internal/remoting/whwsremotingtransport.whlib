@@ -3,7 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver/websocket.whlib";
 LOADLIB "mod::system/lib/internal/remoting/transportbase.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";

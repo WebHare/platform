@@ -5,7 +5,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
-LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 

@@ -6,9 +6,9 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";

@@ -6,7 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+
 
 PUBLIC INTEGER pausereason_request :=         1;
 PUBLIC INTEGER pausereason_breakpoint :=      2;

@@ -5,9 +5,9 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";

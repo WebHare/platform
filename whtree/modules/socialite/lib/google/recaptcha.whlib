@@ -1,9 +1,9 @@
 <?wh
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 
 PUBLIC STRING FUNCTION GetRecaptchaPublicKey(STRING url)

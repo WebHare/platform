@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

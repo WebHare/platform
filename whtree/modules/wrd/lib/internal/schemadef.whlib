@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 
 PUBLIC STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
 

@@ -6,7 +6,7 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";

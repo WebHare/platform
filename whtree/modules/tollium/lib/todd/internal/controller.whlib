@@ -4,13 +4,13 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/users.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
-
-LOADLIB "mod::system/lib/cluster.whlib";
 
 
 //ADDME remove these loadlibs:

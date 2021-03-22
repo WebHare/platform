@@ -6,8 +6,9 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::socialite/lib/internal/support.whlib"; //GetNodeText
 LOADLIB "mod::socialite/lib/internal/networkconnectionbase.whlib" EXPORT NetworkConnectionBase;

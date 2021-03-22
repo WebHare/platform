@@ -10,7 +10,6 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webapi/geonames.whlib";
 LOADLIB "mod::system/lib/webapi/oauth2.whlib";

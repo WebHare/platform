@@ -2,10 +2,10 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
-
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
 < // ---------------------------------------------------------------------------

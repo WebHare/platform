@@ -5,9 +5,9 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";

@@ -2,7 +2,7 @@
 /** @topic modules/resources */
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

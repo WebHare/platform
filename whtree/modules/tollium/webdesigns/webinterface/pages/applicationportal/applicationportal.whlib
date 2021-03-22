@@ -10,13 +10,12 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";

@@ -8,8 +8,8 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib" EXPORT DescribeCo
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject;
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 

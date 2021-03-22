@@ -7,7 +7,7 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 

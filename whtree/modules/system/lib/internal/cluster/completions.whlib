@@ -6,8 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
