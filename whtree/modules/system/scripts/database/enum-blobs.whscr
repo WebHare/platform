@@ -1,7 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
+//LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -9,7 +9,23 @@ LOADLIB "mod::system/lib/database.whlib";
 OBJECT trans := OpenPrimary();
 RECORD ARRAY blobs;
 
-RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB" ORDER BY table_schema, table_name, column_name;
+RECORD ARRAY relevant_columns;
+FOREVERY(RECORD schemarec FROM trans->GetSchemaListing())
+  FOREVERY(RECORD tablerec FROM trans->GetTableListing(schemarec.schema_name))
+  {
+    IF(schemarec.schema_name = "webhare_internal" AND tablerec.table_name = "blob")
+      CONTINUE;
+
+    FOREVERY(RECORD columnrec FROM trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
+      IF(columnrec.data_type in ["BLOB","webhare_blob"]) //WHDB or PSQL blob types
+        INSERT CELL [ table_schema := schemarec.schema_name
+                    , tablerec.table_name
+                    , columnrec.column_name
+                    , tablerec.primary_key_name
+                    ] INTO relevant_columns AT END;
+  }
+
+//RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB" ORDER BY table_schema, table_name, column_name;
 FOREVERY(RECORD col FROM relevant_columns)
 {
   IF (col.table_schema = "WRD")
@@ -19,10 +35,11 @@ FOREVERY(RECORD col FROM relevant_columns)
   FlushOutputBuffer();
 
   OBJECT q := NEW DynamicQuery;
-  BOOLEAN have_id := trans->ColumnExists(col.table_schema, col.table_name, "ID");
+  BOOLEAN have_id := ToUppercase(col.primary_key_name) = "ID";
+  trans->ColumnExists(col.table_schema, col.table_name, col.primary_key_name);
   STRING ARRAY getcols := [STRING(col.column_name)];
   IF(have_id)
-    INSERT "ID" INTO getcols AT END;
+    INSERT col.primary_key_name INTO getcols AT END;
 
   STRING tablename := col.table_schema||"."||col.table_name;
   STRING colname := col.column_name;
@@ -133,7 +150,7 @@ RECORD ARRAY lsubs :=
          , size
          , size_mb :=       size / 1024 / 1024
          , size_gb :=       size / 1024 / 1024 / 1024
-         , perc :=          size / (totalfiles / 100)
+         , perc :=          totalfiles = 0 ? 0 : size / (totalfiles / 100)
       FROM final.subs
      WHERE newthr
   ORDER BY name;/*DESC;

@@ -301,12 +301,27 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
 
 RECORD ARRAY FUNCTION UnpackCTYPEFormCondition(INTEGER type, RECORD condition, OBJECT tolliumuser, STRING mybasename, BOOLEAN canedit, BOOLEAN orphan)
 {
+  IF(CellExists(condition,'conditions'))
+  {
+    RETURN [ CELL[ ...dbinfo_baserow
+                 , name := "matchtype"
+                 , data := condition.matchtype
+                 , rowkey := mybasename || 'matchtype'
+                 , type := "array"
+                 , subnodes := (SELECT AS RECORD ARRAY UnpackCTYPEFormCondition(type, conditions, tolliumuser, `${mybasename}[${#conditions}]`, canedit, orphan)
+                                  FROM condition.conditions)
+
+                 , original := condition
+                 ]
+           ];
+  }
+
   RETURN [ CELL[ ...dbinfo_baserow
                , name := "field"
-               , data := condition.field
+               , data := CellExists(condition,'field')?condition.field : ""
                , rowkey := mybasename || 'field'
                , type := "string"
-               , original := condition.field
+               , original := CellExists(condition,'field')?condition.field : ""
                ]
          , CELL[ ...dbinfo_baserow
                , name := "matchtype"

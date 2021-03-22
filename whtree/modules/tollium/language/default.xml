@@ -990,6 +990,7 @@
     <text tid="mailcc">Cc</text>
     <text tid="mailfrom">From</text>
     <text tid="mailto">To</text>
+    <text tid="manage">Manage</text>
     <text tid="mimetype">MIME type</text>
     <text tid="modificationdate">Modification date</text>
     <text tid="moveto">Move To</text>

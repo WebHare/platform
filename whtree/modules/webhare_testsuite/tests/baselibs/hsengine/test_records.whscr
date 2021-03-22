@@ -528,6 +528,8 @@ MACRO UnpackRepackTest()
   TestEq([x := 42, y:=43], RepackRecord(UnpackRecord([x:=42,y:=43])));
   TestThrows(PTR RepackRecord([[name := "x", value := 42],[name := "x", value := 42]]));
 
+  TestEq([x := 42], PickCells([x:=42, y:=43], [ "x", "z" ]));
+  TestThrows(PTR PickCells([x:=42, y:=43], [ "x", "X" ]));
 
   CloseTest("TestRecords: UnpackRepackTest");
 }
