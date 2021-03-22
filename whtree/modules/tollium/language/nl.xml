@@ -745,6 +745,7 @@
         <text tid="alttext">Alternatieve tekst</text>
         <text tid="destination">Bestemming</text>
         <text tid="dimensions">Afmetingen</text>
+        <text tid="downloadoriginal">Download origineel</text>
         <text tid="height">Hoogte</text>
         <text tid="hyperlink">Hyperlink</text>
         <text tid="imageproperties">Eigenschappen van afbeelding</text>
