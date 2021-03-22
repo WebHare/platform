@@ -590,6 +590,7 @@
     </textgroup>
     <textgroup gid="emailcontents">   <!-- components.emailcontents -->
       <text tid="errorsto">Errors-To</text>
+      <text tid="origin">Bron</text>
       <text tid="replyto">Antwoorden op</text>
     </textgroup>
     <textgroup gid="file">   <!-- components.file -->

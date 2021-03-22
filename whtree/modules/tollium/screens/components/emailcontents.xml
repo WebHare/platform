@@ -14,6 +14,7 @@
         <text name="mailcc" width="1pr" wordwrap="true" tid="~mailcc" />
         <text name="mailbcc" width="1pr" wordwrap="true" tid="~mailbcc" />
         <text name="mailsubject" width="1pr" wordwrap="true" tid="~subject" />
+        <text name="origin" width="1pr" wordwrap="true" visible="false" />
         <text name="errorsto" width="1pr" wordwrap="true" />
       </panel>
       <split type="vertical" height="1pr">

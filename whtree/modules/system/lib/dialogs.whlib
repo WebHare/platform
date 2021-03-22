@@ -35,13 +35,13 @@ PUBLIC MACRO RunWittyTestDialog(OBJECT parent, RECORD data, RECORD options DEFAU
 /** @short Run a dialog to (pre)view a single mail
     @param parent Screen or controller loading this dialog
     @param email Email (as message/rfc822, also known as .EML)
-    @param options No options available yet
+    @cell(string) options.origin Origin of the message (used to be in X-WebHare-Origin)
 */
 PUBLIC MACRO RunEmailViewDialog(OBJECT parent, BLOB email, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions(CELL[ origin := "" ], options);
 
-  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", [ mailblob := email ]);
+  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", [ mailblob := email, origin := options.origin ]);
 }
 
 /** @short Run a dialog to test and preview %PrepareMailWitty email

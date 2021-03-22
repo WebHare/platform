@@ -558,7 +558,7 @@ True if this is an allow rule
       </d:varchar>
       <d:varchar name="originmask" maxlength="256">
         <d:documentation>
-          Wildcard mask to match against the mail origin (the X-WebHare-Origin header)
+          Wildcard mask to match against the mail origin (former X-WebHare-Origin header)
         </d:documentation>
       </d:varchar>
       <d:varchar name="mask" maxlength="4096">

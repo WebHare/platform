@@ -964,7 +964,7 @@ PUBLIC MACRO SendMIMEHeaderTo(RECORD ARRAY headers, MACRO PTR receivefunction, R
         receivefunction(header_.field || ": " || finallist);
     }
     //Encodable headers (ADDME: complete the list) - we cannot just encode any header
-    ELSE IF (ToUppercase(header_.field) IN ["SUBJECT","X-WEBHARE-ORIGIN"] AND NOT options.rawheaders)
+    ELSE IF (ToUppercase(header_.field) IN ["SUBJECT"] AND NOT options.rawheaders)
     {
       receivefunction(header_.field || ": " || EncodeMIMEWords(value));
     }
