@@ -233,6 +233,7 @@ export default class RPCClient
                                    , method: method
                                    , params: params || []
                                    })
+                       , keepalive: Boolean(options.keepalive)
                        };
 
     return new ControlledCall(this, method, stack, id, options, callurl, fetchoptions).promise;
