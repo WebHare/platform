@@ -39,6 +39,14 @@ test.registerTests(
         test.eq(test.compByName('textedit3').getBoundingClientRect().top,    datecomp.nextSibling.getBoundingClientRect().top, "Top line of textedit#3 and date topright should align");
         test.eq(test.compByName('textedit3').getBoundingClientRect().bottom, datecomp.nextSibling.getBoundingClientRect().bottom, "Bottom line of textedit#3 and date topright should align");
 
+        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock').getBoundingClientRect().top, "Top line of textarea and inline block should align");
+        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock').getBoundingClientRect().bottom, "Bottom line of textarea and inline block should align");
+
+        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock_list').getBoundingClientRect().top, "Top line of textarea and inline block list should align");
+        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock_list').getBoundingClientRect().bottom, "Bottom line of textarea and inline block list should align");
+
+        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('imgedit!preview').getBoundingClientRect().top, "Top line of textarea and imgedit should align");
+        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('imgedit!preview').getBoundingClientRect().bottom, "Bottom line of textarea and imgedit should align");
       }
     }
 

@@ -1,6 +1,7 @@
 t-inlineblock
 {
   position:relative;
+  margin-top:2px; // like a textarea
 }
 
 html.debug-grid t-inlineblock:before
