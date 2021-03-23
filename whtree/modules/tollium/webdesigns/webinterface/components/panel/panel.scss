@@ -1,0 +1,122 @@
+/****************************************************************************************************************************
+ * Panel
+ */
+
+t-panel
+{
+  position:relative;
+  display: block;
+}
+/* SYNC-SPACERS: these values must sync up with $todd.settings.spacer_top */
+t-panel.spacer-top
+{
+  padding-top:10px;
+}
+t-panel.spacer-bottom
+{
+  padding-bottom:10px;
+}
+t-panel.spacer-left
+{
+  padding-left:10px;
+}
+t-panel.spacer-right
+{
+  padding-right:10px;
+}
+
+html.debug-grid t-panel:before
+{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  background: repeating-linear-gradient(#ffffff, #ffffff 27px, #00ff00 28px) top left;
+}
+/* SYNC-SPACERS-DEBUG: these values must sync up with $todd.settings.spacer_top */
+html.debug-grid t-panel.spacer-top:before
+{
+  top:10px;
+}
+html.debug-grid t-panel.spacer-bottom:before
+{
+  bottom:10px;
+}
+html.debug-grid t-panel.spacer-left:before
+{
+  left:10px;
+}
+html.debug-grid t-panel.spacer-right:before
+{
+  right:10px;
+}
+
+
+t-panel > .panel-area > div.line
+{
+  white-space: nowrap; /* ensure items don't walk off the lines by themselves just because of a simple layout error.. */
+}
+t-panel > .panel-area > div.line > *
+{
+  display: inline-block;
+  vertical-align:top;
+  position: relative;
+}
+t-panel > .panel-area > div.line > select
+{
+  margin-top:2px;
+}
+/* SYNC-SPACERWIDTH */
+t-panel > .panel-area > div.line > * + *
+{
+  margin-left:4px;
+}
+
+/* SYNC-BORDERS: these values must sync up with $todd.settings.border_top */
+t-panel.border-top
+{
+  border-top-width:1px;
+}
+t-panel.border-bottom
+{
+  border-bottom-width:1px;
+}
+t-panel.border-left
+{
+  border-left-width:1px;
+}
+t-panel.border-right
+{
+  border-right-width:1px;
+}
+
+/* line 539, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.form > span:first-child
+{
+  display: inline-block;
+  vertical-align: top;
+  /* allow titleholder to set its size */
+
+}
+/* line 544, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.center {
+  text-align: center;
+}
+/* line 549, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-panel > .panel-area > div.right {
+  text-align: right;
+}
+/* line 555, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  t-panel > .panel-area > div.center *
+, t-panel > .panel-area > div.right *
+{
+  text-align: left;
+}
+
+t-panel > .panel-area > div.line > t-textarea
+{
+  margin-top: 2px;
+}
+
