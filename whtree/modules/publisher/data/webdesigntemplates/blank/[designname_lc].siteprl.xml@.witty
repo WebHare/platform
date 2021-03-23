@@ -89,7 +89,7 @@
         <addheader header="X-Content-Type-Options" value="nosniff"/>
         <addheader header="Referrer-Policy" value="strict-origin-when-cross-origin"/>
         <addheader header="Feature-Policy" value="geolocation 'none'; camera 'none'; payment 'none'; microphone 'none'"/>
-        <csp policy="script-src 'self'; frame-ancestors [[webhare]" />
+        <csp policy="script-src 'self'; frame-ancestors 'self' [[webhare]" />
       </webrule>
     </webruleset>
   </sitesettings>
