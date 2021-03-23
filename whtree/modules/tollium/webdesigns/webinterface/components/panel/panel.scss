@@ -25,7 +25,7 @@ t-panel.spacer-right
   padding-right:10px;
 }
 
-html.debug-grid t-panel:before
+html.dompack--debug-rll t-panel:before
 {
   content:"";
   position:absolute;
@@ -36,19 +36,19 @@ html.debug-grid t-panel:before
   background: repeating-linear-gradient(#ffffff, #ffffff 27px, #00ff00 28px) top left;
 }
 /* SYNC-SPACERS-DEBUG: these values must sync up with $todd.settings.spacer_top */
-html.debug-grid t-panel.spacer-top:before
+html.dompack--debug-rll t-panel.spacer-top:before
 {
   top:10px;
 }
-html.debug-grid t-panel.spacer-bottom:before
+html.dompack--debug-rll t-panel.spacer-bottom:before
 {
   bottom:10px;
 }
-html.debug-grid t-panel.spacer-left:before
+html.dompack--debug-rll t-panel.spacer-left:before
 {
   left:10px;
 }
-html.debug-grid t-panel.spacer-right:before
+html.dompack--debug-rll t-panel.spacer-right:before
 {
   right:10px;
 }
