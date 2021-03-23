@@ -1,0 +1,81 @@
+t-inlineblock
+{
+  position:relative;
+}
+
+html.debug-grid t-inlineblock:before
+{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  background: repeating-linear-gradient(#ffffff, #ffffff 27px, #00ff00 28px) top left;
+}
+
+t-inlineblock > .panel-area > div.line
+{
+  white-space: nowrap; /* ensure items don't walk off the lines by themselves just because of a simple layout error.. */
+}
+t-inlineblock > .panel-area > div.line > *
+{
+  display: inline-block;
+  vertical-align:top;
+  position: relative;
+}
+/* SYNC-SPACERWIDTH */
+t-inlineblock > .panel-area > div.line > * + *
+{
+  margin-left:4px;
+}
+t-inlineblock > .panel-area > div.line > t-text
+{
+  margin-top:6px;
+}
+
+/* SYNC-BORDERS: these values must sync up with $todd.settings.border_top */
+t-inlineblock.border-top
+{
+  border-top-width:1px;
+}
+t-inlineblock.border-bottom
+{
+  border-bottom-width:1px;
+}
+t-inlineblock.border-left
+{
+  border-left-width:1px;
+}
+t-inlineblock.border-right
+{
+  border-right-width:1px;
+}
+
+/* line 539, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.form > span:first-child
+{
+  display: inline-block;
+  vertical-align: top;
+  /* allow titleholder to set its size */
+
+}
+/* line 544, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.center {
+  text-align: center;
+}
+/* line 549, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+t-inlineblock > .panel-area > div.right {
+  text-align: right;
+}
+/* line 555, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
+  t-inlineblock > .panel-area > div.center *
+, t-inlineblock > .panel-area > div.right *
+{
+  text-align: left;
+}
+
+t-inlineblock > .panel-area > div.line > t-textarea
+{
+  margin-top: 3px;
+}
