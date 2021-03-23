@@ -930,6 +930,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN ResolveToAbsoluteURL(this->baseurl, inurl);
   }
 
+  /** Get the maximum content width in pixels
+      @return Width in pixels, 0 if not set */
   PUBLIC INTEGER FUNCTION GetMaximumContentWidthPixels()
   {
     IF(this->maxcontentwidth LIKE "*px")
@@ -1584,7 +1586,7 @@ PUBLIC OBJECTTYPE WebDesignPluginBase
     RETURN names;
   }
 
-  /** Override with a function that parses node. Unless you override ListSetAttributes too, the cellnames used in the returned
+  /** Override with a function that parses node. Unless you override ListConfigurationNodeAttributes too, the cellnames used in the returned
       record must match the attribute names */
   PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {

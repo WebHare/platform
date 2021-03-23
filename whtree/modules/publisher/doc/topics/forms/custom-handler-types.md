@@ -8,7 +8,7 @@
           <forms:formhandler
             tid="module.forms.myhandler"
             descriptiontid="module.forms.myhandlerdesc"
-            handlerobject="myhandler.whlib#myhandler"
+            handlertask="module:taskname"
             editextension="myhandler.xml#settings"
             parserfunc="myhandler.whlib#myparser"
             />
@@ -62,7 +62,8 @@ PUBLIC RECORD FUNCTION MyParser(RECORD fielddef, OBJECT node, RECORD parsecontex
 
 You should use a 'managedtask' for processing form results wherever possible, as this reduces the chances for form submissions to fail due to errors in your task handling. Managedtasks are also easier to restart/debug than  online processing.
 
-To link up a form handler to a managed task, add a handlertask attribute to its <formhandler> node in the formdef.xsd, set up a managedtask in the moduledefinition, and make sure your implementation derives from FormHandlerTaskBase (not ManagedTaskBase or FormHandlerBase)
+To link up a form handler to a managed task, add a `handlertask` attribute to its `<formhandler>` node in the formdef.xsd, set up a managedtask in the moduledefinition,
+  and make sure your implementation derives from FormHandlerTaskBase (not ManagedTaskBase or FormHandlerBase)
 
 ```harescript
 PUBLIC OBJECTTYPE MailResultsTask EXTEND FormHandlerTaskBase
@@ -84,4 +85,13 @@ To enable the custom handler, tell your site profile about it. This can be done 
   <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
   <allowformhandler type="http://www.mysite.net/xmlns/forms#*" />
 </apply>
+```
+
+## Handler objects
+To integrate with the form as it's being rendered or filled in, you need to set up a handler. Add a `handlerobject` to the `<formhandler>`
+
+```harsecript
+PUBLIC STATIC OBJECTTYPE MyHnadler EXTEND FormHandlerBase
+<
+>;
 ```
