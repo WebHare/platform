@@ -3,7 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+
 LOADLIB "mod::socialite/lib/internal/oauth.whlib";
 
 

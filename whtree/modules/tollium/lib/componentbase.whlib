@@ -8,8 +8,8 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";

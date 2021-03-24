@@ -9,8 +9,6 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-LOADLIB "mod::wrd/lib/payments.whlib";
-
 LOADLIB "mod::wrd/lib/testfw/payments.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";

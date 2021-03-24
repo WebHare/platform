@@ -1,8 +1,8 @@
 <?wh
 /** @topic tollium-components/base */
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";

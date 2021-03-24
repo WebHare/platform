@@ -1,13 +1,12 @@
 ﻿<?wh
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
-LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 

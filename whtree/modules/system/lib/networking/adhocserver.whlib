@@ -6,8 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE AdHocServer

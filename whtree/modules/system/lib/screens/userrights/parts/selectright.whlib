@@ -4,9 +4,9 @@
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
 

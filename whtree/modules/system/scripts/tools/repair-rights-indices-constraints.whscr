@@ -3,7 +3,6 @@
 LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 OBJECT trans := OpenPrimary();
 

@@ -1,6 +1,6 @@
 ﻿<?wh
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/components/panel.whlib";

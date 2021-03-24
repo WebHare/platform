@@ -3,8 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC BOOLEAN __disable_compilable_lockmgr;

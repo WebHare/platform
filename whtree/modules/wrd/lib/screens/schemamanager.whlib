@@ -3,8 +3,8 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";

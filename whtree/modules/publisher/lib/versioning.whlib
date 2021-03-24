@@ -1,13 +1,10 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
-
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/policybase.whlib" EXPORT VersioningPolicyBase, VersioningObjectPolicyBase;
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/versioning/versioning.whlib";
 

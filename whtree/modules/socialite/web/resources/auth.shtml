@@ -1,8 +1,8 @@
 ﻿<?wh
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::socialite/lib/api.whlib";
 

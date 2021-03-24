@@ -1,9 +1,9 @@
 <?wh
 
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";

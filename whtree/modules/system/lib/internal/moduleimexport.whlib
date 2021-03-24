@@ -18,7 +18,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
-LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";

@@ -14,10 +14,10 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 
 
 /** @short Are we in a dynamic page?

@@ -4,9 +4,9 @@ LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";

@@ -2,7 +2,8 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/graphs.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";

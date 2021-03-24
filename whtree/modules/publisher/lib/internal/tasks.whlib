@@ -6,8 +6,8 @@ LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

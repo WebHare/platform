@@ -11,9 +11,9 @@ LOADLIB "wh::graphics/filters.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";

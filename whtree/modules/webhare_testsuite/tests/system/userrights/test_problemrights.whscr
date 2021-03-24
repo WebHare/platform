@@ -1,8 +1,6 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -10,9 +8,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
-LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
-LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 

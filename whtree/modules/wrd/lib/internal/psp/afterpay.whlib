@@ -3,9 +3,9 @@
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internet/soap.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
-
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 

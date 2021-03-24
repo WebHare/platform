@@ -8,7 +8,6 @@ LOADLIB "wh::internal/saml.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";

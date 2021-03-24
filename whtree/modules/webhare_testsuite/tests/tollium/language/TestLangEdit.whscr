@@ -1,14 +1,12 @@
 ﻿<?wh
 /* LangEdit.whscr is mixed case to allow us to test tid scanner on mixedcase files */
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/langedit/langeditor.whlib";
 
 BLOB testdata1 := StringToBlob(

@@ -5,9 +5,9 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 

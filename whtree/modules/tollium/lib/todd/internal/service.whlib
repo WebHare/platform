@@ -6,8 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/configure.whlib";

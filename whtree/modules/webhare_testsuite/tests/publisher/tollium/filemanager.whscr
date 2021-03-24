@@ -5,7 +5,6 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

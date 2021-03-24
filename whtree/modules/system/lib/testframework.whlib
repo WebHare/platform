@@ -20,8 +20,8 @@ LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, T
 LOADLIB "mod::consilio/lib/internal/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";

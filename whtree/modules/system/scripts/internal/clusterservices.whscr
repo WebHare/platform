@@ -2,7 +2,7 @@
 
 LOADLIB "wh::ipc.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/cluster/mutexmgr.whlib";
 
 

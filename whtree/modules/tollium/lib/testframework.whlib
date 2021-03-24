@@ -12,10 +12,10 @@ LOADLIB "wh::util/comparisons.whlib";
 
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/components/action.whlib";

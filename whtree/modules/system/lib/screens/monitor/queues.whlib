@@ -1,6 +1,8 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
@@ -10,7 +12,6 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 DATETIME FUNCTION DecodeDateTimeString(STRING dt)
 {

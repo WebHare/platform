@@ -22,9 +22,9 @@ LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser.whlib";
 LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
