@@ -542,53 +542,6 @@ PUBLIC OBJECT FUNCTION OpenWRDAuthDomainById(OBJECT wrdschema, INTEGER domainid)
     RETURN DEFAULT OBJECT;
 }
 
-// Writes an audit log event to the database in separated transactions
-MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING ip, STRING login, BOOLEAN isimpersonation, RECORD message)
-{
-  type := ToLowercase(type);
-  IF(type NOT LIKE "?*:?*")
-    THROW NEW Exception(`Invalid audit event type '${type}'`);
-
-  RECORD toinsert := CELL[ creationdate := GetCurrentDatetime()
-                         , wrdschema :=    accounttype->wrdschema->id
-                         , entity :=       account
-                         , impersonated := isimpersonation
-                         , login
-                         , ip
-                         , type
-                         , data := RecordExists(message) ? EncodeHSON(message) : ""
-                         ];
-
-  LogAuditEventBy("wrd:auth", CELL[ entityid := account, login ],
-      CELL[ type
-          , ip
-          , login
-          , isimpersonation
-          , message
-          , wrdschema :=      accounttype->wrdschema->tag
-          ]);
-
-  GetPrimary()->BeginWork();
-  INSERT toinsert INTO wrd.auditevents;
-
-  TRY
-  {
-    GetPrimary()->CommitWork();
-    RETURN;
-  }
-  CATCH(OBJECT e)
-  {
-    //if commit fails, we might be racing against deletion of the entity (especially when logging out of a cleaned up wrd schema). are we ?
-    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = VAR account))
-      RETURN; //okay, we can live with this
-
-    //retry once more, but if this fails, too bad
-    GetPrimary()->BeginWork();
-    INSERT toinsert INTO wrd.auditevents;
-    GetPrimary()->CommitWork();
-  }
-}
-
 STATIC OBJECTTYPE WRDAuthIntegration
 <
   OBJECT pvt_service;
@@ -1071,7 +1024,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ logauditevent := TRUE ], options);
+    options := ValidateOptions([ logauditevent := TRUE, browsertriplet := "" ], options);
 
     INTEGER entityid := this->GetLoggedinEntity();
     this->loggedinentity := -1;
@@ -1090,24 +1043,21 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
     IF(entityid != 0 AND options.logauditevent)
     {
-      this->WriteAuditEvent("wrd:logout",
+      this->WriteAuditEvent("wrd:logout", CELL
           [ account := entityid > 0 ? entityid : 0
           , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+          , options.browsertriplet
           ]);
     }
   }
 
+  /** Writes a audit event to the logs in a separate transction
+      @param type Audit event type
+      @param options @includecelldef #WriteWRDAuditEvent.options
+  */
   PUBLIC MACRO WriteAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(
-        [ account := 0
-        , remoteip := IsRequest() ? GetClientRemoteIp() : ""
-        , login := ""
-        , isimpersonation := FALSE
-        , message := DEFAULT RECORD
-        ], options);
-
-    RunInSeparatePrimary(PTR DoWriteAuditEvent(this->service->accounttype, type, options.account, options.remoteip, options.login, options.isimpersonation, options.message));
+    WriteWRDAuditEvent(this->service->accounttype, type, options);
   }
 >;
 

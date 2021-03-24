@@ -412,10 +412,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /** Handles requesting a password reset link for a forgotten password. Sends an e-mail if a user witht his email address is known.
       @param email E-mail address of the user
       @cell options.currenturl URL of the login page
+      @cell options.browsertriplet Browser triplet
   */
   PUBLIC MACRO HandleForgotPassword(STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ currenturl := ""
+                               , browsertriplet := ""
                                ], options);
     IF(options.currenturl = "")
       options.currenturl := GetFormRequestURL();
@@ -426,6 +428,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->LogCustomAuditEvent("wrd:forgotpassword",
         [ account := match
         , login := email
+        , browsertriplet := options.browsertriplet
         ]);
 
     IF(match = 0)
@@ -654,16 +657,21 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** Log the user out.
       @cell options.explicit Set to true if the user explicitly requested to logout (eg clicked a logout linK)
+      @cell options.browsertriplet Browser triplet
   */
   PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([explicit := TRUE], options);
+    options := ValidateOptions(
+        [ explicit := TRUE
+        , browsertriplet := ""
+        ], options);
 
     INTEGER entityid := this->GetLoggedinEntity();
     IF(entityid != 0 AND options.explicit)
     {
       this->LogCustomAuditEvent("wrd:logout",
           [ account := entityid
+          , browsertriplet := options.browsertriplet
           ]);
     }
 
@@ -725,6 +733,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @param is_impersonation Whether this is an impersonated login
       @cell options.allowlogout Whether to allow logout (defaults to TRUE)
       @cell options.setcookies Set cookies (defaults to TRUE)
+      @cell options.browsertriplet Browser triplet
       @return @includecelldef legacy-api.whlib#WRDAuthIntegration::LoginById.return
   */
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -732,6 +741,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ allowlogout := TRUE
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
+                               , browsertriplet := ""
                                ], options);
 
     this->CheckNotFailed();
@@ -748,6 +758,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                               , [ account :=  userid
                                 , isimpersonation := is_impersonation
                                 , message := options.auditmessage
+                                , browsertriplet := options.browsertriplet
                                 ]);
 
 
@@ -789,6 +800,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell options.samlidpreq Encrypted SAML idp request (pass as posted to login page in webvariable 'samlidpreq')
       @cell options.challenge Login challenge string (encrypted)
       @cell options.returnto Return URL
+      @cell options.browsertriplet Browser triplet
       @return Login result
       @cell return.success Whether the user was logged in successfully
       @cell return.code Login error code
@@ -807,6 +819,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , allowlogout := TRUE
                                , firstloginfield := ""
                                , lastloginfield := ""
+                               , browsertriplet := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
@@ -856,6 +869,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                 , [ account :=  entityid
                                   , login := options.auditloginname ?? loginname
                                   , message := options.auditmessage
+                                  , browsertriplet := options.browsertriplet
                                   ]);
 
       IF (trylogin.success)
@@ -920,6 +934,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           this can be used to overwrite it
       @cell(string) options.login The login name used for this event, if known
       @cell(record) options.message Optional extra data
+      @cell(integer) options.byaccount Id of the account that made the change. If 'byaccount' and 'bylogin' are both set
+          to their default value, the contents of the option 'account' is used.
+      @cell(integer) options.bylogin The login name of the account that made the change. If 'byaccount' and 'bylogin' are both set
+          to their default value, the contents of the option 'login' is used.
   */
   PUBLIC MACRO LogCustomAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1078,9 +1096,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** @short Change the loggedin user's password. We expect the caller to handle our transaction
       @param newpassword New password
+      @cell(string) options.browsertriplet Browser triplet
   */
-  PUBLIC MACRO UpdateCurrentUserPassword(STRING newpassword)
+  PUBLIC MACRO UpdateCurrentUserPassword(STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ browsertriplet := ""
+                               ], options);
+
     INTEGER entity := this->GetLoggedinEntity();
     IF(entity = 0)
       THROW NEW Exception("Not logged in");
@@ -1092,6 +1114,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         [ account := entity
         , remoteip := IsRequest() ? GetClientRemoteIp() : ""
         , message := [ previouspasswordhash := previouspasswordhash ]
+        , browsertriplet := options.browsertriplet
         ]);
   }
 

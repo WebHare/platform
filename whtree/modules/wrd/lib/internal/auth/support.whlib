@@ -7,6 +7,8 @@ LOADLIB "wh::util/otp.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
@@ -205,4 +207,94 @@ PUBLIC RECORD FUNCTION UpdateAuthenticationSettings(RECORD curvalue, RECORD newv
   }
 
   RETURN IsDefaultAuthenticationSettings(newvalue) ? DEFAULT RECORD : newvalue;
+}
+
+/** Writes a audit event to the logs in a separate transction
+    @param(object %WRDType2017) wrdtype Relevant wrd type
+    @param type Audit event type
+    @cell options.account WRD ID of account that is being modified
+    @cell options.login Login name of account that is being modified
+    @cell options.remoteip Remote IP
+    @cell options.browsertriplet Browser triplit
+    @cell options.isimpersonation Whether this is an impersonation
+    @cell(record) options.message Additional data
+    @cell(integer) options.byaccount If executed by another user, user WRD id
+    @cell(integer) options.bylogin If executed by another user, user login
+*/
+PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ account := 0
+      , login := ""
+      , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+      , browsertriplet := ""
+      , isimpersonation := FALSE
+      , message := DEFAULT RECORD
+      , byaccount := 0
+      , bylogin := ""
+      ], options);
+
+  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.remoteip, options.browsertriplet, options.login, options.isimpersonation, options.message, options.byaccount, options.bylogin));
+}
+
+// Writes an audit log event to the database in separated transactions
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING ip, STRING browsertriplet, STRING login, BOOLEAN isimpersonation, RECORD message, INTEGER byaccount, STRING bylogin)
+{
+  type := ToLowercase(type);
+  IF(type NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid audit event type '${type}'`);
+
+  // If byaccount and bylogin are both empty, assume that the operation is executed by the referenced user
+  IF (byaccount = 0 AND bylogin = "")
+  {
+    byaccount := account;
+    bylogin := login;
+  }
+
+  RECORD toinsert := CELL[ creationdate := GetCurrentDatetime()
+                         , wrdschema :=    accounttype->wrdschema->id
+                         , entity :=       account
+                         , impersonated := isimpersonation
+                         , login
+                         , ip
+                         , browsertriplet
+                         , type
+                         , byentity :=     byaccount
+                         , bylogin
+                         , data := RecordExists(message) ? EncodeHSON(message) : ""
+                         ];
+
+
+  LogAuditEventBy("wrd:auth", CELL[ entityid := byaccount, login := bylogin ],
+      CELL[ type
+          , ip
+          , browsertriplet
+          , account
+          , login
+          , isimpersonation
+          , message
+          , byaccount
+          , bylogin
+          , wrdschema :=      accounttype->wrdschema->tag
+          ]);
+
+  GetPrimary()->BeginWork();
+  INSERT toinsert INTO wrd.auditevents;
+
+  TRY
+  {
+    GetPrimary()->CommitWork();
+    RETURN;
+  }
+  CATCH(OBJECT e)
+  {
+    //if commit fails, we might be racing against deletion of the entity (especially when logging out of a cleaned up wrd schema). are we ?
+    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = VAR account))
+      RETURN; //okay, we can live with this
+
+    //retry once more, but if this fails, too bad
+    GetPrimary()->BeginWork();
+    INSERT toinsert INTO wrd.auditevents;
+    GetPrimary()->CommitWork();
+  }
 }

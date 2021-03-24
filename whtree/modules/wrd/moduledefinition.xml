@@ -635,11 +635,17 @@
       <d:boolean name="impersonated" />
       <d:varchar name="ip" maxlength="64">
       </d:varchar>
+      <d:varchar name="browsertriplet" maxlength="64">
+      </d:varchar>
       <d:varchar name="login" maxlength="128">
       </d:varchar>
       <d:varchar name="type" maxlength="64" nullable="false">
       </d:varchar>
       <d:varchar name="data" maxlength="4096">
+      </d:varchar>
+      <d:integer name="byentity" references="wrd.entities" ondelete="set default">
+      </d:integer>
+      <d:varchar name="bylogin" maxlength="128">
       </d:varchar>
     </d:table>
 
