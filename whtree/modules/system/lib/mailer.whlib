@@ -1111,7 +1111,7 @@ STATIC OBJECTTYPE WittyMailComposer
   PUBLIC STRING mailsendername;
   ///Mail sender. If not set it will use the `wh-mailcomposer-from` META tag and if that's unset, the server's default sender address
   PUBLIC STRING mailfrom;
-  ///Origin to locate this mail in the mailqueue. Is added as the `X-WebHare-Origin` header in the outgoing mail. Defaults to the witty path
+  ///Origin to locate this mail in the mailqueue. Defaults to the witty path
   PUBLIC STRING origin;
   ///Error-To address that should receive any bounce messages. Falls back to the mailform if not set.
   PUBLIC STRING errorsto;

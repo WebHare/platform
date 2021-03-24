@@ -33,7 +33,6 @@ PUBLIC RECORD FUNCTION CreateMailFromTask(RECORD mailtask)
 
   RECORD ARRAY baseheaders := GetSMTPEmailHeader(sender, "", "");
 
-  INSERT INTO baseheaders(field,value) VALUES("X-WebHare-Origin", mailtask.origin) AT END;
   IF(CellExists(mailtask,'MESSAGEID'))
     INSERT [ field := "Message-Id", value := mailtask.messageid ] INTO mimeheaders AT END;
 

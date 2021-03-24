@@ -233,7 +233,12 @@ PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
 
   PUBLIC MACRO Init(RECORD data)
   {
+    data := ValidateOptions([ mailblob := DEFAULT BLOB
+                            , origin := ""
+                            ], data);
+
     this->original := data.mailblob;
+    ^mailcontents->origin := data.origin;
     ^mailcontents->LoadEML(data.mailblob);
   }
 

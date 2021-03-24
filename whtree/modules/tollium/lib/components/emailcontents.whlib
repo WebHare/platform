@@ -47,6 +47,7 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
 
   BLOB __htmlsource;
   PUBLIC PROPERTY htmlsource(__htmlsource, -);
+  PUBLIC PROPERTY origin(this->^origin->value, SetOrgin);
 
   MACRO NEW()
   {
@@ -86,6 +87,12 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
     RETURN RecordExists(match) ? match.link : inlink;
   }
 
+  MACRO SetOrgin(STRING neworigin)
+  {
+    ^origin->value := neworigin;
+    ^origin->visible := neworigin != "";
+  }
+
   MACRO Refresh()
   {
     ^mailfrom->value         := RecordExists(this->decodedmsg) ? this->decodedmsg.sender : "";
@@ -95,6 +102,13 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
     ^replyto->value          := RecordExists(this->decodedmsg) ? this->decodedmsg.replyto : "";
     ^mailsubject->value      := (RecordExists(this->decodedmsg) ? this->decodedmsg.subject : "");
     ^attachmentrows->rows    := RecordExists(this->decodedmsg) ? GetAttachments(this->decodedmsg.data) : RECORD[];
+
+    IF(RecordExists(this->decodedmsg))
+    {
+      RECORD returnpath := SELECT * FROM this->decodedmsg.headers WHERE ToUppercase(field) = ToUppercase("RETURN-PATH");
+      IF(RecordExists(returnpath))
+        ^errorsto->value := returnpath.value;
+     }
 
     ^errorsto->value := "";
     IF(RecordExists(this->decodedmsg))
