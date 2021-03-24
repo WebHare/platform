@@ -1286,7 +1286,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     @topic wrdauth/api
     @public
     @loadlib mod::wrd/lib/auth.whlib
-    @return(object #WHUserApi) User API
 */
 PUBLIC OBJECT FUNCTION GetWRDAuthUserAPI(OBJECT wrdschema)
 {

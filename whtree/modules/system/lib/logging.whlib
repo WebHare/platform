@@ -92,7 +92,7 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
 
 
 /** @short Log an error to the 'notice' log
-    @param Log an important message indicating trouble that should be handled as soon as possible ("ACT NOW")
+    @long Log an important message indicating trouble that should be handled as soon as possible ("ACT NOW")
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
@@ -102,7 +102,7 @@ PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data)
 }
 
 /** @short Log a warning to the 'notice' log
-    @param Log a message indicating an important issue, that should probably be dealt with when convenient ("ACT LATER")
+    @long Log a message indicating an important issue, that should probably be dealt with when convenient ("ACT LATER")
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
@@ -112,7 +112,7 @@ PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data)
 }
 
 /** @short Log an informational message to the 'notice' log
-    @param Log a message indicating an issue or odd event, that is probably not the system's fault, but may be relevant hwen investing issues ("FYI")
+    @long Log a message indicating an issue or odd event, that is probably not the system's fault, but may be relevant hwen investing issues ("FYI")
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
