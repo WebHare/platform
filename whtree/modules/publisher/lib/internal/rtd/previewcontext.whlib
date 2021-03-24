@@ -163,6 +163,8 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
 
     IF(NOT RecordExists(widgetdata) AND options.whfstype = "") //accepting default records simplifies usage (similar to WrapCachedImage)
       RETURN;
+    IF(NOT ObjectExists(this->targetapplytester))
+      THROW NEW Exception(`Cannot render widget instance without applytester being set in the preview context`);
 
     IF(options.whfstype != "")
     {
@@ -180,7 +182,7 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
     IF(NOT CellExists(widgetdata,'whfsfileid'))
       INSERT CELL whfsfileid := 0 INTO widgetdata;
 
-    RECORD rtdinfo := GetRTDTypeSettings(this->targetapplytester); //TODO don't we already have this?
+    RECORD rtdinfo := this->targetapplytester->GetRTDTypeSettings(); //TODO don't we already have this?
     IF(NOT RecordExists(rtdinfo))
       THROW NEW Exception("No rtdtype setup for the current object");
 

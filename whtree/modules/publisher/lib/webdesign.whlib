@@ -1197,7 +1197,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     IF(options.rtdtype = "")
     {
-      RECORD parenttype := GetRTDTypeSettings(this->pvt_targetapplytester);
+      RECORD parenttype := this->pvt_targetapplytester->GetRTDTypeSettings();
       IF(NOT RecordExists(parenttype))
         THROW NEW Exception("No RTDType registered - make sure a <rtddoc> node is set. Older sites should use MakeRTD");
 
@@ -1467,7 +1467,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   /** @short Render a block from GetSharedBlocks/ResolveLocalSharedBlocks as a widget */
   PUBLIC MACRO RenderSharedBlock(RECORD sharedblock)
   {
-    RECORD rtdinfo := GetRTDTypeSettings(this->pvt_targetapplytester);
+    RECORD rtdinfo := this->pvt_targetapplytester->GetRTDTypeSettings();
     IF(NOT RecordExists(rtdinfo))
       THROW NEW Exception("No rtdtype setup for the current object");
 
@@ -1507,7 +1507,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(NOT CellExists(widgetdata,'whfsfileid'))
       INSERT CELL whfsfileid := 0 INTO widgetdata;
 
-    RECORD rtdinfo := GetRTDTypeSettings(this->pvt_targetapplytester); //TODO don't we already have this?
+    RECORD rtdinfo := this->pvt_targetapplytester->GetRTDTypeSettings(); //TODO don't we already have this?
     IF(NOT RecordExists(rtdinfo))
       THROW NEW Exception("No rtdtype setup for the current object");
 
