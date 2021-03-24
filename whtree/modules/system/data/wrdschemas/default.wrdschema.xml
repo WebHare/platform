@@ -13,7 +13,7 @@
       <!-- <free tag="WHUSER_LOGIN" title="Login name" unique="1" /> -->
       <free tag="WHUSER_LASTIP" title="Last login IP" />
       <datetime tag="WHUSER_LASTLOGIN" title="Last login time" />
-      <password tag="WHUSER_PASSWORD" title="User password hash" />
+      <authenticationsettings tag="WHUSER_PASSWORD" title="User password hash" />
     </attributes>
   </object>
 

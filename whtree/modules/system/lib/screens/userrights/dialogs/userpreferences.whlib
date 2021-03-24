@@ -1,6 +1,9 @@
 <?wh
-LOADLIB "wh::ipc.whlib";
 
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 
@@ -43,6 +46,11 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   // Tollium init
   //
 
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := this->contexts->userapi->wrdschema;
+  }
+
   MACRO Init(RECORD data)
   {
     this->pvt_user := this->tolliumuser;
@@ -63,7 +71,16 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->username->readonly := TRUE;
     this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
 
-    ConfigurePasswordFieldForPolicy(^password, this->policy);
+    IF (ObjectExists(this->pvt_user))
+    {
+      STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
+
+      ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
+      ^authenticationsettings->LoadEntityField(this->pvt_user->entity, this->contexts->userapi->wrdschema->accountpasswordtag);
+      ^authenticationsettings->allowsecondfactor := __MatchesAnyMask(this->pvt_user->login, allowsecondfactormasks);
+    }
+    ELSE
+      ^authenticationsettings->visible := FALSE;
 
     IF(this->contexts->userapi->wrdschema->accountemailtag = ""
        OR this->contexts->userapi->wrdschema->accountlogintag = this->contexts->userapi->wrdschema->accountemailtag)

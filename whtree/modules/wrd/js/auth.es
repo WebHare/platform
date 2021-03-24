@@ -157,6 +157,38 @@ class WRDAuthenticationProvider
     });
   }
 
+  loginSecondFactor(loginproof, type, data, options)
+  {
+    return new Promise( (resolve, reject) =>
+    {
+      var url = new URL(location.href);
+
+      var opts =
+        { challenge:    url.searchParams.get("wrdauth_challenge") || ""
+        , returnto:     url.searchParams.get("wrdauth_returnto") || ""
+        , samlidpreq:   this.samlidpreq
+        };
+
+      return this.loginservice.request('LoginSecondFactor'
+                                       , [ location.href
+                                         , loginproof
+                                         , Boolean(options.persistent)
+                                         , type
+                                         , { ...data}
+                                         , opts
+                                         ]
+                                       , function(response)
+                                         { //success handler
+                                           resolve(response);
+                                         }
+                                       , function(error)
+                                         {
+                                           reject(error);//FIXME translate to exception
+                                         }
+                                       );
+    });
+  }
+
   //ADDME do we have direct callers or can we _tryLogin this?
   //FIXME be more wh-form like, at least BEM the 'submitting' class
   _tryLogin(form, login, password, options)

@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
+
+RECORD passwordfield := usermgmtschema->accounttype->GetAttribute(usermgmtschema->accountpasswordtag);
+IF (passwordfield.attributetypename = "PASSWORD")
+  usermgmtschema->accounttype->UpdateAttribute(usermgmtschema->accountpasswordtag, [ attributetypename := "AUTHENTICATIONSETTINGS" ]);
+
+trans->CommitWork();

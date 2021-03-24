@@ -190,7 +190,10 @@ MACRO TestSync()
   INTEGER new_0 := synctarget->^wrd_person->Search("WRD_GUID", org_persons[0].wrd_guid);
   INTEGER new_1 := synctarget->^wrd_person->Search("WRD_GUID", org_persons[1].wrd_guid);
 
-  schemaobj->^wrd_person->UpdateEntity(org_0, [ etest_array2 := [ [ text := "t1" ] ], linktome := linktome2->id ]);
+  schemaobj->^wrd_person->UpdateEntity(org_0,
+        [ etest_array2 := [ [ text := "t1" ] ], linktome := linktome2->id
+        ]);
+
   Sleep(2); // make sure the org_0 and new_0 entities have different modificationdates
   synctarget->^wrd_person->UpdateEntity(new_0,
       [ etest_domain := new_1
@@ -199,7 +202,12 @@ MACRO TestSync()
       , etest_array2 := [ [ text := "t4", text2 := "t5" ] ]
       ]);
 
-  RECORD fields_before_sync := synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_domain", "etest_file", "etest_array", "etest_array2" ]);
+  RECORD fields_before_sync := synctarget->^wrd_person->GetEntityFields(new_0,
+        [ "etest_domain"
+        , "etest_file"
+        , "etest_array"
+        , "etest_array2"
+        ]);
 
   testfw->CommitWork();
 
@@ -215,6 +223,33 @@ MACRO TestSync()
 
   TestEQ(expected_fields, fields_after_update);
   TestEQ(synctarget->^wrd_person->GetDomVal("LINKTOME", "LINKTOME2"), synctarget->^wrd_person->GetEntityField(new_0, "LINKTOME"));
+
+  testfw->BeginWork();
+
+  // Test enums with less allowed values on the target
+  testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ENUM", "ENUM", [ allowedvalues := [ "v1", "v2" ] ]);
+  testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ENUMARRAY", "ENUMARRAY", [ allowedvalues := [ "v1", "v2" ] ]);
+  synctarget->^wrd_person->CreateAttribute("ETEST_ENUM", "ENUM", [ allowedvalues := [ "v1" ] ]);
+  synctarget->^wrd_person->CreateAttribute("ETEST_ENUMARRAY", "ENUMARRAY", [ allowedvalues := [ "v1" ] ]);
+
+  testfw->GetWRDSchema()->^wrd_person->UpdateEntity(org_0,
+      [ etest_enum :=       "v2"
+      , etest_enumarray :=  [ "v1", "v2" ]
+      ]);
+
+  testfw->CommitWork();
+
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+
+  TestEQ(
+      [ etest_enum :=       "v2"
+      , etest_enumarray :=  [ "v1", "v2" ]
+      ], synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_enum", "etest_enumarray" ]));
+
+  TestEQ(
+      [ etest_enum :=       "v2"
+      , etest_enumarray :=  [ "v1", "v2" ]
+      ], synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_enum", "etest_enumarray" ]));
 }
 
 MACRO TestRenamedTypeBreaks()

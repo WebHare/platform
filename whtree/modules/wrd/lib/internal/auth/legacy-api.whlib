@@ -4,6 +4,8 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/otp.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -12,9 +14,13 @@ LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 INTEGER session_version := 6;
+
+CONSTANT INTEGER max_totp_attempts := 6;
 
 STATIC OBJECTTYPE WRDAuth
 < // ---------------------------------------------------------------------------
@@ -138,19 +144,27 @@ STATIC OBJECTTYPE WRDAuth
   */
   INTEGER FUNCTION DoLookup(STRING field, STRING value)
   {
-    RECORD ARRAY filters := [[ field := field, value := TrimWhitespace(value), matchcase := FALSE ]
-                            ];
+    RECORD ARRAY filters := [ [ field := field, value := TrimWhitespace(value), matchcase := FALSE ] ];
+
+    RECORD outputcolumns := [ id := "WRD_ID" ];
+    IF (field != "WRD_GUID")
+      INSERT CELL auth := this->passwordfield.tag INTO outputcolumns;
+
+    RECORD ARRAY q := this->accounttype->RunQuery( CELL
+        [ outputcolumns
+        , filters
+        ]);
 
     IF (field != "WRD_GUID")
-      INSERT [ field := this->domainrec.wrdauth_passwordfield, matchtype := "!=", value := "" ] INTO filters AT END;
-
-    RECORD ARRAY q := this->accounttype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                                   , filters := filters
-                                                   ]);
+    {
+      IF (this->passwordfield.attributetype = wrd_attributetype_password)
+        DELETE FROM q WHERE auth = "";
+      ELSE IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings)
+        DELETE FROM q WHERE NOT RecordExists(auth) OR NOT RecordExists(auth.passwords) OR auth.passwords[END-1].passwordhash = "";
+    }
 
     RETURN Length(q)=1 ? q[0].id : 0;
   }
-
 
   // ---------------------------------------------------------------------------
   //
@@ -196,7 +210,15 @@ STATIC OBJECTTYPE WRDAuth
     IF ("persistent" IN types)
     {
       RECORD copy := cookiedata;
-      INSERT CELL p := GetCell(fields, this->domainrec.wrdauth_passwordfield) INTO copy; //FIXME shouldn't we still hash the password someway, even though encrypte?
+
+      VARIANT authdata := GetCell(fields, this->domainrec.wrdauth_passwordfield);
+      STRING passwordhash := this->passwordfield.attributetype != wrd_attributetype_authenticationsettings
+          ? STRING(authdata)
+          : RecordExists(authdata) AND RecordExists(authdata.passwords)
+              ? authdata.passwords[END-1].passwordhash
+              : "";
+
+      INSERT CELL p := passwordhash INTO copy; //FIXME shouldn't we still hash the password someway, even though encrypte?
       cookies.persistent := this->EncryptData(copy, "persistent");
     }
 
@@ -227,8 +249,17 @@ STATIC OBJECTTYPE WRDAuth
 
     IF(fields.wrd_guid != data.wg)
       RETURN DEFAULT RECORD;
-    IF(type = "persistent" AND data.p != GetCell(fields, this->domainrec.wrdauth_passwordfield))
-      RETURN DEFAULT RECORD;
+    IF(type = "persistent")
+    {
+      VARIANT authdata := GetCell(fields, this->domainrec.wrdauth_passwordfield);
+      STRING passwordhash := this->passwordfield.attributetype != wrd_attributetype_authenticationsettings
+          ? STRING(authdata)
+          : RecordExists(authdata) AND RecordExists(authdata.passwords)
+              ? authdata.passwords[END-1].passwordhash
+              : "";
+      IF (data.p != passwordhash)
+        RETURN DEFAULT RECORD;
+    }
 
     RECORD cookiedata := [ userid := data.user
                          , creationdate := data.cs
@@ -429,6 +460,12 @@ STATIC OBJECTTYPE WRDAuth
     RETURN this->FinalizeLogin(the_entity, impersonate, persistent, "", "", TRUE);
   }
 
+  STRING FUNCTION GenerateSecondFactorLoginChallenge()
+  {
+    // WebAuthn 13.4.3. Cryptographic Challenges: challenges should be at least 16 bytes long.
+    RETURN EncodeBase64(GenerateRandomBinaryValue(16));
+  }
+
   PUBLIC RECORD FUNCTION Login(STRING login, STRING password, BOOLEAN persistent, STRING ip, INTEGER userid DEFAULTSTO 0, BOOLEAN requiremasterpassword DEFAULTSTO FALSE, BOOLEAN skippasswordcheck DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(requiremasterpassword)
@@ -441,7 +478,360 @@ STATIC OBJECTTYPE WRDAuth
     IF(NOT skippasswordcheck AND NOT this->VerifyEntityPassword(the_entity, password))
       RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, persistent, login, ip, TRUE, options);
+    IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings)
+    {
+      RECORD settings := the_entity->GetField(this->passwordfield.tag);
+
+      // TOTP needs to be enabled for second factor login
+      IF (RecordExists(settings) AND RecordExists(settings.totp))
+      {
+        DATETIME now := GetCurrentDatetime();
+
+        STRING challenge := this->GenerateSecondFactorLoginChallenge();
+        RECORD state := this->GetSecondFactorState(the_entity);
+
+        // FIXME: this should run within a lock
+        RETURN CELL
+            [ success :=          FALSE
+            , code :=             "REQUIRESECONDFACTOR"
+            , secondfactordata := CELL
+                  [ totp :=             TRUE
+                  , challenge :=        challenge
+                  , state.totpattemptsleft
+                  , firstfactorproof := this->EncryptData(CELL
+                                            [ entityid
+                                            , challenge
+                                            , isimpersonation :=  FALSE
+                                            , login
+                                            , remoteip :=         ip
+                                            , browsertriplet :=   CellExists(options, "browsertriplet") ? options.browsertriplet : ""
+                                            , persistent
+                                            , validuntil :=       AddTimeToDate(5*60*1000, now)
+                                            ], "wrd:2faloginproof")
+                  ]
+            ];
+      }
+    }
+
+    RETURN this->FinalizeLogin(the_entity, FALSE, persistent, login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
+  }
+
+  /** Returns second factor state
+      @param(object %WRDEntity2017) entity Entity to login for
+      @return Second factor login state
+      @cell return.curinit Currently active second factor login entry
+      @cell return.totpfailures Number of TOTP failures since last succesfull login
+      @cell return.totpattemptsleft Number of TOTP normal code login attempts left
+      @cell return.totpblockedcodes Valid codes used for succesfull login in current code window (not allowed to login with those, wait until next code)
+  */
+  RECORD FUNCTION GetSecondFactorState(OBJECT entity)
+  {
+    /* Only look a the login events from a day back. Allow a fixed number of tries per day
+       Only need audit events with logged data
+
+       Needed events:
+       - wrd:login:secondfactor:*
+       - wrd:authsettings.setuptotp
+    */
+    RECORD ARRAY auditevents :=
+        SELECT creationdate
+             , COLUMN type
+             , data :=        DecodeHSON(COLUMN data)
+          FROM wrd.auditevents
+         WHERE COLUMN entity = VAR entity->id
+           AND COLUMN type LIKE "wrd:*"
+           AND creationdate >= AddDaysToDate(-1, GetCurrentDateTime())
+           AND data LIKE "hson:*"
+      ORDER BY creationdate DESC;
+
+    // current open second factor login
+    RECORD curinit;
+
+    // secondfactorlogin init for this validation
+    STRING ARRAY used_challenges;
+    FOREVERY (RECORD rec FROM auditevents)
+    {
+      IF (rec.type LIKE "wrd:login:secondfactor:*")
+        INSERT rec.data.secondfactordata.usedchallenge INTO used_challenges AT END;
+      IF (rec.type = "wrd:login:requiresecondfactor" OR rec.type = "wrd:login:secondfactor:failed")
+      {
+        IF (CellExists(rec.data.secondfactordata, "challenge"))
+        {
+          IF (rec.data.secondfactordata.challenge NOT IN used_challenges) // wrong challenge
+            curinit := rec;
+          BREAK;
+        }
+      }
+    }
+
+
+    STRING ARRAY totpblockedcodes;
+
+    // https://tools.ietf.org/html/rfc6238#section-5: The verifier MUST NOT accept
+    // the second attempt of the OTP after the successful validation has
+    // been issued for the first OTP, which ensures one-time only use of an
+    // OTP.
+    DATETIME reusecode_cutoff := AddTimeToDate(-90 * 1000, GetRoundedDateTime(GetCurrentDatetime(), 30 * 1000));
+    FOREVERY (RECORD rec FROM auditevents)
+    {
+      IF (rec.creationdate < reusecode_cutoff)
+        BREAK;
+
+      IF (rec.type = "wrd:login:secondfactor:ok")
+        INSERT rec.data.secondfactordata.code INTO totpblockedcodes AT END;
+    }
+
+    // count totp failures since last login
+    INTEGER totpfailures;
+    FOREVERY (RECORD rec FROM auditevents)
+    {
+      // A totpreusedcode isn't counted toward the totpfailures
+      IF (rec.type = "wrd:login:secondfactor:failed")
+      {
+        IF (rec.data.failurecode = "TOTPINVALIDCODE" OR rec.data.failurecode = "TOTPLOCKED")
+          totpfailures := totpfailures + 1;
+      }
+      IF (rec.type = "wrd:login:secondfactor:ok" OR rec.type = "wrd:authsettings.setuptotp")
+        BREAK;
+    }
+
+    INTEGER totpattemptsleft := max_totp_attempts - totpfailures;
+    IF (totpattemptsleft < 0)
+      totpattemptsleft := 0;
+
+    LogDebug("wrd:auth.secondfactor", "state", CELL[ used_challenges, curinit, totpattemptsleft ]);
+
+    RETURN CELL
+        [ curinit
+        , totpfailures
+        , totpattemptsleft
+        , totpblockedcodes
+        ];
+  }
+
+  /** @param(object %WRDEntity2017) entity Entity to verify second factor for
+      @param type Type of 2fa verification (allowed: 'totp')
+      @param data Verification data
+      @cell(string) data.code TOTP code
+      @param logindata Login data for logging
+      @cell(string) logindata.challenge Base64 encoded login challenge
+      @cell(boolean) logindata.isimpersonation
+      @cell(string) logindata.ip
+      @cell(string) logindata.login
+      @return Verification result
+      @cell(boolean) return.success TRUE if validation went ok
+      @cell(string) return.code
+                - OK: verification success
+                - INVALIDDATA: verification failed, please login with password again
+                - TOTPLOCKED: too many failed attempts, please use backup codes (totp only)
+                - TOTPINVALIDCODE: invalid attempt (totp only)
+                - TOTPREUSEDCODE: reused a code already accepted in a previous login attempt (totp only)
+      @cell(string) return.nonce Updated nonce for next attempt (only for codes TOTPINVALIDCODE and TOTPREUSEDCODE)
+      @cell(object %WRDEntity2017) return.entity User entity (only for code OK)
+  */
+  RECORD FUNCTION ValidateSecondFactor(OBJECT entity, STRING type, RECORD data, RECORD logindata)
+  {
+    OBJECT lock := OpenLocalLockManager()->LockLocalMutex(`wrd:auth.2fa.${entity->id}`);
+
+    TRY
+    {
+      STRING returncode := "";
+      RECORD response;
+      DATETIME now := GetCurrentDatetime();
+
+      IF (this->passwordfield.attributetype != wrd_attributetype_authenticationsettings)
+        RETURN [ success := FALSE, code := "INVALIDDATA" ];
+
+      RECORD settings := entity->GetField(this->passwordfield.tag);
+      IF (NOT RecordExists(settings))
+        RETURN [ success := FALSE, code := "INVALIDDATA" ];
+      IF (NOT RecordExists(settings.totp))
+        RETURN [ success := FALSE, code := "INVALIDDATA" ];
+
+      RECORD state := this->GetSecondFactorState(entity);
+
+      IF (NOT RecordExists(state.curinit))
+        RETURN [ success := FALSE, code := "SESSIONEXPIRED" ];
+
+      BOOLEAN updatesettings; // should settings be written back?
+      RECORD logmessagedata;
+      INTEGER totpattemptsleft := state.totpattemptsleft;
+
+      SWITCH (type)
+      {
+        CASE "totp"
+        {
+          RECORD parsed := UnpackOTPUrl(settings.totp.url);
+
+          logmessagedata := CELL[ data.code ];
+
+          IF (LENGTH(data.code) = parsed.options.digits)
+          {
+            IF (IsValueSet(settings.totp.locked))
+              returncode := "TOTPLOCKED";
+            ELSE
+            {
+              BOOLEAN ismatch := TestTOTPCode(parsed.secret, data.code, parsed.options).success;
+
+              IF (ismatch)
+              {
+                // https://tools.ietf.org/html/rfc6238#section-5: The verifier MUST NOT accept
+                // the second attempt of the OTP after the successful validation has
+                // been issued for the first OTP, which ensures one-time only use of an
+                // OTP.
+                IF (data.code IN state.totpblockedcodes)
+                  returncode := "TOTPREUSEDCODE";
+              }
+
+              // count failures since last login
+              totpattemptsleft := state.totpattemptsleft - (ismatch ? 0 : 1);
+              IF (totpattemptsleft <= 0)
+              {
+                totpattemptsleft := 0;
+                settings.totp.locked := GetCurrentDatetime();
+                updatesettings := TRUE;
+                returncode := "TOTPLOCKED";
+              }
+              ELSE IF (NOT ismatch)
+                returncode := "TOTPINVALIDCODE";
+              ELSE IF (returncode = "")
+                returncode := "OK";
+            }
+          }
+          ELSE // might be backup code
+          {
+            RECORD backupcode := SELECT * FROM settings.totp.backupcodes WHERE code = data.code;
+            IF (NOT RecordExists(backupcode))
+              returncode := "TOTPINVALIDCODE";
+            ELSE IF (backupcode.used != DEFAULT DATETIME)
+              returncode := "TOTPREUSEDCODE";
+            ELSE
+            {
+              UPDATE settings.totp.backupcodes
+                 SET used := now
+               WHERE code = data.code;
+              updatesettings := TRUE;
+              returncode := "OK";
+            }
+          }
+
+          IF (updatesettings)
+          {
+            GetPrimary()->BeginWork();
+            entity->UpdateEntity(CellInsert(CELL[], this->passwordfield.tag, settings));
+            GetPrimary()->CommitWork();
+          }
+        }
+        DEFAULT
+        {
+          THROW NEW Exception(`Second factor login type ${EncodeJSON(type)} not supported`);
+        }
+      }
+
+      RETURN returncode = "OK"
+          ? CELL[ success := TRUE, code := "OK", entity, totpattemptsleft ]
+          : CELL[ success := FALSE, code := returncode, totpattemptsleft ];
+    }
+    FINALLY
+    {
+      lock->Close();
+    }
+  }
+
+  /** @param loginproof Login proof generated by #Login
+      @param type Type of 2fa verification (allowed: 'totp')
+      @param data Verification data
+      @cell(string) data.code TOTP code
+      @param ip Remote ip address
+      @param options @includecelldef #FinalizeLogin.options
+      @return @includecelldef #FinalizeLogin.return
+      @cell return.code Result code if verification failed:
+                - INVALIDDATA: Login proof expired/decryption failed, please login with password again
+                - TOTPLOCKED: too many failed attempts, please use backup codes (totp only)
+                - TOTPINVALIDCODE: invalid attempt (totp only)
+                - TOTPREUSEDCODE: reused a code already accepted in a previous login attempt (totp only)
+      @cell return.totpattemptsleft Updated login proof for next attempt (only for codes TOTPINVALIDCODE and TOTPREUSEDCODE)
+  */
+  PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, STRING ip, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    DATETIME now := GetCurrentDatetime();
+
+    RECORD logindata := this->DecryptData(loginproof, "wrd:2faloginproof");
+    IF (NOT RecordExists(logindata))
+      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+    IF (logindata.validuntil < now)
+      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+
+    OBJECT the_entity := this->accounttype->GetEntity(logindata.entityid);
+    IF (NOT ObjectExists(the_entity))
+      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+
+    RECORD response := this->ValidateSecondFactor(the_entity, type, data, logindata);
+
+    RECORD logdata;
+    RECORD secondfactordata;
+
+    SWITCH (response.code)
+    {
+      CASE "OK"
+      {
+        TRY
+        {
+          GetPrimary()->BeginWork();
+          response := this->FinalizeLogin(response.entity, logindata.isimpersonation, logindata.persistent, logindata.login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
+
+          RETURN CELL
+              [ ...response
+              , secondfactordata :=         DEFAULT RECORD
+              , logdata := CELL
+                    [ data.code
+                    , usedchallenge :=      logindata.challenge
+                    , decodedlogindata :=   logindata
+                    ]
+              ];
+        }
+        FINALLY (OBJECT e)
+        {
+          IF (ObjectExists(e))
+            GetPrimary()->RollbackWork();
+          ELSE
+            GetPrimary()->CommitWork();
+        }
+      }
+      CASE "TOTPINVALIDCODE", "TOTPREUSEDCODE", "TOTPLOCKED"
+      {
+        // generate a new challenge
+        STRING challenge := this->GenerateSecondFactorLoginChallenge();
+        loginproof := this->EncryptData(CELL
+              [ ...logindata
+              , challenge
+              ], "wrd:2faloginproof");
+
+        secondfactordata := CELL
+            [ challenge
+            , response.totpattemptsleft
+            , totp :=       TRUE
+            , firstfactorproof :=   loginproof
+            ];
+      }
+      CASE "SESSIONEXPIRED"
+      {
+        // no updating of login proof or second factor data, just login again
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown result code ${EncodeJSON(response.code)}`);
+      }
+    }
+
+    RETURN CELL
+        [ success :=            response.code = "OK"
+        , response.code
+        , logdata :=            CELL[ decodedlogindata := logindata
+                                    , usedchallenge :=    logindata.challenge
+                                    ]
+        , secondfactordata
+        ];
   }
 
   PUBLIC RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
@@ -920,6 +1310,60 @@ STATIC OBJECTTYPE WRDAuthIntegration
       //    , message := auditmessage
       //    ]);
     }
+    RETURN res;
+  }
+
+
+  PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ firstloginfield :=    ""
+        , lastloginfield :=     ""
+        , remoteip :=           ""
+        , allowlogout :=        TRUE
+        ], options,
+        [ optional := [ "firstloginfield", "lastloginfield", "allowlogout" ]
+        ]);
+
+    STRING loginname;
+
+    //STRING auditusername := CellExists(options,'auditloginname') AND options.auditloginname != "" ? options.auditloginname : loginname;
+    //RECORD auditmessage := CellExists(options,'auditmessage') ? options.auditmessage : DEFAULT RECORD;
+
+    STRING remoteip := options.remoteip ?? (IsRequest() ? GetClientRemoteIp() : "");
+
+    this->loggedinentity := -1;
+    RECORD trylogin := this->service->LoginSecondFactor(loginproof, type, data, remoteip, CELL
+          [ ...options
+          ]);
+
+    IF(NOT trylogin.success)
+    {
+      //this->WriteAuditEvent("wrd:" || trylogin.code,
+      //    [ account := userid ?? this->service->LookupLogin(loginname)
+      //    , remoteip := remoteip
+      //    , login := auditusername
+      //    , message := auditmessage
+      //    ]);
+      RETURN trylogin;
+    }
+
+    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    IF (res.success)
+    {
+      //this->WriteAuditEvent("wrd:login",
+      //    [ account := trylogin.entityid
+      //    , remoteip := remoteip
+      //    , login := auditusername
+      //    , isimpersonation := trylogin.isimpersonation
+      //    , message := auditmessage
+      //    ]);
+    }
+
+    res := CELL
+        [ ...res
+        , ...PickCells(trylogin, [ "logdata", "secondfactordata" ])
+        ];
     RETURN res;
   }
 

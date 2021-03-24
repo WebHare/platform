@@ -23,7 +23,7 @@ class LoginApp
   {
     var screencomponents =
       { frame:        { bodynode: 'root'
-                      , specials: []
+                      , specials: ['secondfactorloginaction','secondfactorlogincancelaction']
                       , allowresize: false
                       , title: getTid("tollium:shell.login.logintitle")
                       , defaultbutton: ''
@@ -31,9 +31,17 @@ class LoginApp
 
         // Need this to throw warning line directly against the frame heading, without spacers between
       , root:         { type: 'panel'
-                      , lines: [ { layout: "block", items: [ { item: "body"} ] } ]
+                      , lines: [ { layout: "block", items: [ { item: "tabs"} ] } ]
                       , height: '1pr'
                       , width:'1pr'
+                      }
+
+      , tabs:         { type: 'tabs'
+                      , tabtype: 'server'
+                      , pages: [ "body", "secondfactor" ]
+                      , height: '1pr'
+                      , width:'1pr'
+                      , selected: "body"
                       }
 
       , body:         { type: 'panel'
@@ -42,7 +50,64 @@ class LoginApp
                       , width:'1pr'
                       , spacers: { top: true }
                       }
+
+      , secondfactor:   { type:   "panel"
+                        , lines:  [ { items:[ { item:"secondfactortop" } ], height:'1pr' }
+                                  , { items:[ { item:"secondfactorfooter" } ] }
+                                  ]
+                        , width:  "1pr"
+                        , height: "1pr"
+                        , spacers: { }
+                        }
+
+      , secondfactortop:{ type:   "panel"
+                        , lines:  [ { layout: "left", items:[ { item:"secondfactorheading" } ] }
+                                  , { layout: "left", items:[ { item:"secondfactorattemptsleft" } ] }
+                                  , { title: getTid("tollium:shell.login.totpcode"), layout: "form", items:[ { item:"totpcode" } ] }
+                                  ]
+                        , width:  "1pr"
+                        , height: "1pr"
+                        , spacers: { bottom:true, left:true, right: true }
+                        }
+
+      , secondfactorheading:
+                        { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.secondfactorauthentication") }
+
+      , secondfactorattemptsleft:
+                        { type: "text", title: "", value: getTid("tollium:shell.login.secondfactorauthentication") }
+
+      , secondfactorfooter:
+                        { type:   "panel"
+                        , lines:  [ { items: [ { item: 'secondfactorlogincancelbutton' }, { item:'secondfactorloginbutton' } ], layout:'right' } ]
+                        , width:  "1pr"
+                        , isfooter: true
+                        , spacers: { left:true, right: true, bottom: true }
+                        }
+
+      , totpcode:       { type: "textedit", required: true, width: "20x", defaultbutton: "secondfactorloginbutton" }
+
+      , secondfactorlogincancelbutton:
+                        { type: "button", title: getTid("tollium:shell.login.cancel"), action: "secondfactorlogincancelaction" }
+      , secondfactorlogincancelaction:
+                        { type: "action", hashandler: true, unmasked_events: ["execute"] }
+
+      , secondfactorloginbutton:
+                        { type: "button", title: getTid("tollium:shell.login.loginbutton"), action: "secondfactorloginaction" }
+      , secondfactorloginaction:
+                        { type: "action", hashandler: true, unmasked_events: ["execute"] }
+
       };
+
+    let handlers =
+        [ { component:  "secondfactorloginaction"
+          , msgtype :   "execute"
+          , handler:    (data,callback) => this.executeSecondFactorLogin(data,callback)
+          }
+        , { component:  "secondfactorlogincancelaction"
+          , msgtype :   "execute"
+          , handler:    (data,callback) => this.executeCancelSecondFactorLogin(data,callback)
+          }
+        ];
 
     // Show login errors at the top of the screen
     var wrdauth_returned = (new URL(window.location.href)).searchParams.get("wrdauth_returned");
@@ -80,8 +145,6 @@ class LoginApp
       // Place warning at top
       screencomponents.root.lines.unshift({ items: [ { item: "warningbar" } ] });
     }
-
-    var handlers = [];
 
     // Have an infotext? Create a panel with the heading and (html) texts
     if (this.app.apptarget.infotext)
@@ -305,6 +368,25 @@ class LoginApp
     });
   }
 
+  handleSubmitInstruction(result, callback)
+  {
+    if (result.submitinstruction.type == "reload")
+    {
+      //no need to execute the submit instruction, it just redirects back to the shell..
+      this.app.terminateApplication();
+      $shell.wrdauth.refresh();
+      $shell.wrdauth.setupPage();
+      $shell.executeShell();
+      callback();
+    }
+    else
+    {
+      whintegration.executeSubmitInstruction(result.submitinstruction);
+      return;
+    }
+
+  }
+
   async executePasswordLogin(data,callback)
   {
     let loginname = this.topscreen.getComponent('loginname').getSubmitValue();
@@ -323,21 +405,19 @@ class LoginApp
       let result = await $shell.wrdauth.login(loginname,password, { persistent: savelogin });
       if (result.submitinstruction)
       {
-        if (result.submitinstruction.type == "reload")
-        {
-          //no need to execute the submit instruction, it just redirects back to the shell..
-          this.app.terminateApplication();
-          $shell.wrdauth.refresh();
-          $shell.wrdauth.setupPage();
-          $shell.executeShell();
-          callback();
-          return;
-        }
-        else
-        {
-          whintegration.executeSubmitInstruction(result.submitinstruction);
-          return;
-        }
+        this.handleSubmitInstruction(result, callback);
+        return;
+      }
+      if (result.code === "REQUIRESECONDFACTOR")
+      {
+        let selecttab = this.topscreen.getComponent('secondfactor');
+        this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
+        this.topscreen.getComponent('frame').setFocusTo('totpcode');
+
+        this.secondfactordata = result.secondfactordata;
+        this._updateSecondFactorText();
+        callback();
+        return;
       }
 
       let text = result.code == "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
@@ -345,11 +425,13 @@ class LoginApp
                  : getTid("tollium:shell.login.invalidlogin");
       let errorscreen = runSimpleScreen(this.app, { text: text, buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
       callback();
+      callback = null;
       return await errorscreen;
     }
     catch(error)
     {
-      callback();
+      if (callback)
+        callback();
       this.app.showExceptionDialog(error);
     }
   }
@@ -410,6 +492,90 @@ class LoginApp
     });
   }
 
+  executeCancelSecondFactorLogin(data,callback)
+  {
+    let selecttab = this.topscreen.getComponent('body');
+    this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
+
+    this.secondfactordata = null;
+    callback();
+  }
+
+  async executeSecondFactorLogin(data,callback)
+  {
+    const code = this.topscreen.getComponent('totpcode').getSubmitValue();
+    const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
+
+    const result = await $shell.wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
+    if (result.submitinstruction)
+    {
+      this.handleSubmitInstruction(result, callback);
+      return;
+    }
+
+    switch (result.code)
+    {
+      case "INVALIDDATA":
+      {
+        this.secondfactordata = null;
+
+        let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.invaliddata"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+        callback();
+        await errorscreen;
+
+        // reload to login again
+        location.reload();
+      } break;
+
+      case "TOTPLOCKED":
+      {
+        let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totplocked"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+        callback();
+        await errorscreen;
+        this.secondfactordata = result;
+      } break;
+
+      case "TOTPINVALIDCODE":
+      {
+        let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totpinvalidcode"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+        callback();
+        await errorscreen;
+        this.secondfactordata = result;
+      } break;
+
+      case "TOTPREUSEDCODE":
+      {
+        let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totpreusedcode"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+        callback();
+        await errorscreen;
+        this.secondfactordata = result;
+      } break;
+    }
+
+    this._updateSecondFactorText();
+  }
+
+  _updateSecondFactorText()
+  {
+    if (this.secondfactordata)
+    {
+      switch (this.secondfactordata.totpattemptsleft)
+      {
+        case 6:
+        {
+          this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterauthenticatorcode"));
+        } break;
+        case 0:
+        {
+          this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterbackupcode"));
+        } break;
+        default:
+        {
+          this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.totpattemptsleft", this.secondfactordata.totpattemptsleft.toString()));
+        }
+      }
+    }
+  }
 }
 
 registerJSApp('tollium:builtin.login', LoginApp);

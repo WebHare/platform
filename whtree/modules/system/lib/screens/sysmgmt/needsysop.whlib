@@ -6,6 +6,9 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   MACRO Init()
@@ -42,7 +45,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       usersunit := this->contexts->userapi->wrdschema->^whuser_unit->CreateEntity([wrd_title := "Users"])->id;
 
     OBJECT sysop := this->contexts->userapi->wrdschema->^wrd_person->CreateEntity(
-      [ whuser_password := CreateWebharePasswordHash(^password->value)
+      [ whuser_password := CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash(^password->value))
       , wrd_contact_email := ^email->value
       //using french as Hello Opérateur, works better than Hello System,
       , wrd_firstname := "Opérateur"

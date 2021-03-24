@@ -865,7 +865,30 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(CellExists(trylogin,'userinfo'))
         options.auditmessage := CELL[ userinfo := trylogin.userinfo, ...options.auditmessage];
 
-      this->LogCustomAuditEvent("wrd:login:" || (trylogin.success ? "ok" : "failed")
+      STRING loginresultcode := trylogin.success
+          ? "ok"
+          : trylogin.code = "REQUIRESECONDFACTOR"
+                ? "requiresecondfactor"
+                : "failed";
+
+      RECORD auditmsg :=
+          [ account :=  entityid
+          , login := options.auditloginname ?? loginname
+          , message := options.auditmessage
+          , browsertriplet := options.browsertriplet
+          ];
+
+      IF (CellExists(trylogin, "secondfactordata"))
+      {
+        options.auditmessage := CELL
+            [ ...options.auditmessage
+            , secondfactordata := CELL
+                  [ trylogin.secondfactordata.challenge
+                  ]
+            ];
+      }
+
+      this->LogCustomAuditEvent(`wrd:login:${loginresultcode}`
                                 , [ account :=  entityid
                                   , login := options.auditloginname ?? loginname
                                   , message := options.auditmessage
@@ -916,6 +939,110 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     trylogin := [ ...trylogin, submitinstruction := submitinstruction ];
     RETURN trylogin;
   }
+
+  /** Logs in a user by password
+      @param loginproof
+      @param type
+      @param data
+      @param options Options (passed to support object / wrdauth)
+      @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
+      @cell options.samlidpreq Encrypted SAML idp request (pass as posted to login page in webvariable 'samlidpreq')
+      @cell options.challenge Login challenge string (encrypted)
+      @cell options.returnto Return URL
+      @cell options.browsertriplet Browser triplet
+      @return Login result
+      @cell return.success Whether the user was logged in successfully
+      @cell return.code Login error code
+      @cell return.submitinstruction Form action to execute to complete SAML / external login flow
+  */
+  PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ samlidpreq := ""
+                               , challenge := ""
+                               , returnto := ""
+                               , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+                               , auditmessage := DEFAULT RECORD
+                               , auditloginname := ""
+                               , allowlogout := TRUE
+                               , firstloginfield := ""
+                               , lastloginfield := ""
+                               , browsertriplet := ""
+                               ], options, [ optional := ["firstloginfield","lastloginfield"]]);
+
+    this->CheckNotFailed();
+    IF(NOT IsDatabaseWritable())
+      RETURN [ success := FALSE, code := "LOGINCLOSED" ];
+
+    IF(NOT CellExists(options,"firstloginfield") AND this->pvt_config.firstloginfield != "")
+      INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
+    IF(NOT CellExists(options,"lastloginfield") AND this->pvt_config.lastloginfield != "")
+      INSERT CELL lastloginfield := this->pvt_config.lastloginfield INTO options;
+
+    RECORD challenge;
+    IF (options.challenge != "")
+      challenge := this->GetWRDAuthDomain()->DecryptData(options.challenge);
+
+    RECORD trylogin := this->__wrdauth->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip", "allowlogout" ]));
+
+    IF(NOT trylogin.success)
+      options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage ];
+    IF(CellExists(trylogin,'userinfo'))
+      options.auditmessage := CELL[ userinfo := trylogin.userinfo, ...options.auditmessage];
+
+    IF (trylogin.code != "INVALIDDATA")
+    {
+      options.auditmessage := CELL
+          [ ...options.auditmessage
+          , secondfactordata := CELL
+                                [ ...PickCells(trylogin.logdata,
+                                    [ "usedchallenge"
+                                    , "code"
+                                    ])
+                                ,  ...PickCells(trylogin.secondfactordata,
+                                    [ "challenge"
+                                    ])
+                                ]
+          ];
+
+      this->LogCustomAuditEvent("wrd:login:secondfactor:" || (trylogin.success ? "ok" : "failed"), CELL
+          [ account :=  trylogin.logdata.decodedlogindata.entityid
+          , login :=    options.auditloginname ?? trylogin.logdata.decodedlogindata.login
+          , options.browsertriplet
+          , message := options.auditmessage
+          ]);
+    }
+
+    DELETE CELL logdata FROM trylogin;
+
+    RECORD submitinstruction;
+
+    IF (trylogin.success)
+    {
+      IF (this->GetLoggedinEntity() = 0)
+        THROW NEW Exception("Logged in, but no WRD user found");
+      this->UpdateUserInfo();
+
+      IF (options.samlidpreq != "")
+      {
+        RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
+        submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
+
+        IF (IsRPCTrafficLogged("wrd:saml"))
+          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
+      }
+      ELSE IF (options.returnto != "")
+        submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);
+      ELSE
+        submitinstruction := [ type := "reload" ];
+
+      DELETE CELL secondfactordata FROM trylogin;
+    }
+
+    trylogin := [ ...trylogin, submitinstruction := submitinstruction ];
+    RETURN trylogin;
+  }
+
+
 
   //not for direct use, public only for tolliumu se
   PUBLIC RECORD FUNCTION __CompleteLogin(RECORD logindata)
@@ -1109,7 +1236,19 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     //store the old password hash in case you need a policy 'last X passwords are forbidden for reuse'
     STRING previouspasswordhash := this->accounttype->GetEntityField(entity, this->wrdschema->accountpasswordtag);
-    this->accounttype->UpdateEntity(entity, CellInsert(CELL[], this->wrdschema->accountpasswordtag, CreateWebharePasswordHash(newpassword)));
+    VARIANT settings := this->accounttype->GetEntityField(entity, this->wrdschema->accountpasswordtag);
+    IF (TypeID(settings) = TypeID(STRING))
+      settings := CreateWebharePasswordHash(newpassword);
+    ELSE
+    {
+      settings := settings ?? GetDefaultAuthenticationSettings();
+      INSERT
+          [ validfrom :=      GetCurrentDateTime()
+          , passwordhash :=   CreateWebharePasswordHash(newpassword)
+          ] INTO settings.passwords AT END;
+    }
+    this->accounttype->UpdateEntity(entity, CellInsert(CELL[], this->wrdschema->accountpasswordtag, settings));
+
     this->LogCustomAuditEvent("wrd:updatepassword",
         [ account := entity
         , remoteip := IsRequest() ? GetClientRemoteIp() : ""

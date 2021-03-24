@@ -2,13 +2,35 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/otp.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+
+DATETIME lastcheck;
+RECORD FUNCTION TestAuditEvent(RECORD expected)
+{
+  RECORD ARRAY auditevents := SELECT *, DELETE id, DELETE creationdate, DELETE wrdschema
+                                FROM wrd.auditevents
+                               WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
+                                     AND creationdate > lastcheck;
+
+  IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
+    auditevents := SELECT *, DELETE ip FROM auditevents;
+  TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);
+  lastcheck := GetCurrentDatetime();
+  Sleep(1);
+  RETURN auditevents;
+}
 
 ASYNC MACRO Setup()
 {
@@ -82,6 +104,86 @@ ASYNC MACRO Setup()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
+
+ASYNC MACRO ManageAuthenticationSettings()
+{
+  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
+  IF ("*@allow2fa.test.webhare.net" NOT IN allowsecondfactormasks)
+  {
+    allowsecondfactormasks := STRING[ ...ArrayDelete(allowsecondfactormasks, [ "" ]), "*@allow2fa.test.webhare.net" ];
+    GetPrimary()->BeginWork();
+    WriteRegistryKey("system.userrights.allowsecondfactorloginmasks", Detokenize(allowsecondfactormasks, " "));
+    GetPrimary()->CommitWork();
+  }
+
+  testfw->SetTestUser("sysop");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD, message := DEFAULT RECORD ]));
+
+  TTFillByTitle("unittree->unitlist", "Lisa's unit");
+
+  AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
+  TT("username")->value := "homer@allow2fa.test.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  topscreen->frame->focused := TT("unitcontents->userandrolelist");
+  TTFillByTitle("unitcontents->userandrolelist", "homer@allow2fa.test.webhare.net");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->:Change"));
+  TestEQ("Not configured", TT(":One-time access code")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  // setup TOTP for homer
+  testfw->BeginWork();
+  STRING newtotpsecret := GenerateOTPSecret();
+  STRING totpurl := GetTOTPUrl(newtotpsecret, "homer@allow2fa.test.webhare.net", "Webhare testsuite");
+
+  INTEGER homer := testfw->GetWRDschema()->^wrd_person->Search("wrd_contact_email", "homer@allow2fa.test.webhare.net");
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(homer,
+      [ whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            , totp :=         [ url :=          totpurl
+                              , backupcodes :=  [ [ code := "" ] ]
+                              ]
+            ]
+      ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authenticationsettings->:Change"));
+  TestEQ("Configured", TT(":One-time access code")->value);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Disable two-factor authentication"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":Password", testfw->GetUserPassword("sysop"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestAuditEvent(
+      [ entity :=           homer
+      , login :=            "homer@allow2fa.test.webhare.net"
+      , byentity :=         testfw->GetUserObject("sysop")->entityid
+      , bylogin :=          "sysop@beta.webhare.net"
+      , browsertriplet :=   ""
+      , ip :=               ""
+      , type :=             "wrd:authsettings.disabletotp"
+      , impersonated :=     FALSE
+      , data :=             ""
+      ]);
+
+
+  TestEQ("Not configured", TT(":One-time access code")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 
 ASYNC MACRO TestExport()
 {
@@ -157,6 +259,7 @@ ASYNC MACRO TestExport()
 }
 
 RunTestframework( [ PTR Setup
+                  , PTR ManageAuthenticationSettings
                   , PTR TestExport
                   , PTR EnsureUserMgmtStateClean
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
