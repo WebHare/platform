@@ -291,7 +291,7 @@ PUBLIC STRING FUNCTION GenerateOTPSecret(RECORD options DEFAULTSTO DEFAULT RECOR
     @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
     @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
     @cell(datetime) options.now Current time
-    @cell(integer) options.allowdrift Allowed drift in seconds. Rounded down to whole intervals.
+    @cell(integer) options.allowdrift Allowed drift in seconds. Rounded down to whole intervals, defaults to 30
     @return Match result
     @cell(boolean) return.success Whether a match was found
     @cell(integer) return.driftintervals Drift in interval steps

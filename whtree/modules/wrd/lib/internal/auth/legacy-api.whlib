@@ -37,7 +37,9 @@ STATIC OBJECTTYPE WRDAuth
   // Public properties
   //
 
+  /// @type integer ID of the WRD_AUTHDOMAIN entity
   PUBLIC PROPERTY id(domainid,-);
+
   PUBLIC PROPERTY accounttype(this->wrdschema->accounttype,-);
   PUBLIC PROPERTY loginfieldtag(this->loginfield.tag,-);
   PUBLIC PROPERTY passwordfieldtag(this->passwordfield.tag,-);
@@ -307,6 +309,8 @@ STATIC OBJECTTYPE WRDAuth
   /** Updates the last login date and ip address for an entity
       @param the_entity Entity
       @param ip IP address
+      @cell options.firstloginfield Name of field with first login date
+      @cell options.lastloginfield Name of field with the last login date (override for field name set in domain settings)
   */
   PUBLIC MACRO UpdateLastLoginAndIp(OBJECT the_entity, STRING ip, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -463,6 +467,27 @@ STATIC OBJECTTYPE WRDAuth
     RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata);
   }
 
+  /** @param the_entity WRD entity of the user to log in
+      @param isimpersonation Whether this is an impersonation
+      @param persistent Whether this should be an persistent login
+      @param login Unused
+      @param ip Remote IP of the request
+      @param updatelogindata Whether to update the first/last login date
+      @cell options.firstloginfield @includecelldef #UpdateLastLoginAndIp.options.firstloginfield
+      @cell options.lastloginfield @includecelldef #UpdateLastLoginAndIp.options.lastloginfield
+      @return Result
+      @cell(boolean) return.success Always TRUE
+      @cell(string) return.code Always ""
+      @cell(integer) return.entityid Id of the logged in entity
+      @cell(string) return.entityguid GUID of the logged in entity
+      @cell(integer) return.domain Authentication domain id
+      @cell(string) return.login Login name of the logged in entity
+      @cell(string) return.domaintitle Title of the authentication domain
+      @cell(string) return.sessioncookie Session cookie
+      @cell(string) return.persistentcookie Persistent cookie
+      @cell(boolean) return.isimpersonation Whether this is an impersonation
+      @cell(boolean) return.persistent WHether persistent login was requested
+  */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, BOOLEAN persistent, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT isimpersonation AND updatelogindata)
@@ -974,6 +999,10 @@ STATIC OBJECTTYPE WRDAuthIntegration
     UpdateWebCookie(this->cookiename || "_j", sessionvalue != "" ? EncodeUFS(GetMD5Hash(sessionvalue)) || "." : "", this->GetCookieOpts(FALSE,FALSE)); //_j = javascript user info
   }
 
+  /** @param trylogin
+      @param setlogincookie
+      @cell options.allowlogout
+  */
   PUBLIC RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(this->debug)

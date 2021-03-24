@@ -14,6 +14,7 @@ export default class WebSocketTransport extends TransportBase
     this.signalled = [];
     this.sentall = [];
     this.jsonrpc = null;
+    this.backoff = 0;
 
     $todd.DebugTypedLog("rpc", '** create WebSocket transport');
     this.connectWebsocket();
@@ -55,8 +56,20 @@ export default class WebSocketTransport extends TransportBase
 
   gotOpen()
   {
+    /* Set all endpoints as signalled and reset sendall, so we'll repeat
+       all non-acked messages every link, needed for correct link establishment
+       in appstarter)
+    */
+    this.sentall = [];
+    this.signalled = this.endpoints;
+
+    // make next reconnection speedy again
+    this.backoff = 0;
+
 //    console.log('gotopen');
     this.updateListenLinks();
+
+    this.signalOnline();
   }
 
   gotMessage(message)
@@ -73,10 +86,24 @@ export default class WebSocketTransport extends TransportBase
   {
     console.error("Websocket error", event);
   }
+
   gotClose(event)
   {
-    console.log("Websocket closed, need to reconnect", event);
-    this.connectWebsocket(); //TODO retry on failure?
+    this.socket.close();
+    this.socket = null;
+
+    let nowbackoff = this.backoff;
+    this.backoff = Math.min(this.backoff * 2 || 1, 60);
+
+    if (nowbackoff >= 16) // 15 seconds without a connection
+      this.signalOffline();
+
+    console.log(`Websocket closed, need to reconnect in ${nowbackoff} seconds`, event);
+    setTimeout(() =>
+    {
+      console.log(`Reconnecting websocket`);
+      this.connectWebsocket();
+    }, nowbackoff * 1000);
   }
 
   setSignalled(endpoint)

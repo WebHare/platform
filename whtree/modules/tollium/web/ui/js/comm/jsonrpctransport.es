@@ -1,7 +1,6 @@
 var $todd = require("../support");
 import TransportBase from "./transportbase.es";
-var JSONRPC = require('@mod-system/js/net/jsonrpc');
-import * as whintegration from '@mod-system/js/wh/integration';
+import * as service from "./toddservice.rpc.json";
 
 /// JSONRPC support
 export default class JSONRPCTransport extends TransportBase
@@ -10,8 +9,8 @@ export default class JSONRPCTransport extends TransportBase
   {
     super({ commhost: '', ...options });
 
-    this.jsonrpc = null;
     this.request = null;
+    this.request_keepalive = false;
     this.scheduled = false;
     this.unloading = false;
   //  , sendallmessages: true
@@ -21,21 +20,14 @@ export default class JSONRPCTransport extends TransportBase
 
     $todd.DebugTypedLog("rpc", '** create JSONRPC transport');
 
-    this.jsonrpc = new JSONRPC(
-      { url: whintegration.config.obj.toddservice
-      , appendfunctionname: true
-      , log: $todd.IsDebugTypeEnabled('rpc')
-      });
-
     setTimeout(() => this.startRequest(), 1);
     this.scheduled = true;
   }
 
   destroy()
   {
-    if (this.jsonrpc)
-      this.jsonrpc.destroy();
-    this.jsonrpc = null;
+    if (this.request && !this.request_keepalive)
+      this.request.abort();
   }
 
   setSignalled(endpoint)
@@ -48,15 +40,12 @@ export default class JSONRPCTransport extends TransportBase
     this.scheduled = true;
   }
 
-  startRequest()
+  async startRequest()
   {
-    if (!this.jsonrpc)
-      return;
-
     if (this.request)
     {
       $todd.DebugTypedLog("rpc", '** JSONRPC cancel current request');
-      this.request.cancel();
+      this.request.abort();
       this.request = null;
     }
 
@@ -72,14 +61,30 @@ export default class JSONRPCTransport extends TransportBase
         req.frontendids.push(this.endpoints[i].options.frontendid);
     }
 
-    // Synchronous request when we're unloading for our very last message. Lower the timeout somewhat then.
-    this.request = this.jsonrpc.request('RunToddComm',
-                                        [ req ],
-                                        this.gotSuccess.bind(this),
-                                        this.gotFailure.bind(this),
-                                        { timeout: this.unloading ? 500 : 300000
-                                        , synchronous: this.unloading && !$todd.fastunload
-                                        });
+    const abortcontroller = new AbortController;
+    this.request = abortcontroller;
+
+    let result;
+    try
+    {
+      this.request_keepalive = this.unloading;
+
+      // use keepalive when unloading, so the request isn't aborted upon unload
+      result = await service.invoke(
+          { timeout: this.unloading ? 5000 : 300000
+          , keepalive: this.unloading
+          , signal: abortcontroller.signal
+          }, "RunToddComm",
+          req);
+    }
+    catch (e)
+    {
+      if (!abortcontroller.signal.aborted)
+        this.gotFailure(e);
+      return;
+    }
+
+    this.gotSuccess(result);
   }
 
   gotSuccess(data)

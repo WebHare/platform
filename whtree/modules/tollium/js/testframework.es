@@ -60,9 +60,19 @@ class ScreenProxy
   /** Return the <li> node for a specific menu item
       @param (stringarray) levels Full path to the menu item (parts of the menu names)
   */
-  getMenu(levels)
+  getMenu(levels, { autoclickhamburger = true } = {})
   {
     var curitem = this.win.node.querySelector('.wh-menubar');
+    if (!curitem && autoclickhamburger)
+    {
+      // test clicking the hamburger menu
+      const hamburger_img = this.win.node.ownerDocument.querySelector(`t-toolbar .t-toolbar-buttongroup__right t-button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
+      if (hamburger_img)
+      {
+        test.click(hamburger_img.closest(`t-button`));
+        curitem = this.win.node.ownerDocument.querySelectorAll('.wh-menulist.open')[0];
+      }
+    }
     if(levels)
       for(var i=0;curitem && i<levels.length;++i)
       {
@@ -104,6 +114,10 @@ class ScreenProxy
     //ADDME support more node types than just <checkbox> and <pulldown>
     if (el.classList.contains("wh-checkbox"))
       return el.propTodd.getValue();
+    if (el.nodeName.toLowerCase() == "t-textedit")
+      return el.querySelector('input').value;
+    if (el.nodeName.toLowerCase() == "t-textarea")
+      return el.querySelector('textarea').value;
     throw new Error("component not yet supported by getInputValue (classes: " + el.className + ")");
   }
   getListRow(listname, pattern) //simply reget it for every test, as list may rerender at unspecifide times

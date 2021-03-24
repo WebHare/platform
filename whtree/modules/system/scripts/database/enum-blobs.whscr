@@ -1,13 +1,19 @@
 ﻿<?wh
+
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-//LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+
 OBJECT trans := OpenPrimary();
 RECORD ARRAY blobs;
+
+INTEGER filethreshold_part := 1000; // enum all folders that have more than 1/X of the total size
 
 RECORD ARRAY relevant_columns;
 FOREVERY(RECORD schemarec FROM trans->GetSchemaListing())
@@ -78,9 +84,6 @@ blobs :=
 PRINT("Result:\n");
 PRINT(AnyToString(blobs, "boxed"));
 
-INTEGER64 totalfiles := SELECT AS INTEGER64 totalsize FROM blobs WHERE tablename = "SYSTEM.FS_OBJECTS";
-INTEGER64 filethreshold := totalfiles/100;
-
 PRINT("Reading all folders:\n");
 RECORD ARRAY folders :=
     SELECT id :=        id
@@ -90,13 +93,36 @@ RECORD ARRAY folders :=
       FROM system.fs_objects
   ORDER BY id;
 
+INSERT [ id := 0, parent := -1, name := "", size := 0i64 ] INTO folders AT 0;
+
+PRINT("Reading all fs_settings:\n");
+RECORD ARRAY fs_settings :=
+    SELECT id :=              fs_instance
+         , settingsize :=     SUM(LENGTH64(blobdata))
+      FROM system.fs_settings
+  GROUP BY fs_instance;
+
+fs_settings := EnrichWithTable(fs_settings, "id", system.fs_instances, [ fs_object := "fs_object" ]);
+
 PRINT("Reading all files:\n");
 RECORD ARRAY folderfiles :=
-    SELECT parent
-         , size :=      SUM(LENGTH64(data))
+    SELECT parent :=    isfolder ? id : parent
+         , id
+         , size :=      LENGTH64(data)
       FROM system.fs_objects AS file
-     WHERE isfolder = FALSE
+  ORDER BY id;
+
+PRINT("Join file and settings sizes:\n");
+folderfiles := JoinArrays(folderfiles, "id", fs_settings, [ settingsize := 0i64 ], [ rightouterjoin := TRUE ]);
+
+folderfiles :=
+    SELECT parent
+         , size :=      SUM(size + settingsize)
+      FROM folderfiles
   GROUP BY parent;
+
+INTEGER64 totalfiles := SELECT AS INTEGER64 Sum(size) FROM folderfiles;
+INTEGER64 filethreshold := totalfiles / filethreshold_part;
 
 PRINT("Adding files to folders:\n");
 FOREVERY (RECORD ff FROM folderfiles)
@@ -124,7 +150,7 @@ RECORD FUNCTION GetFolders(RECORD ARRAY rawdata, STRING name, INTEGER64 localsiz
   FOR (INTEGER i := pos.position; i < ubound; i := i + 1)
   {
     RECORD s := rawdata[i];
-    RECORD rec := GetFolders(rawdata, name || "/" || s.name, s.size, s.id);
+    RECORD rec := GetFolders(rawdata, (name = "" OR name = "/" ? name : name || "/") || s.name, s.size, s.id);
     size := size + rec.direct.size;
     subs := subs CONCAT [ RECORD(rec.direct) ] CONCAT rec.subs;
     IF (rec.direct.thr)
@@ -143,14 +169,14 @@ RECORD FUNCTION GetFolders(RECORD ARRAY rawdata, STRING name, INTEGER64 localsiz
 }
 
 PRINT("Calculating folder total sizes\n");
-RECORD final := GetFolders(folders, "", 0, 0);
+RECORD final := GetFolders(folders, "/", 0, -1);
 
 RECORD ARRAY lsubs :=
     SELECT name
          , size
-         , size_mb :=       size / 1024 / 1024
-         , size_gb :=       size / 1024 / 1024 / 1024
-         , perc :=          totalfiles = 0 ? 0 : size / (totalfiles / 100)
+         , size_mb :=       RoundToMultiple(MONEY(size / 1024 / 1024), 0.01m, "half-up")
+         , size_gb :=       RoundToMultiple(MONEY(size / 1024 / 1024 / 1024), 0.01m, "half-up")
+         , perc :=          RoundToMultiple(totalfiles = 0 ? 0m : MONEY(size) / (MONEY(totalfiles) / 100m), 0.01m, "half-up")
       FROM final.subs
      WHERE newthr
   ORDER BY name;/*DESC;
@@ -159,19 +185,26 @@ RECORD ARRAY lsubs :=
 PRINT(AnyToString(lsubs, "boxed"));
 
 
+PRINT("Reading all WRD entity settings:\n");
+RECORD ARRAY entity_settings :=
+    SELECT attribute
+         , size :=      SUM(Length64(blobdata))
+      FROM wrd.entity_settings
+  GROUP BY attribute;
 
+PRINT("Enriching setting stats:\n");
+entity_settings := EnrichWithTable(entity_settings, "attribute", wrd.attrs, [ type := "type" ]);
+entity_settings := EnrichWithTable(entity_settings, "type", wrd.types, [ wrd_schema := "wrd_schema" ]);
+entity_settings := EnrichWithTable(entity_settings, "wrd_schema", wrd.schemas, [ name := "name" ]);
 
-/*
-PRINT("Totals:\n");
-RECORD ARRAY totals :=
-    SELECT blobs :=               SUM(COLUMN blobs)
-         , totalsize :=           SUM(totalsize)
-         , totalsize_gb :=        SUM(totalsize / 1024 / 1024 / 1024)
-         , totalsize_sectors :=   SUM(totalsize_sectors)
-         , totalsize_sectors_gb :=SUM(totalsize_sectors / 1024 / 1024 / 1024)
-         , totalsize_pages :=     SUM(totalsize_pages)
-         , totalsize_pages_gb :=  SUM(totalsize_pages/ 1024 / 1024 / 1024)
-      FROM blobs;
+INTEGER64 total_wrd := SELECT AS INTEGER64(SUM(size)) FROM entity_settings;
 
-
-//*/
+PRINT("WRD schemas:\n");
+PRINT(AnyToString((
+    SELECT name
+         , size_mb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024), 0.01m, "half-up")
+         , size_gb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024 / 1024), 0.01m, "half-up")
+         , perc :=          RoundToMultiple(total_wrd = 0 ? 0m : MONEY(SUM(size)) / (MONEY(total_wrd) / 100m), 0.01m, "half-up")
+      FROM entity_settings
+  GROUP BY name
+  ORDER BY name), "boxed"));

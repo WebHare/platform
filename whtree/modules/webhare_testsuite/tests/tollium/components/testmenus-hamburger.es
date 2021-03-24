@@ -87,7 +87,7 @@ test.registerTests(
         var burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right t-button:last-child');
         test.true(burgerbutton);
         test.true(burgerbutton.classList.contains("ismenubutton"));
-        test.false(test.getMenu(['X01']));
+        test.false(test.getMenu(['X01', { autoclickhamburger: false } ]));
 
         test.click(burgerbutton);
         test.true(test.getOpenMenu());
