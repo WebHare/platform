@@ -1238,7 +1238,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
 
   wrdschema2->^wrd_person->CreateEntity(
       [ wrd_contact_email :=      "test-portal2@example.com"
-      , whuser_password :=        testfw->hashedpasswords.secret
+      , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal2"
       , whuser_unit :=            wrdschema2_unit->id
@@ -1246,7 +1246,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
 
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
       [ wrd_contact_email :=      "test-portal1@example.com"
-      , whuser_password :=        testfw->hashedpasswords.secret
+      , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal1"
       , whuser_unit :=            testfw->testunit
@@ -1388,7 +1388,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
 
   OBJECT person := wrdschema_idp->GetType("WRD_PERSON")->CreateEntity(
       [ wrd_contact_email :=      "idpaccount@example.com"
-      , whuser_password :=        CreateWebharePasswordHash("a")
+      , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash("a"))
       , whuser_unit :=            wrdschema_idp_unit->id
       ]);
 
@@ -1506,7 +1506,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
   IF(options.requirealternatesite)
   {
     OBJECT altsite := OpenTestsuiteAltSite();
-    IF(altsite->outputweb = 0)
+    IF(NOT ObjectExists(altsite) OR altsite->outputweb = 0)
       THROW NEW Exception(`Site '${altsite->name}' must be published to an alternate root!`);
 
     //kill all open sessions on the alt site

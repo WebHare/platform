@@ -20,6 +20,7 @@
   <servicemanager>
     <runonce tag="initdb_phase3" script="scripts/runonce/initdb_phase3.whscr" when="poststart" />
     <runonce tag="fixpasswordfields" script="scripts/runonce/fixpasswordfields.whscr" when="poststart" />
+    <runonce tag="switchtoauthenticationsettings" script="scripts/runonce/switchtoauthenticationsettings.whscr" when="poststart" />
     <runonce tag="removebrokenkeys" script="scripts/runonce/removebrokenkeys.whscr" when="poststart" />
     <task runat="41  3 * * *" runtz="maintenance" tag="maintenancetask" script="scripts/tasks/executemaintenance.whscr" />
     <task runat="*/6 * * * *" runtz="maintenance" tag="pollpaymentstatus" script="scripts/tasks/pollpaymentstatus.whscr" />
@@ -635,11 +636,17 @@
       <d:boolean name="impersonated" />
       <d:varchar name="ip" maxlength="64">
       </d:varchar>
+      <d:varchar name="browsertriplet" maxlength="64">
+      </d:varchar>
       <d:varchar name="login" maxlength="128">
       </d:varchar>
       <d:varchar name="type" maxlength="64" nullable="false">
       </d:varchar>
       <d:varchar name="data" maxlength="4096">
+      </d:varchar>
+      <d:integer name="byentity" references="wrd.entities" ondelete="set default">
+      </d:integer>
+      <d:varchar name="bylogin" maxlength="128">
       </d:varchar>
     </d:table>
 

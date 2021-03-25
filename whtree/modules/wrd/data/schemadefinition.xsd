@@ -176,6 +176,7 @@
       <xs:element name="whfsinstance" type="PlainAttribute" />
       <xs:element name="whfsintextlink" type="LinkAttribute" />
       <xs:element name="record" type="PlainAttribute" />
+      <xs:element name="authenticationsettings" type="PlainAttribute" />
       <xs:element name="obsolete" type="ObsoleteAttribute" />
 
       <!-- legacy -->

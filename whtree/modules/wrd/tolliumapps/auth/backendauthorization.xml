@@ -1,0 +1,35 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="mod::wrd/tolliumapps/auth/backendauthorization.whlib"
+         gid="commondialogs.auth.backendauthorization">
+
+  <screen name="backendauthorizationdialog">
+    <actions>
+      <action name="next" onexecute="DoNext" title="" />
+    </actions>
+
+    <body>
+      <tabs name="tabs" type="server">
+        <tab name="tab_password" title="">
+          <line layout="left">
+            <text name="enterpasswordforauthorization" title="" wordwrap="true" valuetid=".pleaseentercurrentpassword" />
+          </line>
+          <textedit name="password" width="1pr" password="true" tid="~password" required="true" defaultbutton="btn_next" />
+        </tab>
+        <tab name="tab_secondfactor" title="">
+          <line layout="left">
+            <text name="entersecondfactorforauthorization" title="" wordwrap="true" valuetid=".pleaseentersecondfactor" />
+          </line>
+          <textedit name="totpcode" required="true" width="40x" defaultbutton="btn_next" />
+        </tab>
+      </tabs>
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button name="btn_next" action="next" title="" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

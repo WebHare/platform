@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
@@ -93,14 +94,18 @@ MACRO CreateMyTestSchema()
 
 //  OBJECT domain := CreateWRDAuthDomain(persontype, "TESTDOMAIN", "WRD_CONTACT_EMAIL", "PASSWORD");
 
-  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "testaccount@test.invalid", whuser_password := testfw->hashedpasswords.secret, whuser_unit := testfw->testunit ]);
+  OBJECT entity := persontype->CreateEntity(
+      [ wrd_contact_email := "testaccount@test.invalid"
+      , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
+      , whuser_unit := testfw->testunit
+      ]);
   entityid := entity->id;
 
   testfw->CommitWork();
 
   //ADDME some sort of automatic backing off/delays/even captcha? to prevent excessive login attempts ?
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invali", pwd := "wrongpassword"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invali", pwd := "wrongpassword", browsertriplet := "mac-chrome-01" ]);
   TestEq(FALSE, result.success);
   TestEq("UNKNOWNLOGIN", result.code);
   TestAuditEvent(
@@ -110,9 +115,12 @@ MACRO CreateMyTestSchema()
       , login := "testaccount@test.invali"
       , impersonated := FALSE
       , data := EncodeHSON([failurecode := "UNKNOWNLOGIN"])
+      , browsertriplet := "mac-chrome-01"
+      , byentity := 0
+      , bylogin := "testaccount@test.invali"
       ]);
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01" ]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
   TestAuditEvent(
@@ -122,6 +130,9 @@ MACRO CreateMyTestSchema()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      , browsertriplet := "mac-chrome-01"
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   result := DoReq( [ action := "checkstatus" ]);
@@ -129,7 +140,7 @@ MACRO CreateMyTestSchema()
   TestEq("", result.loginname);
   TestEq(0, result.entityid);
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01" ]);
   TestEq(TRUE, result.success);
   TestAuditEvent(
       [ entity := entityid
@@ -138,6 +149,9 @@ MACRO CreateMyTestSchema()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-01"
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   result := DoReq( [ action := "checkstatus" ]);
@@ -146,7 +160,7 @@ MACRO CreateMyTestSchema()
   TestEq(entity->id, result.entityid);
 
   //regression test. issue #5989, early use of GetLoggedinEntity() or GetLoginName() causes a re-login
-  result := DoReq( [ action := "logout-checkstatus" ]);
+  result := DoReq( [ action := "logout-checkstatus", browsertriplet := "mac-chrome-01"  ]);
   TestEq(TRUE, result.oldstatus.isloggedin);
   TestEq(FALSE, result.isloggedin);
   TestEq("", result.loginname);
@@ -158,6 +172,9 @@ MACRO CreateMyTestSchema()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-01"
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   //set up last login and last ip fields
@@ -172,7 +189,7 @@ MACRO CreateMyTestSchema()
   testfw->CommitWork();
 
   //failed login shouldn't set these fields
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-02" ]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
   TestAuditEvent(
@@ -182,13 +199,16 @@ MACRO CreateMyTestSchema()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      , browsertriplet := "mac-chrome-02"
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
   TestEq("", entity->GetField("LASTIP"));
 
   //neither should a 'master' (impersonated) login
-  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1" ]);
+  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1", browsertriplet := "mac-chrome-02" ]);
   TestEq(TRUE, result.success);
   TestAuditEvent(
       [ entity := entityid
@@ -197,12 +217,15 @@ MACRO CreateMyTestSchema()
       , login := ""
       , impersonated := TRUE
       , data := ""
+      , browsertriplet := "mac-chrome-02"
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
   TestEq("", entity->GetField("LASTIP"));
 
-  result := DoReq( [ action := "logout-checkstatus" ]);
+  result := DoReq( [ action := "logout-checkstatus", browsertriplet := "mac-chrome-02" ]);
   TestEq(TRUE, result.oldstatus.isloggedin);
   TestEq(FALSE, result.isloggedin);
   TestAuditEvent(
@@ -212,10 +235,13 @@ MACRO CreateMyTestSchema()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-02"
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   DATETIME now := GetCurrentDatetime();
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-03"]);
   TestEq(TRUE, result.success);
 
   TestEq(TRUE, entity->GetField("LASTLOGIN") >= now);
@@ -228,6 +254,9 @@ MACRO CreateMyTestSchema()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-03"
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
       ]);
 }
 
@@ -257,7 +286,7 @@ MACRO TestPersistentLogin()
   OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
 
   RECORD result;
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret"]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-04" ]);
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:login:ok"
@@ -265,6 +294,9 @@ MACRO TestPersistentLogin()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-04"
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE ToUppercase(name)="WEBHARELOGIN-TESTSUITE-PORTAL1";
@@ -275,7 +307,7 @@ MACRO TestPersistentLogin()
   TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
   testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", "d_VFv-saZMPc0TyZ7Wi1Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
 
-  //Should autorestore because of the data in the cookie
+  //Should autorestore because of the data in the cookie. Browser triplet cannot be stored
   result := DoReq( [ action := "checkstatus" ]);
   TestEq(TRUE, result.isloggedin);
   TestAuditEvent(
@@ -284,6 +316,9 @@ MACRO TestPersistentLogin()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := ""
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   //Completely clear the session
@@ -294,7 +329,7 @@ MACRO TestPersistentLogin()
   TestEq(FALSE, result.isloggedin);
 
 //testfw->browser->debug:=TRUE;
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1" ]);
+  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-04" ]);
   TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
   testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", "d_VFv-saZMPc0TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
   TestAuditEvent(
@@ -304,9 +339,12 @@ MACRO TestPersistentLogin()
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-04"
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
-  //Should still recover from this (from the persistent cookie)
+  //Should still recover from this (from the persistent cookie). Browser triplet not available in this path
   result := DoReq( [ action := "checkstatus" ]);
   TestEq(TRUE, result.isloggedin);
   TestAuditEvent(
@@ -315,12 +353,15 @@ MACRO TestPersistentLogin()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := ""
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   //Completely clear the session
   testfw->browser->DeleteCookie("webharelogin-testsuite-portal1");
 
-  //Should now also recover from this
+  //Should now also recover from this. Browser triplet not available in this path
   result := DoReq( [ action := "checkstatus" ]);
   TestEq(TRUE, result.isloggedin);
   TestAuditEvent(
@@ -329,6 +370,9 @@ MACRO TestPersistentLogin()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := ""
+      , byentity := entityid
+      , bylogin := ""
       ]);
 }
 
@@ -351,7 +395,7 @@ MACRO TestCrossDomainLogin()
 //  testfw->browser->debug:=TRUE;
   STRING loginpage := testfw->browser->href;
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  MakeVA(testfw->browser->href, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE));
+                  MakeVA(testfw->browser->href, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-05" ]));
 
   TestEq(TRUE, rec.success);
   TestEq('reload', rec.result.submitinstruction.type);
@@ -361,6 +405,9 @@ MACRO TestCrossDomainLogin()
       , login := "mysysop@beta.webhare.net"
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := "mac-chrome-05"
+      , byentity := testfw->GetUserWRDId("mysysop")
+      , bylogin := "mysysop@beta.webhare.net"
       ]);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginpage));
@@ -382,7 +429,7 @@ MACRO TestCrossDomainLogin()
   TestEq(TRUE, testfw->browser->GotoWebPage( OpenTestsuiteSite()->webroot || "portal1/requiresysop-or-consilio"));
   TestEq(200, testfw->browser->GetHTTPStatusCode());
 
-  // Log the user out on the main page (TODO can we invalidate the external thirdparty logins to?)
+  // Log the user out on the main page (TODO can we invalidate the external thirdparty logins to?). browsertriplet not availale
   TestAuditEvent(DEFAULT RECORD); //check log is still empty
   testEq(TRUE, testfw->browser->GotoWebPage(GetTestsuiteWRDauthPlugin()->GetLogoutLink()));
   TestAuditEvent(
@@ -391,6 +438,9 @@ MACRO TestCrossDomainLogin()
       , login := ""
       , impersonated := FALSE
       , data := ""
+      , browsertriplet := ""
+      , byentity := testfw->GetUserWRDId("mysysop")
+      , bylogin := ""
       ]);
 }
 
@@ -440,7 +490,11 @@ MACRO TestLoginDenied()
   OBJECT persontype := schemaobj->GetType("WRD_PERSON");
   OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
 
-  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "logindenied@test.invalid", whuser_password := testfw->hashedpasswords.secret, whuser_unit := testfw->testunit ]);
+  OBJECT entity := persontype->CreateEntity(
+      [ wrd_contact_email := "logindenied@test.invalid"
+      , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
+      , whuser_unit := testfw->testunit
+      ]);
   entityid := entity->id;
 
   testfw->CommitWork();
@@ -452,7 +506,7 @@ MACRO TestLoginDenied()
   TestEq(0, result.entityid);
 
   // Login is denied when logging in by username and password
-  result := DoReq( [ action := "login", username := "logindenied@test.invalid", pwd := "secret"]);
+  result := DoReq( [ action := "login", username := "logindenied@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-06"]);
   TestEq(FALSE, result.success);
   TestEq("NOACCESS", result.code);
   TestEq(TRUE, CellExists(result, "USERINFO"));
@@ -467,6 +521,9 @@ MACRO TestLoginDenied()
           EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
                      , failurecode := "NOACCESS"
                      ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := entityid
+      , bylogin := "logindenied@test.invalid"
       ]);
 
   // User still not logged in
@@ -476,7 +533,7 @@ MACRO TestLoginDenied()
   TestEq(0, result.entityid);
 
   // Login is denied when logging in by id
-  result := DoReq( [ action := "loginid", userid := ToString(entityid) ]);
+  result := DoReq( [ action := "loginid", userid := ToString(entityid), browsertriplet := "mac-chrome-06" ]);
   TestEq(FALSE, result.success);
   TestEq("NOACCESS", result.code);
   TestEq(TRUE, CellExists(result, "USERINFO"));
@@ -491,6 +548,9 @@ MACRO TestLoginDenied()
           EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
                      , failurecode := "NOACCESS"
                      ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := entityid
+      , bylogin := ""
       ]);
 
   // User still not logged in
@@ -500,7 +560,7 @@ MACRO TestLoginDenied()
   TestEq(0, result.entityid);
 
   // Login is not denied when impersonating login
-  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1" ]);
+  result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1", browsertriplet := "mac-chrome-06" ]);
   TestEq(TRUE, result.success);
   TestEq(FALSE, RecordExists(result.submitinstruction));
   TestAuditEvent(
@@ -509,7 +569,265 @@ MACRO TestLoginDenied()
       , login := ""
       , impersonated := TRUE
       , data := ""
+      , browsertriplet := "mac-chrome-06"
+      , byentity := 0
+      , bylogin := ""
       ]);
+}
+
+MACRO TestSecondFactorLogin()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
+
+  STRING totpsecret := GenerateOTPSecret();
+
+  OBJECT entity := persontype->CreateEntity(
+      [ wrd_contact_email := "loginsecondfactor@beta.webhare.net"
+      , whuser_password :=
+              [ version :=      1
+              , passwords :=    [ [ passwordhash := testfw->hashedpasswords.secret ] ]
+              , totp :=         [ url := GetTOTPUrl(totpsecret, "loginsecondfactor@beta.webhare.net", "Webhare")
+                                , backupcodes := [ [ code := "012345AA" ], [ code := "012345AB" ] ]
+                                ]
+              ]
+      , whuser_unit := testfw->testunit
+      ]);
+  entityid := entity->id;
+
+  testfw->CommitWork();
+  RECORD result;
+
+  // STORY: succesfull login
+  result := DoReq( [ action := "login", username := "loginsecondfactor@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+
+  TestEQStructure(
+      [ code :=               "REQUIRESECONDFACTOR"
+      , success :=            FALSE
+      , secondfactordata :=   [ totp :=             TRUE
+                              , totpattemptsleft := 6
+                              , firstfactorproof := ""
+                              , challenge :=        ""
+                              ]
+      , submitinstruction :=  DEFAULT RECORD
+      ], result);
+
+  STRING challenge := result.secondfactordata.challenge;
+
+  TestEQMembers(
+      [ code :=     "REQUIRESECONDFACTOR"
+      , success :=  FALSE
+      , secondfactordata :=
+                    [ totp :=             TRUE
+                    , totpattemptsleft := 6
+                    ]
+      ], result, "*");
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:requiresecondfactor"
+      , login := "loginsecondfactor@beta.webhare.net"
+      , impersonated := FALSE
+      , data := EncodeHSON(
+                    [ failurecode := "REQUIRESECONDFACTOR"
+                    , secondfactordata := CELL
+                          [ challenge
+                          ]
+                    ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := entityid
+      , bylogin := "loginsecondfactor@beta.webhare.net"
+      ]);
+
+  STRING code := GetTOTPCode(totpsecret);
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON(CELL[ code ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQ(
+      [ code :=               ""
+      , success :=            TRUE
+      , submitinstruction :=  [ type := "reload" ]
+      ], result);
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:secondfactor:ok"
+      , login := "loginsecondfactor@beta.webhare.net"
+      , impersonated := FALSE
+      , data := EncodeHSON(
+                    [ secondfactordata := CELL
+                          [ usedchallenge :=    challenge
+                          , code
+                          ]
+                    ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := entityid
+      , bylogin := "loginsecondfactor@beta.webhare.net"
+      ]);
+
+  // STORY: relogin with invalid code
+  result := DoReq( [ action := "login", username := "loginsecondfactor@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+
+  TestEQ(FALSE, challenge = result.secondfactordata.challenge, "challenge must change between requests");
+  challenge := result.secondfactordata.challenge;
+
+  STRING invalidcode;
+  FOR (INTEGER i := 0; i < 10000000; i := i + 1)
+  {
+    invalidcode := Right("00000" || i, 6);
+    IF (NOT TestTOTPCode(totpsecret, invalidcode, [ allowdrift := 120 ]).success) // allow large drift to test won't fail
+      BREAK;
+  }
+
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON(CELL[ code := invalidcode ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQStructure(
+      [ code :=               ""
+      , success :=            FALSE
+      , secondfactordata :=   [ totp :=             TRUE
+                              , totpattemptsleft := 6
+                              , firstfactorproof := ""
+                              , challenge :=        ""
+                              ]
+      , submitinstruction :=  DEFAULT RECORD
+      ], result);
+
+  TestEQMembers(
+      [ code :=               "TOTPINVALIDCODE"
+      , submitinstruction :=  DEFAULT RECORD
+      , secondfactordata :=
+                    [ totp :=             TRUE
+                    , totpattemptsleft := 5
+                    ]
+      ], result, "*");
+
+  TestEQ(FALSE, challenge = result.secondfactordata.challenge, "challenge must change between requests");
+  challenge := result.secondfactordata.challenge;
+
+  // STORY: relogin with already used valid code
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON(CELL[ code ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQStructure(
+      [ code :=               "REQUIRESECONDFACTOR"
+      , success :=            FALSE
+      , secondfactordata :=   [ totp :=             TRUE
+                              , totpattemptsleft := 5
+                              , firstfactorproof := ""
+                              , challenge :=        ""
+                              ]
+      , submitinstruction :=  DEFAULT RECORD
+      ], result);
+
+  TestEQMembers(
+      [ code :=               "TOTPREUSEDCODE"
+      , submitinstruction :=  DEFAULT RECORD
+      , secondfactordata :=
+                    [ totp :=             TRUE
+                    , totpattemptsleft := 5
+                    ]
+      ], result, "*");
+
+  TestEQ(FALSE, challenge = result.secondfactordata.challenge, "challenge must change between requests");
+  challenge := result.secondfactordata.challenge;
+
+  // a future code must be accepted
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON([ code := GetTOTPCode(totpsecret, [ now := AddTimeToDate(30000, GetCurrentDatetime() )]) ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQ(
+      [ code :=               ""
+      , success :=            TRUE
+      , submitinstruction :=  [ type := "reload" ]
+      ], result);
+
+  // no crashing on invalid first factor data
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , firstfactorproof := "invaliddata"
+      , type := "totp"
+      , data := EncodeJSON([ code := GetTOTPCode(totpsecret, [ now := AddTimeToDate(30000, GetCurrentDatetime() )]) ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQMembers(
+      [ code :=               "INVALIDDATA"
+      , success :=            FALSE
+      , submitinstruction :=  DEFAULT RECORD
+      ], result, "*");
+
+  // Locking after 6 invalid codes
+  result := DoReq( [ action := "login", username := "loginsecondfactor@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  TestEQ(6, result.secondfactordata.totpattemptsleft);
+
+  FOR (INTEGER i := 6; i >= 0; i := i - 1)
+  {
+    result := DoReq(CELL
+        [ action := "loginsecondfactor"
+        , result.secondfactordata.firstfactorproof
+        , type := "totp"
+        , data := EncodeJSON([ code := invalidcode ])
+        , browsertriplet := "mac-chrome-06"
+        ]);
+
+    TestEQMembers(
+        [ code :=               i <= 1 ? "TOTPLOCKED" : "TOTPINVALIDCODE"
+        , success :=            FALSE
+        , secondfactordata :=   [ totpattemptsleft := Max[]([ 0, i - 1 ]) ]
+        , submitinstruction :=  DEFAULT RECORD
+        ], result, "*");
+  }
+
+  TestEQ(FALSE, challenge = result.secondfactordata.challenge, "challenge must change between requests");
+  challenge := result.secondfactordata.challenge;
+
+  // Test backup code login and no reuse
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON([ code := "012345AA" ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQ(TRUE, result.success);
+
+  result := DoReq( [ action := "login", username := "loginsecondfactor@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  result := DoReq(CELL
+      [ action := "loginsecondfactor"
+      , result.secondfactordata.firstfactorproof
+      , type := "totp"
+      , data := EncodeJSON([ code := "012345AA" ])
+      , browsertriplet := "mac-chrome-06"
+      ]);
+
+  TestEQ(FALSE, result.success);
 }
 
 MACRO TestWRDAuthRouter()
@@ -576,11 +894,12 @@ MACRO TestWRDAuthRouter()
 
 Runtestframework( [ PTR PrepareServer
                   , PTR CreateMyTestSchema
-                  , PTR TestModuleDefIPRules
+/*                  , PTR TestModuleDefIPRules
                   , PTR TestPersistentLogin
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
-                  , PTR TestLoginDenied
+                  , PTR TestLoginDenied*/
+                  , PTR TestSecondFactorLogin
                   , PTR TestWRDAuthRouter
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
                                     ]

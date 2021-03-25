@@ -2,6 +2,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/otp.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
@@ -680,6 +681,132 @@ MACRO TestStatusRecordAttr()
   testfw->RollbackWork(); //FIXME commit!
 }
 
+MACRO TestAuthenticationAttrs()
+{
+  testfw->BeginWork();
+
+  OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;
+  persontype->CreateAttribute("AUTHSETTINGS", "AUTHENTICATIONSETTINGS");
+
+  TestEq("AUTHENTICATIONSETTINGS",  persontype->GetAttribute("AUTHSETTINGS").attributetypename);
+
+  OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com" ]);
+  TestEq(DEFAULT RECORD, testperson->GetField("AUTHSETTINGS"));
+
+  TestThrows(PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
+  TestThrows(PTR testperson->UpdateEntity( [ authsettings := CELL[] ]));
+  TestThrows(PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1] ]));
+  TestThrowsLike(`Expected version 1 while parsing value for attribute "AUTHSETTINGS"`, PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1 ] ]));
+  TestThrowsLike(`Unexpected cell 'DOESNOTEXIST' in data while *`, PTR testperson->UpdateEntity(
+      [ authsettings := [ version := 1
+                        , doesnotexist := 1
+                        ]
+      ]));
+
+  STRING totpurl := GetTOTPUrl("01234567891234567890", "authattrs@example.com", "webhare_testsuite");
+
+  testperson->UpdateEntity(
+      [ authsettings := [ version := 1
+                        , passwords :=    [ [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            ]
+                                          , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            , validfrom :=    MakeDate(1999, 2, 2)
+                                            ]
+                                          , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            , validfrom :=    MakeDate(1999, 2, 3)
+                                            ]
+                                          ]
+                        , totp :=         [ url :=            totpurl
+                                          , backupcodes :=    [ [ code := "C1" ] ]
+                                          ]
+                        ]
+      ]);
+
+  TestEQ(
+      [ authsettings := [ version := 1
+                        , passwords :=    [ [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            , validfrom :=    DEFAULT DATETIME
+                                            ]
+                                          , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            , validfrom :=    MakeDate(1999, 2, 2)
+                                            ]
+                                          , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                                            , validfrom :=    MakeDate(1999, 2, 3)
+                                            ]
+                                          ]
+                        , totp :=         [ url :=            totpurl
+                                          , locked :=         DEFAULT DATETIME
+                                          , backupcodes :=    [ [ code := "C1", used := DEFAULT DATETIME ] ]
+                                          ]
+                        ]
+      ], testperson->GetFields([ "authsettings" ]));
+
+  persontype->CreateAttribute("AUTHSETTINGS_CONVERTTEST", "PASSWORD");
+
+  RECORD ARRAY tests :=
+      SELECT wrd_id :=    persontype->CreateEntity([ authsettings_converttest := orgdata ])->id
+           , *
+        FROM [ [ orgdata := ""
+               , expect := DEFAULT RECORD
+               ]
+             , [ orgdata := "*"
+               , expect :=  [ version := 1
+                            , passwords :=  [ [ validfrom := DEFAULT DATETIME
+                                              , passwordhash := "*"
+                                              ]
+                                            ]
+                            , totp :=       DEFAULT RECORD
+                            ]
+               ]
+             , [ orgdata := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"
+               , expect :=  [ version := 1
+                            , passwords :=  [ [ validfrom := DEFAULT DATETIME
+                                              , passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"
+                                              ]
+                                            ]
+                            , totp :=       DEFAULT RECORD
+                            ]
+               ]
+             ] AS row;
+
+  persontype->UpdateAttribute("AUTHSETTINGS_CONVERTTEST", [ attributetypename := "AUTHENTICATIONSETTINGS" ]);
+
+  tests := persontype->Enrich(tests, "wrd_id", [ got := "authsettings_converttest" ]);
+  FOREVERY (RECORD test FROM tests)
+    TestEQ(test.expect, test.got, `Convert password ${EncodeJSON(test.orgdata)}`);
+
+  FOREVERY (RECORD rec FROM tests)
+    persontype->UpdateEntity(rec.wrd_id, [ authsettings_converttest := rec.got ]);
+
+  tests := persontype->Enrich(tests, "wrd_id", [ got2 := "authsettings_converttest" ]);
+  FOREVERY (RECORD test FROM tests)
+    TestEQ(test.expect, test.got2, `Identity-setting authentication settings from converted pasword`);
+
+  persontype->UpdateAttribute("AUTHSETTINGS_CONVERTTEST", [ attributetypename := "PASSWORD" ]);
+  tests := persontype->Enrich(tests, "wrd_id", [ got3 := "authsettings_converttest" ]);
+
+  // Test if searching also works for backconverted authentication settings
+  FOREVERY (RECORD test FROM tests)
+  {
+    TestEQ(test.orgdata, test.got3, `Back-convert authentication settings to password`);
+    TestEQ(test.orgdata = "" ? INTEGER[ test.wrd_id ] : INTEGER[],
+        persontype->RunQuery(
+            [ outputcolumn := "wrd_id"
+            , filters := [ [ field := "wrd_id", value := test.wrd_id ]
+                         , [ field := "AUTHSETTINGS_CONVERTTEST", value := "" ]
+                         ]
+            ]));
+    TestEQ(test.orgdata != "" ? INTEGER[ test.wrd_id ] : INTEGER[],
+        persontype->RunQuery(
+            [ outputcolumn := "wrd_id"
+            , filters := [ [ field := "wrd_id", value := test.wrd_id ]
+                         , [ field := "AUTHSETTINGS_CONVERTTEST", matchtype := "!=", value := "" ]
+                         ]
+            ]));
+  }
+
+  testfw->RollbackWork(); //FIXME commit!
+}
 
 MACRO TestGenderDomain()
 {
@@ -2993,6 +3120,7 @@ MACRO TestQueryParameters()
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestSchema
+                 , PTR TestAuthenticationAttrs
 
                  , PTR TestTitleAttr
                  , PTR TestHSONAttr

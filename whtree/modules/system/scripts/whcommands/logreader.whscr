@@ -203,6 +203,47 @@ OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
   }
 >;
 
+OBJECTTYPE AuditLogReader EXTEND LogReaderBase
+<
+  VARIANT FUNCTION DecodeHSONParam(STRING param)
+  {
+    TRY
+    {
+      IF (param = "-")
+        RETURN "(omitted)";
+      IF (param NOT LIKE "hson:*")
+        RETURN param;
+      RETURN DecodeHSON(param);
+    }
+    CATCH (OBJECT e)
+    {
+      RETURN "HSON decode error: " || e->what;
+    }
+  }
+
+  UPDATE RECORD FUNCTION ProcessLine(STRING line)
+  {
+    STRING ARRAY linetoks := Tokenize(line,"\t");
+    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+      RETURN DEFAULT RECORD;
+    IF (Length(linetoks) < 4)
+      RETURN DEFAULT RECORD;
+
+    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+    STRING source := Substring(linetoks[0], Length(whentext)+3);
+
+    BOOLEAN hasmessage := linetoks[3] NOT LIKE "hson:*";
+    RECORD retval := [ raw :=             line
+                     , when :=            MakeDateFromText(whentext)
+                     , source :=          source
+                     , srhid :=           linetoks[1]
+                     , login :=           linetoks[2]
+                     , auth :=            linetoks[3]
+                     , message :=         this->DecodeHSONParam(linetoks[4])
+                     ];
+    RETURN retval;
+  }
+>;
 RECORD FUNCTION DecodeHTTPLogLine(RECORD inline)
 {
   IF(inline.transport NOT LIKE "* *")
@@ -305,8 +346,10 @@ IF (info.format = "" AND logfilepath LIKE "*debug.*")
   info.format := "debug";
 IF (info.format = "" AND logfilepath LIKE "*notice.*")
   info.format := "notice";
+IF (info.format = "" AND logfilepath LIKE "*audit.*")
+  info.format := "audit";
 
-IF(info.format NOT IN ["rpc", "debug", "notice"])
+IF(info.format NOT IN ["rpc", "debug", "notice", "audit"])
   ABORT("Unrecognized logformat '" || info.format || "'. Please use --format with eg 'rpc'");
 
 OBJECT linereader;
@@ -315,6 +358,7 @@ SWITCH (info.format)
   CASE "rpc"      { linereader := NEW RPCLogReader; }
   CASE "debug"    { linereader := NEW DebugLogReader; }
   CASE "notice"   { linereader := NEW NoticeLogReader; }
+  CASE "audit"    { linereader := NEW AuditLogReader; }
 }
 linereader->AddData(firstline); //throw in the line we already had
 
@@ -501,6 +545,26 @@ WHILE(TRUE)
 
         IF (line.type NOT IN [ "javascript-error", "harescript-error", "siteprofilecompilation-error" ] AND RecordExists(line.message))
           lastlines[END-1] := lastlines[END-1] || "log entry type: " || line.type || "\n" || AnyToString(line.message, "tree");
+      }
+      CASE "audit"
+      {
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source} login:${line.login} ${line.auth}\n  > ` ||
+            Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+
+        IF (filtersources)
+        {
+          BOOLEAN have_match;
+          FOREVERY (STRING mask FROM info.s)
+            have_match := have_match OR line.source LIKE mask;
+          IF (NOT have_match)
+          {
+            IF (info.d)
+              PRINT("Ignored line from source " || line.source || "\n");
+
+            lastlines[END-1] := "";
+            CONTINUE;
+          }
+        }
       }
     }
 

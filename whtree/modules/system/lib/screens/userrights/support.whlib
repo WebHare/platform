@@ -860,6 +860,5 @@ PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user)
 PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy)
 {
   pwdfield->visible := policy.haspassword;
-  pwdfield->cellname := pwdfield->contexts->controller->userapi->wrdschema->accountpasswordtag;
   pwdfield->validationchecks := policy.passwordvalidationchecks;
 }

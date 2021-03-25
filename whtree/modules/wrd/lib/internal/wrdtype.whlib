@@ -27,6 +27,7 @@ LOADLIB "mod::wrd/lib/internal/support2.whlib";
 LOADLIB "mod::wrd/lib/internal/setentity.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
 LOADLIB "mod::wrd/lib/internal/query/generators.whlib";
 
@@ -1712,7 +1713,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     - checklinks
     - multiline
     */
-  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as)
+  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode)
   {
     RECORD ARRAY newsets;
     RECORD ARRAY subs;
@@ -1903,7 +1904,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             IF(NOT RecordExists(subattr))
               THROW NEW Exception("No such array subcell '" || subval.name || "' in '" || this->tag || "." || attr.tag || "'");
 
-            INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as) INTO outputrow.settings AT END;
+            INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as, importmode) INTO outputrow.settings AT END;
           }
           INSERT outputrow INTO subs AT END;
         }
@@ -2023,7 +2024,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF(val!="")
         {
-          IF(NOT IsAllowedEnumValue(val, attr.allowedvalues))
+          IF(NOT importmode AND NOT IsAllowedEnumValue(val, attr.allowedvalues))
             THROW NEW Exception(`Value '${val}' is not an acceptable value for attribute '${attr.tag}'`);
 
           INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
@@ -2039,7 +2040,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           STRING ARRAY outvals;
           FOREVERY(STRING setval FROM val)
           {
-            IF(NOT IsAllowedEnumValue(setval, attr.allowedvalues))
+            IF(NOT importmode AND NOT IsAllowedEnumValue(setval, attr.allowedvalues))
               THROW NEW Exception(`Illegal value '${setval}' for attribute '${attr.tag}'`);
 
             RECORD lb := LowerBound(outvals, setval);
@@ -2091,7 +2092,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               INSERT [ setting := payment.paymentprovider, ordering := #payment + 1, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
           }
       }
-      CASE 27 //SUPPORTECORD
+      CASE 27 //STATUSRECORD
       {
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
@@ -2100,7 +2101,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
            THROW NEW Exception(`Missing status field for attribute '${attr.tag}'`);
 
           STRING status := val.status;
-          IF(NOT IsAllowedEnumValue(status, attr.allowedvalues))
+          IF(NOT importmode AND NOT IsAllowedEnumValue(status, attr.allowedvalues))
             THROW NEW Exception(`Status '${status}' is not an acceptable value for attribute '${attr.tag}'`);
 
           val := CELL[...val, DELETE status ];
@@ -2112,6 +2113,20 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           ELSE
             INSERT [ setting := 0, rawdata := status || "\t", blobdata := StringToBlob(data) ] INTO newsets AT END;
 
+        }
+      }
+      CASE 28 // AUTHENTICATIONSETTINGS
+      {
+        val := this->EnsureRecord(attr, val);
+        IF(RecordExists(val))
+        {
+          val := ValidateAuthenticationSettingValue(val);
+
+          STRING data := EncodeHSON(val);
+          IF(Length(data) <= 4096)
+            INSERT [ setting := 0, rawdata := data, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+          ELSE
+            INSERT [ setting := 0, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
         }
       }
       DEFAULT
@@ -2287,7 +2302,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         {
           CASE 1 /*domain_single*/
           {
-            RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as);
+            RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode);
             entityrec := CellDelete(entityrec, attr.cellname);
             //make sure any string in eg wrd_leftentity is converted to integer
             entityrec := CellInsert(entityrec, attr.cellname, Length(parsed.newsets) > 0 ? parsed.newsets[0].setting : 0);
@@ -2319,7 +2334,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(NOT CellExists(fieldsdata, attr.tag))
         CONTINUE;
 
-      INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as) INTO settings AT END;
+      TRY
+        INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode AND FALSE) INTO settings AT END;
+      CATCH (OBJECT e)
+      {
+        e->what := e->what || ` while parsing value for attribute ${EncodeJSON(attr.tag)}`;
+        THROW;
+      }
+
       fieldsdata := CellDelete(fieldsdata, attr.tag);
     }
 

@@ -827,6 +827,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                             , localport :=    GetClientLocalPort()
                             , webserver :=    GetClientWebserver()
                             , proxyid :=      ToInteger(GetWebVariable("X-WebHare-Proxy"),0)
+                            , browsertriplet := options.browser
                             ]
                          , launchuserinfo := this->launchuserinfo
                          , lang := GetTidLanguage()

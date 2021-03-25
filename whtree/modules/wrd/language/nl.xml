@@ -191,6 +191,16 @@
         <text tid="verificationok">Verificatie geslaagd</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="auth">   <!-- commondialogs.auth -->
+      <textgroup gid="backendauthorization">   <!-- commondialogs.auth.backendauthorization -->
+        <text tid="backendauthorizationdialog">Authenticeren</text>
+        <text tid="incorrectcode">Ongeldige code ingevoerd</text>
+        <text tid="incorrectpassword">Ongeldig wachtwoord</text>
+        <text tid="pleaseentercurrentpassword">Voer je huidige wachtwoord in</text>
+        <text tid="pleaseentersecondfactor">Voer de eenmalige toegangcode in</text>
+        <text tid="totpcode">Eenmalige toegangcode</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="editaddress">   <!-- commondialogs.editaddress -->
       <text tid="btn_verify">Verifieer adres</text>
       <text tid="country">Land</text>
@@ -1071,6 +1081,7 @@
       <textgroup gid="types">   <!-- types.attributes.types -->
         <text tid="address">Adres</text>
         <text tid="array">Array (Lijst)</text>
+        <text tid="authenticationsettings">Authenticatie instellingen</text>
         <text tid="boolean">Boolean</text>
         <text tid="date">Datum</text>
         <text tid="datetime">Datum en tijd</text>

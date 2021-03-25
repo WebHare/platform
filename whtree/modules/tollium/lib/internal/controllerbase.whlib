@@ -3456,4 +3456,17 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     ABORT("this loop never quits");
   }
 
+  /** Returns info about the client
+      @return Info about the client
+      @cell return.remoteip Remote IP, if known
+      @cell return.browsertriplet Browser triplet, if known
+  */
+  PUBLIC RECORD FUNCTION GetClientInfo()
+  {
+    RETURN
+        [ remoteip :=       ""
+        , browsertriplet := ""
+        ];
+  }
+
 >;

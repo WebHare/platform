@@ -1,0 +1,105 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
+<
+  RECORD options;
+
+  MACRO Init(RECORD data)
+  {
+    this->options := ValidateOptions(
+        [ askpassword :=        TRUE
+        , asksecondfactor :=    TRUE
+        ], data);
+
+    RECORD settings := this->GetSettings();
+
+    ^btn_next->title := RecordExists(settings) AND RecordExists(settings.totp) AND this->options.asksecondfactor
+        ? GetTid("~next") ||  " \xE2\x80\xBA\xE2\x80\xBA"
+        : GetTid("~ok");
+
+    IF (NOT this->options.askpassword)
+      this->DoNext();
+  }
+
+  RECORD FUNCTION GetSettings()
+  {
+    VARIANT settings := this->contexts->user->entity->GetField(this->contexts->userapi->wrdschema->accountpasswordtag);
+    IF (TypeID(settings) = TypeID(STRING))
+      settings := CreateAuthenticationSettingsFromPasswordHash(settings);
+
+    RETURN settings;
+  }
+
+  MACRO DoNext()
+  {
+    RECORD settings := this->GetSettings();
+    IF (^tabs->selectedtab = ^tab_password)
+    {
+      STRING passwordhash := RecordExists(settings) AND IsValueSet(settings.passwords) ? settings.passwords[END-1].passwordhash : "";
+
+      IF (this->options.askpassword)
+      {
+        // FIXME: verify via wrdauthplugin
+        OBJECT work := this->BeginWork([ validate := OBJECT[ ^tab_password]]);
+        IF (NOT work->HasFailed())
+        {
+          IF (NOT VerifyWebHarePasswordHash(^password->value, passwordhash))
+            work->AddErrorFor(^password, this->GetTid(".incorrectpassword"));
+        }
+        IF (NOT work->Finish())
+          RETURN;
+      }
+
+      IF (RecordExists(settings) AND RecordExists(settings.totp) AND this->options.asksecondfactor)
+      {
+        ^tabs->selectedtab := ^tab_secondfactor;
+        ^btn_next->title := GetTid("~ok");
+        ^frame->focused := ^totpcode;
+      }
+      ELSE
+        this->tolliumresult := "ok";
+    }
+    ELSE IF (^tabs->selectedtab = ^tab_secondfactor)
+    {
+      // FIXME: verify via wrdauthplugin, count failures
+      OBJECT work := this->BeginWork([ validate := OBJECT[ ^tab_secondfactor ] ]);
+
+      // Re-read settings from entity, don't want to allow backupcode re-use
+      IF (NOT RecordExists(settings) OR RecordExists(settings.totp))
+      {
+        this->tolliumresult := "ok";
+        work->Cancel();
+        RETURN;
+      }
+
+      IF (NOT work->HasFailed())
+      {
+        RECORD parsed := UnpackOTPUrl(settings.totp.url);
+        RECORD res := TestTOTPCode(parsed.secret, ^totpcode->value, parsed.options);
+        IF (NOT res.success OR settings.totp.locked != DEFAULT DATETIME)
+        {
+          IF (NOT RecordExists(SELECT FROM settings.totp.backupcodes WHERE code = ^totpcode->value AND used = DEFAULT DATETIME))
+            work->AddErrorFor(^totpcode, this->GetTid(".incorrectcode"));
+          ELSE
+          {
+            // FIXME: directly offer to re-enroll 2FA
+            UPDATE settings.totp.backupcodes SET used := GetCurrentDateTime() WHERE code = ^totpcode->value;
+            this->contexts->user->entity->UpdateEntity(CellInsert(DEFAULT RECORD, this->contexts->userapi->wrdschema->accountpasswordtag, settings));
+          }
+        }
+      }
+      IF (NOT work->Finish())
+        RETURN;
+      this->tolliumresult := "ok";
+    }
+  }
+>;

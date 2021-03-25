@@ -588,7 +588,9 @@ MACRO TestAccountSettings()
 {
   //apply account settings to a schema which never had it
   STRING schemawithaccounttype := `
-<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" accounttype="wrd_person"   accountemailfield="WRD_CONTACT_EMAIL"
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accounttype="wrd_person"
+                  accountemailfield="WRD_CONTACT_EMAIL"
                   accountloginfield="LOGIN"
                   accountpasswordfield="PASSWORD">
   <object tag="WRD_PERSON">
@@ -600,12 +602,36 @@ MACRO TestAccountSettings()
   </object>
 </schemadefinition>`;
 
+  STRING schemawithauthsettingspassword := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accounttype="wrd_person"
+                  accountemailfield="WRD_CONTACT_EMAIL"
+                  accountloginfield="LOGIN"
+                  accountpasswordfield="AUTHSETTINGS">
+  <object tag="WRD_PERSON">
+    <attributes>
+      <free tag="LOGIN" />
+      <email tag="WRD_CONTACT_EMAIL" />
+      <authenticationsettings tag="AUTHSETTINGS" />
+    </attributes>
+  </object>
+</schemadefinition>`;
+
   testfw->BeginWork();
 
   OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
-  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithaccounttype));
 
+  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithaccounttype));
   TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
+  TestEQ("LOGIN", wrdschema->accountlogintag);
+  TestEQ("WRD_CONTACT_EMAIL", wrdschema->accountemailtag);
+  TestEQ("PASSWORD", wrdschema->accountpasswordtag);
+  TestEQ(FALSE, wrdschema->accountpasswordisauthsettings);
+
+  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithauthsettingspassword));
+  TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
+  TestEQ("AUTHSETTINGS", wrdschema->accountpasswordtag);
+  TestEQ(TRUE, wrdschema->accountpasswordisauthsettings);
 
   testfw->RollbackWork();
 }

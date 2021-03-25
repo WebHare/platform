@@ -138,9 +138,12 @@ PUBLIC SCHEMA
     , INTEGER "entity" NULL := 0
     , BOOLEAN "impersonated"
     , STRING "ip"
+    , STRING "browsertriplet"
     , STRING "login"
     , STRING "type"
     , STRING "data"
+    , INTEGER "byentity" NULL := 0
+    , STRING "bylogin"
     ; KEY id
     > auditevents
 

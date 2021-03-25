@@ -422,32 +422,32 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
 
 
-  /** Tests if a password is correct, can be used on password attributes and free text attributes
+  /** Tests if a password is correct, can be used on password, free and authenticationsettings attributes
       @param attrtag Tag of the attribute with the password
       @param testvalue Password to test
-      @return TRUE if 'testvalue' is the correct password; can be used on password attributes and free text attributes
+      @return TRUE if 'testvalue' is the correct password; can be used on password, free and authenticationsettings attributes.
   */
   PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
   {
     // Find the current password of this entity, based on the attribute
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
     IF (NOT RecordExists(attr))
-      ABORT("No such attribute '" || attrtag || "' in type '" || this->wrdtype->tag || "'");
+      THROW NEW Exception(`No such attribute ${EncodeJSON(attrtag)} in type ${EncodeJSON(this->wrdtype->tag)}`);
 
-    IF (attr.attributetype NOT IN [2,7])
-      ABORT("Attribute '" || attrtag || "' is not of type 'Free' or 'Password'");
-
-    // Can't use GetEntityFields (returns ****), so we need to use the database directly (ADDME: Or is there an other way?)
-    DATETIME now := GetCurrentDatetime();
-    STRING rawvalue := SELECT AS STRING rawdata
-                         FROM wrd.entity_settings
-                        WHERE entity = this->entityrec.id
-                              AND attribute = attr.id;
-
-    IF (attr.attributetype = 7) /* Password: Test hash */
-      RETURN VerifyWebHarePasswordHash(testvalue,rawvalue);
-    ELSE
-      RETURN rawvalue = testvalue;
+    VARIANT data := this->GetField(attrtag);
+    SWITCH (attr.attributetype)
+    {
+      CASE wrd_attributetype_free                     { RETURN data = testvalue; }
+      CASE wrd_attributetype_password                 { RETURN VerifyWebHarePasswordHash(testvalue, data); }
+      CASE wrd_attributetype_authenticationsettings
+      {
+        RETURN RecordExists(data) AND RecordExists(data.passwords) AND VerifyWebHarePasswordHash(testvalue, data.passwords[END-1].passwordhash);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Attribute ${EncodeJSON(attrtag)} is not of type 'FREE', 'PASSWORD' or 'AUTHENTICATIONSETTINGS'`);
+      }
+    }
   }
 
   /** Filters out attribute cells that have the same value as the currently stored entity has.

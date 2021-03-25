@@ -2212,6 +2212,7 @@ The full base URL on which this site will be published, calculated by combining 
         <string name="newuserdefaults_timezone" description="Default settings for new users - time zone" initialval="Europe/Amsterdam" />
         <string name="newuserdefaults_decimalsep" description="Default settings for new users - decimal separator" initialval="," />
         <string name="newuserdefaults_thousandsep" description="Default settings for new users - thousand separator" initialval="." />
+        <string name="allowsecondfactorloginmasks" description="Login name masks for which second factor login can be configured" />
       </node>
       <node name="tasks"> <!-- system.tasks -->
         <integer name="maxprocesses" description="Maximum # of parallel processes started by executetasks" initialval="4" />

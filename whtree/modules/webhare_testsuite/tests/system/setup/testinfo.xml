@@ -8,4 +8,5 @@
   <jstest file="testsetup.es" name="setup-jsonrpc" exclusive="true" tags="wrdauth">
     <arg value="jsonrpc" />
   </jstest>
+  <jstest file="test_secondfactorlogin.es" exclusive="true" tags="wrdauth" />
 </group>

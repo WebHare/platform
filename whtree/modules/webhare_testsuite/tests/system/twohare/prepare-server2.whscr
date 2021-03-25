@@ -6,6 +6,8 @@ LOADLIB "mod::system/lib/userrights.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
+LOADLIB "mod::wrd/lib/auth.whlib";
+
 
 OpenPrimary()->BeginWork();
 
@@ -26,7 +28,7 @@ IF(beta_sysop = 0)
   IF(usersunit = 0)
     usersunit := userapi->wrdschema->^whuser_unit->CreateEntity([wrd_title := "Users"])->id;
   OBJECT sysop := userapi->wrdschema->^wrd_person->CreateEntity(
-    [ whuser_password := "PLAIN:secret"
+    [ whuser_password := CreateAuthenticationSettingsFromPasswordHash("PLAIN:secret")
     , wrd_contact_email := "twoharetest@beta.webhare.net"
     , wrd_firstname := "Sysop"
     , wrd_lastname := "Twohare"

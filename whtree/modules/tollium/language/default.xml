@@ -567,6 +567,38 @@
       <text tid="notenoughrows">Field '<param p="1"/>' must contain at least <param p="2"/> <ifparam p="2" value="1">item<else/>items</ifparam>.</text>
       <text tid="toomanyrows">Field '<param p="1"/>' may not contain more than <param p="2"/> <ifparam p="2" value="1">item<else/>items</ifparam>.</text>
     </textgroup>
+    <textgroup gid="authenticationsettings">   <!-- components.authenticationsettings -->
+      <text tid="active">Activated</text>
+      <text tid="configure">Configure</text>
+      <text tid="inactive">Not activated</text>
+      <text tid="password">Password</text>
+      <text tid="twofactorauthentication">Two-factor authentication</text>
+      <textgroup gid="managetwofaauth">   <!-- components.authenticationsettings.managetwofaauth -->
+        <text tid="backupcodeexplanation">You can use the backup codes when you have lost access to your authenenticator application. Store these in a secure location.</text>
+        <text tid="backupcodes">Backup codes</text>
+        <text tid="configured">Configured</text>
+        <text tid="copytoclipboard">Copy to clipbboard</text>
+        <text tid="disabletotp">Disable two-factor authentication</text>
+        <text tid="entercode">Enter the generated access code</text>
+        <text tid="largedrift">Incorrect code entered. It looks like your clock is <param p="1"/> seconds off, please check if the current time on your device is correct.</text>
+        <text tid="managetwofaauth">Two-factor authentication</text>
+        <text tid="notconfigured">Not configured</text>
+        <text tid="reset">Reset</text>
+        <text tid="resetbackupcodes">Regenerate</text>
+        <text tid="setup">Setup</text>
+        <text tid="setuptotp">Setup two-factor authentication with codes</text>
+        <text tid="showtotpsecret">Show the secret key</text>
+        <text tid="suredisable2fa">Are you sure you want to disable two factor authentication?</text>
+        <text tid="totp">One-time access code</text>
+        <text tid="totpbackupcodes">Backup codes</text>
+        <text tid="totpexplanation">Set up password codes to use applications like Google Authenticator, Microsoft Authenticator or a password manager to log in.</text>
+        <text tid="totpsecret">Secret key</text>
+        <text tid="totpsecretexplanation">If you use a password manager, you can use the secret key to generate the codes.</text>
+        <text tid="totpsetupexplanation">Scan the QR-code below with an authentication app, such as Google Authenticator or Microsoft Authenticator on your mobile phone.</text>
+        <text tid="usedbackupcodes">Used <param p="1"/> of <param p="2"/> backup codes</text>
+        <text tid="wrongcode">Incorrect code entered, please try again.</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="browsecustom">   <!-- components.browsecustom -->
       <textgroup gid="browsecustom">   <!-- components.browsecustom.browsecustom -->
         <text tid="titletext">Name</text>
@@ -875,21 +907,32 @@
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
       <text tid="apptitle">WebHare</text>
+      <text tid="cancel">Cancel</text>
       <text tid="closedlogin">It's currently not possible to login. Please try again later.</text>
       <text tid="disabledlogin">Login failed: this user account is disabled</text>
+      <text tid="enterauthenticatorcode">Please enter your one-time code</text>
+      <text tid="enterbackupcode">Too many incorrect codes entered, please enter a backup code</text>
       <text tid="enterusernameandpassword">Please enter your username and password.</text>
       <text tid="forgotpassword">Forgot password</text>
       <text tid="genericerror">An error occurred. Please try again, if the error keeps occurring please contact your system administrator.</text>
       <text tid="infotitle">Important information</text>
+      <text tid="invaliddata">Your login session has expired, please login again</text>
       <text tid="invalidlogin">Invalid username and/or password.</text>
       <text tid="loginbutton">Login</text>
       <text tid="loginidentityservices">Login using identity services</text>
+      <text tid="loginsecondfactor">Second factor login</text>
       <text tid="logintitle">Login</text>
       <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
       <text tid="notloggedin">You no longer seem to be logged in. You may need to reload this webpage to relogin.</text>
       <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
       <text tid="password">Password</text>
       <text tid="savelogin">Remember me</text>
+      <text tid="secondfactorauthentication">Second factor login</text>
+      <text tid="totpattemptsleft">Please enter your one-time code (you have <param p="1"/> attempts left)</text>
+      <text tid="totpcode">One-time login code</text>
+      <text tid="totpinvalidcode">This code is not valid</text>
+      <text tid="totplocked">You have entered too many invalid codes, you will have to enter a backup code to login in</text>
+      <text tid="totpreusedcode">This code has already been used to log in, please wait until the next code before trying again</text>
       <text tid="unexpectedprotocolversion">It looks like your browser is running an outdated version of this webpage. Please try Shift-F5 (or Shift-Cmd-R on a Mac or Alt-Cmd-R in Safari) to reload this page.<br/><br/>If that doesn't work please try restarting your browser.</text>
       <text tid="username">Username</text>
     </textgroup>

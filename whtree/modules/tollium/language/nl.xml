@@ -567,6 +567,38 @@
       <text tid="notenoughrows">Veld '<param p="1"/>' dient ten minste <param p="2"/> <ifparam p="2" value="1">element<else/>elementen</ifparam> te bevatten.</text>
       <text tid="toomanyrows">Veld '<param p="1"/>' mag niet meer dan <param p="2"/> <ifparam p="2" value="1">element<else/>elementen</ifparam> bevatten.</text>
     </textgroup>
+    <textgroup gid="authenticationsettings">   <!-- components.authenticationsettings -->
+      <text tid="active">Ingeschakeld</text>
+      <text tid="configure">Instellen</text>
+      <text tid="inactive">Niet ingeschakeld</text>
+      <text tid="password">Wachtwoord</text>
+      <text tid="twofactorauthentication">Twee-factor authenticatie</text>
+      <textgroup gid="managetwofaauth">   <!-- components.authenticationsettings.managetwofaauth -->
+        <text tid="backupcodeexplanation">U kunt deze backup codes gebruiken als u de toegang tot uw authenticatie-applicatie bent verloren. Deze codes kunnen slechts één maal worden gebruikt. Sla ze op in een veilige locatie.</text>
+        <text tid="backupcodes">Backup codes</text>
+        <text tid="configured">Ingesteld</text>
+        <text tid="copytoclipboard">Naar klembord kopiëren</text>
+        <text tid="disabletotp">Twee-factor authenticatie uitzetten</text>
+        <text tid="entercode">Voer de gegenereerde toegangscode in</text>
+        <text tid="largedrift">Ongeldige code ingevoerd. Het lijkt er op dat de klok op uw apparaat <param p="1"/> seconden afwijkt van de werkelijke tijd, controleer aub uw tijdsinstellingen.</text>
+        <text tid="managetwofaauth">Twee-factor authenticatie</text>
+        <text tid="notconfigured">Niet ingesteld</text>
+        <text tid="reset">Opnieuw instellen</text>
+        <text tid="resetbackupcodes">Opnieuw aanmaken</text>
+        <text tid="setup">Instellen</text>
+        <text tid="setuptotp">Twee-factor authenticatie met eenmalige toegangscodes instellen</text>
+        <text tid="showtotpsecret">Toon de geheime sleutel</text>
+        <text tid="suredisable2fa">Weet u zeker dat u twee-factor authenticatie wilt uitschakelen?</text>
+        <text tid="totp">Eenmalige toegangcodes</text>
+        <text tid="totpbackupcodes">Backup codes</text>
+        <text tid="totpexplanation">Stel eenmalige toegangscodes in om met een applicatie als Google Authenticator,  Microsoft Authenticator of een password manager als LastPass of 1Password in te kunnen loggen</text>
+        <text tid="totpsecret">Geheime sleutel</text>
+        <text tid="totpsecretexplanation">Als je gebruik maakt van een andere applicatie (bijvoorbeeld een password manager) kun je de geheime sleutel gebruiken om de codes te genereren.</text>
+        <text tid="totpsetupexplanation">Scan onderstaande QR-code met een authenticatie-applicatie zoals Google Authenticator of Microsoft Authenticator op je telefoon.</text>
+        <text tid="usedbackupcodes"><param p="1"/> van <param p="2"/> backup codes gebruikt</text>
+        <text tid="wrongcode">Ongeldige code ingevoerd, probeer het alsjeblieft opnieuw.</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="browsecustom">   <!-- components.browsecustom -->
       <textgroup gid="browsecustom">   <!-- components.browsecustom.browsecustom -->
         <text tid="titletext">Naam</text>
@@ -844,21 +876,32 @@
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
       <text tid="apptitle">WebHare</text>
+      <text tid="cancel">Annuleren</text>
       <text tid="closedlogin">Het is momenteel niet mogelijk in te loggen. Probeer het later nog eens.</text>
       <text tid="disabledlogin">Inloggen mislukt: dit account is niet actief</text>
+      <text tid="enterauthenticatorcode">Voer uw inlogcode in</text>
+      <text tid="enterbackupcode">Te veel incorrecte codes ingevoerd, voer een backup code in</text>
       <text tid="enterusernameandpassword">Vult u a.u.b. uw gebruikersnaam en wachtwoord in.</text>
       <text tid="forgotpassword">Wachtwoord vergeten</text>
       <text tid="genericerror">Er is een fout opgetreden, probeer het a.u.b. opnieuw. Als de fout blijft optreden, neem dan contact op met uw systeembeheerder.</text>
       <text tid="infotitle">Belangrijke informatie</text>
+      <text tid="invaliddata">Uw inlogsessie is verlopen, log a.u.b. opnieuw in</text>
       <text tid="invalidlogin">U heeft een ongeldige gebruikersnaam en/of wachtwoord ingevoerd. Probeert u het a.u.b. opnieuw.</text>
       <text tid="loginbutton">Inloggen</text>
       <text tid="loginidentityservices">Inloggen met identiteitsservices</text>
+      <text tid="loginsecondfactor">Tweede factor inlog</text>
       <text tid="logintitle">Inloggen</text>
       <text tid="loginwithwebhareaccount">Inloggen met een WebHare account</text>
       <text tid="notloggedin">U lijkt niet meer ingelogd te zijn. Mogelijk moet u deze pagina opnieuw inladen om weer in te loggen.</text>
       <text tid="nowebhareaccount">Er is geen gekoppeld WebHare account gevonden. Neem contact op met uw systeembeheerder.</text>
       <text tid="password">Wachtwoord</text>
       <text tid="savelogin">Onthoud mij</text>
+      <text tid="secondfactorauthentication">Tweede factor inlog</text>
+      <text tid="totpattemptsleft">Voer uw inlogcode in (u heeft nog <param p="1"/> pogingen over)</text>
+      <text tid="totpcode">Eenmalige toegangscode</text>
+      <text tid="totpinvalidcode">Dit is geen geldige code</text>
+      <text tid="totplocked">Te veel ongeldige codes ingevoerd, u moet nu een backup code invoeren om in te loggen</text>
+      <text tid="totpreusedcode">Deze code is al gebruikt om in te loggen, wacht tot de volgende code beschikbaar is voordat u het opnieuw probeert.</text>
       <text tid="unexpectedprotocolversion">Het lijkt erop dat uw browser een verouderde versie van deze webpagina heeft ingeladen. Probeer Shift-F5 (of Shift-Cmd-R op een Mac of Alt-Cmd-R in Safari) om deze pagina opnieuw in te laden.<br/><br/>Mocht dit niet werken probeer dan uw browser opnieuw te starten.</text>
       <text tid="username">Gebruikersnaam</text>
     </textgroup>

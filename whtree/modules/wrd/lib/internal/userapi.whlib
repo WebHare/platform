@@ -12,17 +12,14 @@ LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/users.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-
-LOADLIB "wh::datetime.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
-LOADLIB "mod::tollium/lib/users.whlib";
 LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
 LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
 OBJECTTYPE LocalWork
@@ -46,7 +43,14 @@ OBJECTTYPE LocalWork
 OBJECT FUNCTION StartLocalWork(OBJECT trans) { RETURN NEW LocalWork(trans); }
 
 
-
+STRING FUNCTION GetPasswordFromAuthField(VARIANT data)
+{
+  IF (TypeID(data) = TypeID(STRING))
+    RETURN data;
+  IF (RecordExists(data) AND IsValueSet(data.passwords))
+    RETURN data.passwords[END-1].passwordhash;
+  RETURN "";
+}
 
 /** Webhare user API object
     @topic wrdauth/api
@@ -232,6 +236,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       @cell return.wrd_id entityid id of the user
       @cell return.guid GUID of the user
       @cell return.password Hashed password of the user
+      @cell return.authenticationsettings Authentication settings of the user
       @cell return.authobjectid Authobject id of the user
   */
   PUBLIC RECORD FUNCTION LookupUserByLogin(STRING loginname)
@@ -241,7 +246,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       INSERT [ field := "WHUSER_DISABLED", value := FALSE ] INTO filters AT END;
 
     RECORD ARRAY res := this->wrdschema->accounttype->RunQuery(
-          [ outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", password := this->wrdschema->accountpasswordtag ]
+          [ outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", authenticationsettings := this->wrdschema->accountpasswordtag ]
           , filters := filters
           ]);
 
@@ -254,6 +259,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       RETURN DEFAULT RECORD;
 
     INSERT CELL authobjectid := authid INTO retval;
+    INSERT CELL password := GetPasswordFromAuthField(retval.authenticationsettings) INTO retval;
     RETURN retval;
   }
 
@@ -332,6 +338,23 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     RETURN TRUE;
   }
 
+  // Convert string passwords to authsettings
+  RECORD FUNCTION CheckAuthSettings(RECORD data)
+  {
+    IF (this->wrdschema->accountpasswordisauthsettings AND CellExists(data, this->wrdschema->accountpasswordtag))
+    {
+      VARIANT pwdata := GetCell(data, this->wrdschema->accountpasswordtag);
+      IF (TypeID(pwdata) = TypeID(STRING))
+      {
+        data := CELL
+            [ ...data
+            , ...CellInsert(CELL[], this->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(pwdata))
+            ];
+      }
+    }
+    RETURN data;
+  }
+
   /** Creates a new user
       @param data User data
       @cell data.whuser_unit Id of the unit to create this user in
@@ -342,6 +365,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   PUBLIC INTEGER FUNCTION CreateUser(RECORD data)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    data := this->CheckAuthSettings(data);
 
     OBJECT lock;
     lock := OpenLockManager()->LockMutex("wrd:usermgmt");
@@ -380,6 +405,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   PUBLIC MACRO UpdateUser(INTEGER id, RECORD data)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    data := this->CheckAuthSettings(data);
 
     OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
     TRY
@@ -849,7 +876,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       RETURN [ success := FALSE, errormessage := `User does not exist` ];
 
     // Password changed?
-    IF (data.p != GetCell(fields, this->wrdschema->accountpasswordtag))
+    IF (data.p != GetPasswordFromAuthField(GetCell(fields, this->wrdschema->accountpasswordtag)))
       RETURN [ success := FALSE, errormessage := `Password has changed` ];
 
     STRING loginname := GetCell(fields, this->wrdschema->accountlogintag);
@@ -878,7 +905,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     RECORD data :=
         [ v := 1
         , u := userid
-        , p := GetCell(fields, this->wrdschema->accountpasswordtag)
+        , p := GetPasswordFromAuthField(GetCell(fields, this->wrdschema->accountpasswordtag))
         , s := scopes
         , e := GetUnixTimeStamp(expirydate)
         ];

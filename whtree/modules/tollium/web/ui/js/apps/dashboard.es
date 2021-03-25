@@ -236,6 +236,9 @@ class DashboardApp
 
   updateShellSettings(event)
   {
+    if (!dompack.qS('#dashboard-user')) //  app has been terminated?
+      return;
+
     var settings = this.shell.getCurrentSettings();
     let newmenu = this._createAppMenu(settings.apps);
     this._updateShortcuts(settings.apps);

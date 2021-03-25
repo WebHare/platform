@@ -34,7 +34,7 @@ ASYNC FUNCTION TestQueryBuilder()
   exprows := SELECT * FROM exprows ORDER BY COLUMN "person_1.email address";
   TestEq(3, Length(exprows));
   TestEq("sysop@beta.webhare.net", exprows[2]."person_1.email address");
-  TestEqLike("WEBHARE-PASSWORD:*", exprows[2]."person_1.user password hash");
+  TestEqLike("WEBHARE-AUTHENTICATIONSETTINGS:*", exprows[2]."person_1.user password hash");
   TestEq([x:=42], DecodeHSON(exprows[2]."person_1.record attribute"));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close export
 

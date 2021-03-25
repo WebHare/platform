@@ -381,6 +381,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   PUBLIC PROPERTY accountemailtag(GetAccountemailTag, -);
   /// @type(string) Get the tag of the password attribute
   PUBLIC PROPERTY accountpasswordtag(GetAccountpasswordTag, -);
+  /// @type(string) Get the tag of the password attribute
+  PUBLIC PROPERTY accountpasswordisauthsettings(GetAccountPasswordIsAuthSettings, -);
 
   /** @private Should not be constructed directly
       @param schemarec Contents of database schema record
@@ -490,7 +492,6 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
         INSERT CELL accountpassword := GetAccountAttrId(accounttype, newsettings.accountpasswordtag) INTO toset;
       IF(CellExists(newsettings,'accountemailtag'))
         INSERT CELL accountemail := GetAccountAttrId(accounttype, newsettings.accountemailtag) INTO toset;
-
     }
 
     IF(CellExists(newsettings,'accountlogin'))
@@ -890,6 +891,22 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   STRING FUNCTION GetAccountPasswordTag()
   {
     RETURN this->GetAccountField(this->schemarec.accountpassword);
+  }
+
+  BOOLEAN FUNCTION GetAccountPasswordIsAuthSettings()
+  {
+    IF(this->schemarec.accountlogin = 0)
+      RETURN FALSE;
+
+    OBJECT acctype := this->accounttype;
+    IF(NOT ObjectExists(acctype))
+      RETURN FALSE;
+
+    RECORD attr := acctype->GetAttributeById(this->schemarec.accountpassword);
+    IF(NOT RecordExists(attr))
+      RETURN FALSE;
+
+    RETURN attr.attributetype = wrd_attributetype_authenticationsettings;
   }
 
   PUBLIC INTEGER FUNCTION CreateChangeSet()

@@ -38,22 +38,23 @@ RECORD FUNCTION GetStatus()
 
 RECORD FUNCTION ProcessReq()
 {
+  STRING browsertriplet := GetWebVariable("browsertriplet");
   SWITCH(GetWebVariable("action"))
   {
     CASE "login"
     {
-      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"));
+      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), CELL[ browsertriplet ]);
       RETURN res;
     }
     CASE "loginid"
     {
-      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1");
+      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", CELL[ browsertriplet ]);
       RETURN res;
     }
     CASE "logout-checkstatus"
     {
       RECORD oldstatus := GetStatus();
-      plugin->__GetWRDAuth()->Logout();
+      plugin->__GetWRDAuth()->Logout(CELL[ browsertriplet ]);
 
       RECORD res := CELL[...GetStatus(), oldstatus];
       RETURN res;
@@ -75,6 +76,16 @@ RECORD FUNCTION ProcessReq()
       trans->RollbackWork();
       RETURN res;
     }
+    CASE "loginsecondfactor"
+    {
+      RECORD res := plugin->LoginSecondFactor(
+          GetWebVariable("firstfactorproof"),
+          GetWebVariable("type"),
+          DecodeJSON(GetWebVariable("data")),
+          CELL[ browsertriplet ]);
+      RETURN res;
+    }
+
   }
   THROW NEW Exception("Unrecognized function '" || GetwebVariable('action') || "'");
 }

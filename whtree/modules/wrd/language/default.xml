@@ -191,6 +191,16 @@
         <text tid="verificationok">Verification success</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="auth">   <!-- commondialogs.auth -->
+      <textgroup gid="backendauthorization">   <!-- commondialogs.auth.backendauthorization -->
+        <text tid="backendauthorizationdialog">Authenticate</text>
+        <text tid="incorrectcode">Incorrect one-time code entered</text>
+        <text tid="incorrectpassword">Incorrect password</text>
+        <text tid="pleaseentercurrentpassword">Please enter your current password</text>
+        <text tid="pleaseentersecondfactor">Please enter your one-time access code</text>
+        <text tid="totpcode">One-time access code</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="editaddress">   <!-- commondialogs.editaddress -->
       <text tid="btn_verify">Verify address</text>
       <text tid="country">Country</text>
@@ -1071,6 +1081,7 @@
       <textgroup gid="types" keepemptyreason="Validated by wrd consistencytest">   <!-- types.attributes.types -->
         <text tid="address">Address</text>
         <text tid="array">Array</text>
+        <text tid="authenticationsettings">Authentication settings</text>
         <text tid="boolean">Boolean</text>
         <text tid="date">Date</text>
         <text tid="datetime">Date and time</text>

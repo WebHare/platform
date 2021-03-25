@@ -1,0 +1,128 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="components.authenticationsettings"
+         lib="components/authenticationsettings.whlib">
+
+  <fragment name="authenticationsettings">
+    <actions>
+      <action name="changepassword" onexecute="DoChangePassword" tid="~change" />
+      <action name="managesecondfactor" onexecute="DoManageSecondFactor" tid="~change" />
+    </actions>
+    <contents>
+      <heading name="heading" title="" />
+      <line>
+        <textedit name="passwordfield" width="1pr" enabled="false" password="true" tid=".password" />
+        <button name="btn_changepassword" action="changepassword" tid="~change" />
+      </line>
+      <line>
+        <textedit name="secondfactorstatus" width="1pr" tid=".twofactorauthentication" enabled="false" />
+        <button name="btn_managesecondfactor" action="managesecondfactor" tid="~change" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="editauthsettingspassword" width="60x" gid="commondialogs.editpassword" tid=".pagetitle">
+    <body name="toppanel">
+      <line layout="left">
+        <text name="validationchecksfield" minwidth="40x" title="" visible="false" wordwrap="true" />
+      </line>
+      <textedit name="newpassword" width="1pr" lengthmeasure="characters" password="true" required="true" />
+      <textedit name="confirmpassword" width="1pr" password="true" required="true" />
+      <line layout="left">
+        <checkbox name="showpasswords" onchange="onshowpasswordschange" title="" />
+        <text labelfor="showpasswords" valuetid=".showpasswords" />
+      </line>
+    </body>
+
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="managetwofaauth" footerbuttons="close" gid=".managetwofaauth">
+    <actions>
+      <action name="setuptotp" onexecute="DoSetupTOTP" tid="~change" />
+      <action name="disabletotp" onexecute="DoDisableTOTP" />
+      <action name="resetbackupcodes" onexecute="DoResetBackupCodes" />
+    </actions>
+
+    <body>
+      <heading tid=".totp" />
+      <line layout="left">
+        <text title="" valuetid=".totpexplanation" wordwrap="true" />
+      </line>
+      <line>
+        <textedit name="totp" enabled="false" />
+        <button name="btn_setuptotp" action="setuptotp" tid="~change" />
+      </line>
+      <line>
+        <textedit name="totpbackupcodes" enabled="false" />
+        <button name="btn_resetbackupcodes" action="resetbackupcodes" tid=".resetbackupcodes" />
+      </line>
+      <heading name="disableheading" tid="~disable" />
+      <line layout="left">
+        <button name="btn_disabletotp" action="disabletotp" tid=".disabletotp" />
+      </line>
+    </body>
+  </screen>
+
+  <screen name="setuptotp" width="80x" gid=".managetwofaauth">
+    <actions>
+      <action name="showtotpsecret" onexecute="DoShowTOTPSecret" />
+      <copyaction name="copytotpsecret" source="totpsecret" title="" />
+      <copyaction name="copybackupcodes" source="backupcodes_text" tid=".copytoclipboard" />
+    </actions>
+
+    <body spacers="none">
+      <wizard>
+        <page onnext="GotQRPageNext">
+          <heading tid=".totp" />
+          <line layout="left">
+            <text valuetid=".totpsetupexplanation" wordwrap="true" />
+          </line>
+          <line layout="left">
+            <image name="qrcode" title="" />
+          </line>
+          <line layout="left">
+            <text valuetid=".totpsecretexplanation" wordwrap="true" />
+          </line>
+          <line layout="left">
+            <text name="txt_showtotpsecret" action="showtotpsecret" title="" valuetid=".showtotpsecret" />
+          </line>
+          <line layout="left">
+            <textedit name="totpsecret" width="1pr" enabled="false" visible="false">
+              <button type="icon" action="copytotpsecret" icon="tollium:actions/copy" title="" />
+            </textedit>
+          </line>
+          <textedit name="entercode" maxlength="9" required="true" />
+        </page>
+        <page isfinish="true">
+          <heading tid=".totpbackupcodes" />
+          <text valuetid=".backupcodeexplanation" wordwrap="true" />
+          <line layout="left">
+            <textarea name="backupcodes_text" enabled="false" title="" height="12x" />
+          </line>
+          <line layout="left">
+            <button action="copybackupcodes" />
+          </line>
+        </page>
+      </wizard>
+    </body>
+  </screen>
+
+  <screen name="resetbackupcodes" width="80x" footerbuttons="close" gid=".managetwofaauth">
+    <actions>
+      <copyaction name="copybackupcodes" source="backupcodes_text" tid=".copytoclipboard" />
+    </actions>
+    <body>
+      <heading tid=".backupcodes" />
+      <text valuetid=".backupcodeexplanation" wordwrap="true" />
+      <line layout="left">
+        <textarea name="backupcodes_text" enabled="false" title="" height="12x" />
+      </line>
+      <line layout="left">
+        <button action="copybackupcodes" />
+      </line>
+    </body>
+  </screen>
+
+</screens>

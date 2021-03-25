@@ -1,9 +1,17 @@
 ﻿<?wh
+
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/otp.whlib";
+
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+
 
 PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
 {
@@ -52,4 +60,241 @@ PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
     RETURN DEFAULT RECORD;
 
   RETURN LookupAuthobjectByGuid(EncodeWRDGUID(rawguid));
+}
+
+/** Returns authentication settings with the specified password hash as current password
+    @param passwordhash Current password hash
+    @return Authentication settings @includecelldef #ValidateAuthenticationSettingValue.return
+    @public
+    @topic wrdauth/api
+    @loadlib mod::wrd/lib/auth.whlib
+*/
+PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passwordhash)
+{
+  RECORD value := GetDefaultAuthenticationSettings();
+  IF (passwordhash != "")
+    INSERT CELL[ passwordhash, validfrom := DEFAULT DATETIME ] INTO value.passwords AT END;
+  RETURN ValidateAuthenticationSettingValue(value); //validates the password hash
+}
+
+/** Returns whether the specified authentication settings are the default value (no passwords set, no second factor set)
+    @param value Authentication settings @includecelldef #ValidateAuthenticationSettingValue.return
+    @return TRUE if the settings are default
+    @public
+    @topic wrdauth/api
+    @loadlib mod::wrd/lib/auth.whlib
+*/
+PUBLIC BOOLEAN FUNCTION IsDefaultAuthenticationSettings(RECORD value)
+{
+  IF (NOT RecordExists(value))
+    RETURN TRUE;
+  BOOLEAN allempty := TRUE;
+  FOREVERY (RECORD rec FROM UnpackRecord(value))
+    IF (rec.name != "VERSION" AND IsValueSet(rec.value))
+      RETURN FALSE;
+  RETURN TRUE;
+}
+
+/** Returns a record with default authentication settings
+    @return Default authentication settings record @includecelldef #ValidateAuthenticationSettingValue.return
+    @public
+    @topic wrdauth/api
+    @loadlib mod::wrd/lib/auth.whlib
+*/
+PUBLIC RECORD FUNCTION GetDefaultAuthenticationSettings()
+{
+  RETURN
+      [ version :=      1
+      , passwords :=    RECORD[]
+      , totp :=         DEFAULT RECORD
+      ];
+}
+
+/** @param val Authantication settings to validate
+    @return Validated authentication settings
+    @cell(integer) return.version Settings version, should be 1.
+    @cell(record array) return.passwords List of passwords, last one is current valid password.
+    @cell(string) return.passwords.passwordhash Password hash.
+    @cell(datetime) return.passwords.validfrom Date from when this password hash. Must be increasing and smaller than GetCurrentDateTime().
+    @cell(record) return.totp TOTP second factor settings
+    @cell(string) return.totp.url TOTP configuration url, see %GetTOTPUrl
+    @cell(datetime) return.totp.locked Datime when normal code entry was locked due to too many failures
+    @cell(record array) return.totp.backupcodes List of backup codes
+    @cell(string) return.totp.backupcodes.code Backup code
+    @cell(datetime) return.totp.used Date when backup code was used
+*/
+PUBLIC RECORD FUNCTION ValidateAuthenticationSettingValue(RECORD val)
+{
+  val := ValidateOptions(
+      [ version :=    -1
+      , passwords :=  DEFAULT RECORD ARRAY
+      , totp :=       DEFAULT RECORD
+      ], val,
+      [ required :=   [ "version" ]
+      , title :=      `data`
+      ]);
+
+  IF (val.version != 1)
+    THROW NEW Exception(`Expected version 1`);
+
+  FOREVERY (RECORD password FROM val.passwords)
+  {
+    val.passwords[#password] := ValidateOptions(
+        [ passwordhash :=   ""
+        , validfrom :=  DEFAULT DATETIME
+        ], password,
+        [ required :=     [ "passwordhash" ]
+        , title := `data.passwords[${#password}]` ]);
+
+    IF(password.passwordhash NOT LIKE "MD5:????????????????"
+        AND password.passwordhash NOT LIKE "SSHA1:????????????????????????????"
+        AND password.passwordhash NOT LIKE "XSHA1:????????????????????????????????????????"
+        AND password.passwordhash NOT LIKE "WHBF:????????????????????????????????????????????????????????????"
+        AND password.passwordhash NOT LIKE "NETASP-SHA1:????????????????????*"
+        AND password.passwordhash NOT LIKE "LCR:???*"
+        AND password.passwordhash NOT LIKE "PLAIN:?*"
+        AND password.passwordhash != ""
+        AND password.passwordhash != "*")
+      THROW NEW Exception(`Password in authenticationsettings.passwords[${#password}].passwordhash is receiving an unhashed password value - CreateWebharePasswordHash should have been invoked on the value`);
+
+    IF (#password > 0 AND val.passwords[#password].validfrom <= val.passwords[#password-1].validfrom)
+      THROW NEW Exception(`Passwords in authenticationsettings.passwords[${#password}] isn't properly sorted on validfrom`);
+
+  }
+
+  IF (IsValueSet(val.passwords) AND val.passwords[END-1].validfrom > GetCurrentDateTime())
+    THROW NEW Exception(`Passwords in authenticationsettings.passwords[${LENGTH(val.passwords)-1}] activates in the future`);
+
+  IF (RecordExists(val.totp))
+  {
+    val.totp := ValidateOptions(
+        [ url :=          ""
+        , backupcodes :=  RECORD[]
+        , locked :=       DEFAULT DATETIME
+        ], val.totp,
+        [ required :=     [ "url" ]
+        , title := `data.totp` ]);
+
+    RECORD parsed := UnpackOTPUrl(val.totp.url);
+    IF (parsed.type != "totp")
+      THROW NEW Exception(`data.totp.url is not a valid TOTP url`);
+
+    FOREVERY (RECORD code FROM val.totp.backupcodes)
+    {
+      val.totp.backupcodes[#code] := ValidateOptions(
+          [ code :=       ""
+          , used :=       DEFAULT DATETIME
+          ], code,
+          [ required :=     [ "code" ]
+          , title := `data.totp.backupcodes[${#code}]`
+          ]);
+    }
+  }
+  RETURN val;
+}
+
+PUBLIC RECORD FUNCTION UpdateAuthenticationSettings(RECORD curvalue, RECORD newvalue)
+{
+  curvalue := curvalue ?? GetDefaultAuthenticationSettings();
+  newvalue := ValidateAuthenticationSettingValue(newvalue ?? GetDefaultAuthenticationSettings());
+
+  // used dates of TOTP backup codes must stay intact
+  IF (RecordExists(curvalue.totp) AND RecordExists(newvalue.totp))
+  {
+    // don't allow value setting to overwrite set used dates of TOTP backup codes
+    UPDATE newvalue.totp.backupcodes AS newcodes
+       SET used := (SELECT AS DATETIME used FROM curvalue.totp.backupcodes WHERE code = newcodes.code) ?? used;
+  }
+
+  RETURN IsDefaultAuthenticationSettings(newvalue) ? DEFAULT RECORD : newvalue;
+}
+
+/** Writes a audit event to the logs in a separate transction
+    @param(object %WRDType2017) wrdtype Relevant wrd type
+    @param type Audit event type
+    @cell options.account WRD ID of account that is being modified
+    @cell options.login Login name of account that is being modified
+    @cell options.remoteip Remote IP
+    @cell options.browsertriplet Browser triplit
+    @cell options.isimpersonation Whether this is an impersonation
+    @cell(record) options.message Additional data
+    @cell(integer) options.byaccount If executed by another user, user WRD id
+    @cell(integer) options.bylogin If executed by another user, user login
+*/
+PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ account := 0
+      , login := ""
+      , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+      , browsertriplet := ""
+      , isimpersonation := FALSE
+      , message := DEFAULT RECORD
+      , byaccount := 0
+      , bylogin := ""
+      ], options);
+
+  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.remoteip, options.browsertriplet, options.login, options.isimpersonation, options.message, options.byaccount, options.bylogin));
+}
+
+// Writes an audit log event to the database in separated transactions
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING ip, STRING browsertriplet, STRING login, BOOLEAN isimpersonation, RECORD message, INTEGER byaccount, STRING bylogin)
+{
+  type := ToLowercase(type);
+  IF(type NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid audit event type '${type}'`);
+
+  // If byaccount and bylogin are both empty, assume that the operation is executed by the referenced user
+  IF (byaccount = 0 AND bylogin = "")
+  {
+    byaccount := account;
+    bylogin := login;
+  }
+
+  RECORD toinsert := CELL[ creationdate := GetCurrentDatetime()
+                         , wrdschema :=    accounttype->wrdschema->id
+                         , entity :=       account
+                         , impersonated := isimpersonation
+                         , login
+                         , ip
+                         , browsertriplet
+                         , type
+                         , byentity :=     byaccount
+                         , bylogin
+                         , data := RecordExists(message) ? EncodeHSON(message) : ""
+                         ];
+
+
+  LogAuditEventBy("wrd:auth", CELL[ entityid := byaccount, login := bylogin ],
+      CELL[ type
+          , ip
+          , browsertriplet
+          , account
+          , login
+          , isimpersonation
+          , message
+          , byaccount
+          , bylogin
+          , wrdschema :=      accounttype->wrdschema->tag
+          ]);
+
+  GetPrimary()->BeginWork();
+  INSERT toinsert INTO wrd.auditevents;
+
+  TRY
+  {
+    GetPrimary()->CommitWork();
+    RETURN;
+  }
+  CATCH(OBJECT e)
+  {
+    //if commit fails, we might be racing against deletion of the entity (especially when logging out of a cleaned up wrd schema). are we ?
+    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = VAR account))
+      RETURN; //okay, we can live with this
+
+    //retry once more, but if this fails, too bad
+    GetPrimary()->BeginWork();
+    INSERT toinsert INTO wrd.auditevents;
+    GetPrimary()->CommitWork();
+  }
 }

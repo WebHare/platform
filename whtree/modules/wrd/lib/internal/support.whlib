@@ -26,7 +26,7 @@ PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "T
                                  , "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY"
                                  , "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK"
                                  , /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT"
-                                 , /*27*/"STATUSRECORD"
+                                 , /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS"
                                  ];
 
 PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
@@ -61,6 +61,7 @@ PUBLIC CONSTANT INTEGER wrd_attributetype_enumarray := 24;
 PUBLIC CONSTANT INTEGER wrd_attributetype_paymentprovider := 25;
 PUBLIC CONSTANT INTEGER wrd_attributetype_payment := 26;
 PUBLIC CONSTANT INTEGER wrd_attributetype_statusrecord := 27;
+PUBLIC CONSTANT INTEGER wrd_attributetype_authenticationsettings := 28;
 
 //possible valid options are: domain, required, isunique, ordered, checklinks, multiline, allowedvalues
 RECORD wrdattributes :=
@@ -96,6 +97,7 @@ RECORD wrdattributes :=
  , "password" :=                [ attributetype := wrd_attributetype_password
                                 , image := "dummy.gif"
                                 , options := DEFAULT STRING ARRAY
+                                , canchangeto := ["AUTHENTICATIONSETTINGS"]
                                 ]
  , "domainarray" :=             [ attributetype := wrd_attributetype_domainarray
                                 , image := "checkbox.gif"
@@ -184,6 +186,11 @@ RECORD wrdattributes :=
  , "statusrecord" :=            [ attributetype := wrd_attributetype_statusrecord
                                 , image := "dummy.gif"
                                 , options := [ "allowedvalues" ]
+                                ]
+ , "authenticationsettings" :=  [ attributetype := wrd_attributetype_authenticationsettings
+                                , image := "dummy.gif"
+                                , options := STRING[]
+                                , canchangeto := ["PASSWORD"]
                                 ]
  ];
 

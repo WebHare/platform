@@ -773,7 +773,7 @@ class Screen extends ComponentBase
         this.deleteComponentsByName(data.deletedcomponents);
         break;
       case 'focus':
-        this._setFocusTo(data.focused);
+        this.setFocusTo(data.focused);
         this.noFocusUpdate = false;
         break;
       default:
@@ -782,7 +782,7 @@ class Screen extends ComponentBase
     }
   }
 
-  _setFocusTo(compname)
+  setFocusTo(compname)
   {
     if(!this.active)
     {
@@ -1252,7 +1252,7 @@ class Screen extends ComponentBase
 
     if(this.pendingsetfocus)
     {
-      this._setFocusTo(this.pendingsetfocus);
+      this.setFocusTo(this.pendingsetfocus);
       this.pendingsetfocus = null;
     }
   }
@@ -1539,7 +1539,7 @@ class Screen extends ComponentBase
     {
       let nowfocus = focuszones.getFocusZoneActiveElement(this.node);
       if (nowfocus != currentfocus && currentfocuscomponent)
-        this._setFocusTo(currentfocuscomponent);
+        this.setFocusTo(currentfocuscomponent);
     }
     if(currentlyactive && focuszones.getCurrentFocusZone() != this.node)
     {

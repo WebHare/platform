@@ -70,7 +70,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 //      {
 //        RETURN this->arrayvalue;
 //      }
-      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      CASE 19,17,22,25,26,27,28 /* Instance, richdoc, HSON, paymentprovider, payment, statusrecord, authenticationsettings */
       {
         RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeHSON(this->currentobjects[0]->value);
       }
@@ -128,7 +128,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
           this->currentobjects[4]->visible := this->visible AND val = MAX_DATETIME;
         }
       }
-      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      CASE 19,17,22,25,26,27,28 /* Instance, richdoc, HSON, paymentprovider, payment, statusrecord, authenticationsettings */
       {
         //show hson-encoded data
         this->currentobjects[0]->value := EncodeHSON(val);
@@ -444,7 +444,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
         comp->readonly := this->fieldreadonly;
         this->currentobjects := [comp];
       }
-      CASE 17, 19, 22, 25, 26, 27 // richdoc, instance, hson, paymentprovider, payment (readonly)
+      CASE 17, 19, 22, 25, 26, 27, 28 // richdoc, instance, hson, paymentprovider, payment (readonly), statusrecord, authenticationsettings
       {
         OBJECT comp := this->CreateSubComponent("textedit");
         comp->width := "1pr";

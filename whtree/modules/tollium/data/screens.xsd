@@ -2054,6 +2054,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="time" type="Time"/>
       <xs:element name="url" type="URL"/>
       <xs:element name="spacer" type="Spacer" />
+      <xs:element name="authenticationsettings" type="AuthenticationSettings" />
     </xs:choice>
   </xs:group>
 
@@ -2303,6 +2304,68 @@ To change a <xs:attribute /> for adding descriptions
       </xs:simpleType>
     </xs:attribute>
 
+  </xs:complexType>
+
+  <xs:complexType name="AuthenticationSettings">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent placement="inline" fragment="components/authenticationsettings.authenticationsettings" />
+      </xs:appinfo>
+    </xs:annotation>
+
+    <xs:attributeGroup ref="ComponentBase" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attributeGroup ref="Required" />
+    <xs:attributeGroup ref="sc:Errorlabel" />
+
+    <xs:attribute name="requireauthorization" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Require entering the current password and second factor (if configured) of the CURRENT user. Defaults to 'true'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="validationchecks">
+      <xs:annotation>
+        <xs:documentation>
+          Checks to perform on the password
+          - minlength: minimum length, in Unicode characters
+          - hibp: may not contain a password present in the HaveIBeenPwnd database
+          - lowercase: Must contain at least this amount of lowercase letters
+          - uppercase: Must contain at least this amount of uppercase letters
+          - digits: Must contain at least this amount of digits
+          - symbols:  Must contain at least this amount of other characters
+
+          Example: 'minlength:12 digits:10 hibp'.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="^(minlength:[1-9][0-9]*|hibp|lowercase:[1-9][0-9]*|uppercase:[1-9][0-9]*|digits:[1-9][0-9]*|symbols:[1-9][0-9]*)$" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="managementmode" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If true, cannot change settings except for disabling TOTP.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="allowsecondfactor" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          Allow configuring a second factor
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="TextEdit">
@@ -6009,6 +6072,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="time" type="Time"/>
   <xs:element name="url" type="URL"/>
   <xs:element name="wizard" type="Wizard"/>
+  <xs:element name="authenticationsettings" type="AuthenticationSettings"/>
 
   <!-- We need acceptdrops as a global element so p:foldertree (and p:filelist) can accept <acceptdrops>  -->
   <xs:element name="acceptdrops" type="AcceptDrops" />

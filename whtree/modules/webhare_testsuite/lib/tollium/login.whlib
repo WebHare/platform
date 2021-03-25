@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC RECORD FUNCTION TestInvoke_EnableTestSuite2FA()
+{
+  OpenPrimary();
+
+  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
+  IF ("*@allow2fa.test.webhare.net" NOT IN allowsecondfactormasks)
+  {
+    allowsecondfactormasks := STRING[ ...ArrayDelete(allowsecondfactormasks, [ "" ]), "*@allow2fa.test.webhare.net" ];
+    GetPrimary()->BeginWork();
+    WriteRegistryKey("system.userrights.allowsecondfactorloginmasks", Detokenize(allowsecondfactormasks, " "));
+    GetPrimary()->CommitWork();
+  }
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_GetTOTPCode(RECORD data)
+{
+  RETURN
+      [ code :=   GetTOTPCode(DecodeBase32(data.secret), [ now := AddTimeToDate(data."offset" * 1000, GetCurrentDateTime()) ])
+      ];
+}
