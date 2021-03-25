@@ -49,8 +49,16 @@ PUBLIC OBJECTTYPE CustomFormPage EXTEND WebtoolFormPage
                             ];
 
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
-    TestEq("", emailfield.obj->value); //not prefilled yet
-    INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
+    IF (RecordExists(emailfield))
+    {
+      TestEq("", emailfield.obj->value); //not prefilled yet
+      INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
+    }
+    ELSE
+    {
+      // We're previewing this form from testformfile-formeditapp, check for the draft custom form data
+      TestEq("Here, have some other data!", this->webdesign->targetobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata);
+    }
 
     IF(GetFormWebVariable("cancel") != "1") //don't go through EditExistingResult if we'll be cancelling, as it shouldn't be needed
     {

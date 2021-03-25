@@ -56,12 +56,30 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   testfw->WaitForPublishCompletion(webtoolsfolder->id);
   TestEq("Here, have some data!", customformfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata);
 
+  //update the custom form setting and save a draft
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  TT(":Some data")->value := "Here, have some other data!";
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  TTClick("save");
+
+  //preview the draft, which fails if the value of the custom form setting is not "Here, have some other data!"
+  RECORD openres := ExecuteWindowOpenAction(TT("previewdraft"));
+  IF(testfw->debug)
+    Print("Preview autosave: " || openres.url || "\n");
+  TestEq(TRUE, testfw->browser->GotoWebPage(openres.url));
+
   //Add a text field
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Text"));
   TT("tabs")->ListExtensions()[0].extension->^text->value := GetTestRTD();
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEqLike("This docs opens with*",TT("doceditor->questions")->selection.title);
+
+  //save a draft version and check if the custom settings isn't reverted to the last published value
+  TTClick("save");
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  TestEq("Here, have some other data!", TT(":Some data")->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
   //Make sure it persists during edits
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
