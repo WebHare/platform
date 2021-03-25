@@ -3768,7 +3768,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBPaymentValue(wrd_type, attrinfo); }
   CASE 27 /* STATUSRECORD */
     { RETURN NEW WRDDBStatusRecordValue(wrd_type, attrinfo); }
-  CASE 28 /* STATUSRECORD */
+  CASE 28 /* AUTHENTICATIONSETTINGS */
     { RETURN NEW WRDDBAuthenticationSettingsValue(wrd_type, attrinfo); }
 
   DEFAULT

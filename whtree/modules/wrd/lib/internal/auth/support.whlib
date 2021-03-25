@@ -74,7 +74,7 @@ PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passw
   RECORD value := GetDefaultAuthenticationSettings();
   IF (passwordhash != "")
     INSERT CELL[ passwordhash, validfrom := DEFAULT DATETIME ] INTO value.passwords AT END;
-  RETURN value;
+  RETURN ValidateAuthenticationSettingValue(value); //validates the password hash
 }
 
 /** Returns whether the specified authentication settings are the default value (no passwords set, no second factor set)
