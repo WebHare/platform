@@ -1083,6 +1083,20 @@ void WittyExecutionState::PrintEncoded(Blex::StringPair data,ContentEncoding enc
         }
 }
 
+void WittyExecutionState::Clear()
+{
+        for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+        {
+                if (it->has_variable)
+                {
+                        if (it->var_is_alloced)
+                            HSVM_DeallocateVariable(hsvm, varstack.back().var);
+                        varstack.pop_back();
+                }
+        }
+        stack.clear();
+}
+
 void ParsedPart::GetWittyData(HSVM_VariableId store, WittyExecutionState *wes, HSVM_VariableId var) const
 {
         HSVM *hsvm=wes->hsvm;
@@ -1611,6 +1625,7 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedPart::SM_Embed(WittyExecuti
             0);
         if (fptr_result <= 0)
         {
+                HSVM_DeallocateVariable(hsvm, callbackid);
                 if (fptr_result == -1)
                     HSVM_ReportCustomError(hsvm, "Cannot load EMBEDWITTYCOMPONENT");
                 return std::make_pair(true, false); // error out immediately
@@ -1619,6 +1634,8 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedPart::SM_Embed(WittyExecuti
         elt.continuation.reset(new SM_CallFinishPrintCellCall(this, wes));
 
         HSVM_VariableId retval = HSVM_ScheduleFunctionPtrCall(hsvm, callbackid, true);
+        HSVM_DeallocateVariable(hsvm, callbackid);
+
         return std::make_pair(false, retval != 0);
 //        SM_PushComponent(elt.itr->linenum, elt.itr->columnnum, wes, false, elt.itr->content);
 }
@@ -1681,12 +1698,18 @@ void RunContinue(HSVM *hsvm, ParsedFile *parsedfile, bool is_unwinding)
                 while (must_pop_more)
                 {
                         must_pop_more = !context.sm_witties.back()->stack.back().must_return;
+                        if (context.sm_witties.back()->stack.back().has_variable)
+                        {
+                                if (context.sm_witties.back()->stack.back().var_is_alloced)
+                                    HSVM_DeallocateVariable(hsvm, context.sm_witties.back()->varstack.back().var);
+                                context.sm_witties.back()->varstack.pop_back();
+                        }
                         context.sm_witties.back()->stack.pop_back();
                 }
                 if (context.sm_witties.back()->stack.empty())
                     context.sm_witties.pop_back();
 
-                WTE_PRINT("Runcontinue after error clean " << context.sm_witties.size() << ":" << context.sm_witties.back()->stack.size());
+                WTE_PRINT("Runcontinue after error clean " << context.sm_witties.size() << ":" << (context.sm_witties.size() ? context.sm_witties.back()->stack.size() : -1));
                 ReturnHSResult(hsvm, &e);
         }
         catch(std::exception &e)
@@ -1746,6 +1769,7 @@ void ExecuteComponent(HSVM *hsvm)
         }
         catch (Error &e)
         {
+                context.sm_witties.back()->Clear();
                 context.sm_witties.pop_back();
                 ReturnHSResult(hsvm, &e);
                 return;
@@ -1814,14 +1838,18 @@ struct CallIntoVars
 
 }//End of anonymous namespace
 
-void FinishAfterCallWithWittyContext(HSVM *hsvm, std::shared_ptr< CallIntoVars > const &vars, bool is_unwinding)
+void FinishAfterCallWithWittyContext(HSVM *hsvm, std::shared_ptr< CallIntoVars > const &vars, unsigned sm_witties_count, bool is_unwinding)
 {
-        if (is_unwinding)
-            return;
-
         // Remove witty context
         Context &context = *static_cast<Context*>(HSVM_GetContext(hsvm,ContextId, true));
-        context.sm_witties.pop_back();
+        while (context.sm_witties.size() > sm_witties_count)
+        {
+                context.sm_witties.back()->Clear();
+                context.sm_witties.pop_back();
+        }
+
+        if (is_unwinding)
+            return;
 
         HSVM_CopyFrom(hsvm, vars->id_set, vars->func_result);
         HSVM_CloseFunctionCall(hsvm);
@@ -1851,6 +1879,7 @@ void CallWithWittyContext(HSVM *hsvm, HSVM_VariableId id_set)
         wes.reset(new WittyExecutionState(parsedfile, hsvm, parsedid, newwitty));
         wes->SM_Init(HSVM_Arg(2));
 
+        unsigned sm_witties_count = context.sm_witties.size();
         context.sm_witties.push_back(wes);
 
         try
@@ -1860,7 +1889,12 @@ void CallWithWittyContext(HSVM *hsvm, HSVM_VariableId id_set)
         }
         catch (Error &e)
         {
-                context.sm_witties.pop_back();
+                while (context.sm_witties.size() > sm_witties_count)
+                {
+                        context.sm_witties.back()->Clear();
+                        context.sm_witties.pop_back();
+                }
+
                 ReturnHSResult(hsvm, &e);
                 return;
         }
@@ -1875,7 +1909,7 @@ void CallWithWittyContext(HSVM *hsvm, HSVM_VariableId id_set)
 
         HSVM_OpenFunctionCall(hsvm, 0);
 
-        HSVM_ScheduleCallback_cpp(hsvm, std::bind(&FinishAfterCallWithWittyContext, hsvm, vars, std::placeholders::_1));
+        HSVM_ScheduleCallback_cpp(hsvm, std::bind(&FinishAfterCallWithWittyContext, hsvm, vars, sm_witties_count, std::placeholders::_1));
         vars->func_result = HSVM_ScheduleFunctionPtrCall(hsvm, HSVM_Arg(1), true);
 }
 
