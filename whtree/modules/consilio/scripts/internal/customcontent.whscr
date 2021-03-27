@@ -83,7 +83,6 @@ WHILE (TRUE)
                         ], rec.msgid);
     }
   }
-  CollectGarbage();
 }
 
 iochan->Close();

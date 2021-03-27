@@ -1559,10 +1559,8 @@ HSVM_VariableId HSVM_CallFunction(struct HSVM *vm, const char *libraryuri, const
             throw HareScript::VMRuntimeError(HareScript::Error::UnknownFunction, function_name);
 
         HSVM_VariableId retval = HSVM_CallFunctionPtr(vm, temp, true);
-        if(!retval)
-            return 0; //fatal error..
-
         HSVM_DeallocateVariable(vm, temp);
+
         return retval;
 
         END_CATCH_VMEXCEPTIONS

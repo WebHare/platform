@@ -243,6 +243,7 @@ struct WittyExecutionState
         void Init(HSVM_VariableId var);
         void SM_Init(HSVM_VariableId var);
         void PrintEncoded(Blex::StringPair data,ContentEncoding encoding);
+        void Clear();
 
         ParsedFile &file;
         HSVM *const hsvm;

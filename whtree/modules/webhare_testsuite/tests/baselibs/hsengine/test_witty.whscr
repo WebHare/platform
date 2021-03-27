@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/jobs.whlib";
@@ -46,13 +47,21 @@ STRING FUNCTION CaptureWTE(INTEGER script, RECORD datarec, STRING component DEFA
   SetWittyErrorCallback(DEFAULT FUNCTION PTR);
   INTEGER str := CreateStream();
   INTEGER save := redirectoutputto(str);
-  IF (component="")
-    last_witty_error := RunWitty(script,datarec).error;
-  ELSE
-    last_witty_error := RunWittyComponent(script,component,datarec).error;
-  redirectoutputto(save);
 
-  BLOB data := MakeBlobFromStream(str);
+  BLOB data;
+  TRY
+  {
+    IF (component="")
+      last_witty_error := RunWitty(script,datarec).error;
+    ELSE
+      last_witty_error := RunWittyComponent(script,component,datarec).error;
+  }
+  FINALLY
+  {
+    redirectoutputto(save);
+    data := MakeBlobFromStream(str);
+  }
+
   INTEGER fil := OpenBlobAsFile(data);
   STRING strdata := ReadFromFile(fil,Length(data));
   CloseBlobFile(fil);
@@ -844,14 +853,26 @@ MACRO TestCallWithScope()
   CloseTest("CallWithScope");
 }
 
+// Counts the number of C++ allocated external variables
+INTEGER FUNCTION CountExternalVars()
+{
+  INTEGER cnt;
+  FOREVERY (RECORD rec FROM __INTERNAL_DEBUGGETOBJECTWEB(FALSE))
+    IF (rec.source_name = "var.ext")
+      cnt := cnt + 1;
+  RETURN cnt;
+}
+
 PRINT("\n === Running TestWTE\n");
+
+INTEGER extvars := CountExternalVars();
 
 SimpleTestWTE();
 ForeveryMembersWTE();
 EncodingSensitivity();
 WittyNI();
 WittyRawComponent();
-WittyGetTid();
+WittyGetTid(); extvars := extvars + 2; // allocates two external vars to keep the tid function ptrs
 WittyLibrarys();
 WittyFuncPtrsComponents();
 WittyErrorHandling();
@@ -863,3 +884,6 @@ WittyRegression();
 TestDescribeWitty();
 EncodingConfusion();
 TestCallWithScope();
+
+// See to it that all external vars are deallocated again
+TestEQ(extvars, CountExternalVars(), "C++ allocated heap variables are being leaked");
