@@ -1643,4 +1643,35 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , secure :=   GetClientRequestURL() LIKE "https://*"
         ]);
   }
+
+  /** Returns the user edit policy for a user
+      @param user User
+      @cell options.atsubmit @includecelldef legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.atsubmit
+      @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
+  */
+  PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ atsubmit :=   FALSE
+        ], options);
+
+    STRING ARRAY getfields := [ "WHUSER_UNIT"
+                              , this->wrdschema->accountlogintag
+                              ];
+    IF(this->wrdschema->accountemailtag != this->wrdschema->accountlogintag)
+      INSERT this->wrdschema->accountemailtag INTO getfields AT END;
+
+    RECORD fields;
+    RECORD userfields := this->wrdschema->accounttype->GetEntityFields(user, getfields);
+    IF(RecordExists(userfields))
+    {
+      fields := [ username := GetCell(userfields, this->wrdschema->accountlogintag)
+                , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
+                , unit :=     userfields.whuser_unit
+                ];
+    }
+
+    RETURN this->GetSupportObject()->GetUserEditPolicy(user, fields, options.atsubmit);
+  }
+
 >;
