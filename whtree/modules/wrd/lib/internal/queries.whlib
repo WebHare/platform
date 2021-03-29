@@ -3540,13 +3540,13 @@ STATIC OBJECTTYPE WRDDBAuthenticationSettingsValue EXTEND WRDDBIncomparableValue
     IF (entity_settings[settings_start].rawdata != "")
     {
       IF (entity_settings[settings_start].rawdata NOT LIKE "hson:*")
-        RETURN CreateAuthenticationSettingsFromPasswordHash(entity_settings[settings_start].rawdata);
+        RETURN CreateAuthenticationSettingsFromPasswordHash(entity_settings[settings_start].rawdata, [ validfrom := DEFAULT DATETIME ]);
       data := DecodeHSON(entity_settings[settings_start].rawdata);
     }
     ELSE
     {
       IF (BlobToString(entity_settings[settings_start].blobdata, 5) != "hson:")
-        RETURN CreateAuthenticationSettingsFromPasswordHash(BlobToString(entity_settings[settings_start].blobdata));
+        RETURN CreateAuthenticationSettingsFromPasswordHash(BlobToString(entity_settings[settings_start].blobdata), [ validfrom := DEFAULT DATETIME ]);
       data := DecodeHSONBlob(entity_settings[settings_start].blobdata);
     }
     IF(TypeID(data) != TypeID(RECORD))

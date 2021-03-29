@@ -64,16 +64,21 @@ PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
 
 /** Returns authentication settings with the specified password hash as current password
     @param passwordhash Current password hash
+    @cell options.validfrom Date when the password was set, defaults to current time
     @return Authentication settings @includecelldef #ValidateAuthenticationSettingValue.return
     @public
     @topic wrdauth/api
     @loadlib mod::wrd/lib/auth.whlib
 */
-PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passwordhash)
+PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passwordhash, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ validfrom :=    GetCurrentDateTime()
+      ], options);
+
   RECORD value := GetDefaultAuthenticationSettings();
   IF (passwordhash != "")
-    INSERT CELL[ passwordhash, validfrom := DEFAULT DATETIME ] INTO value.passwords AT END;
+    INSERT CELL[ passwordhash, options.validfrom ] INTO value.passwords AT END;
   RETURN ValidateAuthenticationSettingValue(value); //validates the password hash
 }
 
