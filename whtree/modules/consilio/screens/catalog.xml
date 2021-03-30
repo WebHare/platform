@@ -349,56 +349,20 @@
     </footer>
   </screen>
 
-  <screen name="contentsourceeditor" gid=".contentsourceeditor" title=""
-          minwidth="70x" minheight="25x" defaultbutton="settingsnext">
-    <actions>
-      <action name="next" onexecute="donext" tid="tollium:common.actions.next" />
-      <action name="previous" title="" onexecute="doprevious" />
-    </actions>
+  <screen name="contentsourceeditor" gid=".contentsourceeditor" title="" footerbuttons="ok cancel">
     <body>
-      <tabs name="tabs" type="server" height="1pr">
-        <tab name="providertab" title="">
-          <panel height="1pr">
-            <box tid=".contentsource">
-              <line layout="left">
-                <text title="" valuetid=".selecttype" labelfor="types" wordwrap="true" width="1pr" />
-              </line>
-              <select name="types" type="radio" title="" />
-            </box>
-          </panel>
-          <line layout="right">
-            <button tid="tollium:common.actions.previous" enabled="false" />
-            <button action="next" />
-            <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
-          </line>
-        </tab>
-        <tab name="settingstab" title="">
-          <panel height="1pr">
-            <box name="providerbox" title="">
-              <panel name="providersettings" />
-            </box>
-            <box tid=".generalsettings">
-              <text name="id" tid=".id" />
-              <textedit name="tag" maxlength="64"/>
-              <line>
-                <textedit name="maxgroupobjects" valuetype="integer" emptyvalue="0" width="5x" />
-                <text title="" valuetid=".maxgroupobjects-description" wordwrap="true" />
-              </line>
-              <line layout="left">
-                <checkbox name="discardsummaries" title="" labeltid=".discardsummaries-description" />
-              </line>
-              <line layout="left">
-                <checkbox name="disablesource" title="" labeltid=".disablesource-description" />
-              </line>
-            </box>
-          </panel>
-          <line layout="right">
-            <button name="settingsprev" action="previous" tid="tollium:common.actions.previous" />
-            <button name="settingsnext" title="" tolliumresult="ok" />
-            <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
-          </line>
-        </tab>
-      </tabs>
+      <text name="contentsourcetype" />
+      <publisher:browseforobject name="folder" required="true" acceptfiles="false" width="1pr" />
+      <text name="lastcontentscheck" />
+      <text name="id" tid="~id" />
+      <text name="tag" tid="~tag"/>
+      <heading tid=".generalsettings" />
+      <textedit name="contentcheckinterval" valuetype="integer" emptyvalue="0" maxlength="5" suffixtid="~units.minutes"/>
+      <textedit name="maxgroupobjects" valuetype="integer" emptyvalue="0" maxlength="7" />
+      <lines layout="left">
+        <checkbox name="discardsummaries" title="" labeltid=".discardsummaries-description" />
+        <checkbox name="disablesource" title="" labeltid=".disablesource-description" />
+      </lines>
     </body>
   </screen>
 

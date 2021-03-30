@@ -9,10 +9,6 @@
     <body>
       <textedit composition="mysettings" cellname="library" name="library" required="true" width="1pr" />
       <textedit composition="mysettings" cellname="contentobject" name="contentobject" required="true" width="1pr" />
-      <line>
-        <textedit composition="mysettings" cellname="contentcheckinterval" valuetype="integer" emptyvalue="0" width="5x" />
-        <text title="" valuetid=".minutes" />
-      </line>
 
       <!-- The STRING lastcontentscheck composition value is stored here and displayed as DATETIME in the lastcontentscheck text -->
       <textedit composition="mysettings" cellname="lastcontentscheck" visible="false" />

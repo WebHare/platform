@@ -121,8 +121,6 @@ IF (NOT ObjectExists(ipclink))
 }
 
 
-// Set the default maximum number of objects within a group
-defaultmaxgroupobjects := ReadRegistryKey("consilio.queuemanager.maxgroupobjects");
 fetcherdebuglevel := forceddebuglevel >= 0 ? forceddebuglevel : ReadRegistryKey("consilio.queuemanager.loglevel");
 
 SetOutputBuffering(FALSE);
@@ -358,18 +356,6 @@ MACRO ExecuteDecodedCommand(RECORD data)
         IF (CellExists(data.configuration, "indexmanager"))
         {
           ConfigureIndexManager(data.configuration.indexmanager);
-        }
-        IF (CellExists(data.configuration, "maxgroupobjects") AND data.configuration.maxgroupobjects != defaultmaxgroupobjects)
-        {
-          defaultmaxgroupobjects := data.configuration.maxgroupobjects;
-          FetcherDebug(ConsilioDebugInfo, "Received new maxgroupobjects: " || defaultmaxgroupobjects);
-          /*
-          FOREVERY (RECORD prov FROM cached_providers)
-          {
-            FetcherDebug(ConsilioDebugInfo, "Setting cached provider '" || prov.library || "' maxgroupobjects");
-            prov.obj->maxgroupobjects := defaultmaxgroupobjects;//ADDME: Only if no specific number was specified by the content source!
-          }
-          */
         }
       }
       ELSE

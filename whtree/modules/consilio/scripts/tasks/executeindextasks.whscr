@@ -48,7 +48,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
   IF (contentcheckinterval < 0)
     CONTINUE;
   // Check once per day by default
-  contentcheckinterval := contentcheckinterval ?? 1440;
+  contentcheckinterval := contentcheckinterval ?? default_contentcheckinterval;
 
   // See if this content source has been checked before
   DATETIME lastcontentscheck := CellExists(data, "lastcontentscheck") ? StringToDateTime(data.lastcontentscheck) : DEFAULT DATETIME;

@@ -97,15 +97,16 @@
       <text tid="updatecatalog">Update</text>
     </textgroup>
     <textgroup gid="contentsourceeditor">   <!-- catalog.contentsourceeditor -->
-      <text tid="contentsource">Content Source Type</text>
+      <text tid="contentcheckinterval">Check interval</text>
+      <text tid="contentsourcetype">Content Source Type</text>
       <text tid="disablesource-description">Disable this content source</text>
       <text tid="discardsummaries-description">Don't generate excerpts</text>
+      <text tid="folder">Folder to index</text>
       <text tid="generalsettings">Advanced Settings</text>
-      <text tid="id">Content Source ID</text>
+      <text tid="lastcontentscheck">Last automatic update of dynamic pages</text>
       <text tid="maxgroupobjects">Maximum objects per group</text>
       <text tid="maxgroupobjects-description">(Leave empty for default value)</text>
-      <text tid="selecttype">Type of content to add</text>
-      <text tid="tag">Tag</text>
+      <text tid="minutes">minutes (Leave empty for default value)</text>
       <text tid="title-edit">Edit Content Source</text>
       <text tid="title-new">New Content Source</text>
     </textgroup>
@@ -185,11 +186,9 @@
   </textgroup>
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="custom">   <!-- contentproviders.custom -->
-      <text tid="contentcheckinterval">Check interval</text>
       <text tid="contentobject">Indexing object</text>
       <text tid="lastcontentscheck">Last checked</text>
       <text tid="library">Indexing library</text>
-      <text tid="minutes">minutes (Leave empty for default value)</text>
       <text tid="never">never</text>
       <text tid="providertitle">Database contents</text>
       <textgroup gid="messages">   <!-- contentproviders.custom.messages -->

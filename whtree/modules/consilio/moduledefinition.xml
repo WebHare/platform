@@ -502,7 +502,7 @@
     <node name="queuemanager">
       <integer name="loglevel" initialval="0" description="Logging level" />
       <integer name="maxfetchtime" initialval="180" description="Maximum time (in seconds) fetching a document may take" />
-      <integer name="maxgroupobjects" initialval="500" description="Default maximum number of objects per group (may be overridden in a content source)" />
+      <obsoletenode name="maxgroupobjects" />
       <integer name="workers" initialval="2" description="Number of parallel workers to start" />
     </node>
     <node name="linkchecker">
@@ -534,7 +534,6 @@
     <contentprovider
       name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database"
       library="contentproviders/customcontent.whlib" contentproviderobject="CustomContentProvider"
-      settingsscreen="contentproviders.custom"
     />
 
     <fieldgroup tag="pxl_data">
