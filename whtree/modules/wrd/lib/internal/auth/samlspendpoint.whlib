@@ -4,8 +4,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/saml.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
@@ -159,8 +159,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
       IF (RecordExists(instr))
         transid := instr.id;
 
-      IF (IsRPCTrafficLogged("wrd:saml"))
-        LogRPCTraffic("wrd:saml", "acservice", FALSE, GetClientRemoteIp(), transid, CELL[...webdata, DELETE requestdoc, DELETE responsedoc]);
+      LogRPCTraffic("wrd:saml", "acservice", FALSE, GetClientRemoteIp(), transid, CELL[...webdata, DELETE requestdoc, DELETE responsedoc]);
 
       RECORD resdata := DecodeSAMLMessage(webdata, FALSE);
       RECORD response := resdata.message;
@@ -290,8 +289,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
 
         IF (RecordExists(submitinstr))
         {
-          IF (IsRPCTrafficLogged("wrd:saml"))
-            LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+          LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
 
           ExecuteSubmitInstruction(submitinstr);
         }
@@ -331,9 +329,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
           }
         }
 
-        IF (IsRPCTrafficLogged("wrd:saml"))
-          LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
-
+        LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
         ExecuteSubmitInstruction(submitinstr);
       }
     }

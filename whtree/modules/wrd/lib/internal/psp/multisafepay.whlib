@@ -5,8 +5,8 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
@@ -26,8 +26,7 @@ OBJECT FUNCTION GetBrowser()
     RETURN multisafepaybrowser;
 
   multisafepaybrowser := NEW WebBrowser;
-  IF(IsRPCTrafficLogged("wrd:payments.multisafepay"))
-    LogRPCForWebbrowser("wrd:payments.multisafepay", "", multisafepaybrowser);
+  LogRPCForWebbrowser("wrd:payments.multisafepay", "", multisafepaybrowser);
 
   RETURN multisafepaybrowser;
 }

@@ -6,9 +6,10 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 
@@ -55,8 +56,7 @@ PUBLIC RECORD FUNCTION TestWebHareProxy(STRING url, STRING password, STRING reve
   TRY
   {
     STRING verificationurl := SetAVerificationURL();
-    IF(IsRPCTrafficLogged("system:webservers.proxies"))
-      LogRPCForWebbrowser("system:webservers.proxies", "test", browser);
+    LogRPCForWebbrowser("system:webservers.proxies", "test", browser);
     browser->onauth := PTR AuthHandler(#1, #2, password);
 
     // Generate a new verification code for this registration round
@@ -199,8 +199,7 @@ BOOLEAN FUNCTION DoUnregister(RECORD proxyinfo)
   {
     STRING verificationurl := SetAVerificationURL();
 
-    IF(IsRPCTrafficLogged("system:webservers.proxies"))
-      LogRPCForWebbrowser("system:webservers.proxies", "delete", browser);
+    LogRPCForWebbrowser("system:webservers.proxies", "delete", browser);
     browser->onauth := PTR AuthHandler(#1, #2, proxyinfo.password);
     browser->timeout := 10000;
     result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",

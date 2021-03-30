@@ -1,6 +1,6 @@
 <?wh
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "wh::crypto.whlib";
@@ -331,8 +331,7 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
 
     INSERT [ name := "SHASIGN", value := CalculateIngenicoSHA1Hash(vars, this->settings.sha1_in, TRUE) ] INTO vars AT END;
 
-    IF(IsRPCTrafficLogged("wrd:payments.ingenico"))
-      LogRPCTraffic("wrd:payments.ingenico", "CLIENT-JS-POST " || submiturl, TRUE, /*ADDME IP?*/"", this->paymentref, [ postvars := vars ]);
+    LogRPCTraffic("wrd:payments.ingenico", "CLIENT-JS-POST " || submiturl, TRUE, /*ADDME IP?*/"", this->paymentref, [ postvars := vars ]);
 
     RETURN [ method := "POST"
            , action := submiturl
@@ -428,8 +427,7 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
   PUBLIC RECORD FUNCTION TestPaymentStatus()
   {
     OBJECT browser := NEW WebBrowser;
-    IF(IsRPCTrafficLogged("wrd:payments.ingenico"))
-      LogRPCForWebbrowser("wrd:payments.ingenico", "RecheckPayment", browser);
+    LogRPCForWebbrowser("wrd:payments.ingenico", "RecheckPayment", browser);
 
     STRING url := this->GetURLBase() || "querydirect.asp?PSPID=" || EncodeURL(this->settings.pspid)
                                      || "&USERID=" || EncodeURL(this->settings.apiuser)

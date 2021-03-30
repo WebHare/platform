@@ -3,7 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
@@ -57,8 +57,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeNLAPI EXTEND WRDNLAddressVerificationBase
     this->browser := NEW WebBrowser;
     this->browser->SetPassword("https://api.postcode.eu/*", this->settings.apikey, this->settings.secret);
 
-    IF (IsRPCTrafficLogged("wrd:postcode.nl"))
-      LogRPCForWebbrowser("wrd:postcode.nl", "", this->browser);
+    LogRPCForWebbrowser("wrd:postcode.nl", "", this->browser);
   }
 
   UPDATE RECORD FUNCTION GetAccountingHitInfo()

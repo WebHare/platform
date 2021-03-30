@@ -11,7 +11,7 @@ LOADLIB "wh::xml/signature.whlib";
 
 LOADLIB "mod::wrd/lib/auth/saml.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
@@ -945,8 +945,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp
 
   RECORD res := sp->EncodeAndSignDocument(request, endpoint, relaystate_str, TRUE);
 
-  IF (IsRPCTrafficLogged("wrd:saml"))
-    LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), request_id, res);
+  LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), request_id, res);
 
   INSERT CELL requestid := request_id INTO res;
   RETURN res;

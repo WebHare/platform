@@ -24,8 +24,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/forms/base.whlib";
@@ -250,8 +250,7 @@ STATIC OBJECTTYPE GGeocoderBase
     IF (NOT ObjectExists(browser))
     {
       browser := NEW WEBBrowser();
-      IF(IsRPCTrafficLogged("socialite:geocoder"))
-        LogRPCForWebbrowser("socialite:geocoder", "", browser);
+      LogRPCForWebbrowser("socialite:geocoder", "", browser);
     }
 
     url := ReplaceVariableInUrl(url, "sensor", "false");

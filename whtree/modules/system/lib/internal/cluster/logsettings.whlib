@@ -1,0 +1,63 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
+
+RECORD FUNCTION GetRPCLogStatus(STRING logtype, RECORD options)
+{
+  STRING keyname := "system.logging.rpc." || Substitute(logtype, ".", "_");
+  RECORD logsettings := ReadRegistryKey(keyname, [ fallback := DEFAULT RECORD ]);
+
+  IF (NOT RecordExists(logsettings)) //new service!
+  {
+    logsettings := [ loguntil := options.autoenable ? MAX_DATETIME : DEFAULT DATETIME
+                   ];
+
+    GetPrimary()->BeginLockedWork("system:rpclogstatus");
+    WriteRegistryKey(keyname, logsettings, [createifneeded := TRUE]);
+    GetPrimary()->CommitWork();
+
+    logsettings := ReadRegistryKey(keyname, [ fallback := DEFAULT RECORD ]);
+  }
+
+  RECORD retval := ValidateOptions([ loguntil := DEFAULT DATETIME
+                                   , profileuntil := DEFAULT DATETIME
+                                   ], logsettings, [ discard := ["profile"] ]);
+  DATETIME now := GetCurrentDatetime();
+
+  IF(retval.loguntil < now)
+    retval.loguntil := DEFAULT DATETIME;
+  IF(retval.profileuntil < now)
+    retval.profileuntil := DEFAULT DATETIME;
+
+  RETURN
+      [ value := CELL[ ...retval, keyname := keyname ]
+      , eventmasks :=   [ "system:registry.system.logging.rpc" ]
+      ];
+}
+
+RECORD FUNCTION GetCachableRPCTrafficLogged(STRING logsource, RECORD options )
+{
+  RECORD data := RunInSeparatePrimary(PTR GetRPCLogStatus(logsource, options));
+  RETURN
+      [ eventmasks :=   data.eventmasks
+      , value :=        data.value
+      ];
+}
+
+PUBLIC RECORD FUNCTION GetRPCLogSettings(STRING logsource, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ autoenable := TRUE ], options);
+  IF (logsource = "" OR logsource NOT LIKE "*:*")
+    THROW NEW Exception(`Invalid service name ${logsource}`);
+  RETURN GetAdhocCached([ type := "rpclog", logsource := logsource ], PTR GetCachableRPCTrafficLogged(logsource, options));
+}
+
+/** @short Check whether certain RPC traffic should be logged */
+PUBLIC BOOLEAN FUNCTION IsRPCTrafficLogged(STRING logsource, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  DATETIME loguntil := GetRPCLogSettings(logsource, options).loguntil;
+  RETURN loguntil != DEFAULT DATETIME AND loguntil > GetCurrentDatetime();
+}

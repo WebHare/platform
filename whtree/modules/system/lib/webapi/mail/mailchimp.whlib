@@ -6,7 +6,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 
 
@@ -35,8 +35,7 @@ PUBLIC STATIC OBJECTTYPE MailchimpAPI
   PUBLIC MACRO NEW(STRING dc, STRING apikey)
   {
     this->browser := NEW WebBrowser;
-    IF(IsRPCTrafficLogged("system:webapi.mailchimp"))
-      LogRPCForWebBrowser("system:webapi.mailchimp", "", this->browser);
+    LogRPCForWebBrowser("system:webapi.mailchimp", "", this->browser);
 
     this->apikey := apikey;
     IF(apikey = "")

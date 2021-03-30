@@ -2,8 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
-
 LOADLIB "mod::socialite/lib/internal/oauth.whlib";
 
 /*
@@ -68,8 +66,7 @@ PUBLIC STATIC OBJECTTYPE VimeoConnection EXTEND OauthV2NetworkConnection
 
   MACRO NEW() : OauthV2NetworkConnection(vimeo_permission_map)
   {
-    IF(IsRPCTrafficLogged("socialite:vimeoconnection"))
-      this->EnableRPCLogging("socialite:vimeoconnection", "");
+    this->EnableRPCLogging("socialite:vimeoconnection", "");
 
     this->pvt_apiurl          := "https://api.vimeo.com/";
     this->pvt_authorizeurl    := "https://api.vimeo.com/oauth/authorize";

@@ -4,8 +4,9 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
@@ -29,8 +30,7 @@ OBJECT FUNCTION GetBrowser()
 
   spraypaybrowser := NEW WebBrowser;
   spraypaybrowser->debug := TRUE;
-  IF(IsRPCTrafficLogged("wrd:payments.spraypay"))
-    LogRPCForWebbrowser("wrd:payments.spraypay", "", spraypaybrowser);
+  LogRPCForWebbrowser("wrd:payments.spraypay", "", spraypaybrowser);
 
   RETURN spraypaybrowser;
 }
