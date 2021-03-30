@@ -315,6 +315,54 @@ PUBLIC MACRO TestEqMembers(VARIANT expected, VARIANT actual, STRING memberstext,
   InnerTestEqual(expected,actual,"", members, annotation);
 }
 
+INTEGER FUNCTION GetMinMatch(STRING teststr, STRING likemask, FUNCTION PTR extract)
+{
+  INTEGER mi := 0, ma := LENGTH(teststr);
+  WHILE (mi != ma)
+  {
+    INTEGER middle := (ma + mi) / 2;
+    STRING test := extract(teststr, middle);
+    IF (test LIKE likemask)
+      ma := middle;
+    ELSE
+      mi := middle + 1;
+  }
+  RETURN (extract(teststr, mi) LIKE likemask) ? mi : -1;
+}
+
+RECORD FUNCTION GetBestPartialLikeMatch(STRING likemask, STRING teststr)
+{
+  RECORD best;
+
+  STRING ARRAY parts := Tokenize(likemask, "*");
+  FOR (INTEGER i := 0; i < LENGTH(parts) + 1; i := i + 1)
+  {
+    STRING first := Detokenize(ArraySlice(parts, 0, i), "*");
+
+    INTEGER minfirst := GetMinMatch(teststr, first || "*", PTR Left);
+    FOR (INTEGER a := i ; a <= LENGTH(parts); a := a + 1)
+    {
+      STRING second := Detokenize(ArraySlice(parts, a), "*");
+      INTEGER minlast := GetMinMatch(SubString(teststr, minfirst), "*" || second, PTR Right);
+
+      IF (NOT RecordExists(best) OR best.total < minfirst + minlast)
+      {
+        best := CELL
+            [ total :=        minfirst + minlast
+            , startmask :=    Substitute(first, "\n", "\\n\n")
+            , lastmask :=     Substitute(second, "\n", "\\n\n")
+            , missingmask :=  `${i=0?"":"*"}${Substitute(Detokenize(ArraySlice(parts, i, a - i), "*"), "\n", "\\n\n")}${a=LENGTH(parts)?"":"*"}` ?? "(*empty mask*)"
+            , startmatch :=   Substitute(Left(teststr, minfirst), "\n", "\\n\n")
+            , lastmatch :=    Substitute(Right(teststr, minlast), "\n", "\\n\n")
+            , missingmatch := Substitute(SubString(teststr, minfirst, LENGTH(teststr) - minlast - minfirst), "\n", "\\n\n") ?? "(*missing content*)"
+            ];
+      }
+    }
+  }
+
+  RETURN best;
+}
+
 /** Test if a value matches a LIKE mask
     @topic testframework/api
     @public
@@ -325,12 +373,24 @@ PUBLIC MACRO TestEqMembers(VARIANT expected, VARIANT actual, STRING memberstext,
 */
 PUBLIC MACRO TestEqLike(STRING mask, STRING actual, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
 {
-  IF(actual NOT LIKE mask)
-  {
-    IF(annotation != "")
-      Print("\nAnnotation: " || annotation || "\n");
+  IF(actual LIKE mask)
+    RETURN;
 
-    ReportError("Expected like: " || mask || "\nGot:           " || actual, DEFAULT RECORD ARRAY, annotation);
+  IF(annotation != "")
+    Print("\nAnnotation: " || annotation || "\n");
+
+  RECORD best := GetBestPartialLikeMatch(mask, actual);
+  IF (IsAnsiCMDEnabled())
+  {
+    ReportError(
+      `Expected like:\n${AnsiCMD("back-green")}${best.startmask}${AnsiCMD("back-red")}${best.missingmask}${AnsiCMD("back-green")}${best.lastmask}${AnsiCMD("reset")}\n` ||
+      `Got:\n${AnsiCMD("back-green")}${best.startmatch}${AnsiCMD("back-red")}${best.missingmatch}${AnsiCMD("back-green")}${best.lastmatch}${AnsiCMD("reset")}\n`, DEFAULT RECORD ARRAY, annotation);
+  }
+  ELSE
+  {
+    ReportError(
+      `Expected like:\n${AnsiCMD("back-green")}${best.startmask}${AnsiCMD("back-red")}${best.missingmask}${AnsiCMD("back-green")}${best.lastmask}${AnsiCMD("reset")}\n` ||
+      `Got:\n${AnsiCMD("back-green")}${best.startmatch}${AnsiCMD("back-red")}${best.missingmatch}${AnsiCMD("back-green")}${best.lastmatch}${AnsiCMD("reset")}\n`, DEFAULT RECORD ARRAY, annotation);
   }
 }
 
