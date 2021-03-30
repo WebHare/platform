@@ -85,7 +85,7 @@
 
   <publisher>
     <siteprofile path="data/consilio.siteprl.xml" />
-    <webdesignplugin name="robots" namespace="http://www.webhare.net/xmlns/consilio" library="internal/webdesignplugin.whlib" objectname="robotsplugin"  />
+    <webdesignplugin name="robots" namespace="http://www.webhare.net/xmlns/consilio" objectname="lib/internal/webdesignplugin.whlib#robotsplugin"  />
 
     <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="linksto" />
     <indexfield fieldfunc="lib/internal/publishersearch.whlib#getitemfield" name="internallink" />

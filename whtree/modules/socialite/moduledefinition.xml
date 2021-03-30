@@ -226,12 +226,12 @@
 
   <publisher>
     <siteprofile path="data/socialite.siteprl.xml" />
-    <webdesignplugin name="analytics" namespace="http://www.webhare.net/xmlns/socialite" library="internal/webdesignplugin.whlib" objectname="analyticsplugin"  />
+    <webdesignplugin name="analytics" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#analyticsplugin"  />
     <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/socialite" objectname="mod::publisher/lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin"  />
     <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/socialite" objectname="mod::publisher/lib/internal/analytics/gtmplugin.whlib#GTMPlugin" hooksfeatures="debugsettings" />
-    <webdesignplugin name="opengraph" namespace="http://www.webhare.net/xmlns/socialite" library="internal/webdesignplugin.whlib" objectname="opengraphplugin"  />
-    <webdesignplugin name="analyticsexperiment" namespace="http://www.webhare.net/xmlns/socialite" library="internal/webdesignplugin.whlib" objectname="analyticsexperimentplugin"  />
-    <webdesignplugin name="seotab" namespace="http://www.webhare.net/xmlns/socialite" library="internal/plugins/seotab.whlib" objectname="seotabplugin" hooksfeatures="objectprops" />
+    <webdesignplugin name="opengraph" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#opengraphplugin"  />
+    <webdesignplugin name="analyticsexperiment" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#analyticsexperimentplugin"  />
+    <webdesignplugin name="seotab" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/plugins/seotab.whlib#seotabplugin" hooksfeatures="objectprops" />
     <formcomponents namespace="http://www.webhare.net/xmlns/socialite/forms" xmlschema="data/forms/formdef.xsd"/>
   </publisher>
 

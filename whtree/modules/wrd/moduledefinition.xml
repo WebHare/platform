@@ -10,8 +10,8 @@
   </meta>
 
   <publisher>
-    <webdesignplugin name="wrdauth" namespace="http://www.webhare.net/xmlns/wrd" library="internal/auth/webdesignplugin.whlib" objectname="wrdauthplugin"  />
-    <webdesignplugin name="formpayments" namespace="http://www.webhare.net/xmlns/wrd" library="internal/psp/paymentsplugin.whlib" objectname="formpaymentsplugin"  />
+    <webdesignplugin name="wrdauth" namespace="http://www.webhare.net/xmlns/wrd" objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin"  />
+    <webdesignplugin name="formpayments" namespace="http://www.webhare.net/xmlns/wrd" objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin"  />
     <siteprofile path="data/wrd.siteprl.xml" />
     <formcomponents namespace="http://www.webhare.net/xmlns/wrd/forms" xmlschema="data/formcomponents.xsd"/>
     <customnode namespace="http://www.webhare.net/xmlns/wrd/siteprofile" name="addressvalidation" />

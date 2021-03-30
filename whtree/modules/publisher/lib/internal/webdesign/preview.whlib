@@ -106,7 +106,7 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
     }
 
     // Lookup RTD type
-    RECORD rtdtypesettings := GetRTDTypeSettings(applytester);
+    RECORD rtdtypesettings := applytester->GetRTDTypeSettings();
     STRING rtdtype := RecordExists(rtdtypesettings) ? rtdtypesettings.rtdtype : "";
 
     IF (rtdtype = "")

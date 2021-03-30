@@ -20,35 +20,45 @@ PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
   OBJECT formresults;
   STRING handlerguid;
 
-  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  UPDATE PUBLIC MACRO PrepareTask(RECORD data)
   {
     this->formfsobject := OpenWHFSObject(data.formid);
+    this->handlerguid := data.formhandler;
+
+    IF(ObjectExists(this->formfsobject))
+      this->formdefinition := OpenFormFileDefinition(this->formfsobject, [ formname := data.formname ]);
+
+    IF(ObjectExists(this->formdefinition))
+    {
+      RECORD ARRAY handlers := this->formdefinition->GetParsedHandlers();
+      RECORD handler := SELECT * FROM handlers WHERE handlers.guid = this->handlerguid;
+      IF(RecordExists(handler))
+      {
+        this->settings := handler.settings;
+        this->formresults := OpenFormFileResults(this->formfsobject, [ formname := data.formname ]);
+      }
+    }
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
     IF (NOT ObjectExists(this->formfsobject))
     {
       this->ResolveByFailure(DEFAULT RECORD, `Could not find WHFS object ${data.formid}`);
       RETURN;
     }
-
-    this->formdefinition := OpenFormFileDefinition(this->formfsobject, [ formname := data.formname ]);
     IF (NOT ObjectExists(this->formdefinition))
     {
       this->ResolveByFailure(DEFAULT RECORD, `Could not find form '${data.formname}' in file '${this->formfsobject->GetResourceName()}`);
       RETURN;
     }
-
-    RECORD ARRAY handlers := this->formdefinition->GetParsedHandlers();
-    RECORD handler := SELECT * FROM handlers WHERE handlers.guid = data.formhandler;
-    IF(NOT RecordExists(handler))
+    IF(NOT RecordExists(this->settings))
     {
-      this->ResolveByFailure(DEFAULT RECORD, `Could not find handler '${data.formhandler}'`);
+      this->ResolveByFailure(DEFAULT RECORD, `Could not find handler '${this->handlerguid}'`);
       RETURN;
     }
 
-    this->settings := handler.settings;
-    this->handlerguid := handler.guid;
-
     //ADDME this may cause a duplicate parse when extracting the result ? reuse formfile above?
-    this->formresults := OpenFormFileResults(this->formfsobject, [ formname := data.formname ]);
     RECORD results := this->formresults->GetSingleResult(data.resultsguid,
         [ allowcancelled := data.submittype = "cancel"
         , allowpending := data.submittype = "pending"

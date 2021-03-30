@@ -1316,7 +1316,7 @@ STATIC OBJECTTYPE ApplyRuleTester
   }
 
   /** Get our <rtddoc> settings
-      @return An empty record if not `<rtddoc rtdtype=>`` is set*/
+      @return Default record if `<rtddoc rtdtype=>` is not set */
   PUBLIC RECORD FUNCTION GetRTDTypeSettings()
   {
     RECORD rtddoc := [ rtdtype := ""
