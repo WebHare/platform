@@ -4,6 +4,7 @@ import ObjText from '../text/text.es';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
+import "./panel.scss";
 
 var $todd = require('@mod-tollium/web/ui/js/support');
 require("@mod-tollium/js/icons");

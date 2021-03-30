@@ -501,7 +501,6 @@ function checkLogTypes()
   else if (enabledlogtypes.length)
   {
     console.warn("Showing typed debug messages with types " + enabledlogtypes.join(", "));
-    document.documentElement.classList.toggle('debug-grid', enabledlogtypes.includes('grid'));
   }
 }
 

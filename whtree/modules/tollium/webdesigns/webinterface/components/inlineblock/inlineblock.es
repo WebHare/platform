@@ -2,6 +2,8 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import ObjText from '../text/text.es';
 import { updateNodeBackground, ObjPanelLine } from '../panel/panel.es';
+import "./inlineblock.scss";
+
 var $todd = require('@mod-tollium/web/ui/js/support');
 
 const bgstyle = Symbol.for("background style");
@@ -236,5 +238,5 @@ export default class ObjInlineBlock extends ComponentBase
 
     this.lines.forEach(comp => comp.relayout());
   }
-};
+}
 

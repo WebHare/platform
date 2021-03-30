@@ -3,11 +3,10 @@
          lib="screens/components/rte.whlib"
          gid="components.rte">
 
-  <messageboxes>
-    <messagebox name="sureremovetable" icon="question" buttons="yes no" />
-  </messageboxes>
-
   <screen name="imageproperties" gid=".imageproperties">
+    <actions>
+      <downloadaction name="download" tid=".downloadoriginal" ondownload="dodownload" />
+    </actions>
     <compositions>
       <record name="settings" />
       <radiogroup name="align" composition="settings" cellname="align" />
@@ -68,7 +67,14 @@
       </tabs>
     </body>
     <footer>
-      <defaultformbuttons buttons="ok cancel" />
+      <grid>
+        <cell width="1pr">
+          <button action="download" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="ok cancel" />
+        </cell>
+      </grid>
     </footer>
   </screen>
 
