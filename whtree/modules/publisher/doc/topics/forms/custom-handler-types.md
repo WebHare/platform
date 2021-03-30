@@ -91,7 +91,7 @@ To enable the custom handler, tell your site profile about it. This can be done 
 To integrate with the form as it's being rendered or filled in, you need to set up a handler. Add a `handlerobject` to the `<formhandler>`
 
 ```harsecript
-PUBLIC STATIC OBJECTTYPE MyHnadler EXTEND FormHandlerBase
+PUBLIC STATIC OBJECTTYPE MyHandler EXTEND FormHandlerBase
 <
 >;
 ```
