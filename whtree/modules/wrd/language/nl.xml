@@ -900,11 +900,24 @@
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
           <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
+          <text tid="settingsfailure">De authenticatie-instellingen voldoen niet aan de volgende eigenschappen:<br/><param p="1"/></text>
+          <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
+            <text tid="days"><ifparam p="1" value="1">1 dag<else/><param p="1"/> dagen</ifparam></text>
+            <text tid="months"><ifparam p="1" value="1">1 maand<else/><param p="1"/> maanden</ifparam></text>
+            <text tid="parts1"><param p="1"/></text>
+            <text tid="parts2"><param p="1"/> en <param p="2"/></text>
+            <text tid="parts3"><param p="1"/>, <param p="2"/> en <param p="3"/></text>
+            <text tid="parts4"><param p="1"/>, <param p="2"/>, <param p="3"/> en <param p="4"/></text>
+            <text tid="weeks"><ifparam p="1" value="1">1 week<else/><param p="1"/> weken</ifparam></text>
+            <text tid="years"><ifparam p="1" value="1">1 jaar<else/><param p="1"/> jaren</ifparam></text>
+          </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">cijfer<else/>cijfers</ifparam> bevatten.</text>
             <text tid="hibp">Het mag niet aanwezig zijn in de HaveIBeenPwned-wachtwoorddatabase.</text>
             <text tid="lowercase">Het moet tenminste <param p="1"/> kleine <ifparam p="1" value="1">letter<else/>letters</ifparam> bevatten.</text>
+            <text tid="maxage">Het moet elke <param p="1"/> veranderd worden.</text>
             <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
+            <text tid="noreuse">Het mag <param p="1"/> niet worden hergebruikt.</text>
             <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
             <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
           </textgroup>

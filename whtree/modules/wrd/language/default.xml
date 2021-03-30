@@ -900,11 +900,24 @@
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">The new password doesn't have the following properties:<br/><param p="1"/></text>
           <text tid="requirements">The new password must have the following properties:<br/><param p="1"/></text>
+          <text tid="settingsfailure">The authentication settings don't have the following properties:<br/><param p="1"/></text>
+          <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
+            <text tid="days"><ifparam p="1" value="1">1 day<else/><param p="1"/> days</ifparam></text>
+            <text tid="months"><ifparam p="1" value="1">1 month<else/><param p="1"/> months</ifparam></text>
+            <text tid="parts1"><param p="1"/></text>
+            <text tid="parts2"><param p="1"/> and <param p="2"/></text>
+            <text tid="parts3"><param p="1"/>, <param p="2"/> and <param p="3"/></text>
+            <text tid="parts4"><param p="1"/>, <param p="2"/>, <param p="3"/> and <param p="4"/></text>
+            <text tid="weeks"><ifparam p="1" value="1">1 week<else/><param p="1"/> weeks</ifparam></text>
+            <text tid="years"><ifparam p="1" value="1">1 year<else/><param p="1"/> years</ifparam></text>
+          </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">It must contain at least <param p="1"/> <ifparam p="1" value="1">digit<else/>digits</ifparam>.</text>
             <text tid="hibp">It must not be present in the HaveIBeenPwned password database.</text>
             <text tid="lowercase">It must contain at least <param p="1"/> lowercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
+            <text tid="maxage">It must be changed every <param p="1"/>.</text>
             <text tid="minlength">It must be <param p="1"/> characters or longer</text>
+            <text tid="noreuse">It cannot be reused for <param p="1"/>.</text>
             <text tid="symbols">It must contain at least <param p="1"/> <ifparam p="1" value="1">symbol<else/>symbols</ifparam>.</text>
             <text tid="uppercase">It must contain at least <param p="1"/> uppercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
           </textgroup>
