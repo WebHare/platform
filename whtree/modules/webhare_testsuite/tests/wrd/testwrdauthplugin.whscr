@@ -341,7 +341,7 @@ MACRO TestPersistentLogin()
       , data := ""
       , browsertriplet := "mac-chrome-04"
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Should still recover from this (from the persistent cookie). Browser triplet not available in this path
@@ -570,7 +570,7 @@ MACRO TestLoginDenied()
       , impersonated := TRUE
       , data := ""
       , browsertriplet := "mac-chrome-06"
-      , byentity := 0
+      , byentity := entityid
       , bylogin := ""
       ]);
 }
