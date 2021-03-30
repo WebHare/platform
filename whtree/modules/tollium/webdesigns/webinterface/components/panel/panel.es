@@ -132,7 +132,6 @@ export default class ObjPanel extends ComponentBase
     this.bottomborder = false;
     this.leftborder = false;
   */
-    this.childrencalcheight = 0; //calculated height of children. we'll apply this when scrolling
     this.vscroll = false;
     this.isfooter = false;
 
@@ -386,7 +385,6 @@ export default class ObjPanel extends ComponentBase
   {
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
-    this.childrencalcheight = this.height.calc;
 
     this.height.overhead = toddtools.getSpacerHeight(this.spacers) + toddtools.getBorderHeight(this.borders);
 

@@ -114,9 +114,13 @@ IF(ourmessageid LIKE "<*@smtp.webhare.net>") //this path handles QueueMail(InWor
 
   trans->CommitWork();
 }
-ELSE IF(ourmessageid LIKE "<*@news.webhare.net>")//ADDME support a future registration api?
+ELSE IF(ourmessageid LIKE "<*@news.webhare.net>") //TODO support a future registration api..
 {
   MakeFunctionPtr("mod::newsletter/lib/incoming.whlib#ProcessIncomingBounce")(ourmessageid, basictype, basicobject);
+}
+ELSE IF(ourmessageid LIKE "<*@connect.webhare.net>")
+{
+  MakeFunctionPtr("mod::connect/lib/internal/hooks.whlib#ProcessIncomingBounce")(ourmessageid, basictype, basicobject);
 }
 ELSE
 {

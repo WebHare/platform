@@ -201,7 +201,6 @@ export default class ObjInlineBlock extends ComponentBase
   {
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
-    this.childrencalcheight = this.height.calc;
 
     this.height.overhead = (this.borders && this.borders.top ? $todd.settings.border_top : 0) +
                          + (this.borders && this.borders.bottom ? $todd.settings.border_bottom : 0);
