@@ -894,11 +894,11 @@ MACRO TestWRDAuthRouter()
 
 Runtestframework( [ PTR PrepareServer
                   , PTR CreateMyTestSchema
-/*                  , PTR TestModuleDefIPRules
+                  , PTR TestModuleDefIPRules
                   , PTR TestPersistentLogin
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
-                  , PTR TestLoginDenied*/
+                  , PTR TestLoginDenied
                   , PTR TestSecondFactorLogin
                   , PTR TestWRDAuthRouter
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
