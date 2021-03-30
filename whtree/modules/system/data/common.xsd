@@ -354,6 +354,11 @@
         <xs:documentation>Space separated list of environment variables that must NOT be set (not present or empty value) for this rule to apply</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="postgresversion" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Require PostgreSQL as database (and a specific version using [semantic versioning range](https://www.npmjs.com/package/semver#ranges)).</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="webhareversion" type="xs:string">
       <xs:annotation>
         <xs:documentation>Require this version of the dependency, assumes [semantic versioning range](https://www.npmjs.com/package/semver#ranges). Supported since 4.27</xs:documentation>
