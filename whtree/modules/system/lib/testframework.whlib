@@ -1425,6 +1425,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       @cell options.peekonly If TRUE, don't remove emails from queue
       @cell options.timeout Timeout in milliseconds, max 60000
       @return
+      @cell return.messageid Message ID (useful for %SendBounceToSNSEndpoint)
       @cell return.mimeheaders MIME headers
       @cell return.toppart Toppart
       @cell return.sender Sender

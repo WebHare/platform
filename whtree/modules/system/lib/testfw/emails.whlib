@@ -7,6 +7,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
@@ -34,6 +35,11 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
   RECORD ARRAY outmails;
   FOREVERY(RECORD email FROM emails)
   {
+    //Simulate what the outbound task does too.. replacing the actual messageid with the task id
+    DELETE FROM email.mimeheaders WHERE ToUppercase(field) = "MESSAGE-ID";
+    INSERT [ field := "Message-ID", value := `<${EncryptForThisServer("system:messageid", email.taskid)}@smtp.webhare.net>`
+           ] INTO email.mimeheaders AT END;
+
     RECORD outmail := [ envelope_sender := email.sender
                       , headers := email.mimeheaders
                       , html := ""
@@ -41,7 +47,8 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
                       , linkbyid := DEFAULT RECORD
                       , plaintext := ""
                       , origin := email.origin
-                      , subject := SELECT AS STRING value FROM email.mimeheaders WHERE field="Subject"
+                      , subject := (SELECT AS STRING value FROM email.mimeheaders WHERE ToUppercase(field)="SUBJECT")
+                      , messageid := (SELECT AS STRING value FROM email.mimeheaders WHERE ToUppercase(field)="MESSAGE-ID")
                       , taskid := email.taskid
                       , toppart := email.toppart
                       , receiver := email.receiver
@@ -102,18 +109,18 @@ PUBLIC RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeo
   }
 }
 
-STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, STRING recipient)
+STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, STRING recipient, RECORD options)
 {
   STRING submessage;
   SWITCH(type)
   {
     CASE "Delivery"
     {
-      submessage := `"delivery":{"timestamp":"2017-10-07T10:34:42.233Z","processingTimeMillis":5699,"recipients":["${recipient}"],"smtpResponse":"250 2.0.0 Ok: queued as 123456789","remoteMtaIp":"200.218.208.85","reportingMTA":"a7-23.smtp-out.eu-west-1.amazonses.com"}`;
+      submessage := `"delivery":{"timestamp":"2017-10-07T10:34:42.233Z","processingTimeMillis":5699,"recipients":[${EncodeJSON(recipient)}],"smtpResponse":"250 2.0.0 Ok: queued as 123456789","remoteMtaIp":"200.218.208.85","reportingMTA":"a7-23.smtp-out.eu-west-1.amazonses.com"}`;
     }
     CASE "Bounce"
     {
-      submessage := `"bounce":{"bounceType":"Permanent","bounceSubType":"General","bouncedRecipients":[{"emailAddress":"${recipient}","action":"failed","status":"5.1.1","diagnosticCode":"smtp; 550 5.1.1  User unknown"}],"timestamp":"2017-09-25T11:07:47.170Z","feedbackId":"1111111111111111-22222-33333","remoteMtaIp":"123.45.67.123","reportingMTA":"dsn; a7-23.smtp-out.eu-west-1.amazonses.com"}`;
+      submessage := `"bounce":{"bounceType":${EncodeJSON(options.bouncetype)},"bounceSubType":${EncodeJSON(options.bouncesubtype)},"bouncedRecipients":[{"emailAddress":${EncodeJSON(recipient)},"action":"failed","status":"5.1.1","diagnosticCode":"smtp; 550 5.1.1  User unknown"}],"timestamp":"2017-09-25T11:07:47.170Z","feedbackId":"1111111111111111-22222-33333","remoteMtaIp":"123.45.67.123","reportingMTA":"dsn; a7-23.smtp-out.eu-west-1.amazonses.com"}`;
     }
     CASE "Complaint"
     {
@@ -121,10 +128,10 @@ STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, ST
            "userAgent":"AnyCompany Feedback Loop (V0.01)",
            "complainedRecipients":[
               {
-                 "emailAddress":"richard@example.com"
+                 "emailAddress":${EncodeJSON(recipient)}
               }
            ],
-           "complaintFeedbackType":"abuse",
+           "complaintFeedbackType":${EncodeJSON(options.complaintfeedbacktype)},
            "arrivalDate":"2016-01-27T14:59:38.237Z",
            "timestamp":"2016-01-27T14:59:38.237Z",
            "feedbackId":"000001378603177f-18c07c78-fa81-4a58-9dd1-fedc3cb8f49a-000000"
@@ -143,7 +150,7 @@ STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, ST
   "Type" : "Notification",
   "MessageId" : "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   "TopicArn" : "arn:aws:sns:eu-west-1:000000000000:testin-email",
-  "Message" : "${EncodeJava(innermessage)}",
+  "Message" : ${EncodeJSON(innermessage)},
   "Timestamp" : "2017-10-07T10:34:42.625Z",
   "SignatureVersion" : "1",
   "Signature" : "ZkdKSk1U7MuF",
@@ -152,9 +159,16 @@ STRING FUNCTION GenerateSNSMessageNotification(STRING messageid, STRING type, ST
   }`;
 }
 
-PUBLIC MACRO SendBounceToSNSEndpoint(STRING messageid, STRING type, STRING recipient)
+PUBLIC MACRO SendBounceToSNSEndpoint(STRING messageid, STRING type, STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  //https://docs.aws.amazon.com/ses/latest/DeveloperGuide/notification-contents.html
+  options := ValidateOptions([ bouncetype := "Permanent"
+                             , bouncesubtype := "General"
+                             , complaintfeedbacktype := "abuse"
+                             ], options, [ enums := [ bouncetype := ["Permanent","Transient","Undetermined"]
+                                                    , bouncesubtype := ["Undetermined","General","NoEmail","Suppressed","OnAccountSuppressionList","General","MailboxFull","MessageTooLarge","ContentRejected","AttachmentRejected"]
+                                                    ]]);
   OBJECT browser := NEW WebBrowser;
-  IF(NOT browser->PostWebPageBlob(GetSNSEndpoint(), [[ field := "Content-Type", value := "text/plain; charset=UTF-8" ]], StringToBlob(GenerateSNSMessageNotification(messageid, type, recipient))))
+  IF(NOT browser->PostWebPageBlob(GetSNSEndpoint(), [[ field := "Content-Type", value := "text/plain; charset=UTF-8" ]], StringToBlob(GenerateSNSMessageNotification(messageid, type, recipient, options))))
     THROW NEW Exception("Failed to post SNS error");
 }
