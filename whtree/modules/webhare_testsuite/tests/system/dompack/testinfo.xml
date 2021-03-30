@@ -7,4 +7,5 @@
   <jstest file="test_merge.es" />
   <jstest file="test_datatransfer.es" />
   <jstest file="test_dialogapi.es" />
+  <jstest file="test_storage.es" />
 </group>

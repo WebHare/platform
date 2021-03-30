@@ -12,14 +12,11 @@ OBJECTTYPE TestContext
 
 PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  FOREVERY(RECORD cellrec FROM UnpackRecord(options))
-    IF(cellrec.name NOT IN ["JSFILE"])
-    {
-      THROW NEW Exception("Unknown option '" || cellrec.name || "'");
-    }
+  options := ValidateOptions([ jsfile := ""
+                             , isolatestorage := FALSE
+                             ], options);
 
-  STRING jsfile := CellExists(options,"JSFILE") ? options.jsfile : "";
-
+  STRING jsfile := options.jsfile;
   IF(jsfile="")
     THROW NEW Exception("Expected a JS file to include"); //can we run without ?
 
@@ -36,7 +33,9 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   context->basefolder := basepath;
 
   OBJECT depresolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(jsfile), [ supportedlanguages := [ "en" ]]);
-  LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run( [ printheaders := PTR depresolver->PrintHeaders(DEFAULT OBJECT,"")
-                                                                         , body := PTR pagebody(context)
-                                                                         ]);
+  LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
+     CELL[ printheaders := PTR depresolver->PrintHeaders(DEFAULT OBJECT,"")
+         , body := PTR pagebody(context)
+         , options.isolatestorage
+         ]);
 }

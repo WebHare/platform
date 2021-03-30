@@ -498,7 +498,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
       STRING ARRAY html_classes := this->pvt_htmlclasses;
       IF (this->pvt_renderwidgetpreview)
+      {
+        header := header || ' data-wh-isolate-storage="1"';
         INSERT "wh-widgetpreview" INTO html_classes AT END;
+      }
 
       IF(Length(html_classes) > 0)
       {

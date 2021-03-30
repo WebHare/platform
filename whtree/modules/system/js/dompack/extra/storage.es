@@ -4,6 +4,15 @@
 let backupsession = {}, backuplocal = {};
 let sessionfail, localfail;
 
+//isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
+const isolated = Boolean(document.documentElement.dataset.whIsolateStorage);
+
+/** @return True if our storage is fully isolated */
+export function isIsolated()
+{
+  return isolated;
+}
+
 export function setSession(key, value)
 {
   try
@@ -11,12 +20,14 @@ export function setSession(key, value)
     if(value !== null)
     {
       backupsession[key] = value;
-      window.sessionStorage.setItem(key, JSON.stringify(value));
+      if(!isolated)
+        window.sessionStorage.setItem(key, JSON.stringify(value));
     }
     else
     {
       delete backupsession[key];
-      window.sessionStorage.removeItem(key);
+      if(!isolated)
+        window.sessionStorage.removeItem(key);
     }
 
     if(sessionfail)
@@ -37,29 +48,31 @@ export function setSession(key, value)
 
 export function getSession(key)
 {
-  let retval;
-  try
+  if(!isolated)
   {
-    retval = window.sessionStorage[key];
     try
     {
-      return retval ? JSON.parse(retval) : null;
+      let retval = window.sessionStorage[key];
+      try
+      {
+        return retval ? JSON.parse(retval) : null;
+      }
+      catch(e)
+      {
+        console.log("Failed to parse sessionStorage",e,key);
+        return null;
+      }
     }
     catch(e)
     {
-      console.log("Failed to parse sessionStorage",e,key);
-      return null;
+      if(!sessionfail)
+      {
+        console.log("getSessionStorage failed", e);
+        sessionfail = true;
+      }
     }
   }
-  catch(e)
-  {
-    if(!sessionfail)
-    {
-      console.log("getSessionStorage failed", e);
-      sessionfail = true;
-    }
-    return key in backupsession ? backupsession[key] : null;
-  }
+  return key in backupsession ? backupsession[key] : null;
 }
 
 export function setLocal(key, value)
@@ -69,12 +82,14 @@ export function setLocal(key, value)
     if(value !== null)
     {
       backuplocal[key] = value;
-      window.localStorage.setItem(key, JSON.stringify(value));
+      if(!isolated)
+        window.localStorage.setItem(key, JSON.stringify(value));
     }
     else
     {
       delete backuplocal[key];
-      window.localStorage.removeItem(key);
+      if(!isolated)
+        window.localStorage.removeItem(key);
     }
 
     if(localfail)
@@ -95,27 +110,29 @@ export function setLocal(key, value)
 
 export function getLocal(key)
 {
-  let retval;
-  try
+  if(!isolated)
   {
-    retval = window.localStorage[key];
     try
     {
-      return retval ? JSON.parse(retval) : null;
+      let retval = window.localStorage[key];
+      try
+      {
+        return retval ? JSON.parse(retval) : null;
+      }
+      catch(e)
+      {
+        console.log("Failed to parse localStorage",e,key);
+        return null;
+      }
     }
     catch(e)
     {
-      console.log("Failed to parse localStorage",e,key);
-      return null;
+      if(!localfail)
+      {
+        console.log("getLocalStorage failed", e);
+        localfail = true;
+      }
     }
   }
-  catch(e)
-  {
-    if(!localfail)
-    {
-      console.log("getLocalStorage failed", e);
-      localfail = true;
-    }
-    return key in backuplocal ? backuplocal[key] : null;
-  }
+  return key in backuplocal ? backuplocal[key] : null;
 }
