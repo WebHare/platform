@@ -1174,6 +1174,7 @@ export class BackendApplication extends ApplicationBase
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
       $todd.handleApplicationErrors(this, data);
+      this._resolveAppLoad();
       return;
     }
 
