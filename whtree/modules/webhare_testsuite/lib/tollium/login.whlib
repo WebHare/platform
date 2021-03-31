@@ -1,11 +1,16 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 
 
 PUBLIC RECORD FUNCTION TestInvoke_EnableTestSuite2FA()
@@ -28,4 +33,72 @@ PUBLIC RECORD FUNCTION TestInvoke_GetTOTPCode(RECORD data)
   RETURN
       [ code :=   GetTOTPCode(DecodeBase32(data.secret), [ now := AddTimeToDate(data."offset" * 1000, GetCurrentDateTime()) ])
       ];
+}
+
+DATETIME FUNCTION ParseDT(STRING str)
+{
+  IF (str = "")
+    RETURN DEFAULT DATETIME;
+  IF (str LIKE "now-P*")
+    RETURN GetPasswordMinValidFrom(SubString(str, 4));
+  DATETIME retval := MakeDateFromText(str);
+  IF (retval = DEFAULT DATETIME)
+    THROW NEW Exception(`Could not parse datetime ${EncodeJSON(str)}`);
+  RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_GrantSomeRights(STRING email)
+{
+  OpenPrimary();
+
+  OBJECT wrdschema := OpenTestsuiteWRDSchema();
+  INTEGER id := wrdschema->^wrd_person->Search("wrd_contact_email", email);
+  IF (id = 0)
+    THROW NEW Exception(`Could not find e-mail ${EncodeJSON(email)}`);
+
+  GetPrimary()->BeginWork();
+  OBJECT user := GetWRDAuthUserAPI(wrdschema)->GetUser(id);
+  user->GrantRightTo("system:sysop", user, TRUE, TRUE);
+  GetPrimary()->CommitWork();
+
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_SetUserAuthenticationSettings(STRING email, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OpenPrimary();
+
+  options := ValidateOptions(
+      [ url :=      ""
+      ], options);
+
+  settings := EnforceStructure(
+      [ passwords :=    [ [ validfrom := "", password := "" ]]
+      , totp :=         DEFAULT RECORD
+      ], settings);
+
+  IF (RecordExists(settings.totp))
+    settings.totp := EnforceStructure([ backupcodes := RECORD[] ], settings.totp);
+
+  OBJECT wrdschema := options.url = ""
+      ? OpenTestsuiteWRDSchema()
+      : GetWRDAuthPlugin(options.url)->wrdschema;
+
+  INTEGER id := wrdschema->^wrd_person->Search("wrd_contact_email", email);
+  IF (id = 0)
+    THROW NEW Exception(`Could not find e-mail ${EncodeJSON(email)}`);
+
+
+  settings.passwords :=
+      SELECT validfrom :=     ParseDT(validfrom)
+           , passwordhash :=  password IN [ "", "*" ]
+                                  ? password
+                                  : CreateWebHarePasswordHash(password)
+        FROM settings.passwords;
+
+  GetPrimary()->BeginWork();
+  wrdschema->^wrd_person->UpdateEntity(id, [ whuser_password := settings ]);
+  GetPrimary()->CommitWork();
+
+  RETURN DEFAULT RECORD;
 }

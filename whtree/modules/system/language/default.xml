@@ -2054,6 +2054,7 @@
         <text tid="verificationcode">Verification code</text>
         <text tid="verificationcodeexplain">Sent in a separate message</text>
         <text tid="verifiermismatch">Your verification did not match the code we provided to you</text>
+        <text tid="warning_passwordmustbereset">Your current password does not comply with the password policy, please enter a new password.</text>
         <text tid="welcome">To reset your password, please enter the email address associated with your account</text>
       </textgroup>
     </textgroup>
@@ -2435,6 +2436,7 @@
       <text tid="notificationstab">Notifications</text>
       <text tid="passconfirmerror">The password confirmation is different from the password.</text>
       <text tid="password">Password</text>
+      <text tid="passwordabouttoexpire">Your password will expire <ifparam p="1" value="0">today<else/><ifparam p="1" value="1">in 1 day<else/>in <param p="1"/> days</ifparam></ifparam>, please change it.</text>
       <text tid="passwordlink">Password</text>
       <text tid="passwordlinktext">Click here to change your password</text>
       <text tid="preferences">Preferences</text>

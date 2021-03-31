@@ -9,4 +9,5 @@
     <arg value="jsonrpc" />
   </jstest>
   <jstest file="test_secondfactorlogin.es" exclusive="true" tags="wrdauth" />
+  <jstest file="test_loginpasswordchecks.es" exclusive="true" tags="wrdauth" />
 </group>

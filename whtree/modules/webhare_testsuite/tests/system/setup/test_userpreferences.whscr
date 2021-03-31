@@ -1,0 +1,95 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+ASYNC MACRO TestAuthSettings()
+{
+  // set an old password
+  testfw->BeginWork();
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa"),
+      [ whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]
+      ]);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  // Change password
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New password", "secret2");
+  TTFillByTitle(":Confirm new password", "secret2");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  // Change password back to 'secret', allowed because of no reuse restrictions
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
+  TTFillByTitle(":Password", "secret2");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New Password", "secret");
+  TTFillByTitle(":Confirm new password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  // STORY disallow password reuse when configured
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "noreuse:P2D");
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  // Change password
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New password", "secret2");
+  TTFillByTitle(":Confirm new password", "secret2");
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"));
+  TTFillByTitle(":New password", "secret3");
+  TTFillByTitle(":Confirm new password", "secret3");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  // set an old password
+  testfw->BeginWork();
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa"),
+      [ whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]
+      ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P2D");
+  testfw->CommitWork();
+
+}
+
+
+RunTestframework( [ PTR TestAuthSettings
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "lisa", grantrights := ["system:sysop"] ]
+                                    ]
+                     , testroles := [[ role := "powerplantmanagers" ]]
+                     , debug := TRUE
+                     ]
+                  );

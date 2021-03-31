@@ -400,6 +400,38 @@ PUBLIC RECORD FUNCTION ParseDuration(STRING duration)
   RETURN retval;
 }
 
+DATETIME FUNCTION AddUnpackedDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor)
+{
+  FOREVERY (RECORD part FROM UnpackRecord(duration))
+  {
+    IF (part.value = 0)
+      CONTINUE;
+    SWITCH (part.name)
+    {
+      CASE "YEARS"          { date := AddYearsToDate(factor * part.value, date); }
+      CASE "MONTHS"         { date := AddMonthsToDate(factor * part.value, date); }
+      CASE "WEEKS"          { date := AddDaysToDate(factor * 7*part.value, date); }
+      CASE "DAYS"           { date := AddDaysToDate(factor * part.value, date); }
+      CASE "HOURS"          { date := AddTimeToDate(factor * 60*60*1000*part.value, date); }
+      CASE "MINUTES"        { date := AddTimeToDate(factor * 60*1000*part.value, date); }
+      CASE "SECONDS"        { date := AddTimeToDate(factor * 1000*part.value, date); }
+      CASE "MILLISECONDS"   { date := AddTimeToDate(factor * part.value, date); }
+    }
+  }
+
+  RETURN date;
+}
+
+PUBLIC DATETIME FUNCTION AddUnpackedDurationToDate(RECORD duration, DATETIME date)
+{
+  RETURN AddUnpackedDurationToDateInternal(duration, date, 1);
+}
+
+PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIME date)
+{
+  RETURN AddUnpackedDurationToDateInternal(duration, date, -1);
+}
+
 /** Get a text describing a duration.
     @param duration ISO 8601 duration
     @return Duration string

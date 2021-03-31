@@ -1865,6 +1865,7 @@
         <text tid="verificationcode">Verificatiecode</text>
         <text tid="verificationcodeexplain">Deze is apart verzonden</text>
         <text tid="verifiermismatch">Uw verificatiecode komt niet overeen met de code die we u verstrekt hebben</text>
+        <text tid="warning_passwordmustbereset">Uw huidige wachtwoord voldoet niet aan de eisen, voer a.u.b. een nieuwe wachtwoord in.</text>
         <text tid="welcome">Om uw wachtwoord te herstellen voert u het emailadres dat aan uw account is gekoppeld in</text>
       </textgroup>
     </textgroup>
@@ -2246,6 +2247,7 @@
       <text tid="notificationstab">Meldingen</text>
       <text tid="passconfirmerror">De wachtwoord bevestiging is niet gelijk aan het wachtwoord.</text>
       <text tid="password">Wachtwoord</text>
+      <text tid="passwordabouttoexpire">Uw wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>
       <text tid="passwordlink">Wachtwoord</text>
       <text tid="passwordlinktext">Klik hier om uw wachtwoord te wijzigen</text>
       <text tid="preferences">Voorkeuren</text>

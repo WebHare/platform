@@ -478,12 +478,27 @@ STATIC OBJECTTYPE WRDAuth
     IF(NOT skippasswordcheck AND NOT this->VerifyEntityPassword(the_entity, password))
       RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
 
+    VARIANT authenticationsettings := "";
+    IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings OR CellExists(options, "checkpassword"))
+      authenticationsettings := the_entity->GetField(this->passwordfield.tag);
+
+    IF (CellExists(options, "checkpassword"))
+    {
+      STRING ARRAY failedvalidationchecks := options.checkpassword(the_entity, password, authenticationsettings);
+      IF (IsValueSet(failedvalidationchecks))
+      {
+        RETURN CELL
+            [ success :=    FALSE
+            , code :=       "FAILEDVALIDATIONCHECKS"
+            , failedvalidationchecks
+            ];
+      }
+    }
+
     IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings)
     {
-      RECORD settings := the_entity->GetField(this->passwordfield.tag);
-
       // TOTP needs to be enabled for second factor login
-      IF (RecordExists(settings) AND RecordExists(settings.totp))
+      IF (RecordExists(authenticationsettings) AND RecordExists(authenticationsettings.totp))
       {
         DATETIME now := GetCurrentDatetime();
 
@@ -874,7 +889,7 @@ STATIC OBJECTTYPE WRDAuth
       @cell(string) return.sessioncookie Session cookie
       @cell(string) return.persistentcookie Persistent cookie
       @cell(boolean) return.isimpersonation Whether this is an impersonation
-      @cell(boolean) return.persistent WHether persistent login was requested
+      @cell(boolean) return.persistent Whether persistent login was requested
   */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, BOOLEAN persistent, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {

@@ -419,6 +419,18 @@ class LoginApp
         callback();
         return;
       }
+      if (result.code == "FAILEDVALIDATIONCHECKS")
+      {
+        let app = $shell.startBackendApplication("system:resetpassword", null,
+            { onappbar:false
+            , isloginapp: true
+            , message: { passwordresetlink: result.passwordresetlink }
+            });
+        await app.getLoadPromise();
+        callback();
+        this.topscreen.getComponent('password').setValue("");
+        return;
+      }
 
       let text = result.code == "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
                  : result.code == "DISABLED" ? getTid("tollium:shell.login.disabledlogin")

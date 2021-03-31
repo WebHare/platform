@@ -18,29 +18,54 @@ PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
     this->options := ValidateOptions(
         [ askpassword :=        TRUE
         , asksecondfactor :=    TRUE
+        , returnpassword :=     FALSE
+        , allowemptypassword := FALSE
         ], data);
 
     RECORD settings := this->GetSettings();
 
-    ^btn_next->title := RecordExists(settings) AND RecordExists(settings.totp) AND this->options.asksecondfactor
+    ^btn_next->title := RecordExists(settings.totp) AND this->options.asksecondfactor
         ? GetTid("~next") ||  " \xE2\x80\xBA\xE2\x80\xBA"
         : GetTid("~ok");
 
+    // Don't ask for the password when the passwordhash is empty and empty passwords are allowed
+    IF (this->options.allowemptypassword AND (IsDefaultValue(settings.passwords) OR settings.passwords[END-1].passwordhash IN [ "", "*" ]))
+      this->options.askpassword := FALSE;
+
     IF (NOT this->options.askpassword)
+    {
+      ^password->required := FALSE;
       this->DoNext();
+    }
   }
 
   RECORD FUNCTION GetSettings()
   {
     VARIANT settings := this->contexts->user->entity->GetField(this->contexts->userapi->wrdschema->accountpasswordtag);
     IF (TypeID(settings) = TypeID(STRING))
-      settings := CreateAuthenticationSettingsFromPasswordHash(settings);
+      settings := CreateAuthenticationSettingsFromPasswordHash(settings, [ validfrom := DEFAULT DATETIME ]);
+    settings := settings ?? GetDefaultAuthenticationSettings();
 
     RETURN settings;
   }
 
+  MACRO ReturnFailure()
+  {
+    this->__SetScreenResult(DEFAULT RECORD);
+  }
+
+  MACRO ReturnSuccess()
+  {
+    RECORD retval := [ result := "ok" ];
+    IF (this->options.returnpassword)
+      INSERT CELL password := ^password->value INTO retval;
+
+    this->__SetScreenResult(retval);
+  }
+
   MACRO DoNext()
   {
+    // Re-read settings from entity, don't want to allow backupcode re-use
     RECORD settings := this->GetSettings();
     IF (^tabs->selectedtab = ^tab_password)
     {
@@ -49,7 +74,7 @@ PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
       IF (this->options.askpassword)
       {
         // FIXME: verify via wrdauthplugin
-        OBJECT work := this->BeginWork([ validate := OBJECT[ ^tab_password]]);
+        OBJECT work := this->BeginWork([ validate := OBJECT[ ^tab_password ]]);
         IF (NOT work->HasFailed())
         {
           IF (NOT VerifyWebHarePasswordHash(^password->value, passwordhash))
@@ -66,17 +91,16 @@ PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
         ^frame->focused := ^totpcode;
       }
       ELSE
-        this->tolliumresult := "ok";
+        this->ReturnSuccess();
     }
     ELSE IF (^tabs->selectedtab = ^tab_secondfactor)
     {
       // FIXME: verify via wrdauthplugin, count failures
       OBJECT work := this->BeginWork([ validate := OBJECT[ ^tab_secondfactor ] ]);
 
-      // Re-read settings from entity, don't want to allow backupcode re-use
-      IF (NOT RecordExists(settings) OR RecordExists(settings.totp))
+      IF (NOT RecordExists(settings) OR NOT RecordExists(settings.totp))
       {
-        this->tolliumresult := "ok";
+        this->ReturnSuccess();
         work->Cancel();
         RETURN;
       }
@@ -99,7 +123,12 @@ PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
       }
       IF (NOT work->Finish())
         RETURN;
-      this->tolliumresult := "ok";
+      this->ReturnSuccess();
     }
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    RETURN DEFAULT RECORD;
   }
 >;

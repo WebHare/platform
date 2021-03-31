@@ -1,10 +1,12 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -14,6 +16,10 @@ LOADLIB "mod::tollium/lib/towl.whlib";
 LOADLIB "mod::tollium/lib/internal/towl.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+
 
 PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 < // -----------------------------------------------------------------------------
@@ -78,6 +84,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
       ^authenticationsettings->LoadEntityField(this->pvt_user->entity, this->contexts->userapi->wrdschema->accountpasswordtag);
       ^authenticationsettings->allowsecondfactor := __MatchesAnyMask(this->pvt_user->login, allowsecondfactormasks);
+
+      ^entitylistener->masks := this->contexts->userapi->wrdschema->accounttype->GetEventMasks();
     }
     ELSE
       ^authenticationsettings->visible := FALSE;
@@ -133,6 +141,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->notificationstab->contents := dlg;
     this->notificationsubmit := PTR dlg->Submit;
     this->frame->onmessage := PTR this->OnMessage;
+
+    this->RefreshWarnings();
   }
 
   // -----------------------------------------------------------------------------
@@ -160,6 +170,69 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       IF (ObjectExists(tab))
         this->usertabs->selectedtab := tab;
     }
+  }
+
+  MACRO GotEntityEvents(RECORD ARRAY data)
+  {
+    this->RefreshWarnings();
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO RefreshWarnings()
+  {
+    IF (NOT ObjectExists(this->userobj->wrdentity))
+      RETURN;
+
+    BOOLEAN passwordabouttoexpire;
+    TRY
+    {
+      RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(this->userobj->wrdentity->id);
+      IF (usereditpolicy.passwordvalidationchecks != "")
+      {
+        RECORD authsettings := this->userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->GetPasswordFieldTag());
+
+        IF (IsValueSet(authsettings)
+            AND IsValueSet(authsettings.passwords)
+            AND authsettings.passwords[END-1].passwordhash NOT IN [ "", "*" ])
+        {
+          // ADDME: warn when password is becoming too old
+          STRING expire_duration := SELECT AS STRING duration FROM ParsePasswordChecks(usereditpolicy.passwordvalidationchecks) WHERE check = "maxage";
+          IF (expire_duration != "")
+          {
+            RECORD expiryduration := ParseDuration(expire_duration);
+            RECORD warnduration := expiryduration;
+            warnduration.years := 0;
+            warnduration.months := warnduration.months + 12 * warnduration.years;
+
+            IF (warnduration.months > 1)
+              warnduration.months := warnduration.months - 1; // warn one month before expiru
+            ELSE IF (warnduration.months = 1 OR warnduration.days > 7)
+              warnduration.days := warnduration.days - 7;
+            ELSE
+              warnduration.days := 0;
+
+            DATETIME warndate := AddUnpackedDurationToDate(warnduration, authsettings.passwords[END-1].validfrom);
+            IF (warndate < GetCurrentDateTime())
+            {
+              DATETIME expirydate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
+              RECORD diff := GetDateTimeDifference(GetCurrentDateTime(), expirydate);
+
+              passwordabouttoexpire := TRUE;
+              ^warning_passwordabouttoexpire->value := this->GetTid(".passwordabouttoexpire", ToString(diff.days));
+            }
+          }
+        }
+      }
+    }
+    CATCH (OBJECT e)
+      LogHarescriptException(e);
+
+    ^warningpanel->visible := passwordabouttoexpire;
+    ^warning_passwordabouttoexpire->visible := passwordabouttoexpire;
   }
 
   // -----------------------------------------------------------------------------
