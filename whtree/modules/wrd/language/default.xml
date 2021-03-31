@@ -913,7 +913,7 @@
           </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">It must contain at least <param p="1"/> <ifparam p="1" value="1">digit<else/>digits</ifparam>.</text>
-            <text tid="hibp">It must not be present in the HaveIBeenPwned password database.</text>
+            <text tid="hibp">It must not appear in a database of compromised passwords</text>
             <text tid="lowercase">It must contain at least <param p="1"/> lowercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
             <text tid="maxage">It must be changed every <param p="1"/>.</text>
             <text tid="minlength">It must be <param p="1"/> characters or longer</text>

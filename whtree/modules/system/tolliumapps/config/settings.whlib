@@ -74,16 +74,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
 
     OBJECT wrdschema := this->contexts->userapi->wrdschema;
-    STRING validationchecks := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
-    RECORD ARRAY parsed_validationchecks := ParsePasswordChecks(validationchecks);
-    ^password_hibp->value := RecordExists(SELECT FROM parsed_validationchecks WHERE check = "hibp");
-    ^password_minlength->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "minlength";
-    ^password_lowercase->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "lowercase";
-    ^password_uppercase->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "uppercase";
-    ^password_digits->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "digits";
-    ^password_symbols->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "symbols";
-    ^password_noreuse->value := SELECT AS STRING duration FROM parsed_validationchecks WHERE check = "noreuse";
-    ^password_maxage->value := SELECT AS STRING duration FROM parsed_validationchecks WHERE check = "maxage";
+    ^passwordvalidationchecks->value := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
   }
 
   STRING FUNCTION GotBrowseMaxAge(STRING value)
@@ -175,7 +166,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       IF (IsValueSet(^password_noreuse->value))
         INSERT `noreuse:${^password_noreuse->value}` INTO passwd_checks AT END;
 
-      wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", Detokenize(passwd_checks, " "));
+      wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", ^passwordvalidationchecks->value);
     }
 
     ^modulemgr->WriteToRegistry();

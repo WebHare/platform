@@ -71,7 +71,7 @@
           </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">Es muss mindestens <param p="1"/> <ifparam p="1" value="1">Ziffer<else/>Ziffern</ifparam> beinhalten.</text>
-            <text tid="hibp">Es sollte nicht in der HaveIBeenPwned-Kennwortdatenbank vorhanden sein.</text>
+            <text tid="hibp">Es sollte sich nicht in der Datenbank der gestohlenen Anmeldeinformationen befinden.</text>
             <text tid="lowercase">Es muss mindestens <param p="1"/> <ifparam p="1" value="1">Kleinbuchstabe<else/>Kleinbuchstabe</ifparam> beinhalten.</text>
             <text tid="maxage">Es muss jede <param p="1"/> geändert werden.</text>
             <text tid="minlength">Es muss <param p="1"/> Zeichen oder länger sein.</text>

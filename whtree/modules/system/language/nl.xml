@@ -8,8 +8,8 @@
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
     <textgroup gid="mailer">   <!-- commondialogs.mailer -->
-      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet u zeker dat u deze e-mail af wilt sluiten?</text>
-      <text tid="confirm_delete_attachment">Weet u zeker dat u bijlage '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet je zeker dat je deze e-mail af wilt sluiten?</text>
+      <text tid="confirm_delete_attachment">Weet je zeker dat je bijlage '<param p="1"/>' wilt verwijderen?</text>
       <text tid="mailerbcc">Bcc</text>
       <text tid="mailercc">Cc</text>
       <text tid="mailerfrom">Van</text>
@@ -24,8 +24,8 @@
       <text tid="viewsource">Bekijk broncode</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
-      <text tid="notenoughrights">U heeft niet genoeg rechten om deze applicatie te starten.</text>
-      <text tid="notenoughrights_spec">U heeft niet genoeg rechten om deze applicatie te starten.<br/><br/>De volgende recht(en) zijn nodig: <param p="1"/>.</text>
+      <text tid="notenoughrights">Je hebt niet genoeg rechten om deze applicatie te starten.</text>
+      <text tid="notenoughrights_spec">Je hebt niet genoeg rechten om deze applicatie te starten.<br/><br/>De volgende recht(en) zijn nodig: <param p="1"/>.</text>
     </textgroup>
     <textgroup gid="rightsproblem">   <!-- commondialogs.rightsproblem -->
       <text tid="title">Rechtenprobleem</text>
@@ -35,6 +35,18 @@
       <text tid="title_notstarted">Niet gestart: <param p="1"/></text>
       <text tid="title_running">Draait: <param p="1"/></text>
       <text tid="title_terminated">Afgesloten: <param p="1"/></text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="passwordvalidationchecks">   <!-- components.passwordvalidationchecks -->
+      <text tid="password_digits">Minimum aantal cijfers</text>
+      <text tid="password_lowercase">Minimum aantal kleine letters</text>
+      <text tid="password_maxage">Maximum ouderdom wachtwoord</text>
+      <text tid="password_minlength">Minimum aantal karakters</text>
+      <text tid="password_noreuse">Geen hergebruik voor</text>
+      <text tid="password_symbols">Minimum aantal andere symbolen</text>
+      <text tid="password_uppercase">Minimum aantal hoofdletters</text>
+      <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
     </textgroup>
   </textgroup>
   <textgroup gid="debugger">   <!-- debugger -->
@@ -346,7 +358,7 @@
     </textgroup>
     <textgroup gid="queuemessages">   <!-- monitor.queuemessages -->
       <text tid="taskscheduled">De taak is ingepland</text>
-      <text tid="verifyruntask">Weet u zeker dat u het script '<param p="1"/>' nu wilt starten?</text>
+      <text tid="verifyruntask">Weet je zeker dat je het script '<param p="1"/>' nu wilt starten?</text>
       <text tid="verifyruntaskbadinstalltype">Voor het geselecteerde script ''<param p="1"/>'' is expliciet aangegeven dat het niet op deze installatie mag draaien. Het zou alleen op installaties van type '<param p="2"/>' mogen draain, maar deze installatie is configureerd als type '<param p="3"/>'. Deze markering dient meestal om dubbele acties te voorkomen (bv het sturen van email of het verwerken van betalingen).<br/><br/>Wilt u dit script ondanks deze markering toch starten?</text>
     </textgroup>
     <textgroup gid="queues">   <!-- monitor.queues -->
@@ -431,7 +443,7 @@
     </textgroup>
     <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
       <text tid="applytemplate">Sjabloon-instellingen</text>
-      <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
+      <text tid="defaultmessage">Geachte heer/mevrouw,deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. <br/><br/>Hiervoor wordt u automatisch uitgelogd.Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kun je weer inloggen. <br/><br/>Onze excuses voor het ongemak.--Dear sir / madam,This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.Please close any running applications. Unsaved data could be lost.The maintenance will take approximately XX minutes. After this period you can log in again.We apologize for any inconvenience.</text>
       <text tid="global_msgtitle">Global announcement</text>
       <text tid="message">Bericht</text>
       <text tid="minutes">minuten</text>
@@ -496,9 +508,9 @@
       <text tid="stack">Stack</text>
       <text tid="starturl">Start URL</text>
       <text tid="stats">Statistieken</text>
-      <text tid="sureclosewebharelogin">Weet u zeker dat u de login voor niet-sysops wilt afsluiten?</text>
-      <text tid="surekillallsessions">Weet u zeker dat u alle applicaties van deze gebruiker wilt afsluiten?</text>
-      <text tid="surekillsession">Weet u zeker dat u deze applicatie wilt afsluiten?</text>
+      <text tid="sureclosewebharelogin">Weet je zeker dat je de login voor niet-sysops wilt afsluiten?</text>
+      <text tid="surekillallsessions">Weet je zeker dat je alle applicaties van deze gebruiker wilt afsluiten?</text>
+      <text tid="surekillsession">Weet je zeker dat je deze applicatie wilt afsluiten?</text>
       <text tid="timestarted">Starttijd</text>
       <text tid="title">Gebruikers</text>
       <text tid="total_appcount">Aantal applicaties</text>
@@ -622,11 +634,11 @@
   </textgroup>
   <textgroup gid="portal">   <!-- portal -->
     <text tid="about">Over WebHare</text>
-    <text tid="asloginsnotsupported">Om in te loggen als een andere gebruiker, dient u uw eigen account te gebruiken en '?openas=&lt;gebruikersnaam&gt;' aan de URL toe te voegen.</text>
+    <text tid="asloginsnotsupported">Om in te loggen als een andere gebruiker, dien je je eigen account te gebruiken en '?openas=&lt;gebruikersnaam&gt;' aan de URL toe te voegen.</text>
     <text tid="editusersettings">Persoonlijke instellingen</text>
-    <text tid="iedownloadsettinghint">Indien uw browser ingesteld is om downloads van WebHare servers gewoon toe te staan, kunt u deze waarschuwing uitzetten bij uw Persoonlijke Instellingen</text>
+    <text tid="iedownloadsettinghint">Indien je browser ingesteld is om downloads van WebHare servers gewoon toe te staan, kun je deze waarschuwing uitzetten bij je Persoonlijke Instellingen</text>
     <text tid="login">Inloggen</text>
-    <text tid="loginconfigerror">Inlogfout - neemt u  a.u.b. contact op met de systeembeheerder.</text>
+    <text tid="loginconfigerror">Inlogfout - neem a.u.b. contact op met de systeembeheerder.</text>
     <text tid="loginfailed">Inloggen niet gelukt</text>
     <text tid="mysettings">Mijn instellingen</text>
     <text tid="portal">WebHare portal</text>
@@ -701,7 +713,7 @@
       <text tid="scriptname">Scriptnaam</text>
     </textgroup>
     <textgroup gid="messages">   <!-- scheduler.messages -->
-      <text tid="confirm_delete">Weet u zeker dat u de geselecteerde taak wilt verwijderen?</text>
+      <text tid="confirm_delete">Weet je zeker dat je de geselecteerde taak wilt verwijderen?</text>
     </textgroup>
     <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
       <text tid="enabled">Schakel deze taak in</text>
@@ -717,8 +729,8 @@
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="mailqueue">   <!-- screens.monitor.mailqueue -->
-        <text tid="confirmdeletemail">Weet u zeker dat u de geselecteerde mail(s) wilt verwijderen ?</text>
-        <text tid="confirmrequeuemail">Weet u zeker dat u de geselecteerde mail(s) opnieuw wil verzenden ?</text>
+        <text tid="confirmdeletemail">Weet je zeker dat je de geselecteerde mail(s) wilt verwijderen ?</text>
+        <text tid="confirmrequeuemail">Weet je zeker dat je de geselecteerde mail(s) opnieuw wil verzenden ?</text>
         <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
           <text tid="creationdate">Aangemaakt op</text>
           <text tid="filter">Filter</text>
@@ -744,8 +756,8 @@
         </textgroup>
       </textgroup>
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
-        <text tid="confirmdeletetasks">Weet u zeker dat u de taken wil verwijderen?</text>
-        <text tid="confirmrescheduletasks">Weet u zeker dat u de taken opnieuw wil inplannen?</text>
+        <text tid="confirmdeletetasks">Weet je zeker dat je de taken wil verwijderen?</text>
+        <text tid="confirmrescheduletasks">Weet je zeker dat je de taken opnieuw wil inplannen?</text>
         <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
           <text tid="creationdate">Ingepland op</text>
           <text tid="datatab">Taak data</text>
@@ -782,7 +794,7 @@
     <text tid="title">Stel standaardinstellingen in voor nieuwe gebruikers</text>
   </textgroup>
   <textgroup gid="sysmgmt">   <!-- sysmgmt -->
-    <text tid="decimalsepandthousandsepmustdiffer">U mag niet hezelfde symbool kiezen voor het decimaalteken en het cijfergroeperingssymbool.</text>
+    <text tid="decimalsepandthousandsepmustdiffer">Je mag niet hezelfde symbool kiezen voor het decimaalteken en het cijfergroeperingssymbool.</text>
     <text tid="userconfirmpassword">De nieuwe wachtwoorden komen niet overeen.</text>
     <text tid="userinvalidcurpassword">Het ingevulde wachtwoord in 'Huidige wachtwoord' is niet correct.</text>
     <textgroup gid="adhoccache">   <!-- sysmgmt.adhoccache -->
@@ -830,7 +842,7 @@
       </textgroup>
       <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
         <text tid="apprunnergone">Het servicebeheerproces kan niet worden bereikt.</text>
-        <text tid="deleteapp">Weet u zeker dat u service '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteapp">Weet je zeker dat je service '<param p="1"/>' wilt verwijderen?</text>
         <text tid="restartfailed">Herstart van de service is mislukt. <br/><br/>Controleer a.u.b. of de opdrachtregel correct is.</text>
       </textgroup>
     </textgroup>
@@ -863,7 +875,7 @@
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
       <text tid="cannotreplacemodule">Het is niet mogelijk om de bestaande module '<param p="1"/>' te vervangen</text>
       <text tid="cannotrestorebackup">Het is niet mogelijk om de backup versie van module '<param p="1"/>' terug te zetten - de module is nu niet beschikbaar.</text>
-      <text tid="containingmodule">U probeert de module '<param p="1"/>' te vervangen door een bestand dat module '<param p="2"/>' bevat</text>
+      <text tid="containingmodule">Je probeert de module '<param p="1"/>' te vervangen door een bestand dat module '<param p="2"/>' bevat</text>
       <text tid="ioerror">Er is een lokale I/O-fout opgetreden bij het aanmaken van '<param p="1"/>'</text>
       <text tid="missingmodules">Het is niet mogelijk deze module te installeren, de volgende benodigde modules zijn niet genstalleerd: <param p="1"/>.</text>
       <text tid="modulealreadyexists">De module '<param p="1"/>' bestaat al - er kan slechts een versie van de module tegelijk worden geinstalleerd.</text>
@@ -882,8 +894,8 @@
       </textgroup>
     </textgroup>
     <textgroup gid="messages">   <!-- sysmgmt.messages -->
-      <text tid="deletekey">Weet u zeker dat u de registersleutel '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="deletenode">Weet u zeker dat u registersleutel '<param p="1"/>' en eventuele onderliggende registersleutels wilt verwijderen?</text>
+      <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deletenode">Weet je zeker dat je registersleutel '<param p="1"/>' en eventuele onderliggende registersleutels wilt verwijderen?</text>
     </textgroup>
     <textgroup gid="modules">   <!-- sysmgmt.modules -->
       <text tid="author">Auteur</text>
@@ -1047,9 +1059,9 @@
         <text tid="webdavdata">WebDAV-map eigenschappen</text>
       </textgroup>
       <textgroup gid="messages">   <!-- sysmgmt.webdav.messages -->
-        <text tid="deletefolder">Weet u zeker dat u map '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteuser">Weet u zeker dat u de geselecteerde gebruiker '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteusers">Weet u zeker dat u de geselecteerde gebruikers wilt verwijderen?</text>
+        <text tid="deletefolder">Weet je zeker dat je map '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteuser">Weet je zeker dat je de geselecteerde gebruiker '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteusers">Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="webservers">   <!-- sysmgmt.webservers -->
@@ -1069,7 +1081,7 @@
       <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
         <text tid="allip6s">Alle lokale IPv6 adressen</text>
         <text tid="allips">Alle lokale IPv4 adressen</text>
-        <text tid="confirmdeleteusedinding">U lijkt momenteel via deze poort verbonden te zijn. Weet u ECHT ZEKER dat u deze poort wil verwijderen?</text>
+        <text tid="confirmdeleteusedinding">Je lijkt momenteel via deze poort verbonden te zijn. Weet u ECHT ZEKER dat u deze poort wil verwijderen?</text>
         <text tid="title">Poorten en inkomende verbindingen</text>
         <textgroup gid="columns">   <!-- sysmgmt.webservers.bindings.columns -->
           <text tid="ip">IP adres</text>
@@ -1099,26 +1111,26 @@
         <text tid="cannotdeletebindinginuse">De webserver '<param p="1"/>' dient van deze binding afgehaald te worden alvorens deze teverwijderen.</text>
         <text tid="cannotdeletefilledgroup">Deze groep kan niet worden verwijderd omdat er nog webserver in zitten.</text>
         <text tid="cannotdeleteprimaryinterface">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat deze de primaire WebHare-interface host.</text>
-        <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat u deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
+        <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat je deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
         <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
         <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
-        <text tid="deleteaccessrule">Weet u zeker dat u deze toegangsregel wilt verwijderen?</text>
-        <text tid="deletealias">Weet u zeker dat u de alias "<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletebinding">Weet u zeker dat u deze binding wilt verwijderen?</text>
-        <text tid="deletegroup">Weet u zeker dat u deze group wil verwijderen?</text>
-        <text tid="deleteipfilter">Weet u zeker dat u dit IP filter wilt verwijderen?</text>
-        <text tid="deletemimetype">Weet u zeker dat u het bestandtype met de extensie '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteproxy">Weet u zeker dat u deze server wilt deregistreren bij proxy '<param p="1"/>'?</text>
-        <text tid="deleteselection">Weet u zeker dat u de selectie wil verwijderen ?</text>
-        <text tid="deleteuser">Weet u zeker dat u deze gebruikers wilt verwijderen?</text>
-        <text tid="deletewebserver">Weet u zeker dat u webserver '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteaccessrule">Weet je zeker dat je deze toegangsregel wilt verwijderen?</text>
+        <text tid="deletealias">Weet je zeker dat je de alias "<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletebinding">Weet je zeker dat je deze binding wilt verwijderen?</text>
+        <text tid="deletegroup">Weet je zeker dat je deze group wil verwijderen?</text>
+        <text tid="deleteipfilter">Weet je zeker dat je dit IP filter wilt verwijderen?</text>
+        <text tid="deletemimetype">Weet je zeker dat je het bestandtype met de extensie '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deleteproxy">Weet je zeker dat je deze server wilt deregistreren bij proxy '<param p="1"/>'?</text>
+        <text tid="deleteselection">Weet je zeker dat je de selectie wil verwijderen ?</text>
+        <text tid="deleteuser">Weet je zeker dat je deze gebruikers wilt verwijderen?</text>
+        <text tid="deletewebserver">Weet je zeker dat je webserver '<param p="1"/>' wilt verwijderen?</text>
         <text tid="interfaceurlnothosted">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de URL van de WebHare interface niet werd gevonden op de bereikte server. Is deze installatie een backup van de originele server?</text>
         <text tid="proxycouldnotconnect">De proxy kon geen verbinding maken met het lokale verbindingsadres.</text>
         <text tid="testok">De connectie-test met de proxy is gelukt.</text>
         <text tid="unknownproxyerror">De proxy kon de verbinding met deze server niet verifiëren, en gaf de volgende code als foutmelding: '<param p="1"/>'</text>
-        <text tid="unregisterfailedsuredelete">Kon deze server niet deregistreren bij de proxy. Weet u zeker dat u deze de registratie lokaal wel wilt verwijderen?</text>
-        <text tid="useipfiltersiwithoutdeny">De toegang van gebruikers zal niet worden geweigerd omdat er geen regel is die ze die toegang verbiedt. Weet u zeker dat u de IP filters zo wilt configureren?</text>
-        <text tid="verifydeletefilledgroup">Het verwijderen van deze groep zal de zich hierin bevindende webservers, aliassen en toegangsregels permantent verwijderen en kan niet ongedaan worden.<br/><br/>Weet u zeker dat u deze groep wil verwijderen?</text>
+        <text tid="unregisterfailedsuredelete">Kon deze server niet deregistreren bij de proxy. Weet je zeker dat je deze de registratie lokaal wel wilt verwijderen?</text>
+        <text tid="useipfiltersiwithoutdeny">De toegang van gebruikers zal niet worden geweigerd omdat er geen regel is die ze die toegang verbiedt. Weet je zeker dat je de IP filters zo wilt configureren?</text>
+        <text tid="verifydeletefilledgroup">Het verwijderen van deze groep zal de zich hierin bevindende webservers, aliassen en toegangsregels permantent verwijderen en kan niet ongedaan worden.<br/><br/>Weet je zeker dat je deze groep wil verwijderen?</text>
         <text tid="wrongpassword">Kon niet verbinden met de proxy: het wachtwoord is niet correct.</text>
         <text tid="wrongverificationcode">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de gebruikte verificatiecode niet bekend was op de bereikte server. Is deze installatie een backup van de originele server?</text>
       </textgroup>
@@ -1251,10 +1263,10 @@
         <text tid="tcpip">Sta netwerk (TCP/IP) verbindingen toe</text>
         <text tid="title">Toegangsregel</text>
         <textgroup gid="errors">   <!-- sysmgmt.webservers.updateaccessrule.errors -->
-          <text tid="cannot_redirect_to_initial_matchtype">Als u doorstuurt naar een bepaalde URL, dient het veld '<param p="1"/>' ingesteld te worden op '<param p="2"/>'</text>
+          <text tid="cannot_redirect_to_initial_matchtype">Als je doorstuurt naar een bepaalde URL, dient het veld '<param p="1"/>' ingesteld te worden op '<param p="2"/>'</text>
           <text tid="duplicate_path">Er is al een toegangsregel gedefinieerd voor het gespecificeerde pad</text>
           <text tid="invalid_role">Kon rol '<param p="1"/>' niet vinden</text>
-          <text tid="login_required">U dient een inlogwijze te kiezen indien inloggen een alternatief is voor het voldoen aan de IP toegangsregels</text>
+          <text tid="login_required">Je dient een inlogwijze te kiezen indien inloggen een alternatief is voor het voldoen aan de IP toegangsregels</text>
         </textgroup>
       </textgroup>
       <textgroup gid="updatealias">   <!-- sysmgmt.webservers.updatealias -->
@@ -1284,7 +1296,7 @@
         <textgroup gid="errors">   <!-- sysmgmt.webservers.updatebinding.errors -->
           <text tid="invalid_ip">Dit is geen geldig IP-adres</text>
           <text tid="invalid_port">Het veld 'Poort' dient een geldig getal te bevatten</text>
-          <text tid="port_used">Deze poort is al in gebruik, kiest u a.u.b. een ander poortnummer</text>
+          <text tid="port_used">Deze poort is al in gebruik, kies een ander poortnummer</text>
         </textgroup>
       </textgroup>
       <textgroup gid="updateexternaluser">   <!-- sysmgmt.webservers.updateexternaluser -->
@@ -1406,20 +1418,20 @@
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
         <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
-          <text tid="branchnotonorigin">De huidige branch is niet beschikbaar op de repository server. Dit gebeurt bv. als er op een feature branch wordt gewerkt.<br/><br/>Commit en push aub alle wijzigingen eerst. Weet u zeker dat u de module wilt uitrollen?</text>
+          <text tid="branchnotonorigin">De huidige branch is niet beschikbaar op de repository server. Dit gebeurt bv. als er op een feature branch wordt gewerkt.<br/><br/>Commit en push aub alle wijzigingen eerst. Weet je zeker dat je de module wilt uitrollen?</text>
           <text tid="cannotreplacemodule">Het is niet gelukt module '<param p="1"/>' te vervangen</text>
-          <text tid="differentbranch">De module op de server bevindt zich op een andere branch (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
-          <text tid="differentrepository">De module op de server is uit een andere repository afkomsting (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
+          <text tid="differentbranch">De module op de server bevindt zich op een andere branch (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
+          <text tid="differentrepository">De module op de server is uit een andere repository afkomsting (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
           <text tid="invalidversion">De module '<param p="1"/>' op de server heeft versie '<param p="2"/>' wat niet overeenkomt met de gevraagde versie '<param p="3"/>'</text>
           <text tid="missingrequiredmoduleonpeer">De vereiste module '<param p="1"/>' is niet aanwezig op de server.</text>
-          <text tid="modulehaspeerchanges">De module op de server is gewijzigd na installatie.<br/><br/>Weet u zeker dat u de module wilt vervangen?</text>
+          <text tid="modulehaspeerchanges">De module op de server is gewijzigd na installatie.<br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
           <text tid="notatbranchhead">The HEAD van je werkkopie is nog niet op de 'head' van de branch - je hebt lokale wijzigingen die je nog niet naar de repository server hebt gepushed, of de repository server heeft wijzigingen die je nog niet lokaal binnengehaald hebt.<br/><br/>Merge of rebase aub, en push dan de wijzigingen naar de repository server. Weet je zeker dat je door wil gaan?</text>
-          <text tid="notgituptodate">Er is een nieuwe versie beschikbaar op de centrale repository server. Update de lokale module aub eerst.<br/><br/>Weet u zeker dat u de (verouderde) module wilt uitrollen ?</text>
+          <text tid="notgituptodate">Er is een nieuwe versie beschikbaar op de centrale repository server. Update de lokale module aub eerst.<br/><br/>Weet je zeker dat je de (verouderde) module wilt uitrollen ?</text>
           <text tid="peerchangeswarning">De module is gewijzigd na installatie</text>
           <text tid="reviewchanges">Bekijk wijzigingen</text>
-          <text tid="uncommittedchanges">De module heeft openstaande wijzigingen. Weet u zeker dat u de module wil uitrollen ?</text>
-          <text tid="unpushedchanges">De lokale git repository bevat commits die nog niet naar de centrale repository zijn gepushed. Push deze wijzigingen aub eerst.<br/><br/>Weet u zeker dat u de module wilt uitrollen?</text>
-          <text tid="uploadnewmodule">De module bestaat nog niet op de server. Weet u zeker dat u de module wilt uitrollen?</text>
+          <text tid="uncommittedchanges">De module heeft openstaande wijzigingen. Weet je zeker dat je de module wil uitrollen ?</text>
+          <text tid="unpushedchanges">De lokale git repository bevat commits die nog niet naar de centrale repository zijn gepushed. Push deze wijzigingen aub eerst.<br/><br/>Weet je zeker dat je de module wilt uitrollen?</text>
+          <text tid="uploadnewmodule">De module bestaat nog niet op de server. Weet je zeker dat je de module wilt uitrollen?</text>
         </textgroup>
         <textgroup gid="modulefilediff">   <!-- tolliumapps.config.deploy.modulefilediff -->
           <text tid="ignorewhitespace">Negeer lege ruimte aan het begin en einde van regels</text>
@@ -1498,9 +1510,9 @@
           <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
           <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
           <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
-          <text tid="overwritewithselfsigned">Weet u zeker dat u het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
+          <text tid="overwritewithselfsigned">Weet je zeker dat je het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
           <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
-          <text tid="suredeletekey">Weet u zeker dat u sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
+          <text tid="suredeletekey">Weet je zeker dat je sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
           <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
           <text tid="uploadcertificate">Certificaat installeren</text>
           <text tid="uploadkey">Sleutel uploaden</text>
@@ -1531,10 +1543,10 @@
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
         <text tid="altserver">SMTP server</text>
         <text tid="blocked">Geblokkeerd</text>
-        <text tid="confirm_delete_mailroute">Weet u zeker dat u deze mailroute wilt verwijderen?</text>
-        <text tid="confirmdeletecorrection">Weet u zeker dat u de geselecteerde correctie wil verwijderen?</text>
-        <text tid="confirmdeletereceiver">Weet u zeker dat u ontvanger '<param p="1"/>' van de whitelist wil verwijderen?</text>
-        <text tid="confirmdeletesender">Weet u zeker dat u afzender  '<param p="1"/>' van de whitelist wil verwijderen?</text>
+        <text tid="confirm_delete_mailroute">Weet je zeker dat je deze mailroute wilt verwijderen?</text>
+        <text tid="confirmdeletecorrection">Weet je zeker dat je de geselecteerde correctie wil verwijderen?</text>
+        <text tid="confirmdeletereceiver">Weet je zeker dat je ontvanger '<param p="1"/>' van de whitelist wil verwijderen?</text>
+        <text tid="confirmdeletesender">Weet je zeker dat je afzender  '<param p="1"/>' van de whitelist wil verwijderen?</text>
         <text tid="correctionsempty">Er zijn nog geen correcties gespecificeerd</text>
         <text tid="correctiontype">Correctietype</text>
         <text tid="correctiontype-block">Blokkeren</text>
@@ -1583,7 +1595,7 @@
         <text tid="smtpserver">Server</text>
         <text tid="snsendpoint">SNS Endpoint</text>
         <text tid="suggestionfuzz">Suggestie fuzz factor</text>
-        <text tid="suredontsendemail">Weet u zeker dat u alle e-mails die deze mailroute volgen wilt blokkeren?</text>
+        <text tid="suredontsendemail">Weet je zeker dat je alle e-mails die deze mailroute volgen wilt blokkeren?</text>
         <text tid="target">Doel</text>
         <text tid="usealternativesmtpserver-alternative">Alternatieve server</text>
         <text tid="usealternativesmtpserver-default">Gebruik de standaard SMTP-server</text>
@@ -1594,7 +1606,7 @@
         <text tid="checkhotfixes">Check wijzigingen</text>
         <text tid="configuremodule">Configureren</text>
         <text tid="connectremote">Verbinden</text>
-        <text tid="deletemodule">Weet u zeker dat u module '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
         <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
         <text tid="deploymodule">Uitrollen</text>
         <text tid="differentbranch">De module op de server staat in een andere branch</text>
@@ -1678,14 +1690,6 @@
         <text tid="logindialog">Inlogscherm</text>
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
-        <text tid="password_digits">Minimum aantal cijfers</text>
-        <text tid="password_lowercase">Minimum aantal kleine letters</text>
-        <text tid="password_maxage">Maximum ouderdom wachtwoord</text>
-        <text tid="password_minlength">Minimum aantal karakters</text>
-        <text tid="password_noreuse">Geen hergebruik voor</text>
-        <text tid="password_symbols">Minimum aantal andere symbolen</text>
-        <text tid="password_uppercase">Minimum aantal hoofdletters</text>
-        <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
         <text tid="passwordminlength">Minimum lengte</text>
         <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
@@ -1724,7 +1728,7 @@
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
       <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
-        <text tid="confirmdeleteentries">Weet u zeker dat u de geselecteerde cache entries wil verwijderen?</text>
+        <text tid="confirmdeleteentries">Weet je zeker dat je de geselecteerde cache entries wil verwijderen?</text>
         <text tid="func">Functie</text>
         <text tid="hash">Hash</text>
         <text tid="id">ID</text>
@@ -1737,7 +1741,7 @@
         <text tid="cachescleared">De interne caches van WebHare zijn geleegd.</text>
         <text tid="clearcaches">Leeg caches</text>
         <text tid="comment">Commentaar</text>
-        <text tid="confirmsoftreset">Weet u zeker dat u een soft reset wilt uitvoeren?</text>
+        <text tid="confirmsoftreset">Weet je zeker dat je een soft reset wilt uitvoeren?</text>
         <text tid="created">Aangemaakt</text>
         <text tid="datetime">Datum &amp; tijd</text>
         <text tid="displayname">Gebruiker</text>
@@ -1782,8 +1786,8 @@
         <text tid="allunits">Dit bericht wordt standaard aan alle gebruikers getoond.<br/> Voeg eenheden toe om de weergave tot die eenheden te beperken.</text>
         <text tid="audience">Doelgroep (eenheden)</text>
         <text tid="createdby_string">Aangemaakt door</text>
-        <text tid="deletenews_multiple">Weet u zeker dat u de geselecteerde nieuwsberichten wilt verwijderen?</text>
-        <text tid="deletenews_single">Weet u zeker dat u nieuwsbericht '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletenews_multiple">Weet je zeker dat je de geselecteerde nieuwsberichten wilt verwijderen?</text>
+        <text tid="deletenews_single">Weet je zeker dat je nieuwsbericht '<param p="1"/>' wilt verwijderen?</text>
         <text tid="message">Bericht</text>
         <text tid="newsitem">Nieuwsbericht</text>
         <text tid="publish_date_from">Vanaf</text>
@@ -1847,9 +1851,9 @@
         <text tid="runsqlclient">SQLClient</text>
         <text tid="unique">Uniek</text>
         <text tid="updateschemas">Update alle schemas</text>
-        <text tid="verifydeletecolumn">Weet u zeker dat u kolom '<param p="1"/>' wil laten vervallen/verwijderen?</text>
-        <text tid="verifydeleteschema">Weet u zeker dat u het schema '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="verifydeletetable">Weet u zeker dat u tabel '<param p="1"/>' wil laten vervallen/verwijderen?</text>
+        <text tid="verifydeletecolumn">Weet je zeker dat je kolom '<param p="1"/>' wil laten vervallen/verwijderen?</text>
+        <text tid="verifydeleteschema">Weet je zeker dat je het schema '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="verifydeletetable">Weet je zeker dat je tabel '<param p="1"/>' wil laten vervallen/verwijderen?</text>
       </textgroup>
       <textgroup gid="webharedb">   <!-- tolliumapps.dba.webharedb -->
         <text tid="database">WebHare database</text>
@@ -1977,7 +1981,7 @@
       <text tid="device">Apparaat</text>
       <text tid="device-placeholder">Bv. werk-pc, mijn Mac</text>
       <text tid="login">Login</text>
-      <text tid="lookverycarefullyiwillshowthisonlyonce">Deze logingegevens worden slechts eenmaal getoond. Leg ze nu ergens vast of voer ze in bij de applicatie die de logingegevens wil hebben en laat die het wachtwoord onthouden.<br/><br/>Als u dit wachtwoord verliest, kunt u het applicatiewachtwoord verwijderen en WebHare een nieuwe laten aanmaken</text>
+      <text tid="lookverycarefullyiwillshowthisonlyonce">Deze logingegevens worden slechts eenmaal getoond. Leg ze nu ergens vast of voer ze in bij de applicatie die de logingegevens wil hebben en laat die het wachtwoord onthouden.<br/><br/>Als je dit wachtwoord verliest, kun je het applicatiewachtwoord verwijderen en WebHare een nieuwe laten aanmaken</text>
       <text tid="password">Wachtwoord</text>
       <text tid="scope">Scope</text>
       <text tid="windowtitle">Nieuw applicatieaccount aanmaken</text>
@@ -2036,7 +2040,7 @@
         <text tid="founddeleteduserorrole">Kon de toekenningen van een of meer gebruikers of rollen niet intrekken, omdat deze gebruikers of rollen niet meer bestonden.</text>
         <text tid="grantdoesnotexistanymore">De geselecteerde toekenning bestaat niet meer.</text>
         <text tid="needselectgrouporobject">Selecteer een rechtengroep, een objecttype of een object om de aanwezige rechten te tonen.</text>
-        <text tid="needselectonetypepofobject">U kunt alleen rechten toekennen aan meerdere objecten als deze hetzelfde type hebben.</text>
+        <text tid="needselectonetypepofobject">Je kunt alleen rechten toekennen aan meerdere objecten als deze hetzelfde type hebben.</text>
         <text tid="needselectrole">Kies a.u.b. een rol.</text>
         <text tid="needselectunit">Kies a.u.b. een eenheid.</text>
         <text tid="needselectuser">Selecteer a.u.b. een gebruiker.</text>
@@ -2044,9 +2048,9 @@
         <text tid="norelevantrights">Deze rechtengroep of dit object heeft geen relevante rechten.</text>
         <text tid="noresultsinunit">Deze eenheid bevat geen <ifparam p="1" value="0">gebruikers of rollen<else/><ifparam p="1" value="1">gebruikers<else/>rollen</ifparam></ifparam>.</text>
         <text tid="norightspresent">Er is geen gebruiker of een rol die een recht heeft uit deze rechtengroep of op dit object.</text>
-        <text tid="norighttomanagerole">U mag rol '<param p="1"/>' niet beheren.</text>
-        <text tid="norighttorevokerole">U heeft niet genoeg rechten om de toekenning van rol '<param p="1"/>' in te trekken.</text>
-        <text tid="notenoughrightsonunit">U heeft niet genoeg rechten op deze eenheid om deze operatie uit te voeren (het recht '<param p="1"/>' is benodigd).</text>
+        <text tid="norighttomanagerole">Je mag rol '<param p="1"/>' niet beheren.</text>
+        <text tid="norighttorevokerole">Je heeft niet genoeg rechten om de toekenning van rol '<param p="1"/>' in te trekken.</text>
+        <text tid="notenoughrightsonunit">Je heeft niet genoeg rechten op deze eenheid om deze operatie uit te voeren (het recht '<param p="1"/>' is benodigd).</text>
         <text tid="rolehasbeendeleted">Rol '<param p="1"/>' bestaat niet meer.</text>
         <text tid="useralreadyhasrole">Rol '<param p="2"/>' is al toegekend aan gebruiker '<param p="1"/>'.</text>
         <text tid="usercannotviewunitofgrantablerole">Gebruiker '<param p="1"/>' zal rol '<param p="2"/>' niet aan anderen kunnen toekennen, want deze gebruiker heeft niet het recht om de eenheid van die rol te bekijken.</text>
@@ -2118,7 +2122,7 @@
     </textgroup>
     <textgroup gid="dialog">   <!-- userrights.dialog -->
       <textgroup gid="messages">   <!-- userrights.dialog.messages -->
-        <text tid="suredelete">Weet u zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
+        <text tid="suredelete">Weet je zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="dialogues">   <!-- userrights.dialogues -->
@@ -2127,54 +2131,54 @@
       <text tid="cannotmoveunittochild">Een eenheid kan niet in een van zijn eigen subeenheden geplaatst worden.</text>
       <text tid="cannotresetunmanageduser">Kan geen wachtwoord reset link sturen voor dit account, WebHare beheert het wachtwoord niet</text>
       <text tid="cantdeletetoplevelunit">Eenheden van het hoogste niveau kunnen niet worden verwijderd. Alleen een systeembeheerder of beheerder van een bovenliggende eenheid kan dit doen.</text>
-      <text tid="confirmdeletemenuitem">Weet u zeker dat u de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="confirmdeletenotification">Weet u zeker dat u de melding '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="confirmpdfpreview">De beschikbaarheid van PDF-voorvertoningen is afhankelijk van uw browser(instellingen) en of u een PDF-lezer op uw systeem heeft geïnstalleerd.<br/><br/>Indien PDF-voorvertoningen niet beschikbaar zijn raden we aan om contact opnemen met uw systeembeheerder of browserleverancier voor verdere ondersteuning.</text>
-      <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wilt u alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
-      <text tid="dangerousrightsrevoke">Als u deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul u rechten verliezen die niet op een andere manier aan u zijn toegekend. Wilt u hier mee doorgaan?</text>
+      <text tid="confirmdeletemenuitem">Weet je zeker dat je de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmdeletenotification">Weet je zeker dat je de melding '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmpdfpreview">De beschikbaarheid van PDF-voorvertoningen is afhankelijk van de browser(instellingen) en of er een PDF-lezer op het systeem is geïnstalleerd. <br/><br/>Indien PDF-voorvertoningen niet beschikbaar zijn raden we aan om contact opnemen met je systeembeheerder of browserleverancier voor verdere ondersteuning.</text>
+      <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wil je alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
+      <text tid="dangerousrightsrevoke">Als je deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul je rechten verliezen die niet op een andere manier zijn toegekend. Wil je hier mee doorgaan?</text>
       <text tid="deletefailedbecause"><param p="1"/> <param p="2"/> kon niet worden verwijderd: <param p="3"/></text>
-      <text tid="deletemultipleitemswarning">Weet u zeker dat u de geselecteerde elementen wilt verwijderen?</text>
+      <text tid="deletemultipleitemswarning">Weet je zeker dat je de geselecteerde elementen wilt verwijderen?</text>
       <text tid="deletenonemptyunit">Deze eenheid kan niet verwijderd worden, omdat deze nog gebruikers of rollen bevat.</text>
-      <text tid="deleterolewarning">Weet u zeker dat u rol '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="deleteunitwarning">Weet u zeker dat u eenheid '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="deleteuserwarning">Weet u zeker dat u gebruiker '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleterolewarning">Weet je zeker dat je rol '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleteunitwarning">Weet je zeker dat je eenheid '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleteuserwarning">Weet je zeker dat je gebruiker '<param p="1"/>' wilt verwijderen?</text>
       <text tid="dragdroperror">Er is een fout opgetreden bij het verplaatsen van dit object: '<param p="1"/>'</text>
       <text tid="emptysearchvalue">Geef alstublieft een zoekterm op.</text>
       <text tid="guidalreadyused">Deze GUID wordt al gebruikt.</text>
-      <text tid="invalidguid">Invalide GUID.</text>
-      <text tid="languagechanged">Uw interfacetaal is ingesteld op Nederlands. Applicaties die vanaf dit moment worden gestart, worden in deze taal weergegeven. Applicaties die al gestart zijn gebruiken de oude taal totdat zij opnieuw worden gestart.</text>
+      <text tid="invalidguid">Ongeldige GUID.</text>
+      <text tid="languagechanged">De interfacetaal is nu ingesteld op Nederlands. Applicaties die vanaf dit moment worden gestart, worden in deze taal weergegeven. Applicaties die al gestart zijn gebruiken de oude taal totdat zij opnieuw worden gestart.</text>
       <text tid="loginnametoolong">De gebruikersnaam is te lang; deze mag maximaal 256 karakters bevatten.</text>
-      <text tid="moveunittorootwarning">Weet u zeker dat u eenheid '<param p="1"/>' een hoofdeenheid wilt maken?</text>
-      <text tid="moveunitwarning">Weet u zeker dat u eenheid '<param p="1"/>' naar eenheid '<param p="2"/>' wilt verplaatsen?</text>
-      <text tid="movewarning">Weet u zeker dat u <ifparam p="1" value="1">gebruiker '<param p="2"/>'<else/><ifparam p="1" value="3">rol '<param p="2"/>'<else/>de geselecteerde elementen naar</ifparam></ifparam> naar eenheid '<param p="3"/>' wilt verplaatsen?</text>
+      <text tid="moveunittorootwarning">Weet je zeker dat je eenheid '<param p="1"/>' een hoofdeenheid wilt maken?</text>
+      <text tid="moveunitwarning">Weet je zeker dat je eenheid '<param p="1"/>' naar eenheid '<param p="2"/>' wilt verplaatsen?</text>
+      <text tid="movewarning">Weet je zeker dat je <ifparam p="1" value="1">gebruiker '<param p="2"/>'<else/><ifparam p="1" value="3">rol '<param p="2"/>'<else/>de geselecteerde elementen naar</ifparam></ifparam> naar eenheid '<param p="3"/>' wilt verplaatsen?</text>
       <text tid="mustselectunit">Er moet een eenheid geselecteerd zijn.</text>
-      <text tid="needselectright">Selecteert u a.u.b. een recht om toe te kennen voor dit object</text>
+      <text tid="needselectright">Selecteer a.u.b. een recht om toe te kennen voor dit object</text>
       <text tid="nodroponroot">Het toewijzen van gebruikers of rollen aan de hoofdeenheid wordt niet ondersteund.</text>
       <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker in recovery modus te bewerken.</text>
       <text tid="norightspresent"><ifparam p="1" value="1">Rechtengroup<else/>Objecttype</ifparam> '<param p="2"/>' heeft geen toegankelijke rechten.</text>
       <text tid="notunitmanager">Alleen een beheerder van deze eenheid kan deze actie uitvoeren</text>
-      <text tid="notunitmanagerforrole">U heeft geen beheersrechten voor de eenheid waartoe rol '<param p="1"/>' behoort</text>
-      <text tid="notunitmanagerforuser">U heeft geen beheersrechten voor gebruiker '<param p="1"/>'.</text>
-      <text tid="notunitmanageronparent">U moet beheersrechten op de bovenliggende eenheid hebben om deze actie te kunnen utivoeren.</text>
-      <text tid="nounit">Gebruiker '<param p="1"/>' is niet gekoppeld aan een bekende eenheid. Wilt u nu een eenheid koppelen?</text>
+      <text tid="notunitmanagerforrole">Je hebt geen beheersrechten voor de eenheid waartoe rol '<param p="1"/>' behoort</text>
+      <text tid="notunitmanagerforuser">Je hebt geen beheersrechten voor gebruiker '<param p="1"/>'.</text>
+      <text tid="notunitmanageronparent">Je moet beheersrechten op de bovenliggende eenheid hebben om deze actie te kunnen utivoeren.</text>
+      <text tid="nounit">Gebruiker '<param p="1"/>' is niet gekoppeld aan een bekende eenheid. Wil je nu een eenheid koppelen?</text>
       <text tid="objecthasnorights">Het geselecteerde object heeft geen rechten die gegeven kunnen worden.</text>
       <text tid="objectnolongerexists">Dit object bestaat niet meer.</text>
-      <text tid="passwordchange">U heeft uw wachtwoord gewijzigd. De volgende keer dat u inlogt wordt om dit nieuwe wachtwoord gevraagd.</text>
+      <text tid="passwordchange">Je hebt je wachtwoord gewijzigd. De volgende keer dat je inlogt wordt om dit nieuwe wachtwoord gevraagd.</text>
       <text tid="passwordtoolong">Het wachtwoord is te lang; deze mag maximaal 256 karakters bevatten.</text>
       <text tid="protectedunit">Deze eenheid kan niet worden verwijderd</text>
       <text tid="protecteduser">Deze gebruiker is beschermd en kan niet worden verwijderd</text>
-      <text tid="removeuserfromrole">Weet u zeker dat u gebruiker '<param p="1"/>' van rol '<param p="2"/>' wilt verwijderen?</text>
-      <text tid="removeusersfromrole">Weet u zeker dat u de geselecteerde gebruikers van rol '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="revokegrantfromrole">Weet u zeker dat u de toekenning van recht '<param p="1"/>' aan rol '<param p="2"/>' wilt intrekken?</text>
-      <text tid="revokegrantfromuser">Weet u zeker dat u de toekenning van recht '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
-      <text tid="revokegrants">Weet u zeker dat u deze rechtentoekenningen wilt intrekken?</text>
-      <text tid="revokegrantsfromrole">Weet u zeker dat u deze rechtentoekenningen aan rol '<param p="1"/>' wilt intrekken?</text>
-      <text tid="revokegrantsfromuser">Weet u zeker dat u deze rechtentoekenningen aan gebruiker '<param p="1"/>' wilt intrekken?</text>
-      <text tid="revokerolefromuser">Weet u zeker dat u de toekenning van rol '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
-      <text tid="revokerolesfromuser">Weet u zeker dat u de toekenning van deze rollen aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="removeuserfromrole">Weet je zeker dat je gebruiker '<param p="1"/>' van rol '<param p="2"/>' wilt verwijderen?</text>
+      <text tid="removeusersfromrole">Weet je zeker dat je de geselecteerde gebruikers van rol '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="revokegrantfromrole">Weet je zeker dat je de toekenning van recht '<param p="1"/>' aan rol '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokegrantfromuser">Weet je zeker dat je de toekenning van recht '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokegrants">Weet je zeker dat je deze rechtentoekenningen wilt intrekken?</text>
+      <text tid="revokegrantsfromrole">Weet je zeker dat je deze rechtentoekenningen aan rol '<param p="1"/>' wilt intrekken?</text>
+      <text tid="revokegrantsfromuser">Weet je zeker dat je deze rechtentoekenningen aan gebruiker '<param p="1"/>' wilt intrekken?</text>
+      <text tid="revokerolefromuser">Weet je zeker dat je de toekenning van rol '<param p="1"/>' aan gebruiker '<param p="2"/>' wilt intrekken?</text>
+      <text tid="revokerolesfromuser">Weet je zeker dat je de toekenning van deze rollen aan gebruiker '<param p="2"/>' wilt intrekken?</text>
       <text tid="rolenametoolong">De naam van de rol is te lang; deze mag maximaal 256 karakters bevatten.</text>
-      <text tid="selectusertoassignfiles">De gebruiker die u verwijdert is eigenaar van één of meer bestanden. Selecteer een andere gebruiker om deze taak over te nemen.</text>
-      <text tid="toomanyusers">U kunt geen nieuwe gebruikers aanmaken, omdat het maximum aantal gebruikers is bereikt.</text>
+      <text tid="selectusertoassignfiles">De gebruiker die je verwijdert is eigenaar van één of meer bestanden. Selecteer een andere gebruiker om deze taak over te nemen.</text>
+      <text tid="toomanyusers">Je kunt geen nieuwe gebruikers aanmaken, omdat het maximum aantal gebruikers is bereikt.</text>
       <text tid="unitnametoolong">De naam van de eenheid is te lang; deze mag maximaal 256 karakters bevatten.</text>
       <text tid="userapinotset">Door configuratieproblemen kan de gebruikers API niet worden ingeladen. Neem a.u.b contact op met de systembeheerder.</text>
     </textgroup>
@@ -2212,7 +2216,7 @@
       <text tid="appaccountstab">Wachtwoorden voor apps en apparaten</text>
       <text tid="authenticationsettings">Authenticatie-instellingen</text>
       <text tid="autodetect">automatisch in te vullen</text>
-      <text tid="autodetectexplain">op basis van uw locatie en browsertaal</text>
+      <text tid="autodetectexplain">op basis van je locatie en browsertaal</text>
       <text tid="autodetectpre">Probeer</text>
       <text tid="background">Achtergrond</text>
       <text tid="browsertitleprefix">Toon tekst in browser</text>
@@ -2220,8 +2224,8 @@
       <text tid="colon">Dubbele punt (:)</text>
       <text tid="comma">Komma (,)</text>
       <text tid="confirm">Bevestig wachtwoord</text>
-      <text tid="confirmresetsavedstates">Weet u zeker dat u alle opgeslagen instellingen wilt herstellen, zoals windowgroottes en laatste keuzes ?</text>
-      <text tid="confirmresetwarnings">Weet u zeker dat u alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
+      <text tid="confirmresetsavedstates">Weet je zeker dat je alle opgeslagen instellingen wilt herstellen, zoals windowgroottes en laatste keuzes ?</text>
+      <text tid="confirmresetwarnings">Weet je zeker dat je alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
       <text tid="creationdate">Aanmaakdatum</text>
       <text tid="decimalsep">Decimaalteken</text>
       <text tid="device">Apparaat</text>
@@ -2247,7 +2251,7 @@
       <text tid="notificationstab">Meldingen</text>
       <text tid="passconfirmerror">De wachtwoord bevestiging is niet gelijk aan het wachtwoord.</text>
       <text tid="password">Wachtwoord</text>
-      <text tid="passwordabouttoexpire">Uw wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>
+      <text tid="passwordabouttoexpire">Je wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>
       <text tid="passwordlink">Wachtwoord</text>
       <text tid="passwordlinktext">Klik hier om uw wachtwoord te wijzigen</text>
       <text tid="preferences">Voorkeuren</text>
@@ -2277,7 +2281,7 @@
       <text tid="savedstate">Opgeslagen instellingen</text>
       <text tid="schemaname">Schema</text>
       <text tid="scope">Scope</text>
-      <text tid="selectmethod">Geef aan hoe u de gebruiker wilt toevoegen</text>
+      <text tid="selectmethod">Geef aan hoe je de gebruiker wilt toevoegen</text>
       <text tid="settingswerereset">De standaardinstellingen zijn teruggezet</text>
       <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
       <text tid="showiedownloadwarning">Omzeil IE's download blokkering via download dialoog</text>
@@ -2307,8 +2311,8 @@
       <text tid="usernamenew">Inlognaam</text>
       <text tid="userpreferences">Persoonlijke voorkeuren</text>
       <text tid="utc">UTC</text>
-      <text tid="warning_passwordfailschecks">Uw wachtwoord voldoet niet meer aan de eisen, verander het a.u.b.</text>
-      <text tid="warning_passwordtooold">Uw wachtwoord is te oud en moet gewijzigd worden.</text>
+      <text tid="warning_passwordfailschecks">Je wachtwoord voldoet niet meer aan de eisen en moet veranderd worden.</text>
+      <text tid="warning_passwordtooold">Je wachtwoord is te oud en moet gewijzigd worden.</text>
       <text tid="warnings">Waarschuwingen</text>
       <text tid="whuser_disabled">Blokkeer dit account</text>
       <text tid="whuser_disablereason">Reden</text>
@@ -2337,7 +2341,7 @@
       <text tid="allitemsaredeleted">Geen van de elementen die u aan het verplaatsen bent bestaat nog.</text>
       <text tid="alreadygranted">Deze permissie is al aan deze gebruiker toegewezen</text>
       <text tid="cannotbeownparent">een object kan niet het bovenliggende object van zichzelf zijn</text>
-      <text tid="cannotdeletefilledunit">U mag deze eenheid niet verwijderen, omdat zij niet leeg is.</text>
+      <text tid="cannotdeletefilledunit">Je mag deze eenheid niet verwijderen, omdat zij niet leeg is.</text>
       <text tid="cannotdeletenonemptyunit">U mag deze eenheid niet verwijderen omdat er nog steeds gebruikers en/of rollen in zitten.</text>
       <text tid="cannotmoveunitinitself">Een eenheid kan niet naar zichzelf of naar een van haar subeenheden worden verplaatst.</text>
       <text tid="deleterolefailed">Kon rol '<param p="1"/>' niet verwijderen, door de volgende fout: <param p="2"/>.</text>
@@ -2428,17 +2432,17 @@
       <text tid="viewsearchbar">Zoeken</text>
     </textgroup>
     <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
-      <text tid="deniedexplain">U heeft bureaubladmeldingen in uw browser geblokkeerd.</text>
-      <text tid="displaybrowserexplain">Berichten worden in uw browser getoond</text>
+      <text tid="deniedexplain">Bureaubladmeldingen in de browser worden geblokkeerd.</text>
+      <text tid="displaybrowserexplain">Berichten worden in de browser getoond</text>
       <text tid="displaydesktopexplain">Berichten worden weergegeven op het bureaublad</text>
-      <text tid="grantedexplain">U heeft deze applicatie het recht gegeven om bureaubladmeldingen te tonen.</text>
+      <text tid="grantedexplain">Je hebt deze applicatie het recht gegeven om bureaubladmeldingen te tonen.</text>
       <text tid="module">Module</text>
       <text tid="nonotifications">Nog geen berichten weergegeven.</text>
       <text tid="notificationballoons">Popup-berichten</text>
       <text tid="notifications">Berichten</text>
-      <text tid="notsupportedtabexplain">Uw huidige browser ondersteunt geen bureaubladmeldingen.</text>
+      <text tid="notsupportedtabexplain">De huidige browser ondersteunt geen bureaubladmeldingen.</text>
       <text tid="onlypriority">Toon alleen met prioriteit minstens</text>
-      <text tid="requestexplain">Uw browser moet toestemming hebben voor bureaubladmeldingen -</text>
+      <text tid="requestexplain">De browser moet toestemming hebben voor bureaubladmeldingen -</text>
       <text tid="requestpermission">toestemming vragen</text>
       <text tid="showon">Toon berichten</text>
       <text tid="showon-browser">in de browser</text>

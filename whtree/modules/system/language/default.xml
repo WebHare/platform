@@ -37,6 +37,18 @@
       <text tid="title_terminated">Terminated: <param p="1"/></text>
     </textgroup>
   </textgroup>
+  <textgroup gid="components">   <!-- components -->
+    <textgroup gid="passwordvalidationchecks">   <!-- components.passwordvalidationchecks -->
+      <text tid="password_digits">Minimum number of digits</text>
+      <text tid="password_lowercase">Minimum number of lowercase letters</text>
+      <text tid="password_maxage">Maximum age of a password</text>
+      <text tid="password_minlength">Minimum number of characters</text>
+      <text tid="password_noreuse">No reuse for for</text>
+      <text tid="password_symbols">Minimum number of other symbols</text>
+      <text tid="password_uppercase">Minimum number of uppercase letters</text>
+      <text tid="passwordcheckhibp">Check password in HIBP-database</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="debugger" limitlanguages="en">   <!-- debugger -->
     <text tid="apptitle">Debugger</text>
     <text tid="autoreconnect">Auto reconnect</text>
@@ -610,7 +622,7 @@
     </textgroup>
     <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
       <text tid="applytemplate">Template settings</text>
-      <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
+      <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. je openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kun je weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
       <text tid="global_msgtitle">Global announcement</text>
       <text tid="message">Message</text>
       <text tid="minutes">minutes</text>
@@ -1867,14 +1879,6 @@
         <text tid="logindialog">Login screen</text>
         <text tid="mailretention">Save sent emails</text>
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
-        <text tid="password_digits">Minimum number of digits</text>
-        <text tid="password_lowercase">Minimum number of lowercase letters</text>
-        <text tid="password_maxage">Maximum age of a password</text>
-        <text tid="password_minlength">Minimum number of characters</text>
-        <text tid="password_noreuse">No reuse for for</text>
-        <text tid="password_symbols">Minimum number of other symbols</text>
-        <text tid="password_uppercase">Minimum number of uppercase letters</text>
-        <text tid="passwordcheckhibp">Check password in HIBP-database</text>
         <text tid="passwordminlength">Minimum length</text>
         <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="processhistory">Keep process history</text>

@@ -113,4 +113,15 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="passwordvalidationchecks">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent placement="inline" fragment="userrights/components.passwordvalidationchecks" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
 </xs:schema>

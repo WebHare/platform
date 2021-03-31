@@ -591,7 +591,10 @@ MACRO TestSecondFactorLogin()
       [ wrd_contact_email := "loginsecondfactor@beta.webhare.net"
       , whuser_password :=
               [ version :=      1
-              , passwords :=    [ [ passwordhash := testfw->hashedpasswords.secret ] ]
+              , passwords :=    [ [ validfrom :=    GetCurrentDatetime()
+                                  , passwordhash := testfw->hashedpasswords.secret
+                                  ]
+                                ]
               , totp :=         [ url := GetTOTPUrl(totpsecret, "loginsecondfactor@beta.webhare.net", "Webhare")
                                 , backupcodes := [ [ code := "012345AA" ], [ code := "012345AB" ] ]
                                 ]
