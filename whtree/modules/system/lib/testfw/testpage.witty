@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" [if isolatestorage]data-wh-isolate-storage="1"[/if]>
+<html lang="en" [if isolatestorage]data-wh-isolate-storage[/if]>
   <head>
     [printheaders]
   </head>
