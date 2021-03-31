@@ -159,7 +159,7 @@ PUBLIC MACRO LogHarescriptErrors(RECORD ARRAY errors, RECORD options DEFAULTSTO 
     @param transport Transport method or destination
     @param outgoing Set to true for outgoing traffic
     @param sourcetracker Orginal requestor (IP address or trackingstamp if possible)
-    @param transcationid RPC transaction id, to join request and response together
+    @param transactionid RPC transaction id, to join request and response together
     @param data Data to log. A request/reponse body should be logged into the cell 'body' */
 PUBLIC MACRO LogRPCTraffic(STRING logsource, STRING transport, BOOLEAN outgoing, STRING sourcetracker, STRING transactionid, RECORD data)
 {
