@@ -1117,6 +1117,10 @@ STATIC OBJECTTYPE WittyMailComposer
   PUBLIC STRING errorsto;
   ///Reply-To to use. Replies will go to this email address
   PUBLIC STRING replyto;
+  ///Hook that is invoked by mail generators (ExportAsEML, QueueMailInWork) before any mail-restructuring takes place
+  PUBLIC MACRO PTR prerestructurehook;
+  ///Hook that is invoked by mail generators (ExportAsEML, QueueMailInWork) after any mail-restructuring takes place
+  PUBLIC MACRO PTR postrestructurehook;
 
   ///Mail recipients.
   PUBLIC PROPERTY mailto(__mailto, SetMailTo);
@@ -1304,12 +1308,18 @@ STATIC OBJECTTYPE WittyMailComposer
       maildoc := this->ApplyMailTemplate(maildoc, mailtemplate, this->mailtemplateresource, mergerecord);
     }
 
+    IF(this->prerestructurehook != DEFAULT MACRO PTR)
+      this->prerestructurehook(maildoc);
+
     IF(this->restructure)
       RestructureEmailForCompatibility(maildoc);
 
     //Apply style cleanups
     FOREVERY(OBJECT style FROM maildoc->GetElementsByTagName("style")->GetCurrentElements())
       MakeCSSStyleSheet(StringToBlob(style->textcontent))->RewriteDomStyles(maildoc);
+
+    IF(this->postrestructurehook != DEFAULT MACRO PTR)
+      this->postrestructurehook(maildoc);
 
     RECORD metainfo := this->ExtractMetatags(maildoc); //extract before creating the HTML version!
     BLOB htmlversion := NEW HtmlRewriterContext->GenerateHTML(maildoc);
