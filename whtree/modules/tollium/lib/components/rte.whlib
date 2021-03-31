@@ -33,7 +33,7 @@ STRING FUNCTION RewriteCSSURL(STRING cssurl, STRING url)
 }
 STRING FUNCTION RewriteCSSDataFileURL(STRING basefilename, STRING url)
 {
-  IF(url NOT LIKE "/*" AND NOT IsAbsoluteURL(url))
+  IF(url NOT LIKE "/*" AND NOT IsAbsoluteURL(url) AND basefilename != "")
   {
     TRY
     {
@@ -136,6 +136,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   STRING pvt_warnlengthexceededwarningtid;
 
   BOOLEAN pvt_havestructuredatafile;
+  RECORD ARRAY loadcss;
+  STRING _usercss; //user/component added CSS code
 
   // ---------------------------------------------------------------------------
   //
@@ -169,6 +171,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   PUBLIC PROPERTY trimwhitespace(this->editable->trimwhitespace, this->editable->trimwhitespace);
 
   PUBLIC PROPERTY linkhandlers(GetLinkHandlers, -);
+
+  /// Additional user CSS
+  PUBLIC PROPERTY usercss(this->_usercss, SetUserCSS);
 
   /// Limit RTE internal links to these subfolders
   PUBLIC INTEGER ARRAY internallinkroots;
@@ -269,10 +274,23 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   */
   MACRO SetCSSFiles(RECORD ARRAY files)
   {
+    this->loadcss := files;
+    this->RefreshCSS();
+  }
+
+  MACRO SetUserCSS(STRING usercss)
+  {
+    this->_usercss := GetCacheableCSSFile("", StringToBlob(usercss)).value;
+    this->RefreshCSS();
+  }
+
+  MACRO RefreshCSS()
+  {
     STRING finalcss;
 
-    //ADDME: Ideally we would generate a consistent hash per CSS file, and learn Tollium to share this CSS file in a client over multiple RTD instances
-    FOREVERY(RECORD file FROM files)
+    //TODO Ideally we would generate a consistent hash per CSS file, and learn Tollium to share this CSS file in a client over multiple RTD instances
+    //TODO delay us to preshowcomponent in case user CSS gets added
+    FOREVERY(RECORD file FROM this->loadcss)
     {
       RECORD fileinfo := RetrieveWebHareResource(file.path);
       STRING barecss := GetAdhocCached( [ path := fileinfo.path, modified := fileinfo.modified ]
@@ -280,6 +298,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
                                       );
       finalcss := finalcss || Substitute(barecss, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
     }
+
+    IF(this->_usercss != "")
+     finalcss := finalcss || Substitute(this->_usercss, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
 
     this->finalcssblob := StringToBlob(finalcss);
   }
@@ -799,7 +820,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
           RETURN DEFAULT RECORD;
         }
 
-        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.imageproperties"
+        OBJECT scr := this->owner->LoadScreen("mod::tollium/screens/components/rte.xml#imageproperties"
                                               ,[ rte := this
                                                , data := data
                                                , originalimg := originalimg
