@@ -1869,7 +1869,9 @@
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
         <text tid="password_digits">Minimum number of digits</text>
         <text tid="password_lowercase">Minimum number of lowercase letters</text>
+        <text tid="password_maxage">Maximum age of a password</text>
         <text tid="password_minlength">Minimum number of characters</text>
+        <text tid="password_noreuse">No reuse for for</text>
         <text tid="password_symbols">Minimum number of other symbols</text>
         <text tid="password_uppercase">Minimum number of uppercase letters</text>
         <text tid="passwordcheckhibp">Check password in HIBP-database</text>
@@ -1896,6 +1898,17 @@
         <text tid="usagelog">Keep usage log</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Keep WRD audit events</text>
+        <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
+          <text tid="days">Days</text>
+          <text tid="hours">Hours</text>
+          <text tid="milliseconds">Milliseconds</text>
+          <text tid="minutes">Minutes</text>
+          <text tid="months">Months</text>
+          <text tid="seconds">Seconds</text>
+          <text tid="selectduration">Select a duration</text>
+          <text tid="weeks">Weeks</text>
+          <text tid="years">Years</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
@@ -2481,6 +2494,8 @@
       <text tid="usernamenew">Login name</text>
       <text tid="userpreferences">Personal preferences</text>
       <text tid="utc">UTC</text>
+      <text tid="warning_passwordfailschecks">Your password does not meet the requirements anymore, please change it.</text>
+      <text tid="warning_passwordtooold">Your password is too old and must be changed.</text>
       <text tid="warnings">Warnings</text>
       <text tid="whuser_disabled">Block this account</text>
       <text tid="whuser_disablereason">Reason</text>

@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
@@ -81,6 +82,23 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^password_uppercase->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "uppercase";
     ^password_digits->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "digits";
     ^password_symbols->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "symbols";
+    ^password_noreuse->value := SELECT AS STRING duration FROM parsed_validationchecks WHERE check = "noreuse";
+    ^password_maxage->value := SELECT AS STRING duration FROM parsed_validationchecks WHERE check = "maxage";
+  }
+
+  STRING FUNCTION GotBrowseMaxAge(STRING value)
+  {
+    RETURN this->RunScreen("#selectduration", CELL[ value, withtime := FALSE ]);
+  }
+
+  STRING FUNCTION GotBrowseNoReuse(STRING value)
+  {
+    RETURN this->RunScreen("#selectduration", CELL[ value, withtime := FALSE ]);
+  }
+
+  STRING FUNCTION MapDuration(STRING duration)
+  {
+    RETURN GetDurationTitle(duration);
   }
 
   BOOLEAN FUNCTION Submit()
@@ -152,6 +170,11 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
         INSERT `digits:${^password_digits->value}` INTO passwd_checks AT END;
       IF (IsValueSet(^password_symbols->value))
         INSERT `symbols:${^password_symbols->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_maxage->value))
+        INSERT `maxage:${^password_maxage->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_noreuse->value))
+        INSERT `noreuse:${^password_noreuse->value}` INTO passwd_checks AT END;
+
       wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", Detokenize(passwd_checks, " "));
     }
 
@@ -188,5 +211,87 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   MACRO DoRegisterGeoIP2(OBJECT handler)
   {
     handler->SendURL("https://www.maxmind.com/en/geolite2/signup");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SelectDuration EXTEND TolliumScreenBase
+< RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    data := ValidateOptions(
+        [ value :=    ""
+        , withtime := TRUE
+        , withweeks := FALSE
+        ], data);
+
+    this->data := data;
+
+    ^duration->value := ParseDuration(data.value);
+    IF (data.withweeks)
+    {
+      IF (^duration->value.days >= 7 AND data.withweeks)
+      {
+        ^duration->value.weeks := ^duration->value.weeks + ^duration->value.days / 7;
+        ^duration->value.days := ^duration->value.days % 7;
+      }
+    }
+    ELSE
+    {
+      ^duration->value.days := ^duration->value.weeks * 7 + ^duration->value.days;
+      ^duration->value.weeks := 0;
+    }
+
+    ^weeks->visible := data.withweeks;
+    ^weeks->enabled := data.withweeks;
+    ^hours->visible := data.withtime;
+    ^hours->enabled := data.withtime;
+    ^minutes->visible := data.withtime;
+    ^minutes->enabled := data.withtime;
+    ^seconds->visible := data.withtime;
+    ^seconds->enabled := data.withtime;
+    ^milliseconds->visible := data.withtime;
+    ^milliseconds->enabled := data.withtime;
+  }
+
+  STRING FUNCTION Submit()
+  {
+    RECORD value := ^duration->value;
+
+    BOOLEAN gotweek, gotnonweek;
+    FOREVERY (RECORD rec FROM UnpackRecord(value))
+      IF (rec.value != 0)
+      {
+        IF (rec.name = "WEEKS")
+          gotweek := TRUE;
+        ELSE
+          gotnonweek := TRUE;
+      }
+
+    IF (NOT gotnonweek AND this->data.withweeks)
+      RETURN gotweek ? `P${value.weeks}W` : "P";
+
+    STRING retval := "P";
+    IF (value.years != 0)
+      retval := `${retval}${value.years}Y`;
+    IF (value.months != 0)
+      retval := `${retval}${value.months}M`;
+    IF (value.weeks != 0 OR value.days != 0)
+      retval := `${retval}${value.weeks * 7 + value.days}D`;
+
+    STRING timepart;
+    IF (value.hours != 0)
+      timepart := `${timepart}${value.hours}H`;
+    IF (value.minutes != 0)
+      timepart := `${timepart}${value.minutes}M`;
+    IF (value.seconds != 0)
+    {
+      value.seconds := value.seconds + value.milliseconds / 1000;
+      value.milliseconds := value.milliseconds % 1000;
+      timepart := `${timepart}${value.seconds}${value.milliseconds != 0 ? `.${Right("000" || value.milliseconds, 3)}` : ""}S`;
+    }
+    IF (timepart != "")
+      retval := `${retval}T${timepart}`;
+    RETURN retval;
   }
 >;

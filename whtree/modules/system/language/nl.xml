@@ -1680,7 +1680,9 @@
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
         <text tid="password_digits">Minimum aantal cijfers</text>
         <text tid="password_lowercase">Minimum aantal kleine letters</text>
+        <text tid="password_maxage">Maximum ouderdom wachtwoord</text>
         <text tid="password_minlength">Minimum aantal karakters</text>
+        <text tid="password_noreuse">Geen hergebruik voor</text>
         <text tid="password_symbols">Minimum aantal andere symbolen</text>
         <text tid="password_uppercase">Minimum aantal hoofdletters</text>
         <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
@@ -1707,6 +1709,17 @@
         <text tid="usagelog">Bewaar gebruikslog</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Bewaar WRD audit events</text>
+        <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
+          <text tid="days">Dagen</text>
+          <text tid="hours">Uren</text>
+          <text tid="milliseconds">Millisecondes</text>
+          <text tid="minutes">Minuten</text>
+          <text tid="months">Maanden</text>
+          <text tid="seconds">Secondes</text>
+          <text tid="selectduration">Kies een tijdsduur</text>
+          <text tid="weeks">Weken</text>
+          <text tid="years">Jaren</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
@@ -2292,6 +2305,8 @@
       <text tid="usernamenew">Inlognaam</text>
       <text tid="userpreferences">Persoonlijke voorkeuren</text>
       <text tid="utc">UTC</text>
+      <text tid="warning_passwordfailschecks">Uw wachtwoord voldoet niet meer aan de eisen, verander het a.u.b.</text>
+      <text tid="warning_passwordtooold">Uw wachtwoord is te oud en moet gewijzigd worden.</text>
       <text tid="warnings">Waarschuwingen</text>
       <text tid="whuser_disabled">Blokkeer dit account</text>
       <text tid="whuser_disablereason">Reden</text>
