@@ -10,6 +10,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
@@ -279,6 +280,15 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
     BOOLEAN pvt_paymentdone     := result.paymentDetails.state = "100" OR ToInteger(result.paymentDetails.state,0) < 0;
     BOOLEAN pvt_paymentapproved := result.paymentDetails.state = "100";
     this->pvt_status := pvt_paymentdone ? pvt_paymentapproved ? "approved" : "failed" : "pending";
+  }
+
+  UPDATE PUBLIC MACRO RunNotificationDonePage()
+  {
+    /* https://docs.pay.nl/developers#exchange-response
+       "verwachten wij een antwoord in TXT formaat van jouw server. Dit antwoord moet bestaan uit TRUE."
+    */
+    AddHTTPHeader("Content-Type", "text/plain", FALSE);
+    Print("TRUE");
   }
 >;
 
