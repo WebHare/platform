@@ -193,11 +193,21 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
         , [ name := "transaction[orderNumber]",      value := Left(MakePayNLAlphaNumeric(this->paymentref),16) ]
 
         , [ name := "enduser[initials]",    value := this->paymentdata.customerinfo.wrd_initials ?? this->paymentdata.customerinfo.wrd_firstname ]
-        , [ name := "enduser[lastname]",    value := this->paymentdata.customerinfo.wrd_lastname ]
+        , [ name := "enduser[lastName]",    value := this->paymentdata.customerinfo.wrd_lastname ]
+
+        , [ name := "enduser[invoiceAddress][initials]",    value := this->paymentdata.customerinfo.wrd_initials ?? this->paymentdata.customerinfo.wrd_firstname ]
+        , [ name := "enduser[invoiceAddress][lastName]",    value := this->paymentdata.customerinfo.wrd_lastname ]
+
+        //These fields are required for some payment methods. Just put 'the next day' if unknown (and it is) pay.nl said...
+        , [ name := "saleData[invoiceData]", value := FormatDatetime("%d-%m-%Y", AddDaysToDate(1,GetCurrentDatetime())) ]
+        , [ name := "saleData[deliveryDate]", value := FormatDatetime("%d-%m-%Y", AddDaysToDate(1,GetCurrentDatetime())) ]
         ];
 
     IF(this->paymentdata.customerinfo.wrd_gender IN [1,2])
-      INSERT [ name := "enduser[gender]", value := this->paymentdata.customerinfo.wrd_gender = 1 ? "M" : "F" ] INTO req AT END;
+    {
+      INSERT [ name := "enduser[gender]",                 value := this->paymentdata.customerinfo.wrd_gender = 1 ? "M" : "F" ] INTO req AT END;
+      INSERT [ name := "enduser[invoiceAddress][gender]", value := this->paymentdata.customerinfo.wrd_gender = 1 ? "M" : "F" ] INTO req AT END;
+    }
     IF(this->paymentdata.customerinfo.wrd_dateofbirth != DEFAULT DATETIME)
       INSERT [ name := "enduser[dob]", value := FormatDatetime("%d-%m-%Y", this->paymentdata.customerinfo.wrd_dateofbirth) ] INTO req AT END;
     IF(this->paymentdata.customerinfo.wrd_contact_email != "")
@@ -208,9 +218,6 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
     req := req CONCAT AddAddress("enduser[invoiceAddress]", this->paymentdata.customerinfo.billingaddress);
     req := req CONCAT AddAddress("enduser[address]", this->paymentdata.customerinfo.shippingaddress);
 
-    IF(this->paymentdata.customerinfo.wrd_contact_phone != "")
-      INSERT [ name := "enduser[phoneNumber]", value := this->paymentdata.customerinfo.wrd_contact_phone ] INTO req AT END;
-
     //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesn't go right
     RECORD ARRAY cart  := this->paymentdata.cart;
     UPDATE cart SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
@@ -219,7 +226,7 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
     FOREVERY(RECORD line FROM cart)
     {
        req := req CONCAT
-           [[ name := `saleData[orderData][${#line}][productId]`,     value := line.sku ?? line.type ]
+           [[ name := `saleData[orderData][${#line}][productId]`,     value := LimitUTF8Bytes(line.sku ?? line.type,25) ] //at most 25 positions (undocumented requirement) but you'll trigger "Parameter 'productId' is invalid: Input is too long, maximum length is 25"
            ,[ name := `saleData[orderData][${#line}][productType]`,   value := line.type = "shipping" ? "SHIPPING" : line.type = "payment" ? "HANDLING" : "ARTICLE" ] //TODO "DISCOUNT"
            ,[ name := `saleData[orderData][${#line}][description]`,   value := line.title ]
            ,[ name := `saleData[orderData][${#line}][price]`,         value := ToString(INTEGER(100 * line.linetotal / (line.amount ?? 1))) ]
