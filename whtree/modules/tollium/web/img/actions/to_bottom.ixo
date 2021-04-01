@@ -1,4 +1,3 @@
 <icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
-  <layer src="tollium:objects/arrowdown" />
-  <layer src="tollium:overlays/line-horizontal" size="16px" translatey="8px"/>
+  <layer src="tollium:objects/tobottom" />
 </icon>
