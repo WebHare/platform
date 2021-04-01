@@ -5,6 +5,9 @@
 <style type="text/css">
 	.st0{fill:#4A4A4A;}
 </style>
-<rect x="14" y="16" class="st0" width="2" height="10"/>
-<polygon class="st0" points="15,6 9,16 21,16 "/>
+<rect x="14" y="6" class="st0" width="2" height="10"/>
+<polygon class="st0" points="15,26 9,16 21,16 "/>
+<g>
+	<rect x="4" y="28" class="st0" width="22" height="2"/>
+</g>
 </svg>
