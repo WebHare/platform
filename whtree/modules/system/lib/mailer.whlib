@@ -1197,7 +1197,7 @@ STATIC OBJECTTYPE WittyMailComposer
     IF(options.filename = "")
       options.filename := "embed" || (Length(this->embeddedassets) + 1) || fileinfo.extension;
 
-    STRING contentid := GenerateMIMEContentId();
+    STRING contentid := EncodeUFS(hash);
     INSERT [ contentid := "<" || contentid || ">"
            , contenttype := fileinfo.mimetype
            , data := asset
