@@ -71,7 +71,10 @@ test.registerTests(
 
       test.eqMatch(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
-      await test.wait('ui');
+
+      // wait for screen to close, the busy lock is released somwehere in between the closing process
+      //await test.wait('ui');
+      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length == 1);
 
       // should be back in login window
       test.setTodd('password', "secret");
