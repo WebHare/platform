@@ -1694,9 +1694,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         [ atsubmit :=   FALSE
         ], options);
 
-    STRING ARRAY getfields := [ "WHUSER_UNIT"
-                              , this->wrdschema->accountlogintag
-                              ];
+    BOOLEAN have_unit := RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
+    STRING ARRAY getfields := STRING[ ...(have_unit ? [ "WHUSER_UNIT" ] : STRING[])
+                                    , this->wrdschema->accountlogintag
+                                    ];
+
     IF(this->wrdschema->accountemailtag != this->wrdschema->accountlogintag)
       INSERT this->wrdschema->accountemailtag INTO getfields AT END;
 
@@ -1706,7 +1708,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       fields := [ username := GetCell(userfields, this->wrdschema->accountlogintag)
                 , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
-                , unit :=     userfields.whuser_unit
+                , unit :=     have_unit ? userfields.whuser_unit : 0
                 ];
     }
 
