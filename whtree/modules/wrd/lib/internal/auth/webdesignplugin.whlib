@@ -26,6 +26,7 @@ LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
@@ -790,6 +791,21 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN result;
   }
 
+  STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
+  {
+    RECORD policy := this->GetUserEditPolicyForUser(entity->id);
+    IF (policy.passwordvalidationchecks != "")
+    {
+      RECORD options := TypeID(authenticationsettings) = TypeID(RECORD)
+          ? CELL[ authenticationsettings, isexisting := TRUE ]
+          : CELL[];
+
+      RECORD res := CheckPassword(policy.passwordvalidationchecks, password, options);
+      RETURN res.failedchecks;
+    }
+    RETURN STRING[];
+  }
+
   /** Logs in a user by password
       @param loginname Login name
       @param password Password
@@ -848,7 +864,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(options.rawlogin)
         trylogin := this->__wrdauth->Login(loginname, password, options);
       ELSE
+      {
+        INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
         trylogin := this->GetSupportObject()->Login(loginname, password, options);
+      }
 
       INTEGER entityid;
       IF(trylogin.success)
@@ -867,7 +886,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           ? "ok"
           : trylogin.code = "REQUIRESECONDFACTOR"
                 ? "requiresecondfactor"
-                : "failed";
+                : trylogin.code = "FAILEDVALIDATIONCHECKS"
+                      ? "failedvalidationchecks"
+                      : "failed";
 
       RECORD auditmsg :=
           [ account :=  entityid
@@ -910,6 +931,17 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         ELSE
           submitinstruction := [ type := "reload" ];
       }
+      ELSE IF (loginresultcode = "failedvalidationchecks")
+      {
+        INSERT CELL passwordresetlink := this->CreatePasswordResetLink(GetRequestURL(), entityid, CELL
+            [ routerpage := "resetpassword"
+            , data := [ fc := Detokenize(trylogin.failedvalidationchecks, ",") ]
+            ]).verifiedlink INTO trylogin;
+      }
+
+      // only allow external login if the login returned code 'failed'
+      IF (loginresultcode != "failed")
+        challenge := DEFAULT RECORD;
     }
 
     IF (NOT trylogin.success AND RecordExists(challenge) AND challenge.use_list != 0)
@@ -1080,6 +1112,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     options := ValidateOptions( [ secret := DEFAULT RECORD
                                 , verifierstart := ""
+                                , data := DEFAULT RECORD
                                 ], options);
 
     IF(NOT IsAbsoluteURL(baseurl, FALSE))
@@ -1098,6 +1131,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , e := entityid
         , g := verifybase.wrd_guid
         , m := until
+        , ...(IsValueSet(options.data) ? [ d := EncodeHSON(options.data) ] : CELL[])
         ];
     IF(RecordExists(options.secret))
       INSERT CELL s := options.secret INTO data;
@@ -1134,6 +1168,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                      , secret := DEFAULT RECORD
                      , failreason := ""
                      , failed_incorrectverifier := FALSE
+                     , data := DEFAULT RECORD
                      ];
 
     RECORD decrypted, userentity;
@@ -1144,6 +1179,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       RECORD verifybase := this->accounttype->GetEntityFields(decrypted.e, ["WRD_GUID", "WRD_LIMITDATE" ]);
       DATETIME now := GetCurrentDatetime();
+
+      IF (CellExists(decrypted, "d"))
+        retval.data := DecodeHSON(decrypted.d);
 
       IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now OR verifybase.wrd_guid != decrypted.g)
       {
@@ -1204,12 +1242,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     options := ValidateOptions([ routerpage := ""
                                , verifierstart := ""
+                               , data := DEFAULT RECORD
                                ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
 
     IF(options.routerpage != "")
       baseurl := UpdateURLVariables( GetWRDPagesCleanURL([ currenturl := baseurl ]), [ wrd_pwdaction := options.routerpage ]);
 
-    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart ]);
+    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart, options.data ]);
     IF (NOT RecordExists(retval))
       RETURN DEFAULT RECORD;
 
@@ -1643,4 +1682,35 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , secure :=   GetClientRequestURL() LIKE "https://*"
         ]);
   }
+
+  /** Returns the user edit policy for a user
+      @param user User
+      @cell options.atsubmit @includecelldef legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.atsubmit
+      @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
+  */
+  PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ atsubmit :=   FALSE
+        ], options);
+
+    STRING ARRAY getfields := [ "WHUSER_UNIT"
+                              , this->wrdschema->accountlogintag
+                              ];
+    IF(this->wrdschema->accountemailtag != this->wrdschema->accountlogintag)
+      INSERT this->wrdschema->accountemailtag INTO getfields AT END;
+
+    RECORD fields;
+    RECORD userfields := this->wrdschema->accounttype->GetEntityFields(user, getfields);
+    IF(RecordExists(userfields))
+    {
+      fields := [ username := GetCell(userfields, this->wrdschema->accountlogintag)
+                , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
+                , unit :=     userfields.whuser_unit
+                ];
+    }
+
+    RETURN this->GetSupportObject()->GetUserEditPolicy(user, fields, options.atsubmit);
+  }
+
 >;

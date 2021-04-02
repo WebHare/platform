@@ -1086,7 +1086,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       //Create any requested users
       FOREVERY(RECORD cred FROM this->credentials)
       {
-        RECORD newuser := [ wrd_contact_email := cred.login || "@beta.webhare.net"
+        RECORD newuser := [ wrd_contact_email := cred.login LIKE "*@*" ? cred.login : cred.login || "@beta.webhare.net"
                           , whuser_unit := this->testunit
                           , whuser_password := "PLAIN:" || cred.userpassword
                           , wrd_firstname := ToUppercase(Left(cred.login,1)) || Substring(cred.login,1)

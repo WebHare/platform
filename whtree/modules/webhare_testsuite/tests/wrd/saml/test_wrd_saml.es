@@ -102,7 +102,7 @@ test.registerTests(
   , { name: "login with idp account"
     , test: function(doc, win)
       {
-        test.setTodd('loginname', 'idpaccount@example.com');
+        test.setTodd('loginname', 'idpaccount@allow2fa.test.webhare.net');
         test.setTodd('password', 'a');
         test.clickToddButton('Login');
         // Expect rpc, X form posts to sp (ADDME how many?), sp tollium load
@@ -113,7 +113,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         test.true(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@example.com", test.qS("#dashboard-user-name").textContent);
+        test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
         test.true(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
@@ -148,7 +148,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         test.true(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@example.com", test.qS("#dashboard-user-name").textContent);
+        test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
         test.false(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));

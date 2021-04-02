@@ -18,6 +18,7 @@
   <test script="test_sync.whscr" />
   <test script="test_personaldata.whscr" />
   <test script="testkeephistory.whscr" />
+  <test script="testpasswordpolicy.whscr" />
   <jstest file="testwrdauth-frontend.es" tags="wrdauth" />
   <jstest file="testwrdauth-authpages.es" tags="wrdauth" />
   <group skipautotests="true">

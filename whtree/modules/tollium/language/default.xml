@@ -475,7 +475,6 @@
       <text tid="newpassword">New password</text>
       <text tid="oldpassword">Current password</text>
       <text tid="pagetitle">Change password</text>
-      <text tid="password_fails_policy">The password does not comply with the specified policy.</text>
       <text tid="showpasswords">Show passwords as plain text</text>
       <text tid="sureclearpassword">You are now clearing the password of this user. Are you sure you want to do this?</text>
     </textgroup>
@@ -924,6 +923,7 @@
       <text tid="loginsecondfactor">Second factor login</text>
       <text tid="logintitle">Login</text>
       <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
+      <text tid="musteditauthsettings">Your authentication settings must be updated before proceeding.</text>
       <text tid="notloggedin">You no longer seem to be logged in. You may need to reload this webpage to relogin.</text>
       <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
       <text tid="password">Password</text>

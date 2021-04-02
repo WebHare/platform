@@ -89,7 +89,8 @@ export default class WebSocketTransport extends TransportBase
 
   gotClose(event)
   {
-    this.socket.close();
+    if (this.socket)
+      this.socket.close();
     this.socket = null;
 
     let nowbackoff = this.backoff;

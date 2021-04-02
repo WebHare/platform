@@ -241,8 +241,9 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   {
     RECORD value := this->value;
 
-    BOOLEAN have_password := RecordExists(value) AND IsValueSet(value.passwords) AND value.passwords[END-1].passwordhash != "";
+    BOOLEAN have_password := RecordExists(value) AND IsValueSet(value.passwords) AND value.passwords[END-1].passwordhash NOT IN [ "", "*" ];
     ^passwordfield->value := have_password ? "password" : "";
+    ^changepassword->enabled := have_password;
 
     BOOLEAN have_secondfactor := RecordExists(value) AND IsValueSet(value.totp);
     ^secondfactorstatus->value := have_secondfactor
@@ -284,9 +285,19 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   // Helper functions
   //
 
-  BOOLEAN FUNCTION AskForAuthorization()
+  /** Returns an existing record when the user authorizes the action
+      @return Existing record when authorized
+      @cell return.oldpassword Old password
+  */
+  RECORD FUNCTION AskForAuthorization()
   {
-    RETURN this->owner->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog") = "ok";
+    IF (NOT this->requireauthorization)
+      RETURN CELL[];
+
+    RECORD authorized := this->owner->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", [ returnpassword := TRUE ]);
+    RETURN RecordExists(authorized)
+        ? PickCells(authorized, [ "password" ])
+        : DEFAULT RECORD;
   }
 
   // ---------------------------------------------------------------------------
@@ -297,12 +308,15 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   MACRO DoChangePassword()
   {
     // FIXME: re-authorize the user if changing own password
-    IF (this->requireauthorization AND NOT this->AskForAuthorization())
+    RECORD authorized := this->AskForAuthorization();
+    IF (NOT RecordExists(authorized))
       RETURN;
 
     this->owner->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#editauthsettingspassword", CELL
         [ valuekeeper := this->_valuekeeper
         , this->validationchecks
+        , cursettings := this->_valuekeeper->GetExistingValue()
+        , ...authorized
         ]);
     this->Reload();
   }
@@ -355,6 +369,10 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   BOOLEAN pvt_requirepassword;
   STRING pvt_validationchecks;
 
+  RECORD _cursettings;
+
+  STRING _oldpassword;
+
   OBJECT _valuekeeper;
 
   /// Validation checks (eg 'hibp minlength:10')
@@ -376,6 +394,8 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   {
     this->_valuekeeper := data.valuekeeper;
     this->validationchecks := data.validationchecks;
+    this->_oldpassword := CellExists(data, "password") ? data.password : "";
+    this->_cursettings := CellExists(data, "cursettings") ? data.cursettings : DEFAULT RECORD;
   }
 
   MACRO SetRequireNewPassword(BOOLEAN newval)
@@ -426,16 +446,18 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginFeedback();
 
-    IF (this->pvt_validationchecks != "")
-    {
-      RECORD rec := CheckPassword(this->pvt_validationchecks, ^newpassword->value);
-      IF (NOT rec.success)
-        work->AddErrorFor(^newpassword, rec.message);
-    }
-
     IF (NOT ^showpasswords->value AND ^newpassword->value != ""
         AND ^newpassword->value != ^confirmpassword->value)
       work->AddErrorFor(^confirmpassword, GetTid("tollium:commondialogs.editpassword.new_passwords_not_equal"));
+    ELSE
+    {
+      IF (this->pvt_validationchecks != "")
+      {
+        RECORD rec := CheckPassword(this->pvt_validationchecks, ^newpassword->value, [ authenticationsettings := this->_cursettings ]);
+        IF (NOT rec.success)
+          work->AddErrorFor(^newpassword, rec.message);
+      }
+    }
 
     IF (NOT work->Finish())
       RETURN FALSE;
@@ -455,7 +477,7 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
         , passwordhash := ^newpassword->value = "" ? "" : CreateWebHarePasswordHash(^newpassword->value)
         ] INTO value.passwords AT END;
 
-    this->_valuekeeper->StoreNewValue(value, "wrd:authsettings.setpassword", this);
+    this->_valuekeeper->StoreNewValue(value, "wrd:authsettings.setpassword");
 
     RETURN TRUE;
   }
@@ -554,14 +576,20 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
     }
   }
 
-  BOOLEAN FUNCTION AskForAuthorization()
+  BOOLEAN FUNCTION AskForAuthorization(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN this->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog") = "ok";
+    options := ValidateOptions(
+        [ allowemptypassword := FALSE
+        ], options);
+
+    RECORD authorized := this->RunScreen("mod::wrd/tolliumapps/auth/backendauthorization.xml#backendauthorizationdialog", options);
+
+    RETURN RecordExists(authorized) AND authorized.result = "ok";
   }
 
   MACRO DoSetupTOTP()
   {
-    IF (this->_requireauthorization AND NOT this->AskForAuthorization())
+    IF (this->_requireauthorization AND NOT this->AskForAuthorization([ allowemptypassword := TRUE ]))
       RETURN;
 
     IF (this->RunScreen("#setuptotp", [ valuekeeper := this->_valuekeeper ]) = "ok")
@@ -570,7 +598,7 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
 
   MACRO DoResetBackupCodes()
   {
-    IF (this->_requireauthorization AND NOT this->AskForAuthorization())
+    IF (this->_requireauthorization AND NOT this->AskForAuthorization([ allowemptypassword := TRUE ]))
       RETURN;
 
     IF (this->RunScreen("#resetbackupcodes", [ valuekeeper := this->_valuekeeper ]) = "ok")
@@ -582,7 +610,7 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
     IF (this->RunSimpleScreen("question", this->GetTid(".suredisable2fa")) != "yes")
       RETURN;
 
-    IF (this->_requireauthorization AND NOT this->AskForAuthorization())
+    IF (this->_requireauthorization AND NOT this->AskForAuthorization([ allowemptypassword := TRUE ]))
       RETURN;
 
     this->_valuekeeper->StoreNewValue(CELL[ ...this->_valuekeeper->GetExistingValue(), totp := DEFAULT RECORD ], "wrd:authsettings.disabletotp");

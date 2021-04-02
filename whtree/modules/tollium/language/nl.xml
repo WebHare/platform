@@ -475,7 +475,6 @@
       <text tid="newpassword">Nieuw wachtwoord</text>
       <text tid="oldpassword">Huidig wachtwoord</text>
       <text tid="pagetitle">Wijzig wachtwoord</text>
-      <text tid="password_fails_policy">Het wachtwoord voldoet niet aan de gestelde eisen.</text>
       <text tid="showpasswords">Laat wachtwoorden als tekst zien</text>
       <text tid="sureclearpassword">U verwijdert nu het huidige wachtwoord van deze gebruiker. Weet u zeker dat u dit wilt doen?</text>
     </textgroup>
@@ -893,6 +892,7 @@
       <text tid="loginsecondfactor">Tweede factor inlog</text>
       <text tid="logintitle">Inloggen</text>
       <text tid="loginwithwebhareaccount">Inloggen met een WebHare account</text>
+      <text tid="musteditauthsettings">Uw authenticatie-instellingen moeten worden aangepast voordat u verder gaat.</text>
       <text tid="notloggedin">U lijkt niet meer ingelogd te zijn. Mogelijk moet u deze pagina opnieuw inladen om weer in te loggen.</text>
       <text tid="nowebhareaccount">Er is geen gekoppeld WebHare account gevonden. Neem contact op met uw systeembeheerder.</text>
       <text tid="password">Wachtwoord</text>

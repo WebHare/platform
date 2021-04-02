@@ -58,11 +58,24 @@
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Le nouveau mot de passe n'a pas les propriétés suivantes:<br/><param p="1"/></text>
           <text tid="requirements">Le nouveau mot de passe doit avoir les propriétés suivantes:<br/><param p="1"/></text>
+          <text tid="settingsfailure">Les paramètres d'authentification n'a pas les propriétés suivantes:<br/><param p="1"/></text>
+          <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
+            <text tid="days"><ifparam p="1" value="1">1 jour<else/><param p="1"/> jours</ifparam></text>
+            <text tid="months"><param p="1"/> mois</text>
+            <text tid="parts1"><param p="1"/></text>
+            <text tid="parts2"><param p="1"/> et <param p="2"/></text>
+            <text tid="parts3"><param p="1"/>, <param p="2"/> et <param p="3"/></text>
+            <text tid="parts4"><param p="1"/>, <param p="2"/>, <param p="3"/> et <param p="4"/></text>
+            <text tid="weeks"><ifparam p="1" value="1">1 semaine<else/><param p="1"/> semaines</ifparam></text>
+            <text tid="years"><ifparam p="1" value="1">1 année<else/><param p="1"/> années</ifparam></text>
+          </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">chiffre<else/>chiffres</ifparam>.</text>
-            <text tid="hibp">Il ne doit pas être présent dans la base de données de HaveIBeenPwned.</text>
+            <text tid="hibp">Il ne doit pas être présent dans la base de données compromises</text>
             <text tid="lowercase">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">caractère<else/>caractères</ifparam> alphabétique minuscule.</text>
+            <text tid="maxage">Ce doit être remplacé tous les <param p="1"/>.</text>
             <text tid="minlength">Ce doit contenir au moins <param p="1"/> caractères.</text>
+            <text tid="noreuse">Ce ne doit pas être réutilisé pendant <param p="1"/>.</text>
             <text tid="symbols">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">symbole<else/>symboles</ifparam>.</text>
             <text tid="uppercase">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">caractère<else/>caractères</ifparam> alphabétique majuscule.</text>
           </textgroup>

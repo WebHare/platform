@@ -21,8 +21,12 @@
     </actions>
     <compositions>
       <wrd:entity name="userobj" />
+      <eventlistener name="entitylistener" onevents="GotEntityEvents" />
     </compositions>
     <body spacers="none">
+      <panel name="warningpanel" borders="bottom" backgroundcolor="#FEFFDE" spacers="left right">
+        <text name="warning_passwordabouttoexpire" title="" wordwrap="true" />
+      </panel>
       <panel name="userinfopage">
         <tabs name="usertabs" type="regular">
           <tab name="account">

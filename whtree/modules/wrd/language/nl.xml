@@ -4,7 +4,7 @@
     <text tid="deleteduser">verwijderde gebruiker #<param p="1"/></text>
     <text tid="nametoolong">De gekozen naam is te lang.</text>
     <text tid="rolesamenamealreadyexists">De gekozen naam is al in gebruik voor een andere rol.</text>
-    <text tid="unitmoveintoitself">U kunt de eenheid niet plaatsen in (een onderliggende eenheid van) dezelfde eenheid.</text>
+    <text tid="unitmoveintoitself">Je kunt de eenheid niet plaatsen in (een onderliggende eenheid van) dezelfde eenheid.</text>
     <text tid="unitsamenamealreadyexists">De gekozen naam is al in gebruik voor een andere eenheid.</text>
     <text tid="unknowndeleteduser">een verwijderde gebruiker</text>
     <text tid="usersamenamealreadyexists">De gekozen naam is al in gebruik voor een andere gebruiker.</text>
@@ -21,7 +21,7 @@
       <textgroup gid="messages">   <!-- browser.anonymize.messages -->
         <text tid="schema_anonymized">Het schema is geanonimiseerd.</text>
         <text tid="schema_protected">Dit schema mag niet worden geanonimiseerd, het is beschermd.</text>
-        <text tid="sure_anonymize">Weet u zeker dat u schema '<param p="1"/>' wilt anonimiseren? Deze operatie kan niet ongedaan worden gemaakt.</text>
+        <text tid="sure_anonymize">Weet je zeker dat je schema '<param p="1"/>' wilt anonimiseren? Deze operatie kan niet ongedaan worden gemaakt.</text>
       </textgroup>
       <textgroup gid="status">   <!-- browser.anonymize.status -->
         <text tid="converting">Anonimiseren entiteiten van type '<param p="1"/>' - <param p="2"/>%</text>
@@ -114,12 +114,12 @@
     </textgroup>
     <textgroup gid="messages">   <!-- browser.messages -->
       <text tid="cannotdeletetype">De basistypes WRD_PERSON, WRD_ORGANIZATION en WRD_RELATION mogen niet worden verwijderd.</text>
-      <text tid="confirmextendwrdauth">Weet u zeker dat u de types die nodig zijn voor WRD authenticatie wil toevoegen?</text>
-      <text tid="confirmmergeentity">Weet u zeker dat u de oorspronkelijke geselecteerde entiteit wil samenvoegen in de zojuist geselecteerde entiteit?</text>
-      <text tid="confirmupdatewrdauth">Weet u zeker dat u de types die nodig zijn voor WRD authenticatie wil updaten?</text>
-      <text tid="deleteentities">Weet u zeker dat u de geselecteerde entiteiten wil verwijderen?</text>
-      <text tid="deleteentity">Weet u zeker dat u de geselecteerde entiteit wil verwijderen?</text>
-      <text tid="deletelinks">Weet u zeker dat u <ifparam p="1" value="1">de geselecteerde link<else/>de <param p="1"/> geselecteerde links</ifparam> wilt verwijderen?</text>
+      <text tid="confirmextendwrdauth">Weet je zeker dat je de types die nodig zijn voor WRD authenticatie wil toevoegen?</text>
+      <text tid="confirmmergeentity">Weet je zeker dat je de oorspronkelijke geselecteerde entiteit wil samenvoegen in de zojuist geselecteerde entiteit?</text>
+      <text tid="confirmupdatewrdauth">Weet je zeker dat je de types die nodig zijn voor WRD authenticatie wil updaten?</text>
+      <text tid="deleteentities">Weet je zeker dat je de geselecteerde entiteiten wil verwijderen?</text>
+      <text tid="deleteentity">Weet je zeker dat je de geselecteerde entiteit wil verwijderen?</text>
+      <text tid="deletelinks">Weet je zeker dat je <ifparam p="1" value="1">de geselecteerde link<else/>de <param p="1"/> geselecteerde links</ifparam> wilt verwijderen?</text>
       <text tid="deleteorg">Weet je zeker dat je organisatie '<param p="1"/>' wil verwijderen?</text>
       <text tid="deleteorgs">Weet je zeker dat je de geselecteerde organisaties wil verwijderen?</text>
       <text tid="deleteperson">Weet je zeker dat je persoon '<param p="1"/>' wil verwijderen?</text>
@@ -216,7 +216,7 @@
       <text tid="addressverify_not_enough_data">Niet genoeg gegevens om dit adres te verifiëren</text>
       <text tid="addressverify_ok">Adres is geverifieerd, en bevat geen fouten</text>
       <text tid="addressverify_zip_not_found">De postcode/huisnummer combinatie is niet gevonden</text>
-      <text tid="delete_entity">Weet u zeker dat u deze waarde wilt verwijderen?</text>
+      <text tid="delete_entity">Weet je zeker dat je deze waarde wilt verwijderen?</text>
       <text tid="entity_in_use">Deze waarde is op dit moment in gebruik en kan daarom niet verwijderd worden.</text>
       <text tid="no_email_column">De huidige selectie bevat geen e-mailkolom</text>
     </textgroup>
@@ -318,8 +318,8 @@
     <text tid="addressfield">Adres</text>
     <text tid="addressfield_incomplete">Veld '<param p="1"/>' bevat een incompleet adres</text>
     <text tid="cannotdeletereferredentity">Kan dit element niet verwijderen, er zijn nog andere elementen die een referentie naar dit element hebben.</text>
-    <text tid="confirmdeleteentities">Weet u zeker dat u deze elementen wil verwijderen?</text>
-    <text tid="confirmdeleteentity">Weet u zeker dat u dit element wilt verwijderen?</text>
+    <text tid="confirmdeleteentities">Weet je zeker dat je deze elementen wil verwijderen?</text>
+    <text tid="confirmdeleteentity">Weet je zeker dat je dit element wilt verwijderen?</text>
     <text tid="gender">Geslacht</text>
     <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
       <text tid="invalidsettings">De adresvalidatie-instellingen zijn ongeldig<ifparam p="1" value=""><else/><br/><br/>Foutmelding:<br/><param p="1"/></ifparam></text>
@@ -585,7 +585,7 @@
       <text tid="exception">Een exceptie is opgetreden: <param p="1"/></text>
       <text tid="limitresults">Resultaten beperken</text>
       <text tid="only100">Alleen de eerste 100 resultaten</text>
-      <text tid="toomanyresults">Deze opdracht zal veel resultaten opleveren (<param p="1"/> in totaal), en kan uw browser behoorlijk vertragen. Weet u zeker dat u door wilt gaan?</text>
+      <text tid="toomanyresults">Deze opdracht zal veel resultaten opleveren (<param p="1"/> in totaal), en kan uw browser behoorlijk vertragen. Weet je zeker dat je door wilt gaan?</text>
     </textgroup>
     <textgroup gid="querybuilder">   <!-- querybuilder.querybuilder -->
       <text tid="available">Beschikbare velden en types</text>
@@ -782,7 +782,7 @@
     <text tid="synccompleted">Synchronisatie is voltooid</text>
     <text tid="synchronize">Synchroniseren</text>
     <text tid="synchronizeschema">WRD schema synchroniseren</text>
-    <text tid="verifydisconnectsyncedschema">Weet u zekerdat u deze synchronisatiebron wilt verwijderen?</text>
+    <text tid="verifydisconnectsyncedschema">Weet je zeker dat je deze synchronisatiebron wilt verwijderen?</text>
     <textgroup gid="errors">   <!-- schemamanager.errors -->
       <text tid="duplicateschema">De naam van het schema is niet uniek</text>
       <text tid="needsysoptoenableusermgmt">Alleen sysops kunnen gebruikersbeheer activeren op een schema.</text>
@@ -810,8 +810,8 @@
       </textgroup>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- schemamanager.messageboxes -->
-      <text tid="deleteschema">Weet u zeker dat u schema '<param p="1"/>' wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
-      <text tid="deleteschemas">Weet u zeker dat u de geselecteerde schemas wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
+      <text tid="deleteschema">Weet je zeker dat je schema '<param p="1"/>' wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
+      <text tid="deleteschemas">Weet je zeker dat je de geselecteerde schemas wil verwijderen? Deze actie kan niet ongedaan worden gemaakt.</text>
       <text tid="import_schema_errors">De volgende fouten zijn opgetreden bij het importeren van het schema:<br/><param p="1"/></text>
       <text tid="import_schema_norights">U heeft onvoldoende rechten om het schema '<param p="1"/>' te mogen vervangen.</text>
       <text tid="import_schema_protected">Het schema '<param p="1"/>' is beschermd en kan niet vervangen worden.</text>
@@ -900,11 +900,24 @@
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
           <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
+          <text tid="settingsfailure">De authenticatie-instellingen voldoen niet aan de volgende eigenschappen:<br/><param p="1"/></text>
+          <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
+            <text tid="days"><ifparam p="1" value="1">1 dag<else/><param p="1"/> dagen</ifparam></text>
+            <text tid="months"><ifparam p="1" value="1">1 maand<else/><param p="1"/> maanden</ifparam></text>
+            <text tid="parts1"><param p="1"/></text>
+            <text tid="parts2"><param p="1"/> en <param p="2"/></text>
+            <text tid="parts3"><param p="1"/>, <param p="2"/> en <param p="3"/></text>
+            <text tid="parts4"><param p="1"/>, <param p="2"/>, <param p="3"/> en <param p="4"/></text>
+            <text tid="weeks"><ifparam p="1" value="1">1 week<else/><param p="1"/> weken</ifparam></text>
+            <text tid="years"><ifparam p="1" value="1">1 jaar<else/><param p="1"/> jaren</ifparam></text>
+          </textgroup>
           <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
             <text tid="digits">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">cijfer<else/>cijfers</ifparam> bevatten.</text>
-            <text tid="hibp">Het mag niet aanwezig zijn in de HaveIBeenPwned-wachtwoorddatabase.</text>
+            <text tid="hibp">Het mag niet aanwezig zijn in een database van gelekte wachtwoorden</text>
             <text tid="lowercase">Het moet tenminste <param p="1"/> kleine <ifparam p="1" value="1">letter<else/>letters</ifparam> bevatten.</text>
+            <text tid="maxage">Het moet elke <param p="1"/> veranderd worden.</text>
             <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
+            <text tid="noreuse">Het mag <param p="1"/> niet worden hergebruikt.</text>
             <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
             <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
           </textgroup>
@@ -966,7 +979,7 @@
       <textgroup gid="commondialogs">   <!-- tolliumapps.payments.commondialogs -->
         <text tid="amountpayable">Te betalen</text>
         <text tid="cancelpayment">Annuleer betaling</text>
-        <text tid="deletepaymentprovider">Weet u zeker dat u deze betaalprovider wil verwijderen ?</text>
+        <text tid="deletepaymentprovider">Weet je zeker dat je deze betaalprovider wil verwijderen ?</text>
         <text tid="generic">Algemene opties</text>
         <text tid="methods">Betaalmethode</text>
         <text tid="openpaymententity">Open entiteit</text>
@@ -984,7 +997,7 @@
         <text tid="recheckpayment">Controleer betaling</text>
         <text tid="selectpaymentprovider">Selecteer betaal provider</text>
         <text tid="status">Status</text>
-        <text tid="surecancelpayment">Weet u zeker dat u deze betaling wil annuleren?</text>
+        <text tid="surecancelpayment">Weet je zeker dat je deze betaling wil annuleren?</text>
         <text tid="tag">Tag</text>
         <text tid="type">Type</text>
       </textgroup>
@@ -1141,7 +1154,7 @@
       <text tid="deletehow-delentities">alle entities (volledig verwijderen)</text>
       <text tid="deletehow-deltype">alle entities en het type</text>
       <text tid="deletetype">Verwijder type</text>
-      <text tid="verifydeletion">Weet u zeker dat u het type '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="verifydeletion">Weet je zeker dat je het type '<param p="1"/>' wilt verwijderen?</text>
     </textgroup>
     <textgroup gid="errors">   <!-- types.errors -->
       <text tid="domaininuse">Dit domein kan niet verwijderd worden, omdat er nog attributen aan refereren.</text>
@@ -1170,12 +1183,12 @@
     <textgroup gid="messages">   <!-- types.messages -->
       <text tid="authnotcorrectlyconfigured">Het authenticatiedomein is niet correct geconfigureerd.</text>
       <text tid="cannotdeleteattr">Kan attribuut '<param p="1"/>' niet verwijderen omdat het een intern attribuut is.</text>
-      <text tid="deleteattr">Weet u zeker dat u attribuut '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="deleteattr">Weet je zeker dat je attribuut '<param p="1"/>' wilt verwijderen?</text>
       <text tid="notconfiguredforsaml">Dit WRD schema is niet geconfigureerd voor SAML.</text>
-      <text tid="suredeleteconnectedidp">Weet u zeker dat u deze verbonden IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
-      <text tid="suredeleteconnectedsp">Weet u zeker dat u deze verbonden SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
-      <text tid="suredeleteidp">Weet u zeker dat u deze IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
-      <text tid="suredeletesp">Weet u zeker dat u deze SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeleteconnectedidp">Weet je zeker dat je deze verbonden IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeleteconnectedsp">Weet je zeker dat je deze verbonden SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeleteidp">Weet je zeker dat je deze IDP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
+      <text tid="suredeletesp">Weet je zeker dat je deze SP wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt.</text>
     </textgroup>
     <textgroup gid="metatypes">   <!-- types.metatypes -->
       <text tid="attachment">Bijlage</text>

@@ -341,7 +341,7 @@ MACRO TestPersistentLogin()
       , data := ""
       , browsertriplet := "mac-chrome-04"
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Should still recover from this (from the persistent cookie). Browser triplet not available in this path
@@ -570,7 +570,7 @@ MACRO TestLoginDenied()
       , impersonated := TRUE
       , data := ""
       , browsertriplet := "mac-chrome-06"
-      , byentity := 0
+      , byentity := entityid
       , bylogin := ""
       ]);
 }
@@ -591,7 +591,10 @@ MACRO TestSecondFactorLogin()
       [ wrd_contact_email := "loginsecondfactor@beta.webhare.net"
       , whuser_password :=
               [ version :=      1
-              , passwords :=    [ [ passwordhash := testfw->hashedpasswords.secret ] ]
+              , passwords :=    [ [ validfrom :=    GetCurrentDatetime()
+                                  , passwordhash := testfw->hashedpasswords.secret
+                                  ]
+                                ]
               , totp :=         [ url := GetTOTPUrl(totpsecret, "loginsecondfactor@beta.webhare.net", "Webhare")
                                 , backupcodes := [ [ code := "012345AA" ], [ code := "012345AB" ] ]
                                 ]
@@ -894,11 +897,11 @@ MACRO TestWRDAuthRouter()
 
 Runtestframework( [ PTR PrepareServer
                   , PTR CreateMyTestSchema
-/*                  , PTR TestModuleDefIPRules
+                  , PTR TestModuleDefIPRules
                   , PTR TestPersistentLogin
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
-                  , PTR TestLoginDenied*/
+                  , PTR TestLoginDenied
                   , PTR TestSecondFactorLogin
                   , PTR TestWRDAuthRouter
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]

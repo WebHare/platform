@@ -3,6 +3,9 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/otp.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -64,16 +67,21 @@ PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
 
 /** Returns authentication settings with the specified password hash as current password
     @param passwordhash Current password hash
+    @cell options.validfrom Date when the password was set, defaults to current time
     @return Authentication settings @includecelldef #ValidateAuthenticationSettingValue.return
     @public
     @topic wrdauth/api
     @loadlib mod::wrd/lib/auth.whlib
 */
-PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passwordhash)
+PUBLIC RECORD FUNCTION CreateAuthenticationSettingsFromPasswordHash(STRING passwordhash, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ validfrom :=    GetCurrentDateTime()
+      ], options);
+
   RECORD value := GetDefaultAuthenticationSettings();
   IF (passwordhash != "")
-    INSERT CELL[ passwordhash, validfrom := DEFAULT DATETIME ] INTO value.passwords AT END;
+    INSERT CELL[ passwordhash, options.validfrom ] INTO value.passwords AT END;
   RETURN ValidateAuthenticationSettingValue(value); //validates the password hash
 }
 
@@ -297,4 +305,161 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING
     INSERT toinsert INTO wrd.auditevents;
     GetPrimary()->CommitWork();
   }
+}
+
+/** Parses a subset an ISO8061 duration.
+    Limitations:
+    - fractions are only allowed with seconds, not with smallest item
+    -
+    @param duration Duration to parse
+    @return Duration parts
+    @cell(integer) return.years Number of years
+    @cell(integer) return.months Number of months
+    @cell(integer) return.weeks Number of weeks
+    @cell(integer) return.days Number of days
+    @cell(integer) return.hours Number of hours
+    @cell(integer) return.minutes Number of minutes
+    @cell(integer) return.seconds Number of seconds
+    @cell(integer) return.milliseconds Number of milliseconds
+*/
+PUBLIC RECORD FUNCTION ParseDuration(STRING duration)
+{
+  IF (duration = "")
+    RETURN DEFAULT RECORD;
+
+  RECORD retval :=
+      [ years :=          0
+      , months :=         0
+      , weeks :=          0
+      , days :=           0
+      , hours :=          0
+      , minutes :=        0
+      , seconds :=        0
+      , milliseconds :=   0
+      ];
+
+  OBJECT parser := NEW StringParser(duration);
+
+  IF (NOT parser->TryParse("P"))
+    THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}`);
+
+  BOOLEAN havet;
+  STRING letters := "YMDHMSYMDHMS";
+  STRING ARRAY long := [ "years", "months", "days", "hours", "minutes", "seconds" ];
+
+  INTEGER lpos := 0;
+  BOOLEAN haveitem;
+  WHILE (NOT parser->eof)
+  {
+    IF (parser->TryParse("T"))
+    {
+      IF (havet)
+        THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Multiple "T" letters found`);
+      lpos := 3;
+      havet := TRUE;
+      CONTINUE;
+    }
+
+    INTEGER amount := ToInteger(parser->ParseWhileInSet(parser->set_digit), -1);
+    BOOLEAN gotdot := parser->TryParse(".") OR parser->TryParse(",");
+    IF (gotdot)
+      retval.milliseconds := ToInteger(Left(parser->ParseWhileInSet(parser->set_digit) ||  "000", 3), -1);
+    STRING type := parser->ParseN(1);
+
+    IF (type = "")
+      THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Missing type letter`);
+
+    IF (type != "S" AND gotdot)
+      THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Partial amounts only allowed for the seconds part`);
+    IF (amount = -1)
+      THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Coult not parse amount`);
+
+    IF (type = "W")
+    {
+      IF (havet OR haveitem)
+        THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Weeks only allowed as used as the only element in the duration`);
+      retval.weeks := amount;
+      haveitem := TRUE;
+      BREAK;
+    }
+
+    INTEGER pos := SearchSubstring(letters, type, lpos);
+    IF (pos = -1)
+      THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Unknown type letter ${EncodeJSON(type)}`);
+    IF (havet ? pos >= 6 : pos >= 3)
+      THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: Letter ${EncodeJSON(type)} not allowed at this position`);
+
+    retval := CellUpdate(retval, long[pos], amount);
+    lpos := pos + 1;
+    haveitem := TRUE;
+  }
+
+  IF (NOT parser->eof OR NOT haveitem)
+    THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: extra data ${EncodeJSON(parser->remaining_data)}`);
+
+  RETURN retval;
+}
+
+DATETIME FUNCTION AddUnpackedDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor)
+{
+  FOREVERY (RECORD part FROM UnpackRecord(duration))
+  {
+    IF (part.value = 0)
+      CONTINUE;
+    SWITCH (part.name)
+    {
+      CASE "YEARS"          { date := AddYearsToDate(factor * part.value, date); }
+      CASE "MONTHS"         { date := AddMonthsToDate(factor * part.value, date); }
+      CASE "WEEKS"          { date := AddDaysToDate(factor * 7*part.value, date); }
+      CASE "DAYS"           { date := AddDaysToDate(factor * part.value, date); }
+      CASE "HOURS"          { date := AddTimeToDate(factor * 60*60*1000*part.value, date); }
+      CASE "MINUTES"        { date := AddTimeToDate(factor * 60*1000*part.value, date); }
+      CASE "SECONDS"        { date := AddTimeToDate(factor * 1000*part.value, date); }
+      CASE "MILLISECONDS"   { date := AddTimeToDate(factor * part.value, date); }
+    }
+  }
+
+  RETURN date;
+}
+
+PUBLIC DATETIME FUNCTION AddUnpackedDurationToDate(RECORD duration, DATETIME date)
+{
+  RETURN AddUnpackedDurationToDateInternal(duration, date, 1);
+}
+
+PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIME date)
+{
+  RETURN AddUnpackedDurationToDateInternal(duration, date, -1);
+}
+
+/** Get a text describing a duration.
+    @param duration ISO 8601 duration
+    @return Duration string
+*/
+PUBLIC STRING FUNCTION GetDurationTitle(STRING duration)
+{
+  STRING ARRAY parts;
+  FOREVERY (RECORD part FROM UnpackRecord(ParseDuration(duration)))
+  {
+    IF (part.value = 0)
+      CONTINUE;
+    SWITCH (part.name)
+    {
+      CASE "YEARS"   { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.years", ToString(part.value)) INTO parts AT END; }
+      CASE "MONTHS"  { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.months", ToString(part.value)) INTO parts AT END; }
+      CASE "WEEKS"   { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.weeks", ToString(part.value)) INTO parts AT END; }
+      CASE "DAYS"    { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.days", ToString(part.value)) INTO parts AT END; }
+      CASE "HOURS", "MINUTES", "SECONDS", "MILLISECONDS" { } // ignore for now.
+    }
+  }
+
+  STRING retval;
+  SWITCH (LENGTH(parts))
+  {
+    CASE 1 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts1", parts[0]); }
+    CASE 2 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts2", parts[0], parts[1]); }
+    CASE 3 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts3", parts[0], parts[1], parts[2]); }
+    CASE 4 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts4", parts[0], parts[1], parts[2], parts[3]); }
+  }
+  RETURN retval;
 }

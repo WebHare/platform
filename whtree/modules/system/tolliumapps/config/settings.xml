@@ -148,14 +148,7 @@
           </line>
         </tab>
         <tab tid=".passwordrestrictions">
-          <line layout="left">
-            <checkbox name="password_hibp" labeltid=".passwordcheckhibp" title="" />
-          </line>
-          <textedit name="password_minlength" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-          <textedit name="password_lowercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-          <textedit name="password_uppercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-          <textedit name="password_digits" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
-          <textedit name="password_symbols" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+          <s:passwordvalidationchecks name="passwordvalidationchecks" />
         </tab>
       </tabs>
     </body>
@@ -164,5 +157,20 @@
     </footer>
   </screen>
 
+  <screen name="selectduration" footerbuttons="ok cancel" gid=".duration">
+    <compositions>
+      <record name="duration" />
+    </compositions>
+    <body>
+      <textedit composition="duration" cellname="years" name="years" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="months" name="months" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="weeks" name="weeks" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="days" name="days" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="hours" name="hours" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="minutes" name="minutes" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="seconds" name="seconds" valuetype="integer" minvalue="0" width="8x" />
+      <textedit composition="duration" cellname="milliseconds" name="milliseconds" valuetype="integer" minvalue="0" width="8x" />
+    </body>
+  </screen>
 
 </screens>
