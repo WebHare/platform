@@ -552,12 +552,12 @@ ASYNC MACRO TestMailWitty()
 
   RECORD rtdtext := [ htmltext := StringToBlob('<html><head></head><body>'
                                    || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
-                                   || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="https://webhare.nl/">[fourtytwo]</a> <i>paragraaf</i><br/>met\neen  \n    soft-break en [haakjes] een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /> en <a href="x-witty:[link]">link</a></p>'
+                                   || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="https://webhare.nl/">[fourtytwo]</a> <i>paragraaf</i><br/>met\neen  \n    soft-break en [haakjes] een afbeelding: <img src="cid:imagecid-rtdtext-81400" width="160" height="120" alt="I&amp;G" /> en <a href="x-witty:[link]">link</a></p>'
                                    || '<div class="wh-rtd-embeddedobject" data-instanceid="B1ra7ve1TrCwfdusGy9kOxg"></div>'
                                    || '<div class="wh-rtd-embeddedobject" data-instanceid="xxya7ve1TrCwfdusGy9kOxg"></div>'
                                    || '</body></html>')
                     , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
-                                        , contentid := "imagecid-81400"
+                                        , contentid := "imagecid-rtdtext-81400"
                                         ]
                                   ]
                    , instances := [[ instanceid := "B1ra7ve1TrCwfdusGy9kOxg"
@@ -589,6 +589,7 @@ ASYNC MACRO TestMailWitty()
 
   OBJECT extraimg := htmldoc->GetElement("#extra img");
   TestEqLike("cid:*", extraimg->GetAttribute("src"));
+  STRING firstimgsrc := extraimg->GetAttribute("src");
 
   RECORD matchimg := SELECT * FROM resultmessage.data.subparts[1].subparts WHERE contentid = "<" || Substring(extraimg->GetAttribute("src"),4) || ">";
   TestEq(TRUE, RecordExists(matchimg));
@@ -610,6 +611,8 @@ ASYNC MACRO TestMailWitty()
   TestEqLIke("*I love 42 <b>HTML</b> tags!*", htmldoc->GetElement("#extra")->innerhtml);
   //note:   https://www.webhare.nl/ still got inserted into the hyperlink because of rawwittytags := TRUE
   TestEq("x-witty:https://www.webhare.nl/", htmldoc->GetElements("p.normal a")[1]->GetAttribute("href"), "Link should NOT be translated, didn't explicitly ask for it");
+
+  TestEq(firstimgsrc, htmldoc->GetElement("#extra img")->GetAttribute("src"));
 
   //Now see if it's compatible with a merge
   AWAIT ExpectScreenChange(+1, PTR RunSendEmailDialog(GetTestController(), [ email := outmail
