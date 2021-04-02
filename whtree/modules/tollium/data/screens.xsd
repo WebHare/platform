@@ -2336,8 +2336,10 @@ To change a <xs:attribute /> for adding descriptions
           - uppercase: Must contain at least this amount of uppercase letters
           - digits: Must contain at least this amount of digits
           - symbols:  Must contain at least this amount of other characters
+          - maxage: Must be changed after IOS8601 duration of time
+          - noreuse: Passwords may not be reused for ISO8061 duration of time
 
-          Example: 'minlength:12 digits:10 hibp'.
+          Example: 'minlength:12 digits:10 hibp magage:P1M14D'.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>

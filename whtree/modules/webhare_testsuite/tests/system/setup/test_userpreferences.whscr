@@ -9,7 +9,7 @@ ASYNC MACRO TestAuthSettings()
 {
   // set an old password
   testfw->BeginWork();
-  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa"),
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa@allow2fa.test.webhare.net"),
       [ whuser_password :=
             [ version :=      1
             , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
@@ -20,7 +20,7 @@ ASYNC MACRO TestAuthSettings()
       ]);
   testfw->CommitWork();
 
-  testfw->SetTestUser("lisa");
+  testfw->SetTestUser("lisa@allow2fa.test.webhare.net");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
 
   // Change password
@@ -67,7 +67,7 @@ ASYNC MACRO TestAuthSettings()
 
   // set an old password
   testfw->BeginWork();
-  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa"),
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa@allow2fa.test.webhare.net"),
       [ whuser_password :=
             [ version :=      1
             , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
@@ -87,7 +87,7 @@ ASYNC MACRO TestAuthSettings()
 
 RunTestframework( [ PTR TestAuthSettings
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                    ,[ login := "lisa", grantrights := ["system:sysop"] ]
+                                    ,[ login := "lisa@allow2fa.test.webhare.net", grantrights := ["system:sysop"] ]
                                     ]
                      , testroles := [[ role := "powerplantmanagers" ]]
                      , debug := TRUE
