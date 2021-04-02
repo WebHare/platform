@@ -120,9 +120,9 @@ test.registerTests(
       // message window 'Your password has been updated'
       test.eqMatch(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
-      await test.wait('ui');
 
-      // should be back in login window, login with new password
+      // should go back to login window, login with new password
+      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length == 1);
       test.setTodd('password', "secret");
       test.clickToddButton('Login');
       await test.wait('ui');
