@@ -2058,7 +2058,7 @@
         <text tid="verificationcode">Verification code</text>
         <text tid="verificationcodeexplain">Sent in a separate message</text>
         <text tid="verifiermismatch">Your verification did not match the code we provided to you</text>
-        <text tid="warning_passwordmustbereset">Your current password does not comply with the password policy, please enter a new password.</text>
+        <text tid="warning_passwordmustbereset">Your current password does not comply with the password policy, please choose a new password.</text>
         <text tid="welcome">To reset your password, please enter the email address associated with your account</text>
       </textgroup>
     </textgroup>
