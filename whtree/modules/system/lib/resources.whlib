@@ -218,7 +218,7 @@ PUBLIC STRING FUNCTION GetResourceNameFromDiskPath(STRING diskpath, RECORD optio
 }
 
 /** Returns a URL for a WebHare module resource, if available
-    @param resourcename The resource, eg moduleroot::mymodule/webdesigns/mydesign/web/myimage.png
+    @param resourcename The resource, eg mod::mymodule/webdesigns/mydesign/web/myimage.png
     @return The URL, if available - it will usually start with '/', similar to the image cache urls. To get an absolute URL, you may have to ResolvetoAbsoluteURL(GetPrimaryWebhareInterfaceURL(), ....) the result */
 PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
 {

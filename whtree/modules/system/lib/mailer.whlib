@@ -36,6 +36,7 @@ LOADLIB "mod::system/lib/internal/composer.whlib" EXPORT RestructureEmailForComp
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/mail/routemgr.whlib" EXPORT GetEmailAutocorrection;
 
+CONSTANT STRING ARRAY allowed_embed_extensions := [".png",".jpg",".gif",".svg",".css"];
 
 RECORD ARRAY unpacked_files;
 RECORD ARRAY embedded_files;
@@ -1176,6 +1177,12 @@ STATIC OBJECTTYPE WittyMailComposer
 
     url := MakeAbsoluteResourcePath(respath,url);
     INSERT url INTO this->seenfiles AT END;
+
+    IF(GetExtensionFromPath(url) NOT IN allowed_embed_extensions)
+      THROW NEW Exception(`Cannot embed resource '${url}' - only extensions ${Detokenize(allowed_embed_extensions,", ")} are allowed`);
+    IF(url NOT LIKE "mod::*" AND url NOT LIKE "site::*")
+      THROW NEW Exception(`Cannot embed resource '${url}' - unacceptable namespace`);
+
     RETURN this->AddEmbeddedObject(GetWebhareResource(url), CELL[ filename := GetNameFromPath(url) ]);
   }
 
@@ -1483,7 +1490,7 @@ STATIC OBJECTTYPE WittyMailComposer
       @param rtdtext Rich document to embed
       @cell(boolean) options.rawwittytags Interpret and merge any witty tags found anywhere in HTML, inside embedhtml and content, accepting potential crashes
       @cell(boolean) options.wittyhyperlinks Support witty tags in hyperlinks if they're prefixed with x-witty:
-      @cell(macro ptr) options.htmlpostprocessor Callback which will receive a DOM to rewrite after the rest of the RTD has been prepared
+      @cell(macro ptr) options.htmlpostprocessor Callback which will receive a DOM to rewrite after the rest of the RTD has been prepared but before rendered widgets are merged back into the content
       */
   PUBLIC MACRO RenderRTD(RECORD rtdtext, RECORD options DEFAULTSTO DEFAULT RECORD)
   {

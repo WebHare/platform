@@ -646,6 +646,26 @@ ASYNC MACRO TestMailWitty()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }
 
+MACRO TestMailWitty_EmbedSafety()
+{
+  OBJECT outmail := PrepareMailWitty(`inline::<img src="mod::system/lib/mailer.whlib">`);
+  outmail->mailto := ["test@beta.webhare.net"];
+
+  testfw->BeginWork();
+  TestThrowsLike("Cannot embed*extension*", PTR outmail->QueueMailInWork());
+  TestThrowsLike("Cannot embed*extension*", PTR outmail->ExportAsEML());
+  testfw->RollbackWork();
+
+  outmail := PrepareMailWitty(`inline::<img src="storage::system/img.png">`);
+  outmail->mailto := ["test@beta.webhare.net"];
+
+  testfw->BeginWork();
+  TestThrowsLike("Cannot embed*namespace*", PTR outmail->QueueMailInWork());
+  TestThrowsLike("Cannot embed*namespace*", PTR outmail->ExportAsEML());
+  testfw->RollbackWork();
+}
+
+
 MACRO TestMailWitty_EmbeddedTemplate()
 {
   OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/applytemplate.html.witty"));
@@ -717,6 +737,7 @@ RunTestframework([ PTR EmbedTest
                  , PTR PostMergeTest
                  , PTR RTEIntegrationTest
                  , PTR TestMailWitty
+                 , PTR TestMailWitty_EmbedSafety
                  , PTR TestMailWitty_EmbeddedTemplate
                  , PTR TestMailWitty_Component
                  , PTR TestRejectHugeMail
