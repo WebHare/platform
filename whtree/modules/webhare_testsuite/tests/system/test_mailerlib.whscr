@@ -7,6 +7,8 @@ LOADLIB "wh::internet/mime.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -663,6 +665,36 @@ MACRO TestMailWitty_EmbedSafety()
   TestThrowsLike("Cannot embed*namespace*", PTR outmail->QueueMailInWork());
   TestThrowsLike("Cannot embed*namespace*", PTR outmail->ExportAsEML());
   testfw->RollbackWork();
+
+  //It should be okay to use the image cache
+  testfw->BeginWork();
+  BLOB toupload := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg");
+  OBJECT kikkertje := GetTestsuiteTempFolder()->CreateFile( [ data := toupload, publish := FALSE, name := "kwaak.jpg" ]);
+
+  outmail := PrepareMailWitty(`inline::<img src="${GetCachedImageLink(kikkertje->GetWrapped(),[ method := "fit", setheight:=50, setwidth:=50 ])}">`);
+
+  RECORD image_mail := DecodeMIMEMessage(outmail->ExportAsEML());
+  TestEqLike("multipart/related*", image_mail.contenttype);
+  RECORD image_scan := ScanBlob(image_mail.data.subparts[1].data);
+  TestEq(50, image_scan.height);
+  TestEq(42, image_scan.width);
+
+  outmail := PrepareMailWitty(`inline-base64::${EncodeBase64(`<img src="${GetCachedImageLink(kikkertje->GetWrapped(),[ baseurl := GetPrimaryWebHareInterfaceURL(), method := "fit", setheight:=50, setwidth:=50 ])}">`)}`);
+
+  //an external link should remain external. no mail embedded
+  image_mail := DecodeMIMEMessage(outmail->ExportAsEML());
+  TestEqLike("text/html*", image_mail.contenttype);
+
+  //We should also support GetModuleResourceURL paths
+  outmail := PrepareMailWitty(`inline::<img src="${GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg")}">`);
+
+  image_mail := DecodeMIMEMessage(outmail->ExportAsEML());
+  TestEqLike("multipart/related*", image_mail.contenttype);
+  image_scan := ScanBlob(image_mail.data.subparts[1].data);
+  TestEq(120, image_scan.height);
+  TestEq(160, image_scan.width);
+
+  testfw->CommitWork();
 }
 
 

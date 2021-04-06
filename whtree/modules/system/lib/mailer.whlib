@@ -1175,6 +1175,16 @@ STATIC OBJECTTYPE WittyMailComposer
     IF(RecordExists(cached))
       RETURN this->AddEmbeddedObject(cached.data, CELL[ cached.filename ]);
 
+    IF(url LIKE "/.publisher/sd/*/*/*")
+    {
+      url := CollapsePath(url);
+
+      STRING ARRAY toks := Tokenize(url,'/');
+      IF(Length(toks) < 6)
+        THROW NEW Exception(`Invalid resource path '${url}`);
+      url := `mod::${toks[3]}/webdesigns/${toks[4]}/web/${Detokenize(ArraySlice(toks,5),"/")}`;
+    }
+
     url := MakeAbsoluteResourcePath(respath,url);
     INSERT url INTO this->seenfiles AT END;
 
