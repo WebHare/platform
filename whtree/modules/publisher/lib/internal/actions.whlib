@@ -663,7 +663,7 @@ PUBLIC STATIC OBJECTTYPE ArchiveImporter EXTEND BulkReceiveOperation
 PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
 {
   RECORD retval := [ restoringtodeletedfolder := INTEGER[]
-                   , restored := INTEGER[]
+                   , restored := RECORD[]
                    ];
   RECORD ARRAY objs := SELECT fs_history.currentparent
                             , ids := GroupedVAlues(fs_objects.id)
@@ -688,7 +688,7 @@ PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
     FOREVERY(INTEGER objid FROM objgroup.ids)
     {
       OpenWHFSObject(objid)->MoveTo(dest, "");
-      INSERT objid INTO retval.restored AT END;
+      INSERT CELL[ id := objid, restoredto := dest->whfspath ] INTO retval.restored AT END;
     }
   }
 

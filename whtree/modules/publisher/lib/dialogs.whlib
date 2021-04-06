@@ -348,8 +348,12 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
   {
-    parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.norightstoviewfile"));
-    RETURN;
+    STRING targetpath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = objectid;
+    IF(NOT IsRecycleBinWHFSPath(targetpath) OR NOT IsDeletedObjectAccessible(objectid))
+    {
+      parentscreen->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.norightstoviewfile"));
+      RETURN;
+    }
   }
 
   TRY

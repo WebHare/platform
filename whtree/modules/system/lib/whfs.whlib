@@ -74,6 +74,7 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
       , todate :=         DEFAULT DATETIME
       , types :=          DEFAULT INTEGER ARRAY
       , filteronrights := TRUE
+      , limitobjectids := INTEGER[]
       ], options);
 
   INTEGER ARRAY limitrecyclebins;
@@ -106,7 +107,8 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
              AND (options.namecontains != "" ? ToUppercase(fs_history.currentname) LIKE ToUppercase("*" || options.namecontains || "*") : TRUE)
              AND (options.fromdate != DEFAULT DATETIME ? fs_history.when >= options.fromdate : TRUE)
              AND (LENGTH(options.types) != 0 ? deletedobjects.type IN options.types : TRUE)
-             AND (options.todate != DEFAULT DATETIME ? fs_history.when < options.todate : TRUE);
+             AND (options.todate != DEFAULT DATETIME ? fs_history.when < options.todate : TRUE)
+             AND (Length(options.limitobjectids) > 0 ? deletedobjects.id IN options.limitobjectids : TRUE);
 
   RECORD ARRAY versionarchive_deletions :=
       SELECT id :=              fs_objects.id
@@ -132,6 +134,7 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
          AND (options.fromdate != DEFAULT DATETIME ? accept.when >= options.fromdate : TRUE)
          AND (options.todate != DEFAULT DATETIME ? accept.when < options.todate : TRUE)
          AND (LENGTH(options.types) != 0 ? fs_objects.type IN options.types : TRUE)
+         AND (Length(options.limitobjectids) > 0 ? fs_objects.id IN options.limitobjectids : TRUE)
          AND (options.namecontains != "" ? ToUppercase(GetNameFromPath(request.orgfullpath)) LIKE ToUppercase("*" || options.namecontains || "*") : TRUE);
 
   RECORD ARRAY retval := recyclebin_deletions CONCAT versionarchive_deletions;
@@ -155,6 +158,12 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
   }
 
   RETURN retval;
+}
+
+PUBLIC BOOLEAN FUNCTION IsDeletedObjectAccessible(INTEGER objectid)
+{
+  dumpvalue(SearchRecycleBin([ limitobjectids := [objectid]]));
+  RETURN Length(SearchRecycleBin([ limitobjectids := [objectid]])) != 0;
 }
 
 /** Open a module's private data folder
