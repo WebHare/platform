@@ -14,6 +14,9 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 STRING link_grayscalehomer,link_testhostdata, link_kikker, link_fs_frogger, link_unused_kikker;
 DATETIME after_kikker_hit;
 STRING default_imgcache := "public, max-age=31536000, immutable";
@@ -24,11 +27,10 @@ MACRO ImgCacheTest()
   // Insert a simple image into the publisher
 
   testfw->BeginWork();
-  testfw->SetupTestWebsite(DEFAULT BLOB);
 
-  OBJECT root := testfw->GetTestSite()->rootobject;
-  STRING baseurl := testfw->GetTestSite()->webroot || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
-  BLOB toupload := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg");
+  OBJECT root := GetTestsuiteTempFolder();
+  STRING baseurl := ResolveToAbsoluteURL(root->objecturl,"/tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml");
+  BLOB toupload := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg");
 
   RECORD srckikkerinfo := ScanBlob(toupload,""); //we need to be sure filetype detection is functioning...
   TestEQ(TRUE, srckikkerinfo.width != 0, "original cmyk_kikkertje.jpg not recognized as image");
@@ -236,7 +238,7 @@ MACRO ImgCacheTest()
   // Test hostdata
   STRING customhomerlink3 := GetCachedFSImageURL(baseurl, homer->id, [ method := "fitcanvas", setwidth := 100, setheight := 100, cachehost := alternativeacachehost, hostdata := [ overlay := 0x2fFF0000 ], hosthash := "bladiebla" ]);
   TestEq(TRUE, testfw->browser->GotoWebPage(customhomerlink3), customhomerlink3);
-  OBJECT referencecustomhomer := CreateCanvasFromBlob(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/customhomer3.png"));
+  OBJECT referencecustomhomer := CreateCanvasFromBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/customhomer3.png"));
   TestEq(0f, referencecustomhomer->CompareWithCanvas(CreateCanvasFromBlob(testfw->browser->content)), customhomerlink3);
 
   RECORD customhomer4 := WrapCachedImage(homer->GetWrapped(), [ method := "fitcanvas", setwidth := 100, setheight := 100, cachehost := alternativeacachehost, hostdata := [ overlay := 0x2fFF0000 ], hosthash := "bladiebla" ]);
@@ -250,8 +252,8 @@ MACRO ImgCacheTest()
 MACRO ImgCacheSourcesTest()
 {
   testfw->BeginWork();
-  OBJECT testfile := testfw->GetTestSite()->rootobject->CreateFile( [ name := "testfile" ]);
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := [[ blobcell := WrapBlob(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg") ]]]);
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile( [ name := "testfile" ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := [[ blobcell := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg") ]]]);
   testfw->CommitWork();
 
   RECORD img := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
@@ -270,7 +272,7 @@ MACRO ImgCacheSourcesTest()
 MACRO NotTheImageTest()
 {
   testfw->BeginWork();
-  OBJECT testfile := testfw->GetTestSite()->rootobject->CreateFile( [ name := "nottheimage" ]);
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile( [ name := "nottheimage" ]);
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ arraytest := [[ blobcell := WrapBlob(StringToBlob("Dit is een file"),"file.txt") ]]]);
   RECORD img := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
 
@@ -284,10 +286,9 @@ MACRO NotTheImageTest()
 
 MACRO FsCacheTest()
 {
-  STRING baseurl := testfw->GetTestSite()->webroot || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
+  STRING baseurl := ResolveToAbsoluteURL(GetTestsuiteTempFolder()->link, "/tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml");
 
-  OBJECT root := testfw->GetTestSite()->rootobject;
-  OBJECT kikkertje := root->OpenByName("kwaak.jpg");
+  OBJECT kikkertje := GetTestsuiteTempFolder()->OpenByName("kwaak.jpg");
   TestEq(TRUE, ObjectExists(kikkertje), 'previous test did not leave kwaak.jpg for us...');
 
 
@@ -296,10 +297,10 @@ MACRO FsCacheTest()
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;
   STRING goodkikkerfilelink := GetCachedFSFileURL(baseurl, kikkertje->id);
 
-  OBJECT docxje := root->CreateFile( [ data := testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/empty.docx"), publish := FALSE, name := "empty.docx" ]);
-  OBJECT extensionless := root->CreateFile([data := StringToBlob("\x00\x01\x02\x03"), name := "extensionless" ]);
-  OBJECT oddity := root->CreateFile( [ data := StringToBlob("Space?"), publish := TRUE, name := "Bowie Space!.oddity" ]);
-  OBJECT oddity2 := root->CreateFile( [ data := StringToBlob("Space?"), publish := TRUE, name := "Bowie Space!.oddity 2!" ]);
+  OBJECT docxje := GetTestsuiteTempFolder()->CreateFile( [ data := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/empty.docx"), publish := FALSE, name := "empty.docx" ]);
+  OBJECT extensionless := GetTestsuiteTempFolder()->CreateFile([data := StringToBlob("\x00\x01\x02\x03"), name := "extensionless" ]);
+  OBJECT oddity := GetTestsuiteTempFolder()->CreateFile( [ data := StringToBlob("Space?"), publish := TRUE, name := "Bowie Space!.oddity" ]);
+  OBJECT oddity2 := GetTestsuiteTempFolder()->CreateFile( [ data := StringToBlob("Space?"), publish := TRUE, name := "Bowie Space!.oddity 2!" ]);
   testfw->CommitWork();
 
   link_fs_frogger := goodkikkerfilelink;
@@ -362,8 +363,8 @@ MACRO FsCacheTest()
 MACRO FilenameTest()
 {
   testfw->BeginWork();
-  OBJECT testfile := testfw->GetTestSite()->rootobject->OpenByName("testfile");
-  RECORD wrappedentry := WrapBlob(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg");
+  OBJECT testfile := GetTestsuiteTempFolder()->OpenByName("testfile");
+  RECORD wrappedentry := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg"),"kikker.jpg");
 
   //Long filenames
   wrappedentry.filename := RepeatText("kikker",42) || ".jpg";
