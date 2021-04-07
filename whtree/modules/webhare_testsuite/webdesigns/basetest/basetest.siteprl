@@ -101,6 +101,7 @@
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
 
     <!-- Test pages etc -->
     <prebuiltpage type="dynamic" library="pages/formtest/formtest.whlib" tag="formtest" webpageobjectname="FormTestPage" />
@@ -198,6 +199,12 @@
       <source path="site::webhare testsuite site/testpages/" />
     </setlibrary>
     <extendproperties contenttype="http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" extension="#basetestprops" />
+  </apply>
+
+  <!-- Test fsobjecttemplates -->
+  <apply>
+    <to type="all" pathmask="*/no_pagelisttest_folder/*"/>
+    <denyfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
   </apply>
 
   <!-- Content type that isn't copied -->

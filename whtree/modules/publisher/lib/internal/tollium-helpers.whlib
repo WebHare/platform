@@ -784,9 +784,6 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
   IF(NOT applytester->__Deprecated_GetObjInfo().isfake)
     UPDATE filetypes SET __visible := TRUE WHERE id = applytester->__Deprecated_GetObjInfo().obj.type;
 
-  IF(isnew AND NOT showall) //if New, remove filetypes that require content
-    DELETE FROM filetypes WHERE requirescontent=TRUE;
-
   filetypes := SELECT * FROM filetypes
                                WHERE __visible=TRUE AND (showdevelopertypes OR isdevelopertype=FALSE)
                                ORDER BY /*id < 1000 DESC, id < 1000 ? id : 0*/id != 0, ToUppercase(title);

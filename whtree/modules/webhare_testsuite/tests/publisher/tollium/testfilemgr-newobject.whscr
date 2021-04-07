@@ -58,6 +58,17 @@ ASYNC MACRO TestCreateObjectDialog()
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  testfw->BeginWork();
+  OBJECT no_pagelisttest_folder := GetTestsuiteTempFolder()->CreateFolder([name := "no_pagelisttest_folder"]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), no_pagelisttest_folder->id, [ isfolder := FALSE ] ));
+  //dumpvalue(TT("types")->rows,'boxed');
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   RECORD res := AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id,
     [ isfolder := FALSE
     , limittypes := INTEGER[ 18, OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id ]
