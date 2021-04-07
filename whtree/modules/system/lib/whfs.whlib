@@ -162,7 +162,6 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
 
 PUBLIC BOOLEAN FUNCTION IsDeletedObjectAccessible(INTEGER objectid)
 {
-  dumpvalue(SearchRecycleBin([ limitobjectids := [objectid]]));
   RETURN Length(SearchRecycleBin([ limitobjectids := [objectid]])) != 0;
 }
 
