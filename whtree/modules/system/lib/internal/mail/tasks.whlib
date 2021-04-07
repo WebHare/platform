@@ -246,6 +246,6 @@ PUBLIC OBJECTTYPE MailStatusCallbackTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
   {
-    this->ResolveByCompletion([ callbackresult := MakeFunctionPtr(taskdata.func)(taskdata.data, taskdata.type, taskdata.status) ]);
+    this->ResolveByCompletion(MakeFunctionPtr(taskdata.func)(taskdata.data, taskdata.type, taskdata.status));
   }
 >;

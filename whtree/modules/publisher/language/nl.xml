@@ -673,6 +673,8 @@
           <text tid="movetitle">Verplaatsen naar</text>
         </textgroup>
         <textgroup gid="errors">   <!-- filemanager.main.app.errors -->
+          <text tid="restoreditems"><param p="1"/> objecten hersteld</text>
+          <text tid="restoreditemto">Het object is hersteld naar <param p="1"/></text>
           <text tid="restoringtodeletedfolder">De selectie kon niet hersteld worden omdat de oorspronkelijke locatie ook verwijderd is.</text>
         </textgroup>
         <textgroup gid="menus">   <!-- filemanager.main.app.menus -->

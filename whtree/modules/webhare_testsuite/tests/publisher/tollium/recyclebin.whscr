@@ -3,12 +3,18 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 INTEGER recycleherid;
+INTEGER recycleoutsidesite;
 
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite();
+  testfw->SetupTestWebdesignWebsite(); //even though it's slower, a separate site ensures a clean recycle bin
   testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
 
@@ -16,6 +22,11 @@ MACRO PrepIt()
   testfw->SetTestUser("sysop");
   testfw->GetTestSite()->rootobject->CreateFile([name := "recycleme"])->RecycleSelf();
   testfw->GetTestSite()->rootobject->CreateFile([name := "recycleme3"])->RecycleSelf();
+
+  OBJECT outsidesite := GetTestsuiteTempFolder()->CreateFile([ name := "outside-site" ]);
+  recycleoutsidesite := outsidesite->id;
+  outsidesite->RecycleSelf();
+
   testfw->SetTestUser("lisa");
 
   OBJECT recycleher := testfw->GetTestSite()->rootobject->CreateFile([name := "recycleher"]);
@@ -88,6 +99,15 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   rows := TT("filelist")->rows;
   TestEq(["recycledfolder","recycledsubfile","recycleher","recycleher3","recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
 
+  topscreen->frame->focused := TT("filelist");
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleme";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TestEq(TRUE, TT("notpublished")->visible);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Test that we can't access ojects outside this site
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR RunFSObjectpropertiesDialog(GetTestController(), recycleoutsidesite), [ messagemask := "You don't have enough rights to open*" ]);
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 
   testfw->SetTestUser("sysop");
@@ -99,8 +119,8 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
 
   //By default, we expect our own recent deletions
   rows := TT("filelist")->rows;
-  TestEq(2, Length(rows));
-  TestEq(["recycleme","recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
+  TestEq(3, Length(rows));
+  TestEq(["outside-site", "recycleme", "recycleme3"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
 
   //FIXME make the userselect control smarter so we can just control that one
   TT("filelist")->folderfilter->contents->__SetSearch(testfw->GetUserAuthobjectId("lisa"), testfw->GetUserLogin("lisa"));
@@ -112,7 +132,7 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="recycleher";
   topscreen->frame->focused := TT("filelist");
 
-  TestEq(TRUE, TT("restore")->TolliumClick());
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("restore"), [ messagemask := "Restored*webhare_testsuite.site*" ]);
   TestEq(TRUE, ObjectExists(testfw->GetTestSite()->rootobject->OpenByPath("recycleher")));
 
   rows := TT("filelist")->rows;

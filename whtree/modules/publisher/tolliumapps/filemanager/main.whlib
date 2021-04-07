@@ -1618,6 +1618,10 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     //TODO This approach just ignores in a mixed situation... unless nothing was done. Can do this nicely but the amount of issue combinations in a multiple select explodes fast!
     IF(Length(result.restored) = 0 AND Length(result.restoringtodeletedfolder) > 0)
       work->AddWarning(this->GetTid(".errors.restoringtodeletedfolder"));
+    ELSE IF(Length(result.restored) > 1)
+      work->AddWarning(this->GetTid(".errors.restoreditems", ToString(Length(result.restored))));
+    ELSE IF(Length(result.restored) = 1)
+      work->AddWarning(this->GetTid(".errors.restoreditemto", result.restored[0].restoredto));
 
     work->Finish();
   }
