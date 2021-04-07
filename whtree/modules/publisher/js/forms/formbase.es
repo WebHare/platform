@@ -989,7 +989,7 @@ export default class FormBase
     {
       for (let { field, value } of richvalues)
       {
-        let node = page.querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${field}"] .wh-form__richtext`);
+        let node = page.querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${CSS.escape(field)}"] .wh-form__richtext`);
         if (node)
         {
           node.innerHTML = value;
