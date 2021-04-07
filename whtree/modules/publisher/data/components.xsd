@@ -1330,4 +1330,60 @@
       <xs:attributeGroup ref="sc:TidOrTitle" />
     </xs:complexType>
   </xs:element>
+
+  <xs:element name="slot">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/slot.xml#dcslot" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>A slot selection component</html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attribute name="slottypes" use="required" >
+        <xs:simpleType >
+          <xs:list itemType="xs:string" />
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="acstore" use="required" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="beacon">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/beacon.xml#dcbeacon" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>A beacon selection component</html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attribute name="emptytid" type="sc:Tid" />
+      <xs:attribute name="empty" type="xs:string" />
+      <xs:attribute name="dirtylistener" type="tc:ComponentRef" />
+      <xs:attribute name="rowkeyfield" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="id" />
+            <xs:enumeration value="name" />
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="acstore">
+        <xs:annotation>
+          <xs:documentation>
+            Path to the adaptive content store folder, can be left empty if the ^acstore context is available.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
 </xs:schema>

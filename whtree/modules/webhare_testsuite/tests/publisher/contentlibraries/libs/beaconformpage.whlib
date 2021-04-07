@@ -1,0 +1,33 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE BeaconFormPage EXTEND DynamicPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    RETURN PTR webdesign->OpenForm("beaconform")->RenderForm;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE BeaconForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    RECORD formsettings := MemberExists(this->formcontext, "targetobject") AND ObjectExists(this->formcontext->targetobject)
+        ? this->formcontext->targetobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/beaconformpage")
+        : DEFAULT RECORD;
+    IF (RecordExists(formsettings))
+    {
+      ^first_page->richvalue := formsettings.first;
+      ^thankyou_page->richvalue := formsettings.thankyou;
+    }
+  }
+
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;

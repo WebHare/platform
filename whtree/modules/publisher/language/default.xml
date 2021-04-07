@@ -2344,6 +2344,15 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents" limitlanguages="en nl">   <!-- tolliumcomponents -->
+    <textgroup gid="beacon">   <!-- tolliumcomponents.beacon -->
+      <text tid="deletedbeacon">&lt;beacon no longer available&gt;</text>
+    </textgroup>
+    <textgroup gid="conditionedit">   <!-- tolliumcomponents.conditionedit -->
+      <text tid="field-and">Match all</text>
+      <text tid="field-none">No condition</text>
+      <text tid="field-not">Don't match condition</text>
+      <text tid="field-or">Match any</text>
+    </textgroup>
     <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
       <text tid="cannotshowinsecurecontent">The content of the insecure URL '<param p="1"/>' cannot be shown within a secure site.</text>
       <text tid="clickerrors">Click here to view the errors.</text>
@@ -2562,6 +2571,14 @@
       <text tid="numslides"><param p="1"/> slides</text>
       <text tid="slides">Slides</text>
       <text tid="title">Slideshow</text>
+    </textgroup>
+    <textgroup gid="triggerbeacon">   <!-- widgets.triggerbeacon -->
+      <text tid="beacon">Beacon</text>
+      <text tid="nobeacons">There are no available beacons</text>
+      <text tid="preview-beacon">Trigger beacon '<param p="1"/>'</text>
+      <text tid="preview-nobeacon">No beacon selected</text>
+      <text tid="preview-nonexisting">Beacon could not be found</text>
+      <text tid="widget">Trigger beacon</text>
     </textgroup>
     <textgroup gid="twocolumnswidget">   <!-- widgets.twocolumnswidget -->
       <text tid="rtdleft">Left column</text>

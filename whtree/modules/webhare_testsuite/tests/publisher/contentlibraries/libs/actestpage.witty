@@ -1,0 +1,24 @@
+[component actestpage]
+  <div id="nowdate"></div>
+  <div id="currentbeacons"></div>
+  <div id="visitcount"></div>
+  <button id="resetallbeacons">Reset all beacons</button>
+  <button id="resetvisitcount">Reset visit count</button>
+  <button id="resetvisitsession">Reset visit session</button>
+  <button id="setstudentbeacon">Set student beacon</button>
+  <button id="clearstudentbeacon">Clear student beacon</button>
+  <button id="clearemployeebeacon">Clear employee beacon</button>
+
+  <fieldset id="headerslotholder">
+    <legend>Header Slot</legend>
+    [headerslot]
+  </fieldset>
+  <fieldset id="slot1holder">
+    <legend>Slot 1</legend>
+    [dynamicslot1]
+  </fieldset>
+  <fieldset id="slot2holder">
+    <legend>Slot 2</legend>
+    [dynamicslot2]
+  </fieldset>
+[/component]

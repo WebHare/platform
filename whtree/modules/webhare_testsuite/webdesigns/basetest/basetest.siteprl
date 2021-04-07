@@ -436,6 +436,8 @@
     <to type="file" pathmask="/testpages/consenttest.rtd" />
     <to type="folder" pathmask="/" />  <!-- needed to test testpage -->
     <to type="all" pathmask="*/tmp/tabletest.rtd" />
+    <to type="all" pathmask="/tmp/slots/*" />
+    <to type="all" pathmask="/tmp/beaconform" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <extendproperties name="rtdtypeprops" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
@@ -820,7 +822,10 @@
     </footer>
   </screen>
 
+  <!-- Adapative content tests -->
 
+
+  <applysiteprofile path="mod::webhare_testsuite/tests/publisher/contentlibraries/libs/contentlibraries.siteprl.xml" />
   <applysiteprofile path="pages/customform/customform.siteprl.xml" />
   <applysiteprofile path="pages/customform2/customform2.siteprl.xml" />
 

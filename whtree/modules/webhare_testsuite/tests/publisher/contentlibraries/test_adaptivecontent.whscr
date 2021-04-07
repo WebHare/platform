@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "relative::libs/adaptivecontent.whlib";
+
+RECORD settings;
+
+MACRO PrepConnectMgr()
+{
+  settings := SetupAdaptiveContentTest();
+
+  TestEq([[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/contentslot" ]
+         ,[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/headerslot" ]
+         ], SELECT namespace FROM settings.slotstore->ListAllowedSlotTypes() ORDER BY namespace);
+
+  TestEq([[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/headeroption1" ]
+         ,[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/headeroption2" ]
+         ], SELECT namespace FROM settings.headerslot->ListAllowedWidgetTypes());
+
+  TestEq([[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1" ]
+         ,[ namespace := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption2" ]
+         ], SELECT namespace FROM settings.slot1->ListAllowedWidgetTypes());
+
+  TestThrowsLike('*not*allowed*', PTR settings.slotstore->CreateSlot([ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+                                                                     , title := "should fail"
+                                                                     ]));
+
+  TestThrowsLike('*not*allowed*', PTR settings.headerslot->CreateWidget([ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+                                                                        , title := "should fail"
+                                                                        ]));
+}
+
+ASYNC MACRO TestDCComponents()
+{
+  OBJECT actestpage := OpenTestsuiteSite()->OpenByPath("actests/index", [ expect := "file" ]);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := [ STRING(actestpage->whfspath) ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  OBJECT footerdcslot := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/actestpage", "footerdcslot");
+  TestEq(0, footerdcslot->value);
+  TestEq(DEFAULT RECORD, footerdcslot->selection);
+  TestEq(2, Length(footerdcslot->options));
+  TestEQ("Headerslot", footerdcslot->options[1].title);
+
+  OBJECT contentdcslot := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/actestpage", "contentdcslot");
+  TestEq(0, contentdcslot->value);
+  TestEq(3, Length(contentdcslot->options));
+  TestEq(1, Length(SELECT FROM contentdcslot->options WHERE title = "a slot")); //this is slot #2
+  contentdcslot->value := SELECT AS INTEGER rowkey FROM contentdcslot->options WHERE title = "a slot";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(GetTestsuiteTempFolder()->OpenByPath("slots/a-slot-2")->id, actestpage->GetInstancedata("http://www.webhare.net/xmlns/webhare_testsuite/actestpage").contentdcslot);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  contentdcslot := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/actestpage", "contentdcslot");
+  TestEq("a slot", contentdcslot->selection.title);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+RunTestFramework([ PTR PrepConnectMgr
+                 , PTR TestDCComponents
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "superuser"]
+                                   ]
+                    ]);

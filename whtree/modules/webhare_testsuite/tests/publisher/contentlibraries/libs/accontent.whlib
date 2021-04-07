@@ -1,0 +1,12 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ContentOption1Widget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    this->EmbedComponent([ text := this->context->GetRTDBody(this->data.text) ]);
+  }
+>;

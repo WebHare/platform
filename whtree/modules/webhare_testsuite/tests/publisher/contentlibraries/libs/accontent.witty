@@ -1,0 +1,27 @@
+[component headeroption1]
+  <div class="accontent-widget accontent-widget--header accontent-widget--headeroption1">
+    <span class="text">[text]</span>
+  </div>
+  <div class="accontent-widget-trailer"></div> [! second node to ensure ALL of the widget is copied !]
+[/component]
+
+[component headeroption2]
+  <div class="accontent-widget accontent-widget--header accontent-widget--headeroption2">
+    <span class="text">[text]</span>
+  </div>
+  <div class="accontent-widget-trailer"></div> [! second node to ensure ALL of the widget is copied !]
+[/component]
+
+[component contentoption1]
+  <div class="accontent-widget accontent-widget--content accontent-widget--contentoption1">
+    <span class="text">[text]</span>
+  </div>
+  <div class="accontent-widget-trailer"></div> [! second node to ensure ALL of the widget is copied !]
+[/component]
+
+[component contentoption2]
+  <div class="accontent-widget accontent-widget--content accontent-widget--contentoption2">
+    <span class="text">[text]</span>
+  </div>
+  <div class="accontent-widget-trailer"></div> [! second node to ensure ALL of the widget is copied !]
+[/component]

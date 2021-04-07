@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.dcbeacon" library="beacon.whlib">
+
+  <fragment name="dcbeacon">
+    <compositions>
+      <eventlistener name="eventlistener" onevents="onevents" />
+    </compositions>
+    <contents>
+      <select name="beacon" type="pulldown" title="" />
+    </contents>
+  </fragment>
+
+</screens>

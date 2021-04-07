@@ -1,0 +1,76 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditTriggerBeaconWidget EXTEND TolliumTabsExtensionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TriggerBeaconWidget EXTEND WidgetBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF (this->data.beacon = 0)
+    {
+      Print(GetTid("publisher:widgets.triggerbeacon.preview-nobeacon"));
+      RETURN;
+    }
+
+    RECORD beacon := SELECT title FROM system.fs_objects WHERE id = this->data.beacon;
+    IF(RecordExists(beacon))
+      Print(EncodeHTML(GetTid("publisher:widgets.triggerbeacon.preview-beacon", beacon.title)));
+    ELSE
+      Print(EncodeHTML(GetTid("publisher:widgets.triggerbeacon.preview-nonexisting", ToString(this->data.beacon))));
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    TRY
+    {
+      RECORD beacon := SELECT name FROM system.fs_objects WHERE id = this->data.beacon;
+      IF(RecordExists(beacon))
+        Print(`<wh-beacon data-beacon="${EncodeValue(beacon.name)}" />`);
+    }
+    CATCH (OBJECT e)
+    {
+      //ADDME: Log error?
+    }
+  }
+
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
+  {
+    // Do nothing
+  }
+>;

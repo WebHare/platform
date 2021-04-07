@@ -193,6 +193,10 @@ OBJECT mailresultcustomwitty := webtools->CreateFile( [ name := "mailresult-cust
 `)]);
 OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty", data := StringToBlob("<body>[if iscancel]Too bad you've cancelled [field.firstname.text]![else]Hello [field.firstname.text]![/if]</body>") ]);
 
+//Set up active content tests
+OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
+actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
+
 //Set up a forms testpage
 OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "testpages" ] );
 OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE ] );

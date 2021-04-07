@@ -1,0 +1,30 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofiles.adaptivecontent" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <!-- adaptive content slots (folder of slots) -->
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+
+  <!-- adaptive content slot -->
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slot" />
+
+  <!-- slottedwidget properties -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget">
+    <record name="condition" />
+  </contenttype>
+
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+  <!-- beacon file type -->
+  <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile">
+    <members>
+      <string name="guid" />
+    </members>
+  </filetype>
+
+  <!-- add debug setting for connect -->
+  <apply>
+    <to type="all" />
+    <debugsettings title="Site testing">
+      <option tag="connect" title="Connect debugging" />
+    </debugsettings>
+  </apply>
+
+
+</siteprofile>

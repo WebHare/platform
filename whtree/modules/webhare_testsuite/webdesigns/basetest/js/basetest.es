@@ -4,12 +4,14 @@ import * as dialogapi from 'dompack/api/dialog';
 import PollWebtool from "@mod-publisher/js/webtools/poll";
 import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
 import * as forms from '@mod-publisher/js/forms';
+import * as adaptivecontent from '@mod-publisher/js/adaptivecontent';
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import '@mod-publisher/js/richcontent/all';
 import '@mod-publisher/js/analytics/gtm';
 import './components.es';
 import '@mod-webhare_testsuite/data/test/rte-structure.css';
+import '@mod-webhare_testsuite/tests/publisher/contentlibraries/libs/actestpage.es';
 
 require('../css/extra.scss');
 require('./basetest.lang.json');
@@ -89,6 +91,10 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
   dompack.register(".wh-requireconsent__overlay", overlay => overlay.addEventListener("click", startCookieRequest));
   window.hasConsent = consenthandler.hasConsent;
 }
+
+if (urlparams.has("now"))
+  window.__testdcoptions = { now: new Date(urlparams.get("now")) };
+adaptivecontent.setup(window.__testdcoptions);
 
 window.geoip_getCountryCode = geoip.getCountryCode;
 window.geoip_getIPInfo = geoip.getIPInfo;

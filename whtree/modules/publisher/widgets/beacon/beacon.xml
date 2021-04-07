@@ -1,0 +1,14 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="widgets.triggerbeacon"
+         library="beacon.whlib">
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+                 name="edittriggerbeaconwidget"
+                 implementation="lib">
+    <newtab>
+      <p:beacon composition="contentdata" cellname="beacon" emptytid=".nobeacons" required="true" rowkeyfield="id" />
+    </newtab>
+  </tabsextension>
+
+</screens>

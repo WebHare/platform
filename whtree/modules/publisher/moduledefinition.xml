@@ -159,6 +159,12 @@
       <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
     </webrule>
 
+    <webrule path="allroots:/.publisher/slots/" match="initial">
+      <addheader header="Cache-control" value="max-age=1,must-revalidate" />
+      <addheader header="Access-Control-Allow-Origin" value="*" />
+      <tryfolder path="whdata::storage/publisher/slots" />
+    </webrule>
+
     <webrule path="allroots:/.ap/" redirecttodir="var:ap/" match="initial" cachecontrol="public, max-age=900" priority="after"> <!-- Asset pack -->
       <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
     </webrule>
@@ -958,6 +964,7 @@
 
     <siteprofile path="data/publisher.siteprl.xml"/>
     <siteprofile path="data/embeddedobjects.siteprl.xml"/>
+    <siteprofile path="data/siteprofiles/contentlibraries.siteprl.xml"/>
     <siteprofile path="data/siteprofiles/webtools.siteprl.xml"/>
     <siteprofile path="widgets/widgets.siteprl.xml"/>
 
