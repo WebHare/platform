@@ -161,7 +161,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(CellExists(sessdata.tokeninfo,"access_token"))
     {
       RETURN CELL[ ...sessdata.tokeninfo
-                 , __meta := [ requeststart := sessdata.requeststart ]
+                 , __meta := [ requeststart := sessdata.requeststart
+                             ]
                  ];
     }
     RETURN DEFAULT RECORD;
@@ -293,14 +294,21 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   }
 
   /** Request client credentials (authorizing the app itself, not a specific user)
+      @cell(string array) options.scopes Requested scopes
   */
-  PUBLIC RECORD FUNCTION RequestClientCredentials()
+  PUBLIC RECORD FUNCTION RequestClientCredentials(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    BLOB body := CreateHTTPUrlencodedRequest(
-                  [[ name := "client_id",     value := this->oauthconfig.clientid ]
-                  ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
-                  ,[ name := "grant_type",    value := "client_credentials" ]
-                  ]).body;
+    options := ValidateOptions([ scopes := STRING[]
+                               ], options);
+
+    RECORD ARRAY vars := [[ name := "client_id",     value := this->oauthconfig.clientid ]
+                         ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
+                         ,[ name := "grant_type",    value := "client_credentials" ]
+                         ];
+    IF(Length(options.scopes) > 0)
+      INSERT CELL [ name := "scope", value := Detokenize(options.scopes,' ') ] INTO vars AT END;
+
+    BLOB body := CreateHTTPUrlencodedRequest(vars).body;
 
     IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
         [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
@@ -314,24 +322,41 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
 
   /** Grab client credentials from a registry key, requesting or extending if necessary.
       @long This call wrpas client token request and storage. It should be called outside open work
-      @param keyname Registry key to store the token in
+      @param keyname Registry key to store the token in. The key itself must be of type 'record'
+      @cell(string array) options.scopes Requested scopes
       @cell(boolean) return.success If true, credentials were succesfully renewed */
-  PUBLIC RECORD FUNCTION SetupClientCredentialsUsingRegistryKey(STRING keyname)
+  PUBLIC RECORD FUNCTION SetupClientCredentialsUsingRegistryKey(STRING keyname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ scopes := STRING[]
+                               ], options);
+
     IF(GetPrimary()->IsWorkOpen())
       THROW NEW Exception("SetupClientCredentialsUsingRegistryKey cannot be used with open work"); //we need control, plus shouldn't do remote requests with open transactions
 
     this->token := ReadRegistryKey(keyname);
 
-    IF(this->IsAccessTokenExpired())
+    BOOLEAN rerequest := this->IsAccessTokenExpired();
+    IF(NOT rerequest)
+    {
+      //if not expired, token record exists
+      RECORD meta := EnforceStructure([ requestedscopes := STRING[] ], this->token.__meta);
+      FOREVERY(STRING scope FROM options.scopes)
+        IF(scope NOT IN meta.requestedscopes)
+          rerequest := tRUE;
+    }
+
+    IF(rerequest)
     {
       DATETIME requeststart := GetCurrentDatetime();
       this->token := DEFAULT RECORD; //reset bearer token to prevent confusion on the API's side
-      RECORD result := this->RequestClientCredentials();
+      RECORD result := this->RequestClientCredentials(options);
       IF(result.access_token = "")
         RETURN [ success := FALSE ];
 
-      this->token := CELL[ ...result, __meta := [ requeststart := requeststart ] ];
+      this->token := CELL[ ...result
+                         , __meta := [ requeststart := requeststart
+                                     , requestedscopes := options.scopes
+                                     ] ];
       GetPrimary()->BeginWork();
       WriteRegistryKey(keyname, this->token);
       GetPrimary()->CommitWork();
