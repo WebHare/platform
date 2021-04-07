@@ -729,6 +729,10 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
   {
     this->selectfield->SetValueIfValid(val);
   }
+  UPDATE PUBLIC MACRO __SetInfoText(RECORD newtext)
+  {
+    this->selectfield->__SetInfoText(newtext);
+  }
 >;
 
 

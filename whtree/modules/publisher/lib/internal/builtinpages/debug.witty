@@ -8,17 +8,14 @@
   <style>
     div.blocks
     {
+      display:flex;
+      flex-direction:row;
+      flex-wrap:wrap;
       max-width:960px;
-    }
-    div.blocks:after
-    {
-      display:block;
-      content:"";
-      clear:both;
     }
     div.blocks .block
     {
-      float:left;
+      flex:none;
       width:300px;
       margin:10px;
     }

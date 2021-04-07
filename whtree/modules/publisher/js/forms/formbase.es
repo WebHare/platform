@@ -976,19 +976,24 @@ export default class FormBase
           executeSubmitInstruction({ type: "redirect", url: state.pages[nextpage].dataset.whFormPageredirect });
         else
         {
-          if (richvalues)
-          {
-            for (let {field,value} of richvalues)
-            {
-              let node = state.pages[nextpage].querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${field}"] .wh-form__richtext`);
-              if (node)
-              {
-                node.innerHTML = value;
-                dompack.registerMissed(node);
-              }
-            }
-          }
+          this.updateRichValues(state.pages[nextpage], richvalues);
           this.gotoPage(nextpage);
+        }
+      }
+    }
+  }
+
+  updateRichValues(page, richvalues)
+  {
+    if (richvalues)
+    {
+      for (let { field, value } of richvalues)
+      {
+        let node = page.querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${CSS.escape(field)}"] .wh-form__richtext`);
+        if (node)
+        {
+          node.innerHTML = value;
+          dompack.registerMissed(node);
         }
       }
     }
