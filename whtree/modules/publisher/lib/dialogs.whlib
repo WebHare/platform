@@ -170,6 +170,38 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
       RETURN 0;
   }
 
+  IF(createres.template = 0 AND createres.createtype != 0 AND options.isfolder = FALSE)
+  {
+    OBJECT applytester := GetApplyTesterForFakeObject(parentfolder,TRUE, createres.createtype);
+    RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR"); //TODO this is replicating the editor selection logic from RunFSObjectEditApplication, cleaner?
+    IF(NOT RecordExists(editorinfo)) //if no custom editor was set...
+    {
+      STRING typens := SELECT AS STRING namespace FROM system.fs_types WHERE id = createres.createtype;
+      RECORD typedef := LookupContentType(typens);
+      IF(RecordExists(typedef) AND typedef.isembeddedobjecttype AND RecordExists(typedef.editor) AND typedef.editor.type = "extension")
+      {
+        //NEW widget... so go straight to the widget editor
+        RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, typens, DEFAULT RECORD, DEFAULT OBJECT, applytester, FALSE, TRUE, "");
+        IF(NOT RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
+          RETURN 0;
+
+        GetPrimary()->BeginWork();
+        OBJECt parentobj := OpenWHFSObject(parentfolder);
+        OBJECT newfile := parentobj->CreateFile(
+          [ name := parentobj->GenerateUniqueName(embobj.title)
+          , title := embobj.title
+          , typens := embobj.instance.whfstype
+          ]);
+
+        //FIXME: verify that file is still available, writeable atc - although we actually -should-
+        // be given suhc notifications in __editEmbeddedObject's SUBMIT handler.
+        newfile->SetInstanceData(embobj.instance.whfstype, embobj.instance);
+        GetPrimary()->CommitWork();
+        RETURN newfile->id;
+      }
+    }
+  }
+
   //only path where createres can be a DEFAULT RECORD is where options.issite = TRUE
   OBJECT creationdialog := __CreateHistoryPropsDialog(parentscreen,
       [ why := options.issite ? "newsite" : createres.template != 0 ? "duplicate" : options.isfolder ? "newfolder" : "newfile"
@@ -539,14 +571,14 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
   IF(RecordExists(typedef) AND typedef.isembeddedobjecttype)
   {
     RECORD data := fileobj->GetInstanceData(fileobj->typens);
-    RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE);
+    RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE, TRUE, fileobj->title);
     IF(RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
     {
       GetPrimary()->BeginWork();
       //FIXME: verify that file is still available, writeable atc - although we actually -should-
       // be given suhc notifications in __editEmbeddedObject's SUBMIT handler.
       fileobj->SetInstanceData(fileobj->typens, embobj);
-      fileobj->UpdateData(DEFAULT BLOB); // trigger republish, hook callbacks and all magic associated to changing metadata
+      fileobj->UpdateData([ title := embobj.title ]); // trigger republish, hook callbacks and all magic associated to changing metadata
       GetPrimary()->CommitWork();
     }
     RETURN;

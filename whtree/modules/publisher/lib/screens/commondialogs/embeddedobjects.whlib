@@ -29,6 +29,7 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->instance->type := OpenWHFSType(data.whfstype);
 
     this->frame->title := GetTid(data.typedef.title);
+    ^title->value := data.currenttitle;
 
     IF (data.typedef.editor.type = "extension")
     {
@@ -62,6 +63,15 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
         this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.typedef.editor.extension})`;
         this->frame->allowresize := TRUE;
         this->frame->savestate := ["size"];
+      }
+
+      IF(data.isfilewidget AND ^extensiontabs->GetNumVisiblePages() >= 1)
+      {
+        //FIXME this is a hack, and theoretically the first tab might not even be visible due to visibleon... should we offer a <insert> alternative for widgets? or even do title insertion ONLY for widgts working that way?
+        ^title->visible := TRUE;
+        ^title->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
+        ^title->RemoveFromParent();
+        ^extensiontabs->pages[0]->InsertComponentBefore(^title, DEFAULT OBJECT, TRUE);
       }
 
       this->component := this->instance;
@@ -113,6 +123,11 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   RECORD FUNCTION GetValue()
   {
     RETURN this->valuecomponent->value ?? [ whfstype := this->whfstype ];
+  }
+
+  PUBLIC STRING FUNCTION GetNewTitle()
+  {
+    RETURN ^title->value;
   }
 >;
 
