@@ -106,8 +106,8 @@ function matchCondition(condition)
 
 async function handleAdaptiveContent(node)
 {
-  if (dompack.debugflags.connect)
-    console.log("[connect] Handle adaptive content", node.dataset.name);
+  if (dompack.debugflags.bac)
+    console.log("[bac] Handle adaptive content", node.dataset.name);
   //TODO geoip support etc
 
   const slot = node.dataset.slot;
@@ -119,8 +119,8 @@ async function handleAdaptiveContent(node)
   for (const widget of slotinfo.widgets)
   {
     let testresult = testWidget(widget);
-    if (dompack.debugflags.connect)
-      console.log(`[connect] Show widget '${widget.name}' for '${node.dataset.name}'?`, testresult);
+    if (dompack.debugflags.bac)
+      console.log(`[bac] Show widget '${widget.name}' for '${node.dataset.name}'?`, testresult);
     if(!testresult.ok)
       continue;
 
@@ -129,13 +129,13 @@ async function handleAdaptiveContent(node)
   }
   if (!selectedwidget)
   {
-    if (dompack.debugflags.connect)
-      console.log(`[connect] Not showing any widget for '${node.dataset.name}'`);
+    if (dompack.debugflags.bac)
+      console.log(`[bac] Not showing any widget for '${node.dataset.name}'`);
     return;
   }
 
-  if (dompack.debugflags.connect)
-    console.log(`[connect] Showing widget '${selectedwidget.name}' for '${node.dataset.name}'`);
+  if (dompack.debugflags.bac)
+    console.log(`[bac] Showing widget '${selectedwidget.name}' for '${node.dataset.name}'`);
 
   //display the widget
   let newwidget = document.createElement("div");
@@ -151,7 +151,7 @@ async function handleAdaptiveContent(node)
 export function setup(options)
 {
   dcoptions = {...options};
-  if (dcoptions.now && dompack.debugflags.connect)
-    console.info("[connect] Using 'now' date", dcoptions.now);
+  if (dcoptions.now && dompack.debugflags.bac)
+    console.info("[bac] Using 'now' date", dcoptions.now);
   dompack.register("template.wh-adaptivecontent", handleAdaptiveContent);
 }

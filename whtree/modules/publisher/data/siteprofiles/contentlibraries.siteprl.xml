@@ -36,12 +36,4 @@
     <setobjecteditor name="publisher:adaptivecontent_beacon" />
   </filetype>
 
-  <!-- add debug setting for connect -->
-  <apply>
-    <to type="all" />
-    <debugsettings title="Site testing">
-      <option tag="connect" title="Connect debugging" />
-    </debugsettings>
-  </apply>
-
 </siteprofile>
