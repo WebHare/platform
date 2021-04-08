@@ -15,7 +15,6 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
   // Variables
   //
 
-  OBJECT acstore;
   OBJECT ARRAY searchroots;
   STRING rowkeyfield;
 
@@ -55,14 +54,6 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
     this->dirtylistener := def.dirtylistener;
 
     this->searchroots := this->GetSearchRoots();
-
-    //IF (def.acstore != "")
-    //  this->acstore := OpenAdaptiveContentStore(OpenWHFSObjectByPath(def.acstore, [ expect := "folder" ])->id);
-    //ELSE IF (ObjectExists(this->contexts->^acstore))
-    //  this->acstore := this->contexts->^acstore;
-    //ELSE
-    //  THROW NEW TolliumException(this, "The 'acstore' attribute is required if no ^acstore context is available");
-
     this->rowkeyfield := def.rowkeyfield;
   }
 

@@ -1376,13 +1376,6 @@
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
-      <xs:attribute name="acstore">
-        <xs:annotation>
-          <xs:documentation>
-            Path to the adaptive content store folder, can be left empty if the ^acstore context is available.
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
