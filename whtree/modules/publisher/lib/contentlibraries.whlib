@@ -1,5 +1,5 @@
 <?wh
-/** @topic sitedev/contentlibraries */
+/** @topic contentlibraries/contentlibraries */
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
