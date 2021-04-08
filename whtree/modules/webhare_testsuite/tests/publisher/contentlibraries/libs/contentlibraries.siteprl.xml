@@ -1,0 +1,122 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+
+  <tabsextension name="actestpagesettings" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <newtab title="DC test page">
+      <!-- test direct reference -->
+      <p:slot composition="contentdata" cellname="footerdcslot" acstore="site::WebHare testsuite site/tmp/slots/" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
+      <!-- test setlibrary -->
+      <p:slot composition="contentdata" cellname="contentdcslot" acstore="site::WebHare testsuite site/tmp/slots/" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
+    </newtab>
+  </tabsextension>
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/actestpage" kind="virtualfile">
+    <members>
+      <whfsref name="footerdcslot" />
+      <whfsref name="contentdcslot" />
+    </members>
+    <dynamicexecution webpageobjectname="actestpage.whlib#DCTestPage" />
+    <extendproperties extension="#actestpagesettings" />
+  </filetype>
+
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" title="HeaderSlotType" />
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/headeroption1"
+              editextension="#edittext"
+              title="HeaderOption1"
+              wittycomponent="accontent.witty:headeroption1">
+    <members>
+      <string name="text" />
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/headeroption2"
+              editextension="#edittext"
+              title="HeaderOption2"
+              wittycomponent="accontent.witty:headeroption2">
+    <members>
+      <string name="text" />
+    </members>
+  </widgettype>
+
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" title="ContentSlotType" />
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+              editextension="#editrichtext"
+              renderobjectname="accontent.whlib#ContentOption1Widget"
+              title="ContentOption1"
+              wittycomponent="accontent.witty:contentoption1">
+    <members>
+      <richdocument name="text" />
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/contentoption2"
+              editextension="#edittext"
+              title="ContentOption2"
+              wittycomponent="accontent.witty:contentoption2">
+    <members>
+      <string name="text" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="edittext">
+    <newtab>
+      <textedit composition="contentdata" cellname="text" title="Text" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editrichtext">
+    <newtab>
+      <heading title="Text" />
+      <richdocument composition="contentdata" cellname="text" errorlabel="Text" />
+    </newtab>
+  </tabsextension>
+
+  <apply>
+    <to type="all" parentmask="/tmp/slots/" />
+    <denyfiletype typedef="*" />
+    <denyfoldertype typedef="*" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
+  </apply>
+
+  <apply>
+    <to type="all" parenttype="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
+    <denyfiletype typedef="*" />
+    <denyfoldertype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/headeroption1" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/headeroption2" />
+  </apply>
+
+  <apply>
+    <to type="all" parenttype="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
+    <denyfiletype typedef="*" />
+    <denyfoldertype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/contentoption1" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/contentoption2" />
+  </apply>
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/beaconformpage" kind="virtualfile">
+    <members>
+      <richdocument name="first" />
+      <richdocument name="thankyou" />
+    </members>
+    <dynamicexecution webpageobjectname="beaconformpage.whlib#BeaconFormPage" />
+    <formdefinitions path="beaconform.formdef.xml" />
+    <extendproperties extension="#editbeaconform" />
+  </filetype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editbeaconform">
+    <newtab title="Beacon Form">
+      <richdocument composition="contentdata"
+                    cellname="first"
+                    height="1pr"
+                    rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/defaultrtdtype" />
+      <richdocument composition="contentdata"
+                    cellname="thankyou"
+                    height="1pr"
+                    rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/defaultrtdtype" />
+    </newtab>
+  </tabsextension>
+
+</siteprofile>

@@ -1,0 +1,531 @@
+<?wh
+/** @topic sitedev/contentlibraries */
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+STRING FUNCTION GetSlotGuid(RECORD slotinfo)
+{
+  RETURN ToLowercase(EncodeBase16(GetMD5Hash(`${slotinfo.id}|${FormatISO8601DateTime(slotinfo.creationdate)}`)));
+}
+
+STATIC OBJECTTYPE AdaptiveContentWidget
+<
+  OBJECT __widgetfile;
+
+  PUBLIC PROPERTY widgetfile(this->__widgetfile, -);
+  PUBLIC PROPERTY name(this->__widgetfile->name, -);
+
+  MACRO NEW(OBJECT widgetfile)
+  {
+    this->__widgetfile := widgetfile;
+  }
+>;
+
+STATIC OBJECTTYPE AdaptiveContentSlot
+<
+  OBJECT __slotfolder;
+
+  PUBLIC PROPERTY slotfolder(this->__slotfolder, -);
+
+  PUBLIC PROPERTY name(this->__slotfolder->name, -);
+
+  MACRO NEW(OBJECT slotfolder)
+  {
+    this->__slotfolder := slotfolder;
+  }
+
+  PUBLIC MACRO UpdateSlot(RECORD slotsettings)
+  {
+    slotsettings := ValidateOptions(
+        [ title := ""
+        , name := ""
+        ], slotsettings,
+        [ title := "slotsettings"
+        ]);
+
+    IF (slotsettings.name != "")
+    {
+      OBJECT existingslot := this->__slotfolder->parentobject->OpenByName(slotsettings.name);
+      IF (ObjectExists(existingslot) AND existingslot->id != this->__slotfolder->id)
+        THROW NEW Exception(`A slot with name '${slotsettings.name} already exists`);
+    }
+    ELSE
+      DELETE CELL name FROM slotsettings;
+
+    IF (slotsettings.title = "")
+      DELETE CELL title FROM slotsettings;
+
+    IF (RecordExists(UnpackRecord(slotsettings)))
+    {
+      this->__slotfolder->UpdateMetadata(slotsettings);
+      this->SyncToDiskOnCommit();
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListAllowedWidgetTypes()
+  {
+    OBJECT applytester := GetApplyTesterForFakeObject(this->slotfolder->id, TRUE, this->slotfolder->type);
+    RECORD ARRAY types := GetFileTypes(applytester, GetTidLanguage(), FALSE, FALSE, TRUE);
+
+    RETURN SELECT id
+                 , namespace
+             FROM types
+            WHERE iswidgettype;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateWidget(RECORD widgetsettings)
+  {
+    widgetsettings := ValidateOptions(
+        [ type := 0
+        , typens := ""
+        , name := ""
+        , title := ""
+        , condition := DEFAULT RECORD
+        ], widgetsettings,
+        [ title := "widgetsettings"
+        ]);
+
+    RECORD matchslot := SELECT * FROM this->ListAllowedWidgetTypes() WHERE id = widgetsettings.type  OR namespace = widgetsettings.typens;
+    IF(NOT RecordExists(matchslot))
+      THROW NEW Exception(`Widget type ${widgetsettings.type != 0 ? "#" || widgetsettings.type : `'${widgetsettings.typens}'`} is not allowed in this slot`);
+
+    IF(widgetsettings.name = "")
+      widgetsettings.name := this->slotfolder->GenerateUniqueName(widgetsettings.title ?? "widget");
+
+    INTEGER highestordering := SELECT AS INTEGER MAX(ordering) FROM system.fs_objects WHERE parent = this->slotfolder->id;
+    OBJECT newentry := this->slotfolder->CreateFile(
+      CELL[ widgetsettings.name
+          , widgetsettings.title
+          , type := matchslot.id
+          , ordering := highestordering + 1
+          ]);
+    newentry->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", CELL[widgetsettings.condition]);
+
+    RETURN NEW AdaptiveContentWidget(newentry);
+  }
+
+  PUBLIC OBJECT FUNCTION OpenWidget(INTEGER widgetid)
+  {
+    OBJECT widgetfile := OpenWHFSObject(widgetid);
+
+    IF(NOT ObjectExists(widgetfile) OR widgetfile->parent != this->slotfolder->id)
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW AdaptiveContentWidget(widgetfile);
+  }
+
+  PUBLIC BOOLEAN FUNCTION DeleteWidget(INTEGER widgetid)
+  {
+    OBJECT widgetfile := OpenWHFSObject(widgetid);
+
+    IF(NOT ObjectExists(widgetfile) OR widgetfile->parent != this->slotfolder->id)
+      RETURN FALSE;
+
+    widgetfile->RecycleSelf();
+    this->SyncToDiskOnCommit();
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO SyncToDiskOnCommit()
+  {
+    GetPrimary()->RegisterCommitHandler("slot." || this->__slotfolder->id, PTR this->SyncToDisk);
+  }
+
+  MACRO SyncToDisk(BOOLEAN iscommit)
+  {
+    IF (NOT iscommit)
+      RETURN;
+
+    IF (NOT this->__slotfolder->isactive)
+    {
+      DeleteDiskFile(this->GetDiskFilename());
+      RETURN;
+    }
+
+    OBJECT applytester := GetApplyTesterForObject(this->slotfolder->id);
+    RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+    IF (NOT RecordExists(webdesigninfo))
+      RETURN;
+    OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+
+    RECORD slotinfo := GetSlotInfo(this->__slotfolder->id);
+    slotinfo.widgets :=
+        SELECT name
+             , condition
+             , content := GetRenderedSlotWidget(webdesign, widgets)
+          FROM slotinfo.widgets;
+
+    CreateDiskDirectoryRecursive(GetDirectoryFromPath(this->GetDiskFilename()), TRUE);
+    StoreDiskFile(this->GetDiskFilename(), EncodeJSONBlob(slotinfo), [ overwrite := TRUE ]);
+  }
+
+  STRING FUNCTION GetDiskFilename()
+  {
+    RETURN `${GetModuleStorageRoot("publisher")}slots/${GetSlotGuid(CELL[ this->__slotfolder->id, this->__slotfolder->creationdate ])}.json`;
+  }
+>;
+
+/** @short Adaptive beacon store
+    @public
+*/
+STATIC OBJECTTYPE AdaptiveContentBeaconStore
+<
+  RECORD settings;
+
+  MACRO NEW(RECORD settings)
+  {
+    this->settings := settings;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks(STRING ARRAY types DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    STRING ARRAY masks;
+    IF (Length(types) = 0 OR "beacons" IN types)
+      masks := masks CONCAT OpenWHFSObject(this->settings.beaconsfolder)->GetEventMasks();
+
+    RETURN masks;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetBeacons()
+  {
+    RECORD ARRAY rows :=
+        SELECT id
+             , rowkey := id
+             , name
+             , title
+          FROM system.fs_objects
+         WHERE parent = this->settings.beaconsfolder
+               AND type = this->settings.beaconsfiletype;
+    RETURN rows;
+  }
+
+  PUBLIC RECORD FUNCTION GetBeacon(INTEGER beaconid)
+  {
+    RECORD beacon :=
+        SELECT fs_objects.id
+             , name
+             , title
+          FROM system.fs_objects
+         WHERE parent = this->settings.beaconsfolder
+               AND type = this->settings.beaconsfiletype
+               AND id = beaconid;
+    IF (NOT RecordExists(beacon))
+      THROW NEW Exception(`Could not find beacon #${beaconid} in beacons folder`);
+    RETURN beacon;
+  }
+
+  PUBLIC INTEGER FUNCTION StoreBeacon(INTEGER beaconid, RECORD beaconsettings)
+  {
+    beaconsettings := ValidateOptions(
+        [ title := ""
+        , name := ""
+        ], beaconsettings,
+        [ title := "beaconsettings"
+        , required := [ "title" ]
+        ]);
+
+    OBJECT beaconsfolder := OpenWHFSObject(this->settings.beaconsfolder);
+    IF (beaconsettings.name = "")
+    {
+      IF (beaconid = 0)
+      {
+        IF (beaconsettings.title = "")
+          THROW NEW Exception(`Either 'name' or 'title' must be set for a new beacon`);
+
+        beaconsettings.name := beaconsfolder->GenerateUniqueName(beaconsettings.title);
+      }
+    }
+    ELSE
+    {
+      OBJECT existing := beaconsfolder->OpenByName(beaconsettings.name);
+      IF (ObjectExists(existing) AND existing->id != beaconid)
+        THROW NEW Exception(`A beacon with name '${beaconsettings.name}' already exists`);
+    }
+
+    OBJECT beaconfile;
+    IF (beaconid = 0)
+    {
+      // Create new beacon
+      beaconfile := beaconsfolder->CreateFile(CELL
+          [ beaconsettings.title
+          , beaconsettings.name
+          , type := this->settings.beaconsfiletype
+          ]);
+      beaconfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon", CELL
+          [ guid := ToLowercase(EncodeBase16(GenerateUFS128BitId()))
+          ]);
+    }
+    ELSE
+    {
+      // Edit existing beacon
+      beaconfile := OpenWHFSObject(beaconid);
+      IF (NOT ObjectExists(beaconfile)
+          OR beaconfile->type != this->settings.beaconsfiletype
+          OR beaconfile->parent != this->settings.beaconsfolder)
+        RETURN 0;
+      RECORD metadata;
+      IF (beaconsettings.title != "")
+        INSERT CELL title := beaconsettings.title INTO metadata;
+      IF (beaconsettings.name != "")
+        INSERT CELL name := beaconsettings.name INTO metadata;
+      IF (RecordExists(metadata))
+        beaconfile->UpdateMetadata(metadata);
+    }
+    RETURN beaconfile->id;
+  }
+
+  PUBLIC BOOLEAN FUNCTION DeleteBeacon(INTEGER beaconid)
+  {
+    OBJECT beaconfile := OpenWHFSObject(beaconid);
+    IF (NOT ObjectExists(beaconfile)
+        OR beaconfile->type != this->settings.beaconsfiletype
+        OR beaconfile->parent != this->settings.beaconsfolder)
+      RETURN FALSE;
+
+    // Check if this beacon is used in a trigger beacon widget
+    IF (Length(this->GetBeaconReferences(beaconid)) > 0)
+      RETURN FALSE;
+
+    // Check if this beacon is referenced by a slottedwidget condition
+    // We cannot search the condition record directly, so we'll do a lower level HSON-encoded record value search
+    IF (RecordExists(
+        SELECT
+          FROM system.fs_types
+             , system.fs_members
+             , system.fs_settings
+             , system.fs_instances
+         WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget"
+               AND fs_members.fs_type = fs_types.id
+               AND fs_members.name = "condition"
+               AND fs_settings.fs_member = fs_members.id
+               AND fs_settings.fs_instance = fs_instances.id
+               AND fs_settings.setting LIKE `*"beacon":"${beaconfile->name}"*`))
+      RETURN FALSE;
+
+    beaconfile->RecycleSelf();
+    RETURN TRUE;
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION GetBeaconReferences(INTEGER beaconid)
+  {
+    // Return all fsobjects that have a richvalue with a triggerbeacon instance
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT fs_objects.id
+          FROM system.fs_types
+             , system.fs_members
+             , system.fs_settings
+             , system.fs_instances
+             , system.fs_objects
+         WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon"
+               AND fs_members.fs_type = fs_types.id
+               AND fs_members.name = "beacon"
+               AND fs_settings.fs_member = fs_members.id
+               AND fs_settings.fs_object = beaconid
+               AND fs_settings.fs_instance = fs_instances.id
+               AND fs_instances.fs_object = fs_objects.id
+               AND fs_objects.isactive;
+  }
+
+>;
+
+/** @short Adaptive content store
+    @public
+*/
+STATIC OBJECTTYPE AdaptiveContentSlotsStore
+<
+  RECORD settings;
+
+  MACRO NEW(RECORD settings)
+  {
+    this->settings := settings;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateSlot(RECORD slotsettings)
+  {
+    slotsettings := ValidateOptions(
+        [ type := 0
+        , typens := ""
+        , title := ""
+        , name := ""
+        ], slotsettings,
+        [ title := "slotsettings"
+        ]);
+
+    OBJECT slotsfolder := OpenWHFSObject(this->settings.slotsfolder);
+    IF(slotsettings.name = "")
+    {
+      IF(slotsettings.title = "")
+        THROW NEW Exception(`Either 'name' or 'title' must be set for a new adaptive content slot`);
+
+      slotsettings.name := slotsfolder->GenerateUniqueName(slotsettings.title);
+    }
+    ELSE IF (ObjectExists(slotsfolder->OpenByName(slotsettings.name)))
+      THROW NEW Exception(`A slot with name '${slotsettings.name}' already exists`);
+
+    RECORD matchslot := SELECT * FROM this->ListAllowedSlotTypes() WHERE id = slotsettings.type  OR namespace = slotsettings.typens;
+    IF(NOT RecordExists(matchslot))
+      THROW NEW Exception(`Slot type ${slotsettings.type != 0 ? "#" || slotsettings.type : `'${slotsettings.typens}'`} is not allowed in ${slotsfolder->whfspath}`);
+
+    OBJECT newentry := slotsfolder->CreateFolder(CELL
+        [ slotsettings.name
+        , slotsettings.title
+        , type := matchslot.id
+        ]);
+    OBJECT slot := NEW AdaptiveContentSlot(newentry);
+    slot->SyncToDiskOnCommit();
+    RETURN slot;
+  }
+
+  PUBLIC OBJECT FUNCTION OpenSlot(INTEGER slotid)
+  {
+    OBJECT slotfile := OpenWHFSObject(slotid);
+
+    IF(NOT ObjectExists(slotfile) OR slotfile->parent != this->settings.slotsfolder)
+      RETURN DEFAULT OBJECT;
+
+    RETURN NEW AdaptiveContentSlot(slotfile);
+  }
+
+  PUBLIC BOOLEAN FUNCTION DeleteSlot(INTEGER slotid)
+  {
+    OBJECT slotfile := OpenWHFSObject(slotid);
+
+    IF(NOT ObjectExists(slotfile) OR slotfile->parent != this->settings.slotsfolder)
+      RETURN FALSE;
+
+    OBJECT slot := NEW AdaptiveContentSlot(slotfile);
+    slotfile->RecycleSelf();
+    slot->SyncToDiskOnCommit();
+    RETURN TRUE;
+  }
+
+  PUBLIC INTEGER ARRAY FUNCTION GetSlotReferences(INTEGER slotid)
+  {
+    // Return all fsobjects that have an instance referencing this slot
+    //FIXME: This may return fsobjects referencing the slot by another whfsref, but this will do for now, maybe after connect
+    //       is merged into webhare a new 'slotref' member type can be introduced?
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT fs_objects.id
+          FROM system.fs_settings
+             , system.fs_instances
+             , system.fs_objects
+         WHERE fs_settings.fs_object = slotid
+               AND fs_settings.fs_instance = fs_instances.id
+               AND fs_instances.fs_object = fs_objects.id
+               AND fs_objects.isactive;
+
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ListAllowedSlotTypes()
+  {
+    OBJECT applytester := GetApplyTesterForFakeObject(this->settings.slotsfolder, FALSE, this->settings.slotsfoldertype);
+    RECORD ARRAY types := GetFolderTypes(applytester, GetTidLanguage(), FALSE, FALSE);
+
+    RETURN SELECT id
+                , namespace
+                , title
+             FROM types
+            WHERE id != 0;
+  }
+
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks(STRING ARRAY types DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    STRING ARRAY masks;
+    IF (Length(types) = 0 OR "slots" IN types)
+      masks := masks CONCAT OpenWHFSObject(this->settings.slotsfolder)->GetEventMasks();
+
+    //TODO should we allow waiting for beaons too? eg we do the SetLibrary lookups for you?
+    //IF (Length(types) = 0 OR "beacons" IN types)
+    //  masks := masks CONCAT OpenWHFSObject(this->settings.beaconsfolder)->GetEventMasks();
+    //IF (Length(types) = 0 OR "categories" IN types)
+    //  masks := masks CONCAT this->pvt_categoryfolder->GetEventMasks();
+    RETURN masks;
+  }
+
+  PUBLIC RECORD FUNCTION __explainforapp()
+  {
+    RETURN CELL[ ...this->settings ];
+  }
+>;
+
+PUBLIC MACRO RenderAdaptiveContentSlot(OBJECT webdesign, INTEGER slotid)
+{
+  RECORD slotinfo := GetSlotInfo(slotid);
+  IF (NOT RecordExists(slotinfo))
+    RETURN;
+
+  //NOTE we don't bail out if there are no slots, it's still useful for debuggers to have an empty/inert slot spot
+  Print(`<template class="wh-adaptivecontent" data-name="${EncodeValue(slotinfo.name)}" data-slot="${GetSlotGuid(slotinfo)}"></template>`);
+}
+
+RECORD FUNCTION GetSlotInfo(INTEGER slotid)
+{
+  RECORD slotinfo := SELECT id, name, creationdate
+                       FROM system.fs_objects
+                      WHERE id = slotid;
+  IF (NOT RecordExists(slotinfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY widgets :=
+      SELECT id, name
+        FROM system.fs_objects
+       WHERE parent = slotid
+    ORDER BY ordering, id;
+
+  widgets := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget")->Enrich(widgets, "id", [ "condition" ]);
+  RETURN CELL[ ...slotinfo, widgets ];
+}
+
+STRING FUNCTION GetRenderedSlotWidget(OBJECT webdesign, RECORD widget)
+{
+  RETURN BlobToString(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock(ResolveWidgetAsSharedBlock(widget.id)))));
+}
+
+PUBLIC OBJECT FUNCTION OpenAdaptiveContentBeaconStore(INTEGER beaconsfolderid)
+{
+  OBJECT beaconsfolder := OpenWHFSObject(beaconsfolderid);
+  IF(NOT ObjectExists(beaconsfolder))
+    THROW NEW Exception(`No such beacons folder #${beaconsfolderid}`);
+  IF(beaconsfolder->typens != "http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons")
+    THROW NEW Exception(`Folder #${beaconsfolderid} (${beaconsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons'`);
+
+  RETURN NEW AdaptiveContentBeaconStore(
+      CELL[ beaconsfolder := beaconsfolder->id
+          , beaconsfoldertype := beaconsfolder->type
+          , beaconsfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon")->id
+          ]);
+}
+
+
+//NOTE design this function to return mostly ids, ie not objects or anything that would block fastpaths from using adhoc caches
+/** @short Open an adaptive content store
+    @param slotsfolderid The id of the folder that serves as the data store for adaptive content
+*/
+PUBLIC OBJECT FUNCTION OpenAdaptiveContentStore(INTEGER slotsfolderid)
+{
+  OBJECT slotsfolder := OpenWHFSObject(slotsfolderid);
+  IF(NOT ObjectExists(slotsfolder))
+    THROW NEW Exception(`No such slots folder #${slotsfolderid}`);
+  IF(slotsfolder->typens != "http://www.webhare.net/xmlns/publisher/adaptivecontent/slots")
+    THROW NEW Exception(`Folder #${slotsfolderid} (${slotsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/adaptivecontent/slots'`);
+
+
+  RETURN NEW AdaptiveContentSlotsStore(
+      CELL[ slotsfolder := slotsfolder->id
+          , slotsfoldertype := slotsfolder->type
+           ]);
+}
+

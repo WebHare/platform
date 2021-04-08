@@ -101,6 +101,7 @@
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
 
     <!-- Test pages etc -->
     <prebuiltpage type="dynamic" library="pages/formtest/formtest.whlib" tag="formtest" webpageobjectname="FormTestPage" />
@@ -198,6 +199,12 @@
       <source path="site::webhare testsuite site/testpages/" />
     </setlibrary>
     <extendproperties contenttype="http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" extension="#basetestprops" />
+  </apply>
+
+  <!-- Test fsobjecttemplates -->
+  <apply>
+    <to type="all" pathmask="*/no_pagelisttest_folder/*"/>
+    <denyfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
   </apply>
 
   <!-- Content type that isn't copied -->
@@ -429,6 +436,8 @@
     <to type="file" pathmask="/testpages/consenttest.rtd" />
     <to type="folder" pathmask="/" />  <!-- needed to test testpage -->
     <to type="all" pathmask="*/tmp/tabletest.rtd" />
+    <to type="all" pathmask="/tmp/slots/*" />
+    <to type="all" pathmask="/tmp/beaconform" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <extendproperties name="rtdtypeprops" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
@@ -813,7 +822,10 @@
     </footer>
   </screen>
 
+  <!-- Adapative content tests -->
 
+
+  <applysiteprofile path="mod::webhare_testsuite/tests/publisher/contentlibraries/libs/contentlibraries.siteprl.xml" />
   <applysiteprofile path="pages/customform/customform.siteprl.xml" />
   <applysiteprofile path="pages/customform2/customform2.siteprl.xml" />
 

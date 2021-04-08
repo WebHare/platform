@@ -10,7 +10,7 @@ The following example sets up a custom listing for the /news/ folder in your sit
 <apply>
   <to type="folder" pathmask="/news/" />
   <foldersettings>
-    <contentslisthandler library="mod::mymodule/include/internal/newslist.whlib" objectname="newslisthandler" />
+    <contentslisthandler objectname="mod::mymodule/lib/internal/newslist.whlib#newslisthandler" />
   </foldersettings>
 </apply>
 ```

@@ -1147,7 +1147,7 @@
     <xs:sequence>
       <xs:element name="contentslisthandler" minOccurs="0" maxOccurs="1">
         <xs:complexType>
-          <xs:attribute name="library" use="required" />
+          <xs:attribute name="library" />
           <xs:attribute name="objectname" use="required" />
         </xs:complexType>
       </xs:element>
@@ -1302,11 +1302,6 @@
   <xs:complexType name="EmbeddedEditor">
     <xs:attribute name="extension" type="xs:string" use="required" />
     <xs:attribute name="contenttype" type="xs:string" use="required" />
-  </xs:complexType>
-
-  <xs:complexType name="SiteDesign">
-    <xs:attribute name="library" type="xs:string" use="required" />
-    <xs:attribute name="design" type="xs:string" use="required" />
   </xs:complexType>
 
   <xs:complexType name="BodyRenderer">

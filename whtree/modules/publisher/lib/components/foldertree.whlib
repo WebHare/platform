@@ -354,8 +354,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
         {
           this->foldersettings.ordering := "searchresults";
           this->foldersettings.contentslisthandler :=
-              [ library := "mod::publisher/tolliumapps/filemanager/search.whlib"
-              , objectname := "SearchResultsListHandler"
+              [ objectname := "mod::publisher/tolliumapps/filemanager/search.whlib#SearchResultsListHandler"
               ];
         }
         ELSE IF(selection.contentmode = "recyclebin")

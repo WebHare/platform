@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE DCTestPage EXTEND WebPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    OBJECT headerslot := this->webdesign->targetsite->OpenByPath("tmp/slots/headerslot");
+    OBJECT slot1 := this->webdesign->targetsite->OpenByPath("tmp/slots/a-slot");
+    OBJECT slot2 := this->webdesign->targetsite->OpenByPath("tmp/slots/a-slot-2");
+
+    RETURN PTR EmbedWittyComponent(Resolve("actestpage.witty:actestpage"),
+      [ headerslot := ObjectExists(headerslot) ? PTR RenderAdaptiveContentSlot(this->webdesign, headerslot->id) : DEFAULT MACRO PTR
+      , dynamicslot1 := ObjectExists(slot1) ? PTR RenderAdaptiveContentSlot(this->webdesign, slot1->id) : DEFAULT MACRO PTR
+      , dynamicslot2 := ObjectExists(slot2) ? PTR RenderAdaptiveContentSlot(this->webdesign, slot2->id) : DEFAULT MACRO PTR
+      ]);
+  }
+>;

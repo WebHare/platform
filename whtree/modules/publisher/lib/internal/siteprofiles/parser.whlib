@@ -189,13 +189,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     }
     IF(has_function)
     {
-      STRING funcname := this->ParseFunctionRef(node, "editlibrary", "editfunctionname");
+      STRING funcname := this->ParseFunctionRef(node, "editlibrary", "editfunctionname", "4.30.0");
       RETURN [ type := "function", functionname := funcname ];
     }
     RETURN DEFAULT RECORD;
   }
 
-  STRING FUNCTION ParseFunctionRef(OBJECT node, STRING legacylibattr, STRING nameattr)
+  STRING FUNCTION ParseFunctionRef(OBJECT node, STRING legacylibattr, STRING nameattr, STRING deprecatedsince)
   {
     IF(node->HasAttribute(nameattr))
     {
@@ -212,6 +212,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           RETURN "";
         }
         objectname := this->ParseFSPath(node, legacylibattr) || "#" || objectname;
+        this->AddWarning(node, `${legacylibattr}= is deprecated, you can specify the full object name in ${nameattr}= since WebHare ${deprecatedsince}`);
       }
       RETURN objectname;
     }
@@ -220,7 +221,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC RECORD FUNCTION GetWidgetRenderer(OBJECT node)
   {
-    STRING objectname := this->ParseFunctionRef(node, "renderlibrary", "renderobjectname");
+    STRING objectname := this->ParseFunctionRef(node, "renderlibrary", "renderobjectname", "4.30.0");
     RETURN objectname != "" ? [ objectname := objectname ] : DEFAULT RECORD;
   }
 
@@ -581,7 +582,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ParseWebDesign(OBJECT node)
   {
-    RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname")
+    RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
                         , witty                    := this->ParseFSPath(node, "witty")
                         , assetpack                := ""
                         , wittyencoding            := node->GetAttribute("wittyencoding")
@@ -634,9 +635,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ParseDynamicExecuteData(OBJECT node)
   {
-    STRING startmacro := this->ParseFunctionRef(node, "library", "startmacro");
-    STRING webpageobjectname := this->ParseFunctionRef(node, "library", "webpageobjectname");
-    STRING routerfunction := this->ParseFunctionRef(node, "library", "routerfunction");
+    STRING startmacro := this->ParseFunctionRef(node, "library", "startmacro", "4.30.0");
+    STRING webpageobjectname := this->ParseFunctionRef(node, "library", "webpageobjectname", "4.30.0");
+    STRING routerfunction := this->ParseFunctionRef(node, "library", "routerfunction", "4.30.0");
 
     IF (startmacro = "" AND webpageobjectname = "" AND routerfunction="") //specifying both is acceptable, startmacro will take precedence but webpageobjectname will be used for RPCs
     {
@@ -991,7 +992,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
                                     , rendermacro := node->GetAttribute("rendermacro")
                                     , preparemacro := node->GetAttribute("preparemacro")
-                                    , objectname  := this->ParseFunctionRef(node, "library", "objectname")
+                                    , objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
                                     ];
               CONTINUE;
             }
@@ -1165,7 +1166,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "customplugin"
             {
-              RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname"));
+              RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname", "4.30.0"));
               plugin := InstantiatePlugin(plugin);
               plugin.combine := FALSE;
 
@@ -1190,8 +1191,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               OBJECT contentslisthandler := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","contentslisthandler")->Item(0);
               IF(ObjectExists(contentslisthandler))
               {
-                apply.foldersettings.contentslisthandler := [ library := MakeAbsoluteResourcePath(this->filename, contentslisthandler->GetAttribute("library"))
-                                                            , objectname := contentslisthandler->GetAttribute("objectname")
+                apply.foldersettings.contentslisthandler := [ objectname := this->ParseFunctionRef(contentslisthandler, "library", "objectname", "4.31.0")
                                                             ];
               }
               CONTINUE;

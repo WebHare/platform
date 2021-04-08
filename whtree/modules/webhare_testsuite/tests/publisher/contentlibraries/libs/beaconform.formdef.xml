@@ -1,0 +1,14 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+
+  <form name="beaconform" objectname="beaconformpage.whlib#BeaconForm">
+    <page>
+      <richtext name="first_page" title="" />
+    </page>
+
+    <page role="thankyou">
+      <!-- Filled dynamically to contain a trigger beacon widget -->
+      <richtext name="thankyou_page" title="" />
+    </page>
+  </form>
+
+</formdefinitions>

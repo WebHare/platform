@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC OBJECTTYPE DCSlot EXTEND TolliumFragmentBase
+<
+  STRING ARRAY slottypes;
+  OBJECT acstore;
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY options(GetOptions, -);
+  PUBLIC PROPERTY selection(GetSelection, -);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->slottypes := def.slottypes;
+    this->acstore := OpenAdaptiveContentStore(OpenWHFSObjectByPath(def.acstore, [ expect := "folder" ])->id);
+
+  }
+  UPDATE MACRO PreinitComponent()
+  {
+    this->RefreshSlots();
+  }
+  MACRO RefreshSlots()
+  {
+    RECORD ARRAY slots := SELECT rowkey := id, type, name, title := title ?? name
+                            FROM system.fs_objects
+                           WHERE parent = this->acstore->__explainforapp().slotsfolder
+                        ORDER BY ToUppercase(title ?? name), id;
+
+    slots := EnrichWithTable(slots, "TYPE", system.fs_types, [ namespace := "namespace" ]);
+    DELETE FROM slots WHERE NOT __MatchesAnyMask(namespace, this->slottypes);
+
+    ^slot->options := [[ rowkey := 0, title := "" ]
+                      ]
+                      CONCAT slots;
+  }
+  RECORD ARRAY FUNCTION GetOptions()
+  {
+    //not showing more fields than needed, so we can easily change implementation
+    RETURN SELECT rowkey, title FROM ^slot->options;
+  }
+  RECORD FUNCTION GetSelection()
+  {
+    RECORD sel := ^slot->selection;
+    //not showing more fields than needed, so we can easily change implementation
+    RETURN sel.rowkey != 0 ? CELL[sel.rowkey, sel.title] : DEFAULT RECORD;
+  }
+
+  INTEGER FUNCTION GetValue()
+  {
+    RETURN ^slot->value;
+  }
+  MACRO SetValue(INTEGER slot)
+  {
+    ^slot->value := slot;
+  }
+
+>;

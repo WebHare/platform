@@ -1,0 +1,9 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.dcslot" library="slot.whlib">
+
+  <fragment name="dcslot">
+    <contents>
+      <select name="slot" type="pulldown" title=""/>
+    </contents>
+  </fragment>
+
+</screens>

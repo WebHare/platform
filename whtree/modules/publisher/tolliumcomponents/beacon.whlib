@@ -1,0 +1,127 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+
+PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT acstore;
+  STRING rowkeyfield;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(^beacon->value, SetValue);
+  UPDATE PUBLIC PROPERTY title(^beacon->title, ^beacon->title);
+  UPDATE PUBLIC PROPERTY required(^beacon->required, ^beacon->required);
+  PUBLIC PROPERTY empty(^beacon->empty, ^beacon->empty);
+  PUBLIC PROPERTY dirtylistener(^beacon->dirtylistener, ^beacon->dirtylistener);
+  PUBLIC PROPERTY onchange(^beacon->onchange, ^beacon->onchange);
+  PUBLIC PROPERTY options(GetOptions, -);
+  PUBLIC PROPERTY selection(GetSelection, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->title := def.title;
+    this->required := def.required;
+    this->empty := def.empty;
+    this->dirtylistener := def.dirtylistener;
+
+    IF (def.acstore != "")
+      this->acstore := OpenAdaptiveContentStore(OpenWHFSObjectByPath(def.acstore, [ expect := "folder" ])->id);
+    ELSE IF (ObjectExists(this->contexts->^acstore))
+      this->acstore := this->contexts->^acstore;
+    ELSE
+      THROW NEW TolliumException(this, "The 'acstore' attribute is required if no ^acstore context is available");
+
+    this->rowkeyfield := def.rowkeyfield;
+  }
+
+  UPDATE MACRO PreinitComponent()
+  {
+    this->RefreshBeacons();
+    ^eventlistener->masks := this->contexts->^acstore->GetEventMasks([ "beacons" ]);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD ARRAY FUNCTION GetOptions()
+  {
+    //not showing more fields than needed, so we can easily change implementation
+    RETURN SELECT rowkey, title FROM ^beacon->options;
+  }
+
+  RECORD FUNCTION GetSelection()
+  {
+    RECORD sel := ^beacon->selection;
+    //not showing more fields than needed, so we can easily change implementation
+    RETURN sel.rowkey != 0 ? CELL[sel.rowkey, sel.title] : DEFAULT RECORD;
+  }
+
+  MACRO SetValue(VARIANT beacon)
+  {
+    DELETE FROM ^beacon->options WHERE NOT enabled;
+    IF (IsValueSet(beacon) AND NOT RecordExists(SELECT FROM ^beacon->options WHERE rowkey = beacon))
+      INSERT [ rowkey := beacon, title := GetTid("publisher:tolliumcomponents.beacon.deletedbeacon"), enabled := FALSE ] INTO ^condition->^beacon->options AT 0;
+    ^beacon->value := beacon;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnEvents(RECORD ARRAY events)
+  {
+    this->RefreshBeacons();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshBeacons()
+  {
+    VARIANT defaultrowkey;
+    IF (this->rowkeyfield = "id")
+      defaultrowkey := 0;
+    ELSE
+      defaultrowkey := "";
+    ^beacon->options := [ [ rowkey := defaultrowkey, title := "", invalidselection := TRUE ] ] CONCAT
+        SELECT rowkey := GetCell(beacons, this->rowkeyfield)
+             , title
+          FROM this->acstore->GetBeacons() AS beacons;
+  }
+>;

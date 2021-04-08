@@ -2344,6 +2344,15 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="beacon">   <!-- tolliumcomponents.beacon -->
+      <text tid="deletedbeacon">&lt;baken niet langer beschikbaar&gt;</text>
+    </textgroup>
+    <textgroup gid="conditionedit">   <!-- tolliumcomponents.conditionedit -->
+      <text tid="field-and">Voldoe aan elk</text>
+      <text tid="field-none">Geen voorwaarde</text>
+      <text tid="field-not">Voldoe niet aan voorwaarde</text>
+      <text tid="field-or">Voldoe aan een of meer</text>
+    </textgroup>
     <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
       <text tid="cannotshowinsecurecontent">De inhoud van de onbeveiligde URL '<param p="1"/>' kan niet getoond worden binnen een beveiligde site.</text>
       <text tid="clickerrors">Klik hier om de fouten te bekijken.</text>
@@ -2562,6 +2571,14 @@
       <text tid="numslides"><param p="1"/> dia's</text>
       <text tid="slides">Dia's</text>
       <text tid="title">Diashow</text>
+    </textgroup>
+    <textgroup gid="triggerbeacon">   <!-- widgets.triggerbeacon -->
+      <text tid="beacon">Baken</text>
+      <text tid="nobeacons">Er zijn geen bakens beschikbaar</text>
+      <text tid="preview-beacon">Baken '<param p="1"/>' activeren</text>
+      <text tid="preview-nobeacon">Geen baken geselecteerd</text>
+      <text tid="preview-nonexisting">Baken kon niet worden gevonden</text>
+      <text tid="widget">Baken activeren</text>
     </textgroup>
     <textgroup gid="twocolumnswidget">   <!-- widgets.twocolumnswidget -->
       <text tid="rtdleft">Linkerkolom</text>

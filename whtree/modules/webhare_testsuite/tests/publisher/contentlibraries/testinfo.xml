@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="libs">
+  <test script="test_adaptivecontent.whscr"/>
+  <jstest file="test_adaptivecontent_online.es" />
+</group>
