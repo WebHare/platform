@@ -24,6 +24,7 @@
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (verwijderd)</text>
+      <text tid="filetitle">Bestandstitel</text>
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->

@@ -29,11 +29,13 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->instance->type := OpenWHFSType(data.whfstype);
 
     this->frame->title := GetTid(data.typedef.title);
-    ^title->value := data.currenttitle;
+    ^filetitle->value := data.currenttitle;
 
     IF (data.typedef.editor.type = "extension")
     {
-      ^extensiontabs->extendcomponents := [ [ name := "contentdata", component := this->instance ] ];
+      ^extensiontabs->extendcomponents := [ [ name := "contentdata", component := this->instance ]
+                                          , [ name := "filetitle", component := ^filetitle ]
+                                          ];
 
       // We want to prevent crashing an application due to errors in one of the extensions because:
       // - A user may lose data upon a crash, so showing the error and then cancelling the editting is a much better user experience
@@ -68,10 +70,10 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       IF(data.isfilewidget AND ^extensiontabs->GetNumVisiblePages() >= 1)
       {
         //FIXME this is a hack, and theoretically the first tab might not even be visible due to visibleon... should we offer a <insert> alternative for widgets? or even do title insertion ONLY for widgts working that way?
-        ^title->visible := TRUE;
-        ^title->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
-        ^title->RemoveFromParent();
-        ^extensiontabs->pages[0]->InsertComponentBefore(^title, DEFAULT OBJECT, TRUE);
+        ^filetitle->visible := TRUE;
+        ^filetitle->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
+        ^filetitle->RemoveFromParent();
+        ^extensiontabs->pages[0]->InsertComponentBefore(^filetitle, DEFAULT OBJECT, TRUE);
       }
 
       this->component := this->instance;
@@ -125,9 +127,9 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     RETURN this->valuecomponent->value ?? [ whfstype := this->whfstype ];
   }
 
-  PUBLIC STRING FUNCTION GetNewTitle()
+  PUBLIC STRING FUNCTION GetFileTitle()
   {
-    RETURN ^title->value;
+    RETURN ^filetitle->value;
   }
 >;
 

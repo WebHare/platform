@@ -55,7 +55,7 @@
       <publisher:whfsinstance name="instance" />
     </compositions>
     <body name="body">
-      <textedit name="title" tid="~title" visible="false" width="1pr" />
+      <textedit name="filetitle" visible="false" width="1pr" tid="common.fsobjects.filetitle" />
       <panel name="positioningpanel" visible="false" />
       <tabs name="extensiontabs" visible="false" height="1pr" />
     </body>

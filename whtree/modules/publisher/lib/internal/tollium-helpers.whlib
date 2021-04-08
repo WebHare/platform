@@ -609,7 +609,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   }
 
   IF(dialog->RunModal() = "ok")
-    RETURN CELL[ title := dialog->GetNewTitle(), instance := CELL[...dialog->value, whfstype ]];
+    RETURN CELL[ title := dialog->GetFileTitle(), instance := CELL[...dialog->value, whfstype ]];
 
   RETURN DEFAULT RECORD; // cancelled
 }
