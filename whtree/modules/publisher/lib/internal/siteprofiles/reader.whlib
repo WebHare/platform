@@ -833,6 +833,15 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN "site:#" || this->objsite;
   }
 
+  PUBLIC STRING FUNCTION DescribeTarget()
+  {
+    IF(this->objinfo.obj.id != 0)
+      RETURN (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->objinfo.obj.id) ?? `deleted object #${this->objinfo.obj.id}`;
+
+    STRING parent := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->objparent) ?? `deleted parent #${this->objparent}`;
+    RETURN (this->objinfo.isfile ? "file" : "folder") || " of type " || ((SELECT AS STRING namespace FROM system.fs_types WHERE id = this->objinfo.obj.type) ?? `#${this->objinfo.obj.type}`);
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Helper functions
