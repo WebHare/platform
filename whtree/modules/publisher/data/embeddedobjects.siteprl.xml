@@ -42,13 +42,11 @@
   </widgettype>
 
   <!-- RTD Video component -->
-  <embeddedobjecttype editfunctionname="EditEmbeddedVideoInstance"
-                      editlibrary="mod::publisher/widgets/video/video.whlib"
+  <embeddedobjecttype editfunctionname="mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance"
                       generatepreview="true"
                       isfiletype="true"
                       namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
-                      renderlibrary="mod::publisher/lib/internal/embedvideo.whlib"
-                      renderobjectname="EmbedVideoObject"
+                      renderobjectname="mod::publisher/lib/internal/embedvideo.whlib#EmbedVideoObject"
                       tid="siteprofile.widgets.embedvideo">
     <member name="network" type="string" />
     <member name="videoid" type="string" />
@@ -70,11 +68,9 @@
   <apply>
     <to type="all" />
     <setwidget contenttype="http://www.webhare.net/xmlns/publisher/embedvideo"
-               renderlibrary="mod::publisher/lib/widgets/videowidget.whlib"
-               renderobjectname="VideoWidgetBase" />
+               renderobjectname="mod::publisher/lib/widgets/videowidget.whlib#VideoWidgetBase" />
     <setwidget contenttype="http://www.webhare.net/xmlns/publisher/embedhtml"
-               renderlibrary="mod::publisher/lib/widgets/htmlwidget.whlib"
-               renderobjectname="HTMLWidgetBase" />
+               renderobjectname="mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase" />
   </apply>
 
 </siteprofile>

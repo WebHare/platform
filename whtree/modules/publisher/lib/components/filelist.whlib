@@ -302,14 +302,13 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     }
     ELSE
     {
-      cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
+      cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE objectname = foldersettings.contentslisthandler.objectname;
       IF(NOT ObjectExists(cachedlisthandler))
       {
         __contentlisthandlersetup := [ tolliumuser := this->owner->tolliumuser ];
-        cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
+        cachedlisthandler := MakeObject(foldersettings.contentslisthandler.objectname);
         __contentlisthandlersetup := DEFAULT RECORD;
-        INSERT [ library := foldersettings.contentslisthandler.library
-               , objectname := foldersettings.contentslisthandler.objectname
+        INSERT [ objectname := foldersettings.contentslisthandler.objectname
                , handler := cachedlisthandler
                ] INTO this->listshandlercache AT END;
       }
