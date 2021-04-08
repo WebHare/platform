@@ -183,7 +183,7 @@ PUBLIC STATIC OBJECTTYPE BeaconCondition EXTEND ConditionTypeFragmentBase
   MACRO NEW()
   {
     IF (NOT ObjectExists(this->contexts->^acstore))
-      THROW NEW Exception("No dcscore context");
+      THROW NEW Exception("No acstore context");
   }
 
   UPDATE MACRO PreInitComponent()

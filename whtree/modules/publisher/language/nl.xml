@@ -2008,7 +2008,7 @@
           <text tid="editbeacon">Eigenschappen voor baken '<param p="1"/>'</text>
           <text tid="newbeacon">Nieuw baken</text>
           <text tid="references">Referenties</text>
-          <text tid="title">TItle</text>
+          <text tid="title">Titel</text>
           <text tid="viewreferences">Referenties weergeven</text>
         </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
