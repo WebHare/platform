@@ -27,9 +27,8 @@ to your beacon store(s).
 ```xml
   <apply>
     <to type="all" />
-    <setlibrary name="publisher:fsobjecttemplates">
-      <source path="site::mysite/templates/" />
-      <source path="site::repository/globaltemplates/" />
+    <setlibrary name="publisher:beacons">
+      <source path="site::mysite/beacons/" />
     </setlibrary>
   </apply>
 ```
