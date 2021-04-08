@@ -1,0 +1,305 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/tolliumcomponents/conditionedit.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC STATIC OBJECTTYPE BeaconsFolderContents EXTEND ContentsListHandlerBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    IF(NOT options.isfolder)
+      RETURN parentscreen->RunScreen(Resolve("adaptivecontent.xml#beaconprops"), [ id := 0, parent := parentfolder ]);
+    ELSE
+      RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SlotsFolderContents EXTEND ContentsListHandlerBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    IF(options.isfolder AND NOT options.issite)
+      RETURN parentscreen->RunScreen(Resolve("adaptivecontent.xml#slotprops"), [ id := 0, parent := parentfolder ]);
+    ELSE
+      RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE BeaconProps EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT beaconstore;
+  INTEGER beaconid;
+  STRING beacontitle;
+  INTEGER ARRAY referenceids;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (data.id != 0)
+    {
+      this->beaconstore := OpenAdaptiveContentBeaconStore(SELECT AS INTEGER parent FROM system.fs_objects WHERE id = VAR data.id);
+      this->beaconid := data.id;
+      ^beacon->value := this->beaconstore->GetBeacon(this->beaconid);
+      this->referenceids := this->beaconstore->GetBeaconReferences(this->beaconid);
+      ^references->value := ToString(Length(this->referenceids));
+      ^viewreferencestext->visible := Length(this->referenceids) > 0;
+
+      this->beacontitle := ^beacon->^title->value;
+      this->frame->title := this->GetTid(".editbeacon", this->beacontitle);
+    }
+    ELSE
+    {
+      this->beaconstore := OpenAdaptiveContentBeaconStore(data.parent);
+
+      ^references->visible := FALSE;
+      ^viewreferencestext->visible := FALSE;
+      this->frame->title := this->GetTid(".newbeacon");
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoViewReferences()
+  {
+    RunReferencesScreen(this,
+        [ getreferences := PTR this->beaconstore->GetBeaconReferences(this->beaconid)
+        , title := this->GetTid(".beaconreferences", this->beacontitle)
+        ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    INTEGER beaconid;
+    IF (NOT work->HasFailed())
+      beaconid := this->beaconstore->StoreBeacon(this->beaconid, ^beacon->value);
+    RETURN work->Finish() ? beaconid : 0;
+  }
+>;
+
+
+//TODO we currently do NOT use this for editing, only for adding
+PUBLIC STATIC OBJECTTYPE SlotProps EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER id;
+  OBJECT acstore;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+    this->acstore := OpenAdaptiveContentStore(data.parent);
+
+    RECORD ARRAY allowedslottypes := this->acstore->ListAllowedSlotTypes();
+    IF(data.id = 0)
+    {
+      IF(Length(allowedslottypes) = 0)
+      {
+        this->RunSimpleScreen("error", this->GetTid(".notypesavailable"));
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+    }
+
+    //Discover available types
+    ^slotdata->^type->options := SELECT rowkey := id, title := GetTid(title) FROM allowedslottypes;
+
+    IF(data.id != 0)
+    {
+      //TODO deal with type being disabled, eitehr readd it as dummy, block editing or make sure it's not overwritten
+      //TODO should we have an API for this?
+      RECORD slotinfo := SELECT type, title FROM system.fs_objects WHERE id = VAR data.id;
+      ^slotdata->value := slotinfo;
+      ^slotdata->^type->enabled := FALSE;
+
+      this->frame->title := this->GetTid(".slotprops", slotinfo.title);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT slot;
+    IF(this->id = 0)
+    {
+      slot := this->acstore->CreateSlot(^slotdata->value);
+    }
+    ELSE
+    {
+      slot := this->acstore->OpenSlot(this->id);
+      slot->UpdateSlot(CELL[ ...^slotdata->value, DELETE type ]);
+    }
+    RETURN work->Finish() ? slot->slotfolder->id : 0;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE BeaconCondition EXTEND ConditionTypeFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    ^value->^beacon->onchange := this->onchange;
+    ^value->^beacon->dirtylistener := this->dirtylistener;
+    ^value->^maxdays->onchange := this->onchange;
+    ^value->^maxdays->dirtylistener := this->dirtylistener;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN ^value->value;
+  }
+
+  UPDATE MACRO SetValue(RECORD newvalue)
+  {
+    ^value->value := newvalue;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE VisitDateCondition EXTEND ConditionTypeFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN [ date := ^date->value ];
+  }
+
+  UPDATE MACRO SetValue(RECORD newvalue)
+  {
+    IF (RecordExists(newvalue))
+      ^date->value := newvalue.date;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE References EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  FUNCTION PTR getreferences;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (NOT ValidateFunctionPtr(data.getreferences, TypeID(INTEGER ARRAY), INTEGER[]))
+      THROW NEW TolliumException(this, `'getreferences' has the wrong signature, expected ${ExplainFunctionSignature(TypeID(INTEGER ARRAY), INTEGER[])}, got ${ExplainFunctionPtrSignature(data.getreferences)}`);
+    this->getreferences := data.getreferences;
+    this->RefreshList();
+
+    IF (data.title != "")
+      this->frame->title := data.title;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions handlers
+  //
+
+  MACRO DoRefresh()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoOpen()
+  {
+    RunFSObjectEditApplication(this, ^documents->value);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshList()
+  {
+    INTEGER ARRAY ids := this->getreferences();
+
+    ^documents->rows := SELECT rowkey := id, whfspath, title, url := indexurl
+                          FROM system.fs_objects
+                         WHERE id IN ids
+                               AND isactive;
+  }
+>;
+
+
+//TODO expose a public api?
+/** @short Show a screen with referencing files
+    @param(object %TolliumScreenBase) parent The parent screen
+    @cell(function ptr) options.getreferences Function that returns a list of object ids to show
+    @cell(string) options.title Optional screen title
+*/
+PUBLIC MACRO RunReferencesScreen(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ getreferences := DEFAULT FUNCTION PTR
+      , title := ""
+      ], options,
+      [ required := [ "getreferences" ] ]);
+  parent->RunScreen(Resolve("adaptivecontent.xml#references"), options);
+}

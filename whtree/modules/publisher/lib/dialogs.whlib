@@ -181,7 +181,7 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
       IF(RecordExists(typedef) AND typedef.isembeddedobjecttype AND RecordExists(typedef.editor) AND typedef.editor.type = "extension")
       {
         //NEW widget... so go straight to the widget editor
-        RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, typens, DEFAULT RECORD, DEFAULT OBJECT, applytester, FALSE, TRUE, "");
+        RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, typens, DEFAULT RECORD, DEFAULT OBJECT, applytester, FALSE, TRUE, "", DEFAULT RECORD);
         IF(NOT RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
           RETURN 0;
 
@@ -194,8 +194,10 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
           ]);
 
         //FIXME: verify that file is still available, writeable atc - although we actually -should-
-        // be given suhc notifications in __editEmbeddedObject's SUBMIT handler.
+        //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
         newfile->SetInstanceData(embobj.instance.whfstype, embobj.instance);
+        newfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", embobj.widgetsettings);
+
         GetPrimary()->CommitWork();
         RETURN newfile->id;
       }
@@ -571,14 +573,16 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
   IF(RecordExists(typedef) AND typedef.isembeddedobjecttype)
   {
     RECORD data := fileobj->GetInstanceData(fileobj->typens);
-    RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE, TRUE, fileobj->title);
+    RECORD widgetsettings := fileobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget");
+    RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE, TRUE, fileobj->title, widgetsettings);
     IF(RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
     {
       GetPrimary()->BeginWork();
       //FIXME: verify that file is still available, writeable atc - although we actually -should-
-      // be given suhc notifications in __editEmbeddedObject's SUBMIT handler.
-      fileobj->SetInstanceData(fileobj->typens, embobj);
-      fileobj->UpdateData([ title := embobj.title ]); // trigger republish, hook callbacks and all magic associated to changing metadata
+      //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
+      fileobj->SetInstanceData(fileobj->typens, embobj.instance);
+      fileobj->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", embobj.widgetsettings);
+      fileobj->UpdateMetadata([ title := embobj.title ]);
       GetPrimary()->CommitWork();
     }
     RETURN;

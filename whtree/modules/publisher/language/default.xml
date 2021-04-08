@@ -14,6 +14,18 @@
   </textgroup>
   <textgroup gid="common" limitlanguages="en nl">   <!-- common -->
     <text tid="filter">Filter</text>
+    <textgroup gid="conditions">   <!-- common.conditions -->
+      <text tid="and"><param p="1"/> and <param p="2"/></text>
+      <text tid="and-not">Not <param p="1"/> and <param p="2"/></text>
+      <text tid="beacon">Beacon '<param p="1"/>' has been activated<ifparam p="2" value="0"><else/> within the last <param p="2"/> day<ifparam p="2" value="1"><else/>s</ifparam></ifparam></text>
+      <text tid="beacon-not">Beacon '<param p="1"/>' has not been activated<ifparam p="2" value="0"><else/> within the last <param p="2"/> day<ifparam p="2" value="1"><else/>s</ifparam></ifparam></text>
+      <text tid="newvisitor">New visitor</text>
+      <text tid="or"><param p="1"/> or <param p="2"/></text>
+      <text tid="or-not">Not <param p="1"/> or <param p="2"/></text>
+      <text tid="returningvisitor">Returning visitor</text>
+      <text tid="visitafterdate">Visiting after <param p="1"/></text>
+      <text tid="visitbeforedate">Visiting before <param p="1"/></text>
+    </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="cannotchangetypeoffolderwithnondefaultindex">The folder type cannot be changed: an index document with the name '<param p="1"/>' already exists. Please rename this file and try again.</text>
       <text tid="cannotstealindexfromversionedfile">Because the current index of this folder is published, this (currently unpublished) cannot become index. Please publish it first.</text>
@@ -24,6 +36,7 @@
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (deleted)</text>
+      <text tid="filetitle">File title</text>
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
@@ -54,6 +67,7 @@
         <text tid="title">Choose object type</text>
       </textgroup>
       <textgroup gid="editor">   <!-- commondialogs.embeddedobject.editor -->
+        <text tid="content">Content</text>
         <text tid="missingwhfstype">Missing file type</text>
         <text tid="wrongtypereturned">Wrong file type returend</text>
       </textgroup>
@@ -132,7 +146,6 @@
       <text tid="locksite">Lock the site</text>
       <text tid="makeindex">Use this file as the index document for this folder</text>
       <text tid="multiple-title">Properties of <param p="1"/> items</text>
-      <text tid="name">Field</text>
       <text tid="newfile-name">New <param p="1"/></text>
       <text tid="newfile-title">New file</text>
       <text tid="newfolder-title">New folder</text>
@@ -1814,6 +1827,22 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
+    <textgroup gid="adaptivecontent">   <!-- tolliumapps.adaptivecontent -->
+      <textgroup gid="widgetprops">   <!-- tolliumapps.adaptivecontent.widgetprops -->
+        <text tid="contenttab">Content</text>
+        <text tid="generaltab">General</text>
+        <text tid="widgetprops"><ifparam p="1" value="">New adaptive content<else/>Properties of adaptive content '<param p="1"/>'</ifparam></text>
+        <textgroup gid="beaconcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.beaconcondition -->
+          <text tid="name">Triggered beacon</text>
+        </textgroup>
+        <textgroup gid="newvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.newvisitorcondition -->
+          <text tid="name">New visitor</text>
+        </textgroup>
+        <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.returningvisitorcondition -->
+          <text tid="name">Returning visitor</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Current path</text>
@@ -1967,6 +1996,48 @@
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
+      <textgroup gid="adaptivecontent">   <!-- tolliumapps.filemanager.adaptivecontent -->
+        <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.beaconcondition -->
+          <text tid="days">days</text>
+          <text tid="is">is</text>
+          <text tid="maxdays">within the last</text>
+          <text tid="nobeacons">&lt;no beacons configured&gt;</text>
+        </textgroup>
+        <textgroup gid="beaconprops">   <!-- tolliumapps.filemanager.adaptivecontent.beaconprops -->
+          <text tid="beaconreferences">Files referencing beacon '<param p="1"/>'</text>
+          <text tid="editbeacon">Properties of beacon '<param p="1"/>'</text>
+          <text tid="newbeacon">New beacon</text>
+          <text tid="references">References</text>
+          <text tid="title">Title</text>
+          <text tid="viewreferences">View references</text>
+        </textgroup>
+        <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
+          <text tid="conditionstab">Conditions</text>
+          <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.beaconcondition -->
+            <text tid="name">Triggered beacon</text>
+          </textgroup>
+          <textgroup gid="newvisitorcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.newvisitorcondition -->
+            <text tid="name">New visitor</text>
+          </textgroup>
+          <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.returningvisitorcondition -->
+            <text tid="name">Returning visitor</text>
+          </textgroup>
+          <textgroup gid="visitdatecondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.visitdatecondition -->
+            <text tid="name-after">Visiting after</text>
+            <text tid="name-before">Visiting before</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
+          <text tid="references">References</text>
+          <text tid="url">URL</text>
+          <text tid="whfspath">Path</text>
+        </textgroup>
+        <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
+          <text tid="notypesavailable">There are no content slot types available</text>
+          <text tid="slotprops"><ifparam p="1" value="">New content slot<else/>Properties of content slot '<param p="1"/>'</ifparam></text>
+          <text tid="type">Content slot type</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->
         <textgroup gid="bgtask">   <!-- tolliumapps.filemanager.createarchive.bgtask -->
           <text tid="file">File: <param p="1"/></text>

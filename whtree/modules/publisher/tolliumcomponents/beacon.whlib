@@ -3,6 +3,7 @@
 LOADLIB "mod::publisher/lib/contentlibraries.whlib";
 LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -15,6 +16,7 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
   //
 
   OBJECT acstore;
+  OBJECT ARRAY searchroots;
   STRING rowkeyfield;
 
 
@@ -52,20 +54,42 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
     this->empty := def.empty;
     this->dirtylistener := def.dirtylistener;
 
-    IF (def.acstore != "")
-      this->acstore := OpenAdaptiveContentStore(OpenWHFSObjectByPath(def.acstore, [ expect := "folder" ])->id);
-    ELSE IF (ObjectExists(this->contexts->^acstore))
-      this->acstore := this->contexts->^acstore;
-    ELSE
-      THROW NEW TolliumException(this, "The 'acstore' attribute is required if no ^acstore context is available");
+    this->searchroots := this->GetSearchRoots();
+
+    //IF (def.acstore != "")
+    //  this->acstore := OpenAdaptiveContentStore(OpenWHFSObjectByPath(def.acstore, [ expect := "folder" ])->id);
+    //ELSE IF (ObjectExists(this->contexts->^acstore))
+    //  this->acstore := this->contexts->^acstore;
+    //ELSE
+    //  THROW NEW TolliumException(this, "The 'acstore' attribute is required if no ^acstore context is available");
 
     this->rowkeyfield := def.rowkeyfield;
+  }
+
+  UPDATE OBJECT ARRAY FUNCTION GetSearchRoots()
+  {
+    OBJECT applytester := this->contexts->applytester;
+    IF(NOT ObjectExists(applytester))
+      RETURN OBJECT[];
+
+    OBJECT ARRAY searchroots;
+    FOREVERY (INTEGER libid FROM applytester->GetLibrary("publisher:beacons"))
+    {
+      OBJECT libobject := OpenWHFSObject(libid);
+      IF (ObjectExists(libobject))
+        INSERT libobject INTO searchroots AT END;
+    }
+    RETURN searchroots;
   }
 
   UPDATE MACRO PreinitComponent()
   {
     this->RefreshBeacons();
-    ^eventlistener->masks := this->contexts->^acstore->GetEventMasks([ "beacons" ]);
+
+    STRING ARRAY masks;
+    FOREVERY(OBJECT searchroot FROM this->searchroots)
+      masks := masks CONCAT searchroot->GetEventMasks();
+    ^eventlistener->masks := masks;
   }
 
 
@@ -119,9 +143,20 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
       defaultrowkey := 0;
     ELSE
       defaultrowkey := "";
+
+    RECORD ARRAY foundbeacons;
+    FOREVERY(OBJECT searchroot FROM this->searchroots)
+      foundbeacons := foundbeacons CONCAT SELECT id
+                                               , name
+                                               , title := title ?? name
+                                            FROM system.fs_objects
+                                           WHERE parent = searchroot->id
+                                                 AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon")->id;
+
     ^beacon->options := [ [ rowkey := defaultrowkey, title := "", invalidselection := TRUE ] ] CONCAT
-        SELECT rowkey := GetCell(beacons, this->rowkeyfield)
+        SELECT rowkey := GetCell(foundbeacons, this->rowkeyfield)
              , title
-          FROM this->acstore->GetBeacons() AS beacons;
+          FROM foundbeacons
+      ORDER BY ToUppercase(title);
   }
 >;

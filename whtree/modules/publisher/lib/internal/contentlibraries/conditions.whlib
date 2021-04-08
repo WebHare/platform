@@ -1,0 +1,163 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC RECORD FUNCTION ValidateACCondition(RECORD condition)
+{
+  condition := ValidateOptions(
+      [ _type := ""
+      ], condition,
+      [ title := "condition"
+      , required := [ "_type" ]
+      , enums :=
+          [ _type :=
+            [ "newvisitor", "returningvisitor"
+            , "beacon"
+            , "visitbeforedate" , "visitafterdate"
+            , "and", "or"
+            , "not"
+            ]
+          ]
+      , passthrough := TRUE
+      ]);
+
+  SWITCH (condition._type)
+  {
+    CASE "newvisitor", "returningvisitor"
+    {
+      // No extra options to check
+    }
+    CASE "beacon"
+    {
+      condition := ValidateOptions(
+          [ beacon := ""
+          , maxdays := 0
+          ], condition,
+          [ title := "condition"
+          , required := [ "beacon" ]
+          , passthrough := TRUE
+          ]);
+      IF (condition.beacon = "")
+        THROW NEW Exception("Invalid beacon '' for condition");
+    }
+    CASE "visitbeforedate", "visitafterdate"
+    {
+      condition := ValidateOptions(
+          [ date := DEFAULT DATETIME
+          ], condition,
+          [ title := "condition"
+          , required := [ "date" ]
+          , passthrough := TRUE
+          ]);
+      IF (condition.date = DEFAULT DATETIME)
+        THROW NEW Exception("Date is required for condition");
+    }
+    CASE "and", "or"
+    {
+      condition := ValidateOptions(
+          [ conditions := RECORD[]
+          ], condition,
+          [ title := "condition"
+          , required := [ "conditions" ]
+          , passthrough := TRUE
+          ]);
+      condition.conditions := SELECT AS RECORD ARRAY ValidateACCondition(conditions) FROM condition.conditions;
+    }
+    CASE "not"
+    {
+      condition := ValidateOptions(
+          [ condition := DEFAULT RECORD
+          ], condition,
+          [ title := "condition"
+          , required := [ "condition" ]
+          , passthrough := TRUE
+          ]);
+      condition.condition := ValidateACCondition(condition.condition);
+    }
+  }
+  RETURN condition;
+}
+
+PUBLIC STRING FUNCTION FormatACCondition(RECORD condition, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (NOT RecordExists(condition))
+    RETURN "";
+
+  options := ValidateOptions(
+      [ tolliumuser := DEFAULT OBJECT
+      , __not := FALSE
+      ], options);
+  condition := ValidateACCondition(condition);
+
+  FUNCTION PTR formatconditiontime;
+  IF (ObjectExists(options.tolliumuser))
+    formatconditiontime := PTR options.tolliumuser->FormatDateTime(#1, "minutes", TRUE, TRUE);
+  ELSE
+    formatconditiontime := PTR LocalizeDateTime("dMy Hmm", #1, GetTidLanguage());
+
+  SWITCH (condition._type)
+  {
+    CASE "newvisitor"
+    {
+      IF (options.__not)
+        RETURN GetTid("publisher:common.conditions.returningvisitor");
+      ELSE
+        RETURN GetTid("publisher:common.conditions.newvisitor");
+    }
+    CASE "returningvisitor"
+    {
+      IF (options.__not)
+        RETURN GetTid("publisher:common.conditions.newvisitor");
+      ELSE
+        RETURN GetTid("publisher:common.conditions.returningvisitor");
+    }
+    CASE "beacon"
+    {
+      IF (options.__not)
+        RETURN GetTid("publisher:common.conditions.beacon-not", condition.beacon, ToString(condition.maxdays));
+      ELSE
+        RETURN GetTid("publisher:common.conditions.beacon", condition.beacon, ToString(condition.maxdays));
+    }
+    CASE "visitbeforedate"
+    {
+      IF (options.__not)
+        RETURN GetTid("publisher:common.conditions.visitafterdate", formatconditiontime(condition.date));
+      ELSE
+        RETURN GetTid("publisher:common.conditions.visitbeforedate", formatconditiontime(condition.date));
+    }
+    CASE"visitafterdate"
+    {
+      IF (options.__not)
+        RETURN GetTid("publisher:common.conditions.visitbeforedate", formatconditiontime(condition.date));
+      ELSE
+        RETURN GetTid("publisher:common.conditions.visitafterdate", formatconditiontime(condition.date));
+    }
+    CASE "and", "or"
+    {
+      STRING ARRAY subconditions := SELECT AS STRING ARRAY FormatACCondition(conditions) FROM condition.conditions;
+      IF (Length(subconditions) = 1)
+        RETURN subconditions[0];
+      ELSE IF (Length(subconditions) > 1)
+      {
+        STRING subconditionslist := Detokenize(ArraySlice(subconditions, 0, Length(subconditions) - 1), ", ");
+        RETURN condition._type = "and"
+            ? (options.__not
+                ? GetTid("publisher:common.conditions.and-not", subconditionslist, subconditions[END-1])
+                : GetTid("publisher:common.conditions.and", subconditionslist, subconditions[END-1]))
+            : (options.__not
+                ? GetTid("publisher:common.conditions.or-not", subconditionslist, subconditions[END-1])
+                : GetTid("publisher:common.conditions.or", subconditionslist, subconditions[END-1]));
+      }
+    }
+    CASE "not"
+    {
+      IF (RecordExists(condition.condition))
+        RETURN FormatACCondition(condition.condition, [ ...options, __not := NOT options.__not ]);
+    }
+  }
+  RETURN "";
+}

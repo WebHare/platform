@@ -530,7 +530,7 @@ PUBLIC STRING FUNCTION CreateWidgetPreviewLink(DATETIME validuntil, STRING passw
   RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
 }
 
-PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit, BOOLEAN isfilewidget, STRING currenttitle)
+PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit, BOOLEAN isfilewidget, STRING currenttitle, RECORD widgetsettings)
 {
   // Lookup embeddedobjecttype directly
   RECORD typedef := LookupContentType(whfstype);
@@ -558,7 +558,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   IF(NOT RecordExists(typedef.editor))
   {
     IF(NOT isedit)
-      RETURN CELL[ title := currenttitle, instance := CELL[...value, whfstype ]];
+      RETURN CELL[ title := currenttitle, widgetsettings := widgetsettings, instance := CELL[...value, whfstype ]];
 
     parent->RunSimpleScreen("info", GetTid("publisher:filemanager.main.messageboxes.cannoteditthiswidget"));
     RETURN DEFAULT RECORD;
@@ -568,7 +568,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   {
     MACRO PTR editor := MakeFunctionPTR(typedef.editor.functionname, TypeID(RECORD), [ TYPEID(OBJECT), TYPEID(RECORD) ]);
     value := editor(parent, value);
-    RETURN RecordExists(value) ? CELL[ title := currenttitle, instance := CELL[ ...value, whfstype ]] : DEFAULT RECORD;
+    RETURN RecordExists(value) ? CELL[ title := currenttitle, widgetsettings := widgetsettings, instance := CELL[ ...value, whfstype ]] : DEFAULT RECORD;
   }
 
   RECORD contexts := [ applytester := applytester ];
@@ -581,7 +581,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
     IF(screen->RunModal()!="ok")
       RETURN DEFAULT RECORD;
 
-    RETURN CELL[ title := currenttitle, instance := CELL[ ...screen->value, whfstype ]];
+    RETURN CELL[ title := currenttitle, widgetsettings := widgetsettings, instance := CELL[ ...screen->value, whfstype ]];
   }
 
   IF(ObjectExists(rte) AND MemberExists(rte, "__this_is_tolliumrichdocument"))
@@ -600,6 +600,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
         , value := value
         , isfilewidget := isfilewidget
         , currenttitle := currenttitle
+        , widgetsettings := widgetsettings
         ], CELL[ contexts ]);
 
   IF(NOT ObjectExists(dialog))
@@ -609,7 +610,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   }
 
   IF(dialog->RunModal() = "ok")
-    RETURN CELL[ title := dialog->GetNewTitle(), instance := CELL[...dialog->value, whfstype ]];
+    RETURN CELL[ title := dialog->GetFileTitle(), widgetsettings := dialog->Getwidgetsettings(), instance := CELL[...dialog->value, whfstype ]];
 
   RETURN DEFAULT RECORD; // cancelled
 }

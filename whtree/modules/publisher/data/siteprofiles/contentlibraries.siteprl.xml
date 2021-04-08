@@ -1,6 +1,11 @@
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofiles.adaptivecontent" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofiles.adaptivecontent">
+
   <!-- adaptive content slots (folder of slots) -->
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots">
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotsFolderContents" />
+    </foldersettings>
+  </foldertype>
 
   <!-- adaptive content slot -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slot" />
@@ -10,12 +15,25 @@
     <record name="condition" />
   </contenttype>
 
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons">
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#BeaconsFolderContents" />
+    </foldersettings>
+  </foldertype>
+
+  <apply priority="10">
+    <to type="all" parenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+    <denyfoldertype typedef="*" />
+    <denyfiletype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" />
+  </apply>
+
   <!-- beacon file type -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile">
     <members>
       <string name="guid" />
     </members>
+    <setobjecteditor name="publisher:adaptivecontent_beacon" />
   </filetype>
 
   <!-- add debug setting for connect -->
@@ -25,6 +43,5 @@
       <option tag="connect" title="Connect debugging" />
     </debugsettings>
   </apply>
-
 
 </siteprofile>

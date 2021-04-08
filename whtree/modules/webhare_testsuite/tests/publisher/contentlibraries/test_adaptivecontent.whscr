@@ -65,8 +65,102 @@ ASYNC MACRO TestDCComponents()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
+
+ASYNC MACRO TestAdaptiveContentBeacons()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/beacons" ]]));
+  TestEq(3, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(RECORD[], TT("types")->rows, "All folder types should be blocked"); //and a new publisher UI should remove the need for an empty newfolder dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT(":Title")->value := "Beacon Delta";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("Beacon Delta",TT("filelist")->selection.title);
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "is-employee";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
+  TestEq("Is Employee", TT(":Title")->value);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":View references"));
+  TestEq(2, Length(TT("documents")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TT(":Title")->value := "Employee Beacon";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("Employee Beacon", TT("filelist")->selection.title);
+  TestEq("is-employee", TT("filelist")->selection.name);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestAdaptiveContentSlots()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots" ]]));
+  TestEq(3, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TestEq(RECORD[], TT("types")->rows, "All filetypes should be blocked"); //and a new publisher UI should remove the need for an empty newfile dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(2, Length(TT("type")->options));
+  TT("type")->value := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/contentslot")->id;
+  TT("title")->value := "Content slot alpha";
+
+  //TODO not sure if we should be setting a name. might be more trouble than it actually adds. see also https://gitlab.webhare.com/addons/connect/-/issues/8
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Content slot alpha", TT("filelist")->selection.title);
+  TestEq(4, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq("Content slot alpha", TT(":Title")->value);
+  TT(":Title")->value := "Content slot alpha!";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Content slot alpha!", TT("filelist")->selection.title);
+  TestEq(4, Length(TT("filelist")->rows));
+  TTClick("open");
+
+  //create a widget
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":New file"));
+  TestEq(2, Length(TT("types")->rows));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "ContentOption1";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TT(":File title")->value := "Contents option 1 alpha";
+  TT(":Text")->value := [ htmltext := StringToBlob("My text") ];
+
+  TestEq("Content", TT("extensiontabs")->pages[0]->title);
+  TestEq("Conditions", TT("extensiontabs")->pages[1]->title);
+
+  //basic conditions test. TODO more testing but the API isn't that test friendly yet I think. probably deservers a separate test anyway
+  TestEq("No condition", TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->selection.title);
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->value := "newvisitor";
+  TestEq("New visitor", TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->selection.title);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Contents option 1 alpha", TT("filelist")->selection.title);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
+  TestEq("Contents option 1 alpha", TT("filetitle")->value);
+  TestEqLike("*My text*", BlobToString(TT(":Text")->value.htmltext));
+  TestEq("New visitor", TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->selection.title);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
+                 , PTR TestAdaptiveContentBeacons
+                 , PTR TestAdaptiveContentSlots
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]
                                    ]

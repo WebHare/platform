@@ -231,7 +231,7 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", topscreen->contexts->richdocument->rtdtype);
 
   //Step 5:
-  OBJECT level2rte := topscreen->instance->GetComponent("richdoc");
+  OBJECT level2rte := TT("instance")->GetComponent("richdoc");
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", level2rte->rtdtype); //now we should have switch to level2..
   TestEq("920px", level2rte->GetWHRTEStructure().contentareawidth);
 
@@ -305,7 +305,7 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
 
   AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
 
-  rte := topscreen->instance->GetComponent("richdoc");
+  rte := TT("instance")->GetComponent("richdoc");
   TestEQLIke('*This is the *text*', BlobToString(rte->value.htmltext));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 

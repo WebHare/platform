@@ -1386,4 +1386,66 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
+
+  <xs:complexType name="conditiontype">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumimplementation objecttype="/tolliumcomponents/conditionedit.whlib#ConditionTypeFragmentBase" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <!-- The conditionedit component is meant to eventually be integrated into tollium for general use (e.g. form conditions, publisher search filters) -->
+  <xs:element name="conditionedit">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/conditionedit.xml#conditionedit" />
+          <tai:extraparser field="types" type="s:array" target="./p:conditiontype" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element ref="conditiontype" minOccurs="1" maxOccurs="unbounded" />
+      </xs:sequence>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:Required" />
+      <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <tai:callbacksignature />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+
+    <!-- Type names must be unique -->
+    <xs:unique name="typenames">
+      <xs:selector xpath="./p:conditiontype" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+
+  <xs:element name="condition">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/conditionedit.xml#condition" />
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="conditiontype">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attribute name="name" type="sc:Name" use="required" />  <!--ADDME: Prohibit use of "and", "or", "not"? -->
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="fragment" type="tc:ScreenFragmentReference" use="required" />
+    </xs:complexType>
+  </xs:element>
 </xs:schema>

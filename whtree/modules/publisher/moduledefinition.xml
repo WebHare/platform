@@ -961,6 +961,7 @@
     <objecteditor name="propertydialog" library="screens/commondialogs/objectprops.whlib" startmacro="runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" screen="texteditor.main" />
+    <objecteditor name="adaptivecontent_beacon" screen="/tolliumapps/filemanager/adaptivecontent.xml#beaconprops" />
 
     <siteprofile path="data/publisher.siteprl.xml"/>
     <siteprofile path="data/embeddedobjects.siteprl.xml"/>

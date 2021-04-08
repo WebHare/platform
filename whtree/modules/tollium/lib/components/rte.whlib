@@ -699,14 +699,14 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         OBJECT screen := this->owner->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ widgets := this->GetAllowedWidgetTypes() ]);
         IF (screen->RunModal() = "ok")
         {
-          RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "");
+          RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "", DEFAULT RECORD);
           IF(RecordExists(insertvalue))
             this->InsertEmbeddedObject(insertvalue.instance);
         }
       }
       CASE "object-video"
       {
-        RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "");
+        RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "", DEFAULT RECORD);
         IF(RecordExists(insertvalue))
           this->InsertEmbeddedObject(insertvalue.instance);
       }
@@ -983,7 +983,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       RETURN [ type := "remove" ];
     }
 
-    instance := DoEditWidget(this->owner, this, instance.whfstype, instance, DEFAULT OBJECT, this->contexts->applytester, TRUE, FALSE, "");
+    instance := DoEditWidget(this->owner, this, instance.whfstype, instance, DEFAULT OBJECT, this->contexts->applytester, TRUE, FALSE, "", DEFAULT RECORD);
     IF(NOT RecordExists(instance))
       RETURN DEFAULT RECORD;
 

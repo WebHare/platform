@@ -2,6 +2,7 @@
 
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/screenbase.whlib" EXPORT WHFSFilterScreenBase;
 
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
@@ -229,6 +230,22 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
     IF (this->__ongeticon = DEFAULT FUNCTION PTR)
       RETURN 0;
     RETURN this->__ongeticon(iconname);
+  }
+
+  /** @short Run a dialog for creating a new item
+      @param parentscreen Parent screen (generally the file manager itself)
+      @param parentfolder Parent folder id
+      @return ID of the new object, 0 if creation was cancelled
+  */
+  PUBLIC INTEGER FUNCTION RunNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder)
+  {
+    RETURN RunNewFSObjectDialog(parentscreen, parentfolder, CELL[ isfolder := FALSE, issite := FALSE , __v2 := TRUE ]);
+  }
+
+  //temporary handler to intercept the current 'new file/folder' flows.
+  PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    RETURN RunNewFSObjectDialog(parentscreen, parentfolder, options);
   }
 >;
 
