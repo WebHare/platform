@@ -1732,6 +1732,11 @@
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofile">   <!-- siteprofile -->
+    <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
+      <text tid="beacon">Baken</text>
+      <text tid="beacons">Bakens map</text>
+      <text tid="slots">Slots map</text>
+    </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML blok</text>
       <text tid="embedvideo">Ingebedde video</text>

@@ -1732,6 +1732,11 @@
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofile" limitlanguages="en nl">   <!-- siteprofile -->
+    <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
+      <text tid="beacon">Beacon</text>
+      <text tid="beacons">Beacon folder</text>
+      <text tid="slots">Slots folder</text>
+    </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML block</text>
       <text tid="embedvideo">Embedded video</text>
