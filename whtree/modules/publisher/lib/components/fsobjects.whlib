@@ -17,6 +17,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   //
 
   BOOLEAN transform_touppercase;
+  INTEGER ARRAY _limittypes;
 
 
   // ---------------------------------------------------------------------------
@@ -39,6 +40,8 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   PUBLIC STRING type;
   PUBLIC STRING mask;
 
+
+  PUBLIC PROPERTY limittypes(this->_limittypes, SetLimitTypes);
 
   // ---------------------------------------------------------------------------
   //
@@ -110,6 +113,12 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
     this->InvalidateCurrentOptions();
   }
 
+  MACRO SetLimitTypes(INTEGER ARRAY newlimittypes)
+  {
+    this->_limittypes := newlimittypes;
+    this->InvalidateCurrentOptions();
+  }
+
   UPDATE MACRO RegenerateOptions()
   {
     RECORD ARRAY options;
@@ -119,13 +128,19 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
       {
         IF (NOT ObjectExists(searchroot))
           CONTINUE;
+
         INTEGER indexdocid := this->skipindex ? searchroot->indexdoc : 0;
         RECORD csp := GetCachedSiteProfiles();
-        INTEGER ARRAY filtertypes :=
+        INTEGER ARRAY filtertypes;
+
+        IF(this->type != "")
+        {
+          filtertypes :=
             SELECT AS INTEGER ARRAY id
               FROM csp.contenttypes
              WHERE ToUppercase(namespace) LIKE ToUppercase(this->type)
                    AND (RecordExists(filetype) OR RecordExists(foldertype));
+        }
 
         RECORD ARRAY results :=
             SELECT id
@@ -140,6 +155,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
                    AND ToUppercase(name) LIKE ToUppercase(this->mask)
                    AND (this->publish ? publish = TRUE : TRUE)
                    AND (this->show="all" OR isfolder = (this->show="folders"))
+                   AND (Length(this->limittypes) != 0 ? type IN this->limittypes : TRUE)
                    AND (this->type != "" ? type IN filtertypes : TRUE)
                    AND (this->showhidden ? TRUE : type NOT IN csp.hiddenfoldertypes);
 

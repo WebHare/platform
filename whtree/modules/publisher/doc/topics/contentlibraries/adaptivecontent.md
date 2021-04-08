@@ -1,21 +1,3 @@
-# Templates
-
-Siteprofiles can set up 'templates' for files and folders which will be offered
-when selecting "New file" or "New folder" in the Publisher. To set up templates,
-set up the files (or folders) somewhere in the Publisher, and then set up
-a `publisher:fsobjecttemplates` library through an apply rule to point the
-template source:
-
-```xml
-  <apply>
-    <to type="all" />
-    <setlibrary name="publisher:fsobjecttemplates">
-      <source path="site::mysite/templates/" />
-      <source path="site::repository/globaltemplates/" />
-    </setlibrary>
-  </apply>
-```
-
 # Adaptive content
 
 An adaptive content store consists of one or more 'slots'. Adaptive content slots have a type and can contain zero or more
@@ -27,6 +9,15 @@ will limit which slot types are avaialble there (eg only header notifications or
 Technically, all widgets in a slot are inserted into the HTML but rendered inside a `<template>` element to keep them inert.
 As soon as one is chosen for display it goes through a `dompack.registerMissed` to activate any needed elements and it will
 be inserted after the template element.
+
+```xml
+  <apply>
+    <to type="all" />
+    <setlibrary name="publisher:slots">
+      <source path="site::mysite/slots/" />
+    </setlibrary>
+  </apply>
+```
 
 ## Configuration
 
@@ -44,11 +35,11 @@ Set up a foldertype for every slot type and use allowfiletype to set up which wi
   </apply>
 ```
 
-You also need to allow these foldertypes for your content store. Eg if your content store is in 'site::My site/acstore'
+You also need to allow these foldertypes for your content store. Eg if your slots are in 'site::My site/slots/'
 
 ```xml
   <apply> <!-- this apply rule needs to be made to apply to site 'My site' -->
-    <to type="folder" parentmask="/acstore/" />
+    <to type="folder" parentmask="/slots/" />
     <denyfoldertype typedef="*" />
     <allowfoldertype typedef="http://www.example.net/xmlns/mymodule/headerslot" />
     <allowfoldertype typedef="http://www.example.net/xmlns/mymodule/contentslot" />
@@ -72,8 +63,8 @@ their editor will be supported for content editing.
 Example: per-file 'call to action' in header or sidebar
 
 - Add a `<whfsref>` member to the file's content type
-- Add a `xmlns:ac="http://www.webhare.net/xmlns/connect/adaptivecontent/components"` to your toplevel XML node
-- Add a `<ac:slot composition="contentdata" cellname="<membername>" acstore="site::My site/acstore" slottypes="http://www.example.net/xmlns/mymodule/headerslot"/>`
+- Add a `xmlns:p="http://www.webhare.net/xmlns/publisher/components"` to your toplevel XML node
+- Add a `<p:slot composition="contentdata" cellname="<membername>"  slottypes="http://www.example.net/xmlns/mymodule/headerslot"/>`
 
 Add in pageconfig something like:
 

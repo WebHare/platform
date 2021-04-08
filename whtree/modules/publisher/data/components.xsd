@@ -1349,7 +1349,6 @@
           <xs:list itemType="xs:string" />
         </xs:simpleType>
       </xs:attribute>
-      <xs:attribute name="acstore" use="required" />
     </xs:complexType>
   </xs:element>
 

@@ -1,8 +1,14 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.dcslot" library="slot.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumcomponents.dcslot"
+         library="slot.whlib">
 
   <fragment name="dcslot">
     <contents>
-      <select name="slot" type="pulldown" title=""/>
+      <select name="slot" type="pulldown" title="" rowkeytype="integer">
+        <option rowkey="0" title =""/>
+        <p:fslibrary name="fslibrary" fslibrary="publisher:slots" />
+      </select>
     </contents>
   </fragment>
 

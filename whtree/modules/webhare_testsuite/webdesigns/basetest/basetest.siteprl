@@ -140,6 +140,9 @@
     <setlibrary name="publisher:beacons">
       <source path="site::webhare testsuite site/tmp/beacons/" />
     </setlibrary>
+    <setlibrary name="publisher:slots">
+      <source path="site::webhare testsuite site/tmp/slots/" />
+    </setlibrary>
   </apply>
 
   <!-- Basic property tests -->
