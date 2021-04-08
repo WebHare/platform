@@ -1,0 +1,18 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.filemanager.adaptivecontent"
+         library="adaptivecontent.whlib"
+         >
+
+  <screen name="slotprops" minwidth="100x" allowresize="true" footerbuttons="ok cancel" gid=".slotprops" savestate="size">
+    <compositions>
+      <record name="slotdata" />
+    </compositions>
+
+    <body>
+      <select composition="slotdata" cellname="type" name="type" type="pulldown" />
+      <textedit composition="slotdata" cellname="title" width="1pr" required="true" tid="~title" />
+    </body>
+  </screen>
+
+
+</screens>

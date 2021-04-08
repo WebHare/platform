@@ -91,7 +91,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   STRING emptytext; // Default empty text
   INTEGER ARRAY customcontents; // List of arbitrary file id's to show
   BOOLEAN hasfilter; //filtering enabled, use the currentfilterresults
-  OBJECT contentslisthandler; //handler overrwiting contentslist
+  OBJECT _contentslisthandler; //handler overrwiting contentslist
 
   ///TRUE if we need to reconfigure the list: rowlayout or contentslisthandler changed
   BOOLEAN listsetupdirty;
@@ -126,6 +126,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   // Public properties
   //
 
+  PUBLIC PROPERTY contentslisthandler(_contentslisthandler, -);
   PUBLIC PROPERTY hidefolders(pvt_hidefolders, SetHideFolders);
   PUBLIC PROPERTY hideexternal(pvt_hideexternal, SetHideExternalFolders);
   PUBLIC PROPERTY hidefiles(pvt_hidefiles, SetHideFiles);
@@ -224,7 +225,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->mylist->selectableflags := ["selectable"];
 
     this->commontexts := GetFileStatusCommonTexts();
-    this->contentslisthandler := NEW DefaultContentsListHandler;
+    this->_contentslisthandler := NEW DefaultContentsListHandler;
     RECORD sel := ObjectExists(this->foldertree) ? this->foldertree->selection : DEFAULT RECORD;
     this->curfolder := RecordExists(sel) ? sel.rowkey : -2; //mark as unloaded
 
@@ -313,9 +314,9 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
                ] INTO this->listshandlercache AT END;
       }
     }
-    IF(this->contentslisthandler != cachedlisthandler)
+    IF(this->_contentslisthandler != cachedlisthandler)
     {
-      this->contentslisthandler := cachedlisthandler;
+      this->_contentslisthandler := cachedlisthandler;
       this->listsetupdirty := TRUE;
     }
 
@@ -458,7 +459,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
   MACRO SetupListLayout()
   {
-    RECORD ARRAY addedcolumns := this->contentslisthandler->GetAddedColumns();
+    RECORD ARRAY addedcolumns := this->_contentslisthandler->GetAddedColumns();
     IF(RecordExists(SELECT FROM addedcolumns WHERE name NOT LIKE 'custom_*'))
       THROW NEW Exception("All columns added by a custom contents list handler must have their name start with 'custom_'");
 
@@ -476,7 +477,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     IF(this->rowlayout = "onerow")
     {
       RECORD layoutrow := [ cells := DEFAULT RECORD ARRAY ];
-      FOREVERY(RECORD header FROM this->contentslisthandler->GetOneRowLayout())
+      FOREVERY(RECORD header FROM this->_contentslisthandler->GetOneRowLayout())
       {
         IF(CellExists(header,'width'))
           UPDATE columns SET width := header.width WHERE name = header.name;
@@ -493,7 +494,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     }
     ELSE
     {
-      RECORD settings := this->contentslisthandler->GetMultiRowLayout();
+      RECORD settings := this->_contentslisthandler->GetMultiRowLayout();
       FOREVERY(RECORD header FROM settings.headers)
       {
         IF(CellExists(header,'width'))
@@ -521,7 +522,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     }
 
     this->sortheaders := DEFAULT RECORD ARRAY;
-    STRING ordered_column := this->contentslisthandler->GetOrderedColumn() ?? "ordering";
+    STRING ordered_column := this->_contentslisthandler->GetOrderedColumn() ?? "ordering";
     INSERT [ rowkey := ordered_column
            , title := this->GetColumnSortTitle(columns, ordered_column)
            , ordered := TRUE
@@ -576,9 +577,9 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
         SELECT AS STRING ARRAY DISTINCT flag
           FROM ToRecordArray(this->mylist->flags, "flag")
          WHERE flag NOT LIKE "custom_*";
-    IF (this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+    IF (this->_contentslisthandler EXTENDSFROM ContentsHandlerBase)
     {
-      RECORD ARRAY addedflags := SELECT DISTINCT flag FROM ToRecordArray(this->contentslisthandler->GetAddedFlags(), "flag");
+      RECORD ARRAY addedflags := SELECT DISTINCT flag FROM ToRecordArray(this->_contentslisthandler->GetAddedFlags(), "flag");
       STRING illegalflag := SELECT AS STRING flag FROM addedflags WHERE flag NOT LIKE "custom_*";
       IF (illegalflag != "")
         THROW NEW Exception(`Illegal added flag '${illegalflag}'`);
@@ -639,7 +640,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
   MACRO RefreshList()
   {
-    IF(this->listsetupdirty AND ObjectExists(this->contentslisthandler))
+    IF(this->listsetupdirty AND ObjectExists(this->_contentslisthandler))
     {
       VARIANT currentselection := ^mylist->value;
       this->listsetupdirty := FALSE;
@@ -713,7 +714,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
                                    WHERE id IN this->customcontents;
         files := EnrichObjectListing(DEFAULT OBJECT, fileslist, FALSE, "");
       }
-      ELSE IF (ObjectExists(this->contentslisthandler) AND this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+      ELSE IF (ObjectExists(this->_contentslisthandler) AND this->_contentslisthandler EXTENDSFROM ContentsHandlerBase)
       {
         files := this->GetCustomObjectListing(this->curfolder, FALSE, NOT this->hidefolders, NOT this->hidefiles, showhidden);
       }
@@ -773,10 +774,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     IF(this->listcontentsremap AND Length(files)>0)
     {
       RECORD ARRAY remapdata := SELECT id, type FROM files; //the other fields should not be relied on
-      FUNCTION PTR curgeticon := this->contentslisthandler->__ongeticon;
-      this->contentslisthandler->__ongeticon := PTR this->mylist->GetIcon;
-      remapdata := this->contentslisthandler->OnMapItems(this->curfolder, remapdata);
-      this->contentslisthandler->__ongeticon := curgeticon;
+      FUNCTION PTR curgeticon := this->_contentslisthandler->__ongeticon;
+      this->_contentslisthandler->__ongeticon := PTR this->mylist->GetIcon;
+      remapdata := this->_contentslisthandler->OnMapItems(this->curfolder, remapdata);
+      this->_contentslisthandler->__ongeticon := curgeticon;
 
       IF(Length(remapdata) != Length(files))
         THROW NEW Exception("The OnMapItems handler changed the number of items (in: " || Length(files) || ", out " || Length(remapdata) || " - perhaps no outer join was used?");

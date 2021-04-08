@@ -1,0 +1,92 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SlotsFolderContents EXTEND ContentsListHandlerBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    IF(options.isfolder AND NOT options.issite)
+      RETURN parentscreen->RunScreen(Resolve("adaptivecontent.xml#slotprops"), [ id := 0, parent := parentfolder ]);
+    ELSE
+      RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
+  }
+>;
+
+//TODO we currently do NOT use this for editing, only for adding
+PUBLIC STATIC OBJECTTYPE SlotProps EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER id;
+  OBJECT acstore;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+    this->acstore := OpenAdaptiveContentStore(data.parent);
+
+    RECORD ARRAY allowedslottypes := this->acstore->ListAllowedSlotTypes();
+    IF(data.id = 0)
+    {
+      IF(Length(allowedslottypes) = 0)
+      {
+        this->RunSimpleScreen("error", this->GetTid(".notypesavailable"));
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+    }
+
+    //Discover available types
+    ^slotdata->^type->options := SELECT rowkey := id, title := GetTid(title) FROM allowedslottypes;
+
+    IF(data.id != 0)
+    {
+      //TODO deal with type being disabled, eitehr readd it as dummy, block editing or make sure it's not overwritten
+      //TODO should we have an API for this?
+      RECORD slotinfo := SELECT type, title FROM system.fs_objects WHERE id = VAR data.id;
+      ^slotdata->value := slotinfo;
+      ^slotdata->^type->enabled := FALSE;
+
+      this->frame->title := this->GetTid(".slotprops", slotinfo.title);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT slot;
+    IF(this->id = 0)
+    {
+      slot := this->acstore->CreateSlot(^slotdata->value);
+    }
+    ELSE
+    {
+      slot := this->acstore->OpenSlot(this->id);
+      slot->UpdateSlot(CELL[ ...^slotdata->value, DELETE type ]);
+    }
+    RETURN work->Finish() ? slot->slotfolder->id : 0;
+  }
+>;
+
+

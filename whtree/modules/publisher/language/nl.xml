@@ -1967,6 +1967,13 @@
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
+      <textgroup gid="adaptivecontent">   <!-- tolliumapps.filemanager.adaptivecontent -->
+        <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
+          <text tid="notypesavailable">Er zijn geen content-slot-types beschikbaar</text>
+          <text tid="slotprops"><ifparam p="1" value="">Nieuw content slot<else/>Eigenschappen van content slot '<param p="1"/>'</ifparam></text>
+          <text tid="type">Type content slot</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->
         <textgroup gid="bgtask">   <!-- tolliumapps.filemanager.createarchive.bgtask -->
           <text tid="file">Bestand: <param p="1"/></text>

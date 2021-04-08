@@ -1794,7 +1794,19 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF(issite AND RecordExists(SELECT FROM system.fs_objects WHERE id = sel.id AND parentsite != 0))
       RETURN; //no need to prepare an error - the context menu normally blocks this anyway, so just a race
 
-    INTEGER newobjid := RunNewFSObjectDialog(this, parentid, CELL[isfolder, issite, __v2 := isv2 ]);
+    INTEGER newobjid;
+    IF(isv2 AND NOT issite)
+    {
+      newobjid := ^filelist->contentslisthandler->RunNewPublisherFSObjectDialog(this, parentid);
+    }
+    ELSE IF(NOT issite)
+    {
+      newobjid := ^filelist->contentslisthandler->_RunLegacyNewPublisherFSObjectDialog(this, parentid, CELL[isfolder, issite, __v2 := isv2 ]);
+    }
+    ELSE
+    {
+      newobjid := RunNewFSObjectDialog(this, parentid, CELL[isfolder, issite, __v2 := isv2 ]);
+    }
     IF(newobjid = 0)
       RETURN;
 
@@ -1803,6 +1815,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       ^foldertree->ReloadOverview();
 
     ^filelist->ReloadOverview();
+    this->frame->focused := ^filelist;
     ^filelist->SetValueIfValid([newobjid]);
   }
 

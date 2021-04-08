@@ -1,6 +1,11 @@
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofiles.adaptivecontent" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofiles.adaptivecontent">
+
   <!-- adaptive content slots (folder of slots) -->
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots">
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotsFolderContents" />
+    </foldersettings>
+  </foldertype>
 
   <!-- adaptive content slot -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slot" />
@@ -11,6 +16,7 @@
   </contenttype>
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+
   <!-- beacon file type -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile">
     <members>
@@ -25,6 +31,5 @@
       <option tag="connect" title="Connect debugging" />
     </debugsettings>
   </apply>
-
 
 </siteprofile>

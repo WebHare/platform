@@ -65,8 +65,41 @@ ASYNC MACRO TestDCComponents()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
+
+ASYNC MACRO TestAdaptiveContentApp()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots" ]]));
+  TestEq(3, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TestEq(RECORD[], TT("types")->rows, "All filetypes should be blocked"); //and a new publisher UI should remove the need for an empty newfile dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(2, Length(TT("type")->options));
+  TT("type")->value := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/contentslot")->id;
+  TT("title")->value := "Content slot alpha";
+
+  //TODO not sure if we should be setting a name. might be more trouble than it actually adds. see also https://gitlab.webhare.com/addons/connect/-/issues/8
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Content slot alpha", TT("filelist")->selection.title);
+  TestEq(4, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq("Content slot alpha", TT(":Title")->value);
+  TT(":Title")->value := "Content slot alpha!";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Content slot alpha!", TT("filelist")->selection.title);
+  TestEq(4, Length(TT("filelist")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
+                 , PTR TestAdaptiveContentApp
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]
                                    ]
