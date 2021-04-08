@@ -107,6 +107,12 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   PSROOT="${WEBHARE_DATAROOT}postgresql"
   mkdir -p "$BACKUPDEST/backup/"
   pg_basebackup -D "$BACKUPDEST/backup/" -h "$PSROOT/db" -F tar -P -v -h "$PSROOT" --compress=1
+  BACKUPRETVAL="$?"
+
+  if [ "$BACKUPRETVAL" != "0" ]; then
+    echo "pg_basebackup failed with errorcode $BACKUPRETVAL"
+    exit 1
+  fi
 
   [ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
   rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/blob" "$BLOBDEST/"
