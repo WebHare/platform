@@ -1,7 +1,7 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.filemanager.adaptivecontent"
-         library="adaptivecontent.whlib"
-         >
+         library="adaptivecontent.whlib">
 
   <screen name="slotprops" minwidth="100x" allowresize="true" footerbuttons="ok cancel" gid=".slotprops" savestate="size">
     <compositions>
@@ -14,5 +14,42 @@
     </body>
   </screen>
 
+  <tabsextension name="slotwidgetextensions" gid=".conditions">
+    <newtab tid=".conditionstab">
+      <p:conditionedit composition="widgetsettings" cellname="condition">
+        <p:conditiontype name="newvisitor" fragment="#newvisitorcondition" tid=".newvisitorcondition.name" />
+        <p:conditiontype name="returningvisitor" fragment="#returningvisitorcondition" tid=".returningvisitorcondition.name" />
+        <p:conditiontype name="beacon" fragment="#beaconcondition" tid=".beaconcondition.name" />
+        <p:conditiontype name="visitafterdate" fragment="#visitdatecondition" tid=".visitdatecondition.name-after" />
+        <p:conditiontype name="visitbeforedate" fragment="#visitdatecondition" tid=".visitdatecondition.name-before" />
+      </p:conditionedit>
+    </newtab>
+  </tabsextension>
+
+  <fragment name="newvisitorcondition" gid=".newvisitorcondition" implementation="p:conditiontype">
+    <contents />
+  </fragment>
+
+  <fragment name="returningvisitorcondition" gid=".returningvisitorcondition" implementation="p:conditiontype">
+    <contents />
+  </fragment>
+
+  <fragment name="beaconcondition" gid=".beaconcondition">
+    <compositions>
+      <record name="value" />
+    </compositions>
+    <contents>
+      <line>
+        <p:beacon composition="value" cellname="beacon" emptytid=".nobeacons" required="true" tid=".is" rowkeyfield="name" />
+        <textedit composition="value" cellname="maxdays" width="10x" emptyvalue="0" suffixtid=".days" valuetype="integer" />
+      </line>
+    </contents>
+  </fragment>
+
+  <fragment name="visitdatecondition" gid=".visitdatecondition">
+    <contents>
+      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" />
+    </contents>
+  </fragment>
 
 </screens>

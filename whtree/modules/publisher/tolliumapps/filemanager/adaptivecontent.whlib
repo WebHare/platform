@@ -2,6 +2,7 @@
 
 LOADLIB "mod::publisher/lib/contentlibraries.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/tolliumcomponents/conditionedit.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -90,3 +91,57 @@ PUBLIC STATIC OBJECTTYPE SlotProps EXTEND TolliumScreenBase
 >;
 
 
+PUBLIC STATIC OBJECTTYPE BeaconCondition EXTEND ConditionTypeFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+    IF (NOT ObjectExists(this->contexts->^acstore))
+      THROW NEW Exception("No dcscore context");
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    ^value->^beacon->onchange := this->onchange;
+    ^value->^beacon->dirtylistener := this->dirtylistener;
+    ^value->^maxdays->onchange := this->onchange;
+    ^value->^maxdays->dirtylistener := this->dirtylistener;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN ^value->value;
+  }
+
+  UPDATE MACRO SetValue(RECORD newvalue)
+  {
+    ^value->value := newvalue;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE VisitDateCondition EXTEND ConditionTypeFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  UPDATE RECORD FUNCTION GetValue()
+  {
+    RETURN [ date := ^date->value ];
+  }
+
+  UPDATE MACRO SetValue(RECORD newvalue)
+  {
+    IF (RecordExists(newvalue))
+      ^date->value := newvalue.date;
+  }
+>;

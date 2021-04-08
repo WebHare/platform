@@ -1,0 +1,628 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/internal/contentlibraries/conditions.whlib";
+
+
+RECORD __creation_settings;
+
+
+OBJECTTYPE ConditionEditContext
+<
+  /// The available condition types
+  PUBLIC RECORD ARRAY conditiontypes;
+>;
+
+
+PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // List of condition component references
+  OBJECT ARRAY conditionobjs;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The current condition, a default record when there is no condition set
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Handler that is called after the value has changed (condition type and/or contents)
+  PUBLIC MACRO PTR onchange;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+    this->contexts->^conditioneditcontext := NEW ConditionEditContext();
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD data)
+  {
+    TolliumFragmentBase::StaticInit(data);
+
+    this->contexts->^conditioneditcontext->conditiontypes := data.types;
+    this->onchange := data.onchange;
+  }
+
+  UPDATE MACRO PreShowComponent()
+  {
+    // Create a new condition if there isn't one already
+    IF (Length(this->conditionobjs) = 0)
+      this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->conditionobjs;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Subcondition API
+  //
+
+  /** @short Called by subconditions to add a sibling condition
+      @param(object #Condition) conditionobj The condition object after which the new condition should be added
+  */
+  PUBLIC MACRO AddCondition(OBJECT conditionobj)
+  {
+    // Add an empty condition after the given condition
+    this->CreateCondition(DEFAULT RECORD, conditionobj);
+
+    this->ConditionChanged();
+  }
+
+  /** @short Called by subconditions to remove a sibling condition
+      @param(object #Condition) conditionobj The condition object to remove
+  */
+  PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
+  {
+    INTEGER pos := SearchElement(this->conditionobjs, conditionobj);
+    IF (pos >= 0)
+    {
+      // Delete the condition
+      DELETE FROM this->conditionobjs AT pos;
+      conditionobj->DeleteComponent();
+
+      // Keep at least one condition
+      IF (Length(this->conditionobjs) = 0)
+        this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+    }
+
+    this->ConditionChanged();
+  }
+
+  /** @short Called by subconditions after their value has changed
+  */
+  PUBLIC MACRO ConditionChanged()
+  {
+    IF (this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
+    this->SetDirty();
+  }
+
+  /** @short Called by subconditions after they are marked dirty
+  */
+  PUBLIC MACRO ConditionSetDirty()
+  {
+    this->SetDirty();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  RECORD FUNCTION GetValue()
+  {
+    // Return the single condition
+    RETURN Length(this->conditionobjs) > 0 ? this->conditionobjs[0]->condition : DEFAULT RECORD;
+  }
+
+  MACRO SetValue(RECORD value)
+  {
+    IF (RecordExists(value))
+    {
+      TRY
+        value := ValidateACCondition(value);
+      CATCH (OBJECT e)
+        THROW NEW TolliumException(this, "Invalid condition value: " || e->what);
+    }
+
+    // Check if actually changed
+    IF (EncodeHSON(value) = EncodeHSON(this->value))
+      RETURN;
+
+    FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+      conditionobj->DeleteComponent();
+    this->conditionobjs := OBJECT[];
+    this->CreateCondition(value, DEFAULT OBJECT);
+    this->ConditionChanged();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateCondition(RECORD condition, OBJECT aftercondition)
+  {
+    // Initialize the new condition component
+    RECORD oldparent := __creation_settings;
+    __creation_settings := [ parent := this, editcomponent := this ];
+    OBJECT conditionobj := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "condition");
+    __creation_settings := oldparent;
+
+    // Add a reference to the list of condition components
+    INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
+    IF (pos = 0)
+      pos := Length(this->conditionobjs);
+    INSERT conditionobj INTO this->conditionobjs AT pos;
+
+    // Insert the component and set the condition
+    ^condition->InsertComponentAfter(conditionobj, aftercondition, TRUE);
+    conditionobj->condition := condition;
+    conditionobj->canadd := FALSE;
+    conditionobj->candelete := FALSE;
+
+    RETURN conditionobj;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // The ConditionEdit component for top-level conditions or the and/or/not Condition for subconditions
+  OBJECT pvt_conditionparent;
+
+  // The ConditionEdit component
+  OBJECT pvt_editcomponent;
+
+  // Onchange handler pointing to the edit component's ConditionChanged member
+  MACRO PTR pvt_onchange;
+
+  // For detecting type changes
+  STRING prevtype;
+
+  // If the condition setter is active, we don't have to handle type changes
+  BOOLEAN setting_condition;
+
+  // List of condition component references
+  OBJECT ARRAY conditionobjs;
+
+  // List of condition fragment components
+  OBJECT ARRAY fragmentobjs;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The and/or/not condition for subconditions, DEFAULT OBJECT for top-level conditions
+  PUBLIC PROPERTY parentcondition(GetParentCondition, -);
+
+  /// The condition value for storage
+  PUBLIC PROPERTY condition(GetCondition, SetCondition);
+
+  /// Toggle the add button
+  PUBLIC PROPERTY canadd(-, ^addconditionbutton->visible);
+
+  /// Toggle the delete button
+  PUBLIC PROPERTY candelete(-, ^deleteconditionbutton->visible);
+
+  /// The onchange handler (a reference to the edit component's onchange handler)
+  PUBLIC PROPERTY onchange(pvt_onchange, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    IF (NOT RecordExists(__creation_settings))
+      THROW NEW Exception("Condition cannot be instatiated directly");
+    this->pvt_conditionparent := __creation_settings.parent;
+    this->pvt_editcomponent := __creation_settings.editcomponent;
+    this->pvt_onchange := PTR this->pvt_editcomponent->ConditionChanged;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    ^subconditionline->visible := ObjectExists(this->parentcondition);
+    ^subconditionspacer->visible := ^subconditionline->visible;
+
+    RECORD ARRAY options :=
+        [ [ rowkey := "", title := GetTid("publisher:tolliumcomponents.conditionedit.field-none"), type := "" ]
+        , [ rowkey := "-1", isdivider := TRUE, type := "" ]
+        ];
+    // Add custom types
+    options := options CONCAT
+        SELECT rowkey := name
+             , title
+             , type := name
+             , fragment
+          FROM this->contexts->^conditioneditcontext->conditiontypes;
+    // Add the AND, OR and NOT options
+    options := options CONCAT
+        [ [ rowkey := "-2", isdivider := TRUE, type := "" ]
+        , [ rowkey := ":and", title := GetTid("publisher:tolliumcomponents.conditionedit.field-and"), type := "and" ]
+        , [ rowkey := ":or", title := GetTid("publisher:tolliumcomponents.conditionedit.field-or"), type := "or" ]
+        , [ rowkey := ":not", title := GetTid("publisher:tolliumcomponents.conditionedit.field-not"), type := "not" ]
+        ];
+    ^field->options := options;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    RETURN this->conditionobjs;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Called by a subcondition when its add button is clicked
+      @param(object #Condition) conditionobj The subcondition after which the new condition should be added
+  */
+  PUBLIC MACRO AddCondition(OBJECT conditionobj)
+  {
+    this->CreateCondition(DEFAULT RECORD, conditionobj);
+    this->UpdateState();
+
+    this->pvt_editcomponent->ConditionChanged();
+  }
+
+  /** @short Called by a subcondition when its delete button is clicked
+      @param(object #Condition) conditionobj The subcondition to remove
+  */
+  PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
+  {
+    INTEGER pos := SearchElement(this->conditionobjs, conditionobj);
+    IF (pos >= 0)
+    {
+      DELETE FROM this->conditionobjs AT pos;
+      conditionobj->DeleteComponent();
+
+      // If the last subcondition was deleted, delete the condition itself
+      IF (Length(this->conditionobjs) = 0)
+        this->pvt_conditionparent->DeleteCondition(this);
+      ELSE
+        this->UpdateState();
+
+      this->pvt_editcomponent->ConditionChanged();
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddCondition()
+  {
+    this->pvt_conditionparent->AddCondition(this);
+  }
+
+  MACRO DoDeleteCondition()
+  {
+    this->pvt_conditionparent->DeleteCondition(this);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnFieldSelect()
+  {
+    IF (RecordExists(^field->selection))
+    {
+      IF (CellExists(^field->selection, "fragment"))
+      {
+        IF (^field->selection.type != this->prevtype)
+        {
+          // Delete any fragment components
+          FOREVERY (OBJECT fragmentobj FROM this->fragmentobjs)
+            fragmentobj->DeleteComponent();
+          this->fragmentobjs := OBJECT[];
+          // Delete any subconditions
+          FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+            this->DeleteCondition(conditionobj);
+
+          // Load the condition fragment
+          STRING ARRAY parts := Tokenize(^field->selection.fragment, "#");
+          RECORD oldparent := __creation_settings;
+          __creation_settings := [ parent := this ];
+          RECORD result := ^conditionfields->LoadFragment(parts[0], parts[1]);
+          __creation_settings := oldparent;
+          IF (result.components[0] NOT EXTENDSFROM ConditionTypeFragmentBase)
+            THROW NEW TolliumException(result.components[0], `Fragment '${^field->selection.fragment}' for condition type '${^field->selection.type}' does not extend from ConditionTypeFragmentBase`);
+
+            // Store the fragment's components
+          this->fragmentobjs := result.components;
+        }
+      }
+      ELSE
+      {
+        // Delete any fragment components
+        FOREVERY (OBJECT fragmentobj FROM this->fragmentobjs)
+          fragmentobj->DeleteComponent();
+        this->fragmentobjs := OBJECT[];
+
+        IF (^field->selection.type IN [ "and", "or", "not" ])
+        {
+          IF (this->setting_condition)
+          {
+            // If the condition setter is running, delete any subcondition components, they will be re-added by the setter
+            // when needed
+            FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+              this->DeleteCondition(conditionobj);
+          }
+          ELSE
+          {
+            IF (this->prevtype NOT IN [ "and", "or", "not" ] OR Length(this->conditionobjs) = 0)
+            {
+              // Make sure there is at least one condition
+              this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+            }
+            ELSE IF (^field->selection.type = "not")
+            {
+              // Keep only one condition
+              FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+                IF (#conditionobj > 0)
+                  this->DeleteCondition(conditionobj);
+            }
+          }
+        }
+        ELSE IF (^field->selection.type = "")
+        {
+          // Delete any subconditions
+          FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+            this->DeleteCondition(conditionobj);
+        }
+      }
+    }
+    IF (^field->selection.type != this->prevtype)
+      this->pvt_editcomponent->ConditionChanged();
+    this->prevtype := ^field->selection.type;
+    this->UpdateState();
+  }
+
+  MACRO OnConditionDirty()
+  {
+    this->pvt_editcomponent->ConditionSetDirty();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  OBJECT FUNCTION GetParentCondition()
+  {
+    // If the condition parent is the edit component, this is the main condition
+    IF (this->pvt_conditionparent = this->pvt_editcomponent)
+      RETURN DEFAULT OBJECT;
+    RETURN this->pvt_conditionparent;
+  }
+
+  RECORD FUNCTION GetCondition()
+  {
+    IF (RecordExists(^field->selection))
+    {
+      IF (^field->selection.type IN [ "and", "or" ])
+      {
+        // Get the values of the subconditions
+        RECORD ARRAY conditions :=
+            SELECT AS RECORD ARRAY conditionobj->condition
+              FROM ToRecordArray(this->conditionobjs, "conditionobj");
+        DELETE FROM conditions WHERE NOT RecordExists(conditions);
+        IF (RecordExists(conditions))
+          RETURN CELL
+              [ _type := ^field->selection.type
+              , conditions
+              ];
+      }
+      ELSE IF (^field->selection.type = "not")
+      {
+        // Get the values of the subcondition
+        IF (Length(this->conditionobjs) > 0)
+        {
+          RECORD condition := this->conditionobjs[0]->condition;
+          IF (RecordExists(condition))
+            RETURN CELL
+                [ _type := ^field->selection.type
+                , condition
+                ];
+        }
+      }
+      ELSE IF (CellExists(^field->selection, "fragment"))
+      {
+        // Get the condition fragment's value
+        RETURN CELL
+            [ _type := ^field->selection.type
+            , ...this->fragmentobjs[0]->value
+            ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO SetCondition(RECORD condition)
+  {
+    IF (NOT RecordExists(condition))
+    {
+      // Reset to 'none'
+      ^field->value := "";
+      this->OnFieldSelect();
+    }
+    ELSE
+    {
+      this->setting_condition := TRUE;
+      IF (condition._type IN [ "and", "or" ])
+      {
+        ^field->value := ":" || condition._type;
+        IF (NOT RecordExists(condition.conditions))
+        {
+          // Make sure there is at least one subcondition
+          this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+        }
+        ELSE
+        {
+          // Create the subcondition components
+          FOREVERY (RECORD subcondition FROM condition.conditions)
+            this->CreateCondition(subcondition, DEFAULT OBJECT);
+        }
+      }
+      ELSE IF (condition._type = "not")
+      {
+        ^field->value := ":" || condition._type;
+        // Create the subcondition component
+        this->CreateCondition(condition.condition, DEFAULT OBJECT);
+      }
+      ELSE IF (RecordExists(SELECT FROM ^field->options WHERE type = condition._type))
+      {
+        // Set the condition type
+        ^field->value := condition._type;
+        // Make sure the condition fragment is loaded
+        this->OnFieldSelect();
+        // Set the condition fragment's value
+        this->fragmentobjs[0]->value := CELL[ ...condition, DELETE _type ];
+      }
+      ELSE
+      {
+        // Reset to 'none'
+        ^field->value := "";
+        this->OnFieldSelect();
+      }
+      this->setting_condition := FALSE;
+    }
+    this->UpdateState();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION CreateCondition(RECORD condition, OBJECT aftercondition)
+  {
+    // Initialize the new condition component
+    RECORD oldparent := __creation_settings;
+    __creation_settings := [ parent := this, editcomponent := this->pvt_editcomponent ];
+    OBJECT conditionobj := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components", "condition");
+
+    // Add a reference to the list of condition components
+    INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
+    IF (pos = 0)
+      pos := Length(this->conditionobjs);
+    INSERT conditionobj INTO this->conditionobjs AT pos;
+
+    // Insert the component and set the condition
+    ^subconditions->InsertComponentAfter(conditionobj, aftercondition, TRUE);
+    conditionobj->condition := condition;
+
+    RETURN conditionobj;
+  }
+
+  MACRO UpdateState()
+  {
+    // Update the add/delete button state for subconditions
+    IF (Length(this->conditionobjs) > 0)
+    {
+      // For NOT conditions, there is exactly one subcondition, i.e. subconditions cannot be added or deleted
+      BOOLEAN not_condition := RecordExists(^field->selection) AND ^field->selection.type = "not";
+      this->conditionobjs[0]->canadd := NOT not_condition;
+      this->conditionobjs[0]->candelete := NOT not_condition;
+    }
+  }
+>;
+
+/** The condition type fragment base object
+*/
+PUBLIC STATIC OBJECTTYPE ConditionTypeFragmentBase EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT pvt_conditionparent;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The condition value
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// A reference to the conditionedit component's onchange handler, can be used to set subcomponent onchange handlers
+  PUBLIC PROPERTY onchange(pvt_conditionparent->onchange, -);
+
+  /// A reference to the conditionedit component's dirtylistener, can be used to set subcomponent dirtylisteners
+  PUBLIC PROPERTY dirtylistener(pvt_conditionparent->^dirtylistener, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    IF (NOT RecordExists(__creation_settings))
+      THROW NEW Exception("Condition cannot be instatiated directly");
+    this->pvt_conditionparent := __creation_settings.parent;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // To override
+  //
+
+  /** @short Override this function to get the condition value
+      @return A valid condition value, without '_type' parameter
+  */
+  RECORD FUNCTION GetValue()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** @short Override this function to set the condition value
+      @param value A valid condition value, without '_type' parameter
+  */
+  MACRO SetValue(RECORD value)
+  {
+  }
+>;

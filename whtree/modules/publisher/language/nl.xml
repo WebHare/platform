@@ -14,6 +14,18 @@
   </textgroup>
   <textgroup gid="common">   <!-- common -->
     <text tid="filter">Filter</text>
+    <textgroup gid="conditions">   <!-- common.conditions -->
+      <text tid="and"><param p="1"/> en <param p="2"/></text>
+      <text tid="and-not">Niet <param p="1"/> en <param p="2"/></text>
+      <text tid="beacon">Baken '<param p="1"/>' is geactiveerd<ifparam p="2" value="0"><else/> in de laatste <param p="2"/> dag<ifparam p="2" value="1"><else/>en</ifparam></ifparam></text>
+      <text tid="beacon-not">Baken '<param p="1"/>' is niet geactiveerd<ifparam p="2" value="0"><else/> in de laatste <param p="2"/> dag<ifparam p="2" value="1"><else/>en</ifparam></ifparam></text>
+      <text tid="newvisitor">Nieuwe bezoeker</text>
+      <text tid="or"><param p="1"/> of <param p="2"/></text>
+      <text tid="or-not">Niet <param p="1"/> or <param p="2"/></text>
+      <text tid="returningvisitor">Terugkerende bezoeker</text>
+      <text tid="visitafterdate">Bezoek vindt plaats na <param p="1"/></text>
+      <text tid="visitbeforedate">Bezoek vindt plaats voor <param p="1"/></text>
+    </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="cannotchangetypeoffolderwithnondefaultindex">Het type van deze map kan niet worden gewijzigd: er bestaat al een indexdocument met de naam '<param p="1"/>'. Wijzig deze naam en probeer het opnieuw.</text>
       <text tid="cannotstealindexfromversionedfile">Omdat de huidige index van deze folder gepubliceerd is, kan dit bestand (dat nu niet gepubliceerd is) niet de index worden. Als u dit bestand eerst publiceert kan het daarna index worden.</text>
@@ -55,6 +67,7 @@
         <text tid="title">Kies het objecttype</text>
       </textgroup>
       <textgroup gid="editor">   <!-- commondialogs.embeddedobject.editor -->
+        <text tid="content">Inhoud</text>
         <text tid="missingwhfstype">Ontbrekend bestandstype</text>
         <text tid="wrongtypereturned">Het bestandstype is niet correct</text>
       </textgroup>
@@ -133,7 +146,6 @@
       <text tid="locksite">Vergrendel de site</text>
       <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
       <text tid="multiple-title">Eigenschappen van <param p="1"/> onderdelen</text>
-      <text tid="name">Veld</text>
       <text tid="newfile-name">Nieuw <param p="1"/></text>
       <text tid="newfile-title">Nieuw bestand</text>
       <text tid="newfolder-title">Nieuwe map</text>
@@ -1815,6 +1827,22 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="adaptivecontent">   <!-- tolliumapps.adaptivecontent -->
+      <textgroup gid="widgetprops">   <!-- tolliumapps.adaptivecontent.widgetprops -->
+        <text tid="contenttab">Inhoud</text>
+        <text tid="generaltab">Algemeen</text>
+        <text tid="widgetprops"><ifparam p="1" value="">Nieuwe adaptive content<else/>Eigenschappen van adaptive content '<param p="1"/>'</ifparam></text>
+        <textgroup gid="beaconcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.beaconcondition -->
+          <text tid="name">Baken geactiveerd</text>
+        </textgroup>
+        <textgroup gid="newvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.newvisitorcondition -->
+          <text tid="name">Nieuwe bezoeker</text>
+        </textgroup>
+        <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.returningvisitorcondition -->
+          <text tid="name">Terugkerende bezoeker</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Huidig pad</text>
@@ -1969,6 +1997,28 @@
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="adaptivecontent">   <!-- tolliumapps.filemanager.adaptivecontent -->
+        <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.beaconcondition -->
+          <text tid="days">dagen</text>
+          <text tid="is">is</text>
+          <text tid="maxdays">in de laatste</text>
+          <text tid="nobeacons">&lt;geen bakens ingesteld&gt;</text>
+        </textgroup>
+        <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
+          <text tid="conditionstab">Voorwaarden</text>
+          <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.beaconcondition -->
+            <text tid="name">Baken geactiveerd</text>
+          </textgroup>
+          <textgroup gid="newvisitorcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.newvisitorcondition -->
+            <text tid="name">Nieuwe bezoeker</text>
+          </textgroup>
+          <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.returningvisitorcondition -->
+            <text tid="name">Terugkerende bezoeker</text>
+          </textgroup>
+          <textgroup gid="visitdatecondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.visitdatecondition -->
+            <text tid="name-after">Bezoek vindt plaats na</text>
+            <text tid="name-before">Bezoek vindt plaats voor</text>
+          </textgroup>
+        </textgroup>
         <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
           <text tid="notypesavailable">Er zijn geen content-slot-types beschikbaar</text>
           <text tid="slotprops"><ifparam p="1" value="">Nieuw content slot<else/>Eigenschappen van content slot '<param p="1"/>'</ifparam></text>

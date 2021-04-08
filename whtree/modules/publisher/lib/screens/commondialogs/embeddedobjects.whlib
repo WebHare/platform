@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -10,8 +11,13 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
+BOOLEAN FUNCTION IsInSlotsFolder(INTEGER fsobj)
+{
+  INTEGER ARRAY foldertree := OpenWHFSObject(fsobj)->GetWHFSTree();
+  RETURN RecordExists(SELECT FROM system.fs_objects WHERE id IN foldertree AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slots")->id);
+}
 
-PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 <
   STRING whfstype;
   OBJECT valuecomponent;
@@ -23,18 +29,19 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->instance->basefsobject := data.fsbaseobject;
+    ^instance->basefsobject := data.fsbaseobject;
     this->whfstype := data.whfstype;
 
-    this->instance->type := OpenWHFSType(data.whfstype);
+    ^instance->type := OpenWHFSType(data.whfstype);
 
     this->frame->title := GetTid(data.typedef.title);
     ^filetitle->value := data.currenttitle;
 
     IF (data.typedef.editor.type = "extension")
     {
-      ^extensiontabs->extendcomponents := [ [ name := "contentdata", component := this->instance ]
+      ^extensiontabs->extendcomponents := [ [ name := "contentdata", component := ^instance ]
                                           , [ name := "filetitle", component := ^filetitle ]
+                                          , [ name := "widgetsettings", component := ^widgetsettings ] //TODO better name? isn't the widget data also the widget settings ?
                                           ];
 
       // We want to prevent crashing an application due to errors in one of the extensions because:
@@ -42,7 +49,7 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       // - When developing extensions it lowers the amount of times you have to restart an application due to an error
       TRY
       {
-        RECORD result := this->extensiontabs->LoadTabsExtension(data.typedef.editor.extension);
+        RECORD result := ^extensiontabs->LoadTabsExtension(data.typedef.editor.extension);
         this->editextension := result.fragment;
         IF (this->editextension NOT EXTENDSFROM TolliumTabsExtensionBase)
           THROW NEW TolliumException(result.components[0], "Widget editextension does not extend TolliumTabsExtensionBase");
@@ -59,7 +66,24 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
       ^body->spacers := DEFAULT RECORD;
       ^extensiontabs->visible := TRUE;
+
+      IF(data.isfilewidget AND ^extensiontabs->GetNumVisiblePages() >= 1)
+      {
+        //TODO this is a hack, and theoretically the first tab might not even be visible due to visibleon... should we offer a <insert> alternative for widgets? or even do title insertion ONLY for widgts working that way?
+        ^filetitle->visible := TRUE;
+        ^filetitle->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
+        ^filetitle->RemoveFromParent();
+        ^extensiontabs->pages[0]->InsertComponentBefore(^filetitle, DEFAULT OBJECT, TRUE);
+
+        //TODO another hack. insert Conditions tab if we're inside a slots folder. not sure yet how to express this in site profile rules
+        IF(IsInSlotsFolder(this->contexts->applytester->objparent))
+          ^extensiontabs->LoadTabsExtension("mod::publisher/tolliumapps/filemanager/adaptivecontent.xml#slotwidgetextensions");
+      }
+
       ^extensiontabs->type := ^extensiontabs->GetNumVisiblePages() > 1 ? "regular" : "server";
+      IF(Length(^extensiontabs->pages) > 0 AND ^extensiontabs->pages[0]->title = "")
+        ^extensiontabs->pages[0]->title := this->GetTid(".content");
+
       IF(^extensiontabs->IsResizeSuggested())
       {
         this->frame->savestatebasekey := `${this->frame->savestatebasekey}(${data.typedef.editor.extension})`;
@@ -67,30 +91,21 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
         this->frame->savestate := ["size"];
       }
 
-      IF(data.isfilewidget AND ^extensiontabs->GetNumVisiblePages() >= 1)
-      {
-        //FIXME this is a hack, and theoretically the first tab might not even be visible due to visibleon... should we offer a <insert> alternative for widgets? or even do title insertion ONLY for widgts working that way?
-        ^filetitle->visible := TRUE;
-        ^filetitle->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
-        ^filetitle->RemoveFromParent();
-        ^extensiontabs->pages[0]->InsertComponentBefore(^filetitle, DEFAULT OBJECT, TRUE);
-      }
-
-      this->component := this->instance;
-      this->valuecomponent := this->instance;
+      this->component := ^instance;
+      this->valuecomponent := ^instance;
     }
     ELSE IF (data.typedef.editor.type="fragment")
     {
       IF(GetDtapStage() = "development")
         this->RunSimpleScreen("warning", `editfragment= has been deprecated, switch to editextension= for embedded object type ${this->whfstype}`);
 
-      this->component := this->instance;
-      this->positioningpanel->extendcomponents := [[ name := "fsinstance", component := this->instance ] //ADDME deprecate at some point. contentdata is consistent with tabsextensions, and we need that if a fragment is being shared between widgets & contentdata
-                                                  ,[ name := "contentdata", component := this->instance ]
-                                                  ];
-      this->positioningpanel->visible := TRUE;
-      this->positioningpanel->LoadFragment(GetResourceNameFromScreenPath(data.typedef.editor.fragment), GetScreenNameFromScreenPath(data.typedef.editor.fragment));
-      this->valuecomponent := this->instance;
+      this->component := ^instance;
+      ^positioningpanel->extendcomponents := [[ name := "fsinstance", component := ^instance ] //ADDME deprecate at some point. contentdata is consistent with tabsextensions, and we need that if a fragment is being shared between widgets & contentdata
+                                             ,[ name := "contentdata", component := ^instance ]
+                                             ];
+      ^positioningpanel->visible := TRUE;
+      ^positioningpanel->LoadFragment(GetResourceNameFromScreenPath(data.typedef.editor.fragment), GetScreenNameFromScreenPath(data.typedef.editor.fragment));
+      this->valuecomponent := ^instance;
     }
     ELSE
     {
@@ -98,6 +113,7 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     }
 
     this->valuecomponent->value := data.value;
+    ^widgetsettings->value := data.widgetsettings;
     ^extensiontabs->RunExtensionsPostInit();
   }
 
@@ -130,6 +146,10 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   PUBLIC STRING FUNCTION GetFileTitle()
   {
     RETURN ^filetitle->value;
+  }
+  PUBLIC RECORD FUNCTION GetWidgetSettings()
+  {
+    RETURN ^widgetsettings->value;
   }
 >;
 

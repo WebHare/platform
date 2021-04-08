@@ -53,6 +53,7 @@
   <screen name="editor" gid=".editor" title="">
     <compositions>
       <publisher:whfsinstance name="instance" />
+      <record name="widgetsettings" />
     </compositions>
     <body name="body">
       <textedit name="filetitle" visible="false" width="1pr" tid="common.fsobjects.filetitle" />

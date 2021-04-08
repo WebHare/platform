@@ -1,0 +1,40 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.conditionedit" library="conditionedit.whlib">
+
+  <fragment name="conditionedit">
+    <contents>
+      <panel name="condition" vscroll="true">
+        <!-- 'condition' components are added dynamically -->
+      </panel>
+    </contents>
+  </fragment>
+
+  <fragment name="condition">
+    <actions>
+      <action name="addcondition" title="" onexecute="doaddcondition" />
+      <action name="deletecondition" title="" onexecute="dodeletecondition" />
+    </actions>
+    <compositions>
+      <dirtylistener name="dirtylistener" public="true" ondirty="OnConditionDirty" />
+    </compositions>
+    <contents>
+      <line>
+        <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
+        <select name="field" title="" type="pulldown" onchange="onfieldselect" />
+        <inlineblock name="conditioncontainer" title="" width="1pr">
+          <panel name="conditionfields">
+            <!-- The condition fragment is loaded here -->
+          </panel>
+        </inlineblock>
+        <button action="deletecondition" name="deleteconditionbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
+        <button action="addcondition" name="addconditionbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+      </line>
+      <line>
+        <spacer name="subconditionspacer" width="16px" />
+        <inlineblock name="subconditions" title="">
+          <!-- 'condition' components are added dynamically -->
+        </inlineblock>
+      </line>
+    </contents>
+  </fragment>
+
+</screens>
