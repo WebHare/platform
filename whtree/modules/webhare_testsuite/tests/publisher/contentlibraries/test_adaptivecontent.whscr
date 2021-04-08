@@ -94,6 +94,24 @@ ASYNC MACRO TestAdaptiveContentApp()
 
   TestEq("Content slot alpha!", TT("filelist")->selection.title);
   TestEq(4, Length(TT("filelist")->rows));
+  TTClick("open");
+
+  //create a widget
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":New file"));
+  TestEq(2, Length(TT("types")->rows));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "ContentOption1";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TT(":File title")->value := "Contents option 1 alpha";
+  TT(":Text")->value := [ htmltext := StringToBlob("My text") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Contents option 1 alpha", TT("filelist")->selection.title);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
+  TestEq("Contents option 1 alpha", TT("filetitle")->value);
+  TestEqLike("*My text*", BlobToString(TT(":Text")->value.htmltext));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

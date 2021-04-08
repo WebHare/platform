@@ -577,8 +577,8 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
       GetPrimary()->BeginWork();
       //FIXME: verify that file is still available, writeable atc - although we actually -should-
       //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
-      fileobj->SetInstanceData(fileobj->typens, embobj);
-      fileobj->UpdateData([ title := embobj.title ]); // trigger republish, hook callbacks and all magic associated to changing metadata
+      fileobj->SetInstanceData(fileobj->typens, embobj.instance);
+      fileobj->UpdateMetadata([ title := embobj.title ]);
       GetPrimary()->CommitWork();
     }
     RETURN;
