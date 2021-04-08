@@ -115,7 +115,7 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
   {
     DELETE FROM ^beacon->options WHERE NOT enabled;
     IF (IsValueSet(beacon) AND NOT RecordExists(SELECT FROM ^beacon->options WHERE rowkey = beacon))
-      INSERT [ rowkey := beacon, title := GetTid("publisher:tolliumcomponents.beacon.deletedbeacon"), enabled := FALSE ] INTO ^condition->^beacon->options AT 0;
+      INSERT [ rowkey := beacon, title := GetTid("publisher:tolliumcomponents.beacon.deletedbeacon"), enabled := FALSE ] INTO ^beacon->options AT 0;
     ^beacon->value := beacon;
   }
 
