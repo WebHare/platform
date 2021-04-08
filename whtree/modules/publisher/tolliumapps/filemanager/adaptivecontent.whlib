@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/tolliumcomponents/conditionedit.whlib";
 
@@ -230,6 +231,65 @@ PUBLIC STATIC OBJECTTYPE VisitDateCondition EXTEND ConditionTypeFragmentBase
 >;
 
 
+PUBLIC STATIC OBJECTTYPE References EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  FUNCTION PTR getreferences;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (NOT ValidateFunctionPtr(data.getreferences, TypeID(INTEGER ARRAY), INTEGER[]))
+      THROW NEW TolliumException(this, `'getreferences' has the wrong signature, expected ${ExplainFunctionSignature(TypeID(INTEGER ARRAY), INTEGER[])}, got ${ExplainFunctionPtrSignature(data.getreferences)}`);
+    this->getreferences := data.getreferences;
+    this->RefreshList();
+
+    IF (data.title != "")
+      this->frame->title := data.title;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions handlers
+  //
+
+  MACRO DoRefresh()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoOpen()
+  {
+    RunFSObjectEditApplication(this, ^documents->value);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshList()
+  {
+    INTEGER ARRAY ids := this->getreferences();
+
+    ^documents->rows := SELECT rowkey := id, whfspath, title, url := indexurl
+                          FROM system.fs_objects
+                         WHERE id IN ids
+                               AND isactive;
+  }
+>;
+
+
 //TODO expose a public api?
 /** @short Show a screen with referencing files
     @param(object %TolliumScreenBase) parent The parent screen
@@ -243,5 +303,5 @@ PUBLIC MACRO RunReferencesScreen(OBJECT parent, RECORD options DEFAULTSTO DEFAUL
       , title := ""
       ], options,
       [ required := [ "getreferences" ] ]);
-  parent->RunScreen("mod::connect/tolliumapps/adaptivecontent/references.xml#references", options);
+  parent->RunScreen(Resolve("adaptivecontent.xml#references"), options);
 }

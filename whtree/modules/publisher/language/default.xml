@@ -2027,6 +2027,11 @@
             <text tid="name-before">Visiting before</text>
           </textgroup>
         </textgroup>
+        <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
+          <text tid="references">References</text>
+          <text tid="url">URL</text>
+          <text tid="whfspath">Path</text>
+        </textgroup>
         <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
           <text tid="notypesavailable">There are no content slot types available</text>
           <text tid="slotprops"><ifparam p="1" value="">New content slot<else/>Properties of content slot '<param p="1"/>'</ifparam></text>
