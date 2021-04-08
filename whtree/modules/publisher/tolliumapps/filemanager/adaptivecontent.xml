@@ -3,6 +3,24 @@
          gid="tolliumapps.filemanager.adaptivecontent"
          library="adaptivecontent.whlib">
 
+  <screen name="beaconprops" footerbuttons="ok cancel" gid=".beaconprops" title="">
+    <actions>
+      <action name="viewreferences" onexecute="doviewreferences" />
+    </actions>
+
+    <compositions>
+      <record name="beacon" />
+    </compositions>
+
+    <body>
+      <textedit composition="beacon" cellname="title" required="true" />
+      <line>
+        <text name="references" />
+        <text name="viewreferencestext" title="" valuetid=".viewreferences" action="viewreferences" />
+      </line>
+    </body>
+  </screen>
+
   <screen name="slotprops" minwidth="100x" allowresize="true" footerbuttons="ok cancel" gid=".slotprops" savestate="size">
     <compositions>
       <record name="slotdata" />

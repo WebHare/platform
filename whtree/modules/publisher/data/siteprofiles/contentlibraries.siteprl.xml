@@ -15,13 +15,25 @@
     <record name="condition" />
   </contenttype>
 
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons">
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#BeaconsFolderContents" />
+    </foldersettings>
+  </foldertype>
+
+  <apply priority="10">
+    <to type="all" parenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+    <denyfoldertype typedef="*" />
+    <denyfiletype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" />
+  </apply>
 
   <!-- beacon file type -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile">
     <members>
       <string name="guid" />
     </members>
+    <setobjecteditor name="publisher:adaptivecontent_beacon" />
   </filetype>
 
   <!-- add debug setting for connect -->

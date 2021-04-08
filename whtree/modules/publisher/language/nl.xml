@@ -2003,6 +2003,14 @@
           <text tid="maxdays">in de laatste</text>
           <text tid="nobeacons">&lt;geen bakens ingesteld&gt;</text>
         </textgroup>
+        <textgroup gid="beaconprops">   <!-- tolliumapps.filemanager.adaptivecontent.beaconprops -->
+          <text tid="beaconreferences">Bestanden die naar baken '<param p="1"/>' verwijzen</text>
+          <text tid="editbeacon">Eigenschappen voor baken '<param p="1"/>'</text>
+          <text tid="newbeacon">Nieuw baken</text>
+          <text tid="references">Referenties</text>
+          <text tid="title">TItle</text>
+          <text tid="viewreferences">Referenties weergeven</text>
+        </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
           <text tid="conditionstab">Voorwaarden</text>
           <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.beaconcondition -->

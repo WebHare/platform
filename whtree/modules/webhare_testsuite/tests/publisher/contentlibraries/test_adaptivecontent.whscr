@@ -66,7 +66,39 @@ ASYNC MACRO TestDCComponents()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-ASYNC MACRO TestAdaptiveContentApp()
+ASYNC MACRO TestAdaptiveContentBeacons()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/beacons" ]]));
+  TestEq(3, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(RECORD[], TT("types")->rows, "All folder types should be blocked"); //and a new publisher UI should remove the need for an empty newfolder dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT(":Title")->value := "Beacon Delta";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("Beacon Delta",TT("filelist")->selection.title);
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "is-employee";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
+  TestEq("Is Employee", TT(":Title")->value);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":View references"));
+  TestEq(2, Length(TT("documents")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TT(":Title")->value := "Employee Beacon";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("Employee Beacon", TT("filelist")->selection.title);
+  TestEq("is-employee", TT("filelist")->selection.name);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestAdaptiveContentSlots()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots" ]]));
   TestEq(3, Length(TT("filelist")->rows));
@@ -127,7 +159,8 @@ ASYNC MACRO TestAdaptiveContentApp()
 
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
-                 , PTR TestAdaptiveContentApp
+                 , PTR TestAdaptiveContentBeacons
+                 , PTR TestAdaptiveContentSlots
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]
                                    ]

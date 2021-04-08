@@ -2003,6 +2003,14 @@
           <text tid="maxdays">within the last</text>
           <text tid="nobeacons">&lt;no beacons configured&gt;</text>
         </textgroup>
+        <textgroup gid="beaconprops">   <!-- tolliumapps.filemanager.adaptivecontent.beaconprops -->
+          <text tid="beaconreferences">Files referencing beacon '<param p="1"/>'</text>
+          <text tid="editbeacon">Properties of beacon '<param p="1"/>'</text>
+          <text tid="newbeacon">New beacon</text>
+          <text tid="references">References</text>
+          <text tid="title">Title</text>
+          <text tid="viewreferences">View references</text>
+        </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
           <text tid="conditionstab">Conditions</text>
           <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.conditions.beaconcondition -->

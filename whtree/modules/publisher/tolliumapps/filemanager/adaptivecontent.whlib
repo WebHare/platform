@@ -8,6 +8,17 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
+PUBLIC STATIC OBJECTTYPE BeaconsFolderContents EXTEND ContentsListHandlerBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    IF(NOT options.isfolder)
+      RETURN parentscreen->RunScreen(Resolve("adaptivecontent.xml#beaconprops"), [ id := 0, parent := parentfolder ]);
+    ELSE
+      RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
+  }
+>;
+
 
 PUBLIC STATIC OBJECTTYPE SlotsFolderContents EXTEND ContentsListHandlerBase
 <
@@ -19,6 +30,78 @@ PUBLIC STATIC OBJECTTYPE SlotsFolderContents EXTEND ContentsListHandlerBase
       RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
   }
 >;
+
+
+PUBLIC STATIC OBJECTTYPE BeaconProps EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT beaconstore;
+  INTEGER beaconid;
+  STRING beacontitle;
+  INTEGER ARRAY referenceids;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    IF (data.id != 0)
+    {
+      this->beaconstore := OpenAdaptiveContentBeaconStore(SELECT AS INTEGER parent FROM system.fs_objects WHERE id = VAR data.id);
+      this->beaconid := data.id;
+      ^beacon->value := this->beaconstore->GetBeacon(this->beaconid);
+      this->referenceids := this->beaconstore->GetBeaconReferences(this->beaconid);
+      ^references->value := ToString(Length(this->referenceids));
+      ^viewreferencestext->visible := Length(this->referenceids) > 0;
+
+      this->beacontitle := ^beacon->^title->value;
+      this->frame->title := this->GetTid(".editbeacon", this->beacontitle);
+    }
+    ELSE
+    {
+      this->beaconstore := OpenAdaptiveContentBeaconStore(data.parent);
+
+      ^references->visible := FALSE;
+      ^viewreferencestext->visible := FALSE;
+      this->frame->title := this->GetTid(".newbeacon");
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoViewReferences()
+  {
+    RunReferencesScreen(this,
+        [ getreferences := PTR this->beaconstore->GetBeaconReferences(this->beaconid)
+        , title := this->GetTid(".beaconreferences", this->beacontitle)
+        ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    INTEGER beaconid;
+    IF (NOT work->HasFailed())
+      beaconid := this->beaconstore->StoreBeacon(this->beaconid, ^beacon->value);
+    RETURN work->Finish() ? beaconid : 0;
+  }
+>;
+
 
 //TODO we currently do NOT use this for editing, only for adding
 PUBLIC STATIC OBJECTTYPE SlotProps EXTEND TolliumScreenBase
@@ -145,3 +228,20 @@ PUBLIC STATIC OBJECTTYPE VisitDateCondition EXTEND ConditionTypeFragmentBase
       ^date->value := newvalue.date;
   }
 >;
+
+
+//TODO expose a public api?
+/** @short Show a screen with referencing files
+    @param(object %TolliumScreenBase) parent The parent screen
+    @cell(function ptr) options.getreferences Function that returns a list of object ids to show
+    @cell(string) options.title Optional screen title
+*/
+PUBLIC MACRO RunReferencesScreen(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ getreferences := DEFAULT FUNCTION PTR
+      , title := ""
+      ], options,
+      [ required := [ "getreferences" ] ]);
+  parent->RunScreen("mod::connect/tolliumapps/adaptivecontent/references.xml#references", options);
+}
