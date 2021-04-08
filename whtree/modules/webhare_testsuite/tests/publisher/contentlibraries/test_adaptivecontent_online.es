@@ -19,7 +19,7 @@ test.registerTests(
 
       // We were supposed to arrive at this page without any beacons, and so we should see Widget 1.C
       // Look in the datalayer for direct verification
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-3"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-1c"));
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.C", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
       test.eq(1, test.qSA("#slot1holder .accontent-widget-trailer").length); //should also be cloned
@@ -28,7 +28,7 @@ test.registerTests(
       test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
 
       // This is the first visit, show Widget 2.A
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
       test.eq("Widget 2.A", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Check if both widgets were registered, order isn't guaranteed though
@@ -71,7 +71,7 @@ test.registerTests(
       // With the beacon active, we should now get Widget 1.A
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.A", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
-      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget"));
+      test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
       // The content widget beacon should not have been triggered (wait a bit as beacons aren't triggered immediately)
       await test.sleep(100);
       test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "content-widget-shown"));
@@ -83,7 +83,7 @@ test.registerTests(
       let date = new Date();
       date.setDate(date.getDate() + 7);
       await test.load(testinfo.url + "?now=" + date.toISOString() + "&wh-debug=connect");
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.B", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
       // The content widget beacon should now trigger
@@ -92,7 +92,7 @@ test.registerTests(
       // Reset the session and reload, should trigger a new visit for the same visitor (widget 2.A no longer applies)
       test.click("#resetvisitsession");
       await test.load(testinfo.url + "?wh-debug=connect");
-      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2"));
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2b"));
       test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Header slot is empty (the header widget is shown during January 2000)

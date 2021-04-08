@@ -9,6 +9,13 @@
 
   <!-- adaptive content slot -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slot" />
+  <!-- add condition columns to slot widgets  -->
+  <apply>
+    <to type="folder" parenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"/>
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotFolderContents" />
+    </foldersettings>
+  </apply>
 
   <!-- slottedwidget properties -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget">

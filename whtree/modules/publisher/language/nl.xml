@@ -1997,6 +1997,7 @@
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="adaptivecontent">   <!-- tolliumapps.filemanager.adaptivecontent -->
+        <text tid="condition">Voorwaarde</text>
         <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.beaconcondition -->
           <text tid="days">dagen</text>
           <text tid="is">is</text>
