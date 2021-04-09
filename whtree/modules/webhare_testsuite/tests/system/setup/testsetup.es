@@ -9,6 +9,11 @@ function getAppInStartMenuByName(name)
   return Array.from(test.qSA('li li')).filter(node => node.textContent == name)[0];
 }
 
+function addTransportToLink(link)
+{
+  return link + (link.indexOf("?")==-1 ? "?" : "&") + "transport=" + test.getTestArgument(0);
+}
+
 let pietje_resetlink, jantje_resetlink;
 
 test.registerTests(
@@ -68,7 +73,7 @@ test.registerTests(
       await test.wait('ui');
       test.clickToddButton('OK');
       await test.wait('ui');
-      pietje_resetlink = test.getCurrentScreen().getValue("resetlink!previewurl");
+      pietje_resetlink = addTransportToLink(test.getCurrentScreen().getValue("resetlink!previewurl"));
       test.clickToddButton('Close');
       await test.wait('ui');
     }
@@ -86,7 +91,7 @@ test.registerTests(
       await test.wait('ui');
       test.clickToddButton('OK');
       await test.wait('ui');
-      jantje_resetlink = test.getCurrentScreen().getValue("resetlink!previewurl");
+      jantje_resetlink = addTransportToLink(test.getCurrentScreen().getValue("resetlink!previewurl"));
       test.clickToddButton('Close');
       await test.wait('ui');
     }
@@ -125,7 +130,7 @@ test.registerTests(
 
       test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
     }
 
   , async function setPietjePassword()
@@ -142,7 +147,7 @@ test.registerTests(
 
       test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
     }
 
   , { name: "login as jantje"
