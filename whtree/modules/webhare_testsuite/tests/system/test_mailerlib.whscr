@@ -449,12 +449,9 @@ MACRO RTEIntegrationTest()
   composer->SetBodyFromRichdoc(myrichdoc);
 
   BLOB emltoscan := composer->ExportAsEML();
-  SendBlobTo(0,emltoscan);
   RECORD resultmessage := DecodeMIMEMessage(emltoscan);
-  DumpValue(resultmessage,'tree');
 
   OBJECT htmlfile := MakeXMLDocumentFromHTML(resultmessage.data.subparts[1].subparts[0].data);
-  print(htmlfile->outerxml);
   OBJECT ARRAY imglinks := htmlfile->getElementsByTagName("img")->GetCurrentElements()
                            CONCAT
                            htmlfile->getElementsByTagName("input")->GetCurrentElements();
@@ -465,7 +462,6 @@ MACRO RTEIntegrationTest()
       INSERT imglink->GetAttribute("src") INTO imagesrcs AT END;
 
   STRING ARRAY contentids := SELECT AS STRING ARRAY contentid FROM resultmessage.data.subparts[1].subparts WHERE contentid != "";
-  dumpvalue(CELL[contentids,imagesrcs]);
   FOREVERY(STRING cid FROM contentids)
   {
     STRING imgid := "cid:" || Substring(cid,1,Length(cid)-2);
