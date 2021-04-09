@@ -187,7 +187,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF (NOT ObjectExists(this->userobj->wrdentity))
       RETURN;
 
-    BOOLEAN passwordabouttoexpire;
+    BOOLEAN passwordexpired, passwordabouttoexpire;
     TRY
     {
       RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(this->userobj->wrdentity->id);
@@ -204,25 +204,33 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
           IF (expire_duration != "")
           {
             RECORD expiryduration := ParseDuration(expire_duration);
-            RECORD warnduration := expiryduration;
-            warnduration.years := 0;
-            warnduration.months := warnduration.months + 12 * warnduration.years;
 
-            IF (warnduration.months > 1)
-              warnduration.months := warnduration.months - 1; // warn one month before expiru
-            ELSE IF (warnduration.months = 1 OR warnduration.days > 7)
-              warnduration.days := warnduration.days - 7;
+            DATETIME expiredate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
+            IF (expiredate < GetCurrentDateTime())
+              passwordexpired := TRUE;
             ELSE
-              warnduration.days := 0;
-
-            DATETIME warndate := AddUnpackedDurationToDate(warnduration, authsettings.passwords[END-1].validfrom);
-            IF (warndate < GetCurrentDateTime())
             {
-              DATETIME expirydate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
-              RECORD diff := GetDateTimeDifference(GetCurrentDateTime(), expirydate);
+              RECORD warnduration := expiryduration;
+              warnduration.years := 0;
+              warnduration.months := warnduration.months + 12 * warnduration.years;
 
-              passwordabouttoexpire := TRUE;
-              ^warning_passwordabouttoexpire->value := this->GetTid(".passwordabouttoexpire", ToString(diff.days));
+              IF (warnduration.months > 1)
+                warnduration.months := warnduration.months - 1; // warn one month before expiry
+              ELSE IF (warnduration.months = 1 OR warnduration.days > 7)
+                warnduration.days := warnduration.days - 7;
+              ELSE
+                warnduration.days := 0;
+
+
+              DATETIME warndate := AddUnpackedDurationToDate(warnduration, authsettings.passwords[END-1].validfrom);
+              IF (warndate < GetCurrentDateTime())
+              {
+                DATETIME expirydate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
+                RECORD diff := GetDateTimeDifference(GetCurrentDateTime(), expirydate);
+
+                passwordabouttoexpire := TRUE;
+                ^warning_passwordabouttoexpire->value := this->GetTid(".passwordabouttoexpire", ToString(diff.days));
+              }
             }
           }
         }
@@ -231,7 +239,8 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     CATCH (OBJECT e)
       LogHarescriptException(e);
 
-    ^warningpanel->visible := passwordabouttoexpire;
+    ^warningpanel->visible := passwordexpired OR passwordabouttoexpire;
+    ^warning_passwordexpired->visible := passwordexpired;
     ^warning_passwordabouttoexpire->visible := passwordabouttoexpire;
   }
 

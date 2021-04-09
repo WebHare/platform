@@ -2205,6 +2205,8 @@
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
       <text tid="editunit">Eenheid aanpassen</text>
+      <text tid="override_passwordchecks">Overschrijf wachtwoordeisen</text>
+      <text tid="passwordchecks">Wachtwoordeisen</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
@@ -2311,6 +2313,7 @@
       <text tid="usernamenew">Inlognaam</text>
       <text tid="userpreferences">Persoonlijke voorkeuren</text>
       <text tid="utc">UTC</text>
+      <text tid="warning_passwordexpired">Je wachtwoord is verlopen, verander deze a.u.b.</text>
       <text tid="warning_passwordfailschecks">Je wachtwoord voldoet niet meer aan de eisen en moet veranderd worden.</text>
       <text tid="warning_passwordtooold">Je wachtwoord is te oud en moet gewijzigd worden.</text>
       <text tid="warnings">Waarschuwingen</text>
@@ -2409,8 +2412,10 @@
         <text tid="created">Aangemaakt</text>
         <text tid="fullname">Gebruikersnaam</text>
         <text tid="lastlogin">Laatst ingelogd</text>
+        <text tid="lastpasswordchange">Laatste wachtwoordwijziging</text>
         <text tid="path">Pad</text>
         <text tid="right">Recht</text>
+        <text tid="twofactorenabled">Twee-factor-authenticatie ingeschakeld</text>
         <text tid="username">Gebruikersnaam</text>
         <text tid="viarole">Via rol</text>
       </textgroup>

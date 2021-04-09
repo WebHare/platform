@@ -85,7 +85,10 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       ^email->required := this->contexts->wrdschema->accounttype->GetAttribute(this->contexts->wrdschema->accountemailtag).isrequired;
     }
 
-    this->policy := GetPolicyForUser(this->contexts, ObjectExists(data.user) ? data.user->entityid : 0);
+    this->policy := GetPolicyForUser(this->contexts, ObjectExists(data.user) ? data.user->entityid : 0,
+        [ defaultunit := ObjectExists(this->pvt_parent) ? this->pvt_parent->entityid : 0
+        ]);
+
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
     this->LoadScreenExtensions();
 

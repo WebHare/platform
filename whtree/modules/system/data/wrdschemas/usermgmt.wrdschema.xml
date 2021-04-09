@@ -14,6 +14,8 @@
     <attributes>
       <free tag="WRD_TITLE" title="Unit title"/>
       <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
+      <boolean tag="OVERRIDE_PASSWORDCHECKS" title="Override password checks" />
+      <free tag="PASSWORDCHECKS" title="Password check overrides for users in this unit" />
     </attributes>
   </domain>
 
