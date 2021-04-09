@@ -442,7 +442,7 @@ PUBLIC MACRO RenderAdaptiveContentSlot(OBJECT webdesign, INTEGER slotid)
     RETURN;
 
   //NOTE we don't bail out if there are no slots, it's still useful for debuggers to have an empty/inert slot spot
-  //     we inlined ∏otential widgets into the <template> earlier, so that's why we still use <template>. we might do that again as an optimization but would need proper republishing then
+  //     we inlined potential widgets into the <template> earlier, so that's why we still use <template>. we might do that again as an optimization but would need proper republishing then
   Print(`<template class="wh-adaptivecontent" data-name="${EncodeValue(slotinfo.name)}" data-slot="${GetSlotGuid(slotinfo)}"></template>`);
 }
 
