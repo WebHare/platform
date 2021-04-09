@@ -15,19 +15,12 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 DATETIME FUNCTION ReadLastMod(STRING path)
 {
-  TRY
-  {
-    RECORD data := DecodeJSONBlob(GetDiskResource(path));
-    data := EnforceStructure([ lastmodifiedwidget := DEFAULT DATETIME ], data);
-    RETURN data.lastmodifiedwidget;
-  }
-  CATCH(OBJECT e)
-  {
-    RETURN DEFAULT DATETIME;
-  }
+  RECORD data := DecodeJSONBlob(GetDiskResource(path, [ allowmissing := TRUE ]));
+  data := EnforceStructure([ lastmodifiedwidget := DEFAULT DATETIME ], data);
+  RETURN data.lastmodifiedwidget;
 }
 
-PUBLIC RECORD ARRAY FUNCTION ListSlotsNeedingRepublish()
+PUBLIC RECORD ARRAY FUNCTION ListDatabaseSlots()
 {
   RECORD ARRAY slots;
   OBJECT slotsfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slots");
@@ -40,8 +33,13 @@ PUBLIC RECORD ARRAY FUNCTION ListSlotsNeedingRepublish()
              FROM system.fs_objects
             WHERE parent IN slotfolders;
 
-  slots := SELECT *, guid := GetSlotGuid(slots) FROM slots;
-  slots := SELECT *, diskpath := `${GetModuleStorageRoot("publisher")}slots/${guid}.json` FROM slots;
+  slots := SELECT *, filename := GetSlotGuid(slots) || ".json" FROM slots;
+  slots := SELECT *, diskpath := `${GetModuleStorageRoot("publisher")}slots/${filename}` FROM slots;
+  RETURN slots;
+}
+
+PUBLIC RECORD ARRAY FUNCTION FilterSlotsNeedingRepublish(RECORD ARRAY slots)
+{
   slots := SELECT *, disklastmod := ReadLastMod(diskpath) FROM slots;
 
   RECORD ARRAY widgets := SELECT parent, lastmodified := MAX(modificationdate)
@@ -60,6 +58,13 @@ STRING FUNCTION GetRenderedSlotWidget(OBJECT webdesign, RECORD widget)
   RETURN BlobToString(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock(ResolveWidgetAsSharedBlock(widget.id)))));
 }
 
+//for testing
+PUBLIC RECORD FUNCTION GetPublishedSlotInfo(INTEGER slotid)
+{
+  RECORD fsinfo := SELECT id, creationdate FROM system.fs_objects WHERE id=slotid;
+  RECORD slotinfo := DecodeJSONBlob(GetDiskResource(`${GetModuleStorageRoot("publisher")}slots/${GetSlotGuid(fsinfo)}.json`, [ allowmissing := TRUE ]));
+  RETURN slotinfo;
+}
 
 PUBLIC MACRO RepublishSingleSlot(RECORD slot)
 {
@@ -78,7 +83,6 @@ PUBLIC MACRO RepublishSingleSlot(RECORD slot)
         FROM slotinfo.widgets;
 
   CreateDiskDirectoryRecursive(GetDirectoryFromPath(slot.diskpath), TRUE);
-  dumpvalue(slotinfo);
   StoreDiskFile(slot.diskpath, EncodeJSONBlob(slotinfo), [ overwrite := TRUE ]);
 }
 

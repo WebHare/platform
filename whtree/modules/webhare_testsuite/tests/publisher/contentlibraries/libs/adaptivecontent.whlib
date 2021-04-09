@@ -12,6 +12,11 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+PUBLIC RECORD ARRAY FUNCTION ListSlotsNeedingRepublish()
+{
+  RETURN FilterSlotsNeedingRepublish(ListDatabaseSlots());
+}
+
 PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(CELL[], options);
@@ -62,9 +67,14 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
       , title := "Widget 1A"
       , condition := [ _type := "beacon", beacon := beacon1.name, maxdays := 1 ]
       ]);
+
   TestEq(1, widget1a->widgetfile->ordering);
   widget1a->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1",
       [ text := [ htmltext := StringToBlob(`<html><body><p class="normal">Widget 1.A</p></body></html>`) ] ]);
+
+  TestEq(TRUE, RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = slot1->id));
+  RepublishSlots(ListSlotsNeedingRepublish());
+  TestEq(FALSE, RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = slot1->id));
 
   OBJECT widget1b := slot1->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
