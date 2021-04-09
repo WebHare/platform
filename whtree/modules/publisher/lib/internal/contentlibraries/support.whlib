@@ -1,0 +1,38 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC RECORD FUNCTION GetSlotInfo(INTEGER slotid)
+{
+  RECORD slotinfo := SELECT id, name, creationdate
+                       FROM system.fs_objects
+                      WHERE id = slotid;
+  IF (NOT RecordExists(slotinfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY widgets :=
+      SELECT id, name, modificationdate
+        FROM system.fs_objects
+       WHERE parent = slotid
+    ORDER BY ordering, id;
+
+  widgets := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget")->Enrich(widgets, "id", [ "condition" ]);
+  RETURN CELL[ ...slotinfo
+             , widgets
+             , lastmodifiedwidget := (SELECT AS DATETIME MAX(modificationdate) FROM widgets) ?? slotinfo.creationdate
+             ];
+}
+
+
+PUBLIC STRING FUNCTION GetSlotGuid(RECORD slotinfo)
+{
+  RETURN ToLowercase(EncodeBase16(GetMD5Hash(`${slotinfo.id}|${FormatISO8601DateTime(slotinfo.creationdate)}`)));
+}
+

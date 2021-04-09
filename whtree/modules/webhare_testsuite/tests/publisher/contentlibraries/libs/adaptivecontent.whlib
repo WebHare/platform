@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/contentlibraries.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/contentlibraries/publishing.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -34,6 +35,10 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/headerslot"
       , title := "Headerslot"
       ]);
+
+  TestEq(TRUE, RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = headerslot->id));
+  RepublishSlots(ListSlotsNeedingRepublish());
+  TestEq(FALSE, RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = headerslot->id));
 
   OBJECT headerwidget := headerslot->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/headeroption1"

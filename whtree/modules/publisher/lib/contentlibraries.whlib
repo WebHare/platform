@@ -6,19 +6,25 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-
-STRING FUNCTION GetSlotGuid(RECORD slotinfo)
+MACRO UpdateSlots(BOOLEAN iscommit)
 {
-  RETURN ToLowercase(EncodeBase16(GetMD5Hash(`${slotinfo.id}|${FormatISO8601DateTime(slotinfo.creationdate)}`)));
+  IF(iscommit)
+  {
+    GetPrimary()->BeginWork();
+    ScheduleTimedTask("publisher:updateslots");
+    GetPrimary()->CommitWork();
+  }
 }
 
 STATIC OBJECTTYPE AdaptiveContentWidget
@@ -41,6 +47,7 @@ STATIC OBJECTTYPE AdaptiveContentSlot
   PUBLIC PROPERTY slotfolder(this->__slotfolder, -);
 
   PUBLIC PROPERTY name(this->__slotfolder->name, -);
+  PUBLIC PROPERTY id(this->__slotfolder->id, -);
 
   MACRO NEW(OBJECT slotfolder)
   {
@@ -141,40 +148,7 @@ STATIC OBJECTTYPE AdaptiveContentSlot
 
   PUBLIC MACRO SyncToDiskOnCommit()
   {
-    GetPrimary()->RegisterCommitHandler("slot." || this->__slotfolder->id, PTR this->SyncToDisk);
-  }
-
-  MACRO SyncToDisk(BOOLEAN iscommit)
-  {
-    IF (NOT iscommit)
-      RETURN;
-
-    IF (NOT this->__slotfolder->isactive)
-    {
-      DeleteDiskFile(this->GetDiskFilename());
-      RETURN;
-    }
-
-    OBJECT applytester := GetApplyTesterForObject(this->slotfolder->id);
-    RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
-    IF (NOT RecordExists(webdesigninfo))
-      RETURN;
-    OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
-
-    RECORD slotinfo := GetSlotInfo(this->__slotfolder->id);
-    slotinfo.widgets :=
-        SELECT name
-             , condition
-             , content := GetRenderedSlotWidget(webdesign, widgets)
-          FROM slotinfo.widgets;
-
-    CreateDiskDirectoryRecursive(GetDirectoryFromPath(this->GetDiskFilename()), TRUE);
-    StoreDiskFile(this->GetDiskFilename(), EncodeJSONBlob(slotinfo), [ overwrite := TRUE ]);
-  }
-
-  STRING FUNCTION GetDiskFilename()
-  {
-    RETURN `${GetModuleStorageRoot("publisher")}slots/${GetSlotGuid(CELL[ this->__slotfolder->id, this->__slotfolder->creationdate ])}.json`;
+    GetPrimary()->RegisterCommitHandler("publisher:updateslots", PTR UpdateSlots);
   }
 >;
 
@@ -468,30 +442,8 @@ PUBLIC MACRO RenderAdaptiveContentSlot(OBJECT webdesign, INTEGER slotid)
     RETURN;
 
   //NOTE we don't bail out if there are no slots, it's still useful for debuggers to have an empty/inert slot spot
+  //     we inlined ∏otential widgets into the <template> earlier, so that's why we still use <template>. we might do that again as an optimization but would need proper republishing then
   Print(`<template class="wh-adaptivecontent" data-name="${EncodeValue(slotinfo.name)}" data-slot="${GetSlotGuid(slotinfo)}"></template>`);
-}
-
-RECORD FUNCTION GetSlotInfo(INTEGER slotid)
-{
-  RECORD slotinfo := SELECT id, name, creationdate
-                       FROM system.fs_objects
-                      WHERE id = slotid;
-  IF (NOT RecordExists(slotinfo))
-    RETURN DEFAULT RECORD;
-
-  RECORD ARRAY widgets :=
-      SELECT id, name
-        FROM system.fs_objects
-       WHERE parent = slotid
-    ORDER BY ordering, id;
-
-  widgets := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget")->Enrich(widgets, "id", [ "condition" ]);
-  RETURN CELL[ ...slotinfo, widgets ];
-}
-
-STRING FUNCTION GetRenderedSlotWidget(OBJECT webdesign, RECORD widget)
-{
-  RETURN BlobToString(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock(ResolveWidgetAsSharedBlock(widget.id)))));
 }
 
 PUBLIC OBJECT FUNCTION OpenAdaptiveContentBeaconStore(INTEGER beaconsfolderid)

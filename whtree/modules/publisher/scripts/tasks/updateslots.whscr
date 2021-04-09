@@ -1,0 +1,9 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/internal/contentlibraries/publishing.whlib";
+
+
+OpenPrimary();
+RepublishSlots(ShuffleArray(ListSlotsNeedingRepublish()));
