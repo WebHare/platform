@@ -717,6 +717,34 @@
     <xyz:test data="siteregex-webharetestsuitesuite" />
   </apply>
 
+  <!-- within type tests -->
+  <apply>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/systemfolder" />
+    <xyz:test data="in-system-folder" />
+  </apply>
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
+    <xyz:test data="is-system-folder" />
+  </apply>
+
+  <apply>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+    <xyz:test data="in-slots-folder" />
+  </apply>
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+    <xyz:test data="is-slots-folder" />
+  </apply>
+
+  <apply>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+    <xyz:test data="in-beacons-folder" />
+  </apply>
+  <apply>
+    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" />
+    <xyz:test data="is-beacons-folder" />
+  </apply>
+
   <!-- forums -->
   <apply>
     <to type="file" pathmask="/*/forumcomments*" />

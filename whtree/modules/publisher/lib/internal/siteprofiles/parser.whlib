@@ -716,6 +716,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , parentmask   := crit->GetAttribute("parentmask")
                        , parentregex  := crit->GetAttribute("parentregex")
                        , parenttype   := crit->GetAttribute("parenttype")
+                       , withintype   := crit->GetAttribute("withintype")
                        , sitetype     := crit->GetAttribute("sitetype")
                        , filetype     := crit->GetAttribute("filetype")
                        , contentfiletype := crit->GetAttribute("contentfiletype")
@@ -822,6 +823,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , sitename     := ""
                       , siteregex    := ""
                       , parenttype   := ""
+                      , withintype   := ""
                       , sitetype     := ""
                       , filetype     := applynodetype = "filetype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , contentfiletype := ""

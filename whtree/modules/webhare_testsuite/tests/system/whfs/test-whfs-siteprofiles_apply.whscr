@@ -28,12 +28,23 @@ MACRO TestBeforeSite()
 {
   testfw->BeginWork();
   siteroot2 := testfw->GetWHFSTestRoot()->EnsureFolder([name := "webhare_testsuite.site2"]);
+
+  OBJECT asystemfolder := GetTestsuiteTempFolder()->CreateFolder([name:="systemfolder", typens := "http://www.webhare.net/xmlns/publisher/systemfolder"]);
+  OBJECT aslotsfolder := asystemfolder->CreateFolder([name:="slotsfolder", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"]);
+  OBJECT abeaconfolder := aslotsfolder->CreateFolder([name:="beaconsfolder", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons"]);
+  OBJECT subfile := abeaconfolder->CreateFile([name:="subfile"]);
+
   testfw->CommitWork();
 
   TestEq(0, siteroot2->parentsite);
   TestEq('/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2->whfspath);
   TestEq("applytest-megaglobal,applytest-whfspath", GetMyCustomNodes(siteroot2->id));
   TestEq("intercept-whfspath,intercept-megaglobal", GetMyIntercepts(siteroot2->id));
+
+  TestEq("applytest-megaglobal,parentmask-tmp,parentregex-tmp,is-system-folder", GetMyCustomNodes(asystemfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,is-slots-folder", GetMyCustomNodes(aslotsfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", GetMyCustomNodes(abeaconfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", GetMyCustomNodes(subfile->id));
 }
 
 MACRO TestRules()

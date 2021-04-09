@@ -937,6 +937,28 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN FALSE;
   }
 
+  BOOLEAN FUNCTION MatchWithinType(INTEGER foldertype, STRING matchwith, BOOLEAN isfolder)
+  {
+    //TODO cache within type matching
+    INTEGER tryparent := this->objinfo.parent.id;
+    FOR(INTEGER maxdepth := 16; maxdepth > 0; maxdepth := maxdepth - 1)
+    {
+      RECORD rec := SELECT id, type, parent FROM system.fs_objects WHERE id = tryparent;
+      IF(NOT RecordExists(rec))
+        RETURN FALSE;
+
+      STRING namespace := this->cache->GetWHFSTypeNamespace(rec.type, TRUE);
+      IF (namespace LIKE matchwith)
+        RETURN TRUE;
+
+      IF(RecordExists(this->objinfo.site) AND rec.parent = this->objinfo.site.id)
+        BREAK; //done!
+
+      tryparent := rec.parent;
+    }
+    RETURN FALSE;
+  }
+
   BOOLEAN FUNCTION TestPathConstraint(RECORD rec, RECORD site, RECORD parentitem)
   {
     IF (CellExists(rec, "PATHMASK") AND rec.pathmask!="" AND (ToUppercase(this->objinfo.obj.fullpath) NOT LIKE ToUppercase(rec.pathmask)))
@@ -944,6 +966,8 @@ STATIC OBJECTTYPE ApplyRuleTester
     IF (CellExists(rec, "PARENTMASK") AND rec.parentmask!="" AND (NOT RecordExists(parentitem) OR ToUppercase(parentitem.fullpath) NOT LIKE ToUppercase(rec.parentmask)))
       RETURN FALSE;
     IF (CellExists(rec, "PARENTTYPE") AND rec.parenttype!="" AND (NOT RecordExists(parentitem) OR NOT this->MatchType(parentitem.type, rec.parenttype,TRUE)))
+      RETURN FALSE;
+    IF (CellExists(rec, "WITHINTYPE") AND rec.withintype!="" AND (NOT RecordExists(parentitem) OR NOT this->MatchWithinType(parentitem.type, rec.withintype,TRUE)))
       RETURN FALSE;
     IF (CellExists(rec, "WHFSPATHMASK") AND rec.whfspathmask!="" AND (ToUppercase(this->objinfo.obj.whfspath) NOT LIKE ToUppercase(rec.whfspathmask)))
       RETURN FALSE;
