@@ -15,6 +15,12 @@
     </foldersettings>
   </apply>
 
+  <!-- check for slot republishing if a slot or widget changes -->
+  <apply>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"/>
+    <scheduletimedtask task="publisher:updateslots"/>
+  </apply>
+
   <!-- slottedwidget properties -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget">
     <record name="condition" />

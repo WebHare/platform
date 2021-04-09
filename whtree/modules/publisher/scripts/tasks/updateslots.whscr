@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/internal/contentlibraries/publishing.whlib";
+
+
+OpenPrimary();
+
+RECORD ARRAY diskslots := SELECT * FROM ReadDiskDirectory(`${GetModuleStorageRoot("publisher")}slots`,"*.json");
+RECORD ARRAY currentslots := ListDatabaseSlots();
+RECORD ARRAY todelete := SELECT * FROM diskslots WHERE name NOT IN (SELECT AS STRING ARRAY filename FROM currentslots);
+
+RECORD ARRAY toupdate := FilterSlotsNeedingRepublish(currentslots);
+
+RepublishSlots(ShuffleArray(toupdate));
+
+FOREVERY(RECORD todel FROM todelete)
+  DeleteDiskFile(todel.path);

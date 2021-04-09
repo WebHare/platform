@@ -1,7 +1,9 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::publisher/lib/internal/contentlibraries/publishing.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -141,10 +143,13 @@ ASYNC MACRO TestAdaptiveContentSlots()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq("Content slot alpha!", TT("filelist")->selection.title);
+  INTEGER content_slot_alpha_id := TT("filelist")->selection.rowkey;
+
   TestEq(4, Length(TT("filelist")->rows));
   TTClick("open");
 
   //create a widget
+  DATETIME expect_change_after := GetCurrentDatetime();
   AWAIT ExpectScreenChange(+1, PTR TTClick(":New file"));
   TestEq(2, Length(TT("types")->rows));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "ContentOption1";
@@ -164,11 +169,36 @@ ASYNC MACRO TestAdaptiveContentSlots()
 
   TestEq("Contents option 1 alpha", TT("filelist")->selection.title);
 
+  WHILE(RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = content_slot_alpha_id))
+    Sleep(100);
+  TestEq(1, Length(GetPublishedSlotInfo(content_slot_alpha_id).widgets));
+  TestEq([ _type := "newvisitor" ], GetPublishedSlotInfo(content_slot_alpha_id).widgets[0].condition);
+
   AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
   TestEq("Contents option 1 alpha", TT("filetitle")->value);
   TestEqLike("*My text*", BlobToString(TT(":Text")->value.htmltext));
   TestEq("New visitor", TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->selection.title);
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->value := "returningvisitor";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  WHILE(RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = content_slot_alpha_id))
+    Sleep(100);
+
+  TestEq([ _type := "returningvisitor" ], GetPublishedSlotInfo(content_slot_alpha_id).widgets[0].condition);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("delete"));
+
+  //wait for the slot json file to show '0 widgets'
+  WHILE(RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = content_slot_alpha_id))
+    Sleep(100);
+  TestEq(0, Length(GetPublishedSlotInfo(content_slot_alpha_id).widgets));
+
+  topscreen->frame->focused := TT("foldertree");
+
+  //wait for the slot json file to go away
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("delete"));
+  WHILE(RecordExists(GetPublishedSlotInfo(content_slot_alpha_id)))
+    Sleep(100);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }

@@ -1,0 +1,95 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+DATETIME FUNCTION ReadLastMod(STRING path)
+{
+  RECORD data := DecodeJSONBlob(GetDiskResource(path, [ allowmissing := TRUE ]));
+  data := EnforceStructure([ lastmodifiedwidget := DEFAULT DATETIME ], data);
+  RETURN data.lastmodifiedwidget;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListDatabaseSlots()
+{
+  RECORD ARRAY slots;
+  OBJECT slotsfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slots");
+
+  INTEGER ARRAY slotfolders := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE type = slotsfoldertype->id AND NOT IsRecycleOrHistoryWHFSPath(whfspath);
+  IF(Length(slotfolders) = 0)
+    RETURN RECORD[];
+
+  slots := SELECT id, creationdate
+             FROM system.fs_objects
+            WHERE parent IN slotfolders;
+
+  slots := SELECT *, filename := GetSlotGuid(slots) || ".json" FROM slots;
+  slots := SELECT *, diskpath := `${GetModuleStorageRoot("publisher")}slots/${filename}` FROM slots;
+  RETURN slots;
+}
+
+PUBLIC RECORD ARRAY FUNCTION FilterSlotsNeedingRepublish(RECORD ARRAY slots)
+{
+  slots := SELECT *, disklastmod := ReadLastMod(diskpath) FROM slots;
+
+  RECORD ARRAY widgets := SELECT parent, lastmodified := MAX(modificationdate)
+                            FROM system.fs_objects
+                           WHERE parent IN (SELECT AS INTEGER ARRAY id FROM slots)
+                        GROUP BY parent;
+
+  slots := SELECT *, expectlastmod := (SELECT AS DATETIME lastmodified FROM widgets WHERE widgets.parent = slots.id) ?? creationdate FROM slots;
+
+  DELETE FROM slots WHERE disklastmod = expectlastmod;
+  RETURN slots;
+}
+
+STRING FUNCTION GetRenderedSlotWidget(OBJECT webdesign, RECORD widget)
+{
+  RETURN BlobToString(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderSharedBlock(ResolveWidgetAsSharedBlock(widget.id)))));
+}
+
+//for testing
+PUBLIC RECORD FUNCTION GetPublishedSlotInfo(INTEGER slotid)
+{
+  RECORD fsinfo := SELECT id, creationdate FROM system.fs_objects WHERE id=slotid;
+  RECORD slotinfo := DecodeJSONBlob(GetDiskResource(`${GetModuleStorageRoot("publisher")}slots/${GetSlotGuid(fsinfo)}.json`, [ allowmissing := TRUE ]));
+  RETURN slotinfo;
+}
+
+PUBLIC MACRO RepublishSingleSlot(RECORD slot)
+{
+  //TODO Make this more robust, eg by running each slot into a separate job.
+  OBJECT applytester := GetApplyTesterForObject(slot.id);
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF (NOT RecordExists(webdesigninfo))
+    THROW NEW Exception(`Unable to load webdesign for slot #${slot.id}`);
+
+  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+  RECORD slotinfo := GetSlotInfo(slot.id);
+  slotinfo.widgets :=
+      SELECT name
+           , condition
+           , content := GetRenderedSlotWidget(webdesign, widgets)
+        FROM slotinfo.widgets;
+
+  CreateDiskDirectoryRecursive(GetDirectoryFromPath(slot.diskpath), TRUE);
+  StoreDiskFile(slot.diskpath, EncodeJSONBlob(slotinfo), [ overwrite := TRUE ]);
+}
+
+PUBLIC MACRO RepublishSlots(RECORD ARRAY slots)
+{
+  FOREVERY(RECORD slot FROM slots)
+    RepublishSingleSlot(slot);
+
+  //Clear out old slots (DELETEDISKFILE)
+}

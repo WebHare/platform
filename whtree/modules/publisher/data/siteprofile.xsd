@@ -1729,8 +1729,27 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="parenttype" type="xs:string" />
-    <xs:attribute name="sitetype" type="xs:string" />
+    <xs:attribute name="parenttype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          (Wildcard) Match the object's parent folders against the requested type. If the tested object is the site root, the site root folder's type is tested
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="withintype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          (Wildcard) match any of the parent folders (up to the site root) against the requested type
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="sitetype" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          (Wildcard) match the object's site root folder type
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="pathmask" type="xs:string">
       <xs:annotation>
         <xs:documentation>
