@@ -2034,6 +2034,7 @@
           </textgroup>
         </textgroup>
         <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
+          <text tid="open">Openen in Publisher</text>
           <text tid="references">Referenties</text>
           <text tid="url">URL</text>
           <text tid="whfspath">Pad</text>

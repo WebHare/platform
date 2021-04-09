@@ -72,7 +72,7 @@
 
   <screen name="references" height="20x" width="100x" allowresize="true" savestate="size" gid=".references">
     <actions>
-      <action name="open" onexecute="doopen" tid="~open" >
+      <action name="open" onexecute="doopen" >
         <enableon source="documents" min="1" max="1" />
       </action>
       <action name="refresh" onexecute="dorefresh" tid="~refresh" />
@@ -80,14 +80,14 @@
     <body>
       <grid height="1pr">
         <cell width="1pr">
-          <list name="documents" selectmode="single" openaction="open">
+          <list name="documents" selectmode="single" openaction="open" defaultbutton="openbutton">
             <column name="whfspath" type="text" />
             <column name="title" type="text" tid="~title" />
             <column name="url" type="url" />
           </list>
         </cell>
         <cell>
-          <button width="1pr" action="open" />
+          <button name="openbutton" width="1pr" action="open" tid=".open" />
           <button width="1pr" action="refresh" />
         </cell>
       </grid>
