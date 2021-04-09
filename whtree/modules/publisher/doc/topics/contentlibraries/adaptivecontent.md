@@ -35,7 +35,7 @@ Set up a foldertype for every slot type and use allowfiletype to set up which wi
   </apply>
 ```
 
-You also need to allow these foldertypes for your content store. Eg if your slots are in 'site::My site/slots/'
+You also need to allow these foldertypes for your content store. Eg if your slots are in 'site::My site/slots/':
 
 ```xml
   <apply> <!-- this apply rule needs to be made to apply to site 'My site' -->
@@ -73,7 +73,6 @@ RECORD fileinstancedata := this->targetobject->GetInstanceData(mynamespace);
 connect_headercta :=  PTR RenderAdaptiveContentSlot(this, fileinstancedata.<membername>)
 ```
 
-And in witty `[connect_headercta]` where you want to render this
 
 Add import rule in main es file and and run adaptivecontent.setup
 ```javascript

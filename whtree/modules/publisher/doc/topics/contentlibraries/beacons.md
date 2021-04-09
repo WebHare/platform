@@ -14,7 +14,7 @@ to your beacon store(s).
   </apply>
 ```
 
-Keep in mind that if you have multiple sources of beacon that their names still need to be unique
+Keep in mind that if you have multiple sources of beacon that their names still need to be unique.
 
 ## Triggering a beacon by visiting a page
 
