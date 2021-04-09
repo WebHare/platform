@@ -272,6 +272,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                                 , username := this->contexts->userapi->wrdschema->accountlogintag
                                 , fullname := "WRD_TITLE"
                                 , email := this->contexts->userapi->wrdschema->accountemailtag
+                                , password := this->contexts->userapi->wrdschema->accountpasswordtag
                                 ];
 
     RECORD ARRAY columns := [ [ name := "username",   title := GetTid("system:userrights.exports.csvcolumns.username"),   type := "text" ]
@@ -286,13 +287,25 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
       INSERT [ name := "lastlogin",  title := GetTid("system:userrights.exports.csvcolumns.lastlogin"),  type := "datetime", storeutc := TRUE ] INTO columns AT END;
     }
 
+    columns := RECORD
+        [ ...columns
+        , [ name := "twofactorenabled",   title := GetTid("system:userrights.exports.csvcolumns.twofactorenabled"),    type := "text" ]
+        , [ name := "lastpasswordchange", title := GetTid("system:userrights.exports.csvcolumns.lastpasswordchange"),    type := "datetime", storeutc := TRUE ]
+        ];
+
     RECORD ARRAY users := this->contexts->userapi->accounttype->RunQuery(
         [ outputcolumns := outputcolumns
         , filters := [ [ field := "WHUSER_UNIT", value := relevantunits ]
                      ]
         ]);
 
-    users := SELECT * FROM users ORDER BY username, wrd_id;
+    users :=
+        SELECT *
+             , twofactorenabled :=    RecordExists(password) AND RecordExists(password.totp) ? "TRUE" : "FALSE"
+             , lastpasswordchange :=  RecordExists(password) AND RecordExists(password.passwords) ? password.passwords[END-1].validfrom : DEFAULT DATETIME
+          FROM users
+      ORDER BY username, wrd_id;
+
     RunColumnFileExportDialog(this, CELL[ columns, rows := users, exporttitle := unitid = 0 ? GetTid("system:userrights.exports.exportusers")
                                                                                             : GetTid("system:userrights.exports.exportusersinunit", this->unitlist->selection.title)
                                                                                             ]);

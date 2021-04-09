@@ -2409,8 +2409,10 @@
         <text tid="created">Aangemaakt</text>
         <text tid="fullname">Gebruikersnaam</text>
         <text tid="lastlogin">Laatst ingelogd</text>
+        <text tid="lastpasswordchange">Laatste wachtwoordwijziging</text>
         <text tid="path">Pad</text>
         <text tid="right">Recht</text>
+        <text tid="twofactorenabled">Twee-factor-authenticatie ingeschakeld</text>
         <text tid="username">Gebruikersnaam</text>
         <text tid="viarole">Via rol</text>
       </textgroup>
