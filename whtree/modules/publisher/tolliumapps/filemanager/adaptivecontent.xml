@@ -21,7 +21,7 @@
     </body>
   </screen>
 
-  <screen name="slotprops" minwidth="100x" allowresize="true" footerbuttons="ok cancel" gid=".slotprops" savestate="size">
+  <screen name="slotprops" footerbuttons="ok cancel" gid=".slotprops">
     <compositions>
       <record name="slotdata" />
     </compositions>

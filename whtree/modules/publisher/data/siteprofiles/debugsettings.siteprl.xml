@@ -23,6 +23,7 @@
       <option tag="ner" title="No errorhandler.js" />
       <option tag="win" title="Witty invocations" />
       <option tag="pxl" title="Pxl events" />
+      <option tag="bac" title="Beacons/Adapative Content" />
     </debugsettings>
     <debugsettings title="RPCs &amp; authentication">
       <option tag="rpc" title="RPC request and responses" />

@@ -98,6 +98,22 @@ ASYNC MACRO TestAdaptiveContentBeacons()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestAdaptiveContentTriggerBeaconWidget()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "beacondoc" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TT("doceditor")->contents->rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  TestEq(TRUE, RecordExists(SELECT FROM TT(":Beacon")->options WHERE title="Employee Beacon"));
+  TT(":Beacon")->selection := SELECT * FROM TT(":Beacon")->options WHERE title="Employee Beacon";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestAdaptiveContentSlots()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots" ]]));
@@ -157,9 +173,11 @@ ASYNC MACRO TestAdaptiveContentSlots()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
                  , PTR TestAdaptiveContentBeacons
+                 , PTR TestAdaptiveContentTriggerBeaconWidget
                  , PTR TestAdaptiveContentSlots
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]

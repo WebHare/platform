@@ -1732,6 +1732,11 @@
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofile" limitlanguages="en nl">   <!-- siteprofile -->
+    <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
+      <text tid="beacon">Beacon</text>
+      <text tid="beacons">Beacon folder</text>
+      <text tid="slots">Slots folder</text>
+    </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML block</text>
       <text tid="embedvideo">Embedded video</text>
@@ -1997,6 +2002,7 @@
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="adaptivecontent">   <!-- tolliumapps.filemanager.adaptivecontent -->
+        <text tid="condition">Condition</text>
         <textgroup gid="beaconcondition">   <!-- tolliumapps.filemanager.adaptivecontent.beaconcondition -->
           <text tid="days">days</text>
           <text tid="is">is</text>

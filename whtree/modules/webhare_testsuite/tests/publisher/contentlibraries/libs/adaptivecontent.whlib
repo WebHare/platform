@@ -54,6 +54,7 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
 
   OBJECT widget1a := slot1->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+      , title := "Widget 1A"
       , condition := [ _type := "beacon", beacon := beacon1.name, maxdays := 1 ]
       ]);
   TestEq(1, widget1a->widgetfile->ordering);
@@ -62,6 +63,7 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
 
   OBJECT widget1b := slot1->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+      , title := "Widget 1B"
       , condition := [ _type := "beacon", beacon := beacon1.name ]
       ]);
   TestEq(2, widget1b->widgetfile->ordering);
@@ -81,6 +83,7 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
 
   OBJECT widget1c := slot1->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption1"
+      , title := "Widget 1C"
       ]);
   TestEq(3, widget1c->widgetfile->ordering);
   widget1c->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1",
@@ -97,12 +100,14 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
   OBJECT widget2a := slot2->CreateWidget(
       [ type := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1")->id
       , condition := [ _type := "newvisitor" ]
+      , title := "Widget 2A"
       ]);
   widget2a->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption1",
       [ text := [ htmltext := StringToBlob(`<html><body><p class="normal">Widget 2.A</p></body></html>`) ] ]);
 
   OBJECT widget2b := slot2->CreateWidget(
       [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/contentoption2"
+      , title := "Widget 2B"
       ]);
   widget2b->widgetfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/contentoption2", [ text := "Widget 2.B"]);
 

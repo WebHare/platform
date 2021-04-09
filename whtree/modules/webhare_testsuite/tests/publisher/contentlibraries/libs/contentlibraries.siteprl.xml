@@ -2,10 +2,8 @@
 
   <tabsextension name="actestpagesettings" xmlns="http://www.webhare.net/xmlns/tollium/screens">
     <newtab title="DC test page">
-      <!-- test direct reference -->
-      <p:slot composition="contentdata" cellname="footerdcslot" acstore="site::WebHare testsuite site/tmp/slots/" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
-      <!-- test setlibrary -->
-      <p:slot composition="contentdata" cellname="contentdcslot" acstore="site::WebHare testsuite site/tmp/slots/" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
+      <p:slot composition="contentdata" cellname="footerdcslot" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
+      <p:slot composition="contentdata" cellname="contentdcslot" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
     </newtab>
   </tabsextension>
 

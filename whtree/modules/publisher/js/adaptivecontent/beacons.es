@@ -32,8 +32,8 @@ export function trigger(tag, options)
   if (options.when.getTime)
     options.when = options.when.getTime();
 
-  if (dompack.debugflags.connect)
-    console.log("[connect] Trigger beacon", tag, options);
+  if (dompack.debugflags.bac)
+    console.log("[bac] Trigger beacon", tag, options);
 
   const beacons = storage.getLocal("wh:beacons") || {};
   if (beacons[tag] && beacons[tag].timestamps)
@@ -48,16 +48,16 @@ export function trigger(tag, options)
 
 export function clear(tag)
 {
-  if (dompack.debugflags.connect)
-    console.log("[connect] Clearing beacons", tag);
+  if (dompack.debugflags.bac)
+    console.log("[bac] Clearing beacons", tag);
 
   let beacons = storage.getLocal("wh:beacons") || {};
   for (let key of Object.keys(beacons))
   {
     if (key == tag || (tag instanceof RegExp && key.match(tag)))
     {
-      if (dompack.debugflags.connect)
-        console.log("[connect] Clear beacon", key);
+      if (dompack.debugflags.bac)
+        console.log("[bac] Clear beacon", key);
 
       delete beacons[key];
       if (window.dataLayer)
@@ -102,8 +102,8 @@ function initVisitCount()
     storage.setLocal("wh:visitor", { sessionId, count: visitCount });
     storage.setSession("wh:visitor", sessionId);
 
-    if (dompack.debugflags.connect)
-      console.log("[connect] New visitor", sessionId, visitCount);
+    if (dompack.debugflags.bac)
+      console.log("[bac] New visitor", sessionId, visitCount);
   }
   else if (!sessionId)
   {
@@ -113,16 +113,16 @@ function initVisitCount()
     storage.setLocal("wh:visitor", { ...visitor, count: visitCount });
     storage.setSession("wh:visitor", sessionId);
 
-    if (dompack.debugflags.connect)
-      console.log("[connect] New session", sessionId, visitCount);
+    if (dompack.debugflags.bac)
+      console.log("[bac] New session", sessionId, visitCount);
   }
   else
   {
     // Same session (for new visitors, visitor.sessionId == sessionId and visitor.count == 1)
     visitCount = visitor.count;
 
-    if (dompack.debugflags.connect)
-      console.log("[connect] Same session", sessionId, visitCount);
+    if (dompack.debugflags.bac)
+      console.log("[bac] Same session", sessionId, visitCount);
   }
 
   if (window.dataLayer)
@@ -131,8 +131,6 @@ function initVisitCount()
 
 export function getVisitCount()
 {
-  if (dompack.debugflags.connect)
-    console.log("[connect] Get visit count", visitCount);
   return visitCount;
 }
 
@@ -147,8 +145,8 @@ export function resetVisitCount(options)
     storage.setLocal("wh:visitor", null);
   }
 
-  if (dompack.debugflags.connect)
-    console.log("[connect] Visit count reset", options, visitCount);
+  if (dompack.debugflags.bac)
+    console.log("[bac] Visit count reset", options, visitCount);
 }
 
 
@@ -181,8 +179,8 @@ class TriggerBeacon
     const pageNode = this.node.closest(".wh-form__page");
     if (pageNode)
     {
-      if (dompack.debugflags.connect)
-        console.log("[connect] Form page beacon", this.node.dataset.beacon);
+      if (dompack.debugflags.bac)
+        console.log("[bac] Form page beacon", this.node.dataset.beacon);
       pageNode.addEventListener("wh:form-pagechange", this.triggerHandler);
     }
     triggerWidgetBeacons();
@@ -195,8 +193,8 @@ class TriggerBeacon
       trigger(this.node.dataset.beacon);
       window.removeEventListener("wh:triggerbeacon", this.triggerHandler);
     }
-    else if (dompack.debugflags.connect)
-      console.log("[connect] Not triggering invisible beacon", this.node.dataset.beacon);
+    else if (dompack.debugflags.bac)
+      console.log("[bac] Not triggering invisible beacon", this.node.dataset.beacon);
   }
 
   isVisible()
