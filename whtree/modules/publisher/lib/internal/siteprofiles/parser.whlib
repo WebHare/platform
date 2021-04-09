@@ -212,7 +212,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           RETURN "";
         }
         objectname := this->ParseFSPath(node, legacylibattr) || "#" || objectname;
-        this->AddWarning(node, `${legacylibattr}= is deprecated, you can specify the full object name in ${nameattr}= since WebHare ${deprecatedsince}`);
+        IF(deprecatedsince != "")
+          this->AddWarning(node, `${legacylibattr}= is deprecated, you can specify the full object name in ${nameattr}= since WebHare ${deprecatedsince}`);
       }
       RETURN objectname;
     }
@@ -582,7 +583,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ParseWebDesign(OBJECT node)
   {
-    RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
+    RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname", "")
                         , witty                    := this->ParseFSPath(node, "witty")
                         , assetpack                := ""
                         , wittyencoding            := node->GetAttribute("wittyencoding")
