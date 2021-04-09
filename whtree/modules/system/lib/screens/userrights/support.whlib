@@ -838,23 +838,7 @@ PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)
 
 PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user)
 {
-  BOOLEAN have_unit := RecordExists(contexts->controller->wrdauthplugin->wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
-  STRING ARRAY getfields := STRING
-      [ contexts->controller->wrdauthplugin->wrdschema->accountlogintag
-      , ...(have_unit ? [ "WHUSER_UNIT" ] : STRING[])
-      ];
-  IF(contexts->controller->wrdauthplugin->wrdschema->accountemailtag != contexts->controller->wrdauthplugin->wrdschema->accountlogintag)
-    INSERT contexts->controller->wrdauthplugin->wrdschema->accountemailtag INTO getfields AT END;
-  RECORD fields;
-  RECORD userfields := contexts->controller->wrdauthplugin->wrdschema->accounttype->GetEntityFields(user, getfields);
-  IF(RecordExists(userfields))
-  {
-    fields := [ username := GetCell(userfields, contexts->controller->wrdauthplugin->wrdschema->accountlogintag)
-              , email :=    GetCell(userfields, contexts->controller->wrdauthplugin->wrdschema->accountemailtag)
-              , unit :=     have_unit ? userfields.whuser_unit : 0
-              ];
-  }
-  RETURN contexts->controller->wrdauthplugin->GetSupportObject()->GetUserEditPolicy(user, fields, FALSE);
+  RETURN contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(user);
 }
 
 PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy)
