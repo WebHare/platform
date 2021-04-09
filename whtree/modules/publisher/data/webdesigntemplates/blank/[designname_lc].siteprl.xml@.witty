@@ -10,8 +10,7 @@
     <webdesign designfolder="."
                maxcontentwidth="960px"
                witty="[designname_lc].witty"
-               library="[designname_lc].whlib"
-               objectname="[designobjectname]"
+               objectname="[designname_lc].whlib#[designobjectname]"
                assetpack="[designname_lc]"
                wittyencoding="HTML-NI"
                async="true" />
