@@ -2394,6 +2394,8 @@
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
       <text tid="editunit">Edit unit</text>
+      <text tid="override_passwordchecks">Override password restrictions</text>
+      <text tid="passwordchecks">Password restrictions</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
@@ -2500,6 +2502,7 @@
       <text tid="usernamenew">Login name</text>
       <text tid="userpreferences">Personal preferences</text>
       <text tid="utc">UTC</text>
+      <text tid="warning_passwordexpired">Your password has expired, please change it.</text>
       <text tid="warning_passwordfailschecks">Your password does not meet the requirements anymore, please change it.</text>
       <text tid="warning_passwordtooold">Your password is too old and must be changed.</text>
       <text tid="warnings">Warnings</text>
