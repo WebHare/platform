@@ -73,7 +73,6 @@ RECORD fileinstancedata := this->targetobject->GetInstanceData(mynamespace);
 connect_headercta :=  PTR RenderAdaptiveContentSlot(this, fileinstancedata.<membername>)
 ```
 
-
 Add import rule in main es file and and run adaptivecontent.setup
 ```javascript
 import * as adaptivecontent from '@mod-publisher/js/adaptivecontent';
