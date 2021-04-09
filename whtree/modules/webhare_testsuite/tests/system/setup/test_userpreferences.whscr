@@ -1,7 +1,10 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 
@@ -65,12 +68,17 @@ ASYNC MACRO TestAuthSettings()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 
-  // set an old password
+  // STORY: warn on about to expire passwords
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P2M");
+  testfw->CommitWork();
+
+    // set an old password
   testfw->BeginWork();
   testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa@allow2fa.test.webhare.net"),
       [ whuser_password :=
             [ version :=      1
-            , passwords :=    [ [ validfrom :=      DEFAULT DATETIME
+            , passwords :=    [ [ validfrom :=      AddDaysToDate(-35, GetCurrentDateTime())
                                 , passwordhash :=   testfw->hashedpasswords.secret
                                 ]
                               ]
@@ -78,10 +86,80 @@ ASYNC MACRO TestAuthSettings()
       ]);
   testfw->CommitWork();
 
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  TestEQ(TRUE, TT("warning_passwordabouttoexpire")->visible);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New password", "secret2");
+  TTFillByTitle(":Confirm new password", "secret2");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEQ(FALSE, TT("warning_passwordabouttoexpire", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+  // STORY: warn on about expired passwords
   testfw->BeginWork();
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P2D");
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P1M");
+  testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa@allow2fa.test.webhare.net"),
+      [ whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      AddDaysToDate(-35, GetCurrentDateTime())
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]
+      ]);
   testfw->CommitWork();
 
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  TestEQ(TRUE, TT("warning_passwordexpired")->visible);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Change[1/2]"));
+  TTFillByTitle(":Password", "secret");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New password", "secret2");
+  TTFillByTitle(":Confirm new password", "secret2");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEQ(FALSE, TT("warning_passwordexpired", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+
+
+  testfw->BeginWork();
+  OBJECT newunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity(
+      [ wrd_leftentity :=           testfw->testunit
+      , wrd_title :=                "pvoverride"
+      , override_passwordchecks :=  TRUE
+      , passwordchecks :=           "maxage:P1D"
+      ]);
+  OBJECT bob := testfw->userapi->GetUser(testfw->userapi->CreateUser(
+      [ whuser_unit :=        newunit->id
+      , wrd_contact_email :=  "bob@allow2fa.test.webhare.net"
+      , wrd_firstname :=      "Bob"
+      , wrd_lastname :=       "McTestsuite"
+      , whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      GetCurrentDateTime()
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]      ]));
+
+  testfw->CommitWork();
+
+  __SetEffectiveUser(bob);
+
+  // Because of the short expiry in the new unit, the about to expire warning should be visible immediately after changing a password
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  TestEQ(TRUE, TT("warning_passwordabouttoexpire")->visible);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
 }
 
 
@@ -89,7 +167,6 @@ RunTestframework( [ PTR TestAuthSettings
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "lisa@allow2fa.test.webhare.net", grantrights := ["system:sysop"] ]
                                     ]
-                     , testroles := [[ role := "powerplantmanagers" ]]
                      , debug := TRUE
                      ]
                   );

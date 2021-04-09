@@ -575,6 +575,115 @@ MACRO TestLoginDenied()
       ]);
 }
 
+MACRO TestPasswordValidation()
+{
+  RECORD result;
+
+  testfw->BeginWork();
+  OBJECT wrdschema :=  testfw->GetWRDSchema();
+
+  wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "hibp");
+  DumpValue(wrdschema->id);
+
+  OBJECT newunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity(
+      [ wrd_leftentity :=           testfw->testunit
+      , wrd_title :=                "pvoverride"
+      , override_passwordchecks :=  TRUE
+      , passwordchecks :=           "uppercase:1"
+      ]);
+
+  OBJECT pwroot := testfw->userapi->GetUser(testfw->userapi->CreateUser(
+      [ whuser_unit :=        testfw->testunit
+      , wrd_contact_email :=  "pwroot@allow2fa.test.webhare.net"
+      , wrd_firstname :=      "pwroot"
+      , wrd_lastname :=       "McTestsuite"
+      , whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      AddDaysToDate(-2, GetCurrentDateTime())
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]
+      ]));
+
+  OBJECT pwunitoverride := testfw->userapi->GetUser(testfw->userapi->CreateUser(
+      [ whuser_unit :=        newunit->id
+      , wrd_contact_email :=  "pwunitoverride@allow2fa.test.webhare.net"
+      , wrd_firstname :=      "pwunitoverride"
+      , wrd_lastname :=       "McTestsuite"
+      , whuser_password :=
+            [ version :=      1
+            , passwords :=    [ [ validfrom :=      AddDaysToDate(-2, GetCurrentDateTime())
+                                , passwordhash :=   testfw->hashedpasswords.secret
+                                ]
+                              ]
+            ]
+      ]));
+
+  testfw->CommitWork();
+
+  result := DoReq( [ action := "login", username := "pwroot@allow2fa.test.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  TestEQMembers(
+      [ success := FALSE
+      , code := "FAILEDVALIDATIONCHECKS"
+      ], result, "*");
+  TestAuditEvent(
+      [ entity := pwroot->entityid
+      , type := "wrd:login:failedvalidationchecks"
+      , login := "pwroot@allow2fa.test.webhare.net"
+      , impersonated := FALSE
+      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "hibp" ] ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := pwroot->entityid
+      , bylogin := "pwroot@allow2fa.test.webhare.net"
+      ]);
+
+  testfw->BeginWork();
+  wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "");
+  testfw->CommitWork();
+
+  result := DoReq( [ action := "login", username := "pwunitoverride@allow2fa.test.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  TestEQMembers(
+      [ success := FALSE
+      , code := "FAILEDVALIDATIONCHECKS"
+      ], result, "*");
+  TestAuditEvent(
+      [ entity := pwunitoverride->entityid
+      , type := "wrd:login:failedvalidationchecks"
+      , login := "pwunitoverride@allow2fa.test.webhare.net"
+      , impersonated := FALSE
+      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "complexity" ] ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := pwunitoverride->entityid
+      , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+      ]);
+
+  testfw->BeginWork();
+  newunit->UpdateEntity([ passwordchecks := "maxage:P1D" ]);
+  testfw->CommitWork();
+
+  result := DoReq( [ action := "login", username := "pwunitoverride@allow2fa.test.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  TestEQMembers(
+      [ success := FALSE
+      , code := "FAILEDVALIDATIONCHECKS"
+      ], result, "*");
+  TestAuditEvent(
+      [ entity := pwunitoverride->entityid
+      , type := "wrd:login:failedvalidationchecks"
+      , login := "pwunitoverride@allow2fa.test.webhare.net"
+      , impersonated := FALSE
+      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "maxage" ]  ])
+      , browsertriplet := "mac-chrome-06"
+      , byentity := pwunitoverride->entityid
+      , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+      ]);
+
+  testfw->BeginWork();
+  newunit->UpdateEntity([ passwordchecks := "maxage:P1D" ]);
+  testfw->CommitWork();
+}
+
+
 MACRO TestSecondFactorLogin()
 {
   testfw->BeginWork();
@@ -902,6 +1011,7 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
                   , PTR TestLoginDenied
+                  , PTR TestPasswordValidation
                   , PTR TestSecondFactorLogin
                   , PTR TestWRDAuthRouter
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]

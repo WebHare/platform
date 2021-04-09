@@ -36,7 +36,8 @@ PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
   UPDATE PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
   {
     RECORD policy := WRDAuthSupportBase::GetUserEditPolicy(userid, fields, atsubmit);
-    policy.passwordvalidationchecks := "lowercase:1 noreuse:P2D maxage:P1D";
+    IF (policy.passwordvalidationchecks = "") // allow override
+      policy.passwordvalidationchecks := "lowercase:1 noreuse:P2D maxage:P1D";
     RETURN policy;
   }
 >;

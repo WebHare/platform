@@ -836,9 +836,13 @@ PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)
          ];
 }
 
-PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user)
+PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(user);
+  options := ValidateOptions(
+      [ defaultunit :=    0 // for when user = 0
+      ], options);
+
+  RETURN contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(user, options);
 }
 
 PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy)

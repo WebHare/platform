@@ -14,6 +14,8 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
     ^entity->Load(data.unit);
     IF(data.unit = 0)
       ^entity->extradata := [ wrd_leftentity := data.parent ];
+
+    ^override_passwordchecks->enabled := this->contexts->user->HasRight("system:sysop");
   }
 
   INTEGER FUNCTION Submit()

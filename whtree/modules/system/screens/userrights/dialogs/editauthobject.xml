@@ -1,4 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
          lib="screens/userrights/dialogs/editauthobject.whlib">
 
@@ -7,11 +8,23 @@
       <wrd:entity name="entity" wrdtype="WHUSER_UNIT" />
     </compositions>
 
-    <body>
-      <panel height="1pr">
-        <textedit composition="entity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
-        <textarea composition="entity" cellname="whuser_comment" height="1pr" tid="~comments" />
-      </panel>
+    <body spacers="none">
+      <tabs>
+        <tab tid="~properties">
+          <textedit composition="entity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
+          <textarea composition="entity" cellname="whuser_comment" height="1pr" tid="~comments" />
+        </tab>
+        <tab tid=".passwordchecks">
+          <heading composition="entity"
+                   cellname="override_passwordchecks"
+                   name="override_passwordchecks"
+                   checkbox="true"
+                   enablecomponents="passwordchecks" />
+          <system:passwordvalidationchecks composition="entity"
+                                           cellname="passwordchecks"
+                                           name="passwordchecks" />
+        </tab>
+      </tabs>
     </body>
   </screen>
 

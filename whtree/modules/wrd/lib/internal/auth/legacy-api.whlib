@@ -1615,7 +1615,24 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
         ];
 
     IF (ObjectExists(this->plugin->wrdschema))
+    {
       retval := CELL[ ...retval, ...GetDefaultWRDSchemaPasswordPolicy(this->plugin->wrdschema) ];
+
+      IF (RecordExists(fields)) // not always set
+      {
+        INTEGER unit := fields.unit;
+        WHILE (unit != 0)
+        {
+          RECORD data := this->plugin->wrdschema->^whuser_unit->GetEntityFields(unit, [ "wrd_leftentity", "override_passwordchecks", "passwordchecks" ]);
+          IF (data.override_passwordchecks)
+          {
+            retval.passwordvalidationchecks := data.passwordchecks;
+            BREAK;
+          }
+          unit := data.wrd_leftentity;
+        }
+      }
+    }
 
     RETURN retval;
   }

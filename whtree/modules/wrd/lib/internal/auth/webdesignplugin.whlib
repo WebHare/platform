@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -890,12 +891,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                       ? "failedvalidationchecks"
                       : "failed";
 
-      RECORD auditmsg :=
-          [ account :=  entityid
-          , login := options.auditloginname ?? loginname
-          , message := options.auditmessage
-          , browsertriplet := options.browsertriplet
-          ];
+      IF (loginresultcode = "failedvalidationchecks")
+      {
+        STRING ARRAY failedvalidationchecks := ArrayIntersection(trylogin.failedvalidationchecks, [ "hibp", "maxage" ]);
+        IF (IsValueSet(ArrayDelete(trylogin.failedvalidationchecks, [ "hibp", "maxage" ])))
+          INSERT "complexity" INTO failedvalidationchecks AT END;
+
+        options.auditmessage := CELL[ ...options.auditmessage, failedvalidationchecks ];
+      }
 
       IF (CellExists(trylogin, "secondfactordata"))
       {
@@ -1686,12 +1689,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /** Returns the user edit policy for a user
       @param user User
       @cell options.atsubmit @includecelldef legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.atsubmit
+      @cell options.defaultunit Unit to use when the user could not be found (eg for new users)
       @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
   */
   PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
-        [ atsubmit :=   FALSE
+        [ atsubmit :=       FALSE
+        , defaultunit :=    0
         ], options);
 
     BOOLEAN have_unit := RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
@@ -1710,6 +1715,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                 , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
                 , unit :=     have_unit ? userfields.whuser_unit : 0
                 ];
+    }
+    ELSE
+    {
+      fields := [ username := "", email := "", unit := options.defaultunit ];
     }
 
     RETURN this->GetSupportObject()->GetUserEditPolicy(user, fields, options.atsubmit);
