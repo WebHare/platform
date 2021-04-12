@@ -83,7 +83,7 @@
           <text name="deleted" tid="commondialogs.propsshared.deleted" visible="false" />
           <text name="originallocation" visible="false" />
 
-          <panel name="properties"></panel> <!-- this is just an insertion point -->
+          <spacer name="properties" visible="false" /> <!-- this is just an insertion point -->
 
           <heading name="restrictions" />
           <line layout="left">
