@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 25.2.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:url(#SVGID_1_);}
+	.st1{fill:#4A4A4A;}
+	.st2{fill:#929293;}
+	.st3{fill:#198BD8;}
+</style>
+<g>
+	<g>
+		<g id="file-fill">
+			
+				<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="13.5124" y1="839.9309" x2="40.4876" y2="866.9061" gradientTransform="matrix(1 0 0 1 0 -830.3937)">
+				<stop  offset="0" style="stop-color:#FFFFFF"/>
+				<stop  offset="1" style="stop-color:#F2F2F2"/>
+			</linearGradient>
+			<path class="st0" d="M41,10v26c0-0.1-28,0-28,0s0.1-26,0-26H41"/>
+		</g>
+	</g>
+</g>
+<rect x="12" y="10" class="st1" width="2" height="26"/>
+<rect x="40" y="10" class="st1" width="2" height="26"/>
+<rect x="16" y="16" class="st1" width="12" height="2"/>
+<rect x="16" y="20" class="st1" width="8" height="2"/>
+<rect x="16" y="28" class="st1" width="9" height="2"/>
+<rect x="16" y="24" class="st1" width="22" height="2"/>
+<rect x="16" y="10" class="st2" width="4" height="2"/>
+<rect x="22" y="10" class="st2" width="4" height="2"/>
+<rect x="28" y="10" class="st2" width="4" height="2"/>
+<rect x="16" y="34" class="st2" width="4" height="2"/>
+<rect x="22" y="34" class="st2" width="4" height="2"/>
+<rect x="28" y="34" class="st2" width="4" height="2"/>
+<g>
+	<path class="st3" d="M8.1,28c-2.2,0-4,1.8-4,4s1.8,4,4,4s4-1.8,4-4S10.3,28,8.1,28z M8.1,34c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2
+		S9.2,34,8.1,34z"/>
+	<path class="st3" d="M8.1,35.9c-2.2,0-4,1.8-4,4s1.8,4,4,4s4-1.8,4-4S10.3,35.9,8.1,35.9z M8.1,41.9c-1.1,0-2-0.9-2-2s0.9-2,2-2
+		s2,0.9,2,2S9.2,41.9,8.1,41.9z"/>
+	<path class="st3" d="M23.5,30.7l-13,7.5l-1-1.7l4.9-2.9c1.3-0.8,2.7-1.4,4.2-1.8l4.7-1.5C23.6,30.2,23.8,30.6,23.5,30.7z"/>
+	<path class="st3" d="M23.5,41.4l-13-7.5l-1,1.7l4.9,2.9c1.3,0.8,2.7,1.4,4.2,1.8l4.7,1.5C23.6,41.8,23.8,41.5,23.5,41.4z"/>
+</g>
+<rect x="34" y="10" class="st2" width="4" height="2"/>
+<rect x="34" y="34" class="st2" width="4" height="2"/>
+<rect x="30" y="16" class="st1" width="6" height="2"/>
+</svg>
