@@ -2,7 +2,7 @@
 
   <!-- ADDME: We might want to turn this into a webfeature in the future, but now while we're testing this -->
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="boostwords" gid="objectprops.boostwords">
-    <insert position="settings" where="atend">
+    <insert position="settings" where="after">
       <tagedit composition="contentdata" cellname="words" width="1pr" separator=" " />
     </insert>
   </tabsextension>
