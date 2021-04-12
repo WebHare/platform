@@ -20,6 +20,11 @@ LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 OBJECT paynlbrowser;
 INTEGER wait_for_startpayment := 60*1000;
 
+BOOLEAN FUNCTION IsTestCredentials(RECORD creds)
+{
+  RETURN creds.apiuser = "AT-0000-0000" AND creds.apitoken = "dummytoken";
+}
+
 PUBLIC STRING FUNCTION MakePayNLAlphaNumeric(STRING input)
 {
   RETURN NEW RegEx("[^A-Za-z0-9]+","g")->Replace(input,"");
@@ -297,9 +302,26 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
 
 RECORD FUNCTION GetCacheableMethods(RECORD creds)
 {
+  IF(IsTestCredentials(creds))
+  {
+    RETURN [ value := [ methods := [ [ rowkey := "10"
+                                     , title := "iDEAL"
+                                     , issuers := [ [ ROWKEY := '1', TITLE := 'ABN Amro' ]
+                                                  , [ ROWKEY := '5080', TITLE := 'Bunq' ]
+                                                  ]
+                                     ]
+                                   , [ rowkey := "1813"
+                                     , title := "in3 (Gespreid betalen)"
+                                     , issuers := RECORD[]
+                                     ]
+                                   ]
+                     ]
+           , ttl := 15* 60 * 1000
+           ];
+  }
+
   //https://docs.pay.nl/developers#services
   RECORD methodsresponse := DoPayNLRequest(creds, "POST", "v16/Transaction/getService/json", RECORD[]);
-
   /*
    +RECORD
  +SETTINGS: ''
