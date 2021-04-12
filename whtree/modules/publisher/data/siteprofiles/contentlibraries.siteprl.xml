@@ -1,7 +1,7 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofile.contentlibraries">
 
   <!-- adaptive content slots (folder of slots) -->
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" tid=".slots">
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" tid=".slots" icon="tollium:objects/slots">
     <foldersettings>
       <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotsFolderContents" />
     </foldersettings>
@@ -26,7 +26,7 @@
     <record name="condition" />
   </contenttype>
 
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" tid=".beacons">
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" tid=".beacons"  icon="tollium:folders/beaconfolder">
     <foldersettings>
       <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#BeaconsFolderContents" />
     </foldersettings>
@@ -40,7 +40,7 @@
   </apply>
 
   <!-- beacon file type -->
-  <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile" tid=".beacon">
+  <filetype namespace="http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon" kind="datafile" tid=".beacon" icon="tollium:objects/beacon">
     <members>
       <string name="guid" />
     </members>
