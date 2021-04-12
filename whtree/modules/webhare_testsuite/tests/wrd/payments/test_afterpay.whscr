@@ -122,7 +122,7 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
   TestEq("approved", entity->GetField("DATA").status);
 
   paymentapi->ForceRecheckPayment(entity->id);
-  TestEq("approved", entity->GetField("DATA").status);
+  TestEq(TRUE, entity->GetField("DATA").status IN ["approved","pending"]);
 
   //Check the payment in the dialog
   AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
