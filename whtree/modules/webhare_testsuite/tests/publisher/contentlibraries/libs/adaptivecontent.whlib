@@ -180,6 +180,11 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
       ]);
 
   testfw->CommitWork();
+
+  //ensure everything is on disk
+  WHILE(Length(ListSlotsNeedingRepublish()) > 0)
+    Sleep(100);
+
   RETURN CELL[ headerslot
              , slot1
              , slot2
