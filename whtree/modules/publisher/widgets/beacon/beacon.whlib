@@ -61,7 +61,7 @@ PUBLIC STATIC OBJECTTYPE TriggerBeaconWidget EXTEND WidgetBase
     {
       RECORD beacon := SELECT name FROM system.fs_objects WHERE id = this->data.beacon;
       IF(RecordExists(beacon))
-        Print(`<wh-beacon data-beacon="${EncodeValue(beacon.name)}" />`);
+        Print(`<wh-beacon data-beacon="${EncodeValue(beacon.name)}"></wh-beacon>`);
     }
     CATCH (OBJECT e)
     {
