@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:folders/normal" />
+  <layer src="tollium:objects/beacon" />
+</icon>
