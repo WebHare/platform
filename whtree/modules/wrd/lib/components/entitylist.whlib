@@ -636,7 +636,10 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
       {
         INTEGER newid := this->onentityedit(this->pvt_wrdtype, this->GetFinalEntityContext(TRUE), toedit);
         IF (newid != 0)
-          ^entities->value := newid;
+          IF(this->selectmultiple)
+            ^entities->value := INTEGER[newid];
+          ELSE
+            ^entities->value := newid;
       }
       ELSE
       {
