@@ -55,6 +55,9 @@ ASYNC MACRO TestDCComponents()
   TestEq(0, contentdcslot->value);
   TestEq(3, Length(contentdcslot->options));
   TestEq(1, Length(SELECT FROM contentdcslot->options WHERE title = "a slot")); //this is slot #2
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Content slot*required*"]); //cannot submit, must select slot
+
   contentdcslot->value := SELECT AS INTEGER rowkey FROM contentdcslot->options WHERE title = "a slot";
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
