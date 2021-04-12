@@ -1331,6 +1331,22 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="snippet">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/snippet.xml#snippet" />
+        </xs:appinfo>
+        <xs:documentation>
+          <html:p>A snippet selection component</html:p>
+        </xs:documentation>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attributeGroup ref="sc:Required" />
+    </xs:complexType>
+  </xs:element>
+
   <xs:element name="slot">
     <xs:complexType>
       <xs:annotation>

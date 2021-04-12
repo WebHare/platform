@@ -1730,6 +1730,7 @@
     <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
       <text tid="beacon">Beacon</text>
       <text tid="beacons">Beacon folder</text>
+      <text tid="contentsnippets">Content snippets</text>
       <text tid="references">Slot references</text>
       <text tid="slotreferences">Files referencing slot '<param p="1"/>'</text>
       <text tid="slots">Slots folder</text>
@@ -2638,6 +2639,11 @@
       <text tid="invalidname">Invalid anchor name '<param p="1"/>'.<br/><br/>An anchor must start with a letter (A-Z or a-z) and may be followed by any number of letters, digits (0-9), hyphens ("-"), underscores ("_"), colons (":"), and periods (".").</text>
       <text tid="name">Anchor name</text>
       <text tid="title">Anchor</text>
+    </textgroup>
+    <textgroup gid="contentsnippet">   <!-- widgets.contentsnippet -->
+      <text tid="insertsnippet">Snippet</text>
+      <text tid="insertsnippetwidget">Insert snippet</text>
+      <text tid="snippetwidget">Content snippet</text>
     </textgroup>
     <textgroup gid="htmlwidget">   <!-- widgets.htmlwidget -->
       <text tid="html">HTML code</text>

@@ -70,4 +70,8 @@
     <setobjecteditor name="publisher:adaptivecontent_beacon" />
   </filetype>
 
+  <!-- content snippets -->
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" tid=".contentsnippets" icon="tollium:folders/snippetfolder">
+  </foldertype>
+
 </siteprofile>

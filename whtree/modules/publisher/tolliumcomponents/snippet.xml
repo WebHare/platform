@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumcomponents.snippet"
+         library="snippet.whlib">
+
+  <fragment name="snippet">
+    <contents>
+      <select name="snippet" type="pulldown" rowkeytype="integer" title="">
+        <option rowkey="0" invalidselection="true" title="" />
+        <p:fslibrary name="fslibrary" fslibrary="publisher:snippets" />
+      </select>
+    </contents>
+  </fragment>
+
+</screens>

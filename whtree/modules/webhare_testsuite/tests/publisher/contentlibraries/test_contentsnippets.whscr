@@ -1,0 +1,81 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO PrepContentSnippets()
+{
+  testfw->BeginWork();
+
+  OBJECT snippetsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "snippets", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" ]);
+  OBJECT textsnippet := snippetsfolder->CreateFile([ name := "textsnippet", title := "Text Snippet", typens := "http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" ]);
+  textsnippet->SetInstanceData("http://www.webhare.net/xmlns/publisher/widgets/contentsnippet",
+      [ snippettext :=  [ htmltext := StringToBlob(`
+                           <html><body>
+                             <p class="wh-normal">A simple text snippet</p>
+                           </body></html>`)
+                        ]
+      ]);
+
+  OBJECT richdocfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "rtdtype"]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT snippets1doc := richdocfolder->CreateFile(
+      [ name := "snippets-1"
+      , type := richdoctype->id
+      , publish := TRUE
+    ]);
+
+  richdoctype->SetInstanceData(snippets1doc->id,
+      [ data :=
+        [ htmltext := StringToBlob(`
+             <html><body>
+               <p class="wh-normal">Para 1</p>
+               <div class="wh-rtd-embeddedobject" data-instanceid="snippet1" />
+             </body></html>`)
+        , instances :=
+          [ [ instanceid := "snippet1"
+            , data :=
+              [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/insertsnippet"
+              , insertsnippet := textsnippet->id
+              ]
+            ]
+          ]
+        ]
+      ]);
+
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestInsertContentSnippetWidget()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/snippets-1"], target := DEFAULT RECORD ]));
+
+
+  AWAIT ExpectScreenChange(+1, PTR TT("doceditor")->contents->rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/insertsnippet";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  TestEq(TRUE, RecordExists(SELECT FROM TT(":Snippet")->options WHERE title="Text Snippet"));
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Snippet*required*"]); //cannot submit, must select snippet
+
+  TT(":Snippet")->selection := SELECT * FROM TT(":Snippet")->options WHERE title="Text Snippet";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR PrepContentSnippets
+                 , PTR TestInsertContentSnippetWidget
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);
