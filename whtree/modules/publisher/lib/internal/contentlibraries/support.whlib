@@ -23,7 +23,7 @@ PUBLIC RECORD FUNCTION GetSlotInfo(INTEGER slotid)
        WHERE parent = slotid
     ORDER BY ordering, id;
 
-  widgets := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget")->Enrich(widgets, "id", [ "condition" ]);
+  widgets := OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget")->Enrich(widgets, "id", [ "condition" ]);
   RETURN CELL[ ...slotinfo
              , widgets
              , lastmodifiedwidget := (SELECT AS DATETIME MAX(modificationdate) FROM widgets) ?? slotinfo.creationdate

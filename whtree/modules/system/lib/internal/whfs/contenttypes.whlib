@@ -1798,16 +1798,21 @@ STATIC OBJECTTYPE WHFSType
   }
 
   /** @private used by RTE and convert scripts to get instances nested in other instances
+      @cell(boolean) options.orphans Open type even if orphan (not referred by any siteprofile)
   */
-  PUBLIC RECORD FUNCTION GetInstanceDataByDirectRef(RECORD directref)
+  PUBLIC RECORD FUNCTION GetInstanceDataByDirectRef(RECORD directref, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(
+        [ orphans       := FALSE
+        ], options);
+
     IF (directref.__token._i != this->typedef.id)
       THROW NEW Exception("Using a instance directref from another type");
 
     IF (directref.__token._s = 0)
-      RETURN this->GetInstanceData(directref.__token._o);
+      RETURN this->GetInstanceData(directref.__token._o, [ orphans := options.orphans ]);
     ELSE
-      RETURN GetWHFSInstanceDirect(directref.__token._s);
+      RETURN GetWHFSInstanceDirect(directref.__token._s, [ orphans := options.orphans ]);
   }
 
   /** @private used by RTE and convert scripts to set instances nested in other instances
@@ -2171,17 +2176,22 @@ PUBLIC MACRO RescanWHFSConsilioLinks()
 
 /** @short Reads an WHFS instance from its setting ID
     @param fssettingid WHFS setting id of the instance
+    @cell(boolean) options.orphans Open type even if orphan (not referred by any siteprofile)
     @return Instance data
     @topic sitedev/whfs
     @public
     @loadlib mod::system/lib/whfs.whlib
 */
-PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER64 fssettingid)
+PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER64 fssettingid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ orphans       := FALSE
+      ], options);
+
   RECORD settingrec := SELECT * FROM system.fs_settings WHERE id = VAR fssettingid;
   IF(NOT RecordExists(settingrec))
     RETURN DEFAULT RECORD;
 
   RECORD ARRAY cursettings := GetCurrentSettingsForInstance(settingrec.fs_instance);
-  RETURN GetInstanceMember(settingrec, cursettings, NEW BaseUrlOnDemand(settingrec.fs_instance, TRUE), DEFAULT OBJECT, FALSE);
+  RETURN GetInstanceMember(settingrec, cursettings, NEW BaseUrlOnDemand(settingrec.fs_instance, TRUE), DEFAULT OBJECT, options.orphans);
 }

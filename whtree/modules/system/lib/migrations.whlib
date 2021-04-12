@@ -60,6 +60,7 @@ RECORD ARRAY FUNCTION SortByDepth(RECORD ARRAY todolist)
     @param srctype Source instance type
     @cell(function ptr) options.mapcallback Callback to invoke on instance records for conversion
     @cell(string) options.desttype Destination type. If empty, assumed to equal the source type
+    @cell(boolean) options.sourceorphans Open source type and data as an oprhan (access deleted types and members)
     @return Conversion information (suitable for passing into %RepublishWHFSObjectReferences)
     @cell(integer array) return.fsobject fsobject ID containing the instance
     */
@@ -67,9 +68,10 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
 {
   options := ValidateOptions( [ mapcallback := DEFAULT FUNCTION PTR
                               , desttype := srctype
+                              , sourceorphans := FALSE
                               ], options);
 
-  OBJECT type := OpenWHFSType(srctype);
+  OBJECT type := OpenWHFSType(srctype, [ openorphans := options.sourceorphans ]);
   IF(NOT ObjectExists(type) OR type->id = 0)
     THROW NEW Exception(`No such source whfs type '${srctype}'`);
 
@@ -84,7 +86,7 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
 
   FOREVERY(RECORD instance FROM todolist)
   {
-    RECORD data := type->GetInstanceDataByDirectRef(instance.directref);
+    RECORD data := type->GetInstanceDataByDirectRef(instance.directref, [ orphans := options.sourceorphans ]);
     IF(NOT RecordExists(data))
       THROW NEW Exception("Instance disappeared during conversion!"); //is our bottom-up approach broken?
 

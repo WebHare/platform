@@ -48,7 +48,7 @@ PUBLIC STATIC OBJECTTYPE SlotFolderContents EXTEND ContentsListHandlerBase
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentfolder, RECORD ARRAY items)
   {
-    OBJECT slottedwidgettype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget");
+    OBJECT slottedwidgettype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget");
     items := slottedwidgettype->Enrich(items, "ID", ["CONDITION"]);
     items := SELECT *, custom_condition := FormatACCondition(COLUMN condition), DELETE condition FROM items;
     RETURN items;

@@ -3,8 +3,8 @@ import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog';
 import PollWebtool from "@mod-publisher/js/webtools/poll";
 import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
+import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
 import * as forms from '@mod-publisher/js/forms';
-import * as adaptivecontent from '@mod-publisher/js/adaptivecontent';
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import '@mod-publisher/js/richcontent/all';

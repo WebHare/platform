@@ -75,7 +75,7 @@ connect_headercta :=  PTR RenderAdaptiveContentSlot(this, fileinstancedata.<memb
 
 Add import rule in main es file and and run adaptivecontent.setup
 ```javascript
-import * as adaptivecontent from '@mod-publisher/js/adaptivecontent';
+import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
 
 adaptivecontent.setup();
 ```
