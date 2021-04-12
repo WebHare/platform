@@ -7,7 +7,7 @@
 	.st1{fill:#FF0000;}
 	.st2{fill:#661010;}
 </style>
-<rect x="14" y="6" class="st0" width="2" height="22"/>
-<polygon class="st1" points="24,10 16,14 16,6 "/>
-<path class="st2" d="M20,28H10v-1c0-2.8,2.2-5,5-5l0,0c2.8,0,5,2.2,5,5V28z"/>
+<rect x="14" y="12" class="st0" width="2" height="20"/>
+<polygon class="st1" points="24,16 16,20 16,12 "/>
+<path class="st2" d="M20,32H10v-1c0-2.8,2.2-5,5-5l0,0c2.8,0,5,2.2,5,5V32z"/>
 </svg>

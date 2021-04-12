@@ -5,7 +5,7 @@
 <style type="text/css">
 	.st0{fill:#4A4A4A;}
 </style>
-<rect x="20" y="8" class="st0" width="2" height="34"/>
-<polygon class="st0" points="40,16 24,7.8 24,24 "/>
-<path class="st0" d="M30,42H12v-1c0-5,4-9,9-9l0,0c5,0,9,4,9,9V42z"/>
+<rect x="18" y="12" class="st0" width="2" height="34"/>
+<polygon class="st0" points="39,19.9 22,11.8 22,28 "/>
+<path class="st0" d="M28,46H10v-1c0-5,4-9,9-9l0,0c5,0,9,4,9,9V46z"/>
 </svg>
