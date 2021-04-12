@@ -196,7 +196,7 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
         //FIXME: verify that file is still available, writeable atc - although we actually -should-
         //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
         newfile->SetInstanceData(embobj.instance.whfstype, embobj.instance);
-        newfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", embobj.widgetsettings);
+        newfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", embobj.widgetsettings);
 
         GetPrimary()->CommitWork();
         RETURN newfile->id;
@@ -573,7 +573,7 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
   IF(RecordExists(typedef) AND typedef.isembeddedobjecttype)
   {
     RECORD data := fileobj->GetInstanceData(fileobj->typens);
-    RECORD widgetsettings := fileobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget");
+    RECORD widgetsettings := fileobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget");
     RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE, TRUE, fileobj->title, widgetsettings);
     IF(RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
     {
@@ -581,7 +581,7 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
       //FIXME: verify that file is still available, writeable atc - although we actually -should-
       //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
       fileobj->SetInstanceData(fileobj->typens, embobj.instance);
-      fileobj->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", embobj.widgetsettings);
+      fileobj->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", embobj.widgetsettings);
       fileobj->UpdateMetadata([ title := embobj.title ]);
       GetPrimary()->CommitWork();
     }

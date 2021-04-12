@@ -119,7 +119,7 @@ STATIC OBJECTTYPE AdaptiveContentSlot
           , type := matchslot.id
           , ordering := highestordering + 1
           ]);
-    newentry->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget", CELL[widgetsettings.condition]);
+    newentry->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", CELL[widgetsettings.condition]);
 
     RETURN NEW AdaptiveContentWidget(newentry);
   }
@@ -238,7 +238,7 @@ STATIC OBJECTTYPE AdaptiveContentBeaconStore
           , beaconsettings.name
           , type := this->settings.beaconsfiletype
           ]);
-      beaconfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon", CELL
+      beaconfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/beacon", CELL
           [ guid := ToLowercase(EncodeBase16(GenerateUFS128BitId()))
           ]);
     }
@@ -281,7 +281,7 @@ STATIC OBJECTTYPE AdaptiveContentBeaconStore
              , system.fs_members
              , system.fs_settings
              , system.fs_instances
-         WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/adaptivecontent/slottedwidget"
+         WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget"
                AND fs_members.fs_type = fs_types.id
                AND fs_members.name = "condition"
                AND fs_settings.fs_member = fs_members.id
@@ -451,13 +451,13 @@ PUBLIC OBJECT FUNCTION OpenAdaptiveContentBeaconStore(INTEGER beaconsfolderid)
   OBJECT beaconsfolder := OpenWHFSObject(beaconsfolderid);
   IF(NOT ObjectExists(beaconsfolder))
     THROW NEW Exception(`No such beacons folder #${beaconsfolderid}`);
-  IF(beaconsfolder->typens != "http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons")
-    THROW NEW Exception(`Folder #${beaconsfolderid} (${beaconsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons'`);
+  IF(beaconsfolder->typens != "http://www.webhare.net/xmlns/publisher/contentlibraries/beacons")
+    THROW NEW Exception(`Folder #${beaconsfolderid} (${beaconsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/contentlibraries/beacons'`);
 
   RETURN NEW AdaptiveContentBeaconStore(
       CELL[ beaconsfolder := beaconsfolder->id
           , beaconsfoldertype := beaconsfolder->type
-          , beaconsfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon")->id
+          , beaconsfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/beacon")->id
           ]);
 }
 
@@ -471,8 +471,8 @@ PUBLIC OBJECT FUNCTION OpenAdaptiveContentStore(INTEGER slotsfolderid)
   OBJECT slotsfolder := OpenWHFSObject(slotsfolderid);
   IF(NOT ObjectExists(slotsfolder))
     THROW NEW Exception(`No such slots folder #${slotsfolderid}`);
-  IF(slotsfolder->typens != "http://www.webhare.net/xmlns/publisher/adaptivecontent/slots")
-    THROW NEW Exception(`Folder #${slotsfolderid} (${slotsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/adaptivecontent/slots'`);
+  IF(slotsfolder->typens != "http://www.webhare.net/xmlns/publisher/contentlibraries/slots")
+    THROW NEW Exception(`Folder #${slotsfolderid} (${slotsfolder->whfspath}) is not of type 'http://www.webhare.net/xmlns/publisher/contentlibraries/slots'`);
 
 
   RETURN NEW AdaptiveContentSlotsStore(

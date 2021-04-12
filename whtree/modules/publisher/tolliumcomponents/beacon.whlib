@@ -142,7 +142,7 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
                                                , title := title ?? name
                                             FROM system.fs_objects
                                            WHERE parent = searchroot->id
-                                                 AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/beacon")->id;
+                                                 AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/beacon")->id;
 
     ^beacon->options := [ [ rowkey := defaultrowkey, title := "", invalidselection := TRUE ] ] CONCAT
         SELECT rowkey := GetCell(foundbeacons, this->rowkeyfield)

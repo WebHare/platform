@@ -14,7 +14,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 BOOLEAN FUNCTION IsInSlotsFolder(INTEGER fsobj)
 {
   INTEGER ARRAY foldertree := OpenWHFSObject(fsobj)->GetWHFSTree();
-  RETURN RecordExists(SELECT FROM system.fs_objects WHERE id IN foldertree AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slots")->id);
+  RETURN RecordExists(SELECT FROM system.fs_objects WHERE id IN foldertree AND type = OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/slots")->id);
 }
 
 PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase

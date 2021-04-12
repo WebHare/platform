@@ -23,7 +23,7 @@ DATETIME FUNCTION ReadLastMod(STRING path)
 PUBLIC RECORD ARRAY FUNCTION ListDatabaseSlots()
 {
   RECORD ARRAY slots;
-  OBJECT slotsfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/adaptivecontent/slots");
+  OBJECT slotsfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/slots");
 
   INTEGER ARRAY slotfolders := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE type = slotsfoldertype->id AND NOT IsRecycleOrHistoryWHFSPath(whfspath);
   IF(Length(slotfolders) = 0)

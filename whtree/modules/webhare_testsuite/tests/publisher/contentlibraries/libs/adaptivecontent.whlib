@@ -22,8 +22,8 @@ PUBLIC RECORD FUNCTION SetupAdaptiveContentTest(RECORD options DEFAULTSTO DEFAUL
   options := ValidateOptions(CELL[], options);
 
   testfw->BeginWork();
-  OBJECT slotsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "slots", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" ]);
-  OBJECT beaconsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "beacons", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons" ]);
+  OBJECT slotsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "slots", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/slots" ]);
+  OBJECT beaconsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "beacons", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" ]);
 
   OBJECT beaconstore := OpenAdaptiveContentBeaconStore(beaconsfolder->id);
   INTEGER beacon1id := beaconstore->StoreBeacon(0, [ title := "Is Employee" ]);

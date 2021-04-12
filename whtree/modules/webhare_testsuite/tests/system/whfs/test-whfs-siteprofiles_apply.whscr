@@ -30,8 +30,8 @@ MACRO TestBeforeSite()
   siteroot2 := testfw->GetWHFSTestRoot()->EnsureFolder([name := "webhare_testsuite.site2"]);
 
   OBJECT asystemfolder := GetTestsuiteTempFolder()->CreateFolder([name:="systemfolder", typens := "http://www.webhare.net/xmlns/publisher/systemfolder"]);
-  OBJECT aslotsfolder := asystemfolder->CreateFolder([name:="slotsfolder", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"]);
-  OBJECT abeaconfolder := aslotsfolder->CreateFolder([name:="beaconsfolder", typens := "http://www.webhare.net/xmlns/publisher/adaptivecontent/beacons"]);
+  OBJECT aslotsfolder := asystemfolder->CreateFolder([name:="slotsfolder", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/slots"]);
+  OBJECT abeaconfolder := aslotsfolder->CreateFolder([name:="beaconsfolder", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/beacons"]);
   OBJECT subfile := abeaconfolder->CreateFile([name:="subfile"]);
 
   testfw->CommitWork();

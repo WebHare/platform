@@ -29,7 +29,7 @@ To trigger a beacon programmatically, for example after the user performs a cert
 JavaScript API.
 
 ```javascript
-import * as beacons from '@mod-publisher/js/adaptivecontent/beacons';
+import * as beacons from '@mod-publisher/js/contentlibraries/beacons';
 
 // Sets/triggers the beacon
 beacons.trigger("is-student");

@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-import * as beacons from '@mod-publisher/js/adaptivecontent/beacons';
+import * as beacons from '@mod-publisher/js/contentlibraries/beacons';
 
 if(!window.dataLayer)
   window.dataLayer = [];
