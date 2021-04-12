@@ -1735,7 +1735,10 @@
     <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
       <text tid="beacon">Baken</text>
       <text tid="beacons">Bakens map</text>
+      <text tid="references">Slotverwijzingen</text>
+      <text tid="slotreferences">Bestanden die naar slot '<param p="1"/>' verwijzen</text>
       <text tid="slots">Slots map</text>
+      <text tid="viewreferences">Verwijzingen weergeven</text>
     </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML blok</text>
@@ -2013,9 +2016,9 @@
           <text tid="beaconreferences">Bestanden die naar baken '<param p="1"/>' verwijzen</text>
           <text tid="editbeacon">Eigenschappen voor baken '<param p="1"/>'</text>
           <text tid="newbeacon">Nieuw baken</text>
-          <text tid="references">Referenties</text>
+          <text tid="references">Verwijzingen</text>
           <text tid="title">Titel</text>
-          <text tid="viewreferences">Referenties weergeven</text>
+          <text tid="viewreferences">Verwijzingen weergeven</text>
         </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
           <text tid="conditionstab">Voorwaarden</text>
@@ -2034,6 +2037,7 @@
           </textgroup>
         </textgroup>
         <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
+          <text tid="open">Openen in Publisher</text>
           <text tid="references">Referenties</text>
           <text tid="url">URL</text>
           <text tid="whfspath">Pad</text>

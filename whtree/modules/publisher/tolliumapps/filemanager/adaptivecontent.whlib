@@ -330,7 +330,7 @@ PUBLIC STATIC OBJECTTYPE References EXTEND TolliumScreenBase
 
   MACRO DoOpen()
   {
-    RunFSObjectEditApplication(this, ^documents->value);
+    RunPublisherFileManager(this, ^documents->value);
   }
 
 

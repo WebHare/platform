@@ -7,18 +7,34 @@
     </foldersettings>
   </foldertype>
 
-  <!-- add condition columns to slot widgets  -->
+  <!-- add condition columns to slot widgets -->
   <apply>
-    <to type="folder" parenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"/>
+    <to type="folder" parenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
     <foldersettings>
       <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotFolderContents" />
     </foldersettings>
+    <extendproperties extension="#slotreferences" contenttype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
   </apply>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+                 name="slotreferences"
+                 implementation="lib"
+                 library="mod::publisher/lib/screens/objectprops/contentlibraries.whlib">
+    <actions>
+      <action name="viewreferences" onexecute="doviewreferences" />
+    </actions>
+    <insert position="properties" where="after">
+      <line>
+        <text name="references" />
+        <text name="viewreferencestext" action="viewreferences" title="" valuetid=".viewreferences" />
+      </line>
+    </insert>
+  </tabsextension>
 
   <!-- check for slot republishing if a slot or widget changes -->
   <apply>
-    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots"/>
-    <scheduletimedtask task="publisher:updateslots"/>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/adaptivecontent/slots" />
+    <scheduletimedtask task="publisher:updateslots" />
   </apply>
 
   <!-- slottedwidget properties -->

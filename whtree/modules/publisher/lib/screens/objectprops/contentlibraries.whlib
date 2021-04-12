@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/contentlibraries.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/adaptivecontent.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SlotReferences EXTEND TolliumTabsExtensionBase
+<
+  OBJECT slotfolder;
+  OBJECT slotstore;
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->slotfolder := ^contentdata->basefsobject;
+    IF (ObjectExists(this->slotfolder))
+    {
+      this->slotstore := OpenAdaptiveContentStore(this->slotfolder->parent);
+      INTEGER numreferences := Length(this->slotstore->GetSlotReferences(this->slotfolder->id));
+      ^references->value := ToString(numreferences);
+      IF (numreferences = 0)
+        ^viewreferencestext->visible := FALSE;
+    }
+    ELSE
+    {
+      ^references->visible := FALSE;
+      ^viewreferencestext->visible := FALSE;
+    }
+  }
+
+  MACRO DoViewReferences()
+  {
+    RunReferencesScreen(this->owner,
+        [ getreferences := PTR this->slotstore->GetSlotReferences(this->slotfolder->id)
+        , title := this->GetTid(".slotreferences", this->slotfolder->title)
+        ]);
+  }
+>;

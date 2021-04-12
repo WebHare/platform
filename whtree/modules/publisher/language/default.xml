@@ -1735,7 +1735,10 @@
     <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
       <text tid="beacon">Beacon</text>
       <text tid="beacons">Beacon folder</text>
+      <text tid="references">Slot references</text>
+      <text tid="slotreferences">Files referencing slot '<param p="1"/>'</text>
       <text tid="slots">Slots folder</text>
+      <text tid="viewreferences">View references</text>
     </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML block</text>
@@ -2034,6 +2037,7 @@
           </textgroup>
         </textgroup>
         <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
+          <text tid="open">Open in Publisher</text>
           <text tid="references">References</text>
           <text tid="url">URL</text>
           <text tid="whfspath">Path</text>

@@ -1475,6 +1475,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                , [ name := "publicationsettings", component := ^publicationsettings ]
                                , [ name := "tasksettings", component := ^tasksettings ]
                                , [ name := "settings", component := ^settings ]
+                               , [ name := "properties", component := ^properties ]
                                ];
 
     IF (ObjectExists(this->webcontext))
