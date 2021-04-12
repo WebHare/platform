@@ -2393,6 +2393,7 @@
       <text tid="userscannotbeinroot">een gebruiker kan niet in de hoofdmap worden geplaatst, maar moet in een eenheid worden geplaatst.</text>
     </textgroup>
     <textgroup gid="export">   <!-- userrights.export -->
+      <text tid="active">Actief</text>
       <text tid="allgrants">Alle toekenningen</text>
       <text tid="comment">Toelichting</text>
       <text tid="grantdate">Toegekend op</text>
@@ -2409,6 +2410,7 @@
       <text tid="exportusers">Alle gebruikers</text>
       <text tid="exportusersinunit">Gebruikers in '<param p="1"/>'</text>
       <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
+        <text tid="active">Actief</text>
         <text tid="created">Aangemaakt</text>
         <text tid="fullname">Gebruikersnaam</text>
         <text tid="lastlogin">Laatst ingelogd</text>

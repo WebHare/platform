@@ -23,6 +23,7 @@ RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD 
   {
     RECORD userrec := allusers[userobjpos.position];
     RETURN CELL[ login := authobject.name
+               , userrec.active
                , userrec.realname
                , userrec.email
                , authobject.unitid
@@ -35,6 +36,7 @@ RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD 
   {
     RECORD rolerec := allroles[roleobjpos.position];
     RETURN CELL[ login := rolerec.wrd_title
+               , active := TRUE
                , realname := ""
                , email := ""
                , authobject.unitid
@@ -64,8 +66,15 @@ STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordat
 
 PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
 {
+  RECORD dynamiccols;
+  IF (RecordExists(userapi->accounttype->GetAttribute("WHUSER_DISABLED")))
+    dynamiccols := CELL[ "WHUSER_DISABLED" ];
+
   RECORD ARRAY allusers :=
-      SELECT *
+      SELECT TEMPORARY dyn := CELL[ whuser_disabled := FALSE, ...row ]
+           , *
+           , active :=    NOT dyn.whuser_disabled
+           , DELETE whuser_disabled
         FROM userapi->accounttype->RunQuery(
                   [ outputcolumns :=
                         [ id :=         "WRD_ID"
@@ -73,12 +82,14 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
                         , login :=      userapi->wrdschema->accountlogintag
                         , email :=      userapi->wrdschema->accountemailtag
                         , guid  :=      "WRD_GUID"
+                        , ...dynamiccols
                         ]
-                  ])
+                  ]) AS row
     ORDER BY guid;
 
   RECORD ARRAY allroles :=
       SELECT *
+           , active :=    TRUE
         FROM userapi->wrdschema->^whuser_role->RunQuery(
             [ outputcolumns := CELL[ "WRD_GUID", "WRD_TITLE" ]
             ])

@@ -2582,6 +2582,7 @@
       <text tid="userscannotbeinroot">users cannot be in the root, they must belong to an unit.</text>
     </textgroup>
     <textgroup gid="export">   <!-- userrights.export -->
+      <text tid="active">Active</text>
       <text tid="allgrants">All grants</text>
       <text tid="comment">Explanation</text>
       <text tid="grantdate">Granted at</text>
@@ -2598,6 +2599,7 @@
       <text tid="exportusers">All users</text>
       <text tid="exportusersinunit">Users in '<param p="1"/>'</text>
       <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
+        <text tid="active">Active</text>
         <text tid="created">Created</text>
         <text tid="fullname">Full name</text>
         <text tid="lastlogin">Last login</text>
