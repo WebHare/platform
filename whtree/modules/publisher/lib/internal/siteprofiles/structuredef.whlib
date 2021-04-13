@@ -305,10 +305,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   {
     this->defaultblockstyle := SELECT * FROM this->structure.blockstyles WHERE tag = this->structure.defaultblockstyle;
     IF(NOT RecordExists(this->defaultblockstyle))
-    {
-      ABORT(this->structure);
       THROW NEW Exception("Default block style is not setup");
-    }
 
     this->defaultorderedliststyle := SELECT * FROM this->structure.blockstyles WHERE containertag = "ol";
     this->defaultunorderedliststyle := SELECT * FROM this->structure.blockstyles WHERE containertag = "ul";
@@ -1672,7 +1669,7 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForApplyTester(OBJECT applytester)
   {
     RECORD typeinfo := GetRTDType(retval.namespace);
     IF(NOT RecordExists(typeinfo))
-      THROW NEW Exception("RTDType '" || retval.namespace || "' not registered");
+      THROW NEW Exception(`RTDType '${retval.namespace}' has not been registered`);
 
     //ADDME limitlinks
     retval := MakeUpdatedRecord(retval, typeinfo);
