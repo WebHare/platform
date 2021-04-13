@@ -583,6 +583,7 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
       fileobj->SetInstanceData(fileobj->typens, embobj.instance);
       fileobj->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", embobj.widgetsettings);
       fileobj->UpdateMetadata([ title := embobj.title ]);
+      RunEditFileHooks(fileobj->id);
       GetPrimary()->CommitWork();
     }
     RETURN;

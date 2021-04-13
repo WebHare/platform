@@ -74,4 +74,10 @@
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" tid=".contentsnippets" icon="tollium:folders/snippetfolder">
   </foldertype>
 
+  <!-- republish associated content if a content snippet changes -->
+  <apply>
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" />
+    <republish scope="references" />
+  </apply>
+
 </siteprofile>

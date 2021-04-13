@@ -341,8 +341,9 @@ OBJECTTYPE RepublishState
         {
           RECORD ARRAY links := this->GetReferencesTo([fsobj]);
           FOREVERY(RECORD link FROM links)
-            IF(link.parentsite IN apply.siteids)
+            IF(Length(apply.siteids) = 0 OR link.parentsite IN apply.siteids)
               this->ExecuteRepubDep(republish, link.parent, link.parentsite, apply.siteids);
+
         }
         ELSE IF(republish.scope="")
         {
