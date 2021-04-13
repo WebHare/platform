@@ -409,10 +409,12 @@ MACRO TestBasicValidate()
   TestEq(FALSE, RecordExists(SELECT FROM res.errors WHERE line=3));
 
   //Test validating against empty library - including anycomponent as the current bug required a library-screen before a non-library screen
+  //TODO should deprecate the library= syntax - objectname= is a much more common solution
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := StringToBlob(
     `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
         <screen name="anycomponent" library="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib"><body></body></screen>
         <screen name="nolibscreen"><body></body></screen>
+        <screen name="objectnametest" objectname="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib#anycomponent"><body></body></screen>
      </screens>`) ]);
 
   TestEq(1,Length(res.errors));

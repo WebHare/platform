@@ -200,6 +200,9 @@ STATIC OBJECTTYPE PageParser
 
   PUBLIC STRING FUNCTION ResolveObjType(STRING baseresource, OBJECT node)
   {
+    IF(node->HasAttribute("objectname"))
+      RETURN MakeAbsoluteResourcePath(baseresource, node->GetAttribute("objectname"));
+
     STRING lib := GetLibraryPath(baseresource, node);
     IF(lib = "")
     {
