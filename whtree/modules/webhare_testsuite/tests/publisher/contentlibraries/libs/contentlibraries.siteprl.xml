@@ -3,7 +3,7 @@
   <tabsextension name="actestpagesettings" xmlns="http://www.webhare.net/xmlns/tollium/screens">
     <newtab title="DC test page">
       <p:slot composition="contentdata" cellname="footerdcslot" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/headerslot" />
-      <p:slot composition="contentdata" cellname="contentdcslot" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" />
+      <p:slot composition="contentdata" cellname="contentdcslot" slottypes="http://www.webhare.net/xmlns/webhare_testsuite/contentslot" required="true" title="Content slot"/>
     </newtab>
   </tabsextension>
 

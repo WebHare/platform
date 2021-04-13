@@ -12,6 +12,7 @@ PUBLIC OBJECTTYPE DCSlot EXTEND TolliumFragmentBase
   PUBLIC PROPERTY options(GetOptions, -);
   PUBLIC PROPERTY selection(GetSelection, -);
   UPDATE PUBLIC PROPERTY title(^slot->title,^slot->title);
+  UPDATE PUBLIC PROPERTY required(^slot->required,^slot->required);
 
   MACRO NEW()
   {
@@ -22,6 +23,7 @@ PUBLIC OBJECTTYPE DCSlot EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(def);
     this->title := def.title;
+    this->required := def.required;
 
     INTEGER ARRAY limittypes;
     FOREVERY(STRING type FROM def.slottypes)

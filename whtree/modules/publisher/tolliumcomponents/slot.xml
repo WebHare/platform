@@ -5,8 +5,8 @@
 
   <fragment name="dcslot">
     <contents>
-      <select name="slot" type="pulldown" title="" rowkeytype="integer">
-        <option rowkey="0" title =""/>
+      <select name="slot" type="pulldown" rowkeytype="integer" title="">
+        <option rowkey="0" invalidselection="true" title="" />
         <p:fslibrary name="fslibrary" fslibrary="publisher:slots" />
       </select>
     </contents>

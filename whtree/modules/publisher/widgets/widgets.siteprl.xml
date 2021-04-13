@@ -39,6 +39,7 @@
   <!-- beacon widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon"
               editextension="beacon/beacon.xml#edittriggerbeaconwidget"
+              icon="tollium:objects/beacon"
               renderobjectname="beacon/beacon.whlib#TriggerBeaconWidget"
               tid="widgets.triggerbeacon.widget">
     <members>
