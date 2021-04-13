@@ -7,12 +7,17 @@ import StaticSuggestionList from "dompack/components/autosuggest/staticlist.es";
 import * as dialog from 'dompack/components/dialog/index.es';
 import * as dialogapi from 'dompack/api/dialog.es';
 import * as storage from 'dompack/extra/storage.es';
+import * as cookie from "dompack/extra/cookie";
 
 window.storageSetLocal = storage.setLocal;
 window.storageGetLocal = storage.getLocal;
 window.storageSetSession = storage.setSession;
 window.storageGetSession = storage.getSession;
 window.storageIsIsolated = storage.isIsolated;
+window.cookieRead = cookie.read;
+window.cookieWrite = cookie.write;
+window.cookieRemove = cookie.remove;
+window.cookieList = cookie.list;
 
 function fillRidiculous()
 {

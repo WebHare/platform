@@ -1,6 +1,9 @@
 /** This is currently more or less based on the mootools Cookie library */
 /* eslint no-useless-escape: off */
 
+import { isIsolated } from './storage.es';
+let isolatedcookies = {};
+
 function escapeRegExp(xx)
 {
   return xx.replace(/([-.*+?^${}()|[\]\/\\])/g, '\\$1');
@@ -26,6 +29,12 @@ class Cookie
   }
   write(value)
   {
+    if(isIsolated())
+    {
+      isolatedcookies["c." + this.key] = String(value);
+      return;
+    }
+
     if (this.options.encode)
       value = encodeURIComponent(value);
     if (this.options.domain)
@@ -50,17 +59,28 @@ class Cookie
   }
   read()
   {
+    if(isIsolated())
+      return isolatedcookies["c." + this.key] || null;
+
     var value = document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
     return (value) ? decodeURIComponent(value[1]) : null;
   }
   remove()
   {
+    if(isIsolated())
+    {
+      delete isolatedcookies["c." + this.key];
+      return;
+    }
     new Cookie(this.key, Object.assign({}, this.options, {duration: -1})).write('');
   }
 }
 
 export function list()
 {
+  if(isIsolated())
+    return Object.entries(isolatedcookies).map(entry => ({ name: entry[0].substr(2), value: entry[1] }));
+
   return document.cookie.split(';').map(cookie =>
   {
     let parts = cookie.split('=');
