@@ -10,7 +10,7 @@ and set up a `publisher:snippets` library
   <apply>
     <to type="all" />
     <setlibrary name="publisher:snippets">
-      <source path="site::mysite/slots/" />
+      <source path="site::mysite/snippets/" />
     </setlibrary>
   </apply>
 ```
