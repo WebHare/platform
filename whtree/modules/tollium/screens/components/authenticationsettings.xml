@@ -38,31 +38,41 @@
     </footer>
   </screen>
 
-  <screen name="managetwofaauth" footerbuttons="close" gid=".managetwofaauth">
+  <screen name="managetwofaauth" gid=".managetwofaauth">
     <actions>
       <action name="setuptotp" onexecute="DoSetupTOTP" tid="~change" />
       <action name="disabletotp" onexecute="DoDisableTOTP" />
       <action name="resetbackupcodes" onexecute="DoResetBackupCodes" />
     </actions>
 
-    <body>
-      <heading tid=".totp" />
-      <line layout="left">
-        <text title="" valuetid=".totpexplanation" wordwrap="true" />
-      </line>
-      <line>
-        <textedit name="totp" enabled="false" />
-        <button name="btn_setuptotp" action="setuptotp" tid="~change" />
-      </line>
-      <line>
-        <textedit name="totpbackupcodes" enabled="false" />
-        <button name="btn_resetbackupcodes" action="resetbackupcodes" tid=".resetbackupcodes" />
-      </line>
-      <heading name="disableheading" tid="~disable" />
-      <line layout="left">
-        <button name="btn_disabletotp" action="disabletotp" tid=".disabletotp" />
-      </line>
+    <body spacers="none">
+      <panel name="warningpanel" borders="bottom" backgroundcolor="#FEFFDE" spacers="left right">
+        <text name="warning_totprequired" title="" valuetid=".warning_totprequired" visible="false" />
+      </panel>
+      <panel spacers="all">
+        <heading tid=".totp" />
+        <line layout="left">
+          <text title="" valuetid=".totpexplanation" wordwrap="true" />
+        </line>
+        <line>
+          <textedit name="totp" enabled="false" />
+          <button name="btn_setuptotp" action="setuptotp" tid="~change" />
+        </line>
+        <line>
+          <textedit name="totpbackupcodes" enabled="false" />
+          <button name="btn_resetbackupcodes" action="resetbackupcodes" tid=".resetbackupcodes" />
+        </line>
+        <heading name="disableheading" tid="~disable" />
+        <line layout="left">
+          <button name="btn_disabletotp" action="disabletotp" tid=".disabletotp" />
+        </line>
+      </panel>
     </body>
+    <footer>
+      <line layout="right">
+        <button tid="~close" tolliumresult="cancel" />
+      </line>
+    </footer>
   </screen>
 
   <screen name="setuptotp" width="80x" gid=".managetwofaauth">

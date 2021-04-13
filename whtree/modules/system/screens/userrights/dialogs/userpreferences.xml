@@ -27,6 +27,7 @@
       <panel name="warningpanel" borders="bottom" backgroundcolor="#FEFFDE" spacers="left right">
         <text name="warning_passwordexpired" title="" valuetid=".warning_passwordexpired" visible="false" />
         <text name="warning_passwordabouttoexpire" title="" wordwrap="true" visible="false" />
+        <text name="warning_passwordrequire2fa" title="" valuetid=".warning_passwordrequire2fa" wordwrap="true" visible="false" />
       </panel>
       <panel name="userinfopage">
         <tabs name="usertabs" type="regular">

@@ -57,6 +57,7 @@
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Das neue Passwort hat nicht die folgende Eigenschaften:<br/><param p="1"/></text>
+          <text tid="foundinhibp">Dieses Passwort ist an einer Datenverletzung beteiligt, was bedeutet, dass seine Verwendung ein erhöhtes Risiko birgt. Wählen Sie ein neues Passwort.</text>
           <text tid="requirements">Das neue Passwort muss die folgende Eigenschaften haben:<param p="1"/></text>
           <text tid="settingsfailure">Die Authentifizierungseinstellungen haben nicht die folgende eigenschaften:<param p="1"/></text>
           <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
@@ -76,6 +77,7 @@
             <text tid="maxage">Es muss jede <param p="1"/> geändert werden.</text>
             <text tid="minlength">Es muss <param p="1"/> Zeichen oder länger sein.</text>
             <text tid="noreuse">Es sollte <param p="1"/> lang nicht wiederverwendet werden.</text>
+            <text tid="require2fa">Das Aktivieren der Zwei-Faktor-Authentifizierung ist erforderlich.</text>
             <text tid="symbols">Es muss mindestens <param p="1"/> <ifparam p="1" value="1">Sonderzeiche<else/>Sonderzeichen</ifparam> beinhalten.</text>
             <text tid="uppercase">Es muss mindestens <param p="1"/> <ifparam p="1" value="1">Grossbuchstabe<else/>Grossbuchstaben</ifparam> beinhalten.</text>
           </textgroup>

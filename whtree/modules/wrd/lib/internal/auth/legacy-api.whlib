@@ -489,7 +489,9 @@ STATIC OBJECTTYPE WRDAuth
       {
         RETURN CELL
             [ success :=    FALSE
-            , code :=       "FAILEDVALIDATIONCHECKS"
+            , code :=       Detokenize(failedvalidationchecks, ", ") = "require2fa"
+                                ? "REQUIRESETUPSECONDFACTOR"
+                                : "FAILEDVALIDATIONCHECKS"
             , failedvalidationchecks
             ];
       }

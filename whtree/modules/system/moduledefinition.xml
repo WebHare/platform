@@ -75,6 +75,10 @@
       <accesscheck />
     </application>
 
+    <application name="managetwofactorauth" startmacro="tolliumapps/login/forgotpassword.whlib#RunManageTwoFactor">
+      <accesscheck />
+    </application>
+
     <application name="needsysop" screen="sysmgmt/needsysop.main" supportedlanguages="en">
       <accesscheck />
     </application>

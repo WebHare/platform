@@ -579,7 +579,7 @@
         <text tid="copytoclipboard">Naar klembord kopiëren</text>
         <text tid="disabletotp">Twee-factor authenticatie uitzetten</text>
         <text tid="entercode">Voer de gegenereerde toegangscode in</text>
-        <text tid="largedrift">Ongeldige code ingevoerd. Het lijkt er op dat de klok op uw apparaat <param p="1"/> seconden afwijkt van de werkelijke tijd, controleer aub uw tijdsinstellingen.</text>
+        <text tid="largedrift">Ongeldige code ingevoerd. Het lijkt er op dat de klok op je apparaat <param p="1"/> seconden afwijkt van de werkelijke tijd, controleer de tijdsinstellingen.</text>
         <text tid="managetwofaauth">Twee-factor authenticatie</text>
         <text tid="notconfigured">Niet ingesteld</text>
         <text tid="reset">Opnieuw instellen</text>
@@ -588,6 +588,7 @@
         <text tid="setuptotp">Twee-factor authenticatie met eenmalige toegangscodes instellen</text>
         <text tid="showtotpsecret">Toon de geheime sleutel</text>
         <text tid="suredisable2fa">Weet u zeker dat u twee-factor authenticatie wilt uitschakelen?</text>
+        <text tid="surenotsetrequiredtotp">Je moet twee-factor authenticatie instellen om in te kunnen loggen. Weet je zeker dat je dit dialoog wilt sluiten zonder het in te stellen?</text>
         <text tid="totp">Eenmalige toegangcodes</text>
         <text tid="totpbackupcodes">Backup codes</text>
         <text tid="totpexplanation">Stel eenmalige toegangscodes in om met een applicatie als Google Authenticator,  Microsoft Authenticator of een password manager als LastPass of 1Password in te kunnen loggen</text>
@@ -595,6 +596,7 @@
         <text tid="totpsecretexplanation">Als je gebruik maakt van een andere applicatie (bijvoorbeeld een password manager) kun je de geheime sleutel gebruiken om de codes te genereren.</text>
         <text tid="totpsetupexplanation">Scan onderstaande QR-code met een authenticatie-applicatie zoals Google Authenticator of Microsoft Authenticator op je telefoon.</text>
         <text tid="usedbackupcodes"><param p="1"/> van <param p="2"/> backup codes gebruikt</text>
+        <text tid="warning_totprequired">Twee-factor authenticatie moet ingesteld zijn om in te kunnen loggen</text>
         <text tid="wrongcode">Ongeldige code ingevoerd, probeer het alsjeblieft opnieuw.</text>
       </textgroup>
     </textgroup>

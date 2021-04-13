@@ -212,4 +212,88 @@ test.registerTests(
       // Show the login window
       test.eq("Login", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
     }
+
+  , "force 2fa"
+  , async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetSchemaValidationChecks', "require2fa", { url: test.getWin().location.href });
+
+      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
+          { version: 1
+          , passwords:  [ { validfrom: "now-P1DT9H"
+                          , password: "secret"
+                          }
+                        ]
+          });
+
+
+      // test login witn only password
+      await test.load(webroot + `portal1/?notifications=0&language=en`);
+      await test.wait('ui');
+
+      test.setTodd('loginname', "pietje@allow2fa.test.webhare.net");
+      test.setTodd('password', "secret");
+
+      test.clickToddButton('Login');
+      await test.wait('ui');
+
+      // should open 2FA management dialog
+      test.eq("Two-factor authentication", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+
+      // close dialog without configuring it
+      test.clickToddButton('Close');
+      await test.wait('ui');
+
+      // message popup? 2FA is required but not configured, sure to close dialog?
+      test.eqMatch(/two.*factor.*need.*configured.*log.*in.*sure.*close/i, test.compByName("message").textContent);
+      test.clickToddButton('No');
+      await test.wait('ui');
+
+      // Setup 2FA
+      test.clickToddButton('Setup');
+      await test.wait('ui');
+
+      // need to authenticate first
+      test.eq("Authenticate", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      test.setTodd('password', "secret");
+      test.clickToddButton('OK');
+      await test.wait('ui');
+
+      // show the 2FA secret key, so we can read it
+      test.click(test.qSA("t-text").filter(e => e.textContent == "Show the secret key")[0]);
+      await test.wait('ui');
+
+      totpsecret = test.getCurrentScreen().getValue("totpsecret");
+      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
+
+      test.setTodd('entercode', totpdata.code);
+
+      // complete the configuration, ignore the backup codes (for now!)
+      test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
+      await test.wait('ui');
+      test.clickToddButton('Finish');
+      await test.wait('ui');
+
+      test.eq("Configured", test.getCurrentScreen().getValue("totp"));
+
+      test.clickToddButton('Close');
+      await test.wait('ui');
+
+      // backend app close can't be waited on with ui wait, wait for login window to become the top window afain
+      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent == "Login").length ==1);
+      test.setTodd('password', "secret");
+
+      // login again, now with TOTP code
+      test.clickToddButton('Login');
+      await test.wait('ui');
+
+      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
+      test.setTodd('totpcode', totpdata.code);
+
+      test.click(test.compByName("secondfactorloginbutton"));
+      await test.wait('ui');
+
+      // should be logged in
+      test.true(!!test.qS("#dashboard-logout"));
+    }
   ]);

@@ -899,6 +899,7 @@
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
+          <text tid="foundinhibp">Dit wachtwoord is betrokken bij een datalek, waardoor het gebruik ervan een verhoogd risico heeft. Kies nieuw wachtwoord.</text>
           <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
           <text tid="settingsfailure">De authenticatie-instellingen voldoen niet aan de volgende eigenschappen:<br/><param p="1"/></text>
           <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
@@ -918,6 +919,7 @@
             <text tid="maxage">Het moet elke <param p="1"/> veranderd worden.</text>
             <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
             <text tid="noreuse">Het mag <param p="1"/> niet worden hergebruikt.</text>
+            <text tid="require2fa">Het inschakelen van twee-factor-authenticatie is vereist.</text>
             <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
             <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
           </textgroup>

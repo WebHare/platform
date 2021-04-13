@@ -836,6 +836,12 @@ PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)
          ];
 }
 
+/** Get the user edit policy for a user
+    @param(object mod::tollium/lib/internal/contexts.whlib#TolliumContexts) contexts Tollium contexts
+    @param user User entityid
+    @cell(integer) options.defaultunit Unit to use when the user = 0
+    @return @includecelldef %WRDAuthPlugin::GetUserEditPolicyForUser.return
+*/
 PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(

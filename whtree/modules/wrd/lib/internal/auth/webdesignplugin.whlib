@@ -795,7 +795,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
   {
     RECORD policy := this->GetUserEditPolicyForUser(entity->id);
-    IF (policy.passwordvalidationchecks != "")
+
+    // Check only when the policy has validation checks, AND the user can set their own password
+    IF (policy.passwordvalidationchecks != "" AND policy.haspassword)
     {
       RECORD options := TypeID(authenticationsettings) = TypeID(RECORD)
           ? CELL[ authenticationsettings, isexisting := TRUE ]
@@ -887,17 +889,25 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           ? "ok"
           : trylogin.code = "REQUIRESECONDFACTOR"
                 ? "requiresecondfactor"
-                : trylogin.code = "FAILEDVALIDATIONCHECKS"
-                      ? "failedvalidationchecks"
-                      : "failed";
+                : trylogin.code = "REQUIRESETUPSECONDFACTOR"
+                      ? "requiresetupsecondfactor"
+                      : trylogin.code = "FAILEDVALIDATIONCHECKS"
+                            ? "failedvalidationchecks"
+                            : "failed";
 
       IF (loginresultcode = "failedvalidationchecks")
       {
-        STRING ARRAY failedvalidationchecks := ArrayIntersection(trylogin.failedvalidationchecks, [ "hibp", "maxage" ]);
-        IF (IsValueSet(ArrayDelete(trylogin.failedvalidationchecks, [ "hibp", "maxage" ])))
+        STRING ARRAY failedvalidationchecks := ArrayIntersection(trylogin.failedvalidationchecks, [ "hibp", "maxage", "require2fa" ]);
+        IF (IsValueSet(ArrayDelete(trylogin.failedvalidationchecks, [ "hibp", "maxage", "require2fa" ])))
           INSERT "complexity" INTO failedvalidationchecks AT END;
 
         options.auditmessage := CELL[ ...options.auditmessage, failedvalidationchecks ];
+      }
+      ELSE IF (loginresultcode = "requiresetupsecondfactor")
+      {
+        RECORD linkdata := this->GenerateSetupSecondFactorLink(GetRequestURL(), entityid);
+        options.auditmessage := CELL[ ...options.auditmessage, linkdata.challenge ];
+        INSERT CELL setuplink := linkdata.setuplink INTO trylogin;
       }
 
       IF (CellExists(trylogin, "secondfactordata"))
@@ -1116,6 +1126,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions( [ secret := DEFAULT RECORD
                                 , verifierstart := ""
                                 , data := DEFAULT RECORD
+                                , lifetime := 0
                                 ], options);
 
     IF(NOT IsAbsoluteURL(baseurl, FALSE))
@@ -1292,6 +1303,100 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , message := [ previouspasswordhash := previouspasswordhash ]
         , browsertriplet := options.browsertriplet
         ]);
+  }
+
+  /** Generate a link to setup the second factor  of an account
+      @param baseurl URL of the login page
+      @param entityid User id
+      @return Setup link and challenge
+      @cell return.setuplink Link to setup page
+      @cell return.challenge Challenge used in setup link (for audit log)
+  */
+  PUBLIC RECORD FUNCTION GenerateSetupSecondFactorLink(STRING baseurl, INTEGER entityid)
+  {
+    this->GetWRDAuthDomain();
+
+    IF(NOT IsAbsoluteURL(baseurl, FALSE))
+      baseurl := ResolveToAbsoluteURL(GetClientRequestURL(), baseurl);
+
+    baseurl := UpdateURLVariables(baseurl, [ wrd_pwdaction := "setupsecondfactor" ]);
+
+    RECORD verifybase := this->accounttype->GetEntityFields(entityid, ["WRD_GUID","WRD_LIMITDATE"]);
+    DATETIME now := GetCurrentDatetime();
+    IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now)
+      RETURN DEFAULT RECORD;
+
+    STRING challenge := GenerateUFS128BitId();
+
+    // Allow 15 seconds for the application startup to happen
+    DATETIME until := AddTimeToDate(15*1000, now);
+    RECORD data :=
+        [ e := entityid
+        , g := verifybase.wrd_guid
+        , m := until
+        , c := challenge
+        ];
+
+    RETURN CELL
+        [ setuplink :=    UpdateURLVariables(baseurl, [ _sr := this->GetWRDAuthDomain()->EncryptData(data) ])
+        , challenge
+        ];
+  }
+
+  /** Processes a two factor setup link, checks if it is valid
+      @param encrypted_data Contents of `_sr` variable of the setup link
+      @return Result of decoding and verifying
+      @cell(boolean) return.expired Whether the link has expired
+      @cell(datetime) return.expireson Date when the verification link exires
+      @cell(boolean) return.success Whether the verification link and code are correct and not expired
+      @cell(integer) return.entityid Entity id of the user
+      @cell(record) return.challenge Challenge (same as returned by [GenerateSetupSecondFactorLink](#GenerateSetupSecondFactorLink)
+      @cell(string) return.failreason Reason why verification failed
+  */
+  PUBLIC RECORD FUNCTION ProcessSetupSecondFactorLink(STRING encrypted_data)
+  {
+    this->GetWRDAuthDomain();
+
+    RECORD retval := [ expired := FALSE
+                     , expireson := DEFAULT DATETIME
+                     , success := FALSE
+                     , entityid := 0
+                     , challenge := ""
+                     , failreason := ""
+                     ];
+
+    RECORD decrypted := this->api->DecryptData(encrypted_data);
+
+    RECORD verifybase := this->accounttype->GetEntityFields(decrypted.e, ["WRD_GUID", "WRD_LIMITDATE" ]);
+    DATETIME now := GetCurrentDatetime();
+
+    IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now OR verifybase.wrd_guid != decrypted.g)
+    {
+      retval.expireson := now;
+      retval.expired := TRUE;
+    }
+    ELSE
+    {
+      retval.expireson := decrypted.m;
+      retval.expired := retval.expireson < now;
+      retval.entityid := decrypted.e;
+      retval.challenge := decrypted.c;
+    }
+
+    retval.success := NOT retval.expired;
+    IF (NOT retval.success)
+    {
+      IF (NOT RecordExists(verifybase))
+        retval.failreason := `Could not find entity #${decrypted.e}`;
+      ELSE IF (verifybase.wrd_limitdate < now)
+        retval.failreason := `Entity #${decrypted.e} is not active`;
+      ELSE IF (verifybase.wrd_guid != decrypted.g)
+        retval.failreason := `GUID mismatch for entity #${decrypted.e}: '${verifybase.wrd_guid}' != '${decrypted.g}'`;
+      ELSE
+        retval.failreason := `Reset link has expired: ${FormatISO8601DateTime(retval.expireson)}`;
+    }
+
+    RETURN retval;
   }
 
   /** @short Generate a SAML SSO authentication request

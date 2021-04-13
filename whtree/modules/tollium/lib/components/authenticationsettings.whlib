@@ -331,6 +331,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
         [ this->requireauthorization
         , this->managementmode
         , valuekeeper := this->_valuekeeper
+        , this->validationchecks
         ]);
 
     this->Reload();
@@ -358,7 +359,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
   {
-    this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag, GetAuditLogSourceData(this));
+    this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag, GetAuthSettingsAuditLogSourceData(this));
     this->Reload();
   }
 >;
@@ -483,7 +484,7 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   }
 >;
 
-RECORD FUNCTION GetAuditLogSourceData(OBJECT obj)
+PUBLIC RECORD FUNCTION GetAuthSettingsAuditLogSourceData(OBJECT obj)
 {
   RECORD clientinfo := obj->contexts->controller->GetClientInfo();
 
@@ -493,7 +494,6 @@ RECORD FUNCTION GetAuditLogSourceData(OBJECT obj)
       , remoteip :=         clientinfo.remoteip
       , browsertriplet :=   clientinfo.browsertriplet
       ];
-
 }
 
 /** Generate 10 new backup codes, with 40 bits of entropy a piece, base-32 encoded
@@ -529,17 +529,34 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
 
   STRING newtotpsecret;
 
+  BOOLEAN _require_totp;
+
   MACRO Init(RECORD data)
   {
     this->_requireauthorization := data.requireauthorization;
     this->_valuekeeper := data.valuekeeper;
     this->_managementmode := data.managementmode;
+    this->_require_totp := RecordExists(SELECT FROM ParsePasswordChecks(data.validationchecks) WHERE check = "require2fa");
+
+    ^disableheading->visible := NOT this->_require_totp;
+    ^btn_disabletotp->visible := NOT this->_require_totp;
 
     RECORD locktag := this->_valuekeeper->GetExclusiveLogTag();
     IF (RecordExists(locktag) AND NOT this->GetExclusiveAccess(locktag))
       RETURN;
 
     this->Refresh();
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    IF (this->_require_totp)
+    {
+      RECORD value := this->_valuekeeper->GetExistingValue();
+      IF (NOT RecordExists(value.totp) AND this->RunSimpleScreen("question", this->GetTid(".surenotsetrequiredtotp")) != "yes")
+        RETURN FALSE;
+    }
+    RETURN TRUE;
   }
 
   MACRO Refresh()
@@ -559,8 +576,11 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
       ^resetbackupcodes->enabled := NOT this->_managementmode;
       ^btn_resetbackupcodes->visible := NOT this->_managementmode;
 
-      ^disableheading->visible := TRUE;
-      ^btn_disabletotp->visible := TRUE;
+      ^disableheading->visible := NOT this->_require_totp;
+      ^btn_disabletotp->visible := NOT this->_require_totp;
+
+      ^warningpanel->visible := FALSE;
+      ^warning_totprequired->visible := FALSE;
     }
     ELSE
     {
@@ -573,6 +593,9 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
       ^disableheading->visible := FALSE;
       ^btn_disabletotp->visible := FALSE;
       ^btn_resetbackupcodes->visible := FALSE;
+
+      ^warning_totprequired->visible := this->_require_totp;
+      ^warningpanel->visible := ^warning_totprequired->visible;
     }
   }
 
@@ -707,3 +730,23 @@ PUBLIC STATIC OBJECTTYPE ResetBackupCodes EXTEND TolliumScreenBase
     ^backupcodes_text->value := codes.text;
   }
 >;
+
+PUBLIC STRING FUNCTION RunManageTwoFAAuthDialog(OBJECT parentscreen, OBJECT entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ validationchecks :=       ""
+      , requireauthorization :=   TRUE
+      , attributetag :=           ""
+      ], options,
+      [ required :=   [ "validationchecks" ]
+      ]);
+
+  OBJECT valuekeeper := NEW LiveAuthenticationSettingValue(entity, options.attributetag ?? parentscreen->contexts->userapi->wrdschema->accountpasswordtag, GetAuthSettingsAuditLogSourceData(parentscreen));
+
+  RETURN parentscreen->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#managetwofaauth", CELL
+      [ options.requireauthorization
+      , managementmode :=   FALSE
+      , valuekeeper
+      , options.validationchecks
+      ]);
+}

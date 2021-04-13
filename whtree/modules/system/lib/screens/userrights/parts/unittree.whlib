@@ -287,6 +287,12 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
       INSERT [ name := "lastlogin",  title := GetTid("system:userrights.exports.csvcolumns.lastlogin"),  type := "datetime", storeutc := TRUE ] INTO columns AT END;
     }
 
+    IF(RecordExists(this->contexts->userapi->accounttype->GetAttribute("WHUSER_DISABLED")))
+    {
+      INSERT CELL whuser_disabled := "WHUSER_DISABLED" INTO outputcolumns;
+      INSERT [ name := "active",  title := GetTid("system:userrights.exports.csvcolumns.active"), type := "boolean" ] INTO columns AT END;
+    }
+
     columns := RECORD
         [ ...columns
         , [ name := "twofactorenabled",   title := GetTid("system:userrights.exports.csvcolumns.twofactorenabled"),    type := "text" ]
@@ -303,6 +309,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
         SELECT *
              , twofactorenabled :=    RecordExists(password) AND RecordExists(password.totp) ? "TRUE" : "FALSE"
              , lastpasswordchange :=  RecordExists(password) AND RecordExists(password.passwords) ? password.passwords[END-1].validfrom : DEFAULT DATETIME
+             , active :=              NOT CellExists(users, "WHUSER_DISABLED") OR NOT whuser_disabled
           FROM users
       ORDER BY username, wrd_id;
 

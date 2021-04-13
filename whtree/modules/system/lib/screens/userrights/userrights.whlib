@@ -312,6 +312,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                          ,[ name := "login",           type := "text",     title := GetTid("~username") ]
                          ,[ name := "realname",        type := "text",     title := GetTid("~fullname") ]
                          ,[ name := "email",           type := "text",     title := GetTid("~email") ]
+                         ,[ name := "active",          type := "boolean",  title := this->GetTid(".export.active") ]
                          ,[ name := "unitname",        type := "text",     title := this->GetTid(".export.unitname") ]
                          ,[ name := "rightname",       type := "text",     title := this->GetTid(".export.rightname") ]
                          ,[ name := "objecttypename",  type := "text",     title := this->GetTid(".export.objecttypename") ]

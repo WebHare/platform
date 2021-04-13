@@ -899,6 +899,7 @@
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">The new password doesn't have the following properties:<br/><param p="1"/></text>
+          <text tid="foundinhibp">This password is involved in a data breach, which means that its use has an increased risk. Please choose new password.</text>
           <text tid="requirements">The new password must have the following properties:<br/><param p="1"/></text>
           <text tid="settingsfailure">The authentication settings don't have the following properties:<br/><param p="1"/></text>
           <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
@@ -918,6 +919,7 @@
             <text tid="maxage">It must be changed every <param p="1"/>.</text>
             <text tid="minlength">It must be <param p="1"/> characters or longer</text>
             <text tid="noreuse">It cannot be reused for <param p="1"/>.</text>
+            <text tid="require2fa">Setting up two factor authentication is required.</text>
             <text tid="symbols">It must contain at least <param p="1"/> <ifparam p="1" value="1">symbol<else/>symbols</ifparam>.</text>
             <text tid="uppercase">It must contain at least <param p="1"/> uppercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
           </textgroup>

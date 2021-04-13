@@ -187,7 +187,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF (NOT ObjectExists(this->userobj->wrdentity))
       RETURN;
 
-    BOOLEAN passwordexpired, passwordabouttoexpire;
+    BOOLEAN passwordexpired, passwordabouttoexpire, passwordrequire2fa;
     TRY
     {
       RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(this->userobj->wrdentity->id);
@@ -199,8 +199,10 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
             AND IsValueSet(authsettings.passwords)
             AND authsettings.passwords[END-1].passwordhash NOT IN [ "", "*" ])
         {
+          RECORD ARRAY parsedchecks := ParsePasswordChecks(usereditpolicy.passwordvalidationchecks);
+
           // ADDME: warn when password is becoming too old
-          STRING expire_duration := SELECT AS STRING duration FROM ParsePasswordChecks(usereditpolicy.passwordvalidationchecks) WHERE check = "maxage";
+          STRING expire_duration := SELECT AS STRING duration FROM parsedchecks WHERE check = "maxage";
           IF (expire_duration != "")
           {
             RECORD expiryduration := ParseDuration(expire_duration);
@@ -233,15 +235,20 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
               }
             }
           }
+
+          IF (RecordExists(SELECT FROM parsedchecks WHERE check = "require2fa") AND NOT RecordExists(authsettings.totp))
+            passwordrequire2fa := TRUE;
         }
+
       }
     }
     CATCH (OBJECT e)
       LogHarescriptException(e);
 
-    ^warningpanel->visible := passwordexpired OR passwordabouttoexpire;
+    ^warningpanel->visible := passwordexpired OR passwordabouttoexpire OR passwordrequire2fa;
     ^warning_passwordexpired->visible := passwordexpired;
     ^warning_passwordabouttoexpire->visible := passwordabouttoexpire;
+    ^warning_passwordrequire2fa->visible := passwordrequire2fa;
   }
 
   // -----------------------------------------------------------------------------
