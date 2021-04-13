@@ -348,33 +348,11 @@ MACRO TestRewriteDomStyles()
 
 MACRO TestXPATHComparators()
 {
-  OpenTest("TestXPATHComparators");
-  STRING selectors := "a[href='http://example.org/']";
-  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
-  STRING query := cssom->cssrules->item(0)->__XPathQuery;
-  TestEq("//*[local-name()='a'][@href='http://example.org/']", query);
-
-  selectors := "a[href~='http://example.org/']";
-  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
-  query := cssom->cssrules->item(0)->__XPathQuery;
-  TestEq("//*[local-name()='a'][contains(concat(' ',@href,' '),'http://example.org/')]", query);
-
-  selectors := "a[href$='http://example.org/']";
-  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
-  query := cssom->cssrules->item(0)->__XPathQuery;
-  TestEq("//*[local-name()='a'][ends-with(@href,'http://example.org/')]", query);
-
-  selectors := "a[href^='http://example.org/']";
-  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
-  query := cssom->cssrules->item(0)->__XPathQuery;
-  TestEq("//*[local-name()='a'][starts-with(@href,'http://example.org/')]", query);
-
-  selectors := "a[href*='http://example.org/']";
-  cssom := MakeCSSStyleSheet(StringToBlob(selectors || " { margin: 0; }"));
-  query := cssom->cssrules->item(0)->__XPathQuery;
-  TestEq("//*[local-name()='a'][contains(@href,'http://example.org/')]", query);
-
-  CloseTest("TestXPATHComparators");
+  TestEq("//*[local-name()='a'][@href='http://example.org/']", RewriteCSSSelectorToXpath("a[href='http://example.org/']"));
+  TestEq("//*[local-name()='a'][contains(concat(' ',@href,' '),'http://example.org/')]", RewriteCSSSelectorToXpath("a[href~='http://example.org/']"));
+  TestEq("//*[local-name()='a'][ends-with(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href$='http://example.org/']"));
+  TestEq("//*[local-name()='a'][starts-with(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href^='http://example.org/']"));
+  TestEq("//*[local-name()='a'][contains(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href*='http://example.org/']"));
 }
 
 PRINT("\n === Running TestCSS_XPath\n");
