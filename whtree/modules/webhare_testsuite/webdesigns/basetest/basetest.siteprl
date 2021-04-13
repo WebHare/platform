@@ -5,16 +5,7 @@
              xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
              xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite"
              xmlns:xyz="urn:xyz">
-  <!-- RTD default settings -->
 
-  <apply>
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
-    <richdocumenteditor>
-      <structuredefinition fullpath="rtd/rtd-structure.xml" />
-      <css fullpath="css/rtd.css" />
-      <limitinternallinks root="/" />
-    </richdocumenteditor>
-  </apply>
 
   <!-- Global site settings -->
   <apply>
@@ -133,6 +124,14 @@
                   library="pages/xxx.whlib"
                   tag="prebuilthtml_csp"
                   webpageobjectname="XXXPage" />
+
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/insertsnippet" />
+    <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
+               renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
 
     <!-- Disable urlhistory storage for most of the testsite -->
     <urlhistory redirecton404="1" store="false" />
@@ -446,13 +445,7 @@
     <to type="all" pathmask="/tmp/slots/*" />
     <to type="all" pathmask="/tmp/beacondoc" />
     <to type="all" pathmask="/tmp/beaconform" />
-    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <extendproperties name="rtdtypeprops" />
-    <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
-    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
-    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon" />
-    <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
-               renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
   </apply>
 
   <apply>

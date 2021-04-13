@@ -2444,6 +2444,7 @@
       <text tid="errors">Errors have occurred during publication.</text>
       <text tid="externallink">This external link links to URL '<param p="1"/>'.</text>
       <text tid="folderwithoutindex">The selected folder '<param p="1"/>' does not have an index document.</text>
+      <text tid="hasnopreview">The selected file has no preview.</text>
       <text tid="internallink">This internal link links to file '<param p="1"/>'.</text>
       <text tid="internallink-broken">This external link does not seem to be linked to an existing file.</text>
       <text tid="internallink-cachedversion">Because errors occurred while publishing the linked file, the last correctly published version is displayed.</text>

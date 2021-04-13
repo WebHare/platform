@@ -2444,6 +2444,7 @@
       <text tid="errors">Er zijn fouten opgetreden tijdens de publicatie.</text>
       <text tid="externallink">Deze externe link verwijst naar URL '<param p="1"/>'.</text>
       <text tid="folderwithoutindex">De geselecteerde map '<param p="1"/>' bevat geen indexdocument.</text>
+      <text tid="hasnopreview">Het geselecteerde bestand heeft geen voorvertoning.</text>
       <text tid="internallink">Deze interne link is gekoppeld aan het bestand '<param p="1"/>'.</text>
       <text tid="internallink-broken">Deze interne link is niet gekoppeld aan een bestaand bestand.</text>
       <text tid="internallink-cachedversion">Omdat er fouten zijn opgetreden tijdens de publicatie van het gekoppelde bestand, wordt de laatst correct gepubliceerde versie weergegeven.</text>
