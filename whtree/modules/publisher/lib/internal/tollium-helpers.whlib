@@ -592,7 +592,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
     INSERT CELL richdocument := context INTO contexts;
   }
 
-  OBJECT dialog := parent->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#editor",
+  RETURN parent->RunScreen("mod::publisher/tolliumapps/objecteditors/editwidget.xml#editor",
         [ whfstype := whfstype
         , typedef := typedef
         , fsbaseobject := fsbaseobject
@@ -602,17 +602,6 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
         , currenttitle := currenttitle
         , widgetsettings := widgetsettings
         ], CELL[ contexts ]);
-
-  IF(NOT ObjectExists(dialog))
-  {
-    // screen building might given errors like 'Attribute 'composition' refers to non-existing object '..'
-    RETURN DEFAULT RECORD;
-  }
-
-  IF(dialog->RunModal() = "ok")
-    RETURN CELL[ title := dialog->GetFileTitle(), widgetsettings := dialog->Getwidgetsettings(), instance := CELL[...dialog->value, whfstype ]];
-
-  RETURN DEFAULT RECORD; // cancelled
 }
 
 PUBLIC MACRO AddCopyMoveExceptionToWork(OBJECT work, OBJECT e, OBJECT destfolder)
