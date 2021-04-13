@@ -206,12 +206,33 @@ ASYNC MACRO TestAdaptiveContentSlots()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestAdaptiveContentReordering()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots/a-slot" ]]));
+
+  TT("sortorderselect")->value := "ordering"; //FIXME shouldn't this be forced on us? see addons/connect#41
+
+  TestEq(["Widget 1A","Widget 1B","Widget 1C"], SELECT AS STRING ARRAY title FROM TT("filelist")->rows);
+  TestEq(["widget-1a","widget-1b","widget-1c"], SELECT AS STRING ARRAY name FROM GetPublishedSlotInfo(settings.slot1->id).widgets);
+  topscreen->frame->focused := TT("filelist");
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE title = "Widget 1B";
+  TTClick(":Move up", [ menuitem := TRUE ]);
+  TestEq(["Widget 1B","Widget 1A","Widget 1C"], SELECT AS STRING ARRAY title FROM TT("filelist")->rows);
+
+  WHILE(RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = settings.slot1->id))
+    Sleep(100);
+
+  TestEq(["widget-1b","widget-1a","widget-1c"], SELECT AS STRING ARRAY name FROM GetPublishedSlotInfo(settings.slot1->id).widgets);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
                  , PTR TestAdaptiveContentBeacons
                  , PTR TestAdaptiveContentTriggerBeaconWidget
                  , PTR TestAdaptiveContentSlots
+                 , PTR TestAdaptiveContentReordering
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]
                                    ]

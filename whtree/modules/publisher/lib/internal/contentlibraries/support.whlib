@@ -18,7 +18,7 @@ PUBLIC RECORD FUNCTION GetSlotInfo(INTEGER slotid)
     RETURN DEFAULT RECORD;
 
   RECORD ARRAY widgets :=
-      SELECT id, name, modificationdate
+      SELECT id, name, modificationdate, ordering
         FROM system.fs_objects
        WHERE parent = slotid
     ORDER BY ordering, id;

@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -13,11 +14,11 @@ LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
-DATETIME FUNCTION ReadLastMod(STRING path)
+STRING FUNCTION ReadLastHash(STRING path)
 {
   RECORD data := DecodeJSONBlob(GetDiskResource(path, [ allowmissing := TRUE ]));
-  data := EnforceStructure([ lastmodifiedwidget := DEFAULT DATETIME ], data);
-  RETURN data.lastmodifiedwidget;
+  data := EnforceStructure([ state := "" ], data);
+  RETURN data.state;
 }
 
 PUBLIC RECORD ARRAY FUNCTION ListDatabaseSlots()
@@ -38,18 +39,23 @@ PUBLIC RECORD ARRAY FUNCTION ListDatabaseSlots()
   RETURN slots;
 }
 
+STRING FUNCTION CalculateWidgetsHash(RECORD ARRAY inwidgets)
+{
+  inwidgets := SELECT * FROM inwidgets ORDER BY ordering, id;
+  RETURN EncodeBase64(GetSHA1Hash(EncodeHSON(SELECT id,modificationdate FROM inwidgets)));
+}
+
 PUBLIC RECORD ARRAY FUNCTION FilterSlotsNeedingRepublish(RECORD ARRAY slots)
 {
-  slots := SELECT *, disklastmod := ReadLastMod(diskpath) FROM slots;
+  slots := SELECT *, diskhash := ReadLastHash(diskpath) FROM slots;
 
-  RECORD ARRAY widgets := SELECT parent, lastmodified := MAX(modificationdate)
+  RECORD ARRAY widgets := SELECT id, ordering, parent, modificationdate
                             FROM system.fs_objects
-                           WHERE parent IN (SELECT AS INTEGER ARRAY id FROM slots)
-                        GROUP BY parent;
+                           WHERE parent IN (SELECT AS INTEGER ARRAY id FROM slots);
 
-  slots := SELECT *, expectlastmod := (SELECT AS DATETIME lastmodified FROM widgets WHERE widgets.parent = slots.id) ?? creationdate FROM slots;
+  slots := SELECT *, expecthash := CalculateWidgetsHash(SELECT * FROM widgets WHERE widgets.parent = slots.id) ?? creationdate FROM slots;
 
-  DELETE FROM slots WHERE disklastmod = expectlastmod;
+  DELETE FROM slots WHERE diskhash = expecthash;
   RETURN slots;
 }
 
@@ -76,11 +82,13 @@ PUBLIC MACRO RepublishSingleSlot(RECORD slot)
 
   OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
   RECORD slotinfo := GetSlotInfo(slot.id);
-  slotinfo.widgets :=
-      SELECT name
-           , condition
-           , content := GetRenderedSlotWidget(webdesign, widgets)
-        FROM slotinfo.widgets;
+  slotinfo := CELL[ ...slotinfo
+                  , state := CalculateWidgetsHash(slotinfo.widgets)
+                  , widgets := (SELECT name
+                                     , condition
+                                     , content := GetRenderedSlotWidget(webdesign, widgets)
+                                  FROM slotinfo.widgets)
+                  ];
 
   CreateDiskDirectoryRecursive(GetDirectoryFromPath(slot.diskpath), TRUE);
   StoreDiskFile(slot.diskpath, EncodeJSONBlob(slotinfo), [ overwrite := TRUE ]);
