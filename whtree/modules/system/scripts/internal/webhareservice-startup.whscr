@@ -107,7 +107,7 @@ IF(RecordExists(shrinkwrapfile))
 }
 
 __disable_compilable_lockmgr := TRUE;
-RunRestartReset(showinfo);
+RunRestartReset(showinfo, FALSE);
 
 IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
 {

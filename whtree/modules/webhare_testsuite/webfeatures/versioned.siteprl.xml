@@ -16,7 +16,7 @@
       <p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype" />
       <p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype" />
     </compositions>
-    <insert position="settings" where="atend">
+    <insert position="settings" where="after">
       <t:textedit composition="versionedinstance" cellname="str" title="versionedinstance" />
       <t:textedit composition="unversionedinstance" cellname="str" title="unversionedinstance" />
     </insert>

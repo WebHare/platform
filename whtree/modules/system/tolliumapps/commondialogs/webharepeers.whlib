@@ -16,12 +16,15 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     ^peers->entitycontext := [ wrd_leftentity := this->contexts->user->entityid ];
-    ^Peers->SetValueIfValid(this->contexts->user->GetRegistryKey("system.webharepreers.lastserver", 0));
+
+    INTEGER lastserver := this->contexts->user->GetRegistryKey("system.webharepreers.lastserver", 0);
+    IF(lastserver != 0)
+      ^peers->SetValueIfValid([lastserver]);
   }
 
   INTEGER FUNCTION OnPeerEdit(OBJECT wrdtype, RECORD context, INTEGER entityid)
   {
-    IF(entityid=0)
+    IF(entityid = 0)
     {
       RETURN this->RunScreen("#addpeer"); //ADDME should probably pass the requested scopes
     }
@@ -37,7 +40,7 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
     {
       this->result := peer;
       this->tolliumresult := "ok";
-      this->contexts->user->SetRegistryKey("system.webharepreers.lastserver", ^peers->value);
+      this->contexts->user->SetRegistryKey("system.webharepreers.lastserver", ^peers->value[0]);
     }
   }
 >;

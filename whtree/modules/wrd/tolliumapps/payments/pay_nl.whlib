@@ -29,7 +29,6 @@ PUBLIC STATIC OBJECTTYPE ConfigPayNL EXTEND PSPSettingsExtensionBase
   MACRO DoConnect()
   {
     RECORD merchantinfo := CheckpayNLMerchant(^apiuser->value, ^apitoken->value, ^saleslocation->value);
-    dumpvalue(merchantinfo,'tree');
     IF(NOT RecordExists(merchantinfo))
     {
       this->owner->RunSimpleScreen("error", GetTid("wrd:tolliumapps.payments.common.incorrectcredentials"));
