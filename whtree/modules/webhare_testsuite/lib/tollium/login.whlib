@@ -30,6 +30,13 @@ PUBLIC RECORD FUNCTION TestInvoke_EnableTestSuite2FA()
 
 PUBLIC RECORD FUNCTION TestInvoke_GetTOTPCode(RECORD data)
 {
+  data := ValidateOptions(
+      [ secret :=     ""
+      , "offset" :=   0
+      ], data,
+      [ required := [ "secret" ]
+      ]);
+
   RETURN
       [ code :=   GetTOTPCode(DecodeBase32(data.secret), [ now := AddTimeToDate(data."offset" * 1000, GetCurrentDateTime()) ])
       ];
@@ -98,6 +105,25 @@ PUBLIC RECORD FUNCTION TestInvoke_SetUserAuthenticationSettings(STRING email, RE
 
   GetPrimary()->BeginWork();
   wrdschema->^wrd_person->UpdateEntity(id, [ whuser_password := settings ]);
+  GetPrimary()->CommitWork();
+
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_SetSchemaValidationChecks(STRING passwordvalidationchecks, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OpenPrimary();
+
+  options := ValidateOptions(
+      [ url :=      ""
+      ], options);
+
+  OBJECT wrdschema := options.url = ""
+      ? OpenTestsuiteWRDSchema()
+      : GetWRDAuthPlugin(options.url)->wrdschema;
+
+  GetPrimary()->BeginWork();
+  wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", passwordvalidationchecks);
   GetPrimary()->CommitWork();
 
   RETURN DEFAULT RECORD;
