@@ -57,7 +57,7 @@ PUBLIC OBJECTTYPE CustomFormPage EXTEND WebtoolFormPage
     ELSE
     {
       // We're previewing this form from testformfile-formeditapp, check for the draft custom form data
-      TestEq("Here, have some other data!", this->webdesign->targetobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata);
+      TestEq("Here, have some other data!", this->webdesign->contentobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata);
     }
 
     IF(GetFormWebVariable("cancel") != "1") //don't go through EditExistingResult if we'll be cancelling, as it shouldn't be needed
