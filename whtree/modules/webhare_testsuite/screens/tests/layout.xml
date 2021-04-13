@@ -523,7 +523,7 @@
     </body>
   </screen>
 
-  <screen name="layouttest_grid">
+  <screen name="layouttest_grid" gid="">
     <actions>
       <action name="buttonaction" onexecute="dobuttonaction" />
     </actions>
@@ -567,6 +567,47 @@
               <option rowkey="date_onorafter" title="O2" />
             </select>
             <date name="date1" errorlabeltid=".datetarget" required="true" title=""/>
+          </cell>
+        </row>
+        <row>
+          <cell name="testalign_cell">
+            <textarea name="testalign" title="Align" height="4gr" />
+          </cell>
+          <cell name="inlineblock_cell">
+            <inlineblock name="inlineblock" height="1pr" width="1pr">
+              <panel backgroundcolor="#ff0000" height="1pr" borders="all">
+                <text value="I'm inside inline_block"/>
+              </panel>
+            </inlineblock>
+          </cell>
+          <cell>
+            <inlineblock name="inlineblock_list" height="1pr" width="1pr">
+              <list height="1pr" width="1pr">
+                <column name="col" type="text" title="Col" />
+                <row>
+                  <element name="col" data="R01 Row 1" />
+                </row>
+                <row>
+                  <element name="col" data="R02 Row 2" />
+                </row>
+              </list>
+            </inlineblock>
+          </cell>
+          <cell>
+            <inlineblock name="inlineblock_letitcalc" width="1pr"> <!-- let it calc its height to see if it ends up on the grid -->
+              <list height="1pr" width="1pr">
+                <column name="col" type="text" title="Col" />
+                <row>
+                  <element name="col" data="R01 Row 1" />
+                </row>
+                <row>
+                  <element name="col" data="R02 Row 2" />
+                </row>
+              </list>
+            </inlineblock>
+          </cell>
+          <cell name="imgedit_cell">
+            <imgedit name="imgedit" height="1pr" width="1pr" />
           </cell>
         </row>
       </grid>

@@ -48,10 +48,10 @@ export default class ObjInlineBlock extends ComponentBase
       if(line.title)
       {
         var titlecomp = new ObjText(line, { value: line.title ? line.title + ':' : ''
-                                                , labelfor: line.titlelabelfor
-                                                , target: srcline.target + "#linelabel"
-                                                , destroywithparent: true
-                                                });
+                                          , labelfor: line.titlelabelfor
+                                          , target: srcline.target + "#linelabel"
+                                          , destroywithparent: true
+                                          });
 
         if(line.layout=='form') //we need to keep the title separated
           line.titlecomp = titlecomp;
@@ -202,11 +202,15 @@ export default class ObjInlineBlock extends ComponentBase
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
 
-    this.height.overhead = (this.borders && this.borders.top ? $todd.settings.border_top : 0) +
-                         + (this.borders && this.borders.bottom ? $todd.settings.border_bottom : 0);
+    this.height.overhead = 5 //grid requires 5 pixel margins if our inner area is to align with everything else
+                           + (this.borders && this.borders.top ? $todd.settings.border_top : 0)
+                           + (this.borders && this.borders.bottom ? $todd.settings.border_bottom : 0);
 
     this.height.min += this.height.overhead;
     this.height.calc += this.height.overhead;
+
+    if(!this.height.serverset && (this.height.calc % $todd.settings.grid_vsize) != 0) //if the server didn't set a height, grow to multiple of grid line height
+      this.height.calc += $todd.settings.grid_vsize - (this.height.calc % $todd.settings.grid_vsize);
   }
 
   applySetHeight()
@@ -223,13 +227,14 @@ export default class ObjInlineBlock extends ComponentBase
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
 
     // Set outer width, including border (we have box-sizing: border-box!)
-    dompack.setStyles(this.node, {width: this.width.set, height: this.height.set});
+    let elementheight = this.height.set - 5; //we release only our grid margin. we still need to take the proper height for the borders
+    dompack.setStyles(this.node, {width: this.width.set, height: elementheight });
 
     // Check if the node is big enough to display the whole background image
     if (this.node[bgstyle])
     {
       if ((this.node[bgstyle].width && this.node[bgstyle].width > this.width.set)
-          || (this.node[bgstyle].height && this.node[bgstyle].height > this.height.set))
+          || (this.node[bgstyle].height && this.node[bgstyle].height > elementheight))
         this.node.classList.add("bgstyle-responsive");
       else
         this.node.classList.remove("bgstyle-responsive");
