@@ -81,6 +81,12 @@ ASYNC MACRO InitialGotoFolder() //used by eg Find.
 OBJECT ASYNC FUNCTION WalkTheTree()
 {
   testfw->SetTestUser("lisa");
+
+  //Depublish simple.xlsx so we can check the unpublished message
+  testfw->BeginWork();
+  testfw->GetTestSite()->OpenByPath("simple.xlsx")->UpdateMetadata([publish := FALSE]);
+  testfw->CommitWork();
+
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
 
   RECORD pvs;
@@ -111,9 +117,24 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   //Set headless controller to http
   topscreen->tolliumcontroller->secure := FALSE;
 
+  topscreen->frame->focused := TT("filelist");
+
+  //Select something that never has a preview
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="dynamicpage.witty";
+
+  //Check the previewed url
+  pvs := TT("previewbrowser")->GetPreviewState();
+  TestEq(TRUE, pvs.showingmessages);
+  TestEqLike('*has*no*preview*', pvs.messages);
+
+  //This file should NOT be published
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="simple.xlsx";
+  pvs := TT("previewbrowser")->GetPreviewState();
+  TestEq(TRUE, pvs.showingmessages);
+  TestEqLike('*not*published*', pvs.messages);
+
   //Find a simple file that should be published
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="headings.doc";
-  topscreen->frame->focused := TT("filelist");
 
   //Check the previewed url
   pvs := TT("previewbrowser")->GetPreviewState();

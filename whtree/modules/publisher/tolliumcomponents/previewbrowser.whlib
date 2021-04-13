@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
@@ -310,9 +311,9 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       }
       ELSE
       {
-        // The selected file is not published
+        RECORD fileinfo := DescribeContentTypeById(selectedfile.type, [ isfolder := FALSE, mockifmissing := TRUE ]);
         INSERT [ level := 0
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.notpublished")
+               , message := fileinfo.ispublishable ? GetTid("publisher:tolliumcomponents.previewbrowser.notpublished") : GetTid("publisher:tolliumcomponents.previewbrowser.hasnopreview")
                ] INTO this->previewmessages AT END;
         this->suppressrendering := TRUE; // Nothing to show
       }
