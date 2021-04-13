@@ -1,0 +1,131 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO PrepContentSnippets()
+{
+  testfw->BeginWork();
+
+  OBJECT snippetsfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "snippets", typens := "http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" ]);
+  OBJECT textsnippet := snippetsfolder->CreateFile([ name := "textsnippet", title := "Text Snippet", typens := "http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" ]);
+  textsnippet->SetInstanceData("http://www.webhare.net/xmlns/publisher/widgets/contentsnippet",
+      [ snippettext :=  [ htmltext := StringToBlob(`
+                           <html><body>
+                             <p class="wh-normal">A simple text snippet</p>
+                           </body></html>`)
+                        ]
+      ]);
+
+  OBJECT richdocfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "rtdtype"]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT snippets1doc := richdocfolder->CreateFile(
+      [ name := "snippets-1"
+      , type := richdoctype->id
+      , publish := TRUE
+    ]);
+
+  richdoctype->SetInstanceData(snippets1doc->id,
+      [ data :=
+        [ htmltext := StringToBlob(`
+             <html><body>
+               <p class="wh-normal">Para 1</p>
+               <div class="wh-rtd-embeddedobject" data-instanceid="snippet1" />
+             </body></html>`)
+        , instances :=
+          [ [ instanceid := "snippet1"
+            , data :=
+              [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/insertsnippet"
+              , insertsnippet := textsnippet->id
+              ]
+            ]
+          ]
+        ]
+      ]);
+
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestInsertContentSnippetWidget()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/snippets-1"], target := DEFAULT RECORD ]));
+
+  AWAIT ExpectScreenChange(+1, PTR TT("doceditor")->contents->rte->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/widgets/insertsnippet";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  TestEq(TRUE, RecordExists(SELECT FROM TT(":Snippet")->options WHERE title="Text Snippet"));
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Snippet*required*"]); //cannot submit, must select snippet
+
+  TT(":Snippet")->selection := SELECT * FROM TT(":Snippet")->options WHERE title="Text Snippet";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestModifySnippets()
+{
+  OBJECT snippetsfolder := GetTestsuiteTempFolder()->OpenByName("snippets");
+  OBJECT richdocfolder := GetTestsuiteTempFolder()->OpenByname("rtdtype");
+
+  WaitForPublishCompletion(richdocfolder->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(richdocfolder->objecturl || "snippets-1/"));
+  TestEq(["p","p"], SELECT AS STRING ARRAY node->nodename FROM ToRecordArray(testfw->browser->QS("#content")->ListChildren("*","*"),"node"));
+  TestEq("A simple text snippet", testfw->browser->QS("#content > p + p")->textcontent);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ snippetsfolder->whfspath || "textsnippet"], target := DEFAULT RECORD ]));
+  TestEqLike("*A simple text snippet*", BlobToString(TT("component")->GetComponent("snippettext")->value.htmltext));
+  TT("component")->GetComponent("snippettext")->value :=
+                        [ htmltext := StringToBlob(`
+                           <html><body>
+                             <p class="wh-normal">We have altered this text. Pray we don't alter it any further.</p>
+                           </body></html>`)
+                        ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  WaitForPublishCompletion(richdocfolder->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(richdocfolder->objecturl || "snippets-1/"));
+  TestEq("We have altered this text. Pray we don't alter it any further.", testfw->browser->QS("#content > p + p")->textcontent);
+}
+
+ASYNC MACRO TestManageSnippets()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/snippets" ]]));
+  TestEq(1, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(RECORD[], TT("types")->rows, "All folder types should be blocked"); //and a new publisher UI should remove the need for an empty newfolder dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT(":File title")->value := "New Snippet";
+  TT("component")->GetComponent("snippettext")->value :=
+                        [ htmltext := StringToBlob(`
+                           <html><body>
+                             <p class="wh-normal">My little snippet.</p>
+                           </body></html>`)
+                        ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR PrepContentSnippets
+                 , PTR TestInsertContentSnippetWidget
+                 , PTR TestModifySnippets
+                 , PTR TestManageSnippets
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

@@ -142,6 +142,9 @@
     <setlibrary name="publisher:slots">
       <source path="site::webhare testsuite site/tmp/slots/" />
     </setlibrary>
+    <setlibrary name="publisher:snippets">
+      <source path="site::webhare testsuite site/tmp/snippets/" />
+    </setlibrary>
   </apply>
 
   <!-- Basic property tests -->

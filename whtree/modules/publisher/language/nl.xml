@@ -1730,6 +1730,7 @@
     <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
       <text tid="beacon">Baken</text>
       <text tid="beacons">Bakens map</text>
+      <text tid="contentsnippets">Content snippets</text>
       <text tid="references">Slotverwijzingen</text>
       <text tid="slotreferences">Bestanden die naar slot '<param p="1"/>' verwijzen</text>
       <text tid="slots">Slots map</text>
@@ -2638,6 +2639,11 @@
       <text tid="invalidname">'<param p="1"/>' is geen geldige naam voor een bladwijzer (anker).<br/><br/>Een bladwijzernaam moet beginnen met een letter (A-Z of a-z) en mag gevolgd worden door letters, cijfers (0-9), streepjes ("-"), liggende streepjes ("_"), dubbele punten (":") en punten (".").</text>
       <text tid="name">Naam anker</text>
       <text tid="title">Anker</text>
+    </textgroup>
+    <textgroup gid="contentsnippet">   <!-- widgets.contentsnippet -->
+      <text tid="insertsnippet">Snippet</text>
+      <text tid="insertsnippetwidget">Voeg snippet in</text>
+      <text tid="snippetwidget">Content snippet</text>
     </textgroup>
     <textgroup gid="htmlwidget">   <!-- widgets.htmlwidget -->
       <text tid="html">HTML code</text>

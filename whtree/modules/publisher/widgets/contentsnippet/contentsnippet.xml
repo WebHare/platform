@@ -1,0 +1,18 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="widgets.contentsnippet"
+         library="contentsnippet.whlib">
+
+  <tabsextension name="snippeteditor" allowresize="true">
+    <newtab>
+      <richdocument composition="contentdata" cellname="snippettext" height="1pr" width="1pr" minheight="8gr" minwidth="70x" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension name="insertsnippeteditor" allowresize="true">
+    <newtab>
+      <p:snippet composition="contentdata" cellname="insertsnippet" width="1pr" required="true" />
+    </newtab>
+  </tabsextension>
+
+</screens>

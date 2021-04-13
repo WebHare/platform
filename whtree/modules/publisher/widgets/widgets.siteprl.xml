@@ -47,4 +47,25 @@
     </members>
   </widgettype>
 
+  <!-- contentsnippet widget -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet"
+              editextension="contentsnippet/contentsnippet.xml#snippeteditor"
+              icon="tollium:objects/snippet"
+              renderobjectname="contentsnippet/contentsnippet.whlib#SnippetWidget"
+              tid="widgets.contentsnippet.snippetwidget">
+    <members>
+      <richdocument name="snippettext" />
+    </members>
+  </widgettype>
+
+  <!-- insert contentsnippet widget -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/insertsnippet"
+              editextension="contentsnippet/contentsnippet.xml#insertsnippeteditor"
+              renderobjectname="contentsnippet/contentsnippet.whlib#InsertSnippetWidget"
+              tid="widgets.contentsnippet.insertsnippetwidget">
+    <members>
+      <whfsref name="insertsnippet" />
+    </members>
+  </widgettype>
+
 </siteprofile>

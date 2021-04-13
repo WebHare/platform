@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+PUBLIC STATIC OBJECTTYPE SnippetWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    //FIXME during previews we should wrap the inserted widget to make clear it's an insert
+    MACRO PTR torender := this->GetRTDBody(this->data.snippettext);
+    IF(IsValueSet(torender))
+      torender();
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE InsertSnippetWidget EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    //FIXME during previews we should wrap the inserted widget to maek clear waht we're doing
+    RECORD target := ResolveWidgetAsSharedBlock(this->data.insertsnippet );
+    IF(RecordExists(target))
+      this->RenderSharedBlock(target);
+  }
+>;
+
