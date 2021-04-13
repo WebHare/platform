@@ -38,8 +38,8 @@
         <p:conditiontype name="newvisitor" fragment="#newvisitorcondition" tid=".newvisitorcondition.name" />
         <p:conditiontype name="returningvisitor" fragment="#returningvisitorcondition" tid=".returningvisitorcondition.name" />
         <p:conditiontype name="beacon" fragment="#beaconcondition" tid=".beaconcondition.name" />
-        <p:conditiontype name="visitafterdate" fragment="#visitdatecondition" tid=".visitdatecondition.name-after" />
-        <p:conditiontype name="visitbeforedate" fragment="#visitdatecondition" tid=".visitdatecondition.name-before" />
+        <p:conditiontype name="visitafterdate" fragment="#visitdatecondition_after" tid=".visitdatecondition.name-after" />
+        <p:conditiontype name="visitbeforedate" fragment="#visitdatecondition_before" tid=".visitdatecondition.name-before" />
       </p:conditionedit>
     </newtab>
   </tabsextension>
@@ -64,9 +64,15 @@
     </contents>
   </fragment>
 
-  <fragment name="visitdatecondition" gid=".visitdatecondition">
+  <fragment name="visitdatecondition_before" gid=".conditions.visitdatecondition" objectname="adaptivecontent.whlib#visitdatecondition">
     <contents>
-      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" />
+      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" errorlabeltid=".name-before"/>
+    </contents>
+  </fragment>
+
+  <fragment name="visitdatecondition_after" gid=".conditions.visitdatecondition" objectname="adaptivecontent.whlib#visitdatecondition">
+    <contents>
+      <datetime name="date" type="datetime" precision="minutes" required="true" storeutc="true" title="" errorlabeltid=".name-after"/>
     </contents>
   </fragment>
 

@@ -138,7 +138,7 @@ PUBLIC STRING FUNCTION FormatACCondition(RECORD condition, RECORD options DEFAUL
     }
     CASE "and", "or"
     {
-      STRING ARRAY subconditions := SELECT AS STRING ARRAY FormatACCondition(conditions) FROM condition.conditions;
+      STRING ARRAY subconditions := SELECT AS STRING ARRAY FormatACCondition(conditions, options) FROM condition.conditions;
       IF (Length(subconditions) = 1)
         RETURN subconditions[0];
       ELSE IF (Length(subconditions) > 1)

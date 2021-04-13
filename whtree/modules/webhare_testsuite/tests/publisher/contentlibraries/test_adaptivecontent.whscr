@@ -181,13 +181,22 @@ ASYNC MACRO TestAdaptiveContentSlots()
   TestEq("Contents option 1 alpha", TT("filetitle")->value);
   TestEqLike("*My text*", BlobToString(TT(":Text")->value.htmltext));
   TestEq("New visitor", TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->selection.title);
-  TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->value := "returningvisitor";
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->^field->value := ":and";
+
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->GetChildComponents()[0]->^field->value := "returningvisitor";
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->GetChildComponents()[0]->^addcondition->TolliumClick();
+
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->GetChildComponents()[1]->^field->value := "visitbeforedate";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Visiting before*required*"]); //verify errorlabel tid bindings for the deeper components
+  TT("widgetsettings")->^condition->GetChildComponents()[0]->GetChildComponents()[1]->__fragmentobjs[0]->^date->value := MakeDatetime(2021,4,13,14,3,0);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("Returning visitor and Visiting before 13-04-2021 16:03", TT("filelist")->selection[0].custom_condition, "Make sure timezones are applied");
 
   WHILE(RecordExists(SELECT FROM ListSlotsNeedingRepublish() WHERE id = content_slot_alpha_id))
     Sleep(100);
 
-  TestEq([ _type := "returningvisitor" ], GetPublishedSlotInfo(content_slot_alpha_id).widgets[0].condition);
+  TestEq("and", GetPublishedSlotInfo(content_slot_alpha_id).widgets[0].condition._type);
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("delete"));
 
