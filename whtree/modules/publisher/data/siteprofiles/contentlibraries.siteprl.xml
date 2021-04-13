@@ -72,12 +72,20 @@
 
   <!-- content snippets -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" tid=".contentsnippets" icon="tollium:folders/snippetfolder">
+    <foldersettings>
+      <contentslisthandler objectname="/tolliumapps/filemanager/contentsnippets.whlib#SnippetsFolderContents" />
+    </foldersettings>
   </foldertype>
 
-  <!-- republish associated content if a content snippet changes -->
-  <apply>
+  <apply priority="10">
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" />
+    <!-- republish associated content if a content snippet changes -->
     <republish scope="references" />
+
+    <!-- permit only our snippets type, as we've adjusted the interface in these folders to only support these. -->
+    <denyfoldertype typedef="*" />
+    <denyfiletype typedef="*" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" />
   </apply>
 
 </siteprofile>

@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SnippetsFolderContents EXTEND ContentsListHandlerBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION _RunLegacyNewPublisherFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options)
+  {
+    IF(NOT options.isfolder)
+      RETURN RunNewFSObjectDialog(parentscreen, parentfolder, [ isfolder := FALSE, type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/widgets/contentsnippet")->id ]);
+    ELSE
+      RETURN ContentsListHandlerBase::_RunLegacyNewPublisherFSObjectDialog(parentscreen, parentfolder, options);
+  }
+>;
+

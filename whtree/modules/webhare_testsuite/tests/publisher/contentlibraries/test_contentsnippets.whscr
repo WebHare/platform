@@ -100,9 +100,32 @@ ASYNC MACRO TestModifySnippets()
   TestEq("We have altered this text. Pray we don't alter it any further.", testfw->browser->QS("#content > p + p")->textcontent);
 }
 
+ASYNC MACRO TestManageSnippets()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/snippets" ]]));
+  TestEq(1, Length(TT("filelist")->rows));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TestEq(RECORD[], TT("types")->rows, "All folder types should be blocked"); //and a new publisher UI should remove the need for an empty newfolder dialog
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TT(":File title")->value := "New Snippet";
+  TT("component")->GetComponent("snippettext")->value :=
+                        [ htmltext := StringToBlob(`
+                           <html><body>
+                             <p class="wh-normal">My little snippet.</p>
+                           </body></html>`)
+                        ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR PrepContentSnippets
                  , PTR TestInsertContentSnippetWidget
                  , PTR TestModifySnippets
+                 , PTR TestManageSnippets
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);
