@@ -2516,7 +2516,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         IF(this->isfolder)
           RunEditFolderHooks(oldversion, objid);
         ELSE
-          RunEditFileHooks(oldversion, objid);
+          RunEditFileHooks(objid);
       }
 
       IF (have_draft AND execute_approval_request)

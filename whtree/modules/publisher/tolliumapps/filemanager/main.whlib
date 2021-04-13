@@ -1459,7 +1459,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         }
         ELSE
         {
-          RunEditFileHooks(obj, obj.id);
+          RunEditFileHooks(obj.id);
           ScheduleFileRepublish(obj.id);
         }
       }

@@ -12,7 +12,6 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "testpages/simpletest/");
       let videowidget = test.qS("#content > div");
       test.true(videowidget.classList.contains("wh-video"));
-      test.true(videowidget.classList.contains("aspect_16_9"));
       test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
       test.false(videowidget.classList.contains("wh-requireconsent"));
       test.eq({network: "youtube",id:"BAf7lcYEXag"}, JSON.parse(videowidget.dataset.video));
@@ -26,7 +25,6 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "testpages/v2videotest/");
       let videowidget = test.qS("#content > div");
       test.true(videowidget.classList.contains("wh-video"));
-      test.false(videowidget.classList.contains("aspect_16_9"));
       test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
       test.false(videowidget.classList.contains("wh-requireconsent"));
       test.eq({network: "youtube",id:"BAf7lcYEXag"}, JSON.parse(videowidget.dataset.whVideo));
@@ -42,7 +40,6 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "testpages/consenttest/");
       let videowidget = test.qS("#content > div");
       test.true(videowidget.classList.contains("wh-video"));
-      test.false(videowidget.classList.contains("aspect_16_9"));
       test.true(videowidget.classList.contains("wh-video--aspect_16_9"));
       test.true(videowidget.classList.contains("wh-requireconsent"));
       // test.true(videowidget.dataset.wh.contains("wh-requireconsent"));

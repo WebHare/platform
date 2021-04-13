@@ -66,11 +66,6 @@
         <text tid="other">Niet ingedeelde types</text>
         <text tid="title">Kies het objecttype</text>
       </textgroup>
-      <textgroup gid="editor">   <!-- commondialogs.embeddedobject.editor -->
-        <text tid="content">Inhoud</text>
-        <text tid="missingwhfstype">Ontbrekend bestandstype</text>
-        <text tid="wrongtypereturned">Het bestandstype is niet correct</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- commondialogs.errors -->
       <textgroup gid="browsedialog">   <!-- commondialogs.errors.browsedialog -->
@@ -2321,6 +2316,11 @@
         <text tid="commentstab">Reacties</text>
         <text tid="reactions">Reacties</text>
         <text tid="settings">Instellingen</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="objecteditors">   <!-- tolliumapps.objecteditors -->
+      <textgroup gid="editwidget">   <!-- tolliumapps.objecteditors.editwidget -->
+        <text tid="content">Inhoud</text>
       </textgroup>
     </textgroup>
     <textgroup gid="objectprops">   <!-- tolliumapps.objectprops -->

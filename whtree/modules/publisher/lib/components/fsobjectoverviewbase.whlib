@@ -431,7 +431,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
     IF(NOT work->HasFailed())
     {
       OpenWHFSObject(row.rowkey)->UpdateMetadata(upd);
-      RunEditFileHooks(oldfile, oldfile.id);
+      RunEditFileHooks(oldfile.id);
     }
     IF(NOT work->Finish())
       RETURN FALSE;

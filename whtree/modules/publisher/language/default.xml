@@ -66,11 +66,6 @@
         <text tid="other">Miscellaneous</text>
         <text tid="title">Choose object type</text>
       </textgroup>
-      <textgroup gid="editor">   <!-- commondialogs.embeddedobject.editor -->
-        <text tid="content">Content</text>
-        <text tid="missingwhfstype">Missing file type</text>
-        <text tid="wrongtypereturned">Wrong file type returend</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- commondialogs.errors -->
       <textgroup gid="browsedialog">   <!-- commondialogs.errors.browsedialog -->
@@ -2321,6 +2316,11 @@
         <text tid="commentstab">Comments</text>
         <text tid="reactions">Comments</text>
         <text tid="settings">Settings</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="objecteditors">   <!-- tolliumapps.objecteditors -->
+      <textgroup gid="editwidget">   <!-- tolliumapps.objecteditors.editwidget -->
+        <text tid="content">Content</text>
       </textgroup>
     </textgroup>
     <textgroup gid="objectprops">   <!-- tolliumapps.objectprops -->

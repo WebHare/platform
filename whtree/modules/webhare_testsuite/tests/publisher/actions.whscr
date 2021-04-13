@@ -585,7 +585,7 @@ STRING testreferences_siteprofile :=
 MACRO DoPublisherEdit(INTEGER fileid) //do an edit on a file like the publisher interface would
 {
   ScheduleFileRepublish(fileid);
-  RunEditFileHooks((SELECT * FROM system.fs_objects WHERE id=VAR fileid), fileid);
+  RunEditFileHooks(fileid);
 }
 
 MACRO TestReferences()

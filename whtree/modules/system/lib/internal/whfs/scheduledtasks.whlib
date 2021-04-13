@@ -61,7 +61,7 @@ MACRO DoStartPublish(RECORD task)
     ELSE //FIle is not yet published
     {
       OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=TRUE]);
-      //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj, fsobj.id);
+      //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj.id);
     }
   }
 
@@ -92,7 +92,7 @@ MACRO DoStopPublish(RECORD task)
     }
 
     OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=FALSE]);
-    //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj, fsobj.id);
+    //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj.id);
   }
 
   IF (report)
@@ -150,7 +150,7 @@ MACRO DoDeleteFile(RECORD task)
 
 MACRO DoSetIndexdoc(RECORD task)
 {
-  RECORD file := SELECT * FROM system.fs_objects WHERE id = task.file AND fs_objects.isactive AND NOT fs_objects.isfolder;
+  RECORD file := SELECT parent, whfspath FROM system.fs_objects WHERE id = task.file AND fs_objects.isactive AND NOT fs_objects.isfolder;
 
   IF (NOT RecordExists(file))
   {
@@ -164,13 +164,13 @@ MACRO DoSetIndexdoc(RECORD task)
   OpenWHFSObject(folder.id)->UpdateMetadata([indexdoc := task.file]);
 
 
-  RunEditFileHooks(file, file.id);
+  RunEditFileHooks(task.file);
   RunEditFolderHooks(folder, folder.id);
   IF (oldindexdoc != 0)
   {
     RECORD fs_oldindex := SELECT * FROM system.fs_objects WHERE fs_objects.id=oldindexdoc AND fs_objects.isactive AND NOT fs_objects.isfolder;
     IF (RecordExists(fs_oldindex))
-      RunEditFileHooks(fs_oldindex, oldindexdoc);
+      RunEditFileHooks(oldindexdoc);
   }
 
   IF (report)

@@ -86,7 +86,7 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     //FIXME history stuff
     fileobj->UpdateMetadata(this->objectdata->value);
     SCheduleFIleRepublish(this->fsobjectid);
-    RunEditFileHooks(__FindFile(this->fsobjectid), this->fsobjectid);
+    RunEditFileHooks(this->fsobjectid);
 
     RETURN work->Finish();
   }
