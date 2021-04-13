@@ -704,6 +704,12 @@ export class BackendApplication extends ApplicationBase
     if (this.timeformat)
       $todd.fallback.timeformat = this.timeformat;
 
+    // Remove event callbacks and queued events, won't be activated again
+    this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
+    this.eventcallbacks = [];
+    this.queuedEvents.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
+    this.queuedEvents = [];
+
     this.appcomm = new LinkEndPoint({ linkid: this.whsid, commhost: this.commhost, frontendid: this.frontendid });
     this.appcomm.onmessage = this.processMessage.bind(this);
     this.appcomm.onclosed = this._gotLinkClosed.bind(this);
