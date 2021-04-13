@@ -634,6 +634,11 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="objectname">
+      <xs:annotation>
+        <xs:documentation>The objectname implementing the tabsextension, if implementation is 'lib'. If a toplevel library= is set, the tabsextension's name is used by default</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="allowresize" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>If 'true', suggest to the parent container that allowing this control to resize would make sense</xs:documentation>
@@ -956,6 +961,11 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="objectname">
+      <xs:annotation>
+        <xs:documentation>The objectname implementing the fragment, if implementation is 'lib' (the default). If a toplevel library= is set, the fragment's name is used by default</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <!-- ** The screen element ** -->
@@ -1156,6 +1166,12 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>
           Describes how the screen is implemented
         </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="objectname">
+      <xs:annotation>
+        <xs:documentation>The objectname implementing the screen, if implementation is 'lib' (the default). If a toplevel library= is set, the screen's name is used by default</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 

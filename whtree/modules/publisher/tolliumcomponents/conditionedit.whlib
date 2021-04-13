@@ -234,7 +234,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
   /// The onchange handler (a reference to the edit component's onchange handler)
   PUBLIC PROPERTY onchange(pvt_onchange, -);
 
-
+  PUBLIC PROPERTY __fragmentobjs(fragmentobjs, -);//used by CI
   // ---------------------------------------------------------------------------
   //
   // Constructor & tollium admin stuff

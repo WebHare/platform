@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE SlotFolderContents EXTEND ContentsListHandlerBase
   {
     OBJECT slottedwidgettype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget");
     items := slottedwidgettype->Enrich(items, "ID", ["CONDITION"]);
-    items := SELECT *, custom_condition := FormatACCondition(COLUMN condition), DELETE condition FROM items;
+    items := SELECT *, custom_condition := FormatACCondition(COLUMN condition, [ tolliumuser := this->tolliumuser ] ), DELETE condition FROM items;
     RETURN items;
   }
 
