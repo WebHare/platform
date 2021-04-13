@@ -219,7 +219,7 @@ OBJECT ASYNC FUNCTION BaseReview()
   testfw->SetTestUser("sysop");
 
   testfw->BeginWork();
-  testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "pending request" ]); // req (3)
   testfw->CommitWork();
 

@@ -2422,7 +2422,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       BOOLEAN have_draft := this->editingdraft;
       IF (require_draft AND NOT this->editingdraft)
       {
-        OBJECT draft := CreateDraft(OpenWHFSObject(objid), TRUE);
+        OBJECT draft := CreateDraft(OpenWHFSObject(objid), objid, TRUE);
         draftitem := draft->fsobject;
         have_draft := TRUE;
       }

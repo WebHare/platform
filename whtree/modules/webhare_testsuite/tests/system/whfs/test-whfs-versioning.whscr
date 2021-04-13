@@ -39,7 +39,7 @@ MACRO DraftingTest()
 //PublishedFlag_HasDraft
 
   //Start editting this document. Create a private draft.
-  OBJECT draft := CreateDraft(testfile, FALSE);
+  OBJECT draft := CreateDraft(testfile, testfile->id, FALSE);
   TestEq(FALSE, draft->ispublic);
   TestEq(TRUE, ObjectExists(draft->fsobject));
   TestEq(FALSE, draft->fsobject->isactive);
@@ -55,7 +55,7 @@ MACRO DraftingTest()
   TestEq(TRUE, drafts[0].mine);
 
   //Let's create another draft. Ignore it though
-  CreateDraft(testfile, FALSE);
+  CreateDraft(testfile, testfile->id, FALSE);
   TestEq(2, Length(GetDrafts(testfile->id)));
 
   //Get autosaves for this user
@@ -81,12 +81,12 @@ MACRO DraftingTest()
 
   //Create a draft!
   Sleep(1);
-  draft := CreateDraft(testfile, FALSE);
+  draft := CreateDraft(testfile, testfile->id, FALSE);
 
   //We need more drafts!
   Sleep(1);
   testfw->SetTestUser("newowner");
-  draft := CreateDraft(testfile, FALSE);
+  draft := CreateDraft(testfile, testfile->id, FALSE);
 
   drafts := GetDrafts(testfile->id);
   TestEq(3, Length(drafts));
@@ -119,7 +119,7 @@ MACRO DraftingTest()
   TestEq(0, Length(GetDrafts(testfile->id)));
   TestEq(TRUE, final->modificationdate >  oldmoddate);
 
-  OBJECT draft2 := CreateDraft(final, TRUE);
+  OBJECT draft2 := CreateDraft(final, final->id, TRUE);
   draft2->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := DEFAULT STRING ARRAY ]);
   OBJECT final2 := draft2->SaveAsFinal();
   TestEQ(DEFAULT STRING ARRAY, final2->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
@@ -138,7 +138,7 @@ MACRO ComplexInstancesAndDrafts()
   OBJECT testfile := GetTestsuiteTempFolder()->EnsureFile([name:="testfile"]);
   TestEq(TRUE, ObjectExists(testfile));
 
-  OBJECT autosave := CreateDraft(testfile, FALSE);
+  OBJECT autosave := CreateDraft(testfile, testfile->id, FALSE);
   RECORD testform := [ formtext := StringToBlob(`
       <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
         <form name="webtoolform">
@@ -157,12 +157,12 @@ MACRO ComplexInstancesAndDrafts()
 
   TestEq(1, Length(autosave->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
 
-  OBJECT publicdraft := CreateDraft(testfile, TRUE);
+  OBJECT publicdraft := CreateDraft(testfile, testfile->id, TRUE);
   autosave->SaveToPublicDraft([ contenttypes := ["http://www.webhare.net/xmlns/publisher/formwebtool"] ]);
 
   TestEq(1, Length(publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
 
-  autosave := CreateDraft(testfile, FALSE);
+  autosave := CreateDraft(testfile, testfile->id, FALSE);
   autosave->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool"));
   TestEq(1, Length(autosave->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.instances));
 

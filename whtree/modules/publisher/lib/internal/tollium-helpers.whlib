@@ -250,7 +250,7 @@ PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, R
   IF (RecordExists(draft_updates) OR LENGTH(draft_contenttype_updates) != 0)
   {
     // Ensure the draft exists
-    publicdraft := publicdraft ?? CreateDraft(file, TRUE);
+    publicdraft := publicdraft ?? CreateDraft(file, file->id, TRUE);
 
     // Update name, parent in draftmetadata
     draftmetadata := draftmetadata ?? publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
@@ -289,7 +289,7 @@ PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, R
   IF (ObjectExists(sitepolicy) AND new_published != -1 AND IsPublish(file->published) != IsPublish(new_published))
   {
     // Ensure a public draft draft exists
-    publicdraft := publicdraft ?? CreateDraft(file, TRUE);
+    publicdraft := publicdraft ?? CreateDraft(file, file->id, TRUE);
 
     draftmetadata := draftmetadata ?? publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
     draftmetadata.flags := IsPublish(new_published)

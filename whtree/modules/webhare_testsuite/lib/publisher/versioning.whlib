@@ -28,7 +28,7 @@ PUBLIC OBJECT FUNCTION GetValidatePublicDraft(OBJECT fsobject)
 
 PUBLIC OBJECT FUNCTION CreateDraftFromFile(OBJECT fsobject)
 {
-  OBJECT draftobject := CreateDraft(fsobject, TRUE);
+  OBJECT draftobject := CreateDraft(fsobject, fsobject->id, TRUE);
   RETURN draftobject;
 }
 
@@ -153,7 +153,7 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectApprovalRequest(BOOLEAN sendrequest, FUNCTION
 
 PUBLIC OBJECT FUNCTION UpdateDraftPublish(OBJECT testfile, BOOLEAN newpublish)
 {
-  OBJECT testdraft := GetPublicDraft(testfile->id) ?? CreateDraft(testfile, TRUE);
+  OBJECT testdraft := GetPublicDraft(testfile->id) ?? CreateDraft(testfile, testfile->id, TRUE);
     // Want to publish the draft
   RECORD testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
   testdraft_draftdata.flags := newpublish
