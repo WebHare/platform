@@ -47,6 +47,7 @@
       <text tid="password_symbols">Minimum number of other symbols</text>
       <text tid="password_uppercase">Minimum number of uppercase letters</text>
       <text tid="passwordcheckhibp">Check password in HIBP-database</text>
+      <text tid="passwordcheckrequire2fa">Require second factor authentication</text>
     </textgroup>
   </textgroup>
   <textgroup gid="debugger" limitlanguages="en">   <!-- debugger -->
@@ -2504,6 +2505,7 @@
       <text tid="utc">UTC</text>
       <text tid="warning_passwordexpired">Your password has expired, please change it.</text>
       <text tid="warning_passwordfailschecks">Your password does not meet the requirements anymore, please change it.</text>
+      <text tid="warning_passwordrequire2fa">You need to enable two-factor authentication to be able to log in.</text>
       <text tid="warning_passwordtooold">Your password is too old and must be changed.</text>
       <text tid="warnings">Warnings</text>
       <text tid="whuser_disabled">Block this account</text>

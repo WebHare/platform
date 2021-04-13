@@ -28,6 +28,9 @@
       <textedit name="password_symbols" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
       <browsecustom name="password_noreuse" onbrowse="GotBrowseNoReuse" onmapvalue="MapDuration" />
       <browsecustom name="password_maxage" onbrowse="GotBrowseMaxAge" onmapvalue="MapDuration" />
+      <line layout="left">
+        <checkbox name="password_require2fa" labeltid=".passwordcheckrequire2fa" title="" />
+      </line>
     </contents>
   </fragment>
 

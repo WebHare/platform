@@ -36,7 +36,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 ///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
-CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword"];
+CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword","system:managetwofactorauth"];
 ///Expected protocol version. Bump if we break backwards compatible with JS code
 CONSTANT INTEGER expecttoddprotocolversion := 1;
 

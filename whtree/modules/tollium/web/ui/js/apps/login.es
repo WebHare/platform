@@ -419,16 +419,30 @@ class LoginApp
         callback();
         return;
       }
+      if (result.code == "REQUIRESETUPSECONDFACTOR")
+      {
+        this.topscreen.getComponent('password').setValue("");
+        let app = $shell.startBackendApplication("system:managetwofactorauth", null,
+            { onappbar:false
+            , isloginapp: true
+            , message: { setuplink: result.setuplink }
+            });
+
+        await app.getLoadPromise();
+        callback();
+        return;
+      }
       if (result.code == "FAILEDVALIDATIONCHECKS")
       {
+        this.topscreen.getComponent('password').setValue("");
         let app = $shell.startBackendApplication("system:resetpassword", null,
             { onappbar:false
             , isloginapp: true
             , message: { passwordresetlink: result.passwordresetlink }
             });
+
         await app.getLoadPromise();
         callback();
-        this.topscreen.getComponent('password').setValue("");
         return;
       }
 

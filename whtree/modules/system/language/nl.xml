@@ -47,6 +47,7 @@
       <text tid="password_symbols">Minimum aantal andere symbolen</text>
       <text tid="password_uppercase">Minimum aantal hoofdletters</text>
       <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
+      <text tid="passwordcheckrequire2fa">Twee-factor authenticatie vereist</text>
     </textgroup>
   </textgroup>
   <textgroup gid="debugger">   <!-- debugger -->
@@ -2315,6 +2316,7 @@
       <text tid="utc">UTC</text>
       <text tid="warning_passwordexpired">Je wachtwoord is verlopen, verander deze a.u.b.</text>
       <text tid="warning_passwordfailschecks">Je wachtwoord voldoet niet meer aan de eisen en moet veranderd worden.</text>
+      <text tid="warning_passwordrequire2fa">Je moet twee-factor-authenticatie inschakelen om in te kunnen loggen.</text>
       <text tid="warning_passwordtooold">Je wachtwoord is te oud en moet gewijzigd worden.</text>
       <text tid="warnings">Waarschuwingen</text>
       <text tid="whuser_disabled">Blokkeer dit account</text>

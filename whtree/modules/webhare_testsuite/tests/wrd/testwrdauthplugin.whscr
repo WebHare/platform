@@ -583,7 +583,6 @@ MACRO TestPasswordValidation()
   OBJECT wrdschema :=  testfw->GetWRDSchema();
 
   wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "hibp");
-  DumpValue(wrdschema->id);
 
   OBJECT newunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity(
       [ wrd_leftentity :=           testfw->testunit
@@ -696,6 +695,11 @@ MACRO TestSecondFactorLogin()
 
   STRING totpsecret := GenerateOTPSecret();
 
+  OBJECT testunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity(
+      [ wrd_leftentity :=           testfw->testunit
+      , wrd_title :=                "secondfactorlogin"
+      ]);
+
   OBJECT entity := persontype->CreateEntity(
       [ wrd_contact_email := "loginsecondfactor@beta.webhare.net"
       , whuser_password :=
@@ -708,7 +712,7 @@ MACRO TestSecondFactorLogin()
                                 , backupcodes := [ [ code := "012345AA" ], [ code := "012345AB" ] ]
                                 ]
               ]
-      , whuser_unit := testfw->testunit
+      , whuser_unit := testunit->id
       ]);
   entityid := entity->id;
 
@@ -940,7 +944,34 @@ MACRO TestSecondFactorLogin()
       ]);
 
   TestEQ(FALSE, result.success);
+
+  // STORY: require2fa for user without 2fa set
+  testfw->BeginWork();
+  testunit->UpdateEntity(
+      [ override_passwordchecks :=  TRUE
+      , passwordchecks :=           "require2fa"
+      ]);
+  entity->UpdateEntity(
+      [ whuser_password :=
+              [ version :=      1
+              , passwords :=    [ [ validfrom :=    GetCurrentDatetime()
+                                  , passwordhash := testfw->hashedpasswords.secret
+                                  ]
+                                ]
+              ]
+      ]);
+  testfw->CommitWork();
+
+  result := DoReq( [ action := "login", username := "loginsecondfactor@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-06"]);
+  TestEQMembers(
+      [ code :=               "REQUIRESETUPSECONDFACTOR"
+      , success :=            FALSE
+      , submitinstruction :=  DEFAULT RECORD
+      ], result, "*");
+
+  TestEQ("setupsecondfactor", GetVariableFromURL(result.setuplink, "wrd_pwdaction"));
 }
+
 
 MACRO TestWRDAuthRouter()
 {

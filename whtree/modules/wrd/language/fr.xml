@@ -57,6 +57,7 @@
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
           <text tid="failure">Le nouveau mot de passe n'a pas les propriétés suivantes:<br/><param p="1"/></text>
+          <text tid="foundinhibp">Ce mot de passe est impliqué dans une violation de données, ce qui signifie que son utilisation présente un risque accru. Choisissez un nouveau mot de passe.</text>
           <text tid="requirements">Le nouveau mot de passe doit avoir les propriétés suivantes:<br/><param p="1"/></text>
           <text tid="settingsfailure">Les paramètres d'authentification n'a pas les propriétés suivantes:<br/><param p="1"/></text>
           <textgroup gid="duration">   <!-- site.forms.authpages.passwordcheck.duration -->
@@ -76,6 +77,7 @@
             <text tid="maxage">Ce doit être remplacé tous les <param p="1"/>.</text>
             <text tid="minlength">Ce doit contenir au moins <param p="1"/> caractères.</text>
             <text tid="noreuse">Ce ne doit pas être réutilisé pendant <param p="1"/>.</text>
+            <text tid="require2fa">L'activation de l'authentification à deux facteurs est requise.</text>
             <text tid="symbols">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">symbole<else/>symboles</ifparam>.</text>
             <text tid="uppercase">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">caractère<else/>caractères</ifparam> alphabétique majuscule.</text>
           </textgroup>

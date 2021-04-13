@@ -2346,7 +2346,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:list>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <xs:pattern value="^(minlength:[1-9][0-9]*|hibp|lowercase:[1-9][0-9]*|uppercase:[1-9][0-9]*|digits:[1-9][0-9]*|symbols:[1-9][0-9]*)$" />
+              <xs:pattern value="^(minlength:[1-9][0-9]*|hibp|lowercase:[1-9][0-9]*|uppercase:[1-9][0-9]*|digits:[1-9][0-9]*|symbols:[1-9][0-9]*|noreuse:P([1-9][0-9]*Y)?([1-9][0-9]*M)?([1-9][0-9]*D)?|maxage:P([1-9][0-9]*Y)?([1-9][0-9]*M)?([1-9][0-9]*D)?|require2fa)$" />
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
