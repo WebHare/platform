@@ -38,7 +38,7 @@ PUBLIC MACRO RunAddFolderHooks(INTEGER newfolderid)
   torepub->DoRepublishes();
 }
 
-PUBLIC MACRO RunEditFileHooks(RECORD oldfile, INTEGER newfileid)
+PUBLIC MACRO RunEditFileHooks(INTEGER newfileid)
 {
   RECORD newfile := __FindFile(newfileid);
   IF(NOT RecordExists(newfile))

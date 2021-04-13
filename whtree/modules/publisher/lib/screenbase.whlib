@@ -99,7 +99,7 @@ PUBLIC OBJECTTYPE FSObjectEditScreenBase EXTEND TolliumScreenBase
     {
       this->fsobject->WriteInstanceToFSObject();
       this->fsobject->basefsobject->UpdateMetadata(DEFAULT RECORD);
-      RunEditFileHooks(__FindFile(this->fsobjectid), this->fsobjectid);
+      RunEditFileHooks(this->fsobjectid);
     }
     RETURN work->Finish();
   }

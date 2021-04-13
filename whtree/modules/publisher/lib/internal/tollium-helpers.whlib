@@ -282,7 +282,7 @@ PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, R
       type->SetInstanceData(file->id, rec);
     }
 
-    RunEditFileHooks(__FindFile(file->id), file->id);
+    RunEditFileHooks(file->id);
   }
 
   // Will the published status change in a versioned site?
