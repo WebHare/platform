@@ -394,28 +394,39 @@
   </xs:complexType>
 
   <xs:complexType name="WidgetType">
-    <xs:sequence>
-      <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-    </xs:sequence>
-    <xs:attribute name="wittycomponent" />
-    <xs:attribute name="previewcomponent" />
-    <xs:attribute name="ingroup" type="xs:anyURI" />
-    <xs:attribute name="embedtype">
-      <xs:annotation>
-        <xs:documentation>
-          Widget type, either block or inline. Defaults to block
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="block"/>
-          <xs:enumeration value="inline"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attributeGroup ref="WidgetBaseAttrs" />
-    <xs:attributeGroup ref="IndexTypeAttrs" />
-    <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
+    <xs:complexContent>
+      <xs:extension base="sp:ObjectType">
+        <xs:sequence>
+          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
+          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attributeGroup ref="WidgetSettings" />
+        <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
+          <xs:annotation>
+            <xs:documentation>
+              Indicates that this widget/embedded object expects a MergeFieldsContext to be available within the rendering context.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="wittycomponent" />
+        <xs:attribute name="previewcomponent" />
+        <xs:attribute name="ingroup" type="xs:anyURI" />
+        <xs:attribute name="embedtype">
+          <xs:annotation>
+            <xs:documentation>
+              Widget type, either block or inline. Defaults to block
+            </xs:documentation>
+          </xs:annotation>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="block"/>
+              <xs:enumeration value="inline"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attributeGroup ref="IndexTypeAttrs" />
+      </xs:extension>
+    </xs:complexContent>
   </xs:complexType>
 
   <xs:complexType name="UploadTypeMapping">
