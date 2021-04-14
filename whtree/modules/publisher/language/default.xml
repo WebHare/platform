@@ -2333,6 +2333,12 @@
           <text tid="lifecycle">Lifecycle</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
+        <text tid="open">Open in Publisher</text>
+        <text tid="references">References</text>
+        <text tid="url">URL</text>
+        <text tid="whfspath">Path</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->
       <text tid="alreadyexists">A tag named '<param p="1"/>' already exists</text>

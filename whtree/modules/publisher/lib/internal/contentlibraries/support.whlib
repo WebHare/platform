@@ -36,3 +36,36 @@ PUBLIC STRING FUNCTION GetSlotGuid(RECORD slotinfo)
   RETURN ToLowercase(EncodeBase16(GetMD5Hash(`${slotinfo.id}|${FormatISO8601DateTime(slotinfo.creationdate)}`)));
 }
 
+PUBLIC INTEGER ARRAY FUNCTION GetBeaconReferences(INTEGER beaconid)
+{
+  RECORD beaconmember := SELECT * FROM OpenWHFSType("http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon")->members WHERE name = "beacon";
+  // Return all fsobjects that have a richvalue with a triggerbeacon instance
+  RETURN
+      SELECT AS INTEGER ARRAY DISTINCT fs_objects.id
+        FROM system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE fs_settings.fs_member = beaconmember.id
+             AND fs_settings.fs_object = beaconid
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_instances.fs_object = fs_objects.id
+             AND fs_objects.isactive;
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetSlotReferences(INTEGER slotid)
+{
+  // Return all fsobjects that have an instance referencing this slot
+  //FIXME: This may return fsobjects referencing the slot by another whfsref, but this will do for now, maybe after connect
+  //       is merged into webhare a new 'slotref' member type can be introduced?
+  RETURN
+      SELECT AS INTEGER ARRAY DISTINCT fs_objects.id
+        FROM system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE fs_settings.fs_object = slotid
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_instances.fs_object = fs_objects.id
+             AND fs_objects.isactive;
+
+}
+
