@@ -68,7 +68,7 @@ MACRO TestSchema()
   TestEq(TRUE, schemaobj->creationdate != DEFAULT DATETIME);
   OBJECT persontype := schemaobj->^wrd_person;
 
-  TestThrows(PTR persontype->GetNewEntityId());
+  TestThrowsLike("*requires*transaction*", PTR persontype->GetNewEntityId());
   TestEqLike('wrd:*', persontype->GetNewEntityGUID(), 'GetNewEntityGUID should work outside work');
   TestEq(TRUE, IsValidWRDGuid(persontype->GetNewEntityGUID()));
   TestEq(FALSE, IsValidWRDGuid(persontype->GetNewEntityGUID()||'a'));
@@ -89,7 +89,9 @@ MACRO TestSchema()
 
   testfw->BeginWork();
   TestEqLike('wrd:*', persontype->GetNewEntityGUID());
-  TestThrows(PTR CreateWRDSchema(testfw->GetWRDSchema()->tag));
+
+  TestThrowsLike("*wrd:testschema*exists*",PTR CreateWRDSchema(testfw->GetWRDSchema()->tag));
+
 
   TestThrows(PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
   TestThrows(PTR persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "" ]));
@@ -2328,6 +2330,9 @@ MACRO TestRegressions()
          , test_multiple_domain := DEFAULT INTEGER ARRAY
          , richie := DEFAULT RECORD
          ], persontype->GetDefaultValues(["WRD_FIRSTNAME", "WRD_CONTACT_EMAIL", "WRD_GENDER", "TEST_MULTIPLE_DOMAIN","RICHIE"]));
+
+  TestThrowsLike("*FREEFIELD*required*", PTR testrequiredtype->CreateEntity(CELL[]));
+  TestThrowsLike("*FREEFIEL*does not exist*FREEFIELD*", PTR testrequiredtype->CreateEntity([ freefiel := ""]), "We don't want the REQUIRED error to supersede the invalid cellname error, it sets you on the wrong track when you made a typo");
 
   testfw->CommitWork();
 }

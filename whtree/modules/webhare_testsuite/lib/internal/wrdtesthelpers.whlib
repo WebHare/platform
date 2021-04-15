@@ -90,7 +90,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   TestEq(testpersonrec.wrd_fullname, testpersonrec3.wrd_title);
   TestEq(MAX_DATETIME, testpersonrec3.limitdate);
 
-  TestThrows(PTR persontype->RunQuery(
+  TestThrowsLike("*did not match*", PTR persontype->RunQuery(
               [ outputcolumns := [ "XXX*" ]
               ]));
 
@@ -116,12 +116,12 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   testpersonrec := persontype->GetEntityFields(testpersonid, [ "WRD_CONTACT_EMAIL" ]);
   TestEq(testpersonrec.wrd_contact_email, "other@example.com");
 
-  TestThrows(PTR testpersonobj->UpdateEntity([ wrd_guid := "invalid" ]));
+  TestThrowsLike("*badbadvalue*not*valid*", PTR testpersonobj->UpdateEntity([ wrd_guid := "badbadvalue" ]));
   testpersonobj->UpdateEntity([ wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF" ]);
   TestEQ("wrd:0123456789ABCDEF0123456789ABCDEF", testpersonobj->GetField("WRD_GUID"));
 
-  TestThrows(PTR persontype->CreateEntity([ wrd_guid := "invalid" ]));
-  TestThrows(PTR persontype->CreateEntity([ wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF" ]));
+  TestThrowsLike("*badbadvalue*not*valid*", PTR persontype->CreateEntity([ wrd_guid := "badbadvalue" ]));
+  TestThrowsLike("*conflict*", PTR persontype->CreateEntity([ wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF" ]));
 
   // Create a domain with some values
   OBJECT domain1_obj := schemaobj->CreateDomain("TEST_DOMAIN_1", [ title := "Domain 1"]);
