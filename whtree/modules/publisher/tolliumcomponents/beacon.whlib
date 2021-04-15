@@ -28,6 +28,7 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
   UPDATE PUBLIC PROPERTY title(^beacon->title, ^beacon->title);
   UPDATE PUBLIC PROPERTY required(^beacon->required, ^beacon->required);
   PUBLIC PROPERTY empty(^beacon->empty, ^beacon->empty);
+  UPDATE PUBLIC PROPERTY errorlabel(^beacon->errorlabel, ^beacon->errorlabel);
   PUBLIC PROPERTY dirtylistener(^beacon->dirtylistener, ^beacon->dirtylistener);
   PUBLIC PROPERTY onchange(^beacon->onchange, ^beacon->onchange);
   PUBLIC PROPERTY options(GetOptions, -);
@@ -51,6 +52,7 @@ PUBLIC OBJECTTYPE DCBeacon EXTEND TolliumFragmentBase
     this->title := def.title;
     this->required := def.required;
     this->empty := def.empty;
+    this->errorlabel := def.errorlabel;
     this->dirtylistener := def.dirtylistener;
 
     this->searchroots := this->GetSearchRoots();

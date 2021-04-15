@@ -50,7 +50,7 @@
     </compositions>
     <contents>
       <line>
-        <p:beacon composition="value" cellname="beacon" emptytid=".nobeacons" required="true" tid=".is" rowkeyfield="name" />
+        <p:beacon composition="value" cellname="beacon" emptytid=".nobeacons" errorlabeltid=".beacon" required="true" tid=".is" rowkeyfield="name" />
         <textedit composition="value" cellname="maxdays" width="10x" emptyvalue="0" suffixtid=".days" valuetype="integer" />
       </line>
     </contents>

@@ -1383,6 +1383,8 @@
       <xs:attributeGroup ref="sc:Required" />
       <xs:attribute name="emptytid" type="sc:Tid" />
       <xs:attribute name="empty" type="xs:string" />
+      <xs:attribute name="errorlabeltid" type="sc:Tid" />
+      <xs:attribute name="errorlabel" type="xs:string" />
       <xs:attribute name="dirtylistener" type="tc:ComponentRef" />
       <xs:attribute name="rowkeyfield" use="required">
         <xs:simpleType>
