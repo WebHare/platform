@@ -2098,8 +2098,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
         {
-          IF(NOT CellExists(val,'status') OR TYPEID(val.status)!=TYPEID(STRING))
+          IF(NOT CellExists(val,'status'))
            THROW NEW Exception(`Missing status field for attribute '${attr.tag}'`);
+          IF(TYPEID(val.status)!=TYPEID(STRING))
+           THROW NEW Exception(`Status field for attribute '${attr.tag}' must be of type string, got '${GetTypeName(TYPEID(val))}'`);
 
           STRING status := val.status;
           IF(NOT importmode AND NOT IsAllowedEnumValue(status, attr.allowedvalues))
