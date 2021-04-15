@@ -137,14 +137,6 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
 
   MACRO SetValue(RECORD value)
   {
-    IF (RecordExists(value))
-    {
-      TRY
-        value := ValidateACCondition(value);
-      CATCH (OBJECT e)
-        THROW NEW TolliumException(this, "Invalid condition value: " || e->what);
-    }
-
     // Check if actually changed
     IF (EncodeHSON(value) = EncodeHSON(this->value))
       RETURN;
@@ -478,7 +470,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
 
   MACRO SetCondition(RECORD condition)
   {
-    IF (NOT RecordExists(condition))
+    IF (NOT CellExists(condition, "_type"))
     {
       // Reset to 'none'
       ^field->value := "";
@@ -490,7 +482,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
       IF (condition._type IN [ "and", "or" ])
       {
         ^field->value := ":" || condition._type;
-        IF (NOT RecordExists(condition.conditions))
+        IF (NOT CellExists(condition, "conditions") OR NOT RecordExists(condition.conditions))
         {
           // Make sure there is at least one subcondition
           this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
@@ -505,8 +497,16 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
       ELSE IF (condition._type = "not")
       {
         ^field->value := ":" || condition._type;
-        // Create the subcondition component
-        this->CreateCondition(condition.condition, DEFAULT OBJECT);
+        IF (NOT CellExists(condition, "condition") OR NOT RecordExists(condition.condition))
+        {
+          // Make sure there is a subcondition
+          this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
+        }
+        ELSE
+        {
+          // Create the subcondition component
+          this->CreateCondition(condition.condition, DEFAULT OBJECT);
+        }
       }
       ELSE IF (RecordExists(SELECT FROM ^field->options WHERE type = condition._type))
       {
