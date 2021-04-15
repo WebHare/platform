@@ -189,7 +189,7 @@ ASYNC MACRO TestManageSnippets()
 
 RunTestFramework([ PTR PrepContentSnippets
                  , PTR TestInclusions
-                 ,PTR TestReferences
+                 , PTR TestReferences
                  , PTR TestInsertContentSnippetWidget
                  , PTR TestModifySnippets
                  , PTR TestManageSnippets
