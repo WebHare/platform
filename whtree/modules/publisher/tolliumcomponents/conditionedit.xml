@@ -21,9 +21,7 @@
         <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
         <select name="field" title="" type="pulldown" onchange="onfieldselect" />
         <inlineblock name="conditioncontainer" title="" width="1pr">
-          <panel name="conditionfields">
-            <!-- The condition fragment is loaded here -->
-          </panel>
+          <!-- The condition fragment is loaded here -->
         </inlineblock>
         <button action="deletecondition" name="deleteconditionbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
         <button action="addcondition" name="addconditionbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
