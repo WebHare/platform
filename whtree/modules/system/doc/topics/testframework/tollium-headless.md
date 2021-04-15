@@ -29,7 +29,7 @@ RunTestFramework([ PTR TestApp
 ## General testing tips
 
 ### Lists
-When dealing with ediatble lists (listedit, arrayedit, lists with custom add/edit buttons..) test the Edit action after testing
+When dealing with editable lists (listedit, arrayedit, lists with custom add/edit buttons..) test the Edit action after testing
 an Add action (even if just to read and verify a single field in the Edit screen) and dismiss the screen with `TTClick(":Ok")`.
 You shouldn't have to update focus or list selection between dismissal of the Add screen and opening the Edit screen. Eg:
 
@@ -113,6 +113,16 @@ RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("reporturlhistory"))).fi
 
 If the tested function returns a XLSX file, you should be able to parse it
 with %GetOOXMLSpreadsheetRows.
+
+A more complex example testing a %RunColumnFileExportDialog:
+
+```harescript
+  AWAIT ExpectScreenChange(+1, PTR TTClick("export"));
+  RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  RECORD ARRAY testrows := SELECT * FROM GetOOXMLSpreadsheetRows(file.data) WHERE title LIKE "TEST: *" ORDER BY id;
+  TestEqMembers([ maincategory := "TEST: another of my categories", sub1 := "TEST: A Subcategory" ], testrows[2],"*");
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+```
 
 ### Drag and drop
 To execute a drag and drop action, use ExecuteDragDrop.
