@@ -1731,10 +1731,7 @@
       <text tid="beacon">Baken</text>
       <text tid="beacons">Bakens map</text>
       <text tid="contentsnippets">Content snippets</text>
-      <text tid="references">Slotverwijzingen</text>
-      <text tid="slotreferences">Bestanden die naar slot '<param p="1"/>' verwijzen</text>
       <text tid="slots">Slots map</text>
-      <text tid="viewreferences">Verwijzingen weergeven</text>
     </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML blok</text>
@@ -1831,22 +1828,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
-    <textgroup gid="adaptivecontent">   <!-- tolliumapps.adaptivecontent -->
-      <textgroup gid="widgetprops">   <!-- tolliumapps.adaptivecontent.widgetprops -->
-        <text tid="contenttab">Inhoud</text>
-        <text tid="generaltab">Algemeen</text>
-        <text tid="widgetprops"><ifparam p="1" value="">Nieuwe adaptive content<else/>Eigenschappen van adaptive content '<param p="1"/>'</ifparam></text>
-        <textgroup gid="beaconcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.beaconcondition -->
-          <text tid="name">Baken geactiveerd</text>
-        </textgroup>
-        <textgroup gid="newvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.newvisitorcondition -->
-          <text tid="name">Nieuwe bezoeker</text>
-        </textgroup>
-        <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.returningvisitorcondition -->
-          <text tid="name">Terugkerende bezoeker</text>
-        </textgroup>
-      </textgroup>
-    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Huidig pad</text>
@@ -2009,12 +1990,9 @@
           <text tid="nobeacons">&lt;geen bakens ingesteld&gt;</text>
         </textgroup>
         <textgroup gid="beaconprops">   <!-- tolliumapps.filemanager.adaptivecontent.beaconprops -->
-          <text tid="beaconreferences">Bestanden die naar baken '<param p="1"/>' verwijzen</text>
           <text tid="editbeacon">Eigenschappen voor baken '<param p="1"/>'</text>
           <text tid="newbeacon">Nieuw baken</text>
-          <text tid="references">Verwijzingen</text>
           <text tid="title">Titel</text>
-          <text tid="viewreferences">Verwijzingen weergeven</text>
         </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
           <text tid="conditionstab">Voorwaarden</text>
@@ -2031,12 +2009,6 @@
             <text tid="name-after">Bezoek vindt plaats na</text>
             <text tid="name-before">Bezoek vindt plaats voor</text>
           </textgroup>
-        </textgroup>
-        <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
-          <text tid="open">Openen in Publisher</text>
-          <text tid="references">Referenties</text>
-          <text tid="url">URL</text>
-          <text tid="whfspath">Pad</text>
         </textgroup>
         <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
           <text tid="notypesavailable">Er zijn geen content-slot-types beschikbaar</text>
@@ -2332,6 +2304,12 @@
           <text tid="ispermanent">(geen prullenbak, verwijdering kan niet ongedaan worden gemaakt)</text>
           <text tid="lifecycle">Levenscyclus</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
+        <text tid="open">Openen in Publisher</text>
+        <text tid="references">Referenties</text>
+        <text tid="url">URL</text>
+        <text tid="whfspath">Pad</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

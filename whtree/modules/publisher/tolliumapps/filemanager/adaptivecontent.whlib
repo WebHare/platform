@@ -105,7 +105,6 @@ PUBLIC STATIC OBJECTTYPE BeaconProps EXTEND TolliumScreenBase
   OBJECT beaconstore;
   INTEGER beaconid;
   STRING beacontitle;
-  INTEGER ARRAY referenceids;
 
 
   // ---------------------------------------------------------------------------
@@ -120,9 +119,6 @@ PUBLIC STATIC OBJECTTYPE BeaconProps EXTEND TolliumScreenBase
       this->beaconstore := OpenAdaptiveContentBeaconStore(SELECT AS INTEGER parent FROM system.fs_objects WHERE id = VAR data.id);
       this->beaconid := data.id;
       ^beacon->value := this->beaconstore->GetBeacon(this->beaconid);
-      this->referenceids := this->beaconstore->GetBeaconReferences(this->beaconid);
-      ^references->value := ToString(Length(this->referenceids));
-      ^viewreferencestext->visible := Length(this->referenceids) > 0;
 
       this->beacontitle := ^beacon->^title->value;
       this->frame->title := this->GetTid(".editbeacon", this->beacontitle);
@@ -130,25 +126,8 @@ PUBLIC STATIC OBJECTTYPE BeaconProps EXTEND TolliumScreenBase
     ELSE
     {
       this->beaconstore := OpenAdaptiveContentBeaconStore(data.parent);
-
-      ^references->visible := FALSE;
-      ^viewreferencestext->visible := FALSE;
       this->frame->title := this->GetTid(".newbeacon");
     }
-  }
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Action handlers
-  //
-
-  MACRO DoViewReferences()
-  {
-    RunReferencesScreen(this,
-        [ getreferences := PTR this->beaconstore->GetBeaconReferences(this->beaconid)
-        , title := this->GetTid(".beaconreferences", this->beacontitle)
-        ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -290,79 +269,3 @@ PUBLIC STATIC OBJECTTYPE VisitDateCondition EXTEND ConditionTypeFragmentBase
       ^date->value := newvalue.date;
   }
 >;
-
-
-PUBLIC STATIC OBJECTTYPE References EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  FUNCTION PTR getreferences;
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Initialization
-  //
-
-  MACRO Init(RECORD data)
-  {
-    IF (NOT ValidateFunctionPtr(data.getreferences, TypeID(INTEGER ARRAY), INTEGER[]))
-      THROW NEW TolliumException(this, `'getreferences' has the wrong signature, expected ${ExplainFunctionSignature(TypeID(INTEGER ARRAY), INTEGER[])}, got ${ExplainFunctionPtrSignature(data.getreferences)}`);
-    this->getreferences := data.getreferences;
-    this->RefreshList();
-
-    IF (data.title != "")
-      this->frame->title := data.title;
-  }
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Actions handlers
-  //
-
-  MACRO DoRefresh()
-  {
-    this->RefreshList();
-  }
-
-  MACRO DoOpen()
-  {
-    RunPublisherFileManager(this, ^documents->value);
-  }
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
-
-  MACRO RefreshList()
-  {
-    INTEGER ARRAY ids := this->getreferences();
-
-    ^documents->rows := SELECT rowkey := id, whfspath, title, url := indexurl
-                          FROM system.fs_objects
-                         WHERE id IN ids
-                               AND isactive;
-  }
->;
-
-
-//TODO expose a public api?
-/** @short Show a screen with referencing files
-    @param(object %TolliumScreenBase) parent The parent screen
-    @cell(function ptr) options.getreferences Function that returns a list of object ids to show
-    @cell(string) options.title Optional screen title
-*/
-PUBLIC MACRO RunReferencesScreen(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ getreferences := DEFAULT FUNCTION PTR
-      , title := ""
-      ], options,
-      [ required := [ "getreferences" ] ]);
-  parent->RunScreen(Resolve("adaptivecontent.xml#references"), options);
-}

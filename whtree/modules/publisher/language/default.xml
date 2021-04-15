@@ -1731,10 +1731,7 @@
       <text tid="beacon">Beacon</text>
       <text tid="beacons">Beacon folder</text>
       <text tid="contentsnippets">Content snippets</text>
-      <text tid="references">Slot references</text>
-      <text tid="slotreferences">Files referencing slot '<param p="1"/>'</text>
       <text tid="slots">Slots folder</text>
-      <text tid="viewreferences">View references</text>
     </textgroup>
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
       <text tid="embedhtml">HTML block</text>
@@ -1831,22 +1828,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
-    <textgroup gid="adaptivecontent">   <!-- tolliumapps.adaptivecontent -->
-      <textgroup gid="widgetprops">   <!-- tolliumapps.adaptivecontent.widgetprops -->
-        <text tid="contenttab">Content</text>
-        <text tid="generaltab">General</text>
-        <text tid="widgetprops"><ifparam p="1" value="">New adaptive content<else/>Properties of adaptive content '<param p="1"/>'</ifparam></text>
-        <textgroup gid="beaconcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.beaconcondition -->
-          <text tid="name">Triggered beacon</text>
-        </textgroup>
-        <textgroup gid="newvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.newvisitorcondition -->
-          <text tid="name">New visitor</text>
-        </textgroup>
-        <textgroup gid="returningvisitorcondition">   <!-- tolliumapps.adaptivecontent.widgetprops.returningvisitorcondition -->
-          <text tid="name">Returning visitor</text>
-        </textgroup>
-      </textgroup>
-    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Current path</text>
@@ -2009,12 +1990,9 @@
           <text tid="nobeacons">&lt;no beacons configured&gt;</text>
         </textgroup>
         <textgroup gid="beaconprops">   <!-- tolliumapps.filemanager.adaptivecontent.beaconprops -->
-          <text tid="beaconreferences">Files referencing beacon '<param p="1"/>'</text>
           <text tid="editbeacon">Properties of beacon '<param p="1"/>'</text>
           <text tid="newbeacon">New beacon</text>
-          <text tid="references">References</text>
           <text tid="title">Title</text>
-          <text tid="viewreferences">View references</text>
         </textgroup>
         <textgroup gid="conditions">   <!-- tolliumapps.filemanager.adaptivecontent.conditions -->
           <text tid="conditionstab">Conditions</text>
@@ -2031,12 +2009,6 @@
             <text tid="name-after">Visiting after</text>
             <text tid="name-before">Visiting before</text>
           </textgroup>
-        </textgroup>
-        <textgroup gid="references">   <!-- tolliumapps.filemanager.adaptivecontent.references -->
-          <text tid="open">Open in Publisher</text>
-          <text tid="references">References</text>
-          <text tid="url">URL</text>
-          <text tid="whfspath">Path</text>
         </textgroup>
         <textgroup gid="slotprops">   <!-- tolliumapps.filemanager.adaptivecontent.slotprops -->
           <text tid="notypesavailable">There are no content slot types available</text>
@@ -2332,6 +2304,12 @@
           <text tid="ispermanent">(no trash, deletion cannot be undone)</text>
           <text tid="lifecycle">Lifecycle</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
+        <text tid="open">Open in Publisher</text>
+        <text tid="references">References</text>
+        <text tid="url">URL</text>
+        <text tid="whfspath">Path</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

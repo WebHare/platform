@@ -90,15 +90,15 @@ ASYNC MACRO TestAdaptiveContentBeacons()
   AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
   TestEq("Is Employee", TT(":Title")->value);
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":View references"));
-  TestEq(2, Length(TT("documents")->rows));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-
   TT(":Title")->value := "Employee Beacon";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   TestEq("Employee Beacon", TT("filelist")->selection.title);
   TestEq("is-employee", TT("filelist")->selection.name);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq(2, Length(TT("fragment2!documents")->rows)); //We lack a clean way to find Documents on the References tab, so for now fragment2 will work
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
@@ -128,7 +128,6 @@ ASYNC MACRO TestAdaptiveContentSlots()
   TestEq(RECORD[], TT("types")->rows, "All filetypes should be blocked"); //and a new publisher UI should remove the need for an empty newfile dialog
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TestEq(2, Length(TT("type")->options));
   TT("type")->value := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/contentslot")->id;
@@ -143,6 +142,7 @@ ASYNC MACRO TestAdaptiveContentSlots()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
   TestEq("Content slot alpha", TT(":Title")->value);
   TT(":Title")->value := "Content slot alpha!";
+
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq("Content slot alpha!", TT("filelist")->selection.title);
@@ -236,12 +236,24 @@ ASYNC MACRO TestAdaptiveContentReordering()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestAdaptiveContentReferences()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots/a-slot-2" ]]));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq(1, Length(TT("fragment2!documents")->rows)); //We lack a clean way to find Documents on the References tab, so for now fragment2 will work
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR PrepConnectMgr
                  , PTR TestDCComponents
                  , PTR TestAdaptiveContentBeacons
                  , PTR TestAdaptiveContentTriggerBeaconWidget
                  , PTR TestAdaptiveContentSlots
                  , PTR TestAdaptiveContentReordering
+                 , PTR TestAdaptiveContentReferences
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "superuser"]
                                    ]

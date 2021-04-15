@@ -778,12 +778,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     OBJECT ARRAY applies := this->siteprof->xmldoc->documentelement->ListElements(whconstant_xmlns_publisher, "*");
     RECORD ARRAY applyrules;
-    RECORD counters := [ apply := 0, filetype := 0, foldertype := 0 ];
+    RECORD counters := [ apply := 0, filetype := 0, foldertype := 0, widgettype := 0 ];
     FOREVERY(OBJECT applyblock FROM applies)
     {
       STRING applynodetype := applyblock->localname;
 
-      IF(NOT CellExists(counters, applynodetype)) //is it <apply>, <filetype> or <foldertype> ?
+      IF(NOT CellExists(counters, applynodetype)) //is it <apply>, <widgettype>, <filetype> or <foldertype> ?
         CONTINUE; //don't care for this node
 
 
@@ -812,7 +812,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       {
         apply.tos := [[ type         := "to"
                       , match_all    := FALSE
-                      , match_file   := applynodetype = "filetype"
+                      , match_file   := applynodetype IN ["filetype","widgettype"]
                       , match_index  := FALSE
                       , match_folder := applynodetype = "folderype"
                       , pathmask     := ""
@@ -825,7 +825,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , parenttype   := ""
                       , withintype   := ""
                       , sitetype     := ""
-                      , filetype     := applynodetype = "filetype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
+                      , filetype     := applynodetype IN ["filetype","widgettype"] ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , contentfiletype := ""
                       , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , typeneedstemplate := FALSE

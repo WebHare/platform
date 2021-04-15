@@ -1,0 +1,82 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/internal/contentlibraries/snippets.whlib";
+LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";
+
+
+/* Reference Tab todo
+   - we should probably subsume Inspect's References tab (but hide uncommon/private refs behind a developer- or filter checkbox)
+   - instead of hardcoded type checks for the references function we should support plugins to be able to explain the 'why' behind
+     a reference
+   - it should probably be based on the source of the reference (eg an instance's 'insertsnippet' field) rather than the type
+     of the object itself */
+
+PUBLIC STATIC OBJECTTYPE ReferencesTab EXTEND TolliumTabsExtensionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->RefreshList();
+  }
+
+  INTEGER ARRAY FUNCTION GetReferences()
+  {
+    OBJECT target := OpenWHFSObject(this->contexts->objectpropsapi->targetid);
+    IF(ObjectExists(target))
+    {
+      IF(target->typens = "http://www.webhare.net/xmlns/publisher/widgets/contentsnippet")
+        RETURN GetSnippetReferences(this->contexts->objectpropsapi->targetid);
+      ELSE IF(target->typens = "http://www.webhare.net/xmlns/publisher/contentlibraries/beacon")
+        RETURN GetBeaconReferences(this->contexts->objectpropsapi->targetid);
+      ELSE //must be a slot, only 3 users of this tab..
+        RETURN GetSlotReferences(this->contexts->objectpropsapi->targetid);
+    }
+    RETURN INTEGER[];
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions handlers
+  //
+
+  MACRO DoRefresh()
+  {
+    this->RefreshList();
+  }
+
+  MACRO DoOpen()
+  {
+    RunPublisherFileManager(this, ^documents->value);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO RefreshList()
+  {
+    INTEGER ARRAY ids := this->getreferences();
+
+    ^documents->rows := SELECT rowkey := id, whfspath, title, url := indexurl
+                          FROM system.fs_objects
+                         WHERE id IN ids
+                               AND isactive;
+  }
+>;

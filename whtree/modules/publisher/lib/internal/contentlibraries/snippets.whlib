@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC INTEGER ARRAY FUNCTION GetSnippetReferences(INTEGER beaconid)
+{
+  // Return all fsobjects that have a richvalue with a triggerbeacon instance
+  RECORD insertmember := SELECT * FROM OpenWHFSType("http://www.webhare.net/xmlns/publisher/widgets/insertsnippet")->members WHERE name = "insertsnippet";
+  RETURN
+      SELECT AS INTEGER ARRAY DISTINCT fs_objects.id
+        FROM system.fs_settings
+           , system.fs_instances
+           , system.fs_objects
+       WHERE fs_settings.fs_member = insertmember.id
+             AND fs_settings.fs_object = beaconid
+             AND fs_settings.fs_instance = fs_instances.id
+             AND fs_instances.fs_object = fs_objects.id
+             AND fs_objects.isactive;
+}
+
