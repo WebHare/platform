@@ -320,7 +320,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
 
   calculateDimHeight()
   {
-    this.height.min = $todd.settings.grid_vsize;
+    this.height.min = $todd.gridlineInnerHeight;
     this.buttons.forEach(button =>
     {
       button.height.min = 16;

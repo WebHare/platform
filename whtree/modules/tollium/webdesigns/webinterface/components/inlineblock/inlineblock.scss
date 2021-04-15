@@ -1,7 +1,6 @@
 t-inlineblock
 {
   position:relative;
-  margin-top:2px; // like a textarea
 }
 
 html.debug-grid t-inlineblock:before
@@ -29,10 +28,6 @@ t-inlineblock > .panel-area > div.line > *
 t-inlineblock > .panel-area > div.line > * + *
 {
   margin-left:4px;
-}
-t-inlineblock > .panel-area > div.line > t-text
-{
-  margin-top:6px;
 }
 
 /* SYNC-BORDERS: these values must sync up with $todd.settings.border_top */

@@ -2,13 +2,15 @@ import * as test from '@mod-tollium/js/testframework';
 
 
 test.registerTests(
-  [ { loadpage: test.getTestScreen('tests/layout.layouttest,grid')
-    , waits: [ 'ui' ]
+  [ async function()
+    {
+      await test.load(test.getTestScreen('tests/layout.layouttest,grid'));
+      await test.wait('ui')
     }
 
-  , { name: 'verifybox'
-    , test:function(doc,win)
-      {
+  , "Verify first grid row (inline items)"
+  , async function()
+    {
         //var stretcharea = test.compByName('stretcharea');
         //var stretchareaholder = test.compByName('stretchareaholder');
         var selectel = test.compByName('rightmiddlecell').querySelector('select');
@@ -39,22 +41,51 @@ test.registerTests(
         test.eq(test.compByName('textedit3').getBoundingClientRect().top,    datecomp.nextSibling.getBoundingClientRect().top, "Top line of textedit#3 and date topright should align");
         test.eq(test.compByName('textedit3').getBoundingClientRect().bottom, datecomp.nextSibling.getBoundingClientRect().bottom, "Bottom line of textedit#3 and date topright should align");
 
-        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock').getBoundingClientRect().top, "Top line of textarea and inline block should align");
-        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock').getBoundingClientRect().bottom, "Bottom line of textarea and inline block should align");
+        test.eq(test.compByName('bottommiddletext').getBoundingClientRect().bottom, test.compByName('belowbuttontext').getBoundingClientRect().bottom, "Bottom line of bottommidle and belowbuttno texts should align");
+    }
 
-        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock_list').getBoundingClientRect().top, "Top line of textarea and inline block list should align");
-        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock_list').getBoundingClientRect().bottom, "Bottom line of textarea and inline block list should align");
+  , "Verify second grid row (inlineblocks with blocks)"
+  , async function()
+    {
+      test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock').getBoundingClientRect().top, "Top line of textarea and inline block should align");
+      test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock').getBoundingClientRect().bottom, "Bottom line of textarea and inline block should align");
 
-        test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('imgedit!preview').getBoundingClientRect().top, "Top line of textarea and imgedit should align");
-        test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('imgedit!preview').getBoundingClientRect().bottom, "Bottom line of textarea and imgedit should align");
-      }
+      test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock_list').getBoundingClientRect().top, "Top line of textarea and inline block list should align");
+      test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock_list').getBoundingClientRect().bottom, "Bottom line of textarea and inline block list should align");
+
+      //NOTE: this test relies on a tunable gridlineSnapMax - which I'm not sure yet we should really need (should we snap at all? should we not have a limit?)
+      test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock_letitcalc').getBoundingClientRect().top, "Top line of textarea and inline block letitcalc should align");
+      test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock_letitcalc').getBoundingClientRect().bottom, "Bottom line of textarea and inline blockletitcalc should align");
+
+      test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('imgedit!preview').getBoundingClientRect().top, "Top line of textarea and imgedit should align");
+      test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('imgedit!preview').getBoundingClientRect().bottom, "Bottom line of textarea and imgedit should align");
+    }
+
+  , "Verify third grid row (inlineblocks with inline elements)"
+  , async function()
+    {
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2b').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2B should align");
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2b').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2B should align");
+
+      let firstinlineblockholder = test.compByName('inlineblock_select1_cell');
+      test.eq(firstinlineblockholder.querySelector("t-text").getBoundingClientRect().top, firstinlineblockholder.querySelector("t-inlineblock t-text").getBoundingClientRect().top, "Top line of label 'Select1' and 'SE1' should align");
+      test.eq(firstinlineblockholder.querySelector("t-text").getBoundingClientRect().bottom, firstinlineblockholder.querySelector("t-inlineblock t-text").getBoundingClientRect().bottom, "Bottom line of label 'Select1' and 'SE1' should align");
+
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2c').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2C should align");
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2c').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2C should align");
+
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2d').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2d should align");
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2d').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2d should align");
+
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2e').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2e should align");
+      test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2e').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2e should align");
     }
 
   , { name: 'gridupdate'
     , test:function(doc,win)
       {
         test.eq(0,test.qSA('.wh-radiobutton').length);
-        test.eq(2,test.qSA('select').length);
+        test.eq(4,test.qSA('select').length);
         test.click(test.compByName('button')); //converts the select to a radiobutton
       }
     , waits: ['ui']
@@ -63,7 +94,7 @@ test.registerTests(
   , { test:function(doc,win)
       {
         test.eq(2,test.qSA('.wh-radiobutton').length);
-        test.eq(1,test.qSA('select').length);
+        test.eq(3,test.qSA('select').length);
       }
     }
   ]);

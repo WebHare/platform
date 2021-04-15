@@ -71,8 +71,8 @@ class UploadDialogController
                         , specials: ['cancelaction']
                         , title: getTid('tollium:shell.upload.progress.title')
                         }
-        , root:         { type: 'panel', lines: [{items: [ {item:"body"} ]}
-                                                ,{items: [ {item:"footer"} ]}
+        , root:         { type: 'panel', lines: [{ layout: "block", items: [ {item:"body"} ]}
+                                                ,{ layout: "block", items: [ {item:"footer"} ]}
                                                 ]
                         }
         , body:         { type: 'panel'
@@ -123,12 +123,13 @@ class UploadDialogController
 
     if(!detail.success)
     {
+      //TODO can't we use simplescreen.es here?
       this.done = true;
 
       var errormessagedialog = this.screen.displayapp.createScreen(
           { frame:        { bodynode: 'root', specials: ['closeaction'], title: getTid('tollium:shell.upload.messages.errortitle') }
-          , root:         { type: 'panel', lines: [{items: [ {item:"body"} ]}
-                                                  ,{items: [ {item:"footer"} ]}
+          , root:         { type: 'panel', lines: [{ layout: "block", items: [ {item:"body"} ]}
+                                                  ,{ layout: "block", items: [ {item:"footer"} ]}
                                                   ]
                           }
           , body:         { type: 'panel'

@@ -185,7 +185,7 @@ export default class ObjButton extends ActionableBase
     if (this.isToolbarButton())
       this.height.min = 56;
     else
-      this.height.min = $todd.settings.grid_vsize;
+      this.height.min = $todd.gridlineInnerHeight;
   }
 
   relayout()

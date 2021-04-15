@@ -763,8 +763,8 @@ function reportApplicationError(app,data,messages,trace)
 
   var crashdialog = app.createScreen(
     { frame:       { bodynode: 'root', specials: ['closeaction','debugaction','restartaction'], allowresize:true, allowclose:true, title: getTid("tollium:shell.errors.errordialogtitle") }
-    , root:        { type: 'panel', lines: [{items: [ {item:"body"} ], height:'1pr' }
-                                           ,{items: [ {item:"footer"} ]}
+    , root:        { type: 'panel', lines: [{ layout: "block", items: [ {item:"body"} ], height:'1pr' }
+                                           ,{ layout: "block", items: [ {item:"footer"} ]}
                                            ]
                    , height:'1pr'
                    }

@@ -29,7 +29,7 @@ class ToddCompBase
   */
   constructor(parentcomp, data, replacingcomp)
   {
-    this.componenttype = "component"
+    this.componenttype = "component";
 
       // The parent component
       // (This is what parent used to be, but MooTools uses this.parent to call ancestor functions within updated functions)
@@ -62,8 +62,6 @@ class ToddCompBase
     this.node = null; //'legacy' support
     this.nodes = {};
 
-    this.gridheightoverhead = 0;
-
     // Width settings
     this.width = {};
 
@@ -82,6 +80,9 @@ class ToddCompBase
     this.title = null;
     this.value = null;
     this.tooltip = null;
+
+    // If we're on a line, the line can tell us if we're in an inline element
+    this.isinline = parentcomp && parentcomp.holdsinlineitems;
 
     if(parentcomp===null && data===null)
       return; //the table subcomponents don't fully initialize their subs, so this is a hack for them
@@ -205,7 +206,7 @@ class ToddCompBase
   initializeSizes(data)
   {
     this.width = $todd.ReadXMLWidths(data);
-    this.height = $todd.ReadXMLHeights(data);
+    this.height = $todd.ReadXMLHeights(data, this.isinline);
   }
 
   setSizeToMaxOf(sizeproperty, nodes, addspace)
@@ -548,7 +549,7 @@ class ToddCompBase
     //apply minimums from XML
     if(prop.servermin)
     {
-      let calcmin = $todd.CalcAbsSize(prop.servermin, horizontal, horizontal ? 0 : this.gridheightoverhead);
+      let calcmin = $todd.CalcAbsSize(prop.servermin, horizontal, this.isinline);
       if(calcmin > prop.min)
       {
         prop.min = calcmin;
@@ -566,7 +567,7 @@ class ToddCompBase
     }
     else if($todd.IsFixedSize(prop.serverset))
     {
-      var newsize = $todd.CalcAbsSize(prop.serverset, horizontal, horizontal ? 0 : this.gridheightoverhead);
+      var newsize = $todd.CalcAbsSize(prop.serverset, horizontal, this.isinline);
       if($todd.IsDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " (screen-set) setting calc of " + prop.calc + ' to ' + newsize);
       prop.calc = newsize;
@@ -855,7 +856,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
       if(!sizeobj.serverset || $todd.IsFixedSize(sizeobj.serverset))
       {
         is_fixedsize=true;
-        setsize = $todd.CalcAbsSize(sizeobj.serverset, horizontal);
+        setsize = $todd.CalcAbsSize(sizeobj.serverset, horizontal, sizeobj.isinline);
       }
       if(logdistribute)
         console.log("Child " + idx + " xmlsize=" + sizeobj.serverset + ", is_fixedsize=" + is_fixedsize + ", setsize=" + setsize);

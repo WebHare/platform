@@ -2,6 +2,7 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import './buttongroup.scss';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
+var $todd = require('@mod-tollium/web/ui/js/support');
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -33,6 +34,9 @@ export default class ObjButtonGroup extends ComponentBase
 
       this.buttons.push(comp);
     });
+
+    //we *almost* have the whole layout sorted out, but buttongroups are inline components that want to take up more vertical space. so for now, we cheat... if this is the only showstopper it won't stop us now
+    this.tabsspacecheat = parentcomp && parentcomp.layout === "tabs-space";
 
     this.buildNode();
   }
@@ -67,6 +71,11 @@ export default class ObjButtonGroup extends ComponentBase
                     , button.getNode()
                     ])}
                 </t-buttongroup>;
+
+    if(this.tabsspacecheat)
+    {
+      this.node.style.marginTop = (-$todd.gridlineTopMargin) + "px";
+    }
 
     ['top','bottom','left','right'].forEach(dir =>
     {
@@ -137,8 +146,7 @@ export default class ObjButtonGroup extends ComponentBase
   relayout()
   {
     dompack.setStyles(this.node, { "width": this.width.set
-                                 , "height": this.height.set
-                                 , "margin-top": this.getVerticalPosition()
+                                 , "height": this.height.set + ( this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
                                  });
     this.buttons.forEach(button => button.relayout());
   }

@@ -944,7 +944,7 @@ t-hr:before
   display:block;
   content:"";
   border-bottom:1px solid;
-  height:18px;
+  height:11px;
 }
 
 /****************************************************************************************************************************
@@ -988,7 +988,7 @@ t-custom[data-name='imageeditor'] .wh-toolbar-modalbuttons
 
 t-custom[data-name='imageeditor'] .wh-toolbar-panel
 {
-  flex: 0;
+  flex: 0 0 100%;
   order: 1;
 }
 

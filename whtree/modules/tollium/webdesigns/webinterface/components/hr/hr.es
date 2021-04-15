@@ -21,7 +21,7 @@ export default class ObjHr extends ComponentBase
 
   calculateDimHeight()
   {
-    this.height.min = $todd.settings.grid_vsize;
+    this.height.min = $todd.gridlineInnerHeight;
   }
 
   relayout()

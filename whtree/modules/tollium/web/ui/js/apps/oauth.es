@@ -65,8 +65,8 @@ class OauthApp
                       }
 
       , root:         { type: 'panel'
-                      , lines: [ { items: [ { item:"body" } ], height:'1pr' }
-                               , { items: [ { item:"footer" } ], height:'1pr' }
+                      , lines: [ { layout: "block", items: [ { item:"body" } ], height:'1pr' }
+                               , { layout: "block", items: [ { item:"footer" } ], height:'1pr' }
                                ]
                       , height:'1pr'
                       }
