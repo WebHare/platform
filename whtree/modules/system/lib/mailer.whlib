@@ -1331,10 +1331,6 @@ STATIC OBJECTTYPE WittyMailComposer
     IF(this->restructure)
       RestructureEmailForCompatibility(maildoc);
 
-    //Apply style cleanups
-    FOREVERY(OBJECT style FROM maildoc->GetElementsByTagName("style")->GetCurrentElements())
-      MakeCSSStyleSheet(StringToBlob(style->textcontent))->RewriteDomStyles(maildoc);
-
     IF(this->postrestructurehook != DEFAULT MACRO PTR)
       this->postrestructurehook(maildoc);
 
