@@ -738,7 +738,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         {
           // Ensure the public draft exists if we're actually saving something
           IF (NOT ObjectExists(this->currentdraft))
-            this->currentdraft := CreateDraft(OpenWHFSObject(this->fileid), TRUE);
+            this->currentdraft := CreateDraft(OpenWHFSObject(this->fileid), this->currentautosave->id, TRUE);
 
           this->currentautosave->SaveToPublicDraft(
               [ basefields :=   [ "DATA" ]
@@ -781,7 +781,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           // Make sure there is a draft to submit.
           OBJECT fsobj := OpenWHFSObject(this->fileid);
           IF (NOT ObjectExists(this->currentdraft))
-            this->currentdraft := GetPublicDraft(fsobj->id) ?? CreateDraft(fsobj, TRUE);
+            this->currentdraft := GetPublicDraft(fsobj->id) ?? CreateDraft(fsobj, fsobj->id, TRUE);
 
           // Set the 'published' flag of the draft (in the draftmetadata) to published.
           RECORD testdraft_draftdata := this->currentdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
@@ -839,7 +839,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF (this->frame->flags.isdirty)
     {
       IF (NOT ObjectExists(this->currentautosave))
-        this->currentautosave := CreateDraft(OpenWHFSObject(this->fileid), FALSE);
+      {
+        //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
+        this->currentautosave := CreateDraft(OpenWHFSObject(this->fileid), ObjectExists(this->currentdraft) ? this->currentdraft->id : this->fileid, FALSE);
+      }
 
       this->contexts->editdocumentapi->__FlushInstanceData(this->currentautosave->fsobject);
     }

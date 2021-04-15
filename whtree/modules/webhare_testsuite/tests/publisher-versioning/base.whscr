@@ -91,7 +91,7 @@ ASYNC MACRO TestAccept()
       ]);
 
   // Modify all possibly versioned fields in the draft
-  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+  OBJECT testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   ModifyAllDraftFields(folder, testfiledraft, TRUE);
 
   testfw->CommitWork();
@@ -129,7 +129,7 @@ ASYNC MACRO TestAccept()
 
   testfw->BeginWork();
 
-  testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   ModifyAllDraftFields(folder, testfiledraft, TRUE);
 
   testfw->CommitWork();
@@ -181,7 +181,7 @@ ASYNC MACRO TestAccept()
       , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
       ]);
 
-  testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   ModifyAllDraftFields(folder, testfiledraft, FALSE);
 
   testfw->CommitWork();
@@ -236,7 +236,7 @@ ASYNC MACRO TestAccept()
       , type :=           OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
       ]);
 
-  testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   ModifyAllDraftFields(folder, testfiledraft, FALSE);
 
   testfw->CommitWork();
@@ -287,7 +287,7 @@ ASYNC MACRO TestDeny()
       , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
       ]);
 
-  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+  OBJECT testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata",
         [ name :=         "testdeny.txt"
         , parent :=       root->id
@@ -305,7 +305,7 @@ ASYNC MACRO TestDeny()
 
   testfw->BeginWork();
 
-  OBJECT testfiledraft2 := CreateDraft(testfile, TRUE);
+  OBJECT testfiledraft2 := CreateDraft(testfile, testfile->id, TRUE);
   ModifyAllDraftFields(folder, testfiledraft2, TRUE);
 
   testfw->CommitWork();
@@ -378,7 +378,7 @@ MACRO TestOrderingAndVersionNumbers()
       , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
       ]);
 
-  OBJECT testfiledraft := CreateDraft(testfile, TRUE);
+  OBJECT testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
 
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "initial will-cancel request" ]);
   TestEQ(
@@ -413,7 +413,7 @@ MACRO TestOrderingAndVersionNumbers()
       , [ o := 4, c := TRUE, v := "1.0", e := VersionEventType_AcceptApply ]
       ], SELECT o := ordering, c := iscurrent, v := versionnumber, e := eventtype FROM system.fs_versionevents WHERE live_object = testfile->id ORDER BY ordering);
 
-  testfiledraft := CreateDraft(testfile, TRUE);
+  testfiledraft := CreateDraft(testfile, testfile->id, TRUE);
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "fourth denied request" ]);
   TestEQ(
       [ [ o := 1, c := FALSE, v := "0.1", e := VersionEventType_Request ]

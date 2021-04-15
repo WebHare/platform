@@ -68,7 +68,7 @@ PUBLIC MACRO EnableSiteVersionHistory(OBJECT siteobj, OBJECT user, STRING versio
 
     TRY
     {
-      OBJECT draft := CreateDraft(file, TRUE);
+      OBJECT draft := CreateDraft(file, fileid, TRUE);
 
       SubmitApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import request", expirydate := options.expirydate ]);
       AcceptApprovalRequestForDraft(draft, [ userobject := user, message := "Initial import approval" ]);
@@ -355,7 +355,7 @@ PUBLIC MACRO AcceptApprovalRequestForDraft(OBJECT draftobject, RECORD options)
   source->Refresh();
 
   // Create a draft with the contents after apply
-  OBJECT applied_draft := CreateDraft(source, TRUE);
+  OBJECT applied_draft := CreateDraft(source, source->id, TRUE);
 
   // Copy the flags from the old draft (except wasindex, need that from the new draft)
   RECORD metadata := whfs_draftmetadata->GetInstanceData(draftobject->id);

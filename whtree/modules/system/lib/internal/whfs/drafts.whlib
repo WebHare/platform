@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib" ;
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
 
-RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER destid, INTEGER versionparent, RECORD updates)
+RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid, INTEGER versionparent, RECORD updates)
 {
   RECORD orginfo := SELECT * FROM system.fs_objects WHERE id = srcid;
   RECORD currentinfo := MakeReplacedRecord(orginfo, updates);
@@ -29,10 +29,10 @@ RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER destid, INTEGER versionparent, 
          WHERE id = orginfo.parent
            AND indexdoc = srcid);
 
-  FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(srcid))
+  FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(instancesource))
   {
     OBJECT typeobj := OpenWHFSTypeById(cancopy);
-    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(srcid));
+    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(instancesource));
   }
 
   OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
@@ -253,7 +253,6 @@ OBJECTTYPE WHFSDraft
     RECORD new_metadata := this->GetFilteredMetadata(this->id, options);
     RECORD old_metadata := this->GetFilteredMetadata(final->id, options);
     final->UpdateMetadata(new_metadata.basefields);
-
     FOREVERY (RECORD instance FROM new_metadata.instances)
     {
       instance.type->ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
@@ -369,8 +368,10 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
   RETURN ObjectExists(draft) AND draft->source = objid ? draft : DEFAULT OBJECT;
 }
 
-/** @short Create a new draft from this object*/
-PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, BOOLEAN publicdraft)
+/** @short Create a new draft from this object
+    @param whfsobject Object to which the draft is linked
+    @param instancesource ID from which we should copy existing contenettype data, Usually whfsobject->id */
+PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BOOLEAN publicdraft)
 {
   IF(whfsobject->isfolder)
     THROW NEW Exception("Cannot create a draft version from a folder");
@@ -405,7 +406,7 @@ PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, BOOLEAN publicdraft)
   }
 
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  QuickCopy(whfsobject->id, destid, publicdraft ? whconstant_whfsid_drafts : whconstant_whfsid_autosaves, [ modifiedby := GetEffectiveUserID(), filelink := whfsobject->id, creationdate := GetCurrentDatetime() ]);
+  QuickCopy(whfsobject->id, instancesource, destid, publicdraft ? whconstant_whfsid_drafts : whconstant_whfsid_autosaves, [ modifiedby := GetEffectiveUserID(), filelink := whfsobject->id, creationdate := GetCurrentDatetime() ]);
 
   IF (versioning_site != 0)
     GetPrimary()->BroadcastOnCommit("system:versionevent." || versioning_site || "." || whfsobject->id, [ type := "createdraft", live_file := whfsobject->id, draft := destid ]);

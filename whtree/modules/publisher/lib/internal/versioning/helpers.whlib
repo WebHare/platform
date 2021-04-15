@@ -211,7 +211,7 @@ PUBLIC RECORD FUNCTION PrepareForVersionedUpdate(RECORD testresult, INTEGER ARRA
        WHERE id IN testresult.drafts AND id IN modify_ids;
 
   draftids := draftids CONCAT
-      SELECT AS INTEGER ARRAY CreateDraft(OpenWHFSObject(id), TRUE)->id
+      SELECT AS INTEGER ARRAY CreateDraft(OpenWHFSObject(id), id, TRUE)->id
         FROM system.fs_objects
        WHERE id IN testresult.versioned AND id IN modify_ids;
 
