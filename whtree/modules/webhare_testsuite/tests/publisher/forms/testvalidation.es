@@ -105,7 +105,7 @@ test.registerTests(
       test.click('#coretest-showradioy'); //hide Y
 
       //submit should fail as we've made "Y" disappear
-      test.click(test.qS('#submitbutton'));
+      test.click('#submitbutton');
       await test.wait('ui');
 
       //the CLIENT should have detected this..
