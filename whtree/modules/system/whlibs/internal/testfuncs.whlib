@@ -15,6 +15,8 @@ BOOLEAN test_open;        // Is there an open test?
 INTEGER test_errorcount;  // Number of errors in the current test
 INTEGER test_lastnumber;  // Number of the last test
 BOOLEAN expecttestexception; //allow test exceptions to come through. we need this to test the test framework
+BOOLEAN warned_testthrow, warned_testreject;
+
 PUBLIC FLOAT max_float_dev_in_recordarray := 0.0001f;
 /** Show opened tests and used test nrs.
     @private Not used anymore
@@ -129,6 +131,12 @@ PUBLIC MACRO CloseTest(STRING testname)
 */
 PUBLIC OBJECT FUNCTION TestThrows(FUNCTION PTR testfunc, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
 {
+  IF(NOT warned_testthrow)
+  {
+    Print(`** TestThrows has been deprecated and will be removed in the future. You can switch to TestThrowsLike("*", ...) but we recommend more explicitly matching the expected exception\n`);
+    warned_testthrow := TRUE;
+  }
+
   TRY
   {
     testfunc();
@@ -224,6 +232,12 @@ PUBLIC OBJECT FUNCTION TestThrowsLike(STRING mask, FUNCTION PTR testfunc, STRING
 */
 PUBLIC OBJECT FUNCTION TestRejected(OBJECT promise, STRING annotation DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE)
 {
+  IF(NOT warned_testreject)
+  {
+    Print(`** TestRejected has been deprecated and will be removed in the future. You can switch to TestRejectedLike("*", ...) but we recommend more explicitly matching the expected exception\n`);
+    warned_testreject := TRUE;
+  }
+
   TRY
   {
     WaitForPromise(promise);

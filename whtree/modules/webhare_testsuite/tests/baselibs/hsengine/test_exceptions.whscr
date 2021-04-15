@@ -391,7 +391,7 @@ MACRO FinallyTest()
   TestEQ(TRUE, FinallyTestLoopBreak());
 
   acts := DEFAULT RECORD ARRAY;
-  TestThrows(PTR FinallyNest(3));
+  TestThrowsLike("BOEM", PTR FinallyNest(3));
   TestEQ([ [ depth := 3 ], [ depth := 2 ], [ depth := 1 ], [ depth := 0 ] ], acts);
 
   TestEQ(1, FinallyReturnOther());
