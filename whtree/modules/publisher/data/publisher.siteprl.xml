@@ -460,10 +460,6 @@
       <richdocument name="data" />
     </members>
     <setobjecteditor name="publisher:editdocument" supportsversioning="true" />
-    <richdocumenteditor>
-      <structuredefinition fullpath="mod::publisher/data/default.structure.xml" />
-      <css fullpath="mod::publisher/data/default.structure.css" />
-    </richdocumenteditor>
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD" />
   </filetype>
 
@@ -642,8 +638,10 @@
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/photogallery.whlib#PhotoGalleryRenderer" />
   </apply>
 
-  <apply priority="-1">
+  <apply priority="-1000"> <!-- set up global defaults -->
     <to type="all" />
+
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
 
     <!-- By default, allow all questions and handlers that don't require extra configuration or JS help -->
     <allowformquestion type="http://www.webhare.net/xmlns/publisher/forms#*" />

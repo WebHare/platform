@@ -5,25 +5,26 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::tollium/lib/rtd/doc.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
 
 PUBLIC RECORD ARRAY FUNCTION RPC_GetRestructuringTests()
 {
   RECORD ARRAY result;
+  OBJECT structure := NEW RichDocumentStructure;
+  OpenPrimary();
+  RECORD rtdsettings := GetRTDSettingsForFile(OpenTestsuiteSite()->id);
 
   FOREVERY (RECORD test FROM restructuringtests)
   {
-    OBJECT structure := NEW RichDocumentStructure;
-    OBJECT doc;
-    IF (test.structure LIKE "<*")
-      doc := MakeXMLDocument(StringToBlob(test.structure));
-    ELSE
-      doc := MakeXMLDocument(GetWebhareResource(test.structure));
-
-    structure->LoadFROMXML(doc->documentelement, doc->documentelement->namespaceuri);
+    rtdsettings.structure := GetRTDType(test.rtdtype).structure;
+    structure->LoadFromRTDType(rtdsettings);
     INSERT
         [ ...test
         , structure :=    structure->structure

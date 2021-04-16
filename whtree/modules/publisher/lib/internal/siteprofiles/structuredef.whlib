@@ -347,8 +347,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.type := "text";
         style.containertag := styleblock->GetAttribute("containertag");
         style.split := ParseXSBoolean(styleblock->GetAttribute("split"));
+        style.importfrom := ParseXSList(styleblock->GetAttribute("importfrom")); //new format: read and split attribute to get the selectors
 
-        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
+        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements()) //legacy structurdef format, mno longer supported
         {
           INSERT importnode->GetAttribute("selector") INTO style.importfrom AT END;
         }

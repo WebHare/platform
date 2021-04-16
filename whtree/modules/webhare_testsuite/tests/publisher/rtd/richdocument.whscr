@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
@@ -171,7 +172,7 @@ MACRO ParserApiTest()
   TestEQ("#EBEDF0", storeddata.embedded[0].dominantcolor);
 
   OBJECT structure := NEW RichDocumentStructure;
-  structure->LoadFromXML(MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  structure->LoadFromRTDType(GetRTDSettingsForFile(parserapitestfile->id));
   OBJECT parseddoc := MakeParsedRichDocument(storeddata);
   parseddoc->ApplyStructureDefinition(structure);
 
@@ -663,7 +664,7 @@ MACRO IntLinktest()
 
   //Get a generated document
   OBJECT structure := NEW RichDocumentStructure;
-  structure->LoadFromXML(MakeXMLDocument(GetWebHareResource("mod::publisher/data/default.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  structure->LoadFromRTDType(GetRTDSettingsForFile(testfile2->id));
   myrichdoc->ApplyStructureDefinition(structure);
 
   OBJECT result := myrichdoc->RenderAllAsHTMLDocument();

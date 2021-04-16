@@ -239,12 +239,15 @@
       <xs:enumeration value="strike"/>
       <xs:enumeration value="img"/>
       <xs:enumeration value="code"/>
+      <xs:enumeration value="ins"/>
+      <xs:enumeration value="del"/>
     </xs:restriction>
   </xs:simpleType>
 
 
   <xs:complexType name="TextStyle">
     <xs:attribute name="tag" type="Tag" use="required" />
+    <xs:attribute name="importfrom" type="xs:string" />
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="split" type="xs:boolean" />
     <xs:attribute name="containertag" type="BlockstyleContainerTag" />
@@ -253,13 +256,6 @@
   </xs:complexType>
 
   <xs:complexType name="TableStyle">
-    <xs:sequence>
-      <xs:element name="importfrom" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="selector" use="required" />
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
     <xs:attribute name="tag" type="Tag" use="required" />
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="defaultstyle" type="xs:string" />

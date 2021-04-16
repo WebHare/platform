@@ -280,5 +280,59 @@
     <portal xmlns="http://www.webhare.net/xmlns/tollium" dashboardmenuupdater="../lib/tollium.whlib#UpdateDashboardMenu" />
   </apply>
 
+  <!-- Test RTD typs -->
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" split="true" textstyles="i u b" />
+      <textstyle tag="HEADING2" textstyles="i u" />
+      <textstyle tag="NORMAL" textstyles="i u b sub sup a-href strike img"/>
+      <textstyle tag="LANGUAGE-HARESCRIPT" containertag="code" textstyles=""/>
+      <tablestyle tag="TABLETAG"/>
+    </blockstyles>
+  </rtdtype>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" containertag="h1" textstyles=""/>
+      <textstyle tag="HEADING2" containertag="h2" textstyles="" />
+      <textstyle tag="HEADING3" containertag="h3" textstyles=""/>
+      <textstyle tag="HEADING4" containertag="h4" textstyles="" />
+      <textstyle tag="NORMAL"  textstyles=""/>
+      <textstyle tag="UNORDERED" containertag="ul"  textstyles=""/>
+      <textstyle tag="ORDERED" containertag="ol" textstyles="" />
+      <tablestyle tag="TABLE" />
+    </blockstyles>
+  </rtdtype>
+
+ <rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="CONTENTTAB" importfrom="h2.tab" containertag="p" textstyles=""/>
+      <textstyle tag="HEADING1" title="Kop 1" textstyles="i u" containertag="h1" nextstyle="HEADING2" />
+      <textstyle tag="HEADING2" title="Kop 2" textstyles="i u" containertag="h2" nextstyle="NORMAL" />
+      <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike img" containertag="p" />
+      <textstyle tag="MYSTYLE" title="MyCustomStyle" textstyles="i u b sub sup a-href strike img" containertag="p" />
+      <textstyle tag="ORDERED" title="Genummerde lijst" textstyles="i u b sub sup a-href strike img" containertag="ol" />
+      <textstyle tag="UNORDERED" title="Ongenummerde lijst" textstyles="i u" containertag="ul" />
+      <tablestyle tag="TABLE" title="Tabel" defaultstyle="MYSTYLE" />
+      <tablestyle tag="ALTTABLE" title="Alt Tabel" defaultstyle="MYSTYLE" />
+      <cellstyle tag="BLUE" title="Blue Cell" />
+      <cellstyle tag="RED" title="Red Cell" />
+    </blockstyles>
+  </rtdtype>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="a-href b i u strike sub sup" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="a-href b i u strike sub sup" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="a-href b i u strike sub sup" />
+    </blockstyles>
+  </rtdtype>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike ins del" containertag="p" />
+    </blockstyles>
+  </rtdtype>
+
   <applysiteprofile path="webhare_testsuite-next.siteprl.xml" />
 </siteprofile>
