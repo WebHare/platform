@@ -277,6 +277,18 @@ PUBLIC OBJECT FUNCTION TestRejectedLike(STRING mask, OBJECT promise, STRING anno
   }
   CATCH (OBJECT e)
   {
+    IF (e->what NOT LIKE mask)
+    {
+      IF(annotation != "")
+        Print("\nAnnotation: " || annotation || "\n");
+
+      PRINT("Expected a rejection at line " || GetStackTrace()[0].line || " with a what like '"||mask||"', but it threw: '"||e->what||"'\nTrace:\n");
+      FOREVERY (RECORD rec FROM e->trace)
+        PRINT("At " || rec.filename || "(" || rec.line || "," || rec.col || ") (" || rec.func || ")\n");
+      PRINT("\n");
+      PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
+      THROW NEW TestFailException(annotation);
+    }
     RETURN e;
   }
   PrintRecordArrayTo(0, GetAsyncStackTrace(), 'boxed');
