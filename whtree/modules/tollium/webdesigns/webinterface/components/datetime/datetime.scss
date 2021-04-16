@@ -101,12 +101,6 @@ html.browser-ie11
   @include tollium-skinicon-reset;
 }
 
-  t-panel > .panel-area > div.line > t-datetime
-, t-inlineblock > .panel-area > div.line > t-datetime
-{
-  margin-top:2px;
-}
-
 ///////////////////////////////////
 //
 // Date picker

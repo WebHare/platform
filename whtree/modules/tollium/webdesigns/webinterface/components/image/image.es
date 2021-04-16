@@ -553,7 +553,7 @@ export default class ObjImage extends ActionableBase
   calculateDimHeight()
   {
     this.height.calc = $todd.CalcAbsSize(this.height.xml_set);
-    this.height.min = Math.max(this.height.calc, $todd.settings.grid_vsize);
+    this.height.min = Math.max(this.height.calc, $todd.gridlineInnerHeight);
     this.debugLog("dimensions", "min=" + this.height.min + ", calc=" + this.height.calc + ", min=" + this.height.min);
   }
 

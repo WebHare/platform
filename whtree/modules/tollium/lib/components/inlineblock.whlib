@@ -1,11 +1,12 @@
 <?wh
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/components/panel.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // An inline block
 
-PUBLIC OBJECTTYPE TolliumInlineBlock EXTEND TolliumLinesContainerBase
+PUBLIC OBJECTTYPE TolliumInlineBlock EXTEND TolliumPanelLikeBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -48,9 +49,10 @@ PUBLIC OBJECTTYPE TolliumInlineBlock EXTEND TolliumLinesContainerBase
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
-    TolliumComponentBase::StaticInit(def);
+    TolliumPanelLikeBase::StaticInit(def);
     this->layout := def.layout;
     this->pvt_borders := def.borders;
+    //TODO move background and layout/line stuff to TolliumPanelLikeBase
     this->pvt_backgroundcolor := def.backgroundcolor;
     this->pvt_backgroundimages := def.backgroundimages;
     this->lines := def.lines;
@@ -111,7 +113,7 @@ PUBLIC OBJECTTYPE TolliumInlineBlock EXTEND TolliumLinesContainerBase
         this->ToddUpdate([type := "backgroundimages", backgroundimages := this->backgroundimages ]);
       }
     }
-    TolliumComponentBase::TolliumWebRender();
+    TolliumPanelLikeBase::TolliumWebRender();
   }
 
 

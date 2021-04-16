@@ -131,7 +131,7 @@ PUBLIC RECORD ARRAY FUNCTION ExplainLines(OBJECT parent, RECORD ARRAY lines)
 
     OBJECT labelforobject := ObjectExists(labelobject) ? labelobject->GetTitleForComponent() : DEFAULT OBJECT;
     STRING lineheight;
-    IF(Length(items)=1) //copy only item lineheight to the line: this fixes <textarea height="1pr"> (FIXME what to do if a line a has multiple, conflicting heights?)
+    IF(Length(items) = 1 AND items[0]->height LIKE "*pr") //copy only item lineheight to the line: this fixes <textarea height="1pr"> (TODO what if there are multiple items? not sure what <line><..height="1pr"><..height=2"pr"> should even accomplish..)
       lineheight := items[0]->height;
 
     INSERT

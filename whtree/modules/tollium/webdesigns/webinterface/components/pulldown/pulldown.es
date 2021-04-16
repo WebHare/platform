@@ -60,11 +60,6 @@ export default class ObjPulldown extends HTMLComponentBase
  * Dimensions
  */
 
-  getSkinSettings()
-  {
-    return { compheight: Math.ceil(this.node.getBoundingClientRect().height) };
-  }
-
   calculateDimWidth()
   {
     this.width.min = 32; //FIXME determine a value, or don't we want us to ever shrink ?
@@ -74,7 +69,7 @@ export default class ObjPulldown extends HTMLComponentBase
 
   calculateDimHeight()
   {
-    this.height.min = Math.max(this.skinsettings.compheight, $todd.settings.grid_vsize);
+    this.height.min = $todd.settings.grid_vsize - $todd.settings.gridline_bottommargin - $todd.settings.gridline_topmargin;
   }
 
   relayout()

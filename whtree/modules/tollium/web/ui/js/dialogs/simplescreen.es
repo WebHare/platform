@@ -32,8 +32,8 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
                      , defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : ''
                      }
 
-      , root:        { type: 'panel', lines: [{items: [ {item:"body"} ], height:'1pr' }
-                                             ,{items: [ {item:"footer"} ]}
+      , root:        { type: 'panel', lines: [{ layout: "block", items: [ {item:"body"} ], height:'1pr' }
+                                             ,{ layout: "block", items: [ {item:"footer"} ]}
                                              ]
                      , height:'1pr'
                      }

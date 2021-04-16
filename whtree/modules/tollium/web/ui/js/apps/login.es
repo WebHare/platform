@@ -52,8 +52,8 @@ class LoginApp
                       }
 
       , secondfactor:   { type:   "panel"
-                        , lines:  [ { items:[ { item:"secondfactortop" } ], height:'1pr' }
-                                  , { items:[ { item:"secondfactorfooter" } ] }
+                        , lines:  [ { layout: "block", items:[ { item:"secondfactortop" } ], height:'1pr' }
+                                  , { layout: "block", items:[ { item:"secondfactorfooter" } ] }
                                   ]
                         , width:  "1pr"
                         , height: "1pr"
@@ -249,8 +249,8 @@ class LoginApp
           screencomponents =
               { ...screencomponents
               , loginpanel:     { type:   "panel"
-                                , lines:  [ { items:[ { item:"logintop" } ] }
-                                          , { items:[ { item:"loginfooter" } ] }
+                                , lines:  [ { layout: "block", items:[ { item:"logintop" } ] }
+                                          , { layout: "block", items:[ { item:"loginfooter" } ] }
                                           ]
                                 , width:  "1pr"
                                 , spacers: { }

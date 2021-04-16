@@ -66,7 +66,7 @@ export default class ObjTabs extends ComponentBase
                     , target: this.name + "#line"
                     , destroywithparent: true
                     };
-      this.line = new $todd.ObjPanelLine(this, srcline);
+      this.line = new $todd.ObjPanelLine(this, srcline, null);
       data.line.forEach(srcitem =>
       {
         var newcomp = this.owner.addComponent(this.line, srcitem);

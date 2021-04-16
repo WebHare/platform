@@ -35,6 +35,7 @@ export default class ObjInlineBlock extends ComponentBase
     this.spacers = data.spacers;
     this.borders = data.borders;
 
+    //FIXME reshare code below with panel.es
     //ADDME can't we embed Block items directly instead of wrapping them into lines?
     this.lines = [];
     if(data.lines)
@@ -42,7 +43,9 @@ export default class ObjInlineBlock extends ComponentBase
     {
       srcline.target = this.name + "#line$" + i;
       srcline.destroywithparent = true;
-      var line = new ObjPanelLine(this, srcline, null, null);
+      var line = new ObjPanelLine(this, srcline, null, { removetopmargin: i == 0
+                                                       , removebottommargin: i == data.lines.length - 1
+                                                       });
       this.lines.push(line);
 
       if(line.title)
@@ -176,11 +179,11 @@ export default class ObjInlineBlock extends ComponentBase
 
     //Prepare line calculation: we first need their label widths, then lines can do their actual calculations
     this.setSizeToMaxOf('width', this.lines);
-    this.width.overhead = (this.borders && this.borders.left ? $todd.settings.border_left : 0) +
+    this.overhead_x = (this.borders && this.borders.left ? $todd.settings.border_left : 0) +
                         + (this.borders && this.borders.right ? $todd.settings.border_right : 0);
 
-    this.width.min += this.width.overhead;
-    this.width.calc += this.width.overhead;
+    this.width.min += this.overhead_x;
+    this.width.calc += this.overhead_x;
 
     this.width.min = Math.max(this.width.min, headerwidth);
     this.width.calc = Math.max(this.width.calc, headerwidth);
@@ -189,10 +192,10 @@ export default class ObjInlineBlock extends ComponentBase
   applySetWidth()
   {
     //the inner width/height is what we present to our contents, and may exceed set width/height if we can scroll ourselves
-    this.innerwidth = this.width.set - this.width.overhead;
+    this.innerwidth = this.width.set - this.overhead_x;
 
     var setwidth = this.innerwidth;
-    this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set + ", overhead=" + this.width.overhead + ", effective=" + setwidth);
+    this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set + ", overhead=" + this.overhead_x + ", effective=" + setwidth);
 
     this.lines.forEach(comp => comp.setWidth(setwidth));
   }
@@ -202,20 +205,24 @@ export default class ObjInlineBlock extends ComponentBase
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
 
-    this.height.overhead = 5 //grid requires 5 pixel margins if our inner area is to align with everything else
-                           + (this.borders && this.borders.top ? $todd.settings.border_top : 0)
-                           + (this.borders && this.borders.bottom ? $todd.settings.border_bottom : 0);
+    this.overhead_y = (this.borders && this.borders.top ? $todd.settings.border_top : 0)
+                      + (this.borders && this.borders.bottom ? $todd.settings.border_bottom : 0);
 
-    this.height.min += this.height.overhead;
-    this.height.calc += this.height.overhead;
+    this.height.min += this.overhead_y;
+    this.height.calc += this.overhead_y;
 
-    if(!this.height.serverset && (this.height.calc % $todd.settings.grid_vsize) != 0) //if the server didn't set a height, grow to multiple of grid line height
-      this.height.calc += $todd.settings.grid_vsize - (this.height.calc % $todd.settings.grid_vsize);
+    //if the server didn't set a height, grow to multiple of grid line height (round up to next "gr" size). keep in mind that we need to subtract gridlineTotalMargin for 'gr'
+    if(!this.height.serverset)
+    {
+      let missingpixels = (this.height.calc + $todd.gridlineTotalMargin) % $todd.gridlineHeight;
+      if(missingpixels > 0) //didn't land on a grid size
+        this.height.calc += Math.min($todd.gridlineHeight - missingpixels, $todd.gridlineSnapMax);
+    }
   }
 
   applySetHeight()
   {
-    this.innerheight = this.height.set - this.height.overhead;
+    this.innerheight = this.height.set - this.overhead_y;
 
     this.debugLog("dimensions", "calc=" + this.height.calc + ", set height=" + this.height.set + " ,effective=" + this.innerheight);
 
@@ -227,7 +234,7 @@ export default class ObjInlineBlock extends ComponentBase
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
 
     // Set outer width, including border (we have box-sizing: border-box!)
-    let elementheight = this.height.set - 5; //we release only our grid margin. we still need to take the proper height for the borders
+    let elementheight = this.height.set;
     dompack.setStyles(this.node, {width: this.width.set, height: elementheight });
 
     // Check if the node is big enough to display the whole background image

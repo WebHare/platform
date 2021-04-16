@@ -287,7 +287,7 @@ export default class ObjDateTime extends ComponentBase
 
   calculateDimHeight()
   {
-    this.height.min = this.height.calc = $todd.settings.grid_vsize;
+    this.height.min = this.height.calc = $todd.gridlineInnerHeight;
   }
 
   relayout()

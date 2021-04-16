@@ -18,13 +18,11 @@ test.registerTests(
 
         var textarea2 = test.compByName('textarea2'); //textarea2 is stretching box2 using its width/height, as box2 isn't explicitly dictating width/height
         test.eq(185,textarea2.offsetWidth );
-        //we asked for 125, but to fit a textarea2 in 125px 5 pixels are removed for interline margins.
-        test.eq(120,textarea2.offsetHeight);
+        test.eq(125,textarea2.offsetHeight);
 
         var textarea3 = test.compByName('textarea3'); //textarea3 is stretching box3 using its minwidth/height
         test.eq(185,textarea3.offsetWidth );
-        //we asked for 125, but to fit a textarea2 in 125px 5 pixels are removed for interline margins.
-        test.eq(120,textarea3.offsetHeight);
+        test.eq(125,textarea3.offsetHeight);
 
         var box2 = test.compByName('box2!boxcontents');
         var box3 = test.compByName('box3!boxcontents');

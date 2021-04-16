@@ -4,10 +4,37 @@ LOADLIB "mod::tollium/lib/components/tabs.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 
+PUBLIC OBJECTTYPE TolliumPanelLikeBase EXTEND TolliumExtendableLinesContainerBase
+<
+  /** @short Extend the panel
+      @long Extend the panel using a specified XML document.
+      @param extensionselement The extension node to load (must be a t:tabsextension)
+      @param uniquename Unique name for the screens file (used for caching)
+      @param modtime Modification date of the screen
+  */
+  PUBLIC RECORD FUNCTION LoadFragment(STRING resourcename, STRING fragmentname)
+  {
+    RECORD retval := [ components := DEFAULT OBJECT ARRAY
+                     ];
+
+    RECORD ARRAY offered_comps := this->extendcomponents;
+    RECORD ARRAY offered_handlers := this->extendhandlers;
+
+    RECORD result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, fragmentname, FALSE);
+    IF(Length(result.errors)>0) //then just throw the first..
+      THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
+
+    retval.components := result.components;
+    this->InsertComponentAfter(result.fragment, DEFAULT OBJECT, TRUE);
+    RETURN retval;
+  }
+
+>;
+
 /////////////////////////////////////////////////////////////////////
 // An updateable panel
 
-PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
+PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -402,29 +429,6 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
   {
     this->pvt_acceptdrops := FixAcceptDrops(newacceptdrops);
     this->ExtDropTargetUpdate();
-  }
-
-  /** @short Extend the panel
-      @long Extend the panel using a specified XML document.
-      @param extensionselement The extension node to load (must be a t:tabsextension)
-      @param uniquename Unique name for the screens file (used for caching)
-      @param modtime Modification date of the screen
-  */
-  PUBLIC RECORD FUNCTION LoadFragment(STRING resourcename, STRING fragmentname)
-  {
-    RECORD retval := [ components := DEFAULT OBJECT ARRAY
-                     ];
-
-    RECORD ARRAY offered_comps := this->extendcomponents;
-    RECORD ARRAY offered_handlers := this->extendhandlers;
-
-    RECORD result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, fragmentname, FALSE);
-    IF(Length(result.errors)>0) //then just throw the first..
-      THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
-
-    retval.components := result.components;
-    this->InsertComponentAfter(result.fragment, DEFAULT OBJECT, TRUE);
-    RETURN retval;
   }
 
   // ---------------------------------------------------------------------------

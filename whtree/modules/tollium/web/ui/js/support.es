@@ -24,12 +24,29 @@ let enabledlogtypes = [];
 
 var $todd = {};
 
+export const gridlineTopMargin = 2; // pixels to add to the top of a grid line
+export const gridlineBottomMargin = 3; // pixels to add to the bottom of a grid line
+export const gridlineTotalMargin = gridlineTopMargin + gridlineBottomMargin;
+export const gridlineHeight = 28; //grid vertical size (28 pixels) including margins
+export const gridlineInnerHeight = gridlineHeight - gridlineTotalMargin;
+export const gridlineSnapMax = 8; //never add more than this amount of pixels to snap. an attempt to prevent inlineblocks from wildly generating empty space. this is mostly manually tuning and maybe we shouldn't do it
+
+//workaround not having fully switched to export yet:
+$todd.gridlineTopMargin = gridlineTopMargin;
+$todd.gridlineBottomMargin = gridlineBottomMargin;
+$todd.gridlineTotalMargin = gridlineTotalMargin;
+$todd.gridlineHeight = gridlineHeight;
+$todd.gridlineInnerHeight = gridlineInnerHeight;
+$todd.gridlineSnapMax = gridlineSnapMax;
+
 $todd.settings =
 { tab_stacked_vpadding_inactive: 1 // border-bottom: 1px (only for inactive!)
 , textedit_defaultwidth: 150
 , list_column_padding: 8 // 2x4 padding
 , list_column_minwidth: 24 // minimum width for an icon (16) + 2x4 padding
-, grid_vsize: 28 //grid vertical size (28 pixels)
+, gridline_topmargin: gridlineTopMargin
+, gridline_bottommargin: gridlineBottomMargin // pixels to add to the top of a grid line
+, grid_vsize: gridlineHeight //grid vertical size (28 pixels) including margins
 , tabspace_vsize: 32 //vertical size inside the tab-space layout
 
 //size of spacers in a sync with apps.scss. SYNC-SPACERS/SYNC-SPACERS-DEBUG
@@ -58,6 +75,7 @@ $todd.settings =
 , buttonheight_intabsspace: 27
 
 };
+
 
 $todd.applications = [];
 $todd.applicationstack = [];
@@ -220,7 +238,7 @@ $todd.ReadSize = function(sizeval)
 };
 $todd.IsAbsoluteParsedSize = function(size)
 {
-  return size&&size.type!=1;
+  return size && size.type != 1;
 };
 
 // Return the set width/height, or the xml width/height, for a component's size object
@@ -246,11 +264,17 @@ $todd.CalcAbsWidth = function(size)
 {
   return $todd.CalcAbsSize(size, true);
 };
+//Calculate the absolute height for a block element (where 2gr = 56)
 $todd.CalcAbsHeight = function(size)
 {
   return $todd.CalcAbsSize(size, false);
 };
-$todd.CalcAbsSize = function(size, horizontal, gridoverhead)
+//Calculate the absolute height for an inline element (where 2gr = 51)
+$todd.CalcAbsInlineHeight = function(size)
+{
+  return $todd.CalcAbsSize(size, false, true);
+};
+$todd.CalcAbsSize = function(size, horizontal, inline)
 {
   if (!size)
     return 0;
@@ -271,7 +295,7 @@ $todd.CalcAbsSize = function(size, horizontal, gridoverhead)
           throw new Error("'gr' units not supported horizontally");
       }
 
-      return parseInt(size, 10) * $todd.settings.grid_vsize;
+      return parseInt(size, 10) * $todd.gridlineHeight - (inline ? $todd.gridlineTotalMargin : 0);
     }
     if(size.substr(size.length-1) == 'x')
     {
@@ -297,8 +321,8 @@ $todd.CalcAbsSize = function(size, horizontal, gridoverhead)
     }
     if (size.type == 4)
       return $todd.settings.spacerwidth;
-    if (size.type == 5)
-      return size.size * $todd.settings.grid_vsize - (gridoverhead||0);
+    if (size.type == 5) //'gr'
+      return parseInt(size, 10) * $todd.gridlineHeight - (inline ? $todd.gridlineTotalMargin : 0);
   }
 
   return 0;
@@ -313,10 +337,10 @@ $todd.IsFixedSize = function(size)
                   );
 };
 
-function readXMLSize(min, set, iswidth)
+function readXMLSize(min, set, iswidth, inline)
 {
   // Initialize width settings (ADDME switch all code to use xml_set_parsed?)
-  return { xml_min:         iswidth ? $todd.CalcAbsWidth(min) : $todd.CalcAbsHeight(min) // min width as set by xml
+  return { xml_min:         iswidth ? $todd.CalcAbsWidth(min) : inline ? $todd.CalcAbsInlineHeight(min) : $todd.CalcAbsHeight(min) // min width as set by xml
          , xml_set:         set // width as set by xml (absolute or proportional size)
          , xml_set_parsed:  $todd.ReadSize(set)
          , servermin:       min //The unparsed versions. deprecate xml_min,xml_set,xml_min_parsed!
@@ -337,11 +361,12 @@ $todd.ReadXMLWidths = function(xmlnode) //xmlnode may be null to init a default 
                     ,true
                     );
 };
-$todd.ReadXMLHeights = function(xmlnode)
+$todd.ReadXMLHeights = function(xmlnode, inline)
 {
   return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : ''
                     ,xmlnode && xmlnode.height ? xmlnode.height : ''
                     ,false
+                    ,inline
                     );
 };
 

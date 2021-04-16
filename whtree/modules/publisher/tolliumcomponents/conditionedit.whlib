@@ -352,7 +352,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
           STRING ARRAY parts := Tokenize(^field->selection.fragment, "#");
           RECORD oldparent := __creation_settings;
           __creation_settings := [ parent := this ];
-          RECORD result := ^conditionfields->LoadFragment(parts[0], parts[1]);
+          RECORD result := ^conditioncontainer->LoadFragment(parts[0], parts[1]);
           __creation_settings := oldparent;
           IF (result.components[0] NOT EXTENDSFROM ConditionTypeFragmentBase)
             THROW NEW TolliumException(result.components[0], `Fragment '${^field->selection.fragment}' for condition type '${^field->selection.type}' does not extend from ConditionTypeFragmentBase`);

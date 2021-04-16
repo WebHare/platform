@@ -138,13 +138,13 @@ export default class ObjTextArea extends ComponentBase
 
   calculateDimHeight()
   {
-    this.height.min = $todd.settings.grid_vsize * 2;
+    this.height.min = $todd.CalcAbsInlineHeight("2gr");
   }
 
   relayout()
   {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height="+ this.height.set);
-    dompack.setStyles(this.inputnode, { width: this.width.set, height: this.height.set - 5 });
+    dompack.setStyles(this.inputnode, { width: this.width.set, height: this.height.set });
   }
 
 /****************************************************************************************************************************

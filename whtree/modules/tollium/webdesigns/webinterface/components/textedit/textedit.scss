@@ -1,11 +1,9 @@
-@import "../base/settings.scss";
-
 //Prefix and suffix
 $prefix_suffix_margin: 5px;  //Sync with textedit.es
 
 .t-textedit__prefix, .t-textedit__suffix
 {
-  margin-top: $linetext-top-margin - 2px; //FIXME probably 3px inside inline blocks?
+  margin-top: 6px;
   white-space: nowrap;
 }
 
@@ -20,16 +18,6 @@ $prefix_suffix_margin: 5px;  //Sync with textedit.es
   display: inline-block;
   vertical-align:top;
   margin-left: $prefix_suffix_margin;
-}
-
-//Positioning inside panel/bock
-t-panel > .panel-area > div.line > t-textedit
-{
-  margin-top: 2px;
-}
-t-inlineblock > .panel-area > div.line > t-textedit
-{
-  margin-top: 3px;
 }
 
 //Buttons

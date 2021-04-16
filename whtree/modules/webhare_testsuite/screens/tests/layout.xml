@@ -557,6 +557,7 @@
           <cell>
             <text name="texttop" value="top text&#10;yeey" height="2gr" />
             <button name="button" title="button" action="buttonaction" />
+            <text name="belowbuttontext" value="belowbutton text" />
           </cell>
           <cell name="righttopcell">
             <select type="pulldown"
@@ -608,6 +609,42 @@
           </cell>
           <cell name="imgedit_cell">
             <imgedit name="imgedit" height="1pr" width="1pr" />
+          </cell>
+        </row>
+        <row>
+          <cell name="testalign2_cell">
+            <textedit name="line2_1a" title="Line 2.1A" />
+            <textedit name="line2_2a" title="Line 2.2A" />
+          </cell>
+          <cell name="inlineblock_select1_cell">
+            <inlineblock name="inlineblock_select1" height="1pr" width="1pr" title="Select1">
+              <select name="select1" type="pulldown" title="SE1">
+                <option rowkey="1" title="opt1"/>
+                <option rowkey="2" title="opt2"/>
+              </select>
+            </inlineblock>
+            <textedit name="line2_2b" title="Line 2.2B" />
+          </cell>
+          <cell>
+            <inlineblock name="inlineblock_select2"  title="Select2">
+              <select name="select2" type="pulldown" title="SE2">
+                <option rowkey="1" title="opt1"/>
+                <option rowkey="2" title="opt2"/>
+              </select>
+            </inlineblock>
+            <textedit name="line2_2c" title="Line 2.2C" />
+          </cell>
+          <cell>
+            <inlineblock name="inlineblock_textedit_ib3" title="TE3">
+              <textedit name="textedit_ib3" title="TE3" />
+            </inlineblock>
+            <textedit name="line2_2d" title="Line 2.2D" />
+          </cell>
+          <cell>
+            <inlineblock name="inlineblock_image" title="inlimg">
+              <image width="16px" height="16px" value="tollium:messages/warning"/>
+            </inlineblock>
+            <textedit name="line2_2e" title="Line 2.2E" />
           </cell>
         </row>
       </grid>

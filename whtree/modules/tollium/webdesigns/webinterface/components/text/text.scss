@@ -1,12 +1,6 @@
-@import "../base/settings.scss";
-
 t-text
 {
-  margin-top: $linetext-top-margin;
-}
-
-t-text
-{
+  margin-top: 5px;
   white-space: nowrap;
 }
 t-text.overflow
@@ -35,19 +29,20 @@ t-text.label
 
 
 ///////////// label underlines (flag RLL)
-html.dompack--debug-rll t-text.label
+html.dompack--debug-rll
 {
-  position:relative;
+  t-text.label
+  {
+    position:relative;
+  }
+  t-text.label:after
+  {
+    position:absolute;
+    z-index:999999999;
+    display:block;
+    content:"";
+    border-bottom:1px dashed #999;
+    width:1000%;
+    margin-top:-3px;
+  }
 }
-html.dompack--debug-rll t-text.label:after
-{
-  position:absolute;
-  z-index:999999999;
-  display:block;
-  content:"";
-  border-bottom:1px dotted black;
-  width:1000%;
-  margin-top:-3px;
-}
-
-

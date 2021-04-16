@@ -11,6 +11,24 @@ require("@mod-tollium/js/icons");
 
 const bgstyle = Symbol.for("background style");
 
+/* Tollium inline layouting
+   - The 'gr' unit is defined to be logically a 'grid line', but has to be calculated differently based on context...
+     - For inline items, <n>gr = <n>*gridlineHeight - gridlineTotalMargin (28 and 5, or see support.js for the constants)
+     - For block items, it's just <n>*gridLineHeight
+   - Panel lines containing inline elements, receive a 2px and 3px margin at the top resp. bottom. Or the '5' above
+   - Most inline elements have their calculatted height default to 1gr. So often 23px
+     - Textarea default to 2gr. So 51px (which rounds up to 56px, 2 full grid lines)
+     - Text, especially wrapped, is the biggest exception
+   - This causes lines to 'naturally' lean towards taking up 28px, instead if they contain block items.
+
+   So here we are: panels naturally take up multiples of 28px if we don't consider block elements. panel lines take care
+                   of the 2px above and 3px below each line
+
+   Inline blocks are wrapper around a panel and help fitting larger (even block) elements into a grid. They thus need to
+   strip a panel's top line of the 2px margin, and the panel's bottom line of the 3px margin, to get a panel to fit in a
+   "n<gr>"" - 5px space.
+*/
+
 // Set the node's background color and images, based on the component's backgroundcolor resp. backgroundimages properties
 export function updateNodeBackground(node, backgroundcolor, backgroundimages)
 {
@@ -170,7 +188,7 @@ export default class ObjPanel extends ComponentBase
     {
       srcline.target = this.name + "#line$" + i;
       srcline.destroywithparent = true;
-      var line = new ObjPanelLine(this, srcline, null, null);
+      var line = new ObjPanelLine(this, srcline, null);
       this.lines.push(line);
 
       if(line.title)
@@ -516,21 +534,24 @@ export default class ObjPanel extends ComponentBase
 
 export class ObjPanelLine extends ComponentBase //needed by inlineblock
 {
-  constructor(parentcomp, line, replacingcomp)
+  constructor(parentcomp, line, replacingcomp, options)
   {
     super(parentcomp, line, replacingcomp);
 
+    this.options = { ...options }; //configuration from inlinepanel;
     this.componenttype = "panel.line";
     this.items = [];
     this.titlecomp = null;
     this.spacerswidth = 0;
-    this.gridheight = 0;
 
     this.title = line.title || '';
     this.titlelabelfor = line.labelfor;
     this.layout = line.layout || 'form';
     this.block = line.layout == "block";
-    this.gridheight = this.layout == "tabs-space" ? $todd.settings.tabspace_vsize : $todd.settings.grid_vsize;
+    this.holdsinlineitems = !this.block; //we 'hold' inline components. comps use this to figure out (is it a hack?) whether they're inline
+
+    this.paddingtop =    !this.block && !this.options.removetopmargin    ? $todd.gridlineTopMargin : 0;
+    this.paddingbottom = !this.block && !this.options.removebottommargin ? $todd.gridlineBottomMargin : 0;
   }
   getVisibleChildren()
   {
@@ -543,6 +564,10 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   buildNode()
   {
     this.node = <div class={this.layout + (this.layout != "block" ? " line": "")} />;
+    if(this.paddingtop)
+      this.node.style.paddingTop = this.paddingtop + 'px';
+    if(this.paddingBottom)
+      this.node.style.paddingBottom = this.paddingtop + 'px';
 
     this.fillNode();
   }
@@ -563,7 +588,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   }
   _getLineItemNode(item)
   {
-    if(!item.wrapinlineblock)
+    if(!item.wrapinlineblock) //note: sliders set this. it has nothing to do, at least now, with the actual inlineblock element. perhaps it could be or perhaps its just broken/unncessary styling?
       return item.getNode();
 
     //item wants us to wrap it inside a block item (probably all items should do this, skipping it is an optimization if we don't collide with item styling)
@@ -591,8 +616,8 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
 
   calculateDimHeight()
   {
-    var hcomps = this.getVisibleChildren();
-    this.setSizeToMaxOf('height', hcomps);
+    let hcomps = this.getVisibleChildren();
+    this.setSizeToMaxOf('height', hcomps, this.paddingtop + this.paddingbottom);
   }
 
   applySetWidth()
@@ -615,6 +640,9 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
   applySetHeight()
   {
     var lineheight = this.height.set;
+    if(!this.block)
+      lineheight -= this.paddingtop + this.paddingbottom;
+
     this.debugLog("dimensions", "setheight=" + this.height.set + ", lineheight=" + lineheight);
 
     if (this.titlecomp)

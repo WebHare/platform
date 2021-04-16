@@ -472,8 +472,8 @@ class FilterDialogController
                         , defaultbutton: "okbutton"
                         , allowclose: true
                         }
-        , root:         { type: 'panel', lines: [{items: [ {item:"body"} ], width: "1pr", height: "1pr"}
-                                                ,{items: [ {item:"footer"} ]}
+        , root:         { type: 'panel', lines: [{ layout: "block", items: [ {item:"body"} ], width: "1pr", height: "1pr"}
+                                                ,{ layout: "block", items: [ {item:"footer"} ]}
                                                 ]
                         }
         , body:         { type: 'panel'

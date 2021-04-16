@@ -4,7 +4,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 var $todd = require('@mod-tollium/web/ui/js/support');
 import "./text.scss";
 
-const linetextTopMargin = 7; //kee in sync with css linetext-top-margin
+const linetextTopMargin = 5; //keep in sync with t-text.scss
 
 //import Keyboard from 'dompack/extra/keyboard';
 
@@ -176,12 +176,11 @@ export default class ObjText extends ComponentBase
   {
     this.debugLog("dimensions", "width min=" + this.width.min + ", calc=" + this.width.calc + ", set=" + this.width.set);
     this.node.style.width = this.width.set + 'px';
-    this.updateNodeSizeData();
   }
 
   calculateDimHeight()
   {
-    this.height.min = Math.max(this.node.getBoundingClientRect().height + linetextTopMargin, $todd.settings.grid_vsize);
+    this.height.min = Math.max(this.node.getBoundingClientRect().height + linetextTopMargin, $todd.gridlineInnerHeight);
   }
 
   relayout()

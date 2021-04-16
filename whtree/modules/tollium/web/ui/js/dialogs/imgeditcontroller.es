@@ -209,12 +209,12 @@ class ImgeditDialogController
                         , allowclose: true
                         , width: this.editorsize.x + "px", height: this.editorsize.y + "px"
                         }
-        , root:         { type: 'panel', lines: [{items: [ {item:"body"} ], width: "1pr", height: "1pr"}
-                                                ,{items: [ {item:"footer"} ]}
+        , root:         { type: 'panel', lines: [ { layout: "block", items: [ {item:"body"} ], width: "1pr", height: "1pr"}
+                                                , { layout: "block", items: [ {item:"footer"} ]}
                                                 ]
                         }
         , body:         { type: 'panel'
-                        , lines: [ { title: "", items: [{item:"imageeditor"}], width: "1pr", height: "1pr" }
+                        , lines: [ { layout: "block", title: "", items: [{item:"imageeditor"}], width: "1pr", height: "1pr" }
                                  ]
                         , width: "1pr", height: "1pr"
                         }
