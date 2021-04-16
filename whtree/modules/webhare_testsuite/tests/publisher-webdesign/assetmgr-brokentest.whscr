@@ -8,12 +8,10 @@ LOADLIB "mod::system/lib/services.whlib";
 
 /* Test dealing with an assetpackmgr if compilation breaks */
 
-DATETIME teststart := GetCurrentDatetime();
-
 MACRO TestCrashJson()
 {
   testfw->FlushTasks([ "webhare_testsuite:aftercompile" ]);
-  TestEq(TRUE, ReadRegistryKey("webhare_testsuite.tests.lastaftercompile") > teststart, "aftercompile task was NOT invoked");
+  TestEq(TRUE, ReadRegistryKey("webhare_testsuite.tests.lastaftercompile") > testfw->starttime, "aftercompile task was NOT invoked");
 
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->url || "dynfolder/"), testfw->browser->href);

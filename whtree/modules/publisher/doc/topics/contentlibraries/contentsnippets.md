@@ -4,7 +4,9 @@ Content snippets allow you to set up libraries of reusable (rich) content.
 
 To use a snippets library, enable the insertsnippet widget for your RTD types
 (widget type `http://www.webhare.net/xmlns/publisher/widgets/insertsnippet`)
-and set up a `publisher:snippets` library
+and set up a folder of type Content snippets (namespace `http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets`)
+
+In your site profiles, define a library of type `publisher:snippets` and point it to the folder you created.
 
 ```xml
   <apply>

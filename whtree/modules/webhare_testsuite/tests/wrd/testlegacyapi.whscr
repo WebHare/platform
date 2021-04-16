@@ -32,15 +32,15 @@ MACRO TestSchema()
   OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
   TestEq(TRUE, MemberExists(persontype, "CreateEntity2"), 'accessing ->types-> should not cause gettypebytag to return api2017 types');
 
-  TestThrows(PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
-  TestThrows(PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "" ]));
-  TestThrows(PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]));
+  TestThrowsLike("*", PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
+  TestThrowsLike("*", PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "" ]));
+  TestThrowsLike("*", PTR persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]));
 
   TestEq(TRUE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
   persontype->DeleteAttribute("WRD_CONTACT_PHONE");
   TestEq(FALSE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
 
-  TestThrows(PTR persontype->DeleteAttribute("WRD_CONTACT_PHONE"));
+  TestThrowsLike("*", PTR persontype->DeleteAttribute("WRD_CONTACT_PHONE"));
   persontype->UpdateAttributeMetadata("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]);
   TestEq(TRUE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE")));
   TestEq(FALSE, RecordExists(persontype->GetAttributeInfoByTag("WRD_CONTACT_PHONE_XX")));
@@ -87,8 +87,8 @@ MACRO TestSchema()
 
   schemaobj := OpenWRDSchema(schemaobj->id, "en");
 
-  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
-  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_array.test_single"] ] ));
+  TestThrowsLike("*", PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
+  TestThrowsLike("*", PTR persontype->RunQuery( [ outputcolumns := ["test_array.test_single"] ] ));
 
   schemaobj := OpenWRDSchema(schemaobj->id, "nl");
   persontype := schemaobj->GetTypeByTag("WRD_PERSON");
@@ -254,10 +254,10 @@ MACRO TestDomains()
 
   // Test mismatching
   OBJECT testperson := persontype->CreateEntity2([wrd_contact_email:="testmismatch@example.com", wrd_firstname := "Test", wrd_lastname := "Mismatch"]);
-  TestThrows(PTR testperson->UpdateFields( [ test_single_domain := testperson->id ]));
-  TestThrows(PTR testperson->UpdateFields2( [ test_single_domain := testperson->id ]));
+  TestThrowsLike("*", PTR testperson->UpdateFields( [ test_single_domain := testperson->id ]));
+  TestThrowsLike("*", PTR testperson->UpdateFields2( [ test_single_domain := testperson->id ]));
   // Test mismatching in arrays
-  TestThrows(PTR testperson->UpdateFields2( [ test_array := [[ test_single := testperson->id ]]] ));
+  TestThrowsLike("*", PTR testperson->UpdateFields2( [ test_array := [[ test_single := testperson->id ]]] ));
 
   testfw->CommitWork();
 
@@ -1253,7 +1253,7 @@ MACRO TestWRDQuery_Mentions_Single()
                                                ])->id;
 
 
-  TestThrows(PTR RunWRDQuery([ sources := [[ type := wrdperson
+  TestThrowsLike("*", PTR RunWRDQuery([ sources := [[ type := wrdperson
                                                    , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                                    , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "=", value := dom11 ]
                                                                 ]
@@ -1269,7 +1269,7 @@ MACRO TestWRDQuery_Mentions_Single()
   result := SELECT * FROM result ORDER BY fn;
   TestEq([[fn := "Mentions1" ],[fn := "Mentions2" ],[fn := "Mentions4" ]], result);
 
-  TestThrows(PTR RunWRDQuery([ sources := [[ type := wrdperson
+  TestThrowsLike("*", PTR RunWRDQuery([ sources := [[ type := wrdperson
                                            , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                            , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONS", value := 0 ]
                                                          ]
@@ -1373,7 +1373,7 @@ MACRO TestWRDQuery_ExpImp()
   || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
   || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
   || '</source></sources></query>';
-  TestThrows(PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+  TestThrowsLike("*", PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
 
   //Test broken query - referring to nonexisting type
    brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
@@ -1382,7 +1382,7 @@ MACRO TestWRDQuery_ExpImp()
   || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
   || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
   || '</source></sources></query>';
-  TestThrows(PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+  TestThrowsLike("*", PTR schemaobj->LoadQueryFromXML(MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
 }
 
 MACRO TestRegressions()
@@ -1394,13 +1394,13 @@ MACRO TestRegressions()
   schemaobj->CreateClassificationType("Classificätion", "", "CLASSIFICATION", persontype->id);
 
   OBJECT classificationtype := schemaobj->GetTypeByTag("CLASSIFICATION");
-  TestThrows(PTR classificationtype->CreateEntity2([wrd_tag:="TEST"]));
+  TestThrowsLike("*", PTR classificationtype->CreateEntity2([wrd_tag:="TEST"]));
 
   //required fields should actually require
   OBJECT testrequiredtype := schemaobj->CreateRelationType("Test required fields","","TESTREQUIRED");
   testrequiredtype->CreateAttribute("FREE", "Free field",  "", "FREEFIELD",  "");
   testrequiredtype->UpdateAttributeMetadata("FREEFIELD", [isrequired := TRUE]);
-  TestThrows(PTR testrequiredtype->CreateEntity2([wrd_tag:="TEST"]));
+  TestThrowsLike("*", PTR testrequiredtype->CreateEntity2([wrd_tag:="TEST"]));
 
   TestEq([ wrd_firstname := ""
          , wrd_contact_email := ""

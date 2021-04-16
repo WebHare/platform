@@ -68,7 +68,7 @@ MACRO TestSchema()
   TestEq(TRUE, schemaobj->creationdate != DEFAULT DATETIME);
   OBJECT persontype := schemaobj->^wrd_person;
 
-  TestThrows(PTR persontype->GetNewEntityId());
+  TestThrowsLike("*requires*transaction*", PTR persontype->GetNewEntityId());
   TestEqLike('wrd:*', persontype->GetNewEntityGUID(), 'GetNewEntityGUID should work outside work');
   TestEq(TRUE, IsValidWRDGuid(persontype->GetNewEntityGUID()));
   TestEq(FALSE, IsValidWRDGuid(persontype->GetNewEntityGUID()||'a'));
@@ -89,11 +89,13 @@ MACRO TestSchema()
 
   testfw->BeginWork();
   TestEqLike('wrd:*', persontype->GetNewEntityGUID());
-  TestThrows(PTR CreateWRDSchema(testfw->GetWRDSchema()->tag));
 
-  TestThrows(PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
-  TestThrows(PTR persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "" ]));
-  TestThrows(PTR persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]));
+  TestThrowsLike("*wrd:testschema*exists*",PTR CreateWRDSchema(testfw->GetWRDSchema()->tag));
+
+
+  TestThrowsLike("Cannot delete base*", PTR persontype->DeleteAttribute("WRD_FIRSTNAME"));
+  TestThrowsLike("*empty*", PTR persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "" ]));
+  TestThrowsLike("*already exists*", PTR persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]));
 
   TestEq("WebHare testsuite test schema", schemaobj->title);
   TestEq("The webhare_testsuite WRD schema", schemaobj->description);
@@ -102,7 +104,7 @@ MACRO TestSchema()
   persontype->DeleteAttribute("WRD_CONTACT_PHONE");
   TestEq(FALSE, RecordExists(persontype->GetAttribute("WRD_CONTACT_PHONE")));
 
-  TestThrows(PTR persontype->DeleteAttribute("WRD_CONTACT_PHONE"));
+  TestThrowsLike("No such attribute*", PTR persontype->DeleteAttribute("WRD_CONTACT_PHONE"));
   persontype->UpdateAttribute("WRD_CONTACT_PHONE_XX", [tag := "WRD_CONTACT_PHONE" ]);
   TestEq(TRUE, RecordExists(persontype->GetAttribute("WRD_CONTACT_PHONE")));
   TestEq(FALSE, RecordExists(persontype->GetAttribute("WRD_CONTACT_PHONE_XX")));
@@ -224,8 +226,8 @@ MACRO TestSchema()
 
   schemaobj := OpenWRDSchemaById(schemaobj->id);
 
-  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
-  TestThrows(PTR persontype->RunQuery( [ outputcolumns := ["test_array.test_single"] ] ));
+  TestThrowsLike("Column*#*not allowed*", PTR persontype->RunQuery( [ outputcolumns := ["test_free#wrd_limitdate"] ] ));
+  TestThrowsLike("Column*.*not allowed*", PTR persontype->RunQuery( [ outputcolumns := ["test_array.test_single"] ] ));
 
 
 
@@ -408,8 +410,8 @@ MACRO TestTitleAttr()
   customrelationtype->DeleteSelf();
   TestEq(FALSE, ObjectExists(schemaobj->GetType("customtype")));
   TestEq(FALSE, ObjectExists(schemaobj2->GetType("customtype")));
-  TestThrows(PTR GetMember(schemaobj, "^customtype"));
-  TestThrows(PTR GetMember(schemaobj2, "^customtype"));
+  TestThrowsLike("No such*CUSTOMTYPE*", PTR GetMember(schemaobj, "^customtype"));
+  TestThrowsLike("No such*CUSTOMTYPE*", PTR GetMember(schemaobj2, "^customtype"));
 
   customrelationtype := schemaobj->CreateType("CUSTOMTYPE");
   TestEQ(TRUE, schemaobj->^customtype->isobject);
@@ -450,7 +452,7 @@ MACRO TestHSONAttr()
 
   TestEq([ extradata := DEFAULT RECORD ], testperson->GetFields(["extradata"]));
 
-  TestThrows(PTR testperson->UpdateEntity([ extradata := 45 ])); //only records!
+  TestThrowsLike("*type record*", PTR testperson->UpdateEntity([ extradata := 45 ])); //only records!
 
   testperson->UpdateEntity([ extradata := [ x := 42 ]]);
   TestEq([ extradata := [ x := 42 ] ], testperson->GetFields(["extradata"]));
@@ -491,32 +493,32 @@ MACRO TestEnumAttr()
   OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "enumattr@example.com" ]);
   TestEq([ extraenum_single := "",extraenum_multiple := DEFAULT STRING ARRAY ], testperson->GetFields(["EXTRAENUM_SINGLE","EXTRAENUM_MULTIPLE"]));
 
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "v1"]));
+  TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([extraenum_single := "v1"]));
   persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["v1","V2"]]);
 
   testperson->UpdateEntity([extraenum_single := "v1"]);
   TestEq([ extraenum_single := "v1" ], testperson->GetFields(["EXTRAENUM_SINGLE"]));
   testperson->UpdateEntity([extraenum_single := "V2"]);
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "v2"]));
+  TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([extraenum_single := "v2"]));
   TestEq([ extraenum_single := "V2" ], testperson->GetFields(["EXTRAENUM_SINGLE"]));
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "v3"]));
+  TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([extraenum_single := "v3"]));
 
   persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["v1"]]);
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "V2"]), 'cannot set it even though its already set');
+  TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([extraenum_single := "V2"]), 'cannot set it even though its already set');
 
   //sanity checks
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [1,2] ]));
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_MULTIPLE", [ allowedvalues := [1,2] ]));
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [""] ]),"Empty values should be prevented");
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [" A"] ]),"Trimmable values should be prevented");
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["A","A"] ]),"Dupe values should be prevented");
+  TestThrowsLike("*Incorrect*type*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [1,2] ]));
+  TestThrowsLike("*Incorrect*type*", PTR persontype->UpdateAttribute("EXTRAENUM_MULTIPLE", [ allowedvalues := [1,2] ]));
+  TestThrowsLike("*Empty*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [""] ]),"Empty values should be prevented");
+  TestThrowsLike("*Illegal value*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [" A"] ]),"Trimmable values should be prevented");
+  TestThrowsLike("*Duplicate*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["A","A"] ]),"Dupe values should be prevented");
   persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["a","A"] ]);//case sensitive so this is okay
   TestEq(["A","a"], persontype->GetAttribute("EXTRAENUM_SINGLE").allowedvalues);
 
   //we restrict both tabs, spaces and glob characters so we have room to relax one of those in the future
   FOREVERY(STRING badchar FROM [' ','\t',',','/','\\'])
-    TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["A" || badchar || "B"] ]), `Illegal char '${badchar}' was tolerated`);
-  TestThrows(PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [RepeatText("A",2048),RepeatText("B",2048)] ]),"Total size of enums may not exceed 4096");
+    TestThrowsLike("*Illegal value*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["A" || badchar || "B"] ]), `Illegal char '${badchar}' was tolerated`);
+  TestThrowsLike("*Too many*", PTR persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := [RepeatText("A",2048),RepeatText("B",2048)] ]),"Total size of enums may not exceed 4096");
 
   //we explicitly accept the colon and dot, and glob matches
   persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["a:b.c" ] ]);
@@ -525,10 +527,10 @@ MACRO TestEnumAttr()
   persontype->UpdateAttribute("EXTRAENUM_MULTIPLE", [ allowedvalues := ["c","b","a", "x?*"] ]);
   Testeq(["a","b","c","x?*"], persontype->GetAttribute("EXTRAENUM_MULTIPLE").allowedvalues);
 
-  TestThrows(PTR testperson->UpdateEntity([extraenum_multiple := "b,c,a"]));
+  TestThrowsLike("*must be of type*", PTR testperson->UpdateEntity([extraenum_multiple := "b,c,a"]));
   testperson->UpdateEntity([extraenum_multiple := ["b","c","a"]]);
   TestEq(["a","b","c"], testperson->GetField("EXTRAENUM_MULTIPLE"));
-  TestThrows(PTR testperson->UpdateEntity([extraenum_multiple := ["a","a"]]));
+  TestThrowsLike("*duplicate*", PTR testperson->UpdateEntity([extraenum_multiple := ["a","a"]]));
   testperson->UpdateEntity([extraenum_multiple := ["a"]]);
   TestEq(["a"], testperson->GetField("EXTRAENUM_MULTIPLE"));
   testperson->UpdateEntity([extraenum_multiple := ["a","b"]]);
@@ -538,10 +540,10 @@ MACRO TestEnumAttr()
   //query support
 
   //testperson's EXTRAENUM_SINGLE is still 'V2' at this point
-  TestThrows(PTR persontype->Search("EXTRAENUM_SINGLE", "V2"));
+  TestThrowsLike("*acceptable value*", PTR persontype->Search("EXTRAENUM_SINGLE", "V2"));
   TestEq(testperson->id, persontype->Search("EXTRAENUM_SINGLE", "V2", [ ignoreallowedvalues := TRUE ]));
 
-  TestThrows(PTR persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_SINGLE", matchtype := "IN", value := ["V2"] ]]]));
+  TestThrowsLike("*acceptable value*", PTR persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_SINGLE", matchtype := "IN", value := ["V2"] ]]]));
   TestEq(1, Length(persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_SINGLE", matchtype := "IN", value := ["V2"], ignoreallowedvalues := TRUE ]]])));
 
   TestEq(2, Length(persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_SINGLE", value := "" ]]])));
@@ -563,7 +565,7 @@ MACRO TestEnumAttr()
   TestEq(1, Length(persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_SINGLE", matchtype := "LIKE", value := "*1" ]]])));
 
   // Queryies for multiple enum
-  TestThrows(PTR persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_MULTIPLE", matchtype := "INTERSECTS", value := ["badvalue"] ]]]));
+  TestThrowsLike("*acceptable value*", PTR persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_MULTIPLE", matchtype := "INTERSECTS", value := ["badvalue"] ]]]));
   TestEq(1, Length(persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_MULTIPLE", matchtype := "INTERSECTS", value := ["a","c"] ]]])));
   TestEq(1, Length(persontype->RunQuery( [ filters := [[ field := "EXTRAENUM_MULTIPLE", matchtype := "CONTAINS", value := "a" ]]])));
 
@@ -574,22 +576,22 @@ MACRO TestEnumAttr()
   //Test for glob searching
   persontype->UpdateAttribute("EXTRAENUM_SINGLE", [ allowedvalues := ["a:b.c", "x?*"] ]);
 
-  TestThrows(PTR persontype->Search("EXTRAENUM_SINGLE", "x"));
+  TestThrowsLike("*acceptable value*", PTR persontype->Search("EXTRAENUM_SINGLE", "x"));
   TestEq(0, persontype->Search("EXTRAENUM_SINGLE", "x1"));
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "x"]));
-  TestThrows(PTR testperson->UpdateEntity([extraenum_single := "X12"]));
+  TestThrowsLike("*acceptable value*", PTR testperson->UpdateEntity([extraenum_single := "x"]));
+  TestThrowsLike("*acceptable value*", PTR testperson->UpdateEntity([extraenum_single := "X12"]));
   testperson->UpdateEntity([extraenum_single := "x12" ]);
   TestEq(testperson->id, persontype->Search("EXTRAENUM_SINGLE", "x12"));
 
-  TestThrows(PTR testperson->UpdateEntity([extraenum_multiple := ["x"]]));
+  TestThrowsLike("*Illegal value*", PTR testperson->UpdateEntity([extraenum_multiple := ["x"]]));
   testperson->UpdateEntity([extraenum_multiple := ["x1"]]);
   TestEq(["x1"], testperson->GetField("EXTRAENUM_MULTIPLE"));
 
   //setting evil values inside a globmatch should STILL be prevented
   FOREVERY(STRING badchar FROM [' ','\t',',','/','\\'])
-    TestThrows(PTR testperson->UpdateEntity([extraenum_single := "x12" || badchar]));
+    TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([extraenum_single := "x12" || badchar]));
 
-  testfw->RollbackWork(); //FIXME commit!
+  testfw->RollbackWork();
 }
 
 MACRO TestStatusRecordAttr()
@@ -600,10 +602,10 @@ MACRO TestStatusRecordAttr()
   persontype->CreateAttribute("EXTRASTATUS", "STATUSRECORD", [ allowedvalues := ["ok","error"] ]);
 
   //sanity checks
-  TestThrows(PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [1,2] ]));
-  TestThrows(PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [""] ]),"Empty values should be prevented");
-  TestThrows(PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [" A"] ]),"Trimmable values should be prevented");
-  TestThrows(PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := ["A","A"] ]),"Dupe values should be prevented");
+  TestThrowsLike("*Incorrect*type*", PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [1,2] ]));
+  TestThrowsLike("*Empty*", PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [""] ]),"Empty values should be prevented");
+  TestThrowsLike("*Illegal value*", PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := [" A"] ]),"Trimmable values should be prevented");
+  TestThrowsLike("*Duplicate*", PTR persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := ["A","A"] ]),"Dupe values should be prevented");
 
   TestEq("STATUSRECORD",  persontype->GetAttribute("EXTRASTATUS").attributetypename);
   TestEq(["error","ok"], persontype->GetAttribute("EXTRASTATUS").allowedvalues);
@@ -611,18 +613,18 @@ MACRO TestStatusRecordAttr()
   OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "statusrecord@example.com" ]);
   TestEq(DEFAULT RECORD, testperson->GetField("EXTRASTATUS"));
 
-  TestThrows(PTR testperson->UpdateEntity([statusrecord := [ status := "warning" ]]));
-  TestThrows(PTR testperson->UpdateEntity([statusrecord := "warning" ]));
-  TestThrows(PTR testperson->UpdateEntity([statusrecord := [ status := ["warning","error"] ]]));
-  TestThrows(PTR testperson->UpdateEntity([statusrecord := [ status := [1,2] ]]));
-  TestThrows(PTR testperson->UpdateEntity([statusrecord := [ otherdata := 42 ]]));
+  TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([ extrastatus := [ status := "warning" ]]));
+  TestThrowsLike("*type record*", PTR testperson->UpdateEntity([ extrastatus := "warning" ]));
+  TestThrowsLike("*tatus*must be of type*", PTR testperson->UpdateEntity([ extrastatus := [ status := ["warning","error"] ]]));
+  TestThrowsLike("*tatus*must be of type*", PTR testperson->UpdateEntity([ extrastatus := [ status := [1,2] ]]));
+  TestThrowsLike("Missing status*", PTR testperson->UpdateEntity([ extrastatus := [ otherdata := 42 ]]));
 
   persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := ["ok","warning","error"]]);
   TestEq(["error","ok","warning"], persontype->GetAttribute("EXTRASTATUS").allowedvalues);
 
   testperson->UpdateEntity([extrastatus := [ status := "warning", otherdata := 42 ]]);
   TestEq([ status := "warning", otherdata := 42 ], testperson->GetField("EXTRASTATUS"));
-  TestThrows(PTR testperson->UpdateEntity([extrastatus := [ status := "", otherdata := 42 ]]));
+  TestThrowsLike("Status*not an acceptable*", PTR testperson->UpdateEntity([extrastatus := [ status := "", otherdata := 42 ]]));
 
   //Set overlong data, requiring overflow into blob space.
   STRING overflown := GeneratePassword("OVERLONG", 8192); //high-entropy data just in case someone ever gets the idea to deflate data
@@ -635,10 +637,10 @@ MACRO TestStatusRecordAttr()
   //query support
 
   //testperson's statusrecord is still 'ok' at this point
-  TestThrows(PTR persontype->Search("EXTRASTATUS", "ok"));
+  TestThrowsLike("*not an acceptable*", PTR persontype->Search("EXTRASTATUS", "ok"));
   TestEq(testperson->id, persontype->Search("EXTRASTATUS", "ok", [ ignoreallowedvalues := TRUE ]));
 
-  TestThrows(PTR persontype->RunQuery( [ filters := [[ field := "EXTRASTATUS", matchtype := "IN", value := ["ok"] ]]]));
+  TestThrowsLike("*not an acceptable*", PTR persontype->RunQuery( [ filters := [[ field := "EXTRASTATUS", matchtype := "IN", value := ["ok"] ]]]));
   TestEq(1, Length(persontype->RunQuery( [ filters := [[ field := "EXTRASTATUS", matchtype := "IN", value := ["ok"], ignoreallowedvalues := TRUE ]]])));
 
   TestEq(2, Length(persontype->RunQuery( [ filters := [[ field := "EXTRASTATUS", value := "" ]]])));
@@ -662,10 +664,10 @@ MACRO TestStatusRecordAttr()
 
   //Test for glob searching
   persontype->UpdateAttribute("EXTRASTATUS", [ allowedvalues := ["warning","fail:?*"] ]);
-  TestThrows(PTR persontype->Search("EXTRASTATUS", "fail:"));
+  TestThrowsLike("*not an acceptable*", PTR persontype->Search("EXTRASTATUS", "fail:"));
   TestEq(0, persontype->Search("EXTRASTATUS", "fail:we-broke-it"));
 
-  TestThrows(PTR testperson->UpdateEntity([extrastatus := [ status := "fail:"] ]));
+  TestThrowsLike("*not an acceptable*", PTR testperson->UpdateEntity([extrastatus := [ status := "fail:"] ]));
   testperson->UpdateEntity([extrastatus := [ status := "fail:we-broke-it" ] ]);
   TestEq(testperson->id, persontype->Search("EXTRASTATUS", "fail:we-broke-it"));
 
@@ -676,7 +678,7 @@ MACRO TestStatusRecordAttr()
   TestEq([ status := "warning"], testperson->GetField("EXTRASTATUS"));
 
   persontype->UpdateAttribute("EXTRASTATUS", [ isrequired := TRUE ]);
-  TestThrows(PTR testperson->UpdateEntity([extrastatus := DEFAULT RECORD]));
+  TestThrowsLike("*required*", PTR testperson->UpdateEntity([extrastatus := DEFAULT RECORD]));
 
   testfw->RollbackWork(); //FIXME commit!
 }
@@ -693,9 +695,9 @@ MACRO TestAuthenticationAttrs()
   OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com" ]);
   TestEq(DEFAULT RECORD, testperson->GetField("AUTHSETTINGS"));
 
-  TestThrows(PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
-  TestThrows(PTR testperson->UpdateEntity( [ authsettings := CELL[] ]));
-  TestThrows(PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1] ]));
+  TestThrowsLike("*must be of type record*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
+  TestThrowsLike("*VERSION*", PTR testperson->UpdateEntity( [ authsettings := CELL[] ]));
+  TestThrowsLike("*version 1*", PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1] ]));
   TestThrowsLike(`Expected version 1 while parsing value for attribute "AUTHSETTINGS"`, PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1 ] ]));
   TestThrowsLike(`Unexpected cell 'DOESNOTEXIST' in data while *`, PTR testperson->UpdateEntity(
       [ authsettings := [ version := 1
@@ -858,9 +860,9 @@ MACRO TestDomains()
 
   // Test mismatching
   OBJECT testperson := persontype->CreateEntity([wrd_contact_email:="testmismatch@example.com", wrd_firstname := "Test", wrd_lastname := "Mismatch"]);
-  TestThrows(PTR testperson->UpdateEntity( [ test_single_domain := testperson->id ]));
+  TestThrowsLike("*is of*WRD_PERSON*must*TEST_DOMAIN_1*", PTR testperson->UpdateEntity( [ test_single_domain := testperson->id ]));
   // Test mismatching in arrays
-  TestThrows(PTR testperson->UpdateEntity( [ test_array := [[ test_single := testperson->id ]]] ));
+  TestThrowsLike("*is of*WRD_PERSON*must*TEST_DOMAIN_1*", PTR testperson->UpdateEntity( [ test_array := [[ test_single := testperson->id ]]] ));
 
   testfw->CommitWork();
 
@@ -1147,7 +1149,7 @@ MACRO TestAttributes(STRING tag)
     {
       IF(NOT rec.valid)
       {
-        TestThrows(PTR entity->UpdateEntity(CellInsert(DEFAULT RECORD, attr.tag, rec.value)));
+        TestThrowsLike("*", PTR entity->UpdateEntity(CellInsert(DEFAULT RECORD, attr.tag, rec.value)));
         CONTINUE;
       }
       entity->UpdateEntity(CellInsert(DEFAULT RECORD, attr.tag, rec.value));
@@ -1233,7 +1235,7 @@ MACRO TestDomainTagTranslation()
 
   RECORD fails := [ sd := "EFAIL1", md := [ "FAIL" ], snd := "FAIL", mnd := [ "FAIL" ] ];
   FOREVERY (RECORD rec FROM UnpackRecord(fails))
-    TestThrows(PTR type_ref->CreateEntity(CellInsert(DEFAULT RECORD, rec.name, rec.value)));
+    TestThrowsLike("No such domain value*", PTR type_ref->CreateEntity(CellInsert(DEFAULT RECORD, rec.name, rec.value)));
 
   testfw->CommitWork();
 }
@@ -1722,7 +1724,7 @@ MACRO TestWRDQuery_Password()
   //Verify we're allowed to set XSHA passwords
   persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg==`]);
   //but bogus pwds still get rejected
-  TestThrows(PTR persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg`]));
+  TestThrowsLike("*unhashed*", PTR persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg`]));
 
   testfw->CommitWork();
 }
@@ -2101,7 +2103,8 @@ MACRO TestWRDQuery_Mentions_Single()
                                                ])->id;
 
 
-  TestThrows(PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
+  TestThrowsLike("*=*not supported*",
+              PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
                                                    , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                                    , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "=", value := dom11 ]
                                                                 ]
@@ -2117,7 +2120,8 @@ MACRO TestWRDQuery_Mentions_Single()
   result := SELECT * FROM result ORDER BY fn;
   TestEq([[fn := "Mentions1" ],[fn := "Mentions2" ],[fn := "Mentions4" ]], result);
 
-  TestThrows(PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
+  TestThrowsLike("*0*not allowed*",
+      PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
                                            , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                            , filters := [[ field := "TEST_ARRAY.TEST_SINGLE", matchtype := "MENTIONS", value := 0 ]
                                                          ]
@@ -2198,12 +2202,11 @@ MACRO TestWRDQuery_Mentions_Single()
                                         ,[ test_multiple := [ dom11, dom12 ] ]
                                         ] ]);
 
-  TestThrows(PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
-                                                   , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
+  TestThrowsLike("*not*valid value*",
+                           PTR wrdperson->RunQuery([ outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                                    , filters := [[ field := "TEST_ARRAY.TEST_MULTIPLE", matchtype := "=", value := dom11 ]
                                                                 ]
-                                                  ]]
-                                     ]));
+                                                   ]));
 
   result := testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
                                                    , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
@@ -2214,7 +2217,7 @@ MACRO TestWRDQuery_Mentions_Single()
   result := SELECT * FROM result ORDER BY fn;
   TestEq([[fn := "Mentions1" ],[fn := "Mentions2" ],[fn := "Mentions4" ]], result);
 
-  TestThrows(PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
+  TestThrowsLike("*0*not allowed*", PTR testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
                                            , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
                                            , filters := [[ field := "TEST_ARRAY.TEST_MULTIPLE", matchtype := "MENTIONS", value := 0 ]
                                                          ]
@@ -2289,7 +2292,7 @@ MACRO TestWRDQuery_ExpImp()
   || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
   || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
   || '</source></sources></query>';
-  TestThrows(PTR ImportWRDQueryDefinition(schemaobj, MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+  TestThrowsLike("*", PTR ImportWRDQueryDefinition(schemaobj, MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
 
   //Test broken query - referring to nonexisting type
    brokenquery := '<query xmlns="http://www.webhare.net/xmlns/wrd/query">'
@@ -2298,7 +2301,7 @@ MACRO TestWRDQuery_ExpImp()
   || '<outputcolumns><outputcolumn name="ARRAYIMAGES" attribute="TEST_ARRAY" subselect="TEST_IMAGE.IMAGEID"/></outputcolumns>'
   || '<filters><filter type="not"><filter type="or"><filter field="NONEXISTING_DOMAINFIELD" value="12345"/></filter></filter></filters>'
   || '</source></sources></query>';
-  TestThrows(PTR ImportWRDQueryDefinition(schemaobj, MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
+  TestThrowsLike("*", PTR ImportWRDQueryDefinition(schemaobj, MakeXMLDocument(StringToBlob(brokenquery))->documentelement));
 }
 
 MACRO TestRegressions()
@@ -2312,7 +2315,7 @@ MACRO TestRegressions()
   TestEQ(TRUE, schemaobj->^classification->isattachment);
 
   OBJECT classificationtype := schemaobj->GetType("CLASSIFICATION");
-  TestThrows(PTR classificationtype->CreateEntity([wrd_tag:="TEST"]));
+  TestThrowsLike("*WRD_LEFTENTITY*required*", PTR classificationtype->CreateEntity([wrd_tag:="TEST"]));
 
   TestEqStructure( [ attrstructure ], classificationtype->ListAttributes(0));
   TestEqStructure(attrstructure, classificationtype->GetAttribute("WRD_LEFTENTITY"));
@@ -2320,7 +2323,8 @@ MACRO TestRegressions()
   //required fields should actually require
   OBJECT testrequiredtype := schemaobj->CreateType("TESTREQUIRED",[title := "Test required fields"]);
   testrequiredtype->CreateAttribute("FREEFIELD", "FREE", [isrequired := TRUE]);
-  TestThrows(PTR testrequiredtype->CreateEntity([wrd_tag:="TEST"]));
+  TestThrowsLike("*FREEFIELD*required*", PTR testrequiredtype->CreateEntity([wrd_tag:="TEST"]));
+  TestThrowsLike("*FREEFIEL*does not exist*FREEFIELD*", PTR testrequiredtype->CreateEntity([ freefiel := ""]), "We don't want the REQUIRED error to supersede the invalid cellname error, it sets you on the wrong track when you made a typo");
 
   TestEq([ wrd_firstname := ""
          , wrd_contact_email := ""

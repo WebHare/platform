@@ -161,7 +161,7 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
             ,[ rowkey := 3, title := "Option 3", selected := FALSE ]
             ], SELECT rowkey, title,selected FROM ^radiotest->options);
 
-    TestThrows(PTR MemberUpdate(^radiotest,'value',2));
+    TestThrowsLike("*No match*",PTR MemberUpdate(^radiotest,'value',2));
     TestThrowsLike("Rowkey*not of type INTEGER*", PTR MemberUpdate(^radiotest,'options', [[ rowkey := "1", title :="Option 1"]]));
 
     ^radiotest->value := 3;
@@ -179,8 +179,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     ^checkboxes->value := [1,3];
     TestEq(3, ^checkboxes->selection[1].rowkey);
 
-    TestThrows(PTR MemberUpdate(^checkboxes, 'value', 4));
-    TestThrows(PTR MemberUpdate(^checkboxes, 'value', 0));
+    TestThrowsLike("*must be an array*", PTR MemberUpdate(^checkboxes, 'value', 4));
+    TestThrowsLike("*No match for rowkey*", PTR MemberUpdate(^checkboxes, 'value', [4]));
 
     //Note, if both options selected are FALSE, autoselect of defaultvalue in SetOptions may have failed
     TestEq( [[ rowkey := TRUE, title := "Truth", selected := FALSE ]
@@ -266,16 +266,16 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     TestEq("1979-06-13", ^dateofbirth->abstractvalue);
     TestEq(MakeDate(1979,6,13), ^dateofbirth->value);
 
-    TestThrows(PTR MemberUpdate(^dateofbirth, 'min', MAX_DATETIME));
-    TestThrows(PTR MemberUpdate(^dateofbirth, 'value', MAX_DATETIME));
-    TestThrows(PTR MemberUpdate(^dateofbirth, 'max', DEFAULT DATETIME));
+    TestThrowsLike("*out of range*", PTR MemberUpdate(^dateofbirth, 'min', MAX_DATETIME));
+    TestThrowsLike("*out of range*", PTR MemberUpdate(^dateofbirth, 'value', MAX_DATETIME));
+    TestThrowsLike("*out of range*", PTR MemberUpdate(^dateofbirth, 'max', DEFAULT DATETIME));
 
     ^dateofbirth->min := MakeDate(1900,1,1);
     ^dateofbirth->abstractvalue := "now+2d";
     ^dateofbirth->abstractmax := "now+5d";
 
     // Countrylist is already set by XML and cannot be updated
-    TestThrows(PTR MemberUpdate(^address, 'countrylist', [ "NL" ]));
+    TestThrowsLike("*cannot be changed*", PTR MemberUpdate(^address, 'countrylist', [ "NL" ]));
     ^checkboxes->visiblecondition := FCIsSet(^checkboxesvisible);
     ^condition_or_visible->visiblecondition := FCOr(
         [ FCIsSet(^condition_or_1)
@@ -439,7 +439,7 @@ PUBLIC OBJECTTYPE DynamicTestForm EXTEND FormBase
     TestEq(MakeDatetime(2012,5,5,21,0,0,5), ^timeslot->options[1].rowkey);
 
     //First field
-    TestThrows(PTR this->AppendFormField(this, "textedit", "textfield"));
+    TestThrowsLike("*not a form field*", PTR this->AppendFormField(this, "textedit", "textfield"));
     OBJECT newtextfield := this->AppendFormField(DEFAULT OBJECT, "textedit", "textfield");
     newtextfield->title := "TextField";
     newtextfield->value := "val 1";
@@ -462,7 +462,7 @@ PUBLIC OBJECTTYPE DynamicTestForm EXTEND FormBase
     newcheckbox->value := TRUE;
 
     //newcheckbox is not a child of newradiogroup, so adding it to options #42 should failed
-    TestThrows(PTR this->AppendFieldToOption(1, newcheckbox));
+    TestThrowsLike("*not a child of*myradio*", PTR this->AppendFieldToOption(1, newcheckbox));
 
     OBJECT addendum42 := this->AppendFormField(this->newradiogroup, "textedit", "addendum42");
     this->AppendFieldToOption(1, addendum42);
@@ -748,8 +748,7 @@ PUBLIC STATIC OBJECTTYPE ArrayForm EXTEND FormBase
     IF (GetFormWebVariable("prefill") = "1")
     {
       ^text->value := "prefilled name";
-
-      TestThrows(PTR SetValueMember(^contacts, [[ name := 42 ]])); //should throw, invalid type
+      TestThrowsLike("*must be of type STRING*", PTR SetValueMember(^contacts, [[ name := 42 ]])); //should throw, invalid type
 
       SetValueMember(^contacts, [ [ name := "first contact"
                                   , photo := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg")->GetWrapped()

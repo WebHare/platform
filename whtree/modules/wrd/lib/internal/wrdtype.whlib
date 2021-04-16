@@ -8,6 +8,7 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/smtp.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/enrichment.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
@@ -2097,8 +2098,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
         {
-          IF(NOT CellExists(val,'status') OR TYPEID(val.status)!=TYPEID(STRING))
+          IF(NOT CellExists(val,'status'))
            THROW NEW Exception(`Missing status field for attribute '${attr.tag}'`);
+          IF(TYPEID(val.status)!=TYPEID(STRING))
+           THROW NEW Exception(`Status field for attribute '${attr.tag}' must be of type string, got '${GetTypeName(TYPEID(val))}'`);
 
           STRING status := val.status;
           IF(NOT importmode AND NOT IsAllowedEnumValue(status, attr.allowedvalues))
@@ -2753,7 +2756,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       setguid := DecodeWRDGUID(entitydata.wrd_guid);
       IF(entitydata.wrd_guid != "" AND setguid="")
       {
-        options.errorcallback([ tag := "WRD_GUID", code := "INVALIDVALUE", setvalue := setguid ]);
+        options.errorcallback([ tag := "WRD_GUID", code := "INVALIDVALUE", setvalue := entitydata.wrd_guid ]);
         anyerror := TRUE;
       }
 
@@ -2787,6 +2790,26 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     }
 
     RECORD splitdata := this->DoSplitEntityData(entitydata, this->typerec.tag, this->__final_attrs, isv2api, options);
+    RECORD ARRAY unpacked_leftovers := UnpackRecord(splitdata.leftovers);
+    IF(Length(unpacked_leftovers)=1)
+    {
+      STRING didyoumean;
+      STRING bestmatch := GetBestMatch(unpacked_leftovers[0].name, (SELECT AS STRING ARRAY tag FROM this->__final_attrs));
+      IF(bestmatch != "")
+        didyoumean := `, did you mean '${bestmatch}' ?`;
+
+      THROW NEW Exception(`The field '${unpacked_leftovers[0].name}' that you were trying to set does not exist in type '${this->tag}'${didyoumean}`);
+    }
+    IF(Length(unpacked_leftovers)>0)
+    {
+      STRING ARRAY mention_leftovers := SELECT AS STRING ARRAY name FROM unpacked_leftovers LIMIT 3;
+      STRING describe_leftovers := Detokenize(mention_leftovers,', ');
+      IF(Length(mention_leftovers) < Length(unpacked_leftovers))
+        describe_leftovers := describe_leftovers || " and " || Length(unpacked_leftovers) - Length(mention_leftovers) || " more";
+
+      THROW NEW Exception(`Some fields that you were trying to set do not exist in type '${this->tag}': ${describe_leftovers}`);
+    }
+
 
     //Discover datetime limits for entity settings (they must be mapped to DEFAULT/MAX if they exceed or match the entity's lifetime)
     DATETIME entity_creation, entity_limit;
@@ -3179,21 +3202,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         GetWRDCommitHandler()->EntityCreated(this->typerec.wrd_schema, this->typerec.id, entityid);
       ELSE
         GetWRDCommitHandler()->EntityUpdated(this->typerec.wrd_schema, this->typerec.id, entityid);
-    }
-
-    RECORD ARRAY unpacked_leftovers := UnpackRecord(splitdata.leftovers);
-    IF(Length(unpacked_leftovers)=1)
-    {
-      THROW NEW Exception(`The field '${unpacked_leftovers[0].name}' that you were trying to set does not exist in type '${this->tag}'`);
-    }
-    IF(Length(unpacked_leftovers)>0)
-    {
-      STRING ARRAY mention_leftovers := SELECT AS STRING ARRAY name FROM unpacked_leftovers LIMIT 3;
-      STRING describe_leftovers := Detokenize(mention_leftovers,', ');
-      IF(Length(mention_leftovers) < Length(unpacked_leftovers))
-        describe_leftovers := describe_leftovers || " and " || Length(unpacked_leftovers) - Length(mention_leftovers) || " more";
-
-      THROW NEW Exception(`Some fields that you were trying to set do not exist in type '${this->tag}': ${describe_leftovers}`);
     }
 
     GetWRDCommitHandler()->AddLinkCheckedSettings(checklinks_settingids);
