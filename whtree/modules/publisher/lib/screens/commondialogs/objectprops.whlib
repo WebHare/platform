@@ -330,7 +330,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   {
     this->startdata := data;
     this->isduplicate := this->startdata.why = "duplicate";
-    this->pending_errors := SELECT AS STRING ARRAY `Property editor '${name}' defined in site profile '${siteprofile}' is not loaded, because it caused an error while loading:\n${error}`
+    this->pending_errors := SELECT AS STRING ARRAY `Extension '${name}' from '${siteprofile}' is not loaded, because it caused an error while loading:\n${error}`
                               FROM data.faultypropeditors;
 
     // Read the user settings
@@ -1427,7 +1427,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
       CATCH (OBJECT<TolliumException> e)
       {
-        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name, e->what);
+        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e->what);
       }
       CATCH (OBJECT e)
       {
@@ -1453,7 +1453,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         }
         CATCH (OBJECT<TolliumException> e)
         {
-          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name, e->what);
+          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e->what);
         }
         CATCH (OBJECT e)
         {
@@ -1506,7 +1506,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     FOREVERY(RECORD propeditor FROM this->extendprops)
     {
       // If we're not supposed to load the property editor because of an error, continue to the next
-      RECORD skipreason := SELECT error FROM skipeditors WHERE name = propeditor.name;
+      RECORD skipreason := SELECT error FROM skipeditors WHERE name = (propeditor.name ?? propeditor.selector);
       IF (RecordExists(skipreason))
         CONTINUE;
 
@@ -1557,7 +1557,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       {
         // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
         // the component, so we can skip this propertyeditor in the next initialization.
-        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name, e->what);
+        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name ?? propeditor.selector, e->what);
       }
     }
   }
