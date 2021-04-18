@@ -24,13 +24,6 @@
     </members>
   </widgettype>
 
-  <apply>
-    <to type="file" pathmask="*/widget.html" />
-    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
-                               library="module::webhare_testsuite/screens/components/embedtest.whlib"
-                               objectname="embedblock1_renderer_override" />
-  </apply>
-
   <widgettype namespace="http://www.webhare.net/xmlns/beta/embedblock2"
               renderlibrary="module::webhare_testsuite/screens/components/embedtest.whlib"
               renderobjectname="embedblock2_renderer"
@@ -53,13 +46,6 @@
       <member name="fsref" type="whfsref" />
     </members>
   </widgettype>
-
-  <apply>
-    <to type="file" pathmask="*/widget.html" />
-    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
-                               library="module::webhare_testsuite/screens/components/embedtest.whlib"
-                               objectname="embedblock1_renderer_override" />
-  </apply>
 
 
   <contenttype namespace="http://www.webhare.net/xmlns/beta/test2" cloneoncopy="true">

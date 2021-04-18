@@ -15,8 +15,6 @@ PUBLIC OBJECTTYPE embedblock1_renderer EXTEND WidgetBase
 
   UPDATE PUBLIC MACRO RenderLive()
   {
-    IF(this->webdesign->targetobject->name = "widget.html")
-      ABORT("Expected the override renderer to be invoked - MakeRTD lost docobjectid? siteprofile override failed?");
     PRINT("Block1 Rendered: <i>" || this->data.id || "</i>");
   }
 >;
