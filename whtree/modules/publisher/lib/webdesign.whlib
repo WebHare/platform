@@ -1557,7 +1557,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 >;
 
 ///Base object for webdesign plugins such a `<wrdauth>`
-PUBLIC OBJECTTYPE WebDesignPluginBase
+PUBLIC STATIC OBJECTTYPE WebDesignPluginBase
 <
   // ---------------------------------------------------------------------------
   //
