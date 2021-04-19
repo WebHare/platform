@@ -321,7 +321,47 @@ PUBLIC STATIC OBJECTTYPE RichDocument
     this->pvt_structure := NEW RichDocumentStructure;
     this->pvt_structure->LoadFromRTDType(typeinfo);
   }
+
 >;
+
+STATIC OBJECTTYPE RTDType
+<
+  RECORD typeinfo;
+
+  MACRO NEW (RECORD typeinfo)
+  {
+    this->typeinfo := typeinfo;
+  }
+
+  /** Restructure a document to strictly conform to this RTDType
+      @long Restructure tries to preserve as much content as possible. */
+  PUBLIC MACRO RestructureDocument(OBJECT body)
+  {
+    OBJECT structuredef := NEW RichDocumentStructure;
+    structuredef->LoadFromRTDType(this->typeinfo);
+    structuredef->RestructureRichDocument(body);
+  }
+
+  /** Lookup a block/table style */
+  PUBLIC RECORD FUNCTION LookupStyle(STRING containertag, STRING classname)
+  {
+    //We sohuld cache RichDocumentStructure or merge it with us at some point... but LookupStyle is currently only used in a few CI tests so doesn't matter yet
+    OBJECT structuredef := NEW RichDocumentStructure;
+    structuredef->LoadFromRTDType(this->typeinfo);
+    RETURN structuredef->LookupStyle(containertag, classname, TRUE);
+  }
+>;
+
+/** Open a RTD type
+    @return The requested RTDType. Throws if not found */
+PUBLIC OBJECT FUNCTION OpenRTDType(STRING namespace)
+{
+  RECORD typeinfo := GetRTDType(namespace); //adhoc caches
+  IF(NOT RecordExists(typeinfo))
+    THROW NEW Exception(`No such RTD type '${namespace}'`);
+
+  RETURN NEW RTDTYpe(typeinfo);
+}
 
 PUBLIC RECORD FUNCTION ValidateRichDocument(RECORD inrichdoc)
 {

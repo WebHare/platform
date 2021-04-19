@@ -5,22 +5,19 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
 
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
 
-MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRING title, BOOLEAN fix_input_hs)
+MACRO DoSingleTest(OBJECT rtdtype, STRING input_text, STRING expect_text, STRING title, BOOLEAN fix_input_hs)
 {
   OBJECT inputdoc := MakeXMLDocumentFromHTML(StringToBlob(input_text));
   IF(fix_input_hs)
     PrepareInputHS(inputdoc);
 
-  structure->RestructureRichDocument(inputdoc->body);
+  rtdtype->RestructureDocument(inputdoc->body);
 
   OBJECT rewriter := NEW HtmlRewriterContext;
   OBJECT expect := MakeXMLDocumentFromHTML(StringToBlob(expect_text));
@@ -70,33 +67,22 @@ STRING FUNCTION GenerateExpectHS(STRING expect_text)
 
 MACRO StructureTest()
 {
-  OBJECT structure := NEW RichDocumentStructure;
-  RECORD rtdsettings := GetRTDSettingsForFile(OpenTestsuiteSite()->id);
-
   FOREVERY (RECORD test FROM restructuringtests)
   {
-    rtdsettings.structure := GetRTDType(test.rtdtype).structure;
-    structure->LoadFromRTDType(rtdsettings);
-
+    OBJECT rtdtype := OpenRTDType(test.rtdtype);
     STRING expect_text := GenerateExpectHS(test.expect);
 
-    DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure", TRUE);
+    DoSingleTest(rtdtype, test.input, expect_text, test.title || " - input restructure", TRUE);
 
     // Double restructure should make no changes
-    DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure", FALSE);
+    DoSingleTest(rtdtype, expect_text, expect_text, test.title || " - second restructure", FALSE);
   }
 
 
-  // Test LookupStyle
-  rtdsettings.structure := GetRTDType("http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage").structure;
-  structure->LoadFromRTDType(rtdsettings);
-
-  RECORD test := structure->LookupStyle("ol", "", TRUE);
+  RECORD test := OpenRTDType("http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage")->LookupStyle("ol", "");
   TestEq("p", test.containertag);
-  rtdsettings.structure := GetRTDType("http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest").structure;
-  structure->LoadFromRTDType(rtdsettings);
 
-  test := structure->LookupStyle("ol", "", TRUE);
+  test := OpenRTDTYpe("http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest")->LookupStyle("ol", "");
   TestEq("ol", test.containertag);
 }
 
