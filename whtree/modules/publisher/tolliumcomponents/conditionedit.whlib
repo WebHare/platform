@@ -3,8 +3,6 @@
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::publisher/lib/internal/contentlibraries/conditions.whlib";
-
 
 RECORD __creation_settings;
 
@@ -279,7 +277,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
   //
 
   /** @short Called by a subcondition when its add button is clicked
-      @param(object #Condition) conditionobj The subcondition after which the new condition should be added
+      @param(object conditionedit.whlib#Condition) conditionobj The subcondition after which the new condition should be added
   */
   PUBLIC MACRO AddCondition(OBJECT conditionobj)
   {
@@ -290,7 +288,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
   }
 
   /** @short Called by a subcondition when its delete button is clicked
-      @param(object #Condition) conditionobj The subcondition to remove
+      @param(object conditionedit.whlib#Condition) conditionobj The subcondition to remove
   */
   PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
   {
@@ -300,9 +298,9 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
       DELETE FROM this->conditionobjs AT pos;
       conditionobj->DeleteComponent();
 
-      // If the last subcondition was deleted, delete the condition itself
-      IF (Length(this->conditionobjs) = 0)
-        this->pvt_conditionparent->DeleteCondition(this);
+      // If the last subcondition has been deleted, reset the condition type if it's still 'and'/'or'/'not'
+      IF (Length(this->conditionobjs) = 0 AND ^field->selection.type IN [ "and", "or", "not" ])
+        this->condition := DEFAULT RECORD;
       ELSE
         this->UpdateState();
 
@@ -360,6 +358,8 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
             // Store the fragment's components
           this->fragmentobjs := result.components;
         }
+        ^subconditionspacer->visible := FALSE;
+        ^subconditions->visible := FALSE;
       }
       ELSE
       {
@@ -392,12 +392,16 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
                   this->DeleteCondition(conditionobj);
             }
           }
+          ^subconditionspacer->visible := ^subconditionline->visible;
+          ^subconditions->visible := TRUE;
         }
         ELSE IF (^field->selection.type = "")
         {
           // Delete any subconditions
           FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
             this->DeleteCondition(conditionobj);
+          ^subconditionspacer->visible := FALSE;
+          ^subconditions->visible := FALSE;
         }
       }
     }
@@ -537,9 +541,10 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
   OBJECT FUNCTION CreateCondition(RECORD condition, OBJECT aftercondition)
   {
     // Initialize the new condition component
-    RECORD oldparent := __creation_settings;
+    RECORD oldsettings := __creation_settings;
     __creation_settings := [ parent := this, editcomponent := this->pvt_editcomponent ];
     OBJECT conditionobj := this->CreateCustomSubComponent("http://www.webhare.net/xmlns/publisher/components", "condition");
+    __creation_settings := oldsettings;
 
     // Add a reference to the list of condition components
     INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
