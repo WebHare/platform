@@ -30,18 +30,20 @@ STRING outputbase := GetWebserverBaseOutputFolder();
 STRING archiveto := outputbase || ".archive";
 CreateDiskDirectoryRecursive(archiveto, TRUE);
 
-RECORD ARRAY serverroots := SELECT url := baseurl, diskpath := webservers.diskfolder
+RECORD ARRAY serverroots := SELECT url := baseurl, diskfolder, addpath := "/", type
                               FROM system.webservers
                              WHERE diskfolder != "" AND type = 0;
 
-RECORD ARRAY foreigners := SELECT url, diskpath := MergePath(MergePath(webservers.diskfolder,sites.outputfolder),fs_objects.fullpath)
+RECORD ARRAY foreigners := SELECT url, diskfolder, addpath := MergePath(sites.outputfolder,fs_objects.fullpath), webservers.type
                              FROM system.fs_objects, system.sites, system.webservers
                             WHERE fs_objects.type = 1
                                   AND fs_objects.parentsite = sites.id
                                   AND sites.outputweb = webservers.id;
 
 RECORD ARRAY possibleroots := serverroots CONCAT foreigners;
-UPDATE possibleroots SET diskpath := MergePath(outputbase, possibleroots.diskpath) WHERE diskpath NOT LIKE "/*";
+possibleroots := EnrichWebserversWithOutputFolder(possibleroots);
+
+possibleroots := SELECT *, diskpath := MergePath(outputfolder, addpath), DELETE addpath, DELETE diskfolder, DELETE type, DELETE outputfolder FROM possibleroots;
 IF(debug)
   DumpValue(possibleroots,'boxed');
 
