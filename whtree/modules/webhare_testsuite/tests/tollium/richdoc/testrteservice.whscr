@@ -82,7 +82,7 @@ MACRO RTECreation()
 
   OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
   editable->structuredef := NEW RichDocumentStructure;
-  editable->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
+  editable->structuredef->LoadFromRTDType(GetRTDSettingsForFile(testfile2->id));
   editable->basetype := "html";
   editable->basefsobject := testfile2;
   editable->rtdtype := GetRTDSettingsForFile(testfile2->id);
@@ -241,7 +241,7 @@ MACRO RTECreation()
   OBJECT editable2 := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
   editable2->ImportFromRecord(exportdata);
   editable2->structuredef := NEW RichDocumentStructure;
-  editable2->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
+  editable2->structuredef->LoadFromRTDType(GetRTDSettingsForFile(testfile2->id));
   TestEq(TRUE, IsSameBlobInDatabase(exportdata.htmltext, editable2->ExportAsRecord().htmltext));
 }
 
@@ -249,7 +249,7 @@ MACRO NewImage()
 {
   OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
   editable->structuredef := NEW RichDocumentStructure;
-  editable->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
+  editable->structuredef->LoadFromRTDType(GetRTDSettingsForFile(testfile2->id));
   RECORD imageonlydoc := [ htmltext := StringToBlob('<img src="cid:imagecid-81400"/>')
                          , embedded := [[ contentid := "imagecid-81400"
                                         , data := smallbobjpg

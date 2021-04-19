@@ -1,73 +1,9 @@
 <?wh
 /* RTE restructuring tests, used by harescript and javascript implementations
-   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&nocatch=1&mask=wh.jscomponents.rte.teststructured-restructuring
+   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&nocatch=1&mask=wh.jscomponents.rte.testrtdtyped-restructuring
    To run in WH: wh runtest publisher.rtd.testrestructuring
 */
 
-/// Test for proper style matching on lists
-PUBLIC CONSTANT STRING listtest_structure :=
-     '<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">\n'
-  || '  <blockstyles defaultstyle="NORMAL">\n'
-  || '    <textstyle tag="HEADING1" containertag="h1" />\n'
-  || '    <textstyle tag="HEADING2" containertag="h2" />\n'
-  || '    <textstyle tag="HEADING3" containertag="h3" />\n'
-  || '    <textstyle tag="HEADING4" containertag="h4" />\n'
-  || '    <textstyle tag="NORMAL" />\n'
-  || '    <textstyle tag="UNORDERED" containertag="ul" />\n'
-  || '    <textstyle tag="ORDERED" containertag="ol" />\n'
-  || '    <tablestyle tag="TABLE" />\n'
-  || '  </blockstyles>\n'
-  || '</richstructure>\n';
-
-/// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
-PUBLIC CONSTANT STRING pages_rte_test_structure :=
-`<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
-  <blockstyles defaultstyle="NORMAL">
-    <textstyle tag="CONTENTTAB" importfrom="h2.tab" containertag="p">
-      <importfrom selector="h2.tab" />
-    </textstyle>
-    <textstyle tag="HEADING1" title="Kop 1" textstyles="i u" toolbarcss="font:bold 16px Verdana; color:#000000;" containertag="h1" nextblockstyle="HEADING2" />
-    <textstyle tag="HEADING2" title="Kop 2" textstyles="i u" toolbarcss="font:bold 14px Verdana; color:#000000;" containertag="h2" nextblockstyle="NORMAL" />
-    <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike img" containertag="p" />
-    <textstyle tag="MYSTYLE" title="MyCustomStyle" textstyles="i u b sub sup a-href strike img" containertag="p" />
-    <textstyle tag="ORDERED" title="Genummerde lijst" textstyles="i u b sub sup a-href strike img" containertag="ol" />
-    <textstyle tag="UNORDERED" title="Ongenummerde lijst" textstyles="i u" containertag="ul" />
-    <tablestyle tag="TABLE" title="Tabel" defaultstyle="MYSTYLE" containertag="table" />
-    <tablestyle tag="ALTTABLE" title="Alt Tabel" defaultstyle="MYSTYLE" containertag="table" />
-    <cellstyle tag="blue" title="Blue Cell" />
-    <cellstyle tag="red" title="Red Cell" />
-  </blockstyles>
-</rtdtype>`;
-
-CONSTANT STRING edudex_structure :=
-`<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">
-  <blockstyles defaultstyle="NORMAL">
-    <textstyle tag="NORMAL">
-      <formatting base="none">
-        <allow textstyles="a-href b i u strike sub sup" />
-      </formatting>
-    </textstyle>
-    <textstyle tag="UNORDERED" containertag="ul">
-      <formatting base="none">
-        <allow textstyles="a-href b i u strike sub sup" />
-      </formatting>
-    </textstyle>
-    <textstyle tag="ORDERED" containertag="ol">
-      <formatting base="none">
-        <allow textstyles="a-href b i u strike sub sup" />
-      </formatting>
-    </textstyle>
-  </blockstyles>
-</richstructure>
-`;
-
-/// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
-PUBLIC CONSTANT STRING allowallinlines_structure :=
-`<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
-  <blockstyles defaultstyle="NORMAL">
-    <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike img ins del" containertag="p" />
-  </blockstyles>
-</rtdtype>`;
 
 
 /** tests
@@ -77,86 +13,86 @@ PUBLIC CONSTANT STRING allowallinlines_structure :=
 */
 PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     [ [ title :=          "Extra surronding divs"
-      , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml"
+      , rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage"
       , input :=          `<div><div><p>Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden <br/><br/>Natuur &amp; Techniek</p></div></div>`
       , expect :=         `<p class="normal">Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden<br/><br/>Natuur &amp; Techniek</p>`
       ]
     , [ title :=          "Word pasted stuff"
-      , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml"
+      , rtdtype :=         "http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage"
       , input :=          `<html><body><div><div><div><p style="MARGIN: 0cm 0cm 0pt" class="MsoNormal"><span style="FONT-FAMILY: &#34;Calibri&#34;, &#34;sans-serif&#34;; COLOR: #1f497d; FONT-SIZE: 11pt; mso-ansi-language: NL">Drs M (Marja) Vollaard</span></p><p style="MARGIN: 0cm 0cm 0pt" class="MsoNormal"><span style="FONT-FAMILY: &#34;Calibri&#34;, &#34;sans-serif&#34;; COLOR: #1f497d; FONT-SIZE: 11pt; mso-ansi-language: NL">Ambtelijk secretaris Examencommissie</span></p><p></p><p style="MARGIN: 0cm 0cm 0pt" class="MsoNormal"><span style="FONT-FAMILY: &#34;Calibri&#34;, &#34;sans-serif&#34;; COLOR: #1f497d; FONT-SIZE: 11pt; mso-ansi-language: NL">Ambtelijk secretaris Commissie voor Wetenschapsbeoefening</span></p></div></div></div></body></html>`
       , expect :=         `<p class="normal">Drs M (Marja) Vollaard</p><p class="normal">Ambtelijk secretaris Examencommissie</p><p class="normal">Ambtelijk secretaris Commissie voor Wetenschapsbeoefening</p>`
       ]
-    , [ title :=          "Elimination of lists in structure that doesn't allow them"
-      , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml" // does not allow
+    , [ title :=          "Elimination of lists in rtdtype that doesn't allow them"
+      , rtdtype :=         "http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage" // does not allow
       , input :=          '<html><body><ol><li>item</li></ol></body></html>'
       , expect :=         '<body><p class="normal">item</p></body>'
       ]
     , [ title :=          "Parsing lists"
-      , structure :=      listtest_structure
+      , rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest"
       , input :=          '<html><body><ol><li>item</li></ol></body></html>'
       , expect :=         '<body><ol class="ordered"><li>item</li></ol></body>'
       ]
     , [ title :=          "Parsing lists in lists"
-      , structure :=      listtest_structure
+      , rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest"
       , input :=          '<html><body><ol><li>item<ol><li>deeper item</li></ol></li></ol></body></html>'
       , expect :=         '<body><ol class="ordered"><li>item<ol class="ordered"><li>deeper item</li></ol></li></ol></body>'
       ]
 
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Remove extra attributes and superfluous br"
       , input :=          `<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/" trash="true">stijl</a>.</p>`
       , expect :=         `<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/">stijl</a>.</p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Softenters, images at root level"
       , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/tests/webhare.png" />`
       , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Softenter and spaces #1"
       , input :=          `<p>paragraaf\n<br>\nmet \nsoft enter\n</p><p>lege regels\nvoor\rformatting</p><p>111\n<b>111 </b>11\n222<b>\n222\n</b> 333\n<b>\n333</b>44 <i>44\n</i>\n4</p><p>ne\u200Bxt pa\u200Bra\n\r\n\r!</p>`
       , expect :=         `<p class="normal">paragraaf<br>met soft enter</p><p class="normal">lege regels voor formatting</p><p class="normal">111 <b>111 </b>11 222<b> 222 </b>333 <b>333</b>44 <i>44 </i>4</p><p class="normal">next para !</p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Softenter and spaces #2"
       , input :=          `<p>para<b> </b>graaf <br> <span> </span> a<br> <b> </b> b<br>c<b> </b><br>d <b> </b> </p>`
       , expect :=         `<p class="normal">para<b> </b>graaf<br>a<br>b<br>c<br>d</p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Links with hash urls"
       , input :=          `<p class="normal">Twee links: <a href="#1">nummer 1</a> en <a href="#2">nummer 2</a></p>`
       , expect :=         `<p class="normal">Twee links: <a href="#1">nummer 1</a> en <a href="#2">nummer 2</a></p>`
       ]
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Link with image"
       , input :=          `<p><a href="http://nu.nl/" target="_blank"><img alt="test" height="50" width="50" src="/tests/webhare.png" /></a></p>`
       , expect :=         `<p class="normal"><a href="http://nu.nl/" target="_blank"><img alt="test" class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></a></p>`
       ]
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Link with image and text"
       , input :=          `<p><a href="http://nu.nl/"><img alt="test" height="50" width="50" src="/tests/webhare.png" />x</a></p>`
       , expect :=         `<p class="normal"><a href="http://nu.nl/"><img alt="test" class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" />x</a></p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Filtering of empty paragraphs"
       , input :=          `<p>a</p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p>b</p>`
       , expect :=         `<p class="normal">a</p><p class="normal">b</p>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Inline nodes outside block node"
       , input :=          `,<abbr>abbr</abbr>,<acronym>acronym</acronym>,<b>b</b>,<big>big</big>,<cite>cite</cite>,<code>code</code>,<dfn>dfn</dfn>,<em>em</em>,<font>font</font>,<i>i</i>,<kbd>kbd</kbd>,<samp>samp</samp>,<small>small</small>,<strong>strong</strong>,<sub>sub</sub>,<sup>sup</sup>,<tt>tt</tt>,<var>var</var>,<a>a</a>,<bdo>bdo</bdo>,<label>label</label>,<q>q</q>,<span>span</span>,</p>`
       , expect :=         `<p class="normal">,abbr,acronym,<b>b</b>,big,cite,code,dfn,<i>em</i>,font,<i>i</i>,kbd,samp,small,<b>strong</b>,<sub>sub</sub>,<sup>sup</sup>,tt,var,a,bdo,label,q,span,</p>`
       ]
 
 //note: 'blue' should win when saying "blue red" or "red blue" because ordering in class= is supposed to be irrelevant - so we look at our own style order
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Table refilter"
       , input :=          `<h1 class="heading1">H1</h1>` ||
                           `<table class="table"><tbody>` ||
@@ -224,34 +160,34 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                             `</tbody>`||
                           `</table>`
       ]
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Remove empty tables"
       , input :=          `<h1 class="heading1">Kop</h1><table></table><table><tr></tr></table>`
       , expect :=         `<h1 class="heading1">Kop</h1>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "Don't get confused by the div wrapper named after a table class"
       , input :=          `<h1 class="heading1">Kop</h1><div class="wh-rtd__tablewrap table"><table class="alttable"><tbody><tr><td>Cell 1</td></tr></tbody></table>`
       , expect :=         `<h1 class="heading1">Kop</h1><table class="alttable wh-rtd-table wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
       ]
 
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "importfrom"
       , input :=          `<h2 class="tab">contenttab</h2><h2>normalh2</h2>`
       , expect :=         `<p class="contenttab">contenttab</p><h2 class="heading2">normalh2</h2>`
       ]
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "comment removal"
       , input :=          `<!--comment--><html><!--comment--><p><!--comment-->p</p><!--comment--></body><!--comment></html><!--comment-->`
       , expect :=         `<html><body><p class="normal">p</p></body></html>`
       ]
-    , [ structure :=      pages_rte_test_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure"
       , title :=          "comment removal"
       , input :=          `<!--comment--><html><!--comment--><p><!--comment-->p</p><!--comment--></body><!--comment></html><!--comment-->`
       , expect :=         `<html><body><p class="normal">p</p></body></html>`
       ]
-    , [ structure :=      edudex_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "extra br to force parapgraph visibility"
       , input :=          `<b>Leerdoelen</b><br/>Aan het einde van deze cursus kunt u zich in het Italiaans voorstellen en een kort gesprek voeren, en bent u in staat om qua leesvaardigheid korte teksten te begrijpen. Wat schrijfvaardigheid betreft kunt u korte teksten schrijven, bijvoorbeeld over uw familie en uzelf. U kunt mondeling en schriftelijk de volgende grammaticale onderwerpen toepassen: lidwoorden, regelmatige werkwoorden, enkele onregelmatige werkwoorden, zelfstandige naamwoorden in enkel-/meervoud, bijvoeglijke naamwoorden (enkel-/meervoud), bezittelijke voornaamwoorden en een aantal voorzetsels.<br/><br/><b>Inhoud cursus</b><br/>Deze cursus bereidt deelnemers voor die bijvoorbeeld op vakantie naar Itali&#235; gaan of die voor hun studie enkele maanden in Itali&#235; zullen verblijven. Alle vaardigheden komen aan bod, maar de cursus focust vooral op communicatieve handelingen zoals winkelen, iets te eten/drinken bestellen, de weg vragen, de trein nemen, etc. Tijdens Italiaans 1 behandelt de docent de hoofdstukken 1 tot en met 3 van Con Piacere 1.<br/><br/><b>Werkvormen</b><br/>De docent behandelt plenair grammatica en lessen uit het boek, er wordt vaak in tweetallen gewerkt.<br/><br/><b>Aantal zelfstudie uren</b><br/>ca. 2 uur per week<b>Voertaal</b><br/>Zoveel mogelijk Italiaans, maar tijdens de eerste lessen zal de docent ook uitleg in het Nederlands geven`
       , expect :=         `<html><body>`||
@@ -269,29 +205,29 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                             `<p class="normal">Zoveel mogelijk Italiaans, maar tijdens de eerste lessen zal de docent ook uitleg in het Nederlands geven</p>`||
                           `</body></html>`
       ]
-    , [ structure :=      edudex_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "don't eat brs at end of parapgraph"
       , input :=          `<ul class="unordered"><li>toepassing.<br/><br data-wh-rte="bogus"/></li></ul>`
       , expect :=         `<ul class="unordered"><li>toepassing.<br/><br data-wh-rte="bogus"/></li></ul>`
       ]
-    , [ structure :=      edudex_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "br in links"
       , input :=          `<a href="http://example.com">a<br>a<a><p><a href="http://example.com">a<br>a<a></p>`
       , expect :=         `<p class="normal"><a href="http://example.com">a</a></p><p class="normal"><a href="http://example.com">a</a></p><p class="normal"><a href="http://example.com">a</a><br><a href="http://example.com">a</a></p>`
       ]
-    , [ structure :=      edudex_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "don't eat brs at end of parapgraph 2"
       , input :=          `<ul><li><b>Inzicht in jouw onderhandelingsgedrag<br/></b><br/></li><li><b>Invloedrijk Onderhandelen</b><br/><br/></li><li><b>De-escaleren</b><br/><br/></li></ul>`
       , expect :=         `<ul class="unordered"><li><b>Inzicht in jouw onderhandelingsgedrag</b><br><br data-wh-rte="bogus"/></li><li><b>Invloedrijk Onderhandelen</b><br/><br data-wh-rte="bogus"/></li><li><b>De-escaleren</b><br/><br data-wh-rte="bogus"/></li></ul>`
       ]
-    , [ structure :=      allowallinlines_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines"
       , title :=          "inline node hierarchy"
       , input :=          `<p><b><i><u><a href="http://example.com"><del><ins><strike><sub><sup>test1</sup></sub></strike></a href="http://example.com"></u></i></b></ins></del></p>` ||
                           `<p><sup><sub><strike><a href="http://example.com"><u><i><b><del><ins>test2</ins></del></b></i></u></a href="http://example.com"></strike></sub></sup></p>`
       , expect :=         `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test1</sup></sub></strike></u></b></i></del></ins></a></p>` ||
                           `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test2</sup></sub></strike></u></b></i></del></ins></a></p>`
       ]
-    , [ structure :=      allowallinlines_structure
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines"
       , title :=          "Inline Embedded object" //HS doesn't need --inline classes and instanceid, JS uses encrypted refs
       , input :=          `<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="ref"></span> object</p>`
       , expect :=         `<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="ref"></span> object</p>`
