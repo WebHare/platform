@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/towl.whlib";
 
-
+CONSTANT INTEGER restart_contentprovider_after := 500;
 RECORD ARRAY cached_providers; // Cache opened providers
 RECORD ARRAY contentproviders; // List of content providers
 
@@ -1155,6 +1155,12 @@ OBJECT FUNCTION GetContentProviderForSource(RECORD source)
   FetcherDebug(ConsilioDebugAll, "Initializing content source " || source.id || " in index " || source.indexid || " using content provider '" || source.contentprovider || "'", source.loglevel);
 
   OBJECT provider := SELECT AS OBJECT obj FROM cached_providers WHERE cached_providers.id = source.id;
+  IF(ObjectExists(provider) AND provider->donetasks > restart_contentprovider_after)
+  {
+    provider->Close();
+    DELETE FROM cached_providers WHERE cached_providers.id = source.id;
+    provider := DEFAULT OBJECT;
+  }
   IF(NOT ObjectExists(provider))
   {
     OBJECT catalog := OpenConsilioCatalogById(source.indexid);
@@ -1163,6 +1169,7 @@ OBJECT FUNCTION GetContentProviderForSource(RECORD source)
     INSERT INTO cached_providers(id, obj) VALUES(source.id, provider) AT END;
   }
   provider->loglevel := source.loglevel;
+  provider->donetasks := provider->donetasks + 1;
   RETURN provider;
 }
 

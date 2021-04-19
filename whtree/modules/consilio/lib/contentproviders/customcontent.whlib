@@ -289,6 +289,11 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     RETURN this->initdata;
   }
 
+  UPDATE PUBLIC MACRO Close()
+  {
+    this->CloseJob();
+  }
+
   UPDATE PUBLIC STRING FUNCTION GetContentSourceTitle()
   {
     RECORD res := this->DoJobRequest([ command := "gettitle"

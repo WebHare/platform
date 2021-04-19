@@ -36,6 +36,9 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
 
   PUBLIC INTEGER loglevel;
 
+  /// Number of tasks completed, so we can restart the provider every X tasks
+  PUBLIC INTEGER donetasks;
+
   /** @short Default empty search record
   */
   PUBLIC PROPERTY defaultemptysearchrecord(GetDefaultEmptySearchObject, -);
@@ -558,6 +561,11 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   MACRO SetMaxGroupObjects(INTEGER newmax)
   {
     this->pvt_maxgroupobjects := newmax;
+  }
+
+  PUBLIC MACRO Close()
+  {
+
   }
 >;
 
