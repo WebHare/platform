@@ -22,6 +22,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+//webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as lomg as it exists:
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder;
 
 /* ADDME log errors encounted (ie the current RETURN/CONTINUEs) */
 
@@ -70,36 +72,6 @@ PUBLIC BOOLEAN FUNCTION IsCertificateForHostname(RECORD cert, STRING hostname)
       RETURN TRUE;
 
   RETURN FALSE;
-}
-
-
-/** @cell inrows.type Webserver type
-    @cell inrows.diskfolder Webserver disk folder */
-PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrows)
-{
-  FOREVERY(RECORD row FROM inrows)
-  {
-    STRING outputfolder;
-    IF(row.type=1)
-    {
-      outputfolder := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
-    }
-    ELSE IF(row.diskfolder = "" OR IsPathAbsolute(row.diskfolder))
-    {
-      outputfolder := row.diskfolder;
-    }
-    ELSE
-    {
-      outputfolder := MergePath(GetWebserverBaseOutputFolder(), row.diskfolder);
-    }
-
-    IF (outputfolder != "" AND outputfolder NOT LIKE '*/') //need to append a slash?
-      outputfolder := outputfolder || '/';
-
-    INSERT CELL outputfolder := outputfolder INTO row;
-    inrows[#row] := row;
-  }
-  RETURN inrows;
 }
 
 STRING FUNCTION ConvertPath(STRING module, STRING data, BOOLEAN iswildcardmatch, BOOLEAN iscookiematch)
@@ -159,10 +131,6 @@ RECORD FUNCTION SplitTriplet(STRING inpath)
 }
 
 
-PUBLIC STRING FUNCTION GetWebserverBaseOutputFolder()
-{
-  RETURN GetWebHareConfiguration().basedataroot || 'output/';
-}
 PUBLIC STRING FUNCTION GetWebhareBackendServerFolder()
 {
   RETURN MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
@@ -368,25 +336,10 @@ OBJECTTYPE WebConfigBuilder
       INTEGER res := LookupWHFSObject(0, data);
       IF(res > 0)
       {
-        //ADDME why don't we have a call mapping an id to an on-disk-ptah ?
-        RECORD resinfo := SELECT webservers.diskfolder
-                               , siteoutputfolder := sites.outputfolder
-                               , fs_objects.fullpath
-                               , webservers.type
-                            FROM system.webservers
-                               , system.sites
-                               , system.fs_objects
-                           WHERE fs_objects.id = res
-                                 AND fs_objects.parentsite = sites.id
-                                 AND sites.outputweb = webservers.id;
-        IF(RecordExists(resinfo))
-        {
-          STRING diskfolder := EnrichWebserversWithOutputFolder([ resinfo ])[0].outputfolder;
-          STRING path := CollapsePath(diskfolder || "/" || resinfo.siteoutputfolder  || "/" || resinfo.fullpath);
-          IF(resinfo.fullpath LIKE "*/" AND path NOT LIKE "*/")
-            path := path || "/";
+        STRING path := GetFSObjectDiskOutputPath(res);
+        IF(path != "")
           RETURN path;
-        }
+
         THROW NEW Exception(`Couldn't interpret path "${data}" - target fsobject #${res} doesn't appear to be hosted`);
       }
       THROW NEW Exception(`Couldn't interpret path "${data}" - target not found`);
