@@ -4,7 +4,7 @@ When developing, consider using `wh publisher:compile` for faster testing
 
 const path = require('path');
 const fs = require('fs');
-const dompackBuilder = require("@webhare/dompack-builder");
+const dompackBuilder = require("./dompack-builder/src/index.js");
 
 
 function packRecord(cells)
