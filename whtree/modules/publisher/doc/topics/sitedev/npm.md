@@ -83,3 +83,7 @@ And before committing your module, 'properly' refer to your project (and undo th
 ```bash
 npm install myproject@^0.1.0
 ```
+
+## Shipped node_modules
+WebHare ships with some node_modules of its own to implement various funtionality (eg bundling). These NPM modules
+are stored in whtree/node_modules and only accessible to built-in modules to prevent accidental undeclared dependencies

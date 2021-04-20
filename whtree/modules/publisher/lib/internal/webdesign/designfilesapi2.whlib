@@ -335,9 +335,9 @@ PUBLIC RECORD FUNCTION GetAssetpacksBaseConfig()
 
   RECORD baseconfig := [ babelcache :=        GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(config.varroot, "ephemeral/babelcache")
                        , uglifycache :=       GetEnvironmentVariable("WEBHARE_UGLIFYCACHE") ?? MergePath(config.varroot, "ephemeral/uglifycache")
-                       , coreinstalledmodules := MergePath(config.installationroot, "node_modules")
+                       //, coreinstalledmodules := MergePath(config.installationroot, "node_modules")
                        , nodemodulepaths :=   [ MergePath(config.varroot, "nodejs/node_modules")
-                                              , MergePath(config.installationroot, "node_modules")
+                                              //, MergePath(config.installationroot, "node_modules")
                                               ]
                        , installedmodules :=  (SELECT name
                                                     , root := GetModuleInstallationRoot(name)

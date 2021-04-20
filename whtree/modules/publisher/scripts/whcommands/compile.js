@@ -30,10 +30,10 @@ async function main(bundlename)
     let result = await completionpromise;
     console.log("total result",result);
     console.log("dependencies",result.info.dependencies);
-    console.log("---structured response---");
-    console.log("Reported errors",result.info.errors); //FIXME should be at high levlel 'info' should go
     console.log("---assets---");
     console.log(result.info.assets);
+    console.log("---structured response---");
+    console.log("Reported errors",result.info.errors); //FIXME should be at high levlel 'info' should go
 
     try { JSON.stringify(result); } //detect cycles etc
     catch (e)
