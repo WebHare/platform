@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
-LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -221,16 +220,13 @@ PUBLIC MACRO RunSAMLSpEndpoint()
           }
         }
 
-        LogAuditEventBy("wrd:auth", userdata
-                       , [ type :=           "login:saml:" || ToLowercase(loginres.code)
-                         , wrdschema :=      authplugin->wrdschema->tag
-                         , sitetag :=        authplugin->sitetag
-                         , sp_tag :=         sp->GetTag()
-                         , name :=           loginres.name
-                         , entityid :=       loginres.entityid
-                         , clientip :=       IsRequest() ? GetClientRemoteIp() : ""
-                         , clientcountry :=  IsRequest() ? GetGeoIPCountryForIP(GetClientRemoteIp()) : ""
-                         ]);
+        WriteWRDAuditEvent(authplugin->accounttype, "login:saml:" || ToLowercase(loginres.code),
+              [ byaccount := loginres.entityid
+              , bylogin := RecordExists(userdata) ? userdata.login : ""
+              , message := [ sp_tag := sp->GetTag()
+                           , name := loginres.name
+                           ]
+              ]);
 
         RECORD submitinstr;
 
