@@ -345,7 +345,7 @@ STATIC OBJECTTYPE RTDType
   /** Lookup a block/table style */
   PUBLIC RECORD FUNCTION LookupStyle(STRING containertag, STRING classname)
   {
-    //We sohuld cache RichDocumentStructure or merge it with us at some point... but LookupStyle is currently only used in a few CI tests so doesn't matter yet
+    //We should cache RichDocumentStructure or merge it with us at some point... but LookupStyle is currently only used in a few CI tests so doesn't matter yet
     OBJECT structuredef := NEW RichDocumentStructure;
     structuredef->LoadFromRTDType(this->typeinfo);
     RETURN structuredef->LookupStyle(containertag, classname, TRUE);

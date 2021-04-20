@@ -22,7 +22,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
-//webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as lomg as it exists:
+//webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as long as it exists:
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder;
 
 /* ADDME log errors encounted (ie the current RETURN/CONTINUEs) */

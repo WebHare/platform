@@ -40,7 +40,6 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrow
 
 PUBLIC STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
 {
-  //ADDME why don't we have a call mapping an id to an on-disk-ptah ?
   RECORD resinfo := SELECT webservers.diskfolder
                          , siteoutputfolder := sites.outputfolder
                          , fs_objects.fullpath
