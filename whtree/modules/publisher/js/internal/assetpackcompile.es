@@ -4,6 +4,7 @@ When developing, consider using `wh publisher:compile` for faster testing
 
 const path = require('path');
 const fs = require('fs');
+const bridge = require('@mod-system/js/wh/bridge');
 let CompressionPlugin = require("compression-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const OptimizeCSSAssetsPlugin = require("optimize-css-assets-webpack-plugin");
@@ -247,6 +248,7 @@ function generateConfig(config)
   var allrequires = (config.extrarequires || []);
   var entrypoint = config.entrypoint;
   let loadpaths = (config.nodemodulepaths || []).map(path => makePathAbsolute(path, config.diskpath));
+  let loaderloadpaths = bridge.getNodeModulePaths().map(path => makePathAbsolute(path, config.diskpath)); //*does* include whtree/node_modules. some loaders require this to find their libs
   const babelenvtarget = config.babelenvtarget || { "targets": "defaults" };
 
   if(config.diskpath)
@@ -308,7 +310,7 @@ function generateConfig(config)
                , alias: config.resolvealias || {}
                }
     , resolveLoader:
-               { modules: ['node_modules', ...loadpaths ] //FIXME avoid this!
+               { modules: ['node_modules', ...loaderloadpaths ]
                }
     , entry: allrequires
     , output: { path: config.outputpath
