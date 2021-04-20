@@ -20,7 +20,7 @@ args := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "swit
                                               ]);
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: wh publisher:archiveoutput [--debug]\n");
+  Print("Syntax: wh run mod::publisher/scripts/tasks/archiveoutput.whscr [--debug]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
@@ -31,8 +31,7 @@ STRING archiveto := outputbase || ".archive";
 CreateDiskDirectoryRecursive(archiveto, TRUE);
 
 RECORD ARRAY serverroots := SELECT url := baseurl, diskfolder, addpath := "/", type
-                              FROM system.webservers
-                             WHERE diskfolder != "" AND type = 0;
+                              FROM system.webservers;
 
 RECORD ARRAY foreigners := SELECT url, diskfolder, addpath := MergePath(sites.outputfolder,fs_objects.fullpath), webservers.type
                              FROM system.fs_objects, system.sites, system.webservers
@@ -44,6 +43,7 @@ RECORD ARRAY possibleroots := serverroots CONCAT foreigners;
 possibleroots := EnrichWebserversWithOutputFolder(possibleroots);
 
 possibleroots := SELECT *, diskpath := MergePath(outputfolder, addpath), DELETE addpath, DELETE diskfolder, DELETE type, DELETE outputfolder FROM possibleroots;
+DELETE FROM possibleroots WHERE diskpath = "";
 IF(debug)
   DumpValue(possibleroots,'boxed');
 
@@ -56,16 +56,12 @@ FOREVERY(STRING basedir FROM basedirs)
   basedirs[#basedir] := basedir;
 }
 
-allsites := SELECT folder := MergePath(diskfolder, outputfolder)
-                 , name := sites.name
+allsites := SELECT name := sites.name, webservers.diskfolder, siteoutputfolder := sites.outputfolder, webservers.type
               FROM system.sites, system.webservers
-             WHERE sites.outputweb = webservers.id
-                   AND webservers.type = 0
-                   AND webservers.diskfolder != "";
-
-allsites := SELECT * FROM allsites ORDER BY ToUppercase(folder);
-
-UPDATE allsites SET folder := MergePath(outputbase, folder) WHERE NOT IsPathAbsolute(folder);
+             WHERE sites.outputweb = webservers.id;
+allsites := EnrichWebserversWithOutputFolder(allsites);
+allsites := SELECT *, folder := MergePath(outputfolder, siteoutputfolder) FROM allsites;
+allsites := SELECT name, folder FROM allsites WHERE outputfolder != "" ORDER BY ToUppercase(folder);
 
 IF(debug)
   DumpValue(allsites, 'boxed');
