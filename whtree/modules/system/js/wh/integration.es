@@ -23,7 +23,7 @@ function generateForm(action, values, method)
   return form;
 }
 
-function submitForm(action, values, method)
+export function submitForm(action, values, method)
 {
   var form = generateForm(action, values, method);
   document.body.appendChild(form);
