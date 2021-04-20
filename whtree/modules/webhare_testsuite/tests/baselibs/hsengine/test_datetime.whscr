@@ -505,6 +505,9 @@ PUBLIC MACRO GeneralTest()
   TestWeekRoundtrip (342, 52, 2017, MakeDate(2017,12,31));
   TestWeekRoundtrip (345,  1, 2018, MakeDate(2018, 1, 1)); //starts mon, norm
 
+  TestWeekRoundtrip (  0, 27, 2020, MakeDate(2020, 6,29)); // bug in old implementation, changed year to 2019
+  TestWeekRoundtrip (  0, 26, 2021, MakeDate(2021, 7, 1)); // bug in old implementation, changed year to 2022
+
   //stabilize out-of-range conditions
   TestEq(MakeDate(2017,12,31), MakeDateTimeFromWeek(2017, 52, 7,0,0,0));
   TestEq(MakeDate(2018, 1, 7), MakeDateTimeFromWeek(2017, 53, 7,0,0,0));
@@ -615,20 +618,20 @@ MACRO LimitsTest()
 
   TestEq(MakeDateFromParts(0x7FFFFFFF, 24*60*60*1000 - 11), AddTimeToDate(-10, MAX_DATETIME));
   TestEq(MAX_DATETIME, AddTimeToDate(0, MAX_DATETIME));
-  TestThrows(PTR AddTimeToDate(1, MAX_DATETIME));
-  TestThrows(PTR AddTimeToDate(20, MakeDateFromParts(0x7FFFFFFF, 24*60*60*1000 - 11)));
-  TestThrows(PTR AddDaysTodate(1, MAX_DATETIME));
-  TestThrows(PTR AddTimeToDate(-1, DEFAULT DATETIME));
-  TestThrows(PTR AddDaysToDate(-1, DEFAULT DATETIME));
+  TestThrowsLike("Date overflow", PTR AddTimeToDate(1, MAX_DATETIME));
+  TestThrowsLike("Date overflow", PTR AddTimeToDate(20, MakeDateFromParts(0x7FFFFFFF, 24*60*60*1000 - 11)));
+  TestThrowsLike("Date overflow", PTR AddDaysTodate(1, MAX_DATETIME));
+  TestThrowsLike("Date overflow", PTR AddTimeToDate(-1, DEFAULT DATETIME));
+  TestThrowsLike("Date overflow", PTR AddDaysToDate(-1, DEFAULT DATETIME));
   TestEq(DEFAULT DATETIME, AddMonthsToDate(-1, DEFAULT DATETIME));
   TestEq(DEFAULT DATETIME, AddYearsToDate(-1, DEFAULT DATETIME));
-  TestThrows(PTR AddTimeTodate(-86400*1000 -1, MakeDateFromParts(1,0)));
-  TestThrows(PTR AddDaysToDate(-12, MakeDateFromParts(1,0)));
-  TestThrows(PTR AddYearsToDate(-2, MakeDate(1,1,1)));
-  TestThrows(PTR AddMonthsToDate(-2, MakeDate(1,1,1)));
-  TestThrows(PTR AddYearsToDate(+1, MAX_DATETIME));
-  TestThrows(PTR AddMonthsToDate(+1, MAX_DATETIME));
-  TestThrows(PTR GetNextAnniversary(MakeDate(1979,6,13), MAX_DATETIME));
+  TestThrowsLike("Date overflow", PTR AddTimeTodate(-86400*1000 -1, MakeDateFromParts(1,0)));
+  TestThrowsLike("Date overflow", PTR AddDaysToDate(-12, MakeDateFromParts(1,0)));
+  TestThrowsLike("Date overflow", PTR AddYearsToDate(-2, MakeDate(1,1,1)));
+  TestThrowsLike("Date overflow", PTR AddMonthsToDate(-2, MakeDate(1,1,1)));
+  TestThrowsLike("Date overflow", PTR AddYearsToDate(+1, MAX_DATETIME));
+  TestThrowsLike("Date overflow", PTR AddMonthsToDate(+1, MAX_DATETIME));
+  TestThrowsLike("Date overflow", PTR GetNextAnniversary(MakeDate(1979,6,13), MAX_DATETIME));
 
   TestEq(MakeDateFromParts(0,5), AddTimeToDate(5, DEFAULT DATETIME));
   TestEq(MakeDateFromParts(0,86400*1000-1), AddTimeToDate(86400*1000-1, DEFAULT DATETIME));
@@ -657,7 +660,7 @@ MACRO CronTest()
   //Play with month lenths
   TestEq(MakeDatetime(2018,10,31,5,4,0), GetNextCronTime(MakeDatetime(2018,10,11,0,0,0), "4 5 31 * *"));
   TestEq(MakeDatetime(2018,12,31,5,4,0),  GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 31 * *"));
-  TestThrows(PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 32 * *"));
+  TestThrowsLike("Invalid value '32' for day of month", PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 32 * *"));
 
   //Repeats
   TestEq(MakeDatetime(2018,11,11,0,2,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "*/2 */3 * * *"));

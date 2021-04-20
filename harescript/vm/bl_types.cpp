@@ -752,8 +752,11 @@ bool UnpackDateTime(Blex::DateTime const &date, UnpackedDateTime *result)
         int32_t week = CalculateWeek(dayofyear, dayofweek, year);
         int32_t yearofweek = year;
 
-        if ((month < 7) != (week < 27)) // If the month does not agree with the weeknr, do a correction
-            yearofweek = yearofweek + (month < 7 ? -1 : 1);
+        // Correct the year of week if the week belongs to the adjacent year
+        if (week == 1 && month == 12)
+            ++yearofweek;
+        else if (month == 1 && week >= 52)
+            --yearofweek;
 
         result->year = year;
         result->month = month;
