@@ -43,6 +43,8 @@
     <webservice name="sync" transports="whremoting" library="internal/sync/service.whlib" primarytrans="auto" prefix="rpc_" requirewhaccount="true">
       <accesscheck />
     </webservice>
+
+    <check objectname="lib/internal/metadata/checks.whlib#WRDCheck" />
   </services>
 
   <rights>

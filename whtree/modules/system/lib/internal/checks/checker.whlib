@@ -404,6 +404,8 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
               ])
     ORDER BY messagetaghash;
 
+  messages := EnforceStructure([[ checktypes := STRING[] ]], messages);
+
   messages :=
       SELECT TEMPORARY messagetag :=  CellExists(messages, "MESSAGETAG") ? COLUMN messagetag : [ type := "tag-from-text", msg := msg ]
            , TEMPORARY messagetaghash := EncodeBase16(GetSHA1Hash(EncodeHSON(messagetag)))

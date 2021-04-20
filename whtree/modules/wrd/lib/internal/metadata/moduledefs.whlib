@@ -42,9 +42,6 @@ RECORD ARRAY FUNCTION ParseSchemas(OBJECT xmldef, STRING modulename, BOOLEAN sep
       deffile := MakeAbsoluteResourcePath("mod::" || modulename || "/", schemanode->GetAttribute("definitionfile"));
     }
 
-    IF(deffile = "")
-      CONTINUE;
-
     BOOLEAN isexact := SearchSubstring(tag,'*') = -1 AND SearchSubstring(tag,'?') = -1;
 
     RECORD schemarec :=
