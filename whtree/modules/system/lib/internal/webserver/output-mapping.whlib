@@ -1,0 +1,62 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC STRING FUNCTION GetWebserverBaseOutputFolder()
+{
+  RETURN GetWebHareConfiguration().basedataroot || 'output/';
+}
+
+/** @cell inrows.type Webserver type
+    @cell inrows.diskfolder Webserver disk folder */
+PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrows)
+{
+  FOREVERY(RECORD row FROM inrows)
+  {
+    STRING outputfolder;
+    IF(row.type=1)
+    {
+      outputfolder := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+    }
+    ELSE IF(row.diskfolder = "" OR IsPathAbsolute(row.diskfolder))
+    {
+      outputfolder := row.diskfolder;
+    }
+    ELSE
+    {
+      outputfolder := MergePath(GetWebserverBaseOutputFolder(), row.diskfolder);
+    }
+
+    IF (outputfolder != "" AND outputfolder NOT LIKE '*/') //need to append a slash?
+      outputfolder := outputfolder || '/';
+
+    INSERT CELL outputfolder := outputfolder INTO row;
+    inrows[#row] := row;
+  }
+  RETURN inrows;
+}
+
+PUBLIC STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
+{
+  RECORD resinfo := SELECT webservers.diskfolder
+                         , siteoutputfolder := sites.outputfolder
+                         , fs_objects.fullpath
+                         , webservers.type
+                      FROM system.webservers
+                         , system.sites
+                         , system.fs_objects
+                     WHERE fs_objects.id = res
+                           AND fs_objects.parentsite = sites.id
+                           AND sites.outputweb = webservers.id;
+  IF(RecordExists(resinfo))
+  {
+    STRING diskfolder := EnrichWebserversWithOutputFolder([ resinfo ])[0].outputfolder;
+    STRING path := CollapsePath(diskfolder || "/" || resinfo.siteoutputfolder  || "/" || resinfo.fullpath);
+    IF(resinfo.fullpath LIKE "*/" AND path NOT LIKE "*/")
+      path := path || "/";
+    RETURN path;
+  }
+  RETURN "";
+}

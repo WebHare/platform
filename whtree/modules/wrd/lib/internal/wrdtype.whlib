@@ -2393,30 +2393,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return(object %WRDEntity2017) The entity */
   PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredfields, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT CellExists(options,'entitykey') AND NOT CellExists(options,'ifnew')) //4.28- style call
-    {
-      IF(GetDtapStage()="development")
-        THROW NEW Exception(`Old style EnsureEntity calls are no longer supported. You need to explicitly set the 'entitykey'`);
-
-      STRING ARRAY entitykey;
-      FOREVERY(RECORD cellrec FROM UnpackRecord(requiredfields))
-      {
-        RECORD attr := this->GetAttribute(cellrec.name);
-        IF(NOT RecordExists(attr))
-          THROW NEW Exception(`No such attribute '${cellrec.name}' in type '${this->tag}'`);
-
-        IF(attr.isrequired OR (attr.isunique AND NOT IsDefaultvalue(cellrec.value)))
-          INSERT cellrec.name INTO entitykey AT END;
-      }
-
-      IF(Length(entitykey) = 0)
-        THROW NEW Exception("No filter sufficient to establish uniqueness");
-
-      options := [ entitykey := entitykey
-                 , ifnew := options
-                 ];
-    }
-
     options := ValidateOptions([ entitykey := STRING[]
                                , ifnew := DEFAULT RECORD
                                ], options, [ required := ["entitykey"]]);
