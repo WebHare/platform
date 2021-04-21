@@ -4,5 +4,5 @@
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
 LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib" EXPORT IsRPCTrafficLogged;
-LOADLIB "mod::system/lib/logging.whlib" EXPORT FlushModuleLog, LogAuditEvent, LogAuditEventBy, LogError, Logwarning, LogInfo, LogDebug, LogRPCTraffic, LogRPCForWebbrowser, LogRPCForSoapClient, LogHarescriptErrors;
+LOADLIB "mod::system/lib/logging.whlib" EXPORT FlushModuleLog, LogAuditEvent, LogError, Logwarning, LogInfo, LogDebug, LogRPCTraffic, LogRPCForWebbrowser, LogRPCForSoapClient, LogHarescriptErrors;
 
