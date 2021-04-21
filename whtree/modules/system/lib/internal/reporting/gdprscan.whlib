@@ -1,0 +1,190 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+
+PUBLIC MACRO PrintGDPRScanReport(RECORD report)
+{
+  PRINT(`Configuration:
+    Allowed e-mailmasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultemailmasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowemailmasks, "mask") ORDER BY mask NOT IN report.defaultemailmasks, mask), "")}
+    Allowed fullnamemasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultfullnamemasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowfullnamemasks, "mask") ORDER BY mask NOT IN report.defaultfullnamemasks, mask) , "")}
+
+  `);
+
+  RECORD ARRAY dbschemas := SELECT * FROM report.dbaseschemas WHERE Length(tables) > 0;
+  FOREVERY(RECORD dbschema FROM dbschemas)
+    IF(Length(dbschema.tables) > 0)
+    {
+      Print(`Database schema: ${dbschema.schema_name}\n`);
+      FOREVERY(RECORD tablerec FROM dbschema.tables)
+        Print(` - table ${tablerec.table_name}: ${tablerec.numrecs} records\n`);
+      Print("\n");
+    }
+
+  IF(Length(dbschemas) > 0)
+    Print("Visit https://my.webhare.dev/?app=system:dba to manage database schemas\n\n");
+
+  FOREVERY(RECORD wrdschema FROM report.wrdschemas)
+  {
+    Print("WRD Schema: " || wrdschema.name || (wrdschema.title != "" ? " (" || wrdschema.title || ")" : "") || "\n");
+    Print("   created: " || FormatDatetime("%Y-%m-%d", wrdschema.creationdate) || " " || wrdschema.creationsource || "\n");
+
+    RECORD personstats := wrdschema.personstats;
+    IF(RecordExists(personstats))
+    {
+      IF (personstats.testpersons != personstats.numactive + personstats.inactive)
+        Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+      ELSE
+        PRINT(`- only test persons: ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+    }
+    Print("\n");
+  }
+
+  IF(Length(report.gdprchecks) > 0)
+  {
+    FOREVERY(RECORD msg FROM report.gdprchecks)
+      Print(GetTid(msg.msg) || "\n");
+    Print("\n");
+  }
+}
+
+PUBLIC RECORD FUNCTION GetGDPRScanReport()
+{
+  DATETIME now := GetCurrentDatetime();
+
+  STRING ARRAY defaultemailmasks := STRING
+      [ "*@webhare.nl"
+      , "*@*.webhare.net"
+      , "*@example.com"
+      , "*@example.org"
+      , "*@example.net"
+      ];
+
+  STRING ARRAY defaultfullnamemasks := STRING
+      [ "*(test)*"
+      , "Test"
+      , "* Test"
+      ];
+
+  STRING ARRAY allowemailmasks := STRING
+      [ ...defaultemailmasks
+      , ...ArrayDelete(Tokenize(ReadRegistryKey("system.compliance.gdprscan.allowemailmasks"), ";"), [ "" ])
+      ];
+
+  STRING ARRAY allowfullnamemasks := STRING
+      [ ...defaultfullnamemasks
+      , ...ArrayDelete(Tokenize(ReadRegistryKey("system.compliance.gdprscan.allowfullnamemasks"), ";"), [ "" ])
+      ];
+
+  OBJECT trans := GetPrimary();
+
+  BOOLEAN anydbschema := FALSE;
+  RECORD ARRAY dbaseschemas;
+
+  FOREVERY (RECORD dbschema FROM SELECT * FROM trans->GetSchemaListing() ORDER BY ToUppercase(schema_name))
+  {
+    //FIXME modules (webshop) should explicitly indicate tables as safe
+    IF(ToUppercase(dbschema.schema_name) IN ["SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP","PG_CATALOG","INFORMATION_SCHEMA"])
+      CONTINUE;
+
+    BOOLEAN printed := FALSE;
+    RECORD dbaseschema := CELL[ dbschema.schema_name
+                              , tables := RECORD[]
+                              ];
+
+    FOREVERY(RECORD tabledef FROM SELECT * FROM trans->GetTableListing(dbschema.schema_name) ORDER BY ToUppercase(table_name))
+    {
+      IF(tabledef.isview)
+        CONTINUE;
+      IF(ToUppercase(dbschema.schema_name) IN ["WEBPACK"] AND ToUppercase(tabledef.table_name) NOT IN ["POLL_VOTES","SURVEY_USERS","THREAD_ENTRIES"])
+        CONTINUE;
+      IF(ToUppercase(dbschema.schema_name) IN ["WEBHARE_INTERNAL"] AND ToUppercase(tabledef.table_name) IN ["BLOB"])
+        CONTINUE;
+
+      OBJECT q := NEW DynamicQuery;
+      q->AddTable("tab", trans->id, `${dbschema.schema_name}.${tabledef.table_name}`, STRING[]);
+
+      INTEGER numrecs := Length(q->Execute());
+      IF(numrecs = 0)
+        CONTINUE;
+
+      RECORD tablerec := CELL[ tabledef.table_name
+                             , numrecs
+                             ];
+      INSERT tablerec INTO dbaseschema.tables AT END;
+    }
+    INSERT dbaseschema INTO dbaseschemas AT END;
+  }
+
+  RECORD ARRAY wrdschemas;
+  FOREVERY(RECORD wrdschema FROM SELECT * FROM wrd.schemas WHERE name NOT LIKE "$wrd$deleted*" ORDER BY ToUppercase(name))
+  {
+    //ADDME other types to scan...  look for emails?
+    OBJECT schemaobj := OpenWRDSchemaById(wrdschema.id);
+    RECORD personstats := SELECT oldest := MIN(creationdate)
+                               , newest := MAX(creationdate)
+                               , numactive := SUM(limitdate >= now ? 1 : 0)
+                               , inactive := SUM(limitdate < now ? 1 : 0)
+                               , oldestinactive := MIN(limitdate)
+                            FROM wrd.entities
+                           WHERE type = schemaobj->^wrd_person->id;
+
+    IF(RecordExists(personstats))
+    {
+      INTEGER testpersons;
+      STRING ARRAY emailattrs :=
+          SELECT AS STRING ARRAY tag
+            FROM schemaobj->^wrd_person->ListAttributes(0)
+           WHERE attributetypename = "EMAIL"
+                 OR (tag LIKE "*EMAIL" AND attributetypename = "FREE");
+
+      IF (IsValueSet(emailattrs))
+      {
+        RECORD ARRAY persons := schemaobj->^wrd_person->RunQuery(
+            [ outputcolumns := STRING[ ...emailattrs, "wrd_fullname" ]
+            , historymode := "__getfields"
+            ]);
+
+        FOREVERY (RECORD rec FROM persons)
+        {
+          BOOLEAN istestperson := __MatchesAnyMask(rec.wrd_fullname, allowfullnamemasks);
+          FOREVERY (STRING tag FROM emailattrs)
+            istestperson := istestperson OR __MatchesAnyMask(GetCell(rec, tag), allowemailmasks);
+
+          IF (istestperson)
+            testpersons := testpersons + 1;
+        }
+      }
+
+      INSERT CELL testpersons := testpersons INTO personstats;
+    }
+
+    wrdschema := CELL[ ...wrdschema
+                     , personstats
+                     ];
+     INSERT wrdschema INTO wrdschemas AT END;
+  }
+
+  RETURN CELL[ reporttype := "gdprscan"
+             , reportversion := "1.0.0"
+             , creationdate := now
+             , defaultemailmasks
+             , defaultfullnamemasks
+             , allowfullnamemasks
+             , allowemailmasks
+             , dbaseschemas
+             , wrdschemas
+             , gdprchecks := (SELECT * FROM RunChecks() WHERE "gdpr" IN checktypes)
+             ];
+}

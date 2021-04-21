@@ -138,7 +138,7 @@ STATIC OBJECTTYPE WRDAuth
   }
 
   /** Lookup a user based on field and contents of that field
-      @param field to search. If field isn't WRD_GUID, the password field must be filled
+      @param field to search. If field isn't WRD_GUID and you haven't switched to authentication settings yet, the password field must be filled for the lookup to succeed (this behaviour is now deprecated!)
       @param value Contents of field to match
       @return Id of user iff exactly one user matched.
   */
@@ -155,13 +155,8 @@ STATIC OBJECTTYPE WRDAuth
         , filters
         ]);
 
-    IF (field != "WRD_GUID")
-    {
-      IF (this->passwordfield.attributetype = wrd_attributetype_password)
-        DELETE FROM q WHERE auth = "";
-      ELSE IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings)
-        DELETE FROM q WHERE NOT RecordExists(auth) OR NOT RecordExists(auth.passwords) OR auth.passwords[END-1].passwordhash = "";
-    }
+    IF (field != "WRD_GUID" AND this->passwordfield.attributetype = wrd_attributetype_password)
+      DELETE FROM q WHERE auth = "";
 
     RETURN Length(q)=1 ? q[0].id : 0;
   }

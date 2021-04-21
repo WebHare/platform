@@ -1,0 +1,65 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+
+
+PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
+  {
+    RECORD ARRAY msgs;
+
+    RECORD ARRAY wrdschemas := SELECT name, module := ToLowercase(name LIKE "*:*" ? Tokenize(name, ':')[0] : "") FROM wrd.schemas;
+    RECORD ARRAY definedschemas;
+    STRING ARRAY moduleschemas;
+    FOREVERY(RECORD permodule FROM SELECT module, names := GroupedValues(name) FROM wrdschemas GROUP BY module)
+    {
+      IF(permodule.module = "")
+      {
+        FOREVERY(STRING name FROM permodule.names)
+          INSERT CELL[ msg := `:WRD Schema '${name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
+                     , checktypes := ["gdpr"]
+                     ] INTO msgs AT END;
+        CONTINUE;
+      }
+
+      IF(NOT IsModuleInstalled(permodule.module))
+      {
+        FOREVERY(STRING name FROM permodule.names)
+          INSERT CELL[ msg := `:WRD Schema '${name}' does not have its corresponding module installed and should be deleted`
+                     , checktypes := ["gdpr"]
+                     ] INTO msgs AT END;
+        CONTINUE;
+      }
+
+      definedschemas := definedschemas CONCAT GetModuleDefinedWRDSchemas(permodule.module);
+      moduleschemas := moduleschemas CONCAT permodule.names;
+    }
+
+    definedschemas := SELECT *, seen := FALSE FROM definedschemas;
+
+    //we need to analyze all schemas together, eg module example can request schema 'newsletter:examplemailings'
+    FOREVERY(STRING name FROM moduleschemas)
+    {
+      RECORD matchschema := SELECT * FROM definedschemas WHERE name LIKE definedschemas.tag;
+      IF(NOT RecordExists(matchschema))
+      {
+        INSERT CELL[ msg := `:WRD Schema '${name}' is not claimed by module '${Tokenize(name,':')[0]}' and should be deleted`
+                   , checktypes := ["gdpr"]
+                   ] INTO msgs AT END;
+        CONTINUE;
+      }
+      UPDATE definedschemas SET seen := TRUE WHERE name LIKE definedschemas.tag;
+    }
+
+    FOREVERY(RECORD defschema FROM SELECT * FROM definedschemas WHERE NOT seen AND autocreate AND tag LIKE "*:*")
+    {
+      INSERT CELL[ msg := `:Missing WRD Schema '${defschema.tag}' which should have been autocreated by module '${Tokenize(defschema.tag,':')[0]}'`
+                 ] INTO msgs AT END;
+    }
+
+    RETURN msgs;
+  }
+>;

@@ -1035,6 +1035,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
         this->UpdateMetadata([ title := schemadef.title ]);
     }
 
+    IF(schemaresource = "")
+      RETURN; //nothing else to update
+
     IF (NOT options.force AND NOT this->TestSchemaResourcesChanged(schemaresource))
     {
       IF(options.reportupdates)
