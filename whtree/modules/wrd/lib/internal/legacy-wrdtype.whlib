@@ -205,25 +205,23 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
       @return Record per attribute (not all described)
       @cell return.__localtag
       @cell return.__reftype
+      @cell return.allowedvalues Acceptable values for an enum/status field
       @cell return.attributeid Id of attribute (0 for base attributes)
       @cell return.attributetype Type of this attribute
       @cell return.base Whether this is a base attribute
-      @cell return.creationdate
       @cell return.description (not available for internal attributes)
       @cell return.domain If this a domain attribute, id of the domain this attribute refers to
-      @cell return.iscustom
       @cell return.isgenerated Whether this attribute is
+      @cell return.isordered Whether the contents of this attribute persist their ordering
       @cell return.isreadonly Whether this is a read-only attribute
       @cell return.isrequired Whether this a required attribute
       @cell return.isunique Whether values in this attribute must be unique (when present)
       @cell return.isinherited
       @cell return.keephistory
-      @cell return.limitdate
       @cell return.localtag
       @cell return.maxlength
       @cell return.checklinks
       @cell return.multiline
-      @cell return.ordering
       @cell return.parent Parent attribute
       @cell return.tag Tag
       @cell return.title Translated title of this attribute

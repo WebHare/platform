@@ -30,7 +30,6 @@ RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
               , description
               , domain       := IsDomainAttributeType(attributetype) ? domain : 0 // Only return domain for domain attrs
               , __reftype := DEFAULT OBJECT
-              , iscustom := TRUE
               , isgenerated := FALSE
               , isreadonly := FALSE
               , isrequired := required
@@ -152,7 +151,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , generatetag := "WRD_GUID"
@@ -176,7 +174,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -200,7 +197,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -224,7 +220,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -248,7 +243,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -272,7 +266,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -296,7 +289,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
-      , iscustom := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -350,7 +342,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , isordered      := FALSE
           , isrequired    := typerec.metatype IN [3,2]
           , isunique      := FALSE
-          , iscustom      := FALSE
           , isinherited := FALSE
           , __typewrdid   := typerec.metatype = 4 ? typerec.id : typerec.requiretype_left
           , __typeinfo    := DEFAULT OBJECT
@@ -379,7 +370,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , isordered     := FALSE
           , isrequired    := TRUE
           , isunique      := FALSE
-          , iscustom      := FALSE
           , isinherited := FALSE
           , __typewrdid   := typerec.requiretype_right
           , __typeinfo    := DEFAULT OBJECT
@@ -394,7 +384,7 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
   }
 
   builtin_attrs := SELECT *, allowedvalues := DEFAULT STRING ARRAY FROM builtin_attrs;
-  extra_attrs := SELECT *, iscustom := FALSE
+  extra_attrs := SELECT *
                       , domain := 0
                       , localtag := tag
                       , description := ""
@@ -469,7 +459,7 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
   }
 
   // Add some extra cells to extra_attrs
-  extra_attrs := SELECT *, iscustom := FALSE
+  extra_attrs := SELECT *
                       , domain := 0
                       , localtag := tag
                       , checklinks := FALSE

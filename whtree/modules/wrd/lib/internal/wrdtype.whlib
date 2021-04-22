@@ -794,8 +794,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(boolean) return.base Whether this is a base attribute
       @cell(string) return.description (not available for internal attributes)
       @cell(integer) return.domain If this a domain attribute, id of the domain this attribute refers to
-      @cell(boolean) return.iscustom
-      @cell(boolean) return.isgenerated Whether this attribute is
+      @cell(boolean) return.isgenerated Whether the contents of this attribute are generated when retrieved based on other cells
       @cell(boolean) return.isreadonly Whether this is a read-only attribute
       @cell(boolean) return.isrequired Whether this a required attribute
       @cell(boolean) return.isunique Whether values in this attribute must be unique (when present)
@@ -1703,7 +1702,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     - isrequired
     - issnesitive
     - isunique
-    - iscustom
     - attributeid
     - generator
     - decoder
