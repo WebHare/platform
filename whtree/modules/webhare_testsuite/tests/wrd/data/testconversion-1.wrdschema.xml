@@ -1,0 +1,10 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <migration tag="testfw:update1" updatefunction="update.whlib#doupdate" webhareversion=">= 4.30.0" />
+  <migration tag="testfw:update2" updatefunction="neverruns.whlib#doupdate" webhareversion="= 1.0.0"/>
+  <object tag="WRD_PERSON">
+    <attributes>
+      <date tag="TEST_DATETIME" />
+      <datetime tag="ADD_DATETIME" />
+    </attributes>
+  </object>
+</schemadefinition>

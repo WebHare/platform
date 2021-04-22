@@ -59,12 +59,14 @@ PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinition(OBJECT wrdschema, OBJECT metadat
 /** @private
     @cell options.fromexternal Set to true if the source is an external server
     @cell options.applysettings Apply schema settings (defaults to TRUE)
+    @cell options.skipmigrations Skip any migrations (note that we never run migrations if fromexternal is set)
 */
 PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinitionFile(OBJECT wrdschema, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD) //FIXME DEPRECATE IN 4.20 __ATTRIBUTES__(DEPRECATED "ApplyWRDSchemaDefinition should no longer be used - use wrdschema->ApplySchemaDefinition")
 {
   options := ValidateOptions(
       [ fromexternal :=   FALSE
       , applysettings :=  TRUE
+      , skipmigrations := FALSE
       ], options);
 
   OBJECT doc := MakeXMLDocument(data);
@@ -79,7 +81,7 @@ PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinitionFile(OBJECT wrdschema, BLOB data,
   IF (NOT options.applysettings)
     schemadef.keyvaluestore := RECORD[];
 
-  UpdateSchema(wrdschema, schemadef, CELL[ options.fromexternal ]);
+  UpdateSchema(wrdschema, schemadef, CELL[ options.fromexternal, options.skipmigrations ]);
   RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
 }
 

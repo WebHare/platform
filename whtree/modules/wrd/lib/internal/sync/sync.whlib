@@ -360,7 +360,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   ELSE
     res := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, currentcontents, syncinstructionoptions);
 
-  RECORD updateres := ApplyWRDSchemaDefinitionFile(wrdschema, res.schemadefinition, [ fromexternal := TRUE, applysettings := FALSE ]);
+  wrdschema->ApplySchemaDefinition( [ __schemadefinition := res.schemadefinition, fromexternal := TRUE, applysettings := FALSE ]);
 
   RECORD ARRAY types := SortWRDTypesOnDependencies(wrdschema->ListTypes(), [ forinsert := TRUE ]);
   RECORD ARRAY newcurrentcontents;
@@ -610,8 +610,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   // Decode the schema settings from the remote schema
   RECORD ARRAY schemadef_settings  :=
       SELECT name :=    ToLowercase(name)
-           , value :=   AnyTypeFromBlobString(value.data, value.blobdata, value.type)
-        FROM UnpackRecord(schemadef.keyvaluestore);
+           , value :=   AnyTypeFromBlobString(keyvalue.data, keyvalue.blobdata, keyvalue.type)
+        FROM schemadef.keyvaluestore;
 
   // Get current settings of the target schema
   RECORD ARRAY allorgsettings := wrdschema->ListSchemaSettings();
@@ -706,5 +706,5 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
   GetPrimary()->PopWork();
 
-  RETURN [ anychanges := totalrecords != 0 OR Length(updateres.updates) > 0 OR settingschanges ];
+  RETURN [ anychanges := totalrecords != 0 OR settingschanges ];
 }

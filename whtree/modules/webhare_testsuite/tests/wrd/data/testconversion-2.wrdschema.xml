@@ -1,0 +1,3 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <migration tag="testfw:update3" updatefunction="update.whlib#doupdate" />
+</schemadefinition>

@@ -2,6 +2,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
@@ -852,6 +853,17 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     RETURN ListWRDSchemaSettings(this->schemarec.id);
   }
 
+  /** Get the status of a recent migration script
+      @param migrationtag Tag of the migration
+      @return A record describing the migration if it executed, a DEFAULT RECORD if it didn't
+      @cell(datetime) return.finished When the migration completed
+      @cell(record) return.result Result returned by the migration script
+  */
+  PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag)
+  {
+    RETURN this->GetSchemaSetting(GetMigrationKeyName(migrationtag), [ fallback := DEFAULT RECORD ]);
+  }
+
   //////////////////////////////////////////
   //
   // Authentication support
@@ -1004,51 +1016,72 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       @cell(string) options.schemaresource Schema resource to use (if not set, we'll use the moduldedefinition's specified schema)
       @cell(boolean) options.force Always update, even if the schema resources haven't changed
       @cell(boolean) options.reportupdates Log update informatino to stderr
+      @cell(boolean) options.fromexternal Set to true if the source is an external server
+      @cell(boolean) options.applysettings Apply schema settings (defaults to TRUE)
+      @cell(boolean) options.skipmigrations Skip any migrations (note that we never run migrations if fromexternal is set)
   */
   PUBLIC MACRO ApplySchemaDefinition(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ schemaresource := ""
                                , force := FALSE
                                , reportupdates := FALSE
+                               , skipmigrations := FALSE
+                               , fromexternal := FALSE
+                               , applysettings := TRUE
+                               , __schemadefinition := DEFAULT BLOB
                                ], options);
 
     IF(this->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]) = "")
       this->SetSchemaSetting("wrd:auth.domainsecret", GenerateUFS128BitId() || GenerateUFS128BitId());
 
-    STRING schemaresource := options.schemaresource;
-    IF(schemaresource = "")
-    {
-      RECORD schemadef := GetModuleWRDSchemaDefinition(this->tag, TRUE); //legacy lookup: also find name mismatches
-      IF(NOT RecordExists(schemadef))
-        THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
+    RECORD schemadef;
+    IF(Length(options.__schemadefinition) > 0)//backdoor used by WRD sync. could switch to inline? and/or merge with 'fromexternal' option?
+      schemadef := ReadSchemaDefFromXML(MakeXMLDocument(options.__schemadefinition)->documentelement, "mod::wrd/dummyresource.xml", options.__schemadefinition, DEFAULT DATETIME); //TODO apparently we parse twice..once for validate and once for ourselves
 
-      IF(schemadef.isexact AND ToUppercase(this->tag) = ToUppercase(schemadef.originalname))
+    IF(NOT RecordExists(schemadef))
+    {
+      STRING schemaresource := options.schemaresource;
+      IF(schemaresource = "")
       {
-        IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(schemadef.tag)))
-          THROW NEW Exception(`Trying to rename '${schemadef.originalname}' to '${schemadef.tag}' but that schema already exists. Perhaps '${schemadef.originalname}' got recreated after being renamed?`);
-        this->UpdateMetadata([ tag := schemadef.tag ]); //time to rename to the proper name!
+        schemadef := GetModuleWRDSchemaDefinition(this->tag, TRUE); //legacy lookup: also find name mismatches
+        IF(NOT RecordExists(schemadef))
+          THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
+
+        IF(schemadef.isexact AND ToUppercase(this->tag) = ToUppercase(schemadef.originalname))
+        {
+          IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(schemadef.tag)))
+            THROW NEW Exception(`Trying to rename '${schemadef.originalname}' to '${schemadef.tag}' but that schema already exists. Perhaps '${schemadef.originalname}' got recreated after being renamed?`);
+          this->UpdateMetadata([ tag := schemadef.tag ]); //time to rename to the proper name!
+        }
+
+        schemaresource := schemadef.definitionfile;
+
+        IF(schemadef.title != "" AND this->title != schemadef.title)
+          this->UpdateMetadata([ title := schemadef.title ]);
       }
 
-      schemaresource := schemadef.definitionfile;
+      IF(schemaresource = "")
+        RETURN; //nothing else to update
 
-      IF(schemadef.title != "" AND this->title != schemadef.title)
-        this->UpdateMetadata([ title := schemadef.title ]);
-    }
+      IF (options.schemaresource = "" //not an explicitly specified resource
+          AND NOT options.force
+          AND NOT this->TestSchemaResourcesChanged(schemaresource))
+      {
+        IF(options.reportupdates)
+          Print(`Not updating '${this->tag}': schema definition not changed\n`);
+        RETURN;
+      }
 
-    IF(schemaresource = "")
-      RETURN; //nothing else to update
-
-    IF (NOT options.force AND NOT this->TestSchemaResourcesChanged(schemaresource))
-    {
       IF(options.reportupdates)
-        Print(`Not updating '${this->tag}': schema definition not changed\n`);
-      RETURN;
+        Print(`Updating schema '${this->tag}'\n`);
+
+      schemadef := OpenWRDSchemaDefFile(schemaresource);
     }
 
-    IF(options.reportupdates)
-      Print(`Updating schema '${this->tag}'\n`);
-    RECORD schemadef := OpenWRDSchemaDefFile(schemaresource);
-    UpdateSchema(this, schemadef);
+    IF (NOT options.applysettings)
+      schemadef.keyvaluestore := RECORD[];
+
+    UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations ]);
   }
 
   /** Setup entities in the schema,

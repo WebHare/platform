@@ -97,6 +97,7 @@ PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
         FROM wrd.keyvaluestore
        WHERE wrd_schema = wrdschema->id
        ORDER BY name;
+
   IF(Length(keyvalues) > 0)
   {
     OBJECT keyvaluesnode := root->ownerdocument->CreateElementNS(ns_schemadef,"keyvalues");

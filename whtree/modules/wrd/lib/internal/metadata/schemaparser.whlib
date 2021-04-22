@@ -4,6 +4,7 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
@@ -69,10 +70,11 @@ OBJECTTYPE ParsedSchemaDef
 <
   RECORD ARRAY types;
   RECORD ARRAY queries;
-  RECORD keyvaluestore;
+  RECORD ARRAY keyvaluestore;
   RECORD metadata;
   STRING currentfile;
   STRING ARRAY importedfiles;
+  RECORD ARRAY migrations;
   BOOLEAN withoverride;
   STRING schemaresource;
   RECORD ARRAY resources;
@@ -102,7 +104,7 @@ OBJECTTYPE ParsedSchemaDef
       THROW NEW Exception("Duplicate keyvalue '" || name || "'");
 
     RECORD keyvalue := AnyTypeToBlobString(keyvaluenode->__INTERNAL_GetHSValue());
-    this->keyvaluestore := CellInsert(this->keyvaluestore, name, keyvalue);
+    INSERT CELL[ name, keyvalue ] INTO this->keyvaluestore AT END;
   }
 
   MACRO AddType(OBJECT typenode)
@@ -354,6 +356,15 @@ OBJECTTYPE ParsedSchemaDef
           this->ReadSchemaDef(xmldoc->documentelement, filetoimport, DEFAULT BLOB, rec.modified);
         }
       }
+      ELSE IF(node->localname="migration")
+      {
+        IF(NOT IsNodeApplicableToThisWebHare(node))
+          CONTINUE;
+
+        INSERT CELL [ tag := node->GetAttribute("tag")
+                    , updatefunction := MakeAbsoluteResourcePath(this->currentfile, node->GetAttribute("updatefunction"))
+                    ] INTO this->migrations AT END;
+      }
       ELSE IF(node->localname="queries")
       {
         FOREVERY(OBJECT query FROM node->childnodes->GetCurrentElements())
@@ -365,7 +376,9 @@ OBJECTTYPE ParsedSchemaDef
           this->AddKeyValue(keyvalue);
       }
       ELSE
+      {
         this->AddType(node);
+      }
     }
 
     this->ReadMetadata(el);
@@ -374,12 +387,13 @@ OBJECTTYPE ParsedSchemaDef
   PUBLIC RECORD FUNCTION GetResult()
   {
     RETURN
-        [ types := this->types
-        , queries := this->queries
-        , metadata := this->metadata
-        , keyvaluestore := this->keyvaluestore
-        , schemaresources := CELL[ this->withoverride, this->schemaresource, this->resources, version := current_schema_version ]
-        ];
+        CELL[ this->types
+            , this->queries
+            , this->metadata
+            , this->keyvaluestore
+            , this->migrations
+            , schemaresources := CELL[ this->withoverride, this->schemaresource, this->resources, version := current_schema_version ]
+            ];
   }
 >;
 

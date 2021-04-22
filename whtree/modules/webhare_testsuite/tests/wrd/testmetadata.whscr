@@ -661,15 +661,6 @@ MACRO TestMerge()
 
 MACRO TestConversion()
 {
-  STRING conversionschema := `
-<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
-  <object tag="WRD_PERSON">
-    <attributes>
-      <date tag="TEST_DATETIME" />
-    </attributes>
-  </object>
-</schemadefinition>`;
-
   testfw->BeginWork();
 
   OBJECT testperson := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
@@ -682,14 +673,32 @@ MACRO TestConversion()
   TestEq("DATETIME", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
   TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME"));
 
-  RECORD res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(conversionschema));
-  IF(NOT res.success)
-    DumpValue(res);
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-1.wrdschema.xml") ]);
 
-  TestEq(TRUE, res.success);
+  RECORD status := testfw->GetWRDSchema()->GetMigrationStatus("testfw:update1");
+  TestEq(TRUE, RecordExists(status));
+  TestEq(TRUE, status.finished > testfw->starttime);
+  TestEq(FALSE, status.result.person_has_add_datetime);
+
+  TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update2")));
 
   TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
   TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME")); //does not actually change existing data
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml"), skipmigrations := TRUE ]);
+  TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml"), fromexternal := TRUE ]);
+  TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml")]);
+
+  RECORD status2 := testfw->GetWRDSchema()->GetMigrationStatus("testfw:update1");
+  TestEq(status.finished, status2.finished); //shouldn't have run again
+  RECORD status3 := testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3");
+  TestEq(TRUE, RecordExists(status3), "Migration update3 should have run!");
+  TestEq(TRUE, status3.finished > testfw->starttime);
+  TestEq(TRUE, status3.result.person_has_add_datetime);
 
   testfw->RollbackWork();
 }
