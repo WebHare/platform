@@ -2,12 +2,6 @@
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
-// The properties of these attribute tags cannot be changed via the WRD backend interface
-STRING ARRAY nonupdateablecols := ["WRD_GUID","WRD_ID","WRD_LIMITDATE","WRD_MODIFICATIONDATE"
-                                  ,"WRD_CREATIONDATE","WRD_TAG","WRD_FULLNAME"
-                                  ,"WRD_LEFTENTITY","WRD_RIGHTENTITY"
-                                  ];
-
 PUBLIC RECORD FUNCTION BaseAttributeValidation(RECORD metadata)
 {
   IF(CellExists(metadata,'tag'))
@@ -42,7 +36,6 @@ RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
               , isalternative := FALSE
               , isrequired := required
               , isordered := ordered
-              , isupdateable := uppercasetag NOT IN nonupdateablecols
               , isunique
               , parent
               , maxlength := (attributetype IN // (string type fields)
@@ -162,7 +155,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isordered := FALSE
       , isunique := TRUE
       , iscustom := FALSE
-      , isupdateable := FALSE
       , isinherited := FALSE
       , id := 0
       , generatetag := "WRD_GUID"
@@ -188,7 +180,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isordered := FALSE
       , isunique := TRUE
       , iscustom := FALSE
-      , isupdateable := FALSE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -214,7 +205,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isordered := FALSE
       , isunique := FALSE
       , iscustom := FALSE
-      , isupdateable := TRUE
       , isinherited := FALSE
       , id := 0
       , parent := 0
@@ -241,7 +231,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isunique := TRUE
       , iscustom := FALSE
       , isinherited := FALSE
-      , isupdateable := "WRD_TAG" NOT IN nonupdateablecols
       , id := 0
       , parent := 0
       , description := ""
@@ -267,7 +256,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isunique := FALSE
       , iscustom := FALSE
       , isinherited := FALSE
-      , isupdateable := "WRD_CREATIONDATE" NOT IN nonupdateablecols
       , id := 0
       , parent := 0
       , description := ""
@@ -293,7 +281,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isunique := FALSE
       , iscustom := FALSE
       , isinherited := FALSE
-      , isupdateable := "WRD_LIMITDATE" NOT IN nonupdateablecols
       , id := 0
       , parent := 0
       , description := ""
@@ -319,7 +306,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , isunique := FALSE
       , iscustom := FALSE
       , isinherited := FALSE
-      , isupdateable := "WRD_MODIFICATIONDATE" NOT IN nonupdateablecols
       , id := 0
       , parent := 0
       , description := ""
@@ -376,7 +362,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , isunique      := FALSE
           , iscustom      := FALSE
           , isinherited := FALSE
-          , isupdateable  := "WRD_LEFTENTITY" NOT IN nonupdateablecols
           , __typewrdid   := typerec.metatype = 4 ? typerec.id : typerec.requiretype_left
           , __typeinfo    := DEFAULT OBJECT
           , id   := 0
@@ -407,7 +392,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , isunique      := FALSE
           , iscustom      := FALSE
           , isinherited := FALSE
-          , isupdateable  := "WRD_RIGHTENTITY" NOT IN nonupdateablecols
           , __typewrdid   := typerec.requiretype_right
           , __typeinfo    := DEFAULT OBJECT
           , id   := 0
@@ -422,7 +406,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
 
   builtin_attrs := SELECT *, allowedvalues := DEFAULT STRING ARRAY FROM builtin_attrs;
   extra_attrs := SELECT *, iscustom := FALSE
-                      , isupdateable := ToUpperCase(tag) NOT IN nonupdateablecols
                       , domain := 0
                       , localtag := tag
                       , description := ""
@@ -500,7 +483,6 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
 
   // Add some extra cells to extra_attrs
   extra_attrs := SELECT *, iscustom := FALSE
-                      , isupdateable := ToUpperCase(tag) NOT IN nonupdateablecols
                       , domain := 0
                       , localtag := tag
                       , checklinks := FALSE

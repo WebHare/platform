@@ -800,7 +800,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(boolean) return.isreadonly Whether this is a read-only attribute
       @cell(boolean) return.isrequired Whether this a required attribute
       @cell(boolean) return.isunique Whether values in this attribute must be unique (when present)
-      @cell(boolean) return.isupdateable
       @cell(boolean) return.isinherited
       @cell(integer) return.keephistorydays
       @cell(string) return.localtag
@@ -1706,7 +1705,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     - issnesitive
     - isunique
     - iscustom
-    - isupdateable
     - attributeid
     - generator
     - decoder

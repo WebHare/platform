@@ -217,7 +217,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
       @cell return.isreadonly Whether this is a read-only attribute
       @cell return.isrequired Whether this a required attribute
       @cell return.isunique Whether values in this attribute must be unique (when present)
-      @cell return.isupdateable
       @cell return.isinherited
       @cell return.keephistory
       @cell return.limitdate
