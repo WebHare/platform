@@ -67,7 +67,7 @@ class PDFContext
         ~PDFContext();
 
         typedef std::shared_ptr<PDFConversion> PDFConversionPtr;
-        HareScript::IdMapStorage<PDFConversionPtr> conversionlist;
+        HareScript::RegisteredIdMapStorage<PDFConversionPtr> conversionlist;
         std::string last_error;
 
 };

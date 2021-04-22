@@ -5,6 +5,7 @@
 
 #include "pdf.h"
 #include <blex/utils.h>
+#include <harescript/vm/hsvm_context.h>
 
 namespace Parsers
 {
@@ -161,7 +162,7 @@ void HS_PDF_Open(HSVM *hsvm, HSVM_VariableId id_set)
         {
                 // Create conversion with specified blob
                 std::shared_ptr<PDFConversion> thisconversion(new PDFConversion(hsvm,HSVM_Arg(0)));
-                int32_t conversionid = context->conversionlist.Set(thisconversion);
+                int32_t conversionid = context->conversionlist.Set(HareScript::GetVirtualMachine(hsvm), thisconversion);
 
                 // Return conversionid
                 HSVM_IntegerSet(hsvm, id_set, conversionid);
@@ -352,6 +353,7 @@ void HS_PDF_Write(HSVM *vm, HSVM_VariableId id_set)
 }
 
 PDFContext::PDFContext()
+: conversionlist("PDF conversion")
 {
 }
 

@@ -1857,7 +1857,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, HSVM_VariableId translations) : OutputObject(_vm), jsonparser(_vm, _hson, translations) {}
+                Parser(HSVM *_vm, bool _hson, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, translations) {}
 
                 JSONParser jsonparser;
 

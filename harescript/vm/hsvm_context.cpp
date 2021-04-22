@@ -90,8 +90,9 @@ void ThrowIllegalOpcode(InstructionSet::_type code)
 
 const unsigned OutputObject::MaxReadChunkSize;
 
-OutputObject::OutputObject(HSVM *_vm)
-: vm(0)
+OutputObject::OutputObject(HSVM *_vm, const char *_type)
+: type(_type)
+, vm(0)
 , wait_ignores_readbuffer(false)
 {
         id = Register(_vm);
@@ -4091,7 +4092,15 @@ void VirtualMachine::PopAsyncTraceContext()
             vmgroup->asynccontexts.pop_back();
 }
 
+void VirtualMachine::RegisterHandleKeeper(IdMapStorageRapporter *rapporter)
+{
+        idmapstorages.insert(rapporter);
+}
 
+void VirtualMachine::UnregisterHandleKeeper(IdMapStorageRapporter *rapporter)
+{
+        idmapstorages.erase(rapporter);
+}
                                                      /*
 void VMGroup::ThrowIfPendingVMError(HSVM *vm)
 {
@@ -4419,5 +4428,14 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_yearofweek = columnnamemapper.GetMapping("YEAROFWEEK");
 }
 
+void RegisterHandleKeeper(VirtualMachine *vm, IdMapStorageRapporter *rapporter)
+{
+        vm->RegisterHandleKeeper(rapporter);
+}
+
+void UnregisterHandleKeeper(VirtualMachine *vm, IdMapStorageRapporter *rapporter)
+{
+        vm->UnregisterHandleKeeper(rapporter);
+}
 
 } // End of namespace HareScript

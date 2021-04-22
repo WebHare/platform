@@ -636,7 +636,10 @@ class BLEXLIB_PUBLIC VirtualMachine
         ColumnNameCache const cn_cache;
 
     public:
-        // The contextkeeper is increadibly important, we need it to be the first service to init and the last to deinit
+        /// List of registered idmapstorages for handle purposes. Needs to be alive while contextkeeper is alive
+        std::set< IdMapStorageRapporter * > idmapstorages;
+
+        // The contextkeeper is increadibly important, we need it to be the first service to init and the last to deinit (except for idmapstorages)
         Blex::ContextKeeper contextkeeper;
 
         /// Local blob handler (must be initialized before stackmachine, due to blobs!)
@@ -1075,6 +1078,9 @@ class BLEXLIB_PUBLIC VirtualMachine
 
         void PushAsyncTraceContext(std::shared_ptr< AsyncStackTrace > const &trace, std::shared_ptr< AsyncStackTrace > const &prev_segment, unsigned skipframes);
         void PopAsyncTraceContext();
+
+        void RegisterHandleKeeper(IdMapStorageRapporter *rapporter);
+        void UnregisterHandleKeeper(IdMapStorageRapporter *rapporter);
 
         friend class VMGroup;
         friend class Tests;

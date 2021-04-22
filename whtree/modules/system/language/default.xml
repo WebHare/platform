@@ -72,6 +72,7 @@
     <text tid="framevariable">Frame variabele</text>
     <text tid="func">Function</text>
     <text tid="getblobreferences">Take blob snapshot</text>
+    <text tid="gethandlelist">Take handle snapshot</text>
     <text tid="getmemorysnapshot">Take memory snapshot</text>
     <text tid="getmemorysnapshotwithunreferenced">Take memory snapshot (with garbage)</text>
     <text tid="getobjectsnapshot">Take objects snapshot</text>
@@ -146,6 +147,7 @@
       <text tid="description">Description</text>
       <text tid="editsource">Edit source</text>
       <text tid="functionname">Function</text>
+      <text tid="handle">Handle</text>
       <text tid="info">Info</text>
       <text tid="length">Length</text>
       <text tid="library">Library</text>

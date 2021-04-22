@@ -1449,7 +1449,7 @@ void IPCMessage2::Reset()
 //
 
 IPCNamedPort::IPCNamedPort(JobManager &_jobmgr)
-: OutputObject(0)
+: OutputObject(0, "IPC named port")
 , jobmgr(_jobmgr)
 {
 }
@@ -1592,7 +1592,7 @@ bool IPCLinkData::IPCLinkEvent::IsSignalled()
 //
 
 IPCLinkEndPoint::IPCLinkEndPoint(JobManager &_jobmgr, std::shared_ptr< IPCLinkData > const &_link, bool _endpoint_side)
-: OutputObject(0)
+: OutputObject(0, "IPC link endpoint")
 , jobmgr(_jobmgr)
 , link(_link)
 , endpoint_side(_endpoint_side)
@@ -1805,7 +1805,7 @@ void IPCLinkEndPoint::RemoveFromWaiterRead(Blex::PipeWaiter &waiter)
 //
 
 Job::Job(VirtualMachine *_vm, VMGroup *_group)
-: OutputObject(*_vm)
+: OutputObject(*_vm, "Job")
 , group(_group)
 , must_delete(true)
 {
@@ -2120,7 +2120,7 @@ void HSLockManager::GetLockStatus(JobManager *jobmgr, HSVM *vm, HSVM_VariableId 
 //
 
 HSLock::HSLock(HSVM *vm, HSLockManager &_lockmanager, std::string const &_name)
-: OutputObject(vm)
+: OutputObject(vm, "Mutex")
 , lockmanager(_lockmanager)
 , name(_name)
 {

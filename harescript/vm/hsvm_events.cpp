@@ -26,7 +26,7 @@ namespace HareScript {
 
 
 Baselibs::EventStream::EventStream(HSVM *vm, Blex::NotificationEventManager &eventmgr)
-: OutputObject(vm)
+: OutputObject(vm, "Event stream")
 , queue(eventmgr)
 {
 }

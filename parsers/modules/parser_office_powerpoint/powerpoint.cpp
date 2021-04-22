@@ -7,6 +7,7 @@
 #include "powerpoint.h"
 #include <blex/utils.h>
 #include <harescript/vm/hsvm_dllinterface.h>
+#include <harescript/vm/hsvm_context.h>
 
 namespace Parsers
 {
@@ -33,7 +34,7 @@ void HS_PP_Open(HSVM *hsvm, HSVM_VariableId id_set)
         {
                 // Create conversion with specified blob
                 std::shared_ptr<PowerpointConversion> thisconversion(new PowerpointConversion(hsvm,HSVM_Arg(0)));
-                int32_t conversionid = context->conversionlist.Set(thisconversion);
+                int32_t conversionid = context->conversionlist.Set(HareScript::GetVirtualMachine(hsvm), thisconversion);
 
                 // Return conversionid
                 HSVM_IntegerSet(hsvm, id_set, conversionid);
@@ -232,6 +233,7 @@ void HS_PP_RenderNotes(HSVM *hsvm)
 }
 
 PPointContext::PPointContext()
+: conversionlist("Powerpoint conversion")
 {
 }
 

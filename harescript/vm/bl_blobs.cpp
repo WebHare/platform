@@ -95,7 +95,7 @@ void CreateArchive(VarId id_set, VirtualMachine *vm)
 {
         SystemContext context(vm->GetContextKeeper());
 
-        unsigned id = context->archives.Set(std::shared_ptr<SystemContextData::GeneratedArchive>());
+        unsigned id = context->archives.Set(vm, std::shared_ptr<SystemContextData::GeneratedArchive>());
         std::shared_ptr<SystemContextData::GeneratedArchive> &newarchive = *context->archives.Get(id);
         newarchive.reset(new SystemContextData::GeneratedArchive);
 
@@ -946,7 +946,8 @@ void CreateZlibCompressor(VarId id_set, VirtualMachine *vm)
                                              NULL,
                                              CompressStream_IOWriter,
                                              NULL,
-                                             NULL/*CompressStream_IOClose*/);
+                                             NULL/*CompressStream_IOClose*/,
+                                             "ZLIB Compressor");
         context->compressingstreams[outputid] = newblob;
         HSVM_IntegerSet(*vm, id_set, outputid);
 }
@@ -1012,7 +1013,8 @@ void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
                                              DecompressStream_IOReader,
                                              NULL,
                                              DecompressStream_IOEndOfStream,
-                                             NULL/*DecompressStream_IOClose*/);
+                                             NULL/*DecompressStream_IOClose*/,
+                                             "Decompressing stream");
         SystemContext context(vm->GetContextKeeper());
         context->decompressingstreams[outputid] = newblob;
         HSVM_IntegerSet(*vm, id_set, outputid);

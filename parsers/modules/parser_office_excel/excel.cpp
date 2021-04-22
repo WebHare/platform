@@ -7,6 +7,7 @@
 #include <blex/utils.h>
 #include <harescript/vm/hsvm_dllinterface.h>
 #include <harescript/vm/hsvm_dllinterface_blex.h>
+#include <harescript/vm/hsvm_context.h>
 
 namespace Parsers {
 namespace Office {
@@ -29,7 +30,7 @@ void HS_EX_Open(HSVM *hsvm, HSVM_VariableId id_set)
                 std::unique_ptr<Blex::Stream> input(new HareScript::Interface::InputStream(hsvm,HSVM_Arg(0)));
                 // Create conversion with specified blob
                 GlobalExcelContext::ExcelDocPtr thisconversion(new ExcelDoc(*input));
-                conversionid = context->conversionlist.Set(thisconversion);
+                conversionid = context->conversionlist.Set(HareScript::GetVirtualMachine(hsvm), thisconversion);
         }
         catch(std::exception &e)
         {
@@ -67,6 +68,7 @@ void HS_EX_GetLastError(HSVM *hsvm, HSVM_VariableId id_set)
 }
 
 GlobalExcelContext::GlobalExcelContext()
+: conversionlist("Excel conversion")
 {
 }
 

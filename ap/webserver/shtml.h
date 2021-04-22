@@ -212,7 +212,7 @@ class ShtmlContextData::WebserverInputStream : public HareScript::OutputObject
         ShtmlContextData *contextdata;
 
         WebserverInputStream(HSVM *vm, ShtmlContextData *_contextdata)
-        : HareScript::OutputObject(vm)
+        : HareScript::OutputObject(vm, "Webserver input stream")
         , contextdata(_contextdata)
         {
         }

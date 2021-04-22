@@ -1457,6 +1457,17 @@ STATIC OBJECTTYPE DebugJob
     RETURN this->RegisterRequest(rec.msgid).promise;
   }
 
+  PUBLIC OBJECT FUNCTION GetHandleList()
+  {
+    RECORD rec := this->pvt_process->connector->link->SendMessage(
+        [ type :=         "job-gethandlelist"
+        , processcode :=  this->pvt_process->processcode
+        , groupid :=      this->pvt_groupid
+        ]);
+
+    RETURN this->RegisterRequest(rec.msgid).promise;
+  }
+
   PUBLIC OBJECT FUNCTION SetProfiling(STRING type, BOOLEAN enable, BOOLEAN reset)
   {
     IF (type NOT IN [ "function", "memory" ] AND (type != "all" OR reset))

@@ -28,7 +28,7 @@ class Connection;
 class ListenWaiter : public HareScript::OutputObject
 {
     public:
-        inline ListenWaiter(HSVM *vm, Connection *conn) : OutputObject(vm), conn(conn) { }
+        inline ListenWaiter(HSVM *vm, Connection *conn) : OutputObject(vm, "WHDB listener"), conn(conn) { }
 
         virtual bool AddToWaiterRead(Blex::PipeWaiter &waiter);
         virtual SignalledStatus IsReadSignalled(Blex::PipeWaiter *waiter);

@@ -41,8 +41,9 @@ void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktr
 namespace Baselibs {
 
 SystemContextData::SystemContextData()
-: /*authentication_info(0)
-, */inited_cols(false)
+: archives("Archive")
+, logs("Log")
+, inited_cols(false)
 , var_intcallbacks(0)
 {
 }
@@ -2856,6 +2857,44 @@ void PopAsyncContext(VirtualMachine *vm)
         vm->PopAsyncTraceContext();
 }
 
+void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_set)
+{
+        auto &stackm = vm->GetStackMachine();
+
+        stackm.InitVariable(id_set, VariableTypes::Record);
+        VarId items = stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("ITEMS"));
+        stackm.InitVariable(items, VariableTypes::RecordArray);
+
+        for (auto &itr: source_vm->outobjects)
+        {
+                auto type = itr->GetType();
+
+                VarId elt = stackm.ArrayElementAppend(items);
+                stackm.InitVariable(elt, VariableTypes::Record);
+                stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), "Outputobject: " + std::string(type ? type : "unknown"));
+                stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), itr->GetId());
+                stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+        }
+
+        for (auto &itr: vm->idmapstorages)
+        {
+                itr->RegisterHandles([&stackm, items, vm](std::string const &name, int32_t id)
+                {
+                        VarId elt = stackm.ArrayElementAppend(items);
+                        stackm.InitVariable(elt, VariableTypes::Record);
+                        stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), name);
+                        stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), id);
+                        stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+                });
+        }
+}
+
+void ListHandles(VarId id_set, VirtualMachine *vm)
+{
+        EncodeHandleList(vm, vm, id_set);
+}
+
+
 } // End of namespace Baselibs
 
 int BaselibsEntryPoint(struct HSVM_RegData *regdata, void * /*context_ptr*/)
@@ -2990,6 +3029,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_ADDASYNCCONTEXT:::OI", PushAsyncContext));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_REMOVEASYNCCONTEXT:::", PopAsyncContext));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_GETASYNCSTACKTRACE::RA:", GetAsyncStackTrace));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_LISTHANDLES::RA:", ListHandles));
 }
 
 void SetupConsole(VirtualMachine &vm)

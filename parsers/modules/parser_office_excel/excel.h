@@ -22,7 +22,7 @@ class GlobalExcelContext
         ~GlobalExcelContext();
 
         typedef std::shared_ptr<ExcelDoc> ExcelDocPtr;
-        HareScript::IdMapStorage<ExcelDocPtr> conversionlist;
+        HareScript::RegisteredIdMapStorage<ExcelDocPtr> conversionlist;
         std::string last_error;
 };
 

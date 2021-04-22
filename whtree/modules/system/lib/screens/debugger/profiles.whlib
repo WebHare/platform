@@ -497,6 +497,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       CASE "memorysnapshot"   { RETURN NEW DisplayedMemorySnapshot; }
       CASE "objectsnapshot"   { RETURN NEW DisplayedObjectsSnapshot; }
       CASE "blobreferences"   { RETURN NEW DisplayedBlobReferences; }
+      CASE "handlelist"       { RETURN NEW DisplayedHandleList; }
     }
     THROW NEW Exception("Unknown rawdata type '" || type || "'");
   }

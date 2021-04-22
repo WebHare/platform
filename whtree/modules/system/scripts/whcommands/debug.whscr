@@ -25,6 +25,10 @@ Commands:
   terminate [process] [mask]          Terminate jobs in a process
   getconfig                           Show currently enabled debug features
   setconfig [-s session] [tags]       Set enabled debug features (eg. 'apr', 'cov')
+  stacktrace process jobmask          Get a stack trace of the specified job
+  jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
+  jobhandles process jobmask          Get job handle list for the specified job
+
 Available debugging features:
   apr                  All new started scripts make a function CPU profile
   cov                  All new started scripts make a coverage profile
@@ -192,19 +196,18 @@ ASYNC MACRO RunCommand()
       }
 
       IF (args.v)
-        DumpValue(joblist, [ name := `Job list for process ${process->processcode}: '${process->clientname}'`, format := "tree" ]);
+        DumpValue(joblist, [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := "tree" ]);
       ELSE
       {
-        DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode}: '${process->clientname}'`, format := "boxed" ]);
+        DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
       }
     }
-    CASE "stacktrace"
+    CASE "stacktrace", "jobstats", "jobhandles"
     {
       ParseSubArgs(
             [ [ name := "v", type := "switch" ]
             , [ name := "process", type := "param", required := TRUE ]
             , [ name := "mask", type := "param", required := TRUE ]
-            , [ name := "params", type := "paramlist"]
             ]);
 
       OBJECT process := AWAIT GetProcessByParam(args.process);
@@ -237,7 +240,37 @@ ASYNC MACRO RunCommand()
       {
         CASE "stacktrace"
         {
-          DumpValue((SELECT filename, line, col, func FROM job->laststatus.stacktrace), [ name := `Stack trace for job ${joblist[0].groupid} at '${process->clientname}'`, format := "boxed" ]);
+          DumpValue((SELECT filename, line, col, func FROM job->laststatus.stacktrace), [ name := `Stack trace for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+        }
+        CASE "jobstats"
+        {
+          RECORD stats := RecordExists(job->laststatus.statistics) ? job->laststatus.statistics :
+              [ backingstore := "N/A"
+              , blobstore := "N/A"
+              , heap := "N/A"
+              , instructions := "N/A"
+              , objectcount := "N/A"
+              , stack := "N/A"
+              ];
+
+          PRINT(`Statistics for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')
+
+Creationdate:       ${FormatISO8601DateTime(job->laststatus.creationdate, "", "milliseconds")}
+Running time:       ${GetDayCount(job->laststatus.total_running)-1} days, ${FormatDateTime("%H:%M:%S.%Q", job->laststatus.total_running)}
+Stack size:         ${job->laststatus.stacksize} elements
+Backing store:      ${stats.backingstore} KB
+Blob store:         ${stats.blobstore} KB
+Heap store:         ${stats.heap} KB
+stack store:        ${stats.stack} KB
+Object count:       ${stats.objectcount}
+Executed instrs.:   ${stats.instructions}
+`);
+        }
+        CASE "jobhandles"
+        {
+          AWAIT job->Pause();
+          RECORD handlelist := AWAIT job->GetHandleList();
+          DumpValue((SELECT name, id FROM handlelist.rawdata.items ORDER BY id, name), [ name := `Handle list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
         }
         DEFAULT
         {

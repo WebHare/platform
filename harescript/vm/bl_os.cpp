@@ -261,7 +261,7 @@ int32_t OSContext::Process::GetOutputHandle(bool for_errors)
 //
 
 OSContext::ProcessOutputPipe::ProcessOutputPipe(HSVM *vm, std::unique_ptr< Blex::PipeReadStream > &pipe)
-: OutputObject(vm)
+: OutputObject(vm, "Process output pipe")
 {
         output.reset(pipe.release());
 }
@@ -508,7 +508,7 @@ int OSContext::OpenDiskFile(HSVM *vm, std::string const &path, bool writeaccess,
 
         newfile->diskfile = static_cast<Blex::FileStream*>(newfile->randomfile.get());
         newfile->can_write=writeaccess;
-        int fileid = HSVM_RegisterIOObject(vm, newfile.get(), &OSFileReader, &OSFileWriter, &OSFileEof, NULL);
+        int fileid = HSVM_RegisterIOObject(vm, newfile.get(), &OSFileReader, &OSFileWriter, &OSFileEof, NULL, "Open disk file");
         filelist[fileid]=newfile;
         return fileid;
 }
@@ -1137,7 +1137,7 @@ void HS_OpenBlobAsFile(VarId id_set, VirtualMachine *vm)
                 newfile->blobid = blobid;
                 newfile->bloboffset = 0;
 
-                fileid = HSVM_RegisterIOObject(*vm, newfile.get(), &OSFileReader, &OSFileWriter, &OSFileEof, NULL);
+                fileid = HSVM_RegisterIOObject(*vm, newfile.get(), &OSFileReader, &OSFileWriter, &OSFileEof, NULL, "Blob as file");
                 context->os.filelist[fileid]=newfile;
         }
         HSVM_IntegerSet(*vm, id_set, fileid);
