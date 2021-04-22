@@ -157,17 +157,3 @@ PUBLIC RECORD FUNCTION ReadWRDRichDocument(RECORD ARRAY settings, OBJECT linkget
 
   RETURN retval;
 }
-
-//Fixup names in WRD subfolders, 4.06 got this wrong
-PUBLIC INTEGER FUNCTION FixupWRDWHFSNames()
-{
-  RECORD ARRAY tofix := SELECT badfiles.id
-                          FROM system.fs_objects AS badfiles
-                             , system.fs_objects AS wrdfolders
-                         WHERE wrdfolders.parent = 13
-                               AND wrdfolders.id = badfiles.parent
-                               AND ToString(badfiles.id) != badfiles.name;
-  IF(Length(tofix)>0)
-    UPDATE system.fs_objects SET name := ToString(id) WHERE id IN (SELECT AS INTEGER ARRAY id FROM tofix);
-  RETURN Length(tofix);
-}
