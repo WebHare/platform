@@ -184,7 +184,6 @@ ASYNC MACRO ManageAuthenticationSettings()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-
 ASYNC MACRO TestExport()
 {
   testfw->BeginWork();
@@ -220,7 +219,7 @@ ASYNC MACRO TestExport()
   testfw->CommitWork();
 
   __SetEffectiveUser(testuser);
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
 
   // Go to the 'Module and object rights' tab
   TTFillByTitle("viewmode", "Module and object rights");
@@ -258,9 +257,29 @@ ASYNC MACRO TestExport()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestExportSysop()
+{
+  testfw->SetTestUser("sysop");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("exportallgrants"));
+  RECORD rec := AWAIT ExpectSentWebFile(PTR TTClick("download"));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  RECORD ARRAY rows := GetOOXMLSpreadsheetRows(rec.file.data);
+  //Test that ROLEGRANTs exist, they were a recent addition
+  TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="ROLEGRANT" AND username="visibleuser2@beta.webhare.net" AND rows."object path" = "visiblerole"));
+  //Test that we see the ROLE's grant
+  TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="GRANT" AND username="visiblerole" AND rows."object path" = "webhare_testsuite.testfolder; webhare_testsuite.site; visiblefolder"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
 RunTestframework( [ PTR Setup
                   , PTR ManageAuthenticationSettings
                   , PTR TestExport
+                  , PTR TestExportSysop
                   , PTR EnsureUserMgmtStateClean
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "lisa"]
