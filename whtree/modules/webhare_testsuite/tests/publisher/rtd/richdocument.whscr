@@ -142,7 +142,7 @@ MACRO ParserApiTest()
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
                                  || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
                                  || '<p class="normal"><br/></p>'
-                                 || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
+                                 || '<p class="normal">Ik ben £€n <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
                                  || '<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>'
                                  || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>' //FIXME should have class="tabletag" but we lack tabletyping
                                     || '<tr>'
@@ -188,6 +188,15 @@ MACRO ParserApiTest()
   TestEq(2, Length(outline[4].rows));
   TestEq(2, Length(outline[4].rows[1].cells));
 
+  TestEq(`Ik ben een heading 1&`, parseddoc->ExtractExcerpt("h1"));
+  TestEqLike(`Ik ben £€n <normale> b-lex paragraaf\nmet een soft-break en een afbeelding:\nI'm a*`, parseddoc->ExtractExcerpt("p", [ maxlength := 150 ]));
+  TestEq(`Ik ben £€n <normal…`, parseddoc->ExtractExcerpt("p", [ maxlength := 18 ]));
+  TestEq(`Ik ben £€n <normal`, parseddoc->ExtractExcerpt("p", [ maxlength := 18, addiftruncated := "" ]));
+  TestEq(`Ik ben £€n <…`, parseddoc->ExtractExcerpt("p.normal", [ limitutf8bytes := 18 ]));
+  TestEq(`Ik ben £€n <nor`, parseddoc->ExtractExcerpt("p.normal", [ limitutf8bytes := 18, addiftruncated := "" ]));
+  TestEq(18, Length(parseddoc->ExtractExcerpt("h1", [ limitutf8bytes := 18 ])));
+  TestEqLike(`Ik ben een heading 1*world")`, parseddoc->ExtractExcerpt("*"));
+
   OBJECT parserobject, mergedobject;
   OBJECT myfilter := NEW RichDocumentFilter;
   parserobject := outline[0].richobject;
@@ -207,27 +216,27 @@ MACRO ParserApiTest()
 
   TestEq(TRUE, parserobject->HasContent());
   TestEq(TRUE, mergedobject->HasContent());
-  TestEqLike('<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: <img class="wh-rtd__img" *&amp;*/></p>', myfilter->GetFiltered(parserobject));
+  TestEqLike('<p class="normal">Ik ben £€n <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: <img class="wh-rtd__img" *&amp;*/></p>', myfilter->GetFiltered(parserobject));
   TestEq('<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>', myfilter->GetFiltered(mergedobject));
 
   //note, <br> doesn't really affect tagfilter, we'll ouput it either way
   myfilter->tagfilter := ["p","a-href","i"];
-  TestEq('<p class="normal">Ik ben een &lt;normale&gt; <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
+  TestEq('<p class="normal">Ik ben £€n &lt;normale&gt; <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
   TestEq('<p class="normal">I\'m a merge field: <span data-merge="textContent:yourname"></span></p>', myfilter->GetFiltered(mergedobject));
 
   myfilter->tagfilter := ["a-href","b","i"];
-  TestEq('Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
+  TestEq('Ik ben £€n <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
   TestEq('I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b>', myfilter->GetFiltered(mergedobject));
 
   myfilter->tagfilter := ["p"];
-  TestEq('<p class="normal">Ik ben een &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
+  TestEq('<p class="normal">Ik ben £€n &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G</p>', myfilter->GetFiltered(parserobject));
   TestEq('<p class="normal">I\'m a merge field: <span data-merge="textContent:yourname"></span></p>', myfilter->GetFiltered(mergedobject));
 
   myfilter->tagfilter := DEFAULT STRING ARRAY;
-  TestEq('Ik ben een &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
+  TestEq('Ik ben £€n &lt;normale&gt; b-lex paragraaf<br />met een soft-break en een afbeelding: I&amp;G', myfilter->GetFiltered(parserobject));
   TestEq('I\'m a merge field: <span data-merge="textContent:yourname"></span>', myfilter->GetFiltered(mergedobject));
 
-  TestEq('Ik ben een <normale> b-lex paragraaf\nmet een soft-break en een afbeelding: I&G', myfilter->GetRawText(parserobject));
+  TestEq('Ik ben £€n <normale> b-lex paragraaf\nmet een soft-break en een afbeelding: I&G', myfilter->GetRawText(parserobject));
   TestEq('I\'m a merge field: ', myfilter->GetRawText(mergedobject));
 
   OBJECT output := parseddoc->RenderAllAsHTMLDocument();
