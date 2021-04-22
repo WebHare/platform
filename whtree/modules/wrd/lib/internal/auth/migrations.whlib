@@ -1,0 +1,26 @@
+<?wh
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+PUBLIC RECORD FUNCTION DisconnectSAMLTypes(OBJECT wrdschema)
+{
+  RECORD ARRAY samltypes := SELECT id, tag
+                              FROM wrd.types
+                             WHERE wrd_schema=wrdschema->id
+                                   AND metatype = wrd_metatype_attachment
+                                   AND tag IN ["WRD_AUTHDOMAIN_SAMLPROVIDERBASE","WRD_AUTHDOMAIN_SAML_IDP","WRD_AUTHDOMAIN_SAML_SP"];
+  IF(Length(samltypes) > 0)
+  {
+    samltypes := SELECT *, ids := (SELECT AS INTEGER ARRAY id FROM wrd.entities WHERE entities.type = samltypes.id) FROM samltypes;
+
+    FOREVERY(RECORD typ FROM samltypes)
+    {
+      UPDATE wrd.types SET metatype := wrd_metatype_object, requiretype_left := 0 WHERE id = typ.id;
+      UPDATE wrd.entities SET leftentity := 0 WHERE type = typ.id;
+    }
+    wrdschema->__SignalMetadataChanged();
+    wrdschema->__RefreshFromDB();
+  }
+
+  RETURN CELL[ samltypes ];
+}

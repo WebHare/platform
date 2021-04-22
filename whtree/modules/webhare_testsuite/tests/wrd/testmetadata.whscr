@@ -391,7 +391,7 @@ MACRO TestImportExisting()
   TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));
 
   //This should trigger a rename
-  TestEq(TRUE,  UpdateAllModuleSchemas());
+  TestEq(TRUE, UpdateAllModuleSchemas());
 
   TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"));
   TestEq(TRUE,  RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));

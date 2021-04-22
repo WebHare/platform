@@ -1416,8 +1416,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF (NOT ObjectExists(wrd_sp))
       THROW NEW Exception("This authentication domain is not setup for SAML authentication");
 
-    RECORD ARRAY filters :=
-        [ [ field := "WRD_LEFTENTITY", value := this->__wrdauth->id ] ];
+    RECORD ARRAY filters;
 
     IF (serviceprovidertag != "")
       INSERT [ field := "WRD_TAG", value := serviceprovidertag ] INTO filters AT END;
