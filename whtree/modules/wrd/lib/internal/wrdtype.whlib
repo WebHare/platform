@@ -534,11 +534,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     this->__whfslinkattrs := data.__whfslinkattrs;
     this->__final_attrs := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
     this->attributelist := SELECT *
-                                , tag := ToUppercase(tag)
-                                , localtag := ToUppercase(localtag)
                                 , DELETE ishiddenbyparent, DELETE __reftype, DELETE cellname, DELETE cellnames, DELETE isgenerated
-                                , DELETE __localtag, DELETE generatetag, DELETE __selectattributeids
-                                , DELETE __typeinfo, DELETE __typewrdid
+                                , DELETE generatetag, DELETE __selectattributeids
                              FROM data.__final_attrs
                             WHERE NOT ishiddenbyparent
                          ORDER BY ToUppercase(tag);
@@ -769,7 +766,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttribute(STRING find_tag)
   {
-  //printrecordarrayto(0,this->__final_attrs,'boxed');
     INTEGER pos := RecordBinaryFind(this->attributelist, [ tag := ToUppercase(find_tag) ], ["TAG"]);
     RETURN pos = -1 ? DEFAULT RECORD : this->attributelist[pos];
   }
@@ -779,15 +775,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttributeById(INTEGER attrid)
   {
-  //printrecordarrayto(0,this->__final_attrs,'boxed');
     RETURN SELECT * FROM this->attributelist WHERE id = attrid;
   }
 
   /** Returns description of all attributes in this type
       @param fromparent Get child attributes of this parent. Use 0 for the toplevel attributes or -1 to get ALL attributes (recursively)
       @return Record per attribute (not all described)
-      @cell return.__localtag
-      @cell return.__reftype
       @cell(integer) return.id Id of attribute (0 for base attributes)
       @cell(integer) return.attributetype WRD attribute type id of this attribute
       @cell(string) return.attributetypename WRD attribute type name of this attribute
@@ -863,6 +856,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                       , title := "attribute settings"
                                       ]);
 
+    //selecting through __final_attrs so we can see 'ishiddenbyparent' attributes
     RECORD ARRAY matches := SELECT * FROM this->__final_attrs WHERE ToUppercase(__final_attrs.tag) = ToUppercase(VAR tag);
     RECORD attr := SELECT * FROM matches WHERE NOT isinherited;
     IF(NOT RecordExists(attr))
@@ -1687,28 +1681,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       THROW NEW Exception(`Value for attribute '${attr.tag}' must be of type record`);
     RETURN val;
   }
-  /** Returns attributes. Columns:
-    - tag
-    - base
-    - attributetype
-    - ordering
-    - cellname
-    - title
-    - domain
-    - __reftype
-    - cellnames
-    - isgenerated
-    - isreadonly
-    - isrequired
-    - issnesitive
-    - isunique
-    - attributeid
-    - generator
-    - decoder
-    - parent
-    - checklinks
-    - multiline
-    */
+
   RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode)
   {
     RECORD ARRAY newsets;

@@ -29,10 +29,10 @@ PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "T
                                  , /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS"
                                  ];
 
-PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
-{
-  RETURN attributetype IN [1,8,26];
-}
+PUBLIC CONSTANT INTEGER wrd_metatype_object := 1;
+PUBLIC CONSTANT INTEGER wrd_metatype_link := 2;
+PUBLIC CONSTANT INTEGER wrd_metatype_attachment := 3;
+PUBLIC CONSTANT INTEGER wrd_metatype_domain := 4;
 
 PUBLIC CONSTANT INTEGER wrd_attributetype_domain := 1;
 PUBLIC CONSTANT INTEGER wrd_attributetype_free := 2;
@@ -62,6 +62,12 @@ PUBLIC CONSTANT INTEGER wrd_attributetype_paymentprovider := 25;
 PUBLIC CONSTANT INTEGER wrd_attributetype_payment := 26;
 PUBLIC CONSTANT INTEGER wrd_attributetype_statusrecord := 27;
 PUBLIC CONSTANT INTEGER wrd_attributetype_authenticationsettings := 28;
+
+
+PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
+{
+  RETURN attributetype IN [ wrd_attributetype_domain, wrd_attributetype_domainarray, wrd_attributetype_payment ];
+}
 
 //possible valid options are: domain, required, isunique, ordered, checklinks, multiline, allowedvalues
 RECORD wrdattributes :=
@@ -518,30 +524,6 @@ PUBLIC RECORD ARRAY FUNCTION GetPersonTitles (STRING languagecode)
          ];
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetAllPersonTags (STRING languagecode, INTEGER wrdschema)
-{
-  RECORD lang := GetLangTexts(languagecode);
-  RECORD ARRAY all_person_tags := [ [ tag := "WRD_GUID",            base := FALSE, attributetype := 0, cellname := "",              name := lang.attrlabels.wrd_guid,          domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "guid" ] ]
-                                  , [ tag := "WRD_GENDER",          base := TRUE,  attributetype := 1, cellname := "gender",        name := lang.attrlabels.wrd_gender,        domain := -2, readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0  , domainvalues := GetGenderDomain() ]
-                                  , [ tag := "WRD_SALUTE_FORMAL",   base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_salute_formal, domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "gender", "infix", "lastname", "titles" ] ]
-                                  , [ tag := "WRD_ADDRESS_FORMAL",  base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_address_formal,domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "gender", "initials", "infix", "lastname", "titles" ] ]
-                                  //, [ tag := "WRD_SALUTE_INFORMAL", base := FALSE, attributetype := 0, cellname := "",            name := lang.attrlabels.wrd_salute_informal, domain := 0, readonly := TRUE ]
-                                  , [ tag := "WRD_FULLNAME",        base := FALSE, attributetype := 2, cellname := "",              name := lang.attrlabels.wrd_fullname,      domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "firstname", "firstnames", "infix", "initials", "lastname" ] ]
-                                  , [ tag := "WRD_TITLES",          base := TRUE,  attributetype := 2, cellname := "titles",        name := lang.attrlabels.wrd_titles,        domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_INITIALS",        base := TRUE,  attributetype := 2, cellname := "initials",      name := lang.attrlabels.wrd_initials,      domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_FIRSTNAME",       base := TRUE,  attributetype := 2, cellname := "firstname",     name := lang.attrlabels.wrd_firstname,     domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_FIRSTNAMES",      base := TRUE,  attributetype := 2, cellname := "firstnames",    name := lang.attrlabels.wrd_firstnames,    domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_INFIX",           base := TRUE,  attributetype := 2, cellname := "infix",         name := lang.attrlabels.wrd_infix,         domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_LASTNAME",        base := TRUE,  attributetype := 2, cellname := "lastname",      name := lang.attrlabels.wrd_lastname,      domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_TITLES_SUFFIX",   base := TRUE,  attributetype := 2, cellname := "titles_suffix", name := lang.attrlabels.wrd_titles_suffix, domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 256 ]
-                                  , [ tag := "WRD_DATEOFBIRTH",     base := TRUE,  attributetype := 6, cellname := "dateofbirth",   name := lang.attrlabels.wrd_dateofbirth,   domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
-                                  , [ tag := "WRD_DATEOFDEATH",     base := TRUE,  attributetype := 6, cellname := "dateofdeath",   name := lang.attrlabels.wrd_dateofdeath,   domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
-                                  //, [ tag := "WRD_PHOTO",           base := TRUE,  attributetype := 9, cellname := "PHOTO",       name := lang.attrlabels.wrd_photo,         domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
-                                  ];
-
-  RETURN all_person_tags;
-}
-
 PUBLIC RECORD FUNCTION GetLangTexts(STRING langcode)
 {
   SWITCH(ToUppercase(langcode))
@@ -550,23 +532,6 @@ PUBLIC RECORD FUNCTION GetLangTexts(STRING langcode)
     CASE "DE" { RETURN wrd_language.de; }
     DEFAULT   { RETURN wrd_language.en; }
   }
-}
-
-/** @short Get the standard attributes for a tag (WRD_PERSON, WRD_ORGANIZATION)*/
-PUBLIC RECORD ARRAY FUNCTION GetStandardAttributes(STRING typetag, RECORD lang, INTEGER schemaid)
-{
-  RECORD ARRAY base;
-  IF(typetag = "WRD_PERSON")
-    base := GetAllPersonTags("",schemaid);
-
-  RETURN SELECT tag
-              , title := GetCell(lang.attrlabels,tag)
-              , attributetype
-              , cellname
-              , base := tag = ToUppercase("WRD_" || cellname)
-              , required := isrequired
-              , isunique := isunique
-          FROM base;
 }
 
 /////////////////////////////////////////////////////////////////////

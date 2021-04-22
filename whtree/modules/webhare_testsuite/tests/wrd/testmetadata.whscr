@@ -74,7 +74,8 @@ MACRO Setup()
   //create a field in the wrd_relationtype. we want to be sure it doesn't appear in subtypes. Oh, and needed an excuse for a MONEY type
   reltype->CreateAttribute("KARMA","MONEY");
 
-  TestEq(TRUE, RecordExists(persontype->GetAttribute("KARMA")));
+  TestEq(FALSE, reltype->GetAttribute("KARMA").isinherited);
+  TestEq(TRUE, persontype->GetAttribute("KARMA").isinherited);
 
   // Maak een stored query aan voor personen
   RECORD querydata := [ sources := [ [ type := wrdschema->GetType("WRD_PERSON")
@@ -144,7 +145,7 @@ MACRO ExportXMLMetadata()
   myresolver->AddNS("s", "http://www.webhare.net/xmlns/wrd/schemadefinition");
   myresolver->AddNS("q", "http://www.webhare.net/xmlns/wrd/query");
 
-  //There should only be one KRMA Field, under WRD_RELATION
+  //There should only be one KARMA Field, under WRD_RELATION
   TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:money[@tag="KARMA"]')));
   TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:object[@tag="WRD_RELATION"]//s:money[@tag="KARMA"]')));
 

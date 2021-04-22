@@ -203,8 +203,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   /** Returns description of all attributes in this type
       @return Record per attribute (not all described)
-      @cell return.__localtag
-      @cell return.__reftype
       @cell return.allowedvalues Acceptable values for an enum/status field
       @cell return.attributeid Id of attribute (0 for base attributes)
       @cell return.attributetype Type of this attribute

@@ -554,7 +554,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       @return Record array with description of all types
       @cell return.id Id of this type
       @cell return.tag Tag of this type
-      @cell return.metatype Metatype of this type (1=entity,2=link,3=classification, 4=domain)
+      @cell return.metatype Metatype of this type (1=object, 2=link, 3=attachment, 4=domain)
       @cell return.title Translated title of this type
       @cell return.original_title Original (untranslated) title of this type
       @cell return.description Description of this type
