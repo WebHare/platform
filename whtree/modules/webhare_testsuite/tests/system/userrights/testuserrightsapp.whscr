@@ -17,20 +17,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 DATETIME lastcheck;
-RECORD FUNCTION TestAuditEvent(RECORD expected)
-{
-  RECORD ARRAY auditevents := SELECT *, DELETE id, DELETE creationdate, DELETE wrdschema
-                                FROM wrd.auditevents
-                               WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
-                                     AND creationdate > lastcheck;
-
-  IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
-    auditevents := SELECT *, DELETE ip FROM auditevents;
-  TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);
-  lastcheck := GetCurrentDatetime();
-  Sleep(1);
-  RETURN auditevents;
-}
 
 ASYNC MACRO Setup()
 {
