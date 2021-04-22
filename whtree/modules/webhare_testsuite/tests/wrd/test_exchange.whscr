@@ -70,7 +70,9 @@ MACRO ExportImportWRD()
   TestEq(42, importedschema->GetSchemaSetting("wrd:debug.answer"));
 
   RECORD ARRAY newpersons := GetAllPersons(importedschema);
-  TEstEq(persons, newpersons);
+  TestEq(persons, newpersons);
+  Testeq(FALSE, RecordExists(SELECT FROM newpersons WHERE CellExists(newpersons, "test_free_nocopy")));
+
 
   OBJECT wrdperson := importedschema->GetType("WRD_PERSON");
   INTEGER richdocembedded_personid := wrdperson->Search("WRD_CONTACT_EMAIL", "richdocembedded@example.com");

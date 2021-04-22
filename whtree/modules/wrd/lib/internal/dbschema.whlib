@@ -55,6 +55,7 @@ PUBLIC SCHEMA
     , STRING "description"
     , BOOLEAN "required"
     , BOOLEAN "isunique"
+    , BOOLEAN "isunsafetocopy"
     , INTEGER "parent" NULL := 0
     , BOOLEAN "ordered"
     , BOOLEAN "checklinks"

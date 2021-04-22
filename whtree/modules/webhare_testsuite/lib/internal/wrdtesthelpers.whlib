@@ -166,6 +166,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   persontype->CreateAttribute("TEST_EMPTYENUMARRAY",  "ENUMARRAY",       [ title := "Emum attribute", allowedvalues := STRING[] ]);
   persontype->CreateAttribute("TEST_RECORD",          "RECORD",          [ title := "Record attribute", allowedvalues := STRING[] ]);
   persontype->CreateAttribute("TEST_STATUSRECORD",    "STATUSRECORD",    [ title := "Status record", allowedvalues := ["warning","error","ok"] ]);
+  persontype->CreateAttribute("TEST_FREE_NOCOPY",     "FREE",            [ title := "Uncopyable free attribute", isunsafetocopy := TRUE ]);
   persontype->CreateAttribute("RICHIE",               "RICHDOCUMENT",    [ title := "Rich document" ]);
 
   schemaobj->CreateType("PERSONATTACHMENT", CELL[ title := "Test person attachments", linkfrom := schemaobj->^wrd_person->id, options.keephistorydays ]);
@@ -234,6 +235,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
                     , test_enum          := "enum1"
                     , test_enumarray     := [ "enumarray1" ]
                     , test_record        := [ a := 1 ]
+                    , test_free_nocopy   := "© email@example.com"
                     ];
 
   testpersonobj->UpdateEntity(newdata);

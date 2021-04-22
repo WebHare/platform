@@ -844,6 +844,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     newsettings := ValidateOptions([ checklinks := FALSE
                                    , multiline := FALSE
                                    , isunique := FALSE
+                                   , isunsafetocopy := FALSE
                                    , isrequired := FALSE
                                    , isordered := FALSE
                                    , tag := ""
@@ -852,7 +853,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                    , allowedvalues := DEFAULT STRING ARRAY
                                    , attributetypename := ""
                                    ], newsettings
-                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","TAG","TITLE","ALLOWEDVALUES"]
+                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES"]
                                       , title := "attribute settings"
                                       ]);
 
@@ -888,7 +889,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(CellExists(newsettings,opt) AND opt NOT IN attrinfo.options AND NOT IsDefaultValue(GetCell(newsettings,opt)))
         THROW NEW Exception(`The option '${opt}' cannot be set on attributes of type '${newsettings.attributetypename}' for attribute ${tag} in type '${this->tag}'`);
 
-    FOREVERY(STRING booleanopt FROM ['isrequired','isunique','isordered','checklinks','multiline'])
+    FOREVERY(STRING booleanopt FROM ['isrequired','isunique','isordered','checklinks','multiline','isunsafetocopy'])
       IF(CellExists(newsettings,booleanopt))
         toset := CellInsert(toset, booleanopt, GetCell(newsettings, booleanopt));
 
@@ -1032,6 +1033,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           , domain :=         0
           , domaintag :=      ""
           , isunique :=       FALSE
+          , isunsafetocopy := FALSE
           , isrequired :=     FALSE
           , checklinks :=     FALSE
           , allowedvalues :=  DEFAULT STRING ARRAY

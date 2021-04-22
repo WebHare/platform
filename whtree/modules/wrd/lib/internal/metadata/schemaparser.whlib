@@ -26,6 +26,7 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
                    , description := attrnode->GetAttribute('description')
                    , isrequired := ParseXSBoolean(attrnode->GetAttribute('required'))
                    , isunique := ParseXSBoolean(attrnode->GetAttribute('unique'))
+                   , isunsafetocopy := ParseXSBoolean(attrnode->GetAttribute('unsafetocopy'))
                    ];
 
     IF(attrnode->localname IN ["documentation"])

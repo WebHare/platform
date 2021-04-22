@@ -22,6 +22,7 @@ CONSTANT RECORD attributedefaults :=
         , isreadonly := FALSE
         , isrequired := FALSE
         , isunique := FALSE
+        , isunsafetocopy := FALSE
         , maxlength := 0
         , multiline := FALSE
         , parent := 0
@@ -63,6 +64,7 @@ RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
               , isrequired := required
               , isordered := ordered
               , isunique
+              , isunsafetocopy
               , parent
               , maxlength := (attributetype IN // (string type fields)
                                 [ wrd_attributetype_free

@@ -28,7 +28,7 @@ LOADLIB "mod::publisher/lib/rtd.whlib";
 
 RECORD attrstructure := [ id := 0, attributetypename := "", attributetype := 0, base := FALSE, description := ""
                         , domain := 0
-                        , isreadonly := FALSE, isrequired := FALSE, isunique := FALSE, isinherited := FALSE
+                        , isreadonly := FALSE, isrequired := FALSE, isunique := FALSE, isinherited := FALSE, isunsafetocopy := FALSE
                         , localtag := "", maxlength := 0, checklinks := FALSE, multiline := FALSE
                         , parent := 0, tag := "", title := "", isordered := FALSE, allowedvalues := DEFAULT STRING ARRAY
                         ];
@@ -99,6 +99,13 @@ MACRO TestSchema()
 
   TestEq("WebHare testsuite test schema", schemaobj->title);
   TestEq("The webhare_testsuite WRD schema", schemaobj->description);
+
+  //test initial init, and whether it's safe to copy
+  TestEq(TRUE, persontype->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
+  persontype->UpdateAttribute("TEST_FREE_NOCOPY", [ isunsafetocopy := FALSE ]);
+  TestEq(FALSE, persontype->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
+  persontype->UpdateAttribute("TEST_FREE_NOCOPY", [ isunsafetocopy := TRUE ]);
+  TestEq(TRUE, persontype->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
 
   TestEq(TRUE, RecordExists(persontype->GetAttribute("WRD_CONTACT_PHONE")));
   persontype->DeleteAttribute("WRD_CONTACT_PHONE");

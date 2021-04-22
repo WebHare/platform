@@ -296,7 +296,7 @@ STATIC OBJECTTYPE WRDEntityDuplicator
       {
         RECORD rec := this->analyzeworklist[i];
         RECORD typerec := this->ProcessType(rec.type);
-        STRING ARRAY getfields := SELECT AS STRING ARRAY tag FROM typerec.obj->ListAttributes(0) WHERE NOT isreadonly;
+        STRING ARRAY getfields := SELECT AS STRING ARRAY tag FROM typerec.obj->ListAttributes(0) WHERE NOT isreadonly AND NOT isunsafetocopy;
         RECORD data := GetCloneableEntityFields(typerec.obj->GetEntityFields(rec.id, getfields));
 
         RECORD mappingdata := this->mapping[RecordLowerBound(this->mapping, rec, [ "id" ]).position];
