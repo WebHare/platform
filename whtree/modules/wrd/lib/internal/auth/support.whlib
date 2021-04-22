@@ -10,10 +10,13 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+LOADLIB "mod::publisher/lib/analytics.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
 
 PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
@@ -265,6 +268,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING
                          , impersonated := isimpersonation
                          , login
                          , ip
+                         , country :=      ip != "" ? GetGeoIPCountryForIP(ip) : ""
                          , browsertriplet
                          , type
                          , byentity :=     byaccount
@@ -276,6 +280,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING
   LogAuditEventBy("wrd:auth", CELL[ entityid := byaccount, login := bylogin ],
       CELL[ type
           , ip
+          , toinsert.country
           , browsertriplet
           , account
           , login

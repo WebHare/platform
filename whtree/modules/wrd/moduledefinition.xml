@@ -638,6 +638,9 @@
       <d:boolean name="impersonated" />
       <d:varchar name="ip" maxlength="64">
       </d:varchar>
+      <d:varchar name="country" maxlength="2">
+        <d:documentation>GeoIP country code, if available for IP</d:documentation>
+      </d:varchar>
       <d:varchar name="browsertriplet" maxlength="64">
       </d:varchar>
       <d:varchar name="login" maxlength="128">

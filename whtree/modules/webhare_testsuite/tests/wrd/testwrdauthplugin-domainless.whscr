@@ -32,7 +32,6 @@ RECORD thirdpartytest;
 STRING thirdpartybaseurl;
 STRING thirdpartyurl;
 INTEGER entityid;
-DATETIME lastcheck;
 
 RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
 {
@@ -44,20 +43,6 @@ RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
     Abort("get failure on " || testfw->browser->url);
   }
   RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
-}
-
-MACRO TestAuditEvent(RECORD expected)
-{
-  RECORD ARRAY auditevents := SELECT *, DELETE id, DELETE creationdate, DELETE wrdschema
-                                FROM wrd.auditevents
-                               WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
-                                     AND creationdate > lastcheck;
-
-  IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
-    auditevents := SELECT *, DELETE ip FROM auditevents;
-  TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);
-  lastcheck := GetCurrentDatetime();
-  Sleep(1);
 }
 
 MACRO PrepareServer()

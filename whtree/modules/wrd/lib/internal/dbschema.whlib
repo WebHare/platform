@@ -138,6 +138,7 @@ PUBLIC SCHEMA
     , INTEGER "entity" NULL := 0
     , BOOLEAN "impersonated"
     , STRING "ip"
+    , STRING "country"
     , STRING "browsertriplet"
     , STRING "login"
     , STRING "type"

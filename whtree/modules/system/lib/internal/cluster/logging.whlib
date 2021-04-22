@@ -682,3 +682,32 @@ PUBLIC MACRO LogHarescriptException(OBJECT exc, RECORD options DEFAULTSTO DEFAUL
   ModuleLog("system:notice", "script\tERROR\t" || (options.groupid ?? GetCurrentGroupId()) || "\t" || EncodeJava(GetExternalSessionData()) || "\tharescript-error\t" || EncodeHarescriptException(exc, options.rest));
 }
 
+/** @short Log an audit event caused by a specific WebHare user
+    @param logsource Source or call of the error message
+    @param userdata User's authentication object id
+    @cell userdata.authobjectid
+    @cell userdata.login
+    @param data Event data */
+PUBLIC MACRO LogAuditEventBy(STRING logsource, RECORD userdata, RECORD data)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+
+  userdata := ValidateOptions(
+      [ login :=        ""
+      , authobjectid := 0
+      , entityid := 0
+      ], userdata);
+
+  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "-";
+  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || auth;
+
+  STRING encodeddata := EncodeHSON(data);
+  IF(Length(msg)+Length(encodeddata)>127*1024)
+    encodeddata := "-";
+
+  ModuleLog("system:audit", msg||"\t"||encodeddata);
+  __SYSTEM_FLUSHREMOTELOG("system:audit");
+}
+
+
