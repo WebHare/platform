@@ -33,7 +33,6 @@ RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
               , iscustom := TRUE
               , isgenerated := FALSE
               , isreadonly := FALSE
-              , isalternative := FALSE
               , isrequired := required
               , isordered := ordered
               , isunique
@@ -150,7 +149,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := [ "guid" ]
       , isgenerated := TRUE
       , isreadonly := FALSE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
@@ -175,7 +173,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := TRUE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
@@ -200,7 +197,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := TRUE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
@@ -225,7 +221,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := FALSE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := TRUE
@@ -250,7 +245,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := FALSE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
@@ -275,7 +269,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := FALSE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
@@ -300,7 +293,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
       , cellnames := STRING[]
       , isgenerated := FALSE
       , isreadonly := FALSE
-      , isalternative := FALSE
       , isrequired := FALSE
       , isordered := FALSE
       , isunique := FALSE
@@ -328,7 +320,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
                       , title := lang.attrlabels.wrd_ordering
                       , isgenerated := FALSE
                       , isreadonly := FALSE
-                      , isalternative := FALSE
                       , isordered := FALSE
                       , isrequired := FALSE
                       , isinherited := FALSE
@@ -356,7 +347,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , cellnames := STRING[]
           , isgenerated   := FALSE
           , isreadonly    := FALSE
-          , isalternative := FALSE
           , isordered      := FALSE
           , isrequired    := typerec.metatype IN [3,2]
           , isunique      := FALSE
@@ -386,7 +376,6 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
           , cellnames := STRING[]
           , isgenerated   := FALSE
           , isreadonly    := FALSE
-          , isalternative := FALSE
           , isordered     := FALSE
           , isrequired    := TRUE
           , isunique      := FALSE
@@ -435,7 +424,6 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
                         , isgenerated := NOT tags.base
                         , title := name
                         , isreadonly := tag IN [ "WRD_FULLNAME", "WRD_GUID", "WRD_SALUTE_FORMAL", "WRD_SALUTE_INFORMAL", "WRD_FORMALNAME", "WRD_ADDRESS_FORMAL"  ]
-                        , isalternative := tag IN ["WRD_FULLNAME", "WRD_SALUTE_FORMAL", "WRD_SALUTE_INFORMAL", "WRD_FORMALNAME", "WRD_ADDRESS_FORMAL" ]
                         , isinherited := FALSE
                         , __reftype := DEFAULT OBJECT
 //FIXME                        , __domainvalues := tag="WRD_GENDER" ? (SELECT * FROM GetGenderOptions(DEFAULT RECORD, this->pvt_wrdschema->pvt_lang, tag) WHERE tag!="" ORDER BY ToUppercase(tag)): DEFAULT RECORD ARRAY
@@ -464,7 +452,6 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
                         , title := lang.attrlabels.wrd_title
                         , isgenerated := TRUE
                         , isreadonly := TRUE
-                        , isalternative := FALSE
                         , isrequired := FALSE
                         , isordered := FALSE
                         , isinherited := FALSE

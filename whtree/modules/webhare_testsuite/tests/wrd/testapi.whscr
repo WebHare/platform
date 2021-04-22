@@ -27,7 +27,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 
 RECORD attrstructure := [ id := 0, attributetypename := "", attributetype := 0, base := FALSE, description := ""
-                        , domain := 0 , isalternative := FALSE, iscustom := FALSE
+                        , domain := 0 , iscustom := FALSE
                         , isreadonly := FALSE, isrequired := FALSE, isunique := FALSE, isinherited := FALSE
                         , localtag := "", maxlength := 0, checklinks := FALSE, multiline := FALSE
                         , parent := 0, tag := "", title := "", isordered := FALSE, allowedvalues := DEFAULT STRING ARRAY

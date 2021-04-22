@@ -211,7 +211,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
       @cell return.creationdate
       @cell return.description (not available for internal attributes)
       @cell return.domain If this a domain attribute, id of the domain this attribute refers to
-      @cell return.isalternative
       @cell return.iscustom
       @cell return.isgenerated Whether this attribute is
       @cell return.isreadonly Whether this is a read-only attribute

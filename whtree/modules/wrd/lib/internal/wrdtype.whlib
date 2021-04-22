@@ -794,7 +794,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(boolean) return.base Whether this is a base attribute
       @cell(string) return.description (not available for internal attributes)
       @cell(integer) return.domain If this a domain attribute, id of the domain this attribute refers to
-      @cell(boolean) return.isalternative
       @cell(boolean) return.iscustom
       @cell(boolean) return.isgenerated Whether this attribute is
       @cell(boolean) return.isreadonly Whether this is a read-only attribute
