@@ -171,14 +171,6 @@
     </webrule>
     <webrule path="allroots:/.ap/*.dev/*" match="wildcards" cachecontrol="public, max-age=0, must-revalidate" priority="after" /> <!-- dev mode assets -->
     <webrule path="allroots:/.ap/*/st/*" match="wildcards" cachecontrol="public, max-age=31536000, immutable" priority="after" /> <!-- static assets, they are unique by hash, cache for a day -->
-
-    <!-- legacy assetpacks stuff. remove and clear folders after 4.04 -->
-    <webrule path="allroots:/.pd/" redirecttodir="var:pd/" match="initial" priority="after"> <!-- Published Design -->
-      <addheader header="Access-Control-Allow-Origin" value="*"/>
-    </webrule>
-    <webrule path="allroots:/.pb/" redirecttodir="var:pb/" match="initial" priority="after"> <!-- Published Bundle -->
-      <addheader header="Access-Control-Allow-Origin" value="*"/>
-    </webrule>
   </backend>
 
 
