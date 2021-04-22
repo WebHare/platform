@@ -47,7 +47,7 @@ MACRO ExportImportWRD()
 {
   testfw->BeginWork();
 
-  TestThrows(PTR MakeWRDSchemaExporter(DEFAULT OBJECT));
+  TestThrowsLike('Missing wrdschema*',PTR MakeWRDSchemaExporter(DEFAULT OBJECT));
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   RECORD ARRAY persons := GetAllPersons(schemaobj);

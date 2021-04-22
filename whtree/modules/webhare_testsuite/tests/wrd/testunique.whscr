@@ -29,7 +29,7 @@ MACRO TestUnique()
   dom_obj->CreateAttribute("TEST_EMAIL",       "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
   dom_obj->CreateAttribute("TEST_INTEGER",     "INTEGER",   [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER" ]);
   dom_obj->CreateAttribute("TEST_INTEGER64",   "INTEGER64", [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER64" ]);
-  TestTHrows(PTR dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY",     [ isunique := TRUE, isrequired := FALSE, title := "Array with unique stuff" ]));
+  TestThrowsLike("*cannot*ARRAY*", PTR dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY",     [ isunique := TRUE, isrequired := FALSE, title := "Array with unique stuff" ]));
   dom_obj->CreateAttribute("TEST_ARRAY.EMAIL", "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
 
   testfw->CommitWork();
@@ -37,11 +37,11 @@ MACRO TestUnique()
   testfw->BeginWork();
 
   dom_obj->CreateEntity([ test_free := "1", test_email := "2@a.com", test_integer := 3, test_integer64 := 4, test_array := [[ email := "pietje@example.com" ]] ]);
-  TestThrows(PTR dom_obj->CreateEntity([ test_free := "1" ]));
-  TestThrows(PTR dom_obj->CreateEntity([ test_email := "2@a.com" ]));
-  TestThrows(PTR dom_obj->CreateEntity([ test_integer := 3 ]));
-  TestThrows(PTR dom_obj->CreateEntity([ test_integer64 := 4 ]));
-  TestThrows(PTR dom_obj->CreateEntity([ test_array := [[ email := "pietje@example.com" ]] ]));  //Issue #479
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_free := "1" ]));
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_email := "2@a.com" ]));
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_integer := 3 ]));
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_integer64 := 4 ]));
+  TestThrowsLike("*conflict*", PTR dom_obj->CreateEntity([ test_array := [[ email := "pietje@example.com" ]] ]));  //Issue #479
 
   testfw->CommitWork();
 
@@ -89,8 +89,8 @@ MACRO TestEnsureEntity()
   OBJECT whunit := testfw->GetWRDSchema()->GetType("WHUSER_UNIT");
   TestEq(0, Length(whunit->Runquery(DEFAULT RECORD)));
 
-  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tagxxx := "FIRSTUNIT" ], [ entitykey := ["wrd_leftentity","wrd_tagxxx"], ifnew := [ wrd_title := "Unit #1" ] ]));
-  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0 ], [ entitykey := ["wrd_leftentity","wrd_tag" ], ifnew := [ wrd_title := "Unit #1"]]));
+  TestThrowsLike("*wrd_tagxxx*", PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tagxxx := "FIRSTUNIT" ], [ entitykey := ["wrd_leftentity","wrd_tagxxx"], ifnew := [ wrd_title := "Unit #1" ] ]));
+  TestThrowsLike("*wrd_tag*", PTR whunit->EnsureEntity( [ wrd_leftentity := 0 ], [ entitykey := ["wrd_leftentity","wrd_tag" ], ifnew := [ wrd_title := "Unit #1"]]));
 
 
   OBJECT firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ entitykey := ["wrd_leftentity","wrd_tag" ], ifnew := [ wrd_title := "Unit #1"]]);
@@ -101,15 +101,15 @@ MACRO TestEnsureEntity()
 
   firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ entitykey := ["wrd_leftentity","wrd_tag" ], ifnew := [ wrd_title := "Unit #1b"]]);
   TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
-  TestEq("Unit #1", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
+  TestEq("Unit #1", firstunit->GetField("WRD_TITLE")); //shouldn't have changed
 
   firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b" ], [ entitykey := ["wrd_leftentity","wrd_tag" ] ]);
   TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
-  TestEq("Unit #1b", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
+  TestEq("Unit #1b", firstunit->GetField("WRD_TITLE"));
 
-  TestThrows(PTR firstunit->UpdateEntity( [ wrd_leftentity := firstunit->id ]));
+  TestThrowsLike("*ENTITYKEY*", PTR whunit->EnsureEntity( [ wrd_leftentity := firstunit->id ]));
+  TestThrowsLike("*ENTITYKEY*", PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT"] , [ifnew := [ wrd_title := "Unit #1b" ]]), "Entitykey is required");
 
-  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT"] , [ifnew := [ wrd_title := "Unit #1b" ]]), "Entitykey is required");
   testfw->CommitWork();
 }
 
