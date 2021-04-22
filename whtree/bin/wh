@@ -259,6 +259,12 @@ setup_buildsystem()
         echo "$TODAY" > $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install
       fi
     fi
+
+    if ! which node >/dev/null 2>&1 ; then
+      echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
+      exit 1
+    fi
+
   elif [ "$WHBUILD_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
     REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel unixODBC-devel libicu-devel libxml2-devel valgrind-devel libgit2-devel libmaxminddb-devel libpq-devel"
     if ! which ccache > /dev/null 2>&1 ; then
@@ -303,7 +309,7 @@ setup_buildsystem()
 
   vercomp "`npm -v`" "$REQUIRENPMVERSION"
   if [ "$?" == "2" ]; then
-    echo "You have npm `npm -v`, we desire $REQUIRENPMVERSION or higher"
+    echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
     if [ -z "$FORCE" ]; then
       echo "If you want me to install it, type YES (in uppercase)"
       read answer
