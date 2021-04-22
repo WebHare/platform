@@ -190,7 +190,7 @@ MACRO ParserApiTest()
 
   TestEq(`Ik ben een heading 1&`, parseddoc->ExtractExcerpt("h1"));
   TestEqLike(`Ik ben £€n <normale> b-lex paragraaf\nmet een soft-break en een afbeelding:\nI'm a*`, parseddoc->ExtractExcerpt("p", [ maxlength := 150 ]));
-  TestEq(`Ik ben £€n <normal…`, parseddoc->ExtractExcerpt("p", [ maxlength := 18 ]));
+  TestEq(`Ik ben £€n <norma…`, parseddoc->ExtractExcerpt("p", [ maxlength := 18 ]));
   TestEq(`Ik ben £€n <normal`, parseddoc->ExtractExcerpt("p", [ maxlength := 18, addiftruncated := "" ]));
   TestEq(`Ik ben £€n <…`, parseddoc->ExtractExcerpt("p.normal", [ limitutf8bytes := 18 ]));
   TestEq(`Ik ben £€n <nor`, parseddoc->ExtractExcerpt("p.normal", [ limitutf8bytes := 18, addiftruncated := "" ]));
