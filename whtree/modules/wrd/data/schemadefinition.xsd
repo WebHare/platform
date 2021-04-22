@@ -193,6 +193,7 @@
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="unique" type="xs:boolean" />
     <xs:attribute name="required" type="xs:boolean" />
+    <xs:attribute name="unsafetocopy" type="xs:boolean" />
 
     <xs:anyAttribute namespace="##other" processContents="lax"/>
   </xs:complexType>
