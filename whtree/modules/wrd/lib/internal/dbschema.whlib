@@ -13,8 +13,6 @@ PUBLIC SCHEMA
     , STRING "title"
     , STRING "description"
     , BOOLEAN "protected"
-    , STRING "required_fields"
-    , STRING "unique_fields"
     , BOOLEAN "usermgmt"
     , INTEGER "accounttype" NULL := 0
     , INTEGER "accountemail" NULL := 0
@@ -41,8 +39,6 @@ PUBLIC SCHEMA
     , INTEGER "metatype"
     , INTEGER "requiretype_left" NULL := 0
     , INTEGER "requiretype_right" NULL := 0
-    , STRING "required_fields"
-    , STRING "unique_fields"
     , INTEGER "parenttype" NULL := 0
     , BOOLEAN "abstract"
     , INTEGER "keephistorydays"

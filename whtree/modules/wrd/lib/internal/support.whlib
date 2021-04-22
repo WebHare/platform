@@ -520,16 +520,6 @@ PUBLIC RECORD ARRAY FUNCTION GetPersonTitles (STRING languagecode)
 
 PUBLIC RECORD ARRAY FUNCTION GetAllPersonTags (STRING languagecode, INTEGER wrdschema)
 {
-  STRING ARRAY requiredfields, uniquefields;
-  IF (wrdschema != 0)
-  {
-    RECORD schemarec := SELECT required_fields, unique_fields FROM wrd.schemas WHERE id = wrdschema;
-    IF (RecordExists(schemarec))
-    {
-      requiredfields := Tokenize(ToUpperCase(schemarec.required_fields), ",");
-      uniquefields   := Tokenize(ToUpperCase(schemarec.unique_fields), ",");
-    }
-  }
   RECORD lang := GetLangTexts(languagecode);
   RECORD ARRAY all_person_tags := [ [ tag := "WRD_GUID",            base := FALSE, attributetype := 0, cellname := "",              name := lang.attrlabels.wrd_guid,          domain := 0,  readonly := TRUE,  isrequired := FALSE, isunique := FALSE, maxlength := 0  , cellnames := [ "guid" ] ]
                                   , [ tag := "WRD_GENDER",          base := TRUE,  attributetype := 1, cellname := "gender",        name := lang.attrlabels.wrd_gender,        domain := -2, readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0  , domainvalues := GetGenderDomain() ]
@@ -548,11 +538,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAllPersonTags (STRING languagecode, INTEGER wrds
                                   , [ tag := "WRD_DATEOFDEATH",     base := TRUE,  attributetype := 6, cellname := "dateofdeath",   name := lang.attrlabels.wrd_dateofdeath,   domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
                                   //, [ tag := "WRD_PHOTO",           base := TRUE,  attributetype := 9, cellname := "PHOTO",       name := lang.attrlabels.wrd_photo,         domain := 0,  readonly := FALSE, isrequired := FALSE, isunique := FALSE, maxlength := 0   ]
                                   ];
-  FOREVERY (RECORD persontag FROM all_person_tags)
-  {
-    all_person_tags[#persontag].isrequired := persontag.tag IN requiredfields;
-    all_person_tags[#persontag].isunique := persontag.tag IN uniquefields;
-  }
 
   RETURN all_person_tags;
 }

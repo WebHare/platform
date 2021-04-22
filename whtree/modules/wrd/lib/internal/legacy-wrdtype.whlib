@@ -28,8 +28,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
 
   PRIVATE STRING currentlanguage;
 
-  PUBLIC STRING ARRAY required_base_attributes;
-  PUBLIC STRING ARRAY unique_base_attributes;
 
   ////////////////////////////////////////////////////////////////////
   //
@@ -54,8 +52,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     this->wrd_requiretype_left := typerec.requiretype_left;
     this->wrd_requiretype_right := typerec.requiretype_right;
 
-    this->required_base_attributes := Tokenize(typerec.required_fields,",");
-    this->unique_base_attributes := Tokenize(typerec.unique_fields,",");
     this->pvt_metatype := typerec.metatype;
     this->pvt_parenttype := this->pvt_wrdschema->GetTypeById(this->typerec.parenttype);
     RETURN data;

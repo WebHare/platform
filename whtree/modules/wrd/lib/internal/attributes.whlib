@@ -439,17 +439,15 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
 {
   RECORD lang := GetLangTexts(langcode);
   RECORD ARRAY extra_attrs;
-  STRING ARRAY required_base_attributes := Tokenize(typerec.required_fields,",");
-  STRING ARRAY unique_base_attributes := Tokenize(typerec.unique_fields,",");
 
   IF(typerec.tag="WRD_PERSON")
   {
     extra_attrs := SELECT tag
                         , base := TRUE
                         , attributetype
-                        , isrequired := tag IN required_base_attributes
+                        , isrequired := FALSE
                         , isordered := FALSE
-                        , isunique := tag IN unique_base_attributes
+                        , isunique := FALSE
                         , cellname
                         , isgenerated := NOT tags.base
                         , title := name
