@@ -835,8 +835,8 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
 
   /** @short Extract plaintext from the document
       @param selector Selector to use, eg '*', 'h1' or 'p'.
-      @cell(integer) options.maxlength Return at most this number of unicode characters (not including 'addiftruncated')
-      @cell(integer) options.limitutf8bytes Return at most this number of bytes (not including any 'addiftruncated')
+      @cell(integer) options.maxlength Return at most this number of unicode characters (including 'addiftruncated')
+      @cell(integer) options.limitutf8bytes Return at most this number of bytes (including any 'addiftruncated')
       @cell(string) options.addiftruncated Text to add if we truncated the excerpt. Defaults to an ellipsis (…)
       @return Extract text */
   PUBLIC STRING FUNCTION ExtractExcerpt(STRING selector, RECORD options DEFAULTSTO DEFAULT RECORD)
