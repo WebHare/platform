@@ -142,6 +142,8 @@ PUBLIC SCHEMA
     , STRING "data"
     , INTEGER "byentity" NULL := 0
     , STRING "bylogin"
+    , INTEGER "impersonator_entity" NULL := 0
+    , STRING "impersonator_login"
     ; KEY id
     > auditevents
 

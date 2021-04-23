@@ -763,6 +763,8 @@ STATIC OBJECTTYPE WRDAuth
                 - TOTPINVALIDCODE: invalid attempt (totp only)
                 - TOTPREUSEDCODE: reused a code already accepted in a previous login attempt (totp only)
       @cell return.totpattemptsleft Updated login proof for next attempt (only for codes TOTPINVALIDCODE and TOTPREUSEDCODE)
+      @cell return.entityid User entityid
+      @cell return.login User login
   */
   PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, STRING ip, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -770,13 +772,15 @@ STATIC OBJECTTYPE WRDAuth
 
     RECORD logindata := this->DecryptData(loginproof, "wrd:2faloginproof");
     IF (NOT RecordExists(logindata))
-      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+      RETURN [ success := FALSE, code := "INVALIDDATA", entityid := 0, login := "" ];
     IF (logindata.validuntil < now)
-      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+      RETURN [ success := FALSE, code := "INVALIDDATA", entityid := 0, login := "" ];
 
     OBJECT the_entity := this->accounttype->GetEntity(logindata.entityid);
     IF (NOT ObjectExists(the_entity))
-      RETURN [ success := FALSE, code := "INVALIDDATA" ];
+      RETURN [ success := FALSE, code := "INVALIDDATA", entityid := 0, login := "" ];
+
+    UpdateAuditContext([ user_entityid := logindata.entityid, user_login := logindata.login ]);
 
     RECORD response := this->ValidateSecondFactor(the_entity, type, data, logindata);
 
@@ -843,6 +847,8 @@ STATIC OBJECTTYPE WRDAuth
                                     , usedchallenge :=    logindata.challenge
                                     ]
         , secondfactordata
+        , logindata.entityid
+        , logindata.login
         ];
   }
 
@@ -1082,6 +1088,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
         // ADDME: also calc authobjectid?
         AuthenticateWebSession(cookieinfo.sessionid, "wrd:authsession", sessiondata.login, TRUE, 0, sessiondata.entityid, this->authenticatewebsession); //this also skips this access rule for further checks for this session
         this->sessiondata := sessiondata;
+        UpdateAuditContext(CELL[ user_entityid := sessiondata.entityid, user_login := sessiondata.login ]);
         RETURN cookieinfo.sessionid;
       }
       IF(this->debug)
@@ -1131,10 +1138,13 @@ STATIC OBJECTTYPE WRDAuthIntegration
         IF(this->debug)
             this->AddDebugMessage("Session cookie accepted");
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
+        {
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
               [ account := logindata.entityid
+              , login := logindata.login
               , isimpersonation := logindata.isimpersonation
               ]);
+        }
         RETURN;
       }
       ELSE
@@ -1154,10 +1164,13 @@ STATIC OBJECTTYPE WRDAuthIntegration
         IF(this->debug)
             this->AddDebugMessage("Persistent cookie accepted");
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
+        {
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
               [ account := logindata.entityid
+              , login := logindata.login
               , isimpersonation := logindata.isimpersonation
               ]);
+        }
         RETURN;
       }
       ELSE
@@ -1202,6 +1215,13 @@ STATIC OBJECTTYPE WRDAuthIntegration
       this->loggedinentity := RecordExists(sessdata) ? sessdata.entityid : 0;
     }
     RETURN this->loggedinentity;
+  }
+
+  PUBLIC STRING FUNCTION GetLoggedinEntityLogin()
+  {
+    IF(this->loggedinentity = -1)
+      this->GetCurrentSession();
+    RETURN RecordExists(this->sessiondata) ? this->sessiondata.login : "";
   }
 
   PUBLIC BOOLEAN FUNCTION IsLogoutAllowed()
@@ -1374,7 +1394,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
     res := CELL
         [ ...res
-        , ...PickCells(trylogin, [ "logdata", "secondfactordata" ])
+        , ...PickCells(trylogin, [ "logdata", "secondfactordata", "entityid", "login" ])
         ];
     RETURN res;
   }
@@ -1418,6 +1438,9 @@ STATIC OBJECTTYPE WRDAuthIntegration
                             || ", setlogincookie: " || (setlogincookie ? "true" : "false")
                             || ", sessioncookie: " || this->MaskInternalId(trylogin.sessioncookie));
     }
+
+    UpdateAuditContext([ user_entityid := trylogin.entityid, user_login := trylogin.login ]);
+
     IF(this->loginfilter != DEFAULT MACRO PTR)
     {
       RECORD errordata := this->loginfilter(trylogin.entityid,
@@ -1480,9 +1503,10 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ logauditevent := TRUE, browsertriplet := "" ], options);
+    options := ValidateOptions([ logauditevent := TRUE ], options);
 
     INTEGER entityid := this->GetLoggedinEntity();
+    STRING login := this->GetLoggedinEntityLogin();
     this->loggedinentity := -1;
     IF(this->sessionid = "")
       this->sessionid := this->GetCachedCookies().pers;
@@ -1501,10 +1525,11 @@ STATIC OBJECTTYPE WRDAuthIntegration
     {
       this->WriteAuditEvent("wrd:logout", CELL
           [ account := entityid > 0 ? entityid : 0
-          , remoteip := IsRequest() ? GetClientRemoteIp() : ""
-          , options.browsertriplet
+          , login
           ]);
     }
+
+    UpdateAuditContext([ user_entityid := 0, user_login := "" ]);
   }
 
   /** Writes a audit event to the logs in a separate transction
@@ -1513,6 +1538,14 @@ STATIC OBJECTTYPE WRDAuthIntegration
   */
   PUBLIC MACRO WriteAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF (CellExists(options, "ACCOUNT") AND options.account != 0 AND (NOT CELLExists(options, "login") OR options.login = ""))
+    {
+      options := CELL
+          [ ...options
+          , login := this->service->accounttype->GetEntityField(options.account, this->service->loginfieldtag)
+          ];
+    }
+
     WriteWRDAuditEvent(this->service->accounttype, type, options);
   }
 >;

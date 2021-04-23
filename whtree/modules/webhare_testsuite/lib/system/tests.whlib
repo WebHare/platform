@@ -53,6 +53,10 @@ PUBLIC RECORD FUNCTION TestAuditEvent(RECORD expected)
                                WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
                                      AND creationdate > lastcheck;
 
+  // add defaults for impersonator
+  IF (RecordExists(expected) AND NOT expected.impersonated)
+    expected := CELL[ impersonator_entity := expected.byentity, impersonator_login := expected.bylogin, ...expected ];
+
   IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
     auditevents := SELECT *, DELETE ip FROM auditevents;
   TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);

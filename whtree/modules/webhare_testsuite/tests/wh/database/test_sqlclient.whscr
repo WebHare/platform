@@ -61,14 +61,18 @@ MACRO WithArguments()
     IF (NOT RecordExists(rec))
       BREAK;
 
-    IF (rec.parts[0] = "system:sqlclient" AND rec.parts[2] LIKE "webhare_testsuite_user1")
+    IF (rec.parts[0] = "system:sqlclient" AND rec.parts[2] LIKE "*webhare_testsuite_user1*")
       INSERT rec INTO items AT END;
   }
   stream->Close();
 
   TestEQ(3, LENGTH(items));
-  TestEQ('hson:{\"query\":\"? 1 + 1\"}', items[0].parts[4]);
-  TestEQ('hson:{\"query\":\"select from system.fs_objects limit 1\"}', items[1].parts[4]);
+  TestEQMembers(
+      [ user_entityid := -1
+      , user_login := 'CLI:webhare_testsuite_user1'
+      ], DecodeHSON(items[0].parts[2]), "*");
+  TestEQ('hson:{\"query\":\"? 1 + 1\"}', items[0].parts[3]);
+  TestEQ('hson:{\"query\":\"select from system.fs_objects limit 1\"}', items[1].parts[3]);
 }
 
 RunTestFramework([ PTR WithArguments ]);

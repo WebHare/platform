@@ -10,8 +10,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
-LOADLIB "mod::publisher/lib/analytics.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -55,9 +53,8 @@ PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
   }
 }
 
-/** @return
-    @cell return.id
-    @cell return.name
+/** @param entityid Id entity to get the authobject from
+    @return @includecelldef #LookupAuthobjectByGuid.return
 */
 PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
 {
@@ -223,73 +220,57 @@ PUBLIC RECORD FUNCTION UpdateAuthenticationSettings(RECORD curvalue, RECORD newv
 /** Writes a audit event to the logs in a separate transction
     @param(object %WRDType2017) wrdtype Relevant wrd type
     @param type Audit event type
-    @cell options.account WRD ID of account that is being modified
+    @cell options.account WRD ID of account that is being modified (required)
     @cell options.login Login name of account that is being modified
-    @cell options.remoteip Remote IP
-    @cell options.browsertriplet Browser triplit
     @cell options.isimpersonation Whether this is an impersonation
     @cell(record) options.message Additional data
-    @cell(integer) options.byaccount If executed by another user, user WRD id
-    @cell(integer) options.bylogin If executed by another user, user login
 */
 PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ account := 0
-      , login := ""
-      , remoteip := IsRequest() ? GetClientRemoteIp() : ""
-      , browsertriplet := ""
+      [ account :=    0
+      , login :=      ""
+      , message :=    DEFAULT RECORD
       , isimpersonation := FALSE
-      , message := DEFAULT RECORD
-      , byaccount := 0
-      , bylogin := ""
-      ], options);
+      ], options,
+      [ required := [ "account" ]
+      ]);
 
-  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.remoteip, options.browsertriplet, options.login, options.isimpersonation, options.message, options.byaccount, options.bylogin));
+  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message));
 }
 
 // Writes an audit log event to the database in separated transactions
-MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING ip, STRING browsertriplet, STRING login, BOOLEAN isimpersonation, RECORD message, INTEGER byaccount, STRING bylogin)
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_entityid, STRING affecteduser_login, BOOLEAN isimpersonation, RECORD message)
 {
   type := ToLowercase(type);
   IF(type NOT LIKE "?*:?*")
     THROW NEW Exception(`Invalid audit event type '${type}'`);
 
-  // If byaccount and bylogin are both empty, assume that the operation is executed by the referenced user
-  IF (byaccount = 0 AND bylogin = "")
-  {
-    byaccount := account;
-    bylogin := login;
-  }
+  // The log determines its own datetime, make sure the database logdate is just before or at that date
+  DATETIME creationdate := GetCurrentDatetime();
+  RECORD logged := LogAuditEventBy("wrd:auth", CELL
+      [ affecteduser_login
+      , affecteduser_entityid
+      ], message);
 
-  RECORD toinsert := CELL[ creationdate := GetCurrentDatetime()
-                         , wrdschema :=    accounttype->wrdschema->id
-                         , entity :=       account
-                         , impersonated := isimpersonation
-                         , login
-                         , ip
-                         , country :=      ip != "" ? GetGeoIPCountryForIP(ip) : ""
-                         , browsertriplet
-                         , type
-                         , byentity :=     byaccount
-                         , bylogin
-                         , data := RecordExists(message) ? EncodeHSON(message) : ""
-                         ];
+  LogDebug("wrd:wae2", CELL[ logged ]);
 
-
-  LogAuditEventBy("wrd:auth", CELL[ entityid := byaccount, login := bylogin ],
-      CELL[ type
-          , ip
-          , toinsert.country
-          , browsertriplet
-          , account
-          , login
-          , isimpersonation
-          , message
-          , byaccount
-          , bylogin
-          , wrdschema :=      accounttype->wrdschema->tag
-          ]);
+  RECORD toinsert := CELL
+      [ creationdate
+      , wrdschema :=            accounttype->wrdschema->id
+      , ip :=                   logged.auditcontext.remoteip
+      , logged.auditcontext.country
+      , logged.auditcontext.browsertriplet
+      , type
+      , impersonated :=         logged.auditcontext.impersonator_entityid != logged.auditcontext.user_entityid OR isimpersonation
+      , impersonator_entity :=  logged.auditcontext.impersonator_entityid < 0 ? 0 : logged.auditcontext.impersonator_entityid
+      , impersonator_login :=   logged.auditcontext.impersonator_login
+      , byentity :=             logged.auditcontext.user_entityid < 0 ? 0 : logged.auditcontext.user_entityid
+      , bylogin :=              logged.auditcontext.user_login
+      , entity :=               logged.auditcontext.affecteduser_entityid
+      , login :=                logged.auditcontext.affecteduser_login
+      , data :=                 RecordExists(message) ? EncodeHSON(message) : ""
+      ];
 
   GetPrimary()->BeginWork();
   INSERT toinsert INTO wrd.auditevents;
@@ -302,7 +283,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING
   CATCH(OBJECT e)
   {
     //if commit fails, we might be racing against deletion of the entity (especially when logging out of a cleaned up wrd schema). are we ?
-    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = VAR account))
+    IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.id = affecteduser_entityid))
       RETURN; //okay, we can live with this
 
     //retry once more, but if this fails, too bad

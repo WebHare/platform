@@ -347,6 +347,12 @@ PUBLIC BOOLEAN FUNCTION AuthObjectExists(INTEGER authobject)
   RETURN RecordExists(SELECT FROM system.authobjects WHERE id = authobject);
 }
 
+/** Returns authobject id and name given a guid
+    @param guid Authobject GUID
+    @return Authobject id and name, DEFAULT RECORD if not found
+    @cell(integer) return.id Authobject.id
+    @cell(string) return.bane Authobject.name
+*/
 PUBLIC RECORD FUNCTION LookupAuthobjectByGuid(STRING guid)
 {
   RETURN

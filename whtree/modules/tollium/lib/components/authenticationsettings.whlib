@@ -79,13 +79,10 @@ STATIC OBJECTTYPE LiveAuthenticationSettingValue EXTEND AuthenticationSettingVal
   /// Name of attribute with authentication settings
   STRING _attrtag;
 
-  RECORD _logdata;
-
-  MACRO NEW(OBJECT entity, STRING attrtag, RECORD logdata)
+  MACRO NEW(OBJECT entity, STRING attrtag)
   {
     this->_entity := entity;
     this->_attrtag := attrtag;
-    this->_logdata := logdata;
 
     this->_value := this->GetOriginalValue();
   }
@@ -117,10 +114,6 @@ STATIC OBJECTTYPE LiveAuthenticationSettingValue EXTEND AuthenticationSettingVal
     WriteWRDAuditEvent(this->_entity->wrdtype, logtype, CELL
         [ account :=            this->_entity->id
         , login
-        , this->_logdata.browsertriplet
-        , this->_logdata.remoteip
-        , this->_logdata.byaccount
-        , this->_logdata.bylogin
         ]);
 
     GetPrimary()->CommitWork();
@@ -359,7 +352,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
   {
-    this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag, GetAuthSettingsAuditLogSourceData(this));
+    this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag);
     this->Reload();
   }
 >;
@@ -483,18 +476,6 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
     RETURN TRUE;
   }
 >;
-
-PUBLIC RECORD FUNCTION GetAuthSettingsAuditLogSourceData(OBJECT obj)
-{
-  RECORD clientinfo := obj->contexts->controller->GetClientInfo();
-
-  RETURN
-      [ byaccount :=        obj->contexts->user->entityid
-      , bylogin :=          obj->contexts->user->login
-      , remoteip :=         clientinfo.remoteip
-      , browsertriplet :=   clientinfo.browsertriplet
-      ];
-}
 
 /** Generate 10 new backup codes, with 40 bits of entropy a piece, base-32 encoded
     @return Backup codes
@@ -741,7 +722,7 @@ PUBLIC STRING FUNCTION RunManageTwoFAAuthDialog(OBJECT parentscreen, OBJECT enti
       [ required :=   [ "validationchecks" ]
       ]);
 
-  OBJECT valuekeeper := NEW LiveAuthenticationSettingValue(entity, options.attributetag ?? parentscreen->contexts->userapi->wrdschema->accountpasswordtag, GetAuthSettingsAuditLogSourceData(parentscreen));
+  OBJECT valuekeeper := NEW LiveAuthenticationSettingValue(entity, options.attributetag ?? parentscreen->contexts->userapi->wrdschema->accountpasswordtag);
 
   RETURN parentscreen->RunScreen("mod::tollium/screens/components/authenticationsettings.xml#managetwofaauth", CELL
       [ options.requireauthorization

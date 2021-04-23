@@ -232,15 +232,35 @@ OBJECTTYPE AuditLogReader EXTEND LogReaderBase
     STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
     STRING source := Substring(linetoks[0], Length(whentext)+3);
 
-    BOOLEAN hasmessage := linetoks[3] NOT LIKE "hson:*";
-    RECORD retval := [ raw :=             line
-                     , when :=            MakeDateFromText(whentext)
-                     , source :=          source
-                     , srhid :=           linetoks[1]
-                     , login :=           linetoks[2]
-                     , auth :=            linetoks[3]
-                     , message :=         this->DecodeHSONParam(linetoks[4])
-                     ];
+    RECORD retval;
+    IF (LENGTH(linetoks) = 4)
+    {
+      retval :=
+          [ v :=              2
+          , raw :=            line
+          , when :=           MakeDateFromText(whentext)
+          , source :=         source
+          , srhid :=          linetoks[1]
+          , login :=          ""
+          , auth :=           ""
+          , auditcontext :=   this->DecodeHSONParam(linetoks[2])
+          , message :=        this->DecodeHSONParam(linetoks[3])
+          ];
+    }
+    ELSE
+    {
+      retval :=
+          [ v :=              1
+          , raw :=            line
+          , when :=           MakeDateFromText(whentext)
+          , source :=         source
+          , srhid :=          linetoks[1]
+          , login :=          linetoks[2]
+          , auth :=           linetoks[3]
+          , auditcontext :=   DEFAULT RECORD
+          , message :=        this->DecodeHSONParam(linetoks[4])
+          ];
+    }
     RETURN retval;
   }
 >;
@@ -548,8 +568,17 @@ WHILE(TRUE)
       }
       CASE "audit"
       {
-        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source} login:${line.login} ${line.auth}\n  > ` ||
-            Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+        IF (line.v = 1)
+        {
+          lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source} login:${line.login} ${line.auth}\n  > ` ||
+              Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+        }
+        ELSE
+        {
+          lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source}\n  > ` ||
+              Substitute(AnyToString(line.auditcontext, "tree"), "\n", "\n  > ") || "\n> ";
+              Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+        }
 
         IF (filtersources)
         {
