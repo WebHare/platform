@@ -17,7 +17,7 @@ CONSTANT RECORD attributedefaults :=
         , generatetag := ""
         , isgenerated := FALSE
         , ishiddenbyparent := FALSE  //marks attributes that are invisible because a parent type defined them
-        , isinherited := FALSE       //marks attributes that are define in a parent
+        , isinherited := FALSE       //marks attributes that are defined in a parent
         , isordered := FALSE
         , isreadonly := FALSE
         , isrequired := FALSE
@@ -306,7 +306,7 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
                , isreadonly := TRUE
                , cellnames := cellnames
                , maxlength := 256
-                /* The generator doesn't really support WRD_ORGNAME but we need to fake it because elswhere ParseFilters redirects ORGNAME searches. Thats
+                /* The generator doesn't really support WRD_ORGNAME but we need to fake it because elsewhere ParseFilters redirects ORGNAME searches. That's
                    a hack to fix for another day... but the one that blocks us from just dropping WRD_ORGNAME here */
                , generatetag := typerec.tag = "WRD_RELATION" ? "WRD_RELATION_TITLE" : typerec.tag = "WRD_PERSON" ? "WRD_FULLNAME" : "WRD_ORGNAME"
                ] INTO builtin_attrs AT END;
