@@ -6,6 +6,7 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
@@ -74,7 +75,8 @@ MACRO Setup()
   //create a field in the wrd_relationtype. we want to be sure it doesn't appear in subtypes. Oh, and needed an excuse for a MONEY type
   reltype->CreateAttribute("KARMA","MONEY");
 
-  TestEq(TRUE, RecordExists(persontype->GetAttribute("KARMA")));
+  TestEq(FALSE, reltype->GetAttribute("KARMA").isinherited);
+  TestEq(TRUE, persontype->GetAttribute("KARMA").isinherited);
 
   // Maak een stored query aan voor personen
   RECORD querydata := [ sources := [ [ type := wrdschema->GetType("WRD_PERSON")
@@ -144,7 +146,7 @@ MACRO ExportXMLMetadata()
   myresolver->AddNS("s", "http://www.webhare.net/xmlns/wrd/schemadefinition");
   myresolver->AddNS("q", "http://www.webhare.net/xmlns/wrd/query");
 
-  //There should only be one KRMA Field, under WRD_RELATION
+  //There should only be one KARMA Field, under WRD_RELATION
   TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:money[@tag="KARMA"]')));
   TestEq(1, Length(structurexml->GetEvaluatedElements(myresolver, '//s:object[@tag="WRD_RELATION"]//s:money[@tag="KARMA"]')));
 
@@ -161,13 +163,15 @@ MACRO ExportXMLMetadata()
   //Try to recreate it from the metadata
   testfw->BeginWork();
   wrdschema := CreateWRDSchema(wrdschema->tag);
-  //print(structurexml->outerxml);
+  TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).errors);
+
   RECORD res := ApplyWRDSchemaDefinitionFile(wrdschema, structuredoc);
   TestEq(TRUE, res.success);
   testfw->CommitWork();
 
   TestEq(TRUE, RecordExists(wrdschema->^wrd_relation->GetAttribute("KARMA")));
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_PERSON")->GetAttribute("KARMA")));
+  TestEq(TRUE, wrdschema->GetType("WRD_PERSON")->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
 
   TestEq("My test string!", wrdschema->GetSchemaSetting("wrd:setting1"));

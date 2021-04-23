@@ -232,6 +232,8 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
                  , DELETE worldinfo
                  , DELETE languages
                  , DELETE schemadata_xml
+                 , DELETE required_fields
+                 , DELETE unique_fields
                  , creationdate := GetCurrentDateTime()
                  , id := this->newschemaid
                  , creationsource := LimitUTF8Bytes(CellExists(inrec,"creationsource") ? inrec.creationsource : "", 1024)
@@ -327,7 +329,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   }
   RECORD FUNCTION AttrsFilter(RECORD inrec)
   {
-    DELETE CELL creationdate, limitdate, confidential, keephistory, ordering, maxlength, maxwidth FROM inrec;
+    DELETE CELL creationdate, limitdate, confidential, keephistory, ordering, maxlength, maxwidth, required_fields, unique_fields FROM inrec;
     RETURN inrec;
   }
 

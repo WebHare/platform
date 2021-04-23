@@ -8,7 +8,7 @@ MACRO TestDuplicateEntity()
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   OBJECT wrdperson := schemaobj->^wrd_person;
-  OBJECT newperson  := wrdperson->CreateEntity([ wrd_firstname := "New", wrd_lastname := "Test", wrd_contact_email := "newtest@example.com" ]);
+  OBJECT newperson  := wrdperson->CreateEntity([ wrd_firstname := "New", wrd_lastname := "Test", wrd_contact_email := "newtest@example.com", test_free_nocopy := "Cannot copy" ]);
   OBJECT deepperson := wrdperson->CreateEntity([ wrd_firstname := "Deep", wrd_lastname := "Test", wrd_contact_email := "deepperson@example.com" ]);
 
   schemaobj->CreateType("PERSONLINK", [ title := "Test person link", linkfrom := schemaobj->^wrd_person->id, linkto := schemaobj->^wrd_person->id ]);
@@ -23,6 +23,7 @@ MACRO TestDuplicateEntity()
   TestEq(4, Length(wrdperson->RunQuery(CELL[])));
 
   OBJECT person2 := newperson->DuplicateEntity( [ updates := [ wrd_contact_email := "person2@example.com" ], recursetypes := ["*"] ]);
+  TestEq("", person2->GetField("test_free_nocopy"));
   TestEq(2, Length(schemaobj->^personlink->RunQuery(CELL[])));
   TestEq(1, Length(schemaobj->^personlink->RunQuery(CELL[ filters := [[ field := "WRD_LEFTENTITY", value := person2->id ], [ field := "WRD_RIGHTENTITY", value := deepperson->id ]]])));
 

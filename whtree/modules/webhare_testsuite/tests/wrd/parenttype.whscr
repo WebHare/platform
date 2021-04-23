@@ -42,7 +42,7 @@ MACRO RelationTitleTest()
   //whitebox test, this will fail if this tag gets removed. make sure that relation got the difficult field (WRD_RELATION_TITLE) but person is 'optimizing' fullname searches (WRD_FULLNAME)
   TestEq("WRD_RELATION_TITLE", (SELECT * FROM wrdreltype->__final_attrs WHERE tag="WRD_TITLE").generatetag);
   TestEq("WRD_FULLNAME", (SELECT * FROM persontype->__final_attrs WHERE tag="WRD_TITLE").generatetag);
-  //verify that no WRD_TITLE appeared for theese types..
+  //verify that no WRD_TITLE appeared for these types..
   TestEq(0, Length(SELECT FROM wrd.attrs WHERE ToUppercase(tag)="WRD_TITLE" AND type = persontype->id));
   TestEq(0, Length(SELECT FROM wrd.attrs WHERE ToUppercase(tag)="WRD_TITLE" AND type = wrdreltype->id));
   TestEq(0, Length(SELECT FROM wrd.attrs WHERE ToUppercase(tag)="WRD_TITLE" AND type = orgtype->id));
@@ -53,8 +53,7 @@ MACRO RelationTitleTest()
 
   TestEq(personid, persontype->Search("WRD_FULLNAME","Pietje Puk"));
   TestEq(personid, persontype->Search("WRD_TITLE","Pietje Puk"));
-  //TestEq(personid, wrdreltype->Search("WRD_TITLE","Pietje Puk")); //ADDME perhaps this will be renabled in the future
-  TestThrows(PTR wrdreltype->Search("WRD_TITLE","Pietje Puk"));
+  TestThrowsLike("*not searchable*", PTR wrdreltype->Search("WRD_TITLE","Pietje Puk"));
   TestEq(0, orgtype->Search("WRD_TITLE","Pietje Puk"));
 
   TestEq("Initech", orgtype->GetEntity(orgid)->GetField("WRD_ORGNAME"));
@@ -63,18 +62,12 @@ MACRO RelationTitleTest()
 
   TestEq(orgid, orgtype->Search("WRD_ORGNAME", "Initech"));
   TestEq(orgid, orgtype->Search("WRD_TITLE","Initech"));
-  //TestEq(orgid, wrdreltype->Search("WRD_TITLE","Initech"));//ADDME perhaps this will be renabled in the future
-  TestThrows(PTR wrdreltype->Search("WRD_TITLE","Initech"));
   TestEq(0, persontype->Search("WRD_TITLE","Initech"));
 
   wrdreltype->DeleteEntities(INTEGER[personid,orgid]);
 
   TestEq(0, persontype->Search("WRD_TITLE","Pietje Puk"));
-  //TestEq(0, wrdreltype->Search("WRD_TITLE","Pietje Puk"));
-  TestThrows(PTR wrdreltype->Search("WRD_TITLE","Pietje Puk"));
   TestEq(0, orgtype->Search("WRD_TITLE","Initech"));
-  //TestEq(0, wrdreltype->Search("WRD_TITLE","Initech"));
-  TestThrows(PTR wrdreltype->Search("WRD_TITLE","Initech"));
   testfw->Commit();
 }
 

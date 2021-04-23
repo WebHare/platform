@@ -161,7 +161,11 @@ MACRO TestSync()
   TestEQ(LENGTH(org_persons), LENGTH(new_persons));
   FOREVERY (RECORD orgrec FROM org_persons)
   {
-    RECORD upd := schemaobj->^wrd_person->GetEntity(orgrec.wrd_id)->FilterFieldUpdates(new_persons[#orgrec]);
+    RECORD newrec := new_persons[#orgrec];
+    TestEq("", newrec.test_free_nocopy);
+    DELETE CELL test_free_nocopy FROM newrec;
+
+    RECORD upd := schemaobj->^wrd_person->GetEntity(orgrec.wrd_id)->FilterFieldUpdates(newrec);
     TestEQ(DEFAULT RECORD, upd, `user[${orgrec.wrd_contact_email}]`);
   }
 

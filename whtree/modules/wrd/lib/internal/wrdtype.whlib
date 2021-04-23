@@ -534,11 +534,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     this->__whfslinkattrs := data.__whfslinkattrs;
     this->__final_attrs := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
     this->attributelist := SELECT *
-                                , tag := ToUppercase(tag)
-                                , localtag := ToUppercase(localtag)
                                 , DELETE ishiddenbyparent, DELETE __reftype, DELETE cellname, DELETE cellnames, DELETE isgenerated
-                                , DELETE __localtag, DELETE generatetag, DELETE __selectattributeids
-                                , DELETE __typeinfo, DELETE __typewrdid
+                                , DELETE generatetag, DELETE __selectattributeids
                              FROM data.__final_attrs
                             WHERE NOT ishiddenbyparent
                          ORDER BY ToUppercase(tag);
@@ -769,7 +766,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttribute(STRING find_tag)
   {
-  //printrecordarrayto(0,this->__final_attrs,'boxed');
     INTEGER pos := RecordBinaryFind(this->attributelist, [ tag := ToUppercase(find_tag) ], ["TAG"]);
     RETURN pos = -1 ? DEFAULT RECORD : this->attributelist[pos];
   }
@@ -779,28 +775,22 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return Description if attribute is found, DEFAULT RECORD otherwise @includecelldef #ListAttributes.return */
   PUBLIC RECORD FUNCTION GetAttributeById(INTEGER attrid)
   {
-  //printrecordarrayto(0,this->__final_attrs,'boxed');
     RETURN SELECT * FROM this->attributelist WHERE id = attrid;
   }
 
   /** Returns description of all attributes in this type
       @param fromparent Get child attributes of this parent. Use 0 for the toplevel attributes or -1 to get ALL attributes (recursively)
       @return Record per attribute (not all described)
-      @cell return.__localtag
-      @cell return.__reftype
       @cell(integer) return.id Id of attribute (0 for base attributes)
       @cell(integer) return.attributetype WRD attribute type id of this attribute
       @cell(string) return.attributetypename WRD attribute type name of this attribute
       @cell(boolean) return.base Whether this is a base attribute
       @cell(string) return.description (not available for internal attributes)
       @cell(integer) return.domain If this a domain attribute, id of the domain this attribute refers to
-      @cell(boolean) return.isalternative
-      @cell(boolean) return.iscustom
-      @cell(boolean) return.isgenerated Whether this attribute is
+      @cell(boolean) return.isgenerated Whether the contents of this attribute are generated when retrieved based on other cells
       @cell(boolean) return.isreadonly Whether this is a read-only attribute
       @cell(boolean) return.isrequired Whether this a required attribute
       @cell(boolean) return.isunique Whether values in this attribute must be unique (when present)
-      @cell(boolean) return.isupdateable
       @cell(boolean) return.isinherited
       @cell(integer) return.keephistorydays
       @cell(string) return.localtag
@@ -854,6 +844,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     newsettings := ValidateOptions([ checklinks := FALSE
                                    , multiline := FALSE
                                    , isunique := FALSE
+                                   , isunsafetocopy := FALSE
                                    , isrequired := FALSE
                                    , isordered := FALSE
                                    , tag := ""
@@ -862,10 +853,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                    , allowedvalues := DEFAULT STRING ARRAY
                                    , attributetypename := ""
                                    ], newsettings
-                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","TAG","TITLE","ALLOWEDVALUES"]
+                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES"]
                                       , title := "attribute settings"
                                       ]);
 
+    //selecting through __final_attrs so we can see 'ishiddenbyparent' attributes
     RECORD ARRAY matches := SELECT * FROM this->__final_attrs WHERE ToUppercase(__final_attrs.tag) = ToUppercase(VAR tag);
     RECORD attr := SELECT * FROM matches WHERE NOT isinherited;
     IF(NOT RecordExists(attr))
@@ -897,7 +889,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(CellExists(newsettings,opt) AND opt NOT IN attrinfo.options AND NOT IsDefaultValue(GetCell(newsettings,opt)))
         THROW NEW Exception(`The option '${opt}' cannot be set on attributes of type '${newsettings.attributetypename}' for attribute ${tag} in type '${this->tag}'`);
 
-    FOREVERY(STRING booleanopt FROM ['isrequired','isunique','isordered','checklinks','multiline'])
+    FOREVERY(STRING booleanopt FROM ['isrequired','isunique','isordered','checklinks','multiline','isunsafetocopy'])
       IF(CellExists(newsettings,booleanopt))
         toset := CellInsert(toset, booleanopt, GetCell(newsettings, booleanopt));
 
@@ -1041,6 +1033,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           , domain :=         0
           , domaintag :=      ""
           , isunique :=       FALSE
+          , isunsafetocopy := FALSE
           , isrequired :=     FALSE
           , checklinks :=     FALSE
           , allowedvalues :=  DEFAULT STRING ARRAY
@@ -1690,30 +1683,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       THROW NEW Exception(`Value for attribute '${attr.tag}' must be of type record`);
     RETURN val;
   }
-  /** Returns attributes. Columns:
-    - tag
-    - base
-    - attributetype
-    - ordering
-    - cellname
-    - title
-    - domain
-    - __reftype
-    - cellnames
-    - isgenerated
-    - isreadonly
-    - isrequired
-    - issnesitive
-    - isunique
-    - iscustom
-    - isupdateable
-    - attributeid
-    - generator
-    - decoder
-    - parent
-    - checklinks
-    - multiline
-    */
+
   RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode)
   {
     RECORD ARRAY newsets;

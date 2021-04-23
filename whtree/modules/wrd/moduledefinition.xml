@@ -135,6 +135,11 @@
           Whether the value of this attribute must be unique for each entity within it's type
         </d:documentation>
       </d:boolean>
+      <d:boolean name="isunsafetocopy">
+        <d:documentation>
+          If true, this attribute should never be automatically copied, duplicated, exported or synced (eg API secrets)
+        </d:documentation>
+      </d:boolean>
       <d:integer name="parent" references=".attrs" ondelete="cascade">
         <d:documentation>
 
@@ -438,17 +443,8 @@
 
 
       <!-- These 2 are obsolete (is being saved in types).. can we delete without hesitation? -->
-      <d:varchar name="required_fields" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="unique_fields" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-
+      <d:obsoletecolumn name="required_fields"/>
+      <d:obsoletecolumn name="unique_fields"/>
       <d:obsoletecolumn name="languages" />
       <d:obsoletecolumn name="worldinfo" />
       <d:obsoletecolumn name="schemadata_xml" />
@@ -501,17 +497,8 @@
         </d:documentation>
       </d:varchar>
 
-      <!-- Comma separated tags of attributes -->
-      <d:varchar name="required_fields" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="unique_fields" maxlength="4096">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="required_fields"/>
+      <d:obsoletecolumn name="unique_fields"/>
 
       <d:integer name="wrd_schema" nullable="0" references=".schemas" ondelete="cascade">
         <d:documentation>

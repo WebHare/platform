@@ -226,7 +226,6 @@ PUBLIC OBJECTTYPE EditEntity EXTEND TolliumScreenBase
   PUBLIC RECORD additional_values;
   PUBLIC RECORD ARRAY typeattrs;
   PUBLIC STRING ARRAY typetags;
-  PUBLIC STRING ARRAY required_fields;
   PUBLIC STRING ARRAY requiredtags;
   PUBLIC STRING dialogtitle;
   PUBLIC INTEGER entityid;

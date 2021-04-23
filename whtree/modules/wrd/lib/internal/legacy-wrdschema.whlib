@@ -52,12 +52,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   /// Name of this WRD schema
   PUBLIC PROPERTY name(Getname, -);
 
-  /// Obsolete list of required fields (now stored in types)
-  PUBLIC PROPERTY required_fields(GetRequiredFields, -);
-
-  /// Obsolete list of unique fields (now stored in types)
-  PUBLIC PROPERTY unique_fields(GetUniqueFields, -);
-
   /// Currently selected language
   PUBLIC PROPERTY currentlanguage(pvt_currentlanguage, SetLanguage);
 
@@ -102,16 +96,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   STRING FUNCTION GetDescription()
   {
     RETURN this->schemarec.description;
-  }
-
-  STRING FUNCTION GetRequiredFields()
-  {
-    RETURN this->schemarec.required_fields;
-  }
-
-  STRING FUNCTION GetUniqueFields()
-  {
-    RETURN this->schemarec.unique_fields;
   }
 
   MACRO SetLanguage(STRING langcode)

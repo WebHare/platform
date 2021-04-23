@@ -107,7 +107,7 @@ PUBLIC RECORD FUNCTION GetSyncInstructions(OBJECT wrdschema, RECORD ARRAY curren
     STRING ARRAY outputcolumns :=
         SELECT AS STRING ARRAY localtag
           FROM attrs
-         WHERE NOT isreadonly;
+         WHERE NOT isreadonly AND NOT isunsafetocopy;
     //DumpValue(outputcolumns);
 
     IF (typerec.isdomain)

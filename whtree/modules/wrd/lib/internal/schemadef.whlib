@@ -42,6 +42,8 @@ MACRO AddXMLAttribute(OBJECT type, RECORD attr, OBJECT parentnode)
     attrnode->SetAttribute("checklinks",attr.checklinks?"true":"false");
   IF(attr.isrequired)
     attrnode->SetAttribute("required", "true");
+  IF(attr.isunsafetocopy)
+    attrnode->SetAttribute("unsafetocopy", "true");
   IF("isunique" IN attrinfo.options AND attr.isunique)
     attrnode->SetAttribute("unique","true");
   IF("allowedvalues" IN attrinfo.options)

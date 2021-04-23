@@ -21,7 +21,7 @@ PUBLIC STATIC OBJECTTYPE Edit EXTEND WRDEntityEditScreenBase
       linkcheckattr := linkcheckattr OR attr.checklinks;
 
       OBJECT destpanel;
-      IF(attr.isalternative OR attr.attributetype IN [17,19]) //richdoc and instance are currently unsupported by wrd:field
+      IF(attr.isreadonly OR attr.attributetype IN [17,19]) //richdoc and instance are currently unsupported by wrd:field
         CONTINUE;
 
       IF(attr.tag IN ["WRD_ID","WRD_GUID", "WRD_CREATIONDATE", "WRD_MODIFICATIONDATE", "WRD_LIMITDATE", "WRD_TAG", "WRD_FULLNAME" ])
