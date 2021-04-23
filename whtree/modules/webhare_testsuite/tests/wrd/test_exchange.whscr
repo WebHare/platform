@@ -47,7 +47,7 @@ MACRO ExportImportWRD()
 {
   testfw->BeginWork();
 
-  TestThrows(PTR MakeWRDSchemaExporter(DEFAULT OBJECT));
+  TestThrowsLike('Missing wrdschema*',PTR MakeWRDSchemaExporter(DEFAULT OBJECT));
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   RECORD ARRAY persons := GetAllPersons(schemaobj);
@@ -95,8 +95,14 @@ MACRO ExportImportWRD()
   // Reload cached schema in testframework
   testfw->GetWRDSchema(TRUE);
 
-  // Ensure data in WHFS is consistent
-  TestEq(0, FixupWRDWHFSNames());
+  // Ensure data in WHFS is consistent, 4.06 got this wrong
+  RECORD ARRAY tofix := SELECT badfiles.id
+                          FROM system.fs_objects AS badfiles
+                             , system.fs_objects AS wrdfolders
+                         WHERE wrdfolders.parent = 13
+                               AND wrdfolders.id = badfiles.parent
+                               AND ToString(badfiles.id) != badfiles.name;
+  TestEq(0, Length(tofix));
 
   testfw->CommitWork();
 }

@@ -69,8 +69,10 @@ test.registerTests(
       await test.wait(() => test.qSA("#currentbeacons div").length == 1);
 
       // With the beacon active, we should now get Widget 1.A
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-1a"));
       test.eq(1, test.qSA("#slot1holder .accontent-widget--content").length); //should be one of those
       test.eq("Widget 1.A", test.qSA("#slot1holder .accontent-widget--content")[0].textContent.trim()); //should be one of those
+      await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
       test.true(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot-2" && _.whContentSelected == "widget-2a"));
       // The content widget beacon should not have been triggered (wait a bit as beacons aren't triggered immediately)
       await test.sleep(100);

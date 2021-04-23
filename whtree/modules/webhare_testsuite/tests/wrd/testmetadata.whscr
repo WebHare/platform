@@ -287,13 +287,13 @@ MACRO DomainValuesSync()
   OBJECT wrdschema := testfw->GetWRDSchema();
 
   // Throw on duplicate tag
-  TestThrows(PTR ApplyDomMetadata(
+  TestThrowsLike("*Multiple*'1'*", PTR ApplyDomMetadata(
       [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
       , [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
       ]));
 
   // Throw on duplicate tag (recursive)
-  TestThrows(PTR ApplyDomMetadata(
+  TestThrowsLike("*Multiple*'1'*", PTR ApplyDomMetadata(
       [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues :=
             [ [ tag := "1", t1 := "1a", t2 := "1b", subvalues := DEFAULT RECORD ARRAY ]
             ]

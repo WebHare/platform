@@ -127,8 +127,8 @@ MACRO SimpleImport(STRING inputfile)
   TestEq(3, Length(importer->GetImportColumnsIfHeaders(FALSE)[4].distinctvalues));
 
   //Set wrong import definitions
-  TestThrows(PTR importer->MapDirectImport(3,"WRD_GENDER",""));
-  TestThrows(PTR importer->MapDomainImport(1,"WRD_FIRSTNAME","",DEFAULT RECORD ARRAY));
+  TestThrowsLike("*not supported*WRD_GENDER*", PTR importer->MapDirectImport(3,"WRD_GENDER",""));
+  TestThrowsLike("*not supported*WRD_FIRSTNAME*", PTR importer->MapDomainImport(1,"WRD_FIRSTNAME","",DEFAULT RECORD ARRAY));
 
   //Set the import definition
   importer->datahasheaders := TRUE;
