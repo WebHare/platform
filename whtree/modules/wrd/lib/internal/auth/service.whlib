@@ -2,6 +2,7 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -19,6 +20,8 @@ PUBLIC RECORD FUNCTION RPC_Login(STRING url, STRING login, STRING password, BOOL
   OBJECT wrdauthplugin := GetWRDAuthPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
   IF(persistent)
     wrdauthplugin->__GetWRDAuth()->persistentcookie := TRUE;
+
+  UpdateAuditContext(CELL[ options.browsertriplet ]);
 
   RECORD result := wrdauthplugin->Login(login, password, CELL
         [ options.challenge
@@ -58,6 +61,8 @@ PUBLIC RECORD FUNCTION RPC_LoginSecondFactor(STRING url, STRING firstfactorproof
   OBJECT wrdauthplugin := GetWRDAuthPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
   IF(persistent)
     wrdauthplugin->__GetWRDAuth()->persistentcookie := TRUE;
+
+  UpdateAuditContext(CELL[ options.browsertriplet ]);
 
   RECORD result := wrdauthplugin->LoginSecondFactor(firstfactorproof, type, data, CELL
       [ options.challenge

@@ -505,7 +505,6 @@ PUBLIC STATIC OBJECTTYPE PrepareResetLink EXTEND TolliumScreenBase
     OBJECT authplugin := this->contexts->controller->wrdauthplugin;
     authplugin->LogCustomAuditEvent("wrd:getresetlink",
         [ account := this->userid
-        , isimpersonation := TRUE
         , message := [ resettype := ^resettype->value ]
         ]);
     IF(NOT work->Finish())

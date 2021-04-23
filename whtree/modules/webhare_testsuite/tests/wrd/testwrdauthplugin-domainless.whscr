@@ -164,12 +164,12 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "wrd:logout"
       , ip := "127.0.0.1"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //set up last login and last ip fields
@@ -207,12 +207,14 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "wrd:loginbyid:ok"
       , ip := "127.0.0.1"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := TRUE
       , data := ""
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
+      , impersonator_entity := entityid
+      , impersonator_login := "testaccount@test.invalid"
       ]);
 
   TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
@@ -225,12 +227,12 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "wrd:logout"
       , ip := "127.0.0.1"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   DATETIME now := GetCurrentDatetime();
@@ -320,12 +322,12 @@ MACRO TestPersistentLogin()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:logincookie"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Completely clear the session
@@ -357,12 +359,12 @@ MACRO TestPersistentLogin()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:logincookie"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Completely clear the session
@@ -374,12 +376,12 @@ MACRO TestPersistentLogin()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:logincookie"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Completely clear the session
@@ -391,12 +393,12 @@ MACRO TestPersistentLogin()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:logincookie"
-      , login := ""
+      , login := "testaccount@test.invalid"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Close the user
@@ -503,12 +505,12 @@ MACRO TestCrossDomainLogin()
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("mysysop")
       , type := "wrd:logout"
-      , login := ""
+      , login := "mysysop@beta.webhare.net"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
       , byentity := testfw->GetUserWRDId("mysysop")
-      , bylogin := ""
+      , bylogin := "mysysop@beta.webhare.net"
       ]);
 }
 
@@ -611,7 +613,7 @@ MACRO TestLoginDenied()
       [ entity := entityid
       , type := "wrd:loginbyid:failed"
       , ip := "127.0.0.1"
-      , login := ""//"logindenied@test.invalid"
+      , login := "logindenied@test.invalid"
       , impersonated := FALSE
       , data :=
           EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
@@ -619,7 +621,7 @@ MACRO TestLoginDenied()
                      ])
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "logindenied@test.invalid"
       ]);
 
   // User still not logged in
@@ -635,12 +637,14 @@ MACRO TestLoginDenied()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:loginbyid:ok"
-      , login := ""
+      , login := "logindenied@test.invalid"
       , impersonated := TRUE
       , data := ""
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := ""
+      , bylogin := "logindenied@test.invalid"
+      , impersonator_entity := entityid
+      , impersonator_login := "logindenied@test.invalid"
       ]);
 }
 

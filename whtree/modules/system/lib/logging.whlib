@@ -5,7 +5,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog;
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog, UpdateAuditContext;
 LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";
 
 /** Flushes a specific module log
@@ -22,27 +22,7 @@ PUBLIC BOOLEAN FUNCTION FlushModuleLog(STRING name)
     @param data Event data */
 PUBLIC MACRO LogAuditEvent(STRING logsource, RECORD data)
 {
-  RECORD userdata;
-  IF(ObjectExists(effectiveuser))
-  {
-    userdata := [ login :=        effectiveuser->login
-                , authobjectid := effectiveuser->authobjectid
-                ];
-  }
-  ELSE IF(IsConsoleSupportAvailable())
-  {
-    userdata := [ login := GetEnvironmentVariable("WEBHARE_CLI_USER")
-                , authobjectid := -1 //to signify a console user
-                ];
-  }
-  ELSE
-  {
-    userdata := [ login :=        ""
-                , authobjectid := 0
-                ];
-  }
-
-  LogAuditEventBy(logsource, userdata, data);
+  LogAuditEventBy(logsource, DEFAULT RECORD, data);
 }
 
 MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)

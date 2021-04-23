@@ -74,6 +74,13 @@ TRY
     {
       RECORD res := userapi->GetTolliumUserByIdAndImpersonation(appinfo.launchuserinfo.loggedin, appinfo.launchuserinfo.openas);
       currentuser := ObjectExists(res.userobject) ? res.userobject : userapi->GetAnonymousUser();
+      IF (ObjectExists(res.impersonatinguser))
+      {
+        UpdateAuditContext(
+            [ impersonator_entity :=    res.impersonatinguser->entityid
+            , impersonator_login :=     res.impersonatinguser->login
+            ]);
+      }
     }
     ELSE
     {
@@ -96,8 +103,9 @@ TRY
             ]);
 
 }
-CATCH
+CATCH (OBJECT e)
 {
+  LogHarescriptException(e);
   IF(appinfo.launchuserinfo.loggedin = -1)
     __SetEffectiveUser(GetMagicSysopObject("<overrideuser>"));
   ELSE //We don't really need the plugin, so let it go..

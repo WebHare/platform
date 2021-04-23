@@ -1,11 +1,21 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internal/hssupport.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internal/hssupport.whlib";
+
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
+
+STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
 PUBLIC MACRO PTR __onlogentry; //used for testframework to record the log
+
+RECORD __auditcontext;
 
 /** This object reads logfiles. It can read 3 types of logs:
     - access logs (type: 'access')
@@ -682,32 +692,127 @@ PUBLIC MACRO LogHarescriptException(OBJECT exc, RECORD options DEFAULTSTO DEFAUL
   ModuleLog("system:notice", "script\tERROR\t" || (options.groupid ?? GetCurrentGroupId()) || "\t" || EncodeJava(GetExternalSessionData()) || "\tharescript-error\t" || EncodeHarescriptException(exc, options.rest));
 }
 
-/** @short Log an audit event caused by a specific WebHare user
-    @param logsource Source or call of the error message
-    @param userdata User's authentication object id
-    @cell userdata.authobjectid
-    @cell userdata.login
-    @param data Event data */
-PUBLIC MACRO LogAuditEventBy(STRING logsource, RECORD userdata, RECORD data)
+
+STRING FUNCTION __GetGeoIPCountryByIP(STRING ip_addr) __ATTRIBUTES__(EXTERNAL "system_geoip");
+
+/** @short Quickly look up just the GeoIP country for an IP address
+    @param ip_addr IP address to look up
+    @return Country code, in uppercase, eg "NL" */
+STRING FUNCTION GetGeoIPCountryForIP(STRING ip_addr)
 {
-  IF(logsource="")
-    THROW NEW Exception("A log source must be specified");
+  IF(IsPrivateIPAddress(ip_addr))
+    RETURN ""; //our geoip binding is suddenly returning hits for private ip addresses, so filter explicitly
+  RETURN __GetGeoIPCountryByIP(ip_addr);
+}
 
-  userdata := ValidateOptions(
-      [ login :=        ""
-      , authobjectid := 0
-      , entityid := 0
-      ], userdata);
 
-  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "-";
-  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || auth;
+/** Update auditing context to automatically use for any LogAuditEvent calls
+    @param auditcontext Audit context updates
+    @cell(string) auditcontext.remoteip IP Address of remote user
+    @cell(string) auditcontext.country Country of remote user (automatically determined from remoteip if not set)
+    @cell(string) auditcontext.browsertriplet Browser triplet used by user (eg mac-chrome-90)
+    @cell(integer) auditcontext.impersonator_entityid Entity id of the impersonator
+    @cell(string) auditcontext.impersonator_login Login of the impersonator
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/logging.whlib
+*/
+PUBLIC MACRO UpdateAuditContext(RECORD auditcontext)
+{
+  __auditcontext := ValidateOptions(
+      [ remoteip :=               ""
+      , country :=                ""
+      , browsertriplet :=         ""
+      , user_entityid :=          0
+      , user_login :=             ""
+      , impersonator_entityid :=  0
+      , impersonator_login :=     ""
+      ], CELL[ ...__auditcontext, ...auditcontext ],
+      [ optional :=  [ "remoteip", "country", "browsertriplet", "user_entityid", "user_login", "impersonator_entityid", "impersonator_login" ]
+      ]);
+}
+
+/** Log an audit event caused by a specific WebHare user
+    @param logsource Source or call of the error message
+    @param auditcontext Authentication context
+    @cell(string) auditcontext.remoteip Remote IP (automatically filled within webserver requests)
+    @cell(string) auditcontext.country Country code (automatically determined from remoteip if not set)
+    @cell(string) auditcontext.browsertriplet Browser triplet
+    @cell(integer) auditcontext.impersonator_entityid Impersonator WRD entity id
+    @cell(string) auditcontext.impersonator_login Impersonator login name
+    @cell(integer) auditcontext.user_entityid User WRD entity id
+    @cell(integer) auditcontext.user_authobject User authobject id
+    @cell(string) auditcontext.user_login User login name
+    @cell(integer) auditcontext.affecteduser_entityid Affected user entity id
+    @cell(string) auditcontext.affecteduser_login Affected user login
+    @param data Event data
+    @return Written data
+    @cell return.auditcontext Final audit context @includecelldef param.auditcontext
+*/
+PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RECORD data)
+{
+  RECORD curuser;
+
+  IF (ObjectExists(effectiveuser))
+  {
+    curuser :=
+        [ user_entityid :=    effectiveuser->entityid
+        , user_authobject :=  effectiveuser->authobjectid
+        , user_login :=       effectiveuser->login
+        ];
+  }
+  ELSE IF (IsConsoleSupportAvailable())
+  {
+    curuser :=
+        [ user_entityid :=    -1
+        , user_authobject :=  -1
+        , user_login :=       `CLI:${GetEnvironmentVariable("WEBHARE_CLI_USER")}`
+        ];
+  }
+
+  // Ensure remoteip override from the auditcontext parameter resets the country from SetAuditContext
+  IF (CellExists(auditcontext, "REMOTEIP") AND NOT CellExists(auditcontext, "COUNTRY"))
+    INSERT CELL country := "" INTO auditcontext;
+
+  IF (NOT CellExists(__auditcontext, "REMOTEIP") AND NOT CellExists(auditcontext, "REMOTEIP"))
+  {
+    // GetClientRemoteIP will fail with execption if we're not within a request.
+    // Can't use IsRequest() from webserver.whlib due to recursive loadlibs
+    TRY
+      auditcontext := CELL[ ...auditcontext, remoteip := GetClientRemoteIP(), country := "" ];
+    CATCH;
+  }
+
+  auditcontext := ValidateOptions(
+      [ remoteip :=               ""
+      , country :=                ""
+      , browsertriplet :=         ""
+      , impersonator_entityid :=  0
+      , impersonator_login :=     ""
+      , user_entityid :=          0
+      , user_authobject :=        0
+      , user_login :=             ""
+      , affecteduser_entityid :=  0
+      , affecteduser_login :=     ""
+      ], CELL[ ...curuser, ...__auditcontext, ...auditcontext ]);
+
+  IF (auditcontext.country = "" AND auditcontext.remoteip != "")
+    auditcontext.country := GetGeoIPCountryForIP(auditcontext.remoteip);
+
+  // impersonator defaults to user
+  IF (auditcontext.impersonator_entityid = 0 AND auditcontext.impersonator_login = "")
+  {
+    auditcontext.impersonator_entityid := auditcontext.user_entityid;
+    auditcontext.impersonator_login := auditcontext.user_login;
+  }
 
   STRING encodeddata := EncodeHSON(data);
+  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || EncodeHSON(auditcontext);
   IF(Length(msg)+Length(encodeddata)>127*1024)
     encodeddata := "-";
 
   ModuleLog("system:audit", msg||"\t"||encodeddata);
   __SYSTEM_FLUSHREMOTELOG("system:audit");
+
+  RETURN CELL[ auditcontext ];
 }
-
-

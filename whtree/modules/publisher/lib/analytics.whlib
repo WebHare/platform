@@ -6,10 +6,8 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/geoip.whlib" EXPORT GetGeoIPCountryForIP, GetGeoIPInfoForIP;
 
-RECORD FUNCTION GetGeoIPCapabilities() __ATTRIBUTES__(EXTERNAL "system_geoip");
-RECORD FUNCTION __GetGeoIPCityByIP(STRING ip_addr) __ATTRIBUTES__(EXTERNAL "system_geoip");
-STRING FUNCTION __GetGeoIPCountryByIP(STRING ip_addr) __ATTRIBUTES__(EXTERNAL "system_geoip");
 
 /** @short Anonymize IP address for further analytics processing
     @param address IP Address to anonymize
@@ -46,36 +44,6 @@ PUBLIC STRING FUNCTION AnonymizeIPForAnalytics(STRING address)
     address := CanonicalizeIPAddress(Detokenize(parts, ":"), FALSE);
   }
   RETURN address;
-}
-
-
-/** @short Quickly look up just the GeoIP country for an IP address
-    @param ip_addr IP address to look up
-    @return Country code, in uppercase, eg "NL" */
-PUBLIC STRING FUNCTION GetGeoIPCountryForIP(STRING ip_addr)
-{
-  IF(IsPrivateIPAddress(ip_addr))
-    RETURN ""; //our geoip binding is suddenly returning hits for private ip addresses, so filter explicitly
-  RETURN __GetGeoIPCountryByIP(ip_addr);
-}
-
-/** @short Look up full geoIP info for an IP address
-    @param ip_addr IP address to look up
-    @return GeoIP information, if available. Please note that there's no promise of accuracy or correctness for the data,
-            and that (country) names might differ from those returned by other APIs
-    @cell(string) return.city City
-    @cell(string) return.country_code Country code (ISO 2 letter code)
-    @cell(string) return.country_name Country name (as stored in GeoIP database)
-    @cell(string) return.postal_code Postal code/zip
-    @cell(float) return.latitude Latitude
-    @cell(float) return.longitude Longitude
-    @cell(string) return.region_code Regional code (eg province, state)
-    @cell(string) return.region_name Regional name (ast store din GeoIP database) */
-PUBLIC RECORD FUNCTION GetGeoIPInfoForIP(STRING ip_addr)
-{
-  IF(IsPrivateIPAddress(ip_addr))
-    RETURN DEFAULT RECORD; //our geoip binding was suddenly returning hits for private ip addresses, so filter explicitly
-  RETURN __GetGeoIPCityByIP(ip_addr);
 }
 
 /** Get the 'assumed' IP address for the client for eg. analytics and redirection. Allows clients to override the IP by setting

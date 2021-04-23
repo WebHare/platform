@@ -1,11 +1,15 @@
 <?wh
+
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
-LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
 LOADLIB "mod::wrd/lib/auth.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 OBJECT plugin;
@@ -39,22 +43,24 @@ RECORD FUNCTION GetStatus()
 RECORD FUNCTION ProcessReq()
 {
   STRING browsertriplet := GetWebVariable("browsertriplet");
+  UpdateAuditContext(CELL[ browsertriplet ]);
+
   SWITCH(GetWebVariable("action"))
   {
     CASE "login"
     {
-      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), CELL[ browsertriplet ]);
+      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"));
       RETURN res;
     }
     CASE "loginid"
     {
-      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", CELL[ browsertriplet ]);
+      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1");
       RETURN res;
     }
     CASE "logout-checkstatus"
     {
       RECORD oldstatus := GetStatus();
-      plugin->__GetWRDAuth()->Logout(CELL[ browsertriplet ]);
+      plugin->__GetWRDAuth()->Logout();
 
       RECORD res := CELL[...GetStatus(), oldstatus];
       RETURN res;
@@ -81,8 +87,7 @@ RECORD FUNCTION ProcessReq()
       RECORD res := plugin->LoginSecondFactor(
           GetWebVariable("firstfactorproof"),
           GetWebVariable("type"),
-          DecodeJSON(GetWebVariable("data")),
-          CELL[ browsertriplet ]);
+          DecodeJSON(GetWebVariable("data")));
       RETURN res;
     }
 

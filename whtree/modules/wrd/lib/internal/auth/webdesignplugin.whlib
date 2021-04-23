@@ -411,7 +411,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN mail;
   }
 
-  /** Handles requesting a password reset link for a forgotten password. Sends an e-mail if a user witht his email address is known.
+  /** Handles requesting a password reset link for a forgotten password. Sends an e-mail if a user with his email address is known.
       @param email E-mail address of the user
       @cell options.currenturl URL of the login page
       @cell options.browsertriplet Browser triplet
@@ -419,7 +419,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC MACRO HandleForgotPassword(STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ currenturl := ""
-                               , browsertriplet := ""
                                ], options);
     IF(options.currenturl = "")
       options.currenturl := GetFormRequestURL();
@@ -430,7 +429,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->LogCustomAuditEvent("wrd:forgotpassword",
         [ account := match
         , login := email
-        , browsertriplet := options.browsertriplet
         ]);
 
     IF(match = 0)
@@ -665,7 +663,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     options := ValidateOptions(
         [ explicit := TRUE
-        , browsertriplet := ""
         ], options);
 
     INTEGER entityid := this->GetLoggedinEntity();
@@ -673,7 +670,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       this->LogCustomAuditEvent("wrd:logout",
           [ account := entityid
-          , browsertriplet := options.browsertriplet
+          , login := this->__wrdauth->GetLoggedinEntityLogin()
           ]);
     }
 
@@ -743,7 +740,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ allowlogout := TRUE
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
-                               , browsertriplet := ""
                                ], options);
 
     this->CheckNotFailed();
@@ -760,7 +756,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                               , [ account :=  userid
                                 , isimpersonation := is_impersonation
                                 , message := options.auditmessage
-                                , browsertriplet := options.browsertriplet
                                 ]);
 
 
@@ -880,6 +875,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       ELSE //FIXME they should all return that!
         entityid := this->LookupLogin(loginname);
 
+      UpdateAuditContext(CELL
+          [ user_entityid :=      entityid
+          , user_login :=         options.auditloginname ?? loginname
+          ]);
+
       IF(NOT trylogin.success)
         options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage];
       IF(CellExists(trylogin,'userinfo'))
@@ -924,7 +924,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                 , [ account :=  entityid
                                   , login := options.auditloginname ?? loginname
                                   , message := options.auditmessage
-                                  , browsertriplet := options.browsertriplet
                                   ]);
 
       IF (trylogin.success)
@@ -1003,7 +1002,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , returnto := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
-                               , auditloginname := ""
                                , allowlogout := TRUE
                                , firstloginfield := ""
                                , lastloginfield := ""
@@ -1046,14 +1044,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           ];
 
       this->LogCustomAuditEvent("wrd:login:secondfactor:" || (trylogin.success ? "ok" : "failed"), CELL
-          [ account :=  trylogin.logdata.decodedlogindata.entityid
-          , login :=    options.auditloginname ?? trylogin.logdata.decodedlogindata.login
-          , options.browsertriplet
-          , message := options.auditmessage
+          [ message := options.auditmessage
+          , account := trylogin.entityid
+          , login := trylogin.login
           ]);
     }
 
-    DELETE CELL logdata FROM trylogin;
+    DELETE CELL logdata, entityid, login FROM trylogin;
 
     RECORD submitinstruction;
 
@@ -1096,15 +1093,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** @short Log a custom audit event
       @param type The event type (e.g. "MYSITE:MYEVENT")
-      @cell(integer) options.account The id of the account to log the event for (id of entity within the schema's account type)
-      @cell(string) options.remoteip If the event is logged through a web request, this is filled automatically, otherwise
-          this can be used to overwrite it
-      @cell(string) options.login The login name used for this event, if known
-      @cell(record) options.message Optional extra data
-      @cell(integer) options.byaccount Id of the account that made the change. If 'byaccount' and 'bylogin' are both set
-          to their default value, the contents of the option 'account' is used.
-      @cell(integer) options.bylogin The login name of the account that made the change. If 'byaccount' and 'bylogin' are both set
-          to their default value, the contents of the option 'login' is used.
+      @param options @includecelldef legacy-api.whlib#WRDAuthIntegration::WriteAuditEvent.options
   */
   PUBLIC MACRO LogCustomAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1271,12 +1260,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** @short Change the loggedin user's password. We expect the caller to handle our transaction
       @param newpassword New password
-      @cell(string) options.browsertriplet Browser triplet
+      @param options Options
   */
   PUBLIC MACRO UpdateCurrentUserPassword(STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ browsertriplet := ""
-                               ], options);
+    options := ValidateOptions(CELL[], options);
 
     INTEGER entity := this->GetLoggedinEntity();
     IF(entity = 0)
@@ -1299,9 +1287,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     this->LogCustomAuditEvent("wrd:updatepassword",
         [ account := entity
-        , remoteip := IsRequest() ? GetClientRemoteIp() : ""
         , message := [ previouspasswordhash := previouspasswordhash ]
-        , browsertriplet := options.browsertriplet
         ]);
   }
 

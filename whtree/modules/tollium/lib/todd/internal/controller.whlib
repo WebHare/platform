@@ -600,13 +600,4 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
       TerminateScript(); //then STOP ourselves too - users do not expect 'Reflect(); DoSomething();' to actually do something if they abort during Reflect
     this->reflectactive := FALSE;
   }
-
-  UPDATE PUBLIC RECORD FUNCTION GetClientInfo()
-  {
-    RETURN
-        [ remoteip :=       CellExists(this->requestdata, "REMOTEIP") ? this->requestdata.remoteip : ""
-        , browsertriplet := this->options.browsertriplet
-        ];
-  }
-
 >;

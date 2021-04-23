@@ -220,8 +220,8 @@ PUBLIC MACRO RunSAMLSpEndpoint()
         }
 
         WriteWRDAuditEvent(authplugin->accounttype, "login:saml:" || ToLowercase(loginres.code),
-              [ byaccount := loginres.entityid
-              , bylogin := RecordExists(userdata) ? userdata.login : ""
+              [ account := loginres.entityid
+              , login := RecordExists(userdata) ? userdata.login : ""
               , message := [ sp_tag := sp->GetTag()
                            , name := loginres.name
                            ]

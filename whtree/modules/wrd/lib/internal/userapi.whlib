@@ -1144,6 +1144,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       @param entityid Entity id of the user
       @param openas Name of the user that opens this object
       @return Result - either userobject or error will be set
+      @cell(object #TolliumUser) return.impersonatinguser Impersonating user
       @cell(object #TolliumUser) return.userobject Tollium user
       @cell(boolean) return.isimpersonation Whether this is a (failed) impersonation (generally not requiring a forced logout)
       @cell(string) return.error Failure reason
@@ -1151,7 +1152,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   PUBLIC RECORD FUNCTION GetTolliumUserByIdAndImpersonation(INTEGER entityid, STRING openas)
   {
     IF (entityid = 0)
-      RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "entityid=0" ];
+      RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "entityid=0" ];
 
     OBJECT userentity;
     INTEGER userid, rightsauthobject;
@@ -1171,7 +1172,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
       userentity := this->wrdschema->accounttype->GetEntity(entityid);
       IF (NOT ObjectExists(userentity))
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "No such entity #" || entityid ];
+        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "No such entity #" || entityid ];
 
       RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag ];
       IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
@@ -1180,17 +1181,18 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       userinfo := userentity->GetFields(getfields);
       DATETIME now := GetCurrentDatetime();
       IF(Cellexists(getfields, "WHUSER_DISABLED") AND userinfo.whuser_disabled)
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
+        RETURN [ impersonatinguser := DEFAULT OBJECT, serobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
       IF(now < userinfo.wrd_creationdate)
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is not yet active" ];
+        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is not yet active" ];
       IF(userinfo.wrd_limitdate <= now )
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is expired" ];
+        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is expired" ];
 
       userid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = userinfo.wrd_guid;
     }
 
     rightsauthobject := userid;
 
+    OBJECT impersonatinguser;
     INTEGER impersonatedentity;
     BOOLEAN impersonatingrole;
     STRING impersonationtarget := `user '${openas}'`;
@@ -1203,11 +1205,11 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
     IF(openas != "")
     {
-      OBJECT impersonatinguser := GetWebhareRightsObject(userid);
+      impersonatinguser := GetWebhareRightsObject(userid);
       IF (NOT ObjectExists(impersonatinguser))
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
       IF (NOT impersonatinguser->ExistsInDatabase())
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " does not exist in in the database" ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " does not exist in in the database" ];
 
       IF(openas LIKE "wrd:*")
       {
@@ -1227,7 +1229,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
         }
 
         IF(impersonatedentity = 0)
-          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not resolve to an entity` ];
+          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not resolve to an entity` ];
 
         rightsauthobject := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = openas;
       }
@@ -1235,9 +1237,9 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       {
         RECORD lookup := this->LookupUserByLogin(openas);
         IF(NOT RecordExists(lookup))
-          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to any user` ];
+          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to any user` ];
         IF(lookup.entityid = 0)
-          RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to an entity` ];
+          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to an entity` ];
 
         impersonatedentity := lookup.entityid;
         rightsauthobject := lookup.authobjectid;
@@ -1246,7 +1248,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
       impersonationtarget := `${impersonationtarget} with entity #${rightsauthobject}`;
       IF(rightsauthobject = 0)
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not have an authobject` ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not have an authobject` ];
 
       IF(NOT impersonatingrole)
       {
@@ -1263,11 +1265,11 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
       OBJECT impersonateduser := GetWebhareRightsObject(rightsauthobject);
       IF (NOT ObjectExists(impersonateduser))
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} has no rights object` ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} has no rights object` ];
       IF (NOT impersonateduser->ExistsInDatabase())
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not exist in in the database` ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not exist in in the database` ];
       IF(entityid != -1 AND impersonateduser->HasRight("system:sysop"))
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} is a sysop and can only be impersonated using an overridetoken` ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} is a sysop and can only be impersonated using an overridetoken` ];
 
       //Look up the user's unit
       RECORD impersonatedunit;
@@ -1279,7 +1281,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
         dbunitid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = impersonatedunit.wrd_guid;
 
       IF(NOT impersonatinguser->HasRightOn("system:openas", dbunitid))
-        RETURN [ userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " is not allowed to impersonate users in unit " || impersonatedunit.wrd_guid || " (unit authobject #" || dbunitid || ")" ];
+        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " is not allowed to impersonate users in unit " || impersonatedunit.wrd_guid || " (unit authobject #" || dbunitid || ")" ];
     }
 
     OBJECT userobject;
@@ -1288,7 +1290,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     ELSE
       userobject := NEW TolliumMagicSysopUserObject(userid);
 
-    RETURN [ userobject := userobject
+    RETURN [ impersonatinguser := impersonatinguser
+           , userobject := userobject
            , impersonatedentity := impersonatedentity
            , isimpersonation := impersonatedentity != 0
            ];
