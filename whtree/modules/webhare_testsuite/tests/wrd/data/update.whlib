@@ -1,0 +1,5 @@
+<?wh
+PUBLIC RECORD FUNCTION DoUpdate(OBJECT wrdschema)
+{
+  RETURN CELL[ person_has_add_datetime := RecordExists(wrdschema->^wrd_person->GetAttribute("ADD_DATETIME")) ];
+}

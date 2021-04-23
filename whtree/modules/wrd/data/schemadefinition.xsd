@@ -5,6 +5,7 @@
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:q="http://www.webhare.net/xmlns/wrd/query"
   xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
   targetNamespace="http://www.webhare.net/xmlns/wrd/schemadefinition"
   xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
   xmlns:wrds="http://www.webhare.net/xmlns/wrd/schemadefinition"
@@ -19,6 +20,7 @@
   </xs:annotation>
 
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/wrd/query" schemaLocation="mod::wrd/data/querydefinition.xsd"/>
 
   <xs:simpleType name="Name">
@@ -40,6 +42,14 @@
         <xs:complexType>
           <xs:attribute name="definitionfile" type="xs:string" use="required">
           </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="migration" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="tag" type="xs:string" use="required" />
+          <xs:attribute name="updatefunction" type="xs:string" use="required" />
+          <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
         </xs:complexType>
       </xs:element>
 

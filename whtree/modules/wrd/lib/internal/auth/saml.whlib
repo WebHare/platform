@@ -837,10 +837,7 @@ PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
     THROW NEW Exception("SAML is not configured for this authentication domain");
 
   RECORD idp_data := wrd_samlidp->RunQuery(
-      [ filters :=
-            [ [ field := "WRD_LEFTENTITY", value := wrdauthplugin->__GetWRDAuth()->id ]
-            ]
-      , outputcolumns :=
+      [ outputcolumns :=
             [ "WRD_ID"
             ]
       ]);

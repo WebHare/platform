@@ -321,7 +321,7 @@ MACRO TestSchemaSettings()
                                                   ]
                                                 ]
         ]
-      ], (SELECT * FROM synctarget->ListSchemaSettings()), "*");
+      ], (SELECT * FROM synctarget->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*"), "*");
 
   syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
   TestEq(FALSE, syncres.anychanges, "Settings shouldn't change after re-sync");
@@ -331,7 +331,7 @@ MACRO TestSchemaSettings()
       , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
       , [ name := "wrd:payments.paymentrefstate", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:payments.paymentrefstate") ]
-      ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT IN [ "wrd:schemaresources" ]);
+      ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*" AND name NOT IN [ "wrd:schemaresources" ]);
 }
 
 MACRO TestSyncHistory()

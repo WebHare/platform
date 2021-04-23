@@ -77,6 +77,13 @@ STRING ARRAY wrdattr_allowed :=
     , "TYPE", "DOMAINTAG", "PARENT", "ISORDERED", "ATTRS", "HASVALUES", "MULTILINE", "ALLOWEDVALUES"
     ];
 
+PUBLIC STRING FUNCTION GetMigrationKeyName(STRING migrationtag)
+{
+  IF(migrationtag = "" OR migrationtag LIKE "* *")
+    THROW NEW Exception(`Invalid migration tag '${migrationtag}'`);
+  RETURN "wrd:migrations." || EncodeBase16(ToLowercase(migrationtag));
+}
+
 RECORD FUNCTION InsertDefaultFields(RECORD val, RECORD defaults, STRING ARRAY allowed)
 {
   RECORD base := MakeUpdatedRecord(defaults, val);
@@ -373,10 +380,11 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @cell(record) schemadef.metadata.accountloginfield
     @cell(record) schemadef.metadata.accountemailfield
     @cell(record) schemadef.metadata.accountpasswordfield
-    @cell(record) schemadef.keyvaluestore key := value cells
-    @cell(string) schemadef.keyvaluestore.value.data
-    @cell(blob) schemadef.keyvaluestore.value.blobdata
-    @cell(integer) schemadef.keyvaluestore.value.type
+    @cell(record array) schemadef.keyvaluestore
+    @cell(string) schemadef.keyvaluestore.name
+    @cell(string) schemadef.keyvaluestore.keyvalue.data
+    @cell(blob) schemadef.keyvaluestore.keyvalue.blobdata
+    @cell(integer) schemadef.keyvaluestore.keyvalue.type
     @cell(record) schemadef.schemaresources Resources used to build the schema definition
     @param options
     @cell(boolean) options.fromexternal Set to true if the source is an external server
@@ -385,6 +393,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 {
   options := ValidateOptions(
       [ fromexternal :=   FALSE
+      , skipmigrations := FALSE
       ], options);
 
   /* Many existing code paths do not ensure they get the lock initially, and we
@@ -394,7 +403,21 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     THROW NEW Exception(`Two transactions are trying to update schema '${local_schema->tag}' at the same time`);
 
   IF (NOT options.fromexternal)
+  {
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
+    IF(NOT options.skipmigrations)
+    {
+      FOREVERY(RECORD migration FROM schemadef.migrations)
+      {
+        STRING migrationkey := GetMigrationKeyName(migration.tag);
+        IF(NOT RecordExists(local_schema->GetSchemaSetting(migrationkey, [fallback := DEFAULT RECORD])))
+        {
+          RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+          local_schema->SetSchemaSetting(migrationkey, CELL[ finished := GetCurrentDateTime(), result ]);
+        }
+      }
+    }
+  }
 
   RECORD ARRAY local_types := local_schema->ListTypes();
 
@@ -586,9 +609,9 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     }
   }
 
-  FOREVERY (RECORD setting FROM UnpackRecord(schemadef.keyvaluestore))
+  FOREVERY (RECORD setting FROM schemadef.keyvaluestore)
   {
-    VARIANT value := AnyTypeFromBlobString(setting.value.data, setting.value.blobdata, setting.value.type);
+    VARIANT value := AnyTypeFromBlobString(setting.keyvalue.data, setting.keyvalue.blobdata, setting.keyvalue.type);
     local_schema->SetSchemaSetting(setting.name, value);
   }
   local_schema->__SignalMetadataChanged();

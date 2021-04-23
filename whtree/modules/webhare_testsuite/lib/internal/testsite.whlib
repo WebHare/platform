@@ -1400,9 +1400,8 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_idp->GetType("WRD_AUTHDOMAIN_SAML_IDP")->CreateEntity(CELL
+  wrdschema_idp->^WRD_AUTHDOMAIN_SAML_IDP->CreateEntity(CELL
       [ wrd_tag :=                "TEST-IDP"
-      , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test IDP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/idp"
       , keypair :=                MakeIntExtInternalLink(keypair_idp.id, "")
@@ -1420,9 +1419,8 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_sp->GetType("WRD_AUTHDOMAIN_SAML_SP")->CreateEntity(CELL
+  wrdschema_sp->^WRD_AUTHDOMAIN_SAML_SP->CreateEntity(CELL
       [ wrd_tag :=                "TEST-SP"
-      , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test SP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/sp"
       , keypair :=                MakeIntExtInternalLink(keypair_sp.id, "")

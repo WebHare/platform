@@ -3,7 +3,9 @@
 
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
 
-  <attachment tag="WRD_AUTHDOMAIN_SAMLPROVIDERBASE" title="Authentication domain SAML service base" linkfrom="WRD_AUTHDOMAIN">
+  <migration tag="system:disconnect_samltypes" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#DisconnectSAMLTypes"/>
+
+  <object tag="WRD_AUTHDOMAIN_SAMLPROVIDERBASE" title="Authentication domain SAML service base">
     <attributes>
       <free tag="SAMLENTITYID" title="SAML Entity ID" />
       <whfsintextlink tag="KEYPAIR" title="Link to private key/certificate" />
@@ -33,21 +35,21 @@
         <telephone tag="TELEPHONE" title="Telephone" />
       </array>
     </attributes>
-  </attachment>
+  </object>
 
-  <attachment tag="WRD_AUTHDOMAIN_SAML_IDP" title="Authentication domain SAML identity provider" linkfrom="WRD_AUTHDOMAIN" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+  <object tag="WRD_AUTHDOMAIN_SAML_IDP" title="Authentication domain SAML identity provider" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
     <attributes>
       <array tag="SUPPORTEDNAMEIDFORMATS" title="Supported name identifier formats">
         <free tag="NAMEIDFORMAT" title="Name identifier format" />
       </array>
     </attributes>
-  </attachment>
+  </object>
 
-  <attachment tag="WRD_AUTHDOMAIN_SAML_SP" title="Authentication domain SAML service provider" linkfrom="WRD_AUTHDOMAIN" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
+  <object tag="WRD_AUTHDOMAIN_SAML_SP" title="Authentication domain SAML service provider" parent="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
     <attributes>
       <free tag="NAMEIDPOLICY" title="NameID policy to use (optional)" />
     </attributes>
-  </attachment>
+  </object>
 
   <!-- Type of the entity is determined by type of parent. parent is SP -> this is an IDP, parent is IDP -> this is an SP -->
   <attachment tag="WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY" title="Authentication domain SAML connected service provider" linkfrom="WRD_AUTHDOMAIN_SAMLPROVIDERBASE">
@@ -87,19 +89,6 @@
         <telephone tag="TELEPHONE" title="Telephone" />
       </array>
     </attributes>
-
-
-<!--
-    <d:table name="connectedentities" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="localentity" references=".localentities" ondelete="cascade" />
-      <d:varchar name="entityid" maxlength="4096" />
-      <d:blob name="certificate" />
-      <d:varchar name="description" maxlength="4096" />
-      <d:varchar name="metadataurl" maxlength="4096" /> <!- - ADDME: pinned certificate? - ->
-      <d:datetime name="validuntil" />
-      <d:blob name="entitydescriptor" />
-      </d:table>-->
   </attachment>
 
 </schemadefinition>

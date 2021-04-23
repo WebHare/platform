@@ -69,7 +69,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   OBJECT wrd_connectedproviders;
 
   INTEGER curprovider;
-  INTEGER authdomain_wrdid;
 
   // ---------------------------------------------------------------------------
   //
@@ -93,8 +92,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       RETURN;
     }
 
-    this->authdomain_wrdid := wrd_authdomain->Search("WRD_TAG", data.sitetag, [ matchcase := FALSE ]);
-    IF (NOT ObjectExists(this->wrd_providerbase) OR this->authdomain_wrdid = 0)
+    IF (NOT ObjectExists(this->wrd_providerbase))
     {
       this->RunMessageBox(".notconfiguredforsaml");
       this->tolliumresult := "cancel";
@@ -109,7 +107,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^samlproviders->eventmasks := this->wrd_connectedproviders->GetEventMasks();
 
     ^samlproviders->wrdtype := this->wrd_providerbase;
-    ^samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ];
 
     ^connectedproviders->wrdtype := this->wrd_connectedproviders;
 
@@ -125,9 +122,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO CalculateFrameFlags()
   {
-    this->frame->flags.haveidp := RecordExists(this->wrd_idp->RunQuery(
-        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ]
-        ]));
+    this->frame->flags.haveidp := RecordExists(this->wrd_idp->RunQuery(CELL[]));
 
     IF (^samlproviders->value = 0)
       this->frame->flags.haveconnected := FALSE;
@@ -213,26 +208,26 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAddSP()
   {
-    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0, domainid := this->authdomain_wrdid ]);
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0 ]);
     IF (id != 0)
       ^samlproviders->value := id;
   }
 
   MACRO DoAddIDP()
   {
-    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0, domainid := this->authdomain_wrdid ]);
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0 ]);
     IF (id != 0)
       ^samlproviders->value := id;
   }
 
   MACRO DoEditSP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := ^samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := ^samlproviders->value  ])->RunModal();
   }
 
   MACRO DoEditIDP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := ^samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := ^samlproviders->value  ])->RunModal();
   }
 
   MACRO DoDeleteSP()
@@ -316,14 +311,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
-< INTEGER domainid;
+PUBLIC STATIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
+<
 
   MACRO Init(RECORD data)
   {
-    this->domainid := data.domainid;
 
-    this->keypair->options := [ [ rowkey := 0, title := this->GetTid(".chooseakeypair"), invalidselection := TRUE ] ] CONCAT
+    ^keypair->options := [ [ rowkey := 0, title := this->GetTid(".chooseakeypair"), invalidselection := TRUE ] ] CONCAT
         SELECT rowkey :=    id
              , title :=     title = "" ? name : title || " (" || name || ")"
           FROM ListKeyPairs();
@@ -332,21 +326,21 @@ PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
     BOOLEAN is_idp := data.wrdtype->tag = "WRD_AUTHDOMAIN_SAML_IDP";
 
     // also disable, to keep out of updates to record
-    this->nameidformatsheading->visible := is_idp;
-    this->supportednameidformats->visible := is_idp;
-    this->nameidpolicy->visible := is_sp;
+    ^nameidformatsheading->visible := is_idp;
+    ^supportednameidformats->visible := is_idp;
+    ^nameidpolicy->visible := is_sp;
     IF (NOT is_idp)
-      this->supportednameidformats->composition := DEFAULT OBJECT;
+      ^supportednameidformats->composition := DEFAULT OBJECT;
     ELSE
-      this->nameidpolicy->composition := DEFAULT OBJECT;
+      ^nameidpolicy->composition := DEFAULT OBJECT;
 
-    this->entity->LoadEntity(data.wrdtype, data.id);
+    ^entity->LoadEntity(data.wrdtype, data.id);
 
     IF (data.id != 0)
     {
-      RECORD intextlink := this->entity->wrdentity->GetField("KEYPAIR");
+      RECORD intextlink := ^entity->wrdentity->GetField("KEYPAIR");
       IF (RecordExists(intextlink))
-        this->keypair->value := intextlink.internallink;
+        ^keypair->value := intextlink.internallink;
 
       IF (is_sp)
       {
@@ -357,7 +351,7 @@ PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
         {
           RECORD ARRAY formats := wrd_connected->GetEntityField(connected_idp, "SUPPORTEDNAMEIDFORMATS");
           IF (LENGTH(formats) != 0)
-            this->nameidpolicy->options := SELECT title := nameidformat FROM formats;
+            ^nameidpolicy->options := SELECT title := nameidformat FROM formats;
         }
       }
     }
@@ -374,12 +368,11 @@ PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
     IF (work->HasFailed() AND NOT work->Finish())
       RETURN 0;
 
-    this->entity->StoreEntity(work,
-        [ keypair := MakeIntExtInternalLink(this->keypair->value, "")
-        , wrd_leftentity := this->domainid
+    ^entity->StoreEntity(work,
+        [ keypair := MakeIntExtInternalLink(^keypair->value, "")
         ]);
 
-    RETURN work->Finish() ? this->entity->entityid : 0;
+    RETURN work->Finish() ? ^entity->entityid : 0;
   }
 >;
 
@@ -406,10 +399,10 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     BOOLEAN is_sp := this->type = "sp";
     BOOLEAN is_idp := this->type = "idp";
 
-    this->nameidformatsheading->visible := is_idp;
-    this->supportednameidformats->visible := is_idp;
+    ^nameidformatsheading->visible := is_idp;
+    ^supportednameidformats->visible := is_idp;
 
-    this->entity->LoadEntity(data.wrdtype, data.id);
+    ^entity->LoadEntity(data.wrdtype, data.id);
   }
 
   BOOLEAN FUNCTION Submit()
@@ -418,7 +411,7 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     IF (work->HasFailed())
       RETURN work->Finish();
 
-    this->entity->StoreEntity(work, [ wrd_leftentity := this->parent ]);
+    ^entity->StoreEntity(work, [ wrd_leftentity := this->parent ]);
 
     RETURN work->Finish();
   }
@@ -487,22 +480,22 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
       feedback->AddError(this->GetTid(".noentitydescriptors"));
     ELSE IF (LENGTH(entitydescriptors) = 1)
     {
-      IF (this->entity->value.samlentityid != "" AND entitydescriptors[0].entityid != this->entity->value.samlentityid)
-        feedback->AddError(this->GetTid(".samlentityiddiffers", this->entity->value.samlentityid, entitydescriptors[0].entityid));
+      IF (^entity->value.samlentityid != "" AND entitydescriptors[0].entityid != ^entity->value.samlentityid)
+        feedback->AddError(this->GetTid(".samlentityiddiffers", ^entity->value.samlentityid, entitydescriptors[0].entityid));
     }
     ELSE
     {
-      IF (this->entity->value.samlentityid = "")
+      IF (^entity->value.samlentityid = "")
         feedback->AddError(this->GetTid(".multipledescriptorsnofilter"));
       ELSE
       {
         entitydescriptors :=
             SELECT *
               FROM entitydescriptors
-             WHERE entityid = this->entity->value.samlentityid;
+             WHERE entityid = ^entity->value.samlentityid;
 
         IF (LENGTH(entitydescriptors) != 1)
-          feedback->AddError(this->GetTid(".multipledescriptorsbutnotfound", this->entity->value.samlentityid));
+          feedback->AddError(this->GetTid(".multipledescriptorsbutnotfound", ^entity->value.samlentityid));
       }
     }
 
@@ -578,7 +571,7 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     IF (feedback->HasFailed())
       RETURN;
 
-    RECORD ARRAY certs := this->entity->value.certificates;
+    RECORD ARRAY certs := ^entity->value.certificates;
 
     IF (LENGTH(descriptors[0].keydescriptor) != 0)
     {
@@ -656,7 +649,7 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
         , supportednameidformats :=     supportednameidformats
         ];
 
-    this->entity->value := MakeReplacedRecord(this->entity->value, value);
+    ^entity->value := MakeReplacedRecord(^entity->value, value);
   }
 
   // ---------------------------------------------------------------------------
