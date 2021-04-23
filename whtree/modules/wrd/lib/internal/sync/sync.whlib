@@ -360,7 +360,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   ELSE
     res := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, currentcontents, syncinstructionoptions);
 
-  wrdschema->ApplySchemaDefinition( [ __schemadefinition := res.schemadefinition, fromexternal := TRUE, applysettings := FALSE ]);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := res.schemadefinition, fromexternal := TRUE, applysettings := FALSE ]);
 
   RECORD ARRAY types := SortWRDTypesOnDependencies(wrdschema->ListTypes(), [ forinsert := TRUE ]);
   RECORD ARRAY newcurrentcontents;
@@ -608,7 +608,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   RECORD schemadef := ReadSchemaDefFromXML(schemadefdoc->documentelement, "mod::wrd/dummyresource.xml", res.schemadefinition, DEFAULT DATETIME);
 
   // Decode the schema settings from the remote schema
-  RECORD ARRAY schemadef_settings  :=
+  RECORD ARRAY schemadef_settings :=
       SELECT name :=    ToLowercase(name)
            , value :=   AnyTypeFromBlobString(keyvalue.data, keyvalue.blobdata, keyvalue.type)
         FROM schemadef.keyvaluestore;
