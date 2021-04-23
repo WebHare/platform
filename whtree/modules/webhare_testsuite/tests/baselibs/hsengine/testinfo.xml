@@ -17,6 +17,7 @@
   <test script="test_docgen.whscr" />
   <test script="test_exceptions.whscr" />
   <test script="test_export.whscr" />
+  <test script="test_events.whscr" />
   <test script="test_files.whscr" />
   <test script="test_float.whscr" />
   <test script="test_functions.whscr" />

@@ -4,12 +4,12 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/eventemitter.whlib";
 
 LOADLIB "mod::system/lib/internal/browsers/chrome/framemanager.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/input.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/networkmanager.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 
 CONSTANT RECORD sharedpageprepoptions := [ media := ""
                                          , debug := FALSE

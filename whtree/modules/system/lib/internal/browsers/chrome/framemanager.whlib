@@ -1,10 +1,10 @@
 <?wh
 
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/eventemitter.whlib";
 
 LOADLIB "mod::system/lib/internal/browsers/chrome/elementhandle.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/helper.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 
 
 OBJECT lastcreatedframe;
