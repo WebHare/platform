@@ -1238,6 +1238,37 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->RenderRTD(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
   }
 
+  RECORD FUNCTION GetCacheableRTDExcerpt(INTEGER fileid, STRING selector, RECORD options)
+  {
+    OBJECT target := OpenWHFSObject(fileid);
+    IF(NOT ObjectExists(target))
+      RETURN [ value := ""
+             , ttl := 15 * 60 * 1000
+               //no eventmasks, but a fileid can't suddenly reappear or you did really weird things leaking new fileids outside your transaction..
+             ];
+
+   STRING excerpt;
+   RECORD data := target->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data;
+   IF(RecordExists(data))
+     excerpt := this->OpenRTD(data)->ExtractExcerpt(selector, options);
+
+    RETURN [ value := excerpt
+           , ttl := 15 * 60 * 1000
+           , eventmasks := target->GetEventMasks()
+           ];
+  }
+
+  /** @short Extract an excerpt from a RTD file
+      @param fileid Id of the file to extract text from
+      @param selector @includecelldef #PublishableRichDocument::ExtractExcerpt.selector
+      @param options @includecelldef #PublishableRichDocument::ExtractExcerpt.options
+      @return @includecelldef #PublishableRichDocument::ExtractExcerpt.return */
+  PUBLIC STRING FUNCTION ExtractRTDExcerpt(INTEGER fileid, STRING selector, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //TODO use (default) rtdtype as a cachekey to be safe against different interpretations, but first we'll need to make getting the fallback rtdtype fully cachable (no db hits)
+    RETURN GetAdhocCached( CELL[ fileid, selector, options ], PTR this->GetCacheableRTDExcerpt(fileid, selector, options));
+  }
+
   /** @short Return a renderer for a RTD from an instance record
       @param richdoc The rich document
       @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used

@@ -24,6 +24,33 @@ STRING ARRAY FUNCTION ParseClasses(STRING inlist)
   RETURN out;
 }
 
+STRING FUNCTION GatherExcerpt(OBJECT parent)
+{
+  STRING output;
+  FOR(OBJECT node := parent->firstchild;ObjectExists(node);node:=node->nextsibling)
+  {
+    IF(node->nodetype=1)
+    {
+      SWITCH(ToUppercase(node->nodename))
+      {
+        CASE "BR"
+        {
+          output := output || "\n";
+        }
+        DEFAULT
+        {
+          output := output || GatherExcerpt(node);
+        }
+      }
+    }
+    ELSE IF(node->nodetype=3)
+    {
+      output := output || NormalizeWhitespace(node->textcontent);
+    }
+  }
+  RETURN output;
+}
+
 STRING FUNCTION Gathertext(OBJECT parent, INTEGER maxlen)
 {
   STRING output;
@@ -804,6 +831,60 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
     this->richobjects := DEFAULT OBJECT ARRAY;
     IF(ObjectExists(this->toplevelnode))
       this->GenerateRichObjects(this->toplevelnode);
+  }
+
+  /** @short Extract plaintext from the document
+      @param selector Selector to use, eg '*', 'h1' or 'p'.
+      @cell(integer) options.maxlength Return at most this number of unicode characters (including 'addiftruncated')
+      @cell(integer) options.limitutf8bytes Return at most this number of bytes (including any 'addiftruncated')
+      @cell(string) options.addiftruncated Text to add if we truncated the excerpt. Defaults to an ellipsis (…)
+      @return Extract text */
+  PUBLIC STRING FUNCTION ExtractExcerpt(STRING selector, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ maxlength := 2147483647
+                               , limitutf8bytes := 2147483647
+                               , addiftruncated := "…"
+                               ], options);
+
+    IF(NOT ObjectExists(this->toplevelnode))
+      RETURN "";
+
+    IF(options.maxlength < 2147483647)
+    {
+      options.maxlength := options.maxlength - UCLength(options.addiftruncated);
+      IF(options.maxlength <= 0)
+        RETURN "";
+    }
+    IF(options.limitutf8bytes < 2147483647)
+    {
+      options.limitutf8bytes := options.limitutf8bytes - Length(options.addiftruncated);
+      IF(options.limitutf8bytes <= 0)
+        RETURN "";
+    }
+
+    OBJECT ARRAY candidatenodes := this->toplevelnode->GetElements(selector);
+    STRING excerpt;
+
+
+    FOREVERY(OBJECT node FROM candidatenodes)
+    {
+      //TODO support tables. but we don't want to double match (eg a '<b>' inside '<p>')
+      IF(NOT node->parentnode->IsSameNode(this->toplevelnode))
+        CONTINUE;
+
+      STRING localcontent := TrimWhitespace(GatherExcerpt(node));
+      IF(localcontent = "")
+        CONTINUE; //ignorable
+
+      excerpt := (excerpt = "" ? "" : excerpt || "\n") || localcontent;
+
+      IF(options.limitutf8bytes < 2147483647 AND Length(excerpt) > options.limitutf8bytes)
+        RETURN LimitUTF8bytes(excerpt, options.limitutf8bytes) || options.addiftruncated;
+      IF(options.maxlength < 2147483647 AND UCLength(excerpt) > options.maxlength)
+        RETURN UCLeft(excerpt, options.maxlength) || options.addiftruncated;
+    }
+
+    RETURN excerpt;
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)

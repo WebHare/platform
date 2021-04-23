@@ -51,6 +51,11 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
     OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
     RECORD ARRAY usewidgets := sharedblockstype->GetSharedBlocks((this->targetobject ?? this->targetfolder)->id, "BLOCKS");
 
+    IF(this->pagedescription = "" AND this->targetobject->typens = "http://www.webhare.net/xmlns/publisher/richdocumentfile")
+    {
+      this->pagedescription := this->ExtractRTDExcerpt(this->targetobject->id, "p", [ limitutf8bytes := 150 ]);
+    }
+
     RECORD wittydata := [ deeperlink := this->IsStaticPublication() ? this->GetStaticFileLink("test.txt") : ""
                         , whfspath := this->targetobject->whfspath
                         , dynamiclink := this->GetRelURL(this->targetsite->webroot || "dynamic.shtml")
