@@ -112,15 +112,15 @@ RECORD ARRAY FUNCTION GetTolliumStackTrace() __ATTRIBUTES__(SKIPTRACE)
   RETURN trace;
 }
 
-MACRO OnScreenChange(OBJECT screen, BOOLEAN isopen)
+MACRO OnScreenChange(RECORD event)
 {
   RECORD ARRAY trace := GetTolliumStackTrace();
 
   // Open work is never allowed
   IF (GetPrimary()->IsWorkOpen())
   {
-    STRING msg := "Work is open while " || (isopen ? "opening" : "closing") || " " || GetScreenShortName(screen);
-    PRINT("** " || msg || "\n" || GetScreenDetails(screen) || "\nLast call " || ExplainFunctionPtrSignature(lastcall) || "\n");
+    STRING msg := "Work is open while " || (event.isopening ? "opening" : "closing") || " " || GetScreenShortName(event.screen);
+    PRINT("** " || msg || "\n" || GetScreenDetails(event.screen) || "\nLast call " || ExplainFunctionPtrSignature(lastcall) || "\n");
     DumpStackTrace(lastcallcalltrace);
     screenfifo->Push(
           [ type :=         "error"
@@ -130,26 +130,26 @@ MACRO OnScreenChange(OBJECT screen, BOOLEAN isopen)
   }
 
   IF (debug_expects)
-    PRINT("- OnScreenChange " || (isopen ? "+1" : "-1") || " " || screen->frame->screenname || "\n");
+    PRINT("- OnScreenChange " || (event.isopening ? "+1" : "-1") || " " || event.screen->frame->screenname || "\n");
   IF(testfw->debug)
-    Print(RepeatText(">", Length(controller->windowstack) + (isopen ? 0 : 1))
-         || (isopen ? " Opening " : " Closing ") || "screen " || screen->frame->screenname || " (" || screen->frame->title || ")\n");
+    Print(RepeatText(">", Length(controller->windowstack) + (event.isopening ? 0 : 1))
+         || (event.isopening ? " Opening " : " Closing ") || "screen " || event.screen->frame->screenname || " (" || event.screen->frame->title || ")\n");
 
-  INTEGER newstacklength := LENGTH(screenstack) + (isopen?1:-1);
+  INTEGER newstacklength := LENGTH(screenstack) + (event.isopening?1:-1);
   screenfifo->Push(
       [ type :=         "screenchange"
-      , screen :=       screen
-      , isopen :=       isopen
+      , screen :=       event.screen
+      , isopen :=       event.isopening
       , stacklength :=  newstacklength
       , trace :=        trace
       ]);
 
   HandleUnprocessedErrors();
 
-  IF (isopen)
+  IF (event.isopening)
   {
-    topscreen := screen;
-    INSERT [ screen := screen, trace := trace ] INTO screenstack AT END;
+    topscreen := event.screen;
+    INSERT [ screen := event.screen, trace := trace ] INTO screenstack AT END;
   }
   ELSE
   {
@@ -1205,7 +1205,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
     controller := NEW TolliumHeadlessController(testfw->userapi ?? GetWRDAuthUserAPi(testfw->wrdschema), testfw->wrdauth ? GetTestsuiteWRDauthPlugin() : DEFAULT OBJECT, FALSE);
     controller->debugging := testfw->debug;
 
-    controller->__onscreenchange := PTR OnScreenChange;
+    controller->AddListener("windowstack", PTR OnScreenChange);
     controller->__onnoforwardprogress := PTR OnNoForwardProgress;
     controller->__onsendwebfile := PTR OnSendWebFile;
     controller->__onnoactionhandlerfound := PTR OnNoActionHandlerFound;
