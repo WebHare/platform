@@ -402,6 +402,11 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   IF(NOT GetPrimary()->HasMutex(mutexname) AND NOT GetPrimary()->TryLockMutex(mutexname, DEFAULT DATETIME))
     THROW NEW Exception(`Two transactions are trying to update schema '${local_schema->tag}' at the same time`);
 
+  //backwards compatibility with direct callers to us (even though we were internal...)
+  schemadef := EnforceStructure([ migrations := RECORD[]
+                                , keyvaluestore := RECORD[]
+                                ], schemadef);
+
   IF (NOT options.fromexternal)
   {
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
