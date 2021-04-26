@@ -1717,6 +1717,7 @@
         <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
           <text tid="days">Dagen</text>
           <text tid="hours">Uren</text>
+          <text tid="invalidduration">De opgegeven tijdsduur is ongeldig</text>
           <text tid="milliseconds">Millisecondes</text>
           <text tid="minutes">Minuten</text>
           <text tid="months">Maanden</text>
