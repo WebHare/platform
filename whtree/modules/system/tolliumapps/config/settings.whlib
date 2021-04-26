@@ -229,6 +229,7 @@ PUBLIC STATIC OBJECTTYPE SelectDuration EXTEND TolliumScreenBase
 
   STRING FUNCTION Submit()
   {
+    OBJECT work := this->BeginFeedback();
     RECORD value := ^duration->value;
 
     BOOLEAN gotweek, gotnonweek;
@@ -265,6 +266,16 @@ PUBLIC STATIC OBJECTTYPE SelectDuration EXTEND TolliumScreenBase
     }
     IF (timepart != "")
       retval := `${retval}T${timepart}`;
-    RETURN retval;
+
+    TRY
+    {
+      ParseDuration(retval);
+    }
+    CATCH(OBJECT e)
+    {
+      work->AddError(this->GetTid(".invalidduration"));
+    }
+
+    RETURN work->Finish() ? retval : "";
   }
 >;

@@ -1906,6 +1906,7 @@
         <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
           <text tid="days">Days</text>
           <text tid="hours">Hours</text>
+          <text tid="invalidduration">The specified duration is invalid</text>
           <text tid="milliseconds">Milliseconds</text>
           <text tid="minutes">Minutes</text>
           <text tid="months">Months</text>
