@@ -1205,7 +1205,11 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
     IF(openas != "")
     {
-      impersonatinguser := GetWebhareRightsObject(userid);
+      IF(ObjectExists(userentity))
+        impersonatinguser := this->GetTolliumUserObject(userentity, rightsauthobject, loginname, logintitle);
+      ELSE
+        impersonatinguser := NEW TolliumMagicSysopUserObject(userid);
+
       IF (NOT ObjectExists(impersonatinguser))
         RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
       IF (NOT impersonatinguser->ExistsInDatabase())

@@ -60,6 +60,7 @@ test.registerTests(
   , async function createPietje(doc,win)
     {
       test.setTodd('username', "pietje@example.com");
+      test.setTodd('wrd_firstname', "Pietje");
 
       test.click('t-tabs nav *[data-tab$=":advanced"]');
       var guidcomponent = test.compByName('wrd_guid').querySelector('input');
@@ -182,12 +183,18 @@ test.registerTests(
     , loadpage: function() { return webroot + "portal1/?openas=" + pietjeguid + "&language=en&transport=" + test.getTestArgument(0); }
     , waits: ['ui']
     }
-  , { test:function(doc,win)
-      {
-        test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
-        test.eq('pietje@example.com', test.qS('#dashboard-user-name').textContent);
-        test.false(getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
-      }
+  , async function(doc,win)
+    {
+      test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
+      test.eq('Pietje', test.qS('#dashboard-user-name').textContent);
+      test.false(getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
+
+      //click personal settings, mostly to check impersonation really worked
+      test.click("#dashboard-user");
+      await test.wait( () => test.qSA('.t-apptab').length >= 2);
+      await test.wait('ui');
+      await test.wait( () => test.compByName('fullname'));
+      test.eq("Pietje", test.compByName('fullname').textContent);
     }
   , { name: "logout as pietje action"
     , loadpage: function() { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0) + '&wh-debug=aut'; }
