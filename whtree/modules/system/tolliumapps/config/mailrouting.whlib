@@ -12,7 +12,7 @@ STRING FUNCTION HideSMTPPassword(STRING url)
     RETURN "";
   RECORD smtpurl := UnpackURL(url);
   if (smtpurl.password != "")
-    smtpurl.password := "xxx";
+    smtpurl.password := "******";
   RETURN RepackURL(smtpurl);
 }
 
