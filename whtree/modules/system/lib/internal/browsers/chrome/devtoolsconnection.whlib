@@ -3,9 +3,9 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/eventemitter.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 
 
 /** The DevToolsConnection interprets the protocol for chrome devTools, and returns an object-based api for it

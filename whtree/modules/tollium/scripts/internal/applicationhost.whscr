@@ -77,8 +77,8 @@ TRY
       IF (ObjectExists(res.impersonatinguser))
       {
         UpdateAuditContext(
-            [ impersonator_entity :=    res.impersonatinguser->entityid
-            , impersonator_login :=     res.impersonatinguser->login
+            [ impersonator_entityid := res.impersonatinguser->entityid
+            , impersonator_login :=    res.impersonatinguser->login
             ]);
       }
     }

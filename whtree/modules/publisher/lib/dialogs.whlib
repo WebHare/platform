@@ -170,7 +170,7 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
       RETURN 0;
   }
 
-  IF(createres.template = 0 AND createres.createtype != 0 AND options.isfolder = FALSE)
+  IF(NOT options.issite AND createres.template = 0 AND createres.createtype != 0 AND options.isfolder = FALSE)
   {
     OBJECT applytester := GetApplyTesterForFakeObject(parentfolder,TRUE, createres.createtype);
     RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR"); //TODO this is replicating the editor selection logic from RunFSObjectEditApplication, cleaner?

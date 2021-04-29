@@ -16,9 +16,9 @@
             <!--<text  composition="userobj" cellname="wrd_fullname"/>-->
             <textedit cellname="" name="email" composition="userobj" tid="~email" validationchecks="email" maxlength="256" />
             <textedit cellname="" name="username" composition="userobj" required="true" tid="~username" maxlength="256" />
-            <textedit cellname="wrd_firstname" composition="userobj" />
-            <textedit cellname="wrd_infix" composition="userobj" />
-            <textedit cellname="wrd_lastname" composition="userobj" />
+            <textedit cellname="wrd_firstname" name="wrd_firstname" composition="userobj" />
+            <textedit cellname="wrd_infix" name="wrd_infix" composition="userobj" />
+            <textedit cellname="wrd_lastname" name="wrd_lastname" composition="userobj" />
             <authenticationsettings name="authenticationsettings" requireauthorization="false" managementmode="true" />
             <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
             <box checkbox="true" layout="left" hr="false" name="whuser_disabled" composition="userobj" cellname="whuser_disabled" title="" tid=".whuser_disabled" enablecomponents="whuser_disablereason" >

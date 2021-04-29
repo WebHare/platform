@@ -6,13 +6,14 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the proper index file
 {
   //Create a dynfodler
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynfolder (webhare_testsuite)";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
@@ -91,7 +92,7 @@ ASYNC MACRO CreateUsingTemplates()
   OBJECT created;
 
   //Create a file from 'imgeditfile.jpeg'
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "imgeditfile.jpeg";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
@@ -163,9 +164,19 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 }
 
+ASYNC MACRO TestCreateSiteDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfw->GetWHFSTestRoot()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newsite"));
+  TT(":Name")->value := "testfw - My new site";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR DynFolderIndex
                  , PTR TestCreateObjectDialog
                  , PTR CreateUsingTemplates
+                 , PTR TestCreateSiteDialog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);
 

@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/eventemitter.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/callbacks.whlib";
@@ -1280,7 +1281,7 @@ PUBLIC OBJECTTYPE TolliumAsyncWindowOpenBase EXTEND TolliumAsyncFileTransferBase
     @topic tollium/appdev
     @public
 */
-PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
+PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1458,7 +1459,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   PUBLIC PROPERTY webbrowsertitleprefix(browsertitleprefix, SetBrowserTitlePrefix);
 
-  PUBLIC MACRO PTR __onscreenchange;
   PUBLIC MACRO PTR __onnoforwardprogress;
   PUBLIC MACRO PTR __onnoactionhandlerfound;
   PUBLIC MACRO PTR __onnodrophandlerfound;
@@ -1470,6 +1470,8 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   MACRO NEW(OBJECT userapi, OBJECT wrdauthplugin, BOOLEAN isheadless)
   {
+    EXTEND this BY EventEmitter;
+
     this->applicationid := "A:" || GetCurrentGroupId();
     this->CreatePort(isheadless);
 
@@ -1805,8 +1807,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       IF (pos != -1)
         DELETE FROM this->stolen_screens AT pos;
 
-      IF(this->__onscreenchange != DEFAULT MACRO PTR)
-        this->__onscreenchange(screen,FALSE);
+      this->EmitEvent("windowstack", CELL[ screen, isopening := FALSE ]);
     }
   }
 
@@ -3337,8 +3338,8 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
           IF(debug_logcontroller)
             LogDebug("tollium:controller", "Exit message loop for " || modalframe->instancename || " - not running or tolliumresult set");
 
-          IF(NOT didnotifynewscreen AND this->__onscreenchange != DEFAULT MACRO PTR)
-            this->__onscreenchange(screen,TRUE);
+          IF(NOT didnotifynewscreen)
+            this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE ]);
 
           //guess we're done
           this->DeleteScreenFromWindowStack(MakePublicObjectReference(screen));
@@ -3406,10 +3407,10 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         callbacks_start := AddTimeToDate(callback_time, now);
       }
 
-      IF(NOT didnotifynewscreen AND this->__onscreenchange != DEFAULT MACRO PTR)
+      IF(NOT didnotifynewscreen)
       {
         didnotifynewscreen := TRUE;
-        this->__onscreenchange(screen,TRUE);
+        this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE ]);
       }
 
       // Go into wait for some event to occur (new client message, timeout, event)

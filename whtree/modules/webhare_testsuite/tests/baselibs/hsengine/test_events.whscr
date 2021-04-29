@@ -1,0 +1,33 @@
+<?wh
+
+LOADLIB "wh::util/eventemitter.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+PRINT("\n === Running TestEvents\n");
+
+RECORD ARRAY eventlog;
+
+MACRO AddEvent(STRING eventname, RECORD data) //TODO data should be a varargs variant array for compatibility with socket.io and nodejs versions
+{
+  INSERT CELL [eventname,data] INTO eventlog AT END;
+}
+
+STATIC OBJECTTYPE EventTester EXTEND EventEmitter
+<
+  PUBLIC MACRO EmitTestEvent(INTEGER x)
+  {
+    this->EmitEvent("testevent", CELL[ x := x ]);
+  }
+>;
+
+OBJECT emitter := NEW EventTester;
+
+emitter->EmitTestEvent(42);
+INTEGER handle := emitter->AddListener("testevent", PTR AddEvent("testevent", #1));
+emitter->EmitTestEvent(43);
+emitter->RemoveListener(handle);
+emitter->EmitTestEvent(44);
+
+TestEq([[ eventname := "testevent", data := [ x := 43 ]]], eventlog);
