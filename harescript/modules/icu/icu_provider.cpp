@@ -774,15 +774,25 @@ void GetCountryList(HSVM *hsvm, HSVM_VariableId id_set)
 
         // Create a record for each country
         static const char * const *countries = icu::Locale::getISOCountries();
+        std::vector<std::string> countrycodes;
         for (unsigned j = 0; (countries + j) && *(countries + j); ++j)
         {
+                std::string countrycode(*(countries + j));
                 HSVM_VariableId country = HSVM_ArrayAppend(hsvm, id_set);
-                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, country, code), std::string(*(countries + j)));
+                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, country, code), countrycode);
+                countrycodes.push_back(countrycode);
         }
         for (unsigned j = 0; (ADDITIONAL_COUNTRIES + j) && *(ADDITIONAL_COUNTRIES + j); ++j)
         {
-                HSVM_VariableId country = HSVM_ArrayAppend(hsvm, id_set);
-                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, country, code), std::string(*(ADDITIONAL_COUNTRIES + j)));
+                std::string countrycode(*(ADDITIONAL_COUNTRIES + j));
+                // Check if this additional country isn't already added (for example, XK was added in CLDR67, but that
+                // version may not be available on this system)
+                if (std::find(countrycodes.begin(), countrycodes.end(), countrycode) == countrycodes.end())
+                {
+                        HSVM_VariableId country = HSVM_ArrayAppend(hsvm, id_set);
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, country, code), countrycode);
+                        countrycodes.push_back(countrycode);
+                }
         }
 
         UnicodeString str;
@@ -796,8 +806,7 @@ void GetCountryList(HSVM *hsvm, HSVM_VariableId id_set)
                 HSVM_VariableId locale_col = HSVM_GetColumnId(hsvm, langtag.c_str());
                 display.reset(LocaleDisplayNames::createInstance(Locale(locale.c_str())));
 
-                unsigned j = 0;
-                for (; (countries + j) && *(countries + j); ++j)
+                for (unsigned j = 0; j < countrycodes.size(); ++j)
                 {
                         HSVM_VariableId country = HSVM_ArrayGetRef(hsvm, id_set, j);
                         HSVM_VariableId name = HSVM_RecordCreate(hsvm, country, locale_col);
@@ -805,18 +814,7 @@ void GetCountryList(HSVM *hsvm, HSVM_VariableId id_set)
                         if (locale.empty())
                             HSVM_SetDefault(hsvm, name, HSVM_VAR_String);
                         else
-                            HSVM_StringSetUnicode(hsvm, name, display->regionDisplayName(*(countries + j), str));
-                }
-                unsigned n = j;
-                for (; (ADDITIONAL_COUNTRIES + j - n) && *(ADDITIONAL_COUNTRIES + j - n); ++j)
-                {
-                        HSVM_VariableId country = HSVM_ArrayGetRef(hsvm, id_set, j);
-                        HSVM_VariableId name = HSVM_RecordCreate(hsvm, country, locale_col);
-
-                        if (locale.empty())
-                            HSVM_SetDefault(hsvm, name, HSVM_VAR_String);
-                        else
-                            HSVM_StringSetUnicode(hsvm, name, display->regionDisplayName(*(ADDITIONAL_COUNTRIES + j - n), str));
+                            HSVM_StringSetUnicode(hsvm, name, display->regionDisplayName(countrycodes[j].c_str(), str));
                 }
         }
 }

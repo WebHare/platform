@@ -208,6 +208,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     opt5_pulldown->required := TRUE;
 
     OBJECT opt5_textedit := this->AppendFormField(^radiotest, "textedit", "opt5_textedit");
+    //opt5_textedit->minlength := 1; //TODO: minlength is never actually used?
+    opt5_textedit->maxlength := 123;
     opt5_textedit->required := TRUE;
 
     ^radiotest->options := ^radiotest->options
@@ -273,6 +275,9 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     ^dateofbirth->min := MakeDate(1900,1,1);
     ^dateofbirth->abstractvalue := "now+2d";
     ^dateofbirth->abstractmax := "now+5d";
+
+    ^numberemptyvalue->min := -2;
+    ^numberemptyvalue->max := 2;
 
     // Countrylist is already set by XML and cannot be updated
     TestThrowsLike("*cannot be changed*", PTR MemberUpdate(^address, 'countrylist', [ "NL" ]));

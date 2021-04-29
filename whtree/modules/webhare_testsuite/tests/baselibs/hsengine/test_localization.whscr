@@ -338,13 +338,13 @@ MACRO WorldInfoTest()
   TestEq(TRUE, CellExists(nl, "EN"));
   TestEq("Netherlands", nl.EN);
 
-  // Check if Kosovo is returned (not a standard ISO country code)
-  nl := SELECT * FROM GetCountryList([ "nl", "en" ]) WHERE code = "XK";
-  TestEq(TRUE, RecordExists(nl));
-  TestEq(TRUE, CellExists(nl, "NL"));
-  TestEq("Kosovo", nl.NL);
-  TestEq(TRUE, CellExists(nl, "EN"));
-  TestEq("Kosovo", nl.EN);
+  // Check if Kosovo is returned (not a standard ISO country code in all versions of CLDR)
+  RECORD ARRAY xk := SELECT * FROM GetCountryList([ "nl", "en" ]) WHERE code = "XK";
+  TestEq(1, Length(xk));
+  TestEq(TRUE, CellExists(xk[0], "NL"));
+  TestEq("Kosovo", xk[0].NL);
+  TestEq(TRUE, CellExists(xk[0], "EN"));
+  TestEq("Kosovo", xk[0].EN);
 
   nl := SELECT * FROM GetLanguageList("nl") WHERE code = "nl";
   TestEq(TRUE, RecordExists(nl));

@@ -129,31 +129,21 @@
 
   <xs:simpleType name="SelectRowkeyTypes">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="string">
-      </xs:enumeration>
-      <xs:enumeration value="integer">
-      </xs:enumeration>
-      <xs:enumeration value="boolean">
-      </xs:enumeration>
-      <xs:enumeration value="money">
-      </xs:enumeration>
-      <xs:enumeration value="float">
-      </xs:enumeration>
-      <xs:enumeration value="datetime">
-      </xs:enumeration>
+      <xs:enumeration value="string" />
+      <xs:enumeration value="integer" />
+      <xs:enumeration value="boolean" />
+      <xs:enumeration value="money" />
+      <xs:enumeration value="float" />
+      <xs:enumeration value="datetime" />
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="TextEditValueTypes">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="string">
-      </xs:enumeration>
-      <xs:enumeration value="integer">
-      </xs:enumeration>
-      <xs:enumeration value="money">
-      </xs:enumeration>
-      <xs:enumeration value="float">
-      </xs:enumeration>
+      <xs:enumeration value="string" />
+      <xs:enumeration value="integer" />
+      <xs:enumeration value="money" />
+      <xs:enumeration value="float" />
     </xs:restriction>
   </xs:simpleType>
 
@@ -489,11 +479,11 @@
       </xs:sequence>
       <xs:attributeGroup ref="PageAttributes" />
       <xs:attribute name="redirect" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          An external link (a url) or an internal link (an "x-wh-internallink" reference)
-        </xs:documentation>
-      </xs:annotation>
+        <xs:annotation>
+          <xs:documentation>
+            An external link (a url) or an internal link (an "x-wh-internallink" reference)
+          </xs:documentation>
+        </xs:annotation>
       </xs:attribute>
     </xs:complexType>
   </xs:element>

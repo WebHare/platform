@@ -3,10 +3,10 @@
 SRCDIR=""
 DESTDIR=""
 
-# We assume you cloned https://github.com/lipis/flag-icon-css to ~/projects/flag-icon-css
+# We assume you cloned https://github.com/lipis/flag-icon-css to ~/projects/flag-icon-css or ~/projects/external/flag-icon-css
 
 # Add other potential dirs here
-for P in ~/projects/flag-icon-css; do
+for P in ~/projects/flag-icon-css ~/projects/external/flag-icon-css; do
   if [ -d "$P/flags/1x1" -a -d "$P/flags/4x3" ]; then
     SRCDIR="$P"
     break
@@ -44,7 +44,7 @@ These SVG flags come from https://github.com/lipis/flag-icon-css, which is
 MIT-licensed, see \`LICENSE\`. This license applies to all files in the current
 directory and below.
 
-Run ~/projects/webhare/addons/import_flags.sh to update these flags
+Run \`~/projects/webhare/addons/import_flags.sh\` to update these flags
 
 Last updated: `date` by $USER from $GITREF
 
