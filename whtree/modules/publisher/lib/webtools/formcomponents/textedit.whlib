@@ -109,6 +109,8 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
                        , validationchecks := this->validationchecks
                        , placeholder := this->placeholder
                        , range := this->range
+                       , minlength := this->minlength
+                       , maxlength := this->maxlength
                        ];
 
     IF(this->textvalue != this->emptyvalue OR NOT this->emptyvalueisset)
@@ -236,21 +238,21 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     RETURN emailstocheck;
   }
 
-  VARIANT FUNCTION GetFieldProperty(STRING name, VARIANT defaultvalue)
+  VARIANT FUNCTION GetRangeProperty(STRING name, VARIANT defaultvalue)
   {
-    IF (CellExists(this->field, name))
-      RETURN GetCell(this->field, name);
+    IF (CellExists(this->range, name))
+      RETURN GetCell(this->range, name);
     RETURN defaultvalue;
   }
 
-  MACRO SetFieldProperty(STRING name, VARIANT value)
+  MACRO SetRangeProperty(STRING name, VARIANT value)
   {
     IF (IsDefaultValue(value))
-      this->field := CellDelete(this->field, name);
-    ELSE IF (CellExists(this->field, name))
-      this->field := CellUpdate(this->field, name, value);
+      this->range := CellDelete(this->range, name);
+    ELSE IF (CellExists(this->range, name))
+      this->range := CellUpdate(this->range, name, value);
     ELSE
-      this->field := CellInsert(this->field, name, value);
+      this->range := CellInsert(this->range, name, value);
   }
 >;
 
@@ -453,26 +455,41 @@ PUBLIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
 
   // ---------------------------------------------------------------------------
   //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := CELL[ ...TextEditFieldBase::__GetRenderData()
+                       , min := this->min
+                       , max := this->max
+                       ];
+    RETURN base;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
   // Property getters/setters
   //
 
   INTEGER FUNCTION GetMin()
   {
-    RETURN this->GetFieldProperty("min", 0);
+    RETURN this->GetRangeProperty("min", 0);
   }
 
   MACRO SetMin(INTEGER min)
   {
-    this->SetFieldProperty("min", min);
+    this->SetRangeProperty("min", min);
   }
 
   INTEGER FUNCTION GetMax()
   {
-    RETURN this->GetFieldProperty("max", 0);
+    RETURN this->GetRangeProperty("max", 0);
   }
 
   MACRO SetMax(INTEGER max)
   {
-    this->SetFieldProperty("max", max);
+    this->SetRangeProperty("max", max);
   }
 >;

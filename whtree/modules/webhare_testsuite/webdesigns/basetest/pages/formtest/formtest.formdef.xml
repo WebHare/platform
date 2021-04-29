@@ -66,7 +66,7 @@
       <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" required="true" />
       <password name="password" title="Wachtwoord?" placeholder="secret" />
       <textedit name="number" title="NumberPlease" valuetype="integer" min="-2" max="2"/>
-      <textedit name="numberemptyvalue" title="NumberEmpty" valuetype="integer" min="-2" max="2" emptyvalue="0" value="0" />
+      <textedit name="numberemptyvalue" title="NumberEmpty" valuetype="integer" emptyvalue="0" value="0" />
       <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false"/><!-- static invisible -->
       <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue"/><!-- dynamic invisible -->
       <address name="address" title="Address" countrylist="NL BE" />

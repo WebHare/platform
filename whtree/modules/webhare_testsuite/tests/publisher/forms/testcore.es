@@ -24,6 +24,7 @@ test.registerTests(
         let label_option5 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-5]");
         let field_radio1 = test.qS('#coretest-radiotest-1');
         let field_namelijk = test.qSA("input[name=radiotestnamelijk]");
+        let field_opt5 = test.qS("input[name=opt5_textedit]");
         let field_radioboolean_dare = test.qSA(".wh-form__fields .wh-form__fieldline input[name=radioboolean]")[1];
         let field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
         let field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
@@ -70,6 +71,8 @@ test.registerTests(
         test.false(dompack.closest(label_option3, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 3 shouldn't be marked as having a subfield");
         test.true(dompack.closest(label_option1, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 1 should be marked as having a subfield");
         test.true(dompack.closest(label_option5, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 5 should be marked as having a subfield");
+        //test.eq(1, field_opt5.minLength); //TODO: minlength is never actually used?
+        test.eq(123, field_opt5.maxLength);
 
         test.true(field_radioboolean_dare, 'missing field radioboolean_dare');
         test.true(field_pulldowntest, 'missing field pulldown');
@@ -93,6 +96,8 @@ test.registerTests(
         test.eq('-2', field_number.min);
         test.eq('2', field_number.max);
         test.eq('0', field_number.value);
+        test.eq('-2', field_numberemptyvalue.min);
+        test.eq('2', field_numberemptyvalue.max);
         test.eq('', field_numberemptyvalue.value);
 
         test.eq('21', field_namelijk[0].value);
