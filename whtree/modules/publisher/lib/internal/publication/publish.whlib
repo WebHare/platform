@@ -241,7 +241,7 @@ PUBLIC STATIC OBJECTTYPE Reader
         INSERT CELL lastpublishsize := this->allpubssize INTO fileupdate;
       }
 
-      INSERT CELL errordata := Left(errordata, 1024) INTO fileupdate;
+      INSERT CELL errordata := LimitUTF8Bytes(errordata, 1024) INTO fileupdate;
     }
 
     /* Add publish to WHERE check to force revalidation after record lock. This fixes a race where
