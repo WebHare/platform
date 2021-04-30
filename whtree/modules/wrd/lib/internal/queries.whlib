@@ -2965,8 +2965,6 @@ STATIC OBJECTTYPE WRDDBLinksValue EXTEND WRDDBLinkValueBase
     {
       IF(TypeId(user_input) != TypeID(INTEGER))
         RETURN FALSE;
-      IF(user_input = 0)
-        THROW NEW Exception("CONTAINS cannot be used to look for '0' in a multiple link field");
       RETURN TRUE;
     }
     IF (match_type = "INTERSECTS")
