@@ -50,7 +50,7 @@ async function main(bundlename)
   }
 }
 
-let getopt = require('node-getopt').create([
+let getopt = require('node-getopt/lib/getopt.js').create([
   ['h' , 'help'                , 'display this help'],
 ])              // create Getopt instance
 .bindHelp()     // bind option 'help' to default action
