@@ -484,13 +484,17 @@ END;$$`
       , [ name :=   "webhare_proc_sites_webroot"
         , code :=   `
 CREATE OR REPLACE FUNCTION webhare_proc_sites_webroot(_outputweb int4, _outputfolder text) RETURNS text
-    STRICT STABLE LANGUAGE plpgsql AS $$
+    STABLE LANGUAGE plpgsql AS $$
 DECLARE
   _baseurl   varchar;
 BEGIN
   SELECT baseurl INTO _baseurl
     FROM system.webservers
    WHERE id = _outputweb;
+
+  IF _baseurl IS NULL THEN
+    RETURN '';
+  END IF;
 
   IF substr(_baseurl, length(_baseurl), 1) = '/' THEN
     _baseurl := substr(_baseurl, 1, length(_baseurl) - 1);
