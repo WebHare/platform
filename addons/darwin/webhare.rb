@@ -20,7 +20,7 @@ class Webhare < Formula
   depends_on "libpng"
   depends_on "libtiff"
   depends_on "libxml2"
-  depends_on "node@14"
+  depends_on "node"
   depends_on "openssl"
   depends_on "pixman"
   depends_on "pkg-config"
