@@ -1,10 +1,11 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::float.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 
+/** Object on which multiple event emitter listeners can be registered, and all
+    deregistered at the same time
+*/
 STATIC OBJECTTYPE EventEmitterListenGroup
 <
   OBJECT client;
@@ -15,6 +16,10 @@ STATIC OBJECTTYPE EventEmitterListenGroup
     this->client := client;
   }
 
+  /** Add an event listener
+      @param event Event name (exact match!)
+      @param call Event callback. Signature: MACRO func(RECORD event_data)
+  */
   PUBLIC MACRO AddListener(STRING event, FUNCTION PTR call)
   {
     INSERT this->client->AddListener(event, call) INTO this->ids AT END;
@@ -38,6 +43,10 @@ PUBLIC STATIC OBJECTTYPE EventEmitter
   RECORD ARRAY listenerids;
   INTEGER listenerid;
 
+  /** Emits an event, calls callbacks for all listeners added for this event
+      @param event Event name
+      @param data Event data
+  */
   MACRO EmitEvent(STRING event, RECORD data)
   {
     INTEGER id := 0;
@@ -56,6 +65,11 @@ PUBLIC STATIC OBJECTTYPE EventEmitter
     }
   }
 
+  /** Add an event listener
+      @param event Event name (exact match!)
+      @param call Event callback. Signature: MACRO func(RECORD event_data)
+      @return Event listener registration id.
+  */
   PUBLIC INTEGER FUNCTION AddListener(STRING event, FUNCTION PTR call)
   {
     this->listenerid := this->listenerid + 1;
@@ -67,6 +81,9 @@ PUBLIC STATIC OBJECTTYPE EventEmitter
     RETURN this->listenerid;
   }
 
+  /** Removes a listener
+      @param id Id as returned by AddListener
+  */
   PUBLIC MACRO RemoveListener(INTEGER id)
   {
     RECORD pos := RecordLowerBound(this->listenerids, CELL[ id ], [ "ID" ]);
@@ -80,6 +97,7 @@ PUBLIC STATIC OBJECTTYPE EventEmitter
   }
 
   /** Get an object to register listeners on that can all be removed in one call
+      @return(object #EventEmitterListenGroup) Listen group object
   */
   PUBLIC OBJECT FUNCTION GetListenGroup()
   {
