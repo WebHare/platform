@@ -176,11 +176,10 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                                  , message :=   TypeID(message) = TypeID(STRING) ? message : AnyToString(message, "tree")
                               FROM errors;
   }
-
-  MACRO DoMessageProperties()
+  MACRO OnSelectMessage()
   {
+    ^message->value := RecordExists(^messages->selection) ? ^messages->selection.message : "";
   }
-
   MACRO DoDeleteBundles()
   {
     IF(this->RunMessageBox(".confirmdeletebundles") != "yes")
