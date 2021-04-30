@@ -16,9 +16,6 @@
       <action name="bundleproperties" tid="tollium:common.actions.properties">
         <enableon source="bundles" min="1" max="1" onexecute="dobundleproperties" />
       </action>
-      <action name="messageproperties" tid="tollium:common.actions.properties">
-        <enableon source="messages" min="1" max="1" onexecute="domessageproperties" />
-      </action>
       <action name="recompilebundles">
         <enableon source="bundles" min="1" onexecute="dorecompilebundles" />
       </action>
@@ -82,13 +79,20 @@
           </grid>
         </part>
         <part height="1pr">
-          <list height="1pr"
-                name="messages"
-                selectmode="single"
-                openaction="messageproperties"
-                borders="none">
-            <column name="message" type="text" />
-          </list>
+          <split height="1pr" type="horizontal">
+            <part width="1pr">
+              <list height="1pr"
+                    name="messages"
+                    selectmode="single"
+                    borders="none"
+                    onselect="onselectmessage">
+                <column name="message" type="text" />
+              </list>
+            </part>
+            <part width="1pr">
+              <codeedit name="message" enabled="false" width="1pr" height="1pr" />
+            </part>
+          </split>
         </part>
       </split>
     </body>
