@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "mod::publisher/lib/contentlibraries.whlib";
 LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

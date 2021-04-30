@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/files.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";

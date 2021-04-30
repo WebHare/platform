@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "mod::publisher/lib/contentlibraries.whlib";
-LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/internal/contentlibraries/conditions.whlib";
 LOADLIB "mod::publisher/tolliumcomponents/conditionedit.whlib";

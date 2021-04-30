@@ -9,7 +9,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
-LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
