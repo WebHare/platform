@@ -1181,7 +1181,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       userinfo := userentity->GetFields(getfields);
       DATETIME now := GetCurrentDatetime();
       IF(Cellexists(getfields, "WHUSER_DISABLED") AND userinfo.whuser_disabled)
-        RETURN [ impersonatinguser := DEFAULT OBJECT, serobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
+        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
       IF(now < userinfo.wrd_creationdate)
         RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is not yet active" ];
       IF(userinfo.wrd_limitdate <= now )
