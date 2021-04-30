@@ -1766,6 +1766,9 @@ MACRO TestWRDQuery_ContainsAndMDEqual()
   TestEq([dval2_1,dval2_2],         SortArray(persontype->GetEntity(t1_2)->GetField("TEST_MULTIPLE_DOMAIN")));
   TestEq([dval2_1,dval2_2,dval2_3], SortArray(persontype->GetEntity(t1_2_3)->GetField("TEST_MULTIPLE_DOMAIN")));
 
+  //used to throw because it didnt trust '0' with CONTAINS
+  TestEq(0, Length(persontype->RunQuery( [filters := [[ field := "TEST_MULTIPLE_DOMAIN", value := 0 ]]])));
+
   RECORD ARRAY results;
   results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
                                    , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "CONTAINS", value := dval2_2 ]]
@@ -1793,6 +1796,8 @@ MACRO TestWRDQuery_ContainsAndMDEqual()
   results := SELECT * FROM results ORDER BY email;
   TestEq(1,Length(results));
   TestEq(t1_2_3,results[0].id);
+
+  TestThrowsLike("*'0'*", PTR persontype->RunQuery( [ filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "INTERSECTS", value := [dval2_2,dval2_3,0] ]]]));
 
   results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID", email := "WRD_CONTACT_EMAIL", domvals := "TEST_MULTIPLE_DOMAIN" ]
                                    , filters := [[ field := "TEST_MULTIPLE_DOMAIN", matchtype := "INTERSECTS", value := [dval2_2,dval2_3] ]]

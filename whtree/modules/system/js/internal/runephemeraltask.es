@@ -3,7 +3,7 @@ const process = require('process');
 const bridge = require('@mod-system/js/wh/bridge');
 const StackTrace = require('stack-trace');
 
-let getopt = require('node-getopt').create([
+let getopt = require('node-getopt/lib/getopt.js').create([
   [''  , 'debug'               , 'debug output.'],
   [''  , 'worker=ARG'          , 'set worker number'],
   [''  , 'cluster=ARG'         , 'worker cluster'],
