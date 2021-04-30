@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";

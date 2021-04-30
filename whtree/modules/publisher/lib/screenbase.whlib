@@ -2,7 +2,6 @@
 /** @topic publisher-apps/tollium */
 
 LOADLIB "mod::publisher/lib/internal/files.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

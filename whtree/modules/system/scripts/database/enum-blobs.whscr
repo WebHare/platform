@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::util/algorithms.whlib";

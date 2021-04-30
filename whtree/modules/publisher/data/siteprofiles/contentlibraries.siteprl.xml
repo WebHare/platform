@@ -46,8 +46,10 @@
   <!-- Apply references to slots -->
   <apply>
     <to type="folder" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
+
     <!-- set a contenttype because it's required, but we don't really care about it -->
-    <extendproperties extension="/tolliumapps/objectprops/references.xml#referencestab" contenttype="http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget" />
+    <extendproperties extension="/tolliumapps/objectprops/references.xml#referencestab"
+                      contenttype="http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget" />
   </apply>
 
   <!-- beacon file type -->
@@ -63,7 +65,9 @@
   </filetype>
 
   <!-- content snippets -->
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" tid=".contentsnippets" icon="tollium:folders/snippetfolder">
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets"
+              icon="tollium:folders/snippetfolder"
+              tid=".contentsnippets">
     <foldersettings>
       <contentslisthandler objectname="/tolliumapps/filemanager/contentsnippets.whlib#SnippetsFolderContents" />
     </foldersettings>
@@ -71,6 +75,7 @@
 
   <apply priority="10">
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets" />
+
     <!-- republish associated content if a content snippet changes -->
     <republish scope="references" />
 

@@ -2,7 +2,6 @@
 /** @topic modules/services */
 
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog, UpdateAuditContext;

@@ -8,7 +8,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
-LOADLIB "mod::publisher/lib/contentlibraries.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";

@@ -638,9 +638,9 @@
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/photogallery.whlib#PhotoGalleryRenderer" />
   </apply>
 
-  <apply priority="-1000"> <!-- set up global defaults -->
+  <apply priority="-1000">
+    <!-- set up global defaults -->
     <to type="all" />
-
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
 
     <!-- By default, allow all questions and handlers that don't require extra configuration or JS help -->

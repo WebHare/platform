@@ -2,15 +2,11 @@
 /** @topic contentlibraries/contentlibraries */
 
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/contentlibraries/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
