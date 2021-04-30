@@ -457,13 +457,15 @@ STATIC OBJECTTYPE PublicationRun
       LogHarescriptErrors(this->hs_errors, [ info := info ]);
 
       STRING abortmsg;
-      BOOLEAN is_abort;
       FOREVERY (RECORD error FROM this->hs_errors)
       {
         IF (error.code = 182)
         {
-          is_abort := TRUE;
           abortmsg := error.param1;
+        }
+        ELSE IF (error.code = 203) //exception
+        {
+          abortmsg := error.param1 || ": " || error.param2;
         }
       }
       this->errorcode := 102;
@@ -1175,6 +1177,10 @@ STATIC OBJECTTYPE IndexFileRun
             {
               is_abort := TRUE;
               abortmsg := error.param1;
+            }
+            ELSE IF (error.code = 203) //exception
+            {
+              abortmsg := error.param1 || ": " || error.param2;
             }
           }
           this->errorcode := is_abort ? 102 /*abort*/ : 101 /*harescript errors*/;
