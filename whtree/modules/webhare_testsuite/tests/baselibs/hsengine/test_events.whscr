@@ -1,8 +1,7 @@
 <?wh
 
 LOADLIB "wh::util/eventemitter.whlib";
-
-LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
 
 
 PRINT("\n === Running TestEvents\n");
@@ -31,3 +30,12 @@ emitter->RemoveListener(handle);
 emitter->EmitTestEvent(44);
 
 TestEq([[ eventname := "testevent", data := [ x := 43 ]]], eventlog);
+eventlog := RECORD[];
+
+OBJECT grp := emitter->GetListenGroup();
+grp->AddListener("nonmatch", PTR AddEvent("nonmatch", #1));
+grp->AddListener("testevent", PTR AddEvent("testevent", #1));
+emitter->EmitTestEvent(45);
+grp->Close();
+emitter->EmitTestEvent(46);
+TestEq([[ eventname := "testevent", data := [ x := 45 ]]], eventlog);
