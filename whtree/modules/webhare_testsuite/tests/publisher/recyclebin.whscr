@@ -5,7 +5,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/whfs/actions.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
@@ -360,42 +359,10 @@ OBJECT FUNCTION CreateFormWithResults(OBJECT dest, STRING filename)
   RETURN formfile;
 }
 
-MACRO TestFormExpiring()
-{
-  testfw->BeginWork();
-  OBJECT tmpdir := OpenTestsuiteSite()->OpenByPath("webtools")->EnsureFolder([ name := "tmp" ]);
-  OBJECT container := tmpdir->EnsureFolder([ name := "container" ]);
-  testfw->CommitWork();
-
-  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE ]);
-
-  OBJECT directform := CreateFormWithResults(tmpdir, "form");
-  OBJECT subform := CreateFormWithResults(container, "formincontainer");
-
-  testfw->BeginWork();
-
-  directform->RecycleSelf();
-  container->RecycleSelf();
-
-  RECORD direct_expire := ExpireRecycleBinItem(directform->id, SELECT AS INTEGER id FROM system.fs_history WHERE fs_object = directform->id);
-  RECORD container_expire := ExpireRecycleBinItem(container->id, SELECT AS INTEGER id FROM system.fs_history WHERE fs_object = container->id);
-
-  TestEQ([ success := FALSE, code := "hasformresults", deleted := 0, kept := 1 ], direct_expire);
-  TestEQ([ success := TRUE, code := "deleted", deleted := 1, kept := 1 ], container_expire);
-
-  TestEQ(TRUE, RecordExists(SELECT FROM system.fs_history WHERE fs_object = subform->id));
-
-  tmpdir->RecycleSelf();
-
-  testfw->CommitWork();
-}
-
-
 RunTestFrameworK([ PTR Setup
                  , PTR RecyclebinSearch
                  , PTR TestDupeRecycle
                  , PTR RestoreStuff
-                 , PTR TestFormExpiring
                  ], [ testusers := [[ login := "lisa" ]
                                    ,[ login := "bart" ]
                                    ]]);
