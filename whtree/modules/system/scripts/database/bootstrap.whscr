@@ -1,0 +1,11 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/bootstrap.whlib";
+
+
+/** wh run mod::system/scripts/database/bootstrap.whscr
+    Runs only the bootstrap steps, eg to quickly apply PGSQL procedures */
+
+OpenPrimary();
+BootstrapDatabase();

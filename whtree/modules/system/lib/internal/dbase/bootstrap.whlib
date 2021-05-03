@@ -1,0 +1,35 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+PUBLIC MACRO BootstrapDatabase()
+{
+  IF (GetDatabaseType() = "postgresql")
+    BootstrapPostgreSQL(GetPrimary());
+
+  GetPrimary()->BeginWork();
+
+  IF(NOT GetPrimary()->SchemaExists("system"))
+    GetPrimary()->CreateSchema("system","system","modulemanager");
+
+  IF(NOT GetPrimary()->ColumnExists("system","flatregistry","id"))
+  {
+    __LegacyCreateTable(GetPrimary(), "system", "flatregistry",
+       [ primarykey := "id"
+       , cols := [[ column_name := "id", data_type := "INTEGER", autonumber_start := 1, nullable := FALSE ]
+                 ,[ column_name := "name", data_type := "VARCHAR", character_octet_length := 512, nullable := FALSE, noupdate := TRUE ]
+                 ,[ column_name := "namehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, isunique := TRUE, noupdate := TRUE ]
+                 ,[ column_name := "nodehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, noupdate := TRUE ]
+                 ,[ column_name := "data", data_type := "VARCHAR", character_octet_length := 4096 ]
+                 ,[ column_name := "blobdata", data_type := "BLOB" ]
+                 ,[ column_name := "modificationdate", data_type := "DATETIME"]
+                 ]
+       ]);
+  }
+  GetPrimary()->CommitWork();
+}
+
+
