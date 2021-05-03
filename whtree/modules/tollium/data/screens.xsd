@@ -657,7 +657,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexContent>
       <xs:extension base="LinesContainer">
         <xs:attribute name="position" type="xs:string" use="required" />
-        <xs:attribute name="where" type="InsertWheres" use="required" />
+        <xs:attribute name="where" type="InsertWheres" default="after" />
         <xs:attributeGroup ref="Gid" /> <!-- FIXME is this still being picked up? -->
       </xs:extension>
     </xs:complexContent>
