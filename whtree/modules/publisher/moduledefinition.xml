@@ -401,11 +401,9 @@
         </d:documentation>
       </d:integer>
 
-      <d:integer name="form_fsobject" references="system.fs_objects" nullable="false">
+      <d:integer name="form_fsobject" references="system.fs_objects" nullable="false" ondelete="cascade">
         <d:documentation>
           The fs_object which is the form file.
-          These results records aren't automatically deleted (no cascade/set default), so they will have to be deleted
-          explicitly before the form file itself can be deleted.
         </d:documentation>
       </d:integer>
 
