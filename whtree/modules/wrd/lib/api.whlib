@@ -130,8 +130,8 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
 
       deffile := def.definitionfile;
     }
-
-    schemadef := OpenWRDSchemaDefFile(deffile);
+    IF(deffile != "")
+      schemadef := OpenWRDSchemaDefFile(deffile);
   }
 
   INTEGER schemaid := MakeAutonumber(wrd.schemas,"id");
