@@ -2,8 +2,13 @@
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 MACRO TestProcedures()
@@ -32,20 +37,132 @@ MACRO TestProcedures()
 
 
   testfw->BeginWork();
-  OBJECT site := testfw->GetTestSite();
-  OBJECT parentfolder := site->rootobject->CreateFolder([ name := "parent" ]);
+  OBJECT foreignfoldersiteroot := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_foreignfoldersite"]);
+  OBJECT foreignfoldersite := CreateSiteFromFolder(foreignfoldersiteroot->id);
+  OBJECT parentfolder := foreignfoldersite->rootobject->CreateFolder([ name := "parent" ]);
   OBJECT foreignfolder := parentfolder->CreateFolder([ name := "foreignfolder", type := 1 ]);
   testfw->CommitWork();
 
-  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "" ] ]));
-  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "/" ] ]));
-  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "foreignfolder" ] ]));
-  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder" ] ]));
-  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "///parent///foreignfolder///" ] ]));
-  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder/sub" ] ]));
-  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ site->root, "parent/foreignfolder/sub//" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "/" ] ]));
+  TestEQ([ [ val := FALSE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "foreignfolder" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "parent/foreignfolder" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "///parent///foreignfolder///" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "parent/foreignfolder/sub" ] ]));
+  TestEQ([ [ val := TRUE ] ], GetPrimary()->__ExecSQL(`SELECT webhare_proc_isforeignfolder($1, $2) AS val`, [ args := VARIANT[ foreignfoldersite->root, "parent/foreignfolder/sub//" ] ]));
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE ])
-                 , PTR TestProcedures
+MACRO TestURL()
+{
+  OBJECT testroot := GetTestsuiteTempFolder();
+  STRING baseurl := testroot->url;
+
+  OBJECT testfolder, testfile, testfile2;
+
+  testfw->BeginWork();
+
+  testfile := testroot->CreateFolder([ name := "test" ]);
+  TestEQ(baseurl || "test/", testfile->url);
+  TestEQ(baseurl || "test/", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  testfile->RecycleSelf();
+
+  testfile := testroot->CreateFile([ name := "test.html" ]);
+  TestEQ(baseurl || "test.html", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  TestEQ(baseurl || "test.html", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  testfile->RecycleSelf();
+
+  testfile := testroot->CreateFile([ name := "index.html" ]);
+  testroot->UpdateMetadata([ indexdoc := testfile->id ]);
+  testfile->Refresh();
+  TestEQ(baseurl || "", testfile->url);
+  TestEQ(baseurl || "", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  testroot->UpdateMetadata([ indexdoc := 0 ]);
+  testfile->RecycleSelf();
+
+  testfile := testroot->CreateFile([ name := "test.link", type := 18, externallink := "http://example.com" ]);
+  testfile->Refresh();
+  TestEQ("http://example.com", testfile->url);
+  TestEQ("http://example.com", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  TestEQ(baseurl || "test.link/", CalculateFSObjectFullPathAndURL(testfile->id, [ followlinks := FALSE]).url);
+  testroot->UpdateMetadata([ indexdoc := 0 ]);
+  testfile->RecycleSelf();
+
+  testfolder := testroot->CreateFolder([ name := "test" ]);
+  testfile := testfolder->CreateFile([ name := "index.html" ]);
+  testfolder->UpdateMetadata([ indexdoc := testfile->id ]);
+  testfile->Refresh();
+  TestEQ(baseurl || "test/", testfile->url);
+  TestEQ(baseurl || "test/", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  testfile->UpdateMetadata([ name := "test.html" ]);
+  TestEQ(baseurl || "test/", testfile->url); // still index
+  testfile->Refresh();
+  TestEQ(baseurl || "test/", testfile->url); // still index
+  TestEQ(baseurl || "test/", CalculateFSObjectFullPathAndURL(testfile->id).url); // still index
+  testfolder->UpdateMetadata([ indexdoc := 0 ]);
+  testfile->Refresh();
+  TestEQ(baseurl || "test/test.html", testfile->url); // still index
+  TestEQ(baseurl || "test/test.html", CalculateFSObjectFullPathAndURL(testfile->id).url); // still index
+  testfile->RecycleSelf();
+  testfolder->RecycleSelf();
+
+  testfile := testroot->CreateFile([ name := "test.html" ]);
+  testfile2 := testroot->CreateFile([ name := "test2.link", type := 19, filelink := testfile->id ]);
+  TestEQ(testfile->url, testfile2->url);
+  TestEQ(testfile->url, CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  TestEQ(baseurl || "test2.link/", CalculateFSObjectFullPathAndURL(testfile2->id, [ followlinks := FALSE ]).url);
+  testfile->RecycleSelf();
+  testfile2->RecycleSelf();
+
+  INTEGER type_rtd := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+
+  // published as subdir
+  testfolder := testroot->CreateFolder([ name := "test" ]);
+  testfile := testfolder->CreateFile([ name := "test2.rtd", type := type_rtd ]);
+  TestEQ(baseurl || "test/test2/", testfile->url); // with /, is published as folder, stripped extension
+  TestEQ(baseurl || "test/test2/", CalculateFSObjectFullPathAndURL(testfile->id).url); // with /, is published as folder, stripped extension
+  testfolder->UpdateMetadata([ indexdoc := testfile->id ]);
+  testfile->Refresh();
+  TestEQ(baseurl || "test/", testfile->url);
+  TestEQ(baseurl || "test/", CalculateFSObjectFullPathAndURL(testfile->id).url);
+  testfile2 := testroot->CreateFile([ name := "test3.link", type := 20, filelink := testfile->id ]);
+  TestEQ(baseurl || "test3.link/", testfile2->url); // .link is not an hidden extension
+  TestEQ(baseurl || "test3.link/", CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  TestEQ(baseurl || "test3.link/", CalculateFSObjectFullPathAndURL(testfile2->id, [ followlinks := FALSE ]).url);
+  testfile2->UpdateMetadata([ name := "test3.rtd" ]);
+  TestEQ(baseurl || "test3/", testfile2->url); // .rtd is an hidden extension
+  TestEQ(baseurl || "test3/", CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  TestEQ(baseurl || "test3/", CalculateFSObjectFullPathAndURL(testfile2->id, [ followlinks := FALSE ]).url);
+  testfile->UpdateMetadata([ type := 5 ]); // unknown type, not published (kill stripextension flag) too
+  testfile2->RecycleSelf();
+  testfile2 := testroot->CreateFile([ name := "test3.rtd", type := 20, filelink := testfile->id ]);
+  TestEQ(baseurl || "test3.rtd", testfile2->url); // .rtd is an hidden extension, but type 0 doesn't hide extensions
+  TestEQ(baseurl || "test3.rtd", CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  TestEQ(baseurl || "test3.rtd", CalculateFSObjectFullPathAndURL(testfile2->id, [ followlinks := FALSE ]).url);
+  testfolder->RecycleSelf();
+
+  testfw->CommitWork();
+}
+
+MACRO TestWebroot()
+{
+  testfw->BeginWork();
+
+  OBJECT nooutputsiteroot := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_nooutputsite"]);
+  OBJECT nooutputsite := CreateSiteFromFolder(nooutputsiteroot->id);
+  TestEq("", SELECT AS STRING webroot FROM system.sites WHERE id = nooutputsite->id);
+  TestEq(TRUE, nooutputsite->id IN SELECT AS INTEGER ARRAY id FROM system.sites WHERE webroot="");
+
+  TestEq("", SELECT AS STRING objecturl FROM system.fs_objects WHERE id = nooutputsiteroot->id);
+  TestEq("", SELECT AS STRING link FROM system.fs_objects WHERE id = nooutputsiteroot->id);
+
+  OBJECT nooutputsitesub := nooutputsiteroot->CreateFolder([name := "sub"]);
+  TestEq("", SELECT AS STRING objecturl FROM system.fs_objects WHERE id = nooutputsitesub->id);
+  TestEq("", SELECT AS STRING link FROM system.fs_objects WHERE id = nooutputsitesub->id);
+
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR TestProcedures
+                 , PTR TestURL
+                 , PTR TestWebroot
                  ]);

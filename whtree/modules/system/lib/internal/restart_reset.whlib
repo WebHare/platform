@@ -14,7 +14,7 @@ LOADLIB "mod::system/lib/internal/serverconfig.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
+LOADLIB "mod::system/lib/internal/dbase/bootstrap.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -200,33 +200,6 @@ PUBLIC RECORD ARRAY FUNCTION ValidateModules()
     messages := messages CONCAT SELECT *, msg := resourcename || ":" || line || ":" || col || ": " || message FROM result.errors;
   }
   RETURN messages;
-}
-
-MACRO BootstrapDatabase()
-{
-  IF (GetDatabaseType() = "postgresql")
-    BootstrapPostgreSQL(GetPrimary());
-
-  GetPrimary()->BeginWork();
-
-  IF(NOT GetPrimary()->SchemaExists("system"))
-    GetPrimary()->CreateSchema("system","system","modulemanager");
-
-  IF(NOT GetPrimary()->ColumnExists("system","flatregistry","id"))
-  {
-    __LegacyCreateTable(GetPrimary(), "system", "flatregistry",
-       [ primarykey := "id"
-       , cols := [[ column_name := "id", data_type := "INTEGER", autonumber_start := 1, nullable := FALSE ]
-                 ,[ column_name := "name", data_type := "VARCHAR", character_octet_length := 512, nullable := FALSE, noupdate := TRUE ]
-                 ,[ column_name := "namehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, isunique := TRUE, noupdate := TRUE ]
-                 ,[ column_name := "nodehash", data_type := "BYTEA", character_octet_length := 20, nullable := FALSE, noupdate := TRUE ]
-                 ,[ column_name := "data", data_type := "VARCHAR", character_octet_length := 4096 ]
-                 ,[ column_name := "blobdata", data_type := "BLOB" ]
-                 ,[ column_name := "modificationdate", data_type := "DATETIME"]
-                 ]
-       ]);
-  }
-  GetPrimary()->CommitWork();
 }
 
 PUBLIC MACRO UpdateAllModuleSchemasAsync(BOOLEAN issoftreset)

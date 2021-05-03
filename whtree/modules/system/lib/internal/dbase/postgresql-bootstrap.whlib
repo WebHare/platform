@@ -176,6 +176,9 @@ BEGIN
            LEFT OUTER JOIN system.sites s ON s.id = o.id
      WHERE o.id = _id;
     IF _site IS NOT NULL THEN
+      IF _webroot = '' THEN
+        RETURN '';
+      END IF;
       RETURN _webroot || webhare_proc_urlencode(_path);
     ELSIF _id IS NULL THEN
       RETURN '';
