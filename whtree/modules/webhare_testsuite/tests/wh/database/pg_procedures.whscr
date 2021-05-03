@@ -143,6 +143,26 @@ MACRO TestURL()
   testfw->CommitWork();
 }
 
+MACRO TestWebroot()
+{
+  testfw->BeginWork();
+
+  OBJECT nooutputsiteroot := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_nooutputsite"]);
+  OBJECT nooutputsite := CreateSiteFromFolder(nooutputsiteroot->id);
+  TestEq("", SELECT AS STRING webroot FROM system.sites WHERE id = nooutputsite->id);
+  TestEq(TRUE, nooutputsite->id IN SELECT AS INTEGER ARRAY id FROM system.sites WHERE webroot="");
+
+  TestEq("", SELECT AS STRING objecturl FROM system.fs_objects WHERE id = nooutputsiteroot->id);
+  TestEq("", SELECT AS STRING link FROM system.fs_objects WHERE id = nooutputsiteroot->id);
+
+  OBJECT nooutputsitesub := nooutputsiteroot->CreateFolder([name := "sub"]);
+  TestEq("", SELECT AS STRING objecturl FROM system.fs_objects WHERE id = nooutputsitesub->id);
+  TestEq("", SELECT AS STRING link FROM system.fs_objects WHERE id = nooutputsitesub->id);
+
+  testfw->CommitWork();
+}
+
 RunTestframework([ PTR TestProcedures
                  , PTR TestURL
+                 , PTR TestWebroot
                  ]);
