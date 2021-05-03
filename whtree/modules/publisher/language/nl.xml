@@ -2080,6 +2080,7 @@
           <text tid="retrieveobjects-parts">Data ophalen (<param p="1"/> / <param p="2"/>)</text>
           <text tid="retrieveobjects-size">Data ophalen (<param p="1"/> / <param p="2"/>)</text>
           <text tid="updatelocalcache">Lokale cache bijwerken</text>
+          <text tid="versionedignored">Kan folder '<param p="1"/>' niet synchroniseren omdat versiebeheer actief is binnen deze folder.</text>
         </textgroup>
       </textgroup>
     </textgroup>
