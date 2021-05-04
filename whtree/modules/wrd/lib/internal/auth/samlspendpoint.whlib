@@ -239,7 +239,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
           IF (requestid != "" AND RecordExists(SELECT FROM auditevents WHERE data.requestid = requestid))
             THROW NEW Exception("Already processed a response for this SAML request");
           IF (RecordExists(SELECT FROM auditevents WHERE data.responseid = response.id))
-            THROW NEW Exception("Already processed a this SAML response");
+            THROW NEW Exception("Already processed this SAML response");
         }
 
         WriteWRDAuditEvent(authplugin->accounttype, "wrd:login:saml:" || ToLowercase(loginres.code),
