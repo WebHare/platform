@@ -3,12 +3,16 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/saml.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
@@ -308,6 +312,23 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->wrd_connectedproviders->GetEntity(^connectedproviders->value)->CloseOrDeleteEntity();
       work->Finish();
     }
+  }
+
+  MACRO DoIdPInitiatedLogin(OBJECT receiver)
+  {
+    RECORD redir := this->contexts->controller->wrdauthplugin->InitiateSAMLIdPInitiatedLogin(^connectedproviders->selection.samlentityid);
+    IF (NOT redir.success)
+    {
+      receiver->Cancel();
+      SWITCH (redir.code)
+      {
+        CASE "noidpendpointfound" { this->RunSimpleScreen("error", this->GetTid(".noidpendpointfound")); }
+        DEFAULT                   { this->RunSimpleScreen("error", this->GetTid(".unknownerror")); }
+      }
+      RETURN;
+    }
+
+    receiver->SendSubmitInstruction(redir);
   }
 >;
 

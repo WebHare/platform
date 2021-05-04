@@ -49,6 +49,9 @@
         <enableon source="connectedproviders" min="1" checkflags="idp" onexecute="dodeleteconnectedidp" />
       </action>
 
+      <windowopenaction name="idpinitiatedlogin">
+        <enableon source="connectedproviders" min="1" checkflags="sp" onwindowopen="doidpinitiatedlogin" />
+      </windowopenaction>
     </actions>
 
     <menus>
@@ -71,6 +74,8 @@
         <item action="addconnectedsp" disablemode="hidden" />
         <item action="edit" disablemode="hidden" />
         <item action="delete" disablemode="hidden" />
+        <divider />
+        <item action="idpinitiatedlogin" disablemode="hidden" />
       </menu>
 
     </menus>
@@ -83,6 +88,8 @@
       <button tid="tollium:common.actions.add" menu="addmenu" icon="tollium:actions/add" />
       <button action="edit" icon="tollium:actions/properties" />
       <button action="delete" icon="tollium:actions/delete" />
+      <divider />
+      <button action="idpinitiatedlogin" icon="tollium:actions/import" />
     </toolbar>
 
     <body>

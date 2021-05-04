@@ -948,6 +948,35 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp
   RETURN res;
 }
 
+PUBLIC RECORD FUNCTION GenerateSAMLIdPInitiatedResponse(OBJECT wrdauthplugin, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ binding :=      "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+      , remoteip :=     ""
+      , spentityid :=   ""
+      ], options,
+      [ enums :=        [ binding := [ "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" ]
+                        ]
+      , required :=     [ "spentityid" ]
+      ]);
+
+  OBJECT idp := GetAuthPluginIDP(wrdauthplugin);
+  OBJECT sp := idp->GetConnectedSP(options.spentityid);
+
+  RECORD authrequest_data :=
+      [ t :=    "authnrequest"
+      , p :=    (options.binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" ? 1 : 0) // post?
+      , idp :=  idp->wrd_id
+      , rs :=   ""
+      , r :=    DEFAULT RECORD
+      , sp :=   sp->id
+      , ip :=   options.remoteip
+      , ti :=   ""
+      ];
+
+  RETURN GenerateSAMLLoginResponse(wrdauthplugin, authrequest_data);
+}
+
 /** Creates a SAML login response
     @param wrdauthplugin WRD Auth plugin
     @param decoded_req Dense request (encoded by samledpendpoint)
@@ -971,7 +1000,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
   RECORD response :=
       [ type :=           "Response"
       , id :=             response_id
-      , inresponseto :=   decoded_req.r.id
+      , inresponseto :=   RecordExists(decoded_req.r) ? decoded_req.r.id : ""
       , version :=        "2.0"
       , issueinstant :=   now
       , issuer :=
@@ -986,7 +1015,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
       ];
 
   RECORD user;
-
   IF (wrdauthplugin->GetLoggedInEntity() != 0)
   {
     INSERT CELL consent := "urn:oasis:names:tc:SAML:2.0:consent:obtained" INTO response;
@@ -1052,7 +1080,9 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
         ] INTO response.status.statuscode;
   }
 
-  RECORD endpoint := sp->GetEndpointOfTypeByIdx("AssertionConsumerService", decoded_req.r.acs);
+  RECORD endpoint := RecordExists(decoded_req.r)
+      ? sp->GetEndpointOfTypeByIdx("AssertionConsumerService", decoded_req.r.acs)
+      : sp->SelectEndpointOfType("AssertionConsumerService");
 
   RETURN idp->EncodeAndSignDocument(response, endpoint, decoded_req.rs, FALSE);
 }
