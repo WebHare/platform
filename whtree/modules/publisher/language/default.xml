@@ -2080,6 +2080,7 @@
           <text tid="retrieveobjects-parts">Retrieving data (<param p="1"/> / <param p="2"/>)</text>
           <text tid="retrieveobjects-size">Retrieving data (<param p="1"/> / <param p="2"/>)</text>
           <text tid="updatelocalcache">Updating local cache</text>
+          <text tid="versionedignored">Cannot synchronize folder '<param p="1"/>' because versioning is enabled within this folder.</text>
         </textgroup>
       </textgroup>
     </textgroup>

@@ -11,13 +11,16 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
-LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+
 
 PUBLIC OBJECTTYPE Manage EXTEND TolliumScreenBase
 <
@@ -181,6 +184,18 @@ PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
   }
 >;
 
+BOOLEAN FUNCTION IsVersioned(OBJECT rootobj)
+{
+  INTEGER ARRAY siteids;
+  IF (rootobj->parentsite != 0)
+    INSERT rootobj->parentsite INTO siteids AT END;
+  ELSE
+    siteids := SELECT AS INTEGER ARRAY root FROM GetContainedSites(INTEGER[ rootobj->id ]);
+
+  RECORD res := GetVersioningPolicyForSites(siteids);
+  RETURN NOT RecordExists(res) OR ObjectExists(res.policy);
+}
+
 PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
 < // ---------------------------------------------------------------------------
   //
@@ -237,6 +252,8 @@ PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
     INTEGER ARRAY tosync := syncself ? INTEGER[this->data.parent] : this->data.objects;
     STRING ARRAY missingreferences;
 
+    STRING ARRAY versioned;
+
     FOREVERY(INTEGER sourcefolderid FROM tosync)
     {
       STRING syncpath := this->data.remotepath;
@@ -247,6 +264,14 @@ PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
         syncpath := syncpath || "/" || syncname;
         IF(Length(tosync)>1)
           suffix := " (" || syncname || " - " || #sourcefolderid+1 || "/" || Length(tosync) || ")";
+      }
+      OBJECT folder := OpenWHFSObject(sourcefolderid);
+
+      IF (IsVersioned(folder))
+      {
+        STRING syncname := OpenWHFSObject(sourcefolderid)->name;
+        INSERT syncname INTO versioned AT END;
+        CONTINUE;
       }
 
       RECORD conndata := peer->InvokeAdminService("OpenSyncFolder", syncpath, DEFAULT RECORD);
@@ -260,7 +285,6 @@ PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
       RECORD tree := conndata.folderdata->GETOBJECTTREECOMPRESSED();
       OBJECT rtree_remote := EncapsulateRawRepositoryTree(DecodeHSONBlob(MakeZlibDecompressedFile(tree.treedata, "GZIP")));
 
-      OBJECT folder := OpenWHFSObject(sourcefolderid);
       this->SetProgress(startprogress + progressperfolder*0.05, GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.indexlocalfolder") || suffix);
 
       OBJECT work := this->BeginWork();
@@ -295,10 +319,12 @@ PUBLIC OBJECTTYPE FolderSync EXTEND TolliumBackgroundTask
       missingreferences := missingreferences CONCAT res.missing_references;
     }
 
-    IF(Length(missingreferences) != 0)
+    IF(Length(missingreferences) != 0 OR IsValueSet(versioned))
     {
       OBJECT work := this->BeginWork();
 
+      FOREVERY(STRING name FROM versioned)
+        work->AddError(GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.versionedignored", name));
       FOREVERY(STRING missingref FROM ArraySlice(missingreferences,0,10))
         work->AddWarning(GetTid("publisher:tolliumapps.filemanager.syncedfolders.bgtask.missingrefignored", missingref));
       IF(Length(missingreferences) > 10)

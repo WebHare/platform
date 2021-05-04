@@ -10,6 +10,7 @@ RECORD info := ParseArguments(GetConsoleArguments(),
                               [ [ name := "dryrun", type := "switch" ]
                               , [ name := "debug", type := "switch" ]
                               , [ name := "perfile", type := "switch" ] //commit per file
+                              , [ name := "withversionevents", type := "switch" ]
                               , [ name := "maxrecycledays", type := "stringopt" ]
                               , [ name := "maxrecyclesize", type := "stringopt" ]
                               ]);
@@ -128,10 +129,35 @@ IF(max_recycle_size > 0) //a recyclebin limit size has been set too
 
 MACRO Clean(RECORD ARRAY tokill)
 {
+  IF (perfile)
+    trans->BeginWork();
+
+  IF (info.withversionevents)
+  {
+    INTEGER ARRAY draftids := SELECT AS INTEGER ARRAY DISTINCT draft_object FROM system.fs_versionevents WHERE live_object IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
+
+    DELETE
+      FROM system.fs_versionevents
+     WHERE live_object IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
+
+    DELETE
+      FROM system.fs_objects
+     WHERE id IN draftids
+       AND parent IN [ 18, 19 ];
+  }
+
   // Delete the history item, then the object
   DELETE FROM system.fs_history WHERE id IN (SELECT AS INTEGER ARRAY historyid FROM tokill);
   DELETE FROM system.fs_objects WHERE id IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
   DELETE FROM recyclebinitems WHERE fs_object IN (SELECT AS INTEGER ARRAY fs_object FROM tokill);
+
+  IF (perfile)
+  {
+    IF (dryrun)
+      trans->RollbackWork();
+    ELSE
+      trans->CommitWork();
+  }
 }
 
 IF(debug OR dryrun)

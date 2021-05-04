@@ -17,10 +17,10 @@ LOADLIB "mod::wrd/lib/database.whlib";
 PUBLIC MACRO PrintGDPRScanReport(RECORD report)
 {
   PRINT(`Configuration:
-    Allowed e-mailmasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultemailmasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowemailmasks, "mask") ORDER BY mask NOT IN report.defaultemailmasks, mask), "")}
-    Allowed fullnamemasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultfullnamemasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowfullnamemasks, "mask") ORDER BY mask NOT IN report.defaultfullnamemasks, mask) , "")}
+  Allowed e-mailmasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultemailmasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowemailmasks, "mask") ORDER BY mask NOT IN report.defaultemailmasks, mask), "")}
+  Allowed fullnamemasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN report.defaultfullnamemasks ? "" : " (custom added)"}` FROM ToRecordArray(report.allowfullnamemasks, "mask") ORDER BY mask NOT IN report.defaultfullnamemasks, mask) , "")}
 
-  `);
+`);
 
   RECORD ARRAY dbschemas := SELECT * FROM report.dbaseschemas WHERE Length(tables) > 0;
   FOREVERY(RECORD dbschema FROM dbschemas)
