@@ -10,7 +10,6 @@ class Webhare < Formula
 
   depends_on "aws-sdk-cpp"
   depends_on "ccache"
-  depends_on "elasticsearch"
   depends_on "freetype"
   depends_on "fswatch"
   depends_on "giflib"
