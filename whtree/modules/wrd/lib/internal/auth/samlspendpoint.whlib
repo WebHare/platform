@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
@@ -151,13 +152,22 @@ PUBLIC MACRO RunSAMLSpEndpoint()
         THROW NEW Exception("SAML HTTP-Redirect binding is not allowed for this service");
 
       RECORD webdata := GetSAMLDataFromWebData(binding);
-      RECORD instr := DecryptForThisServer("wrd:samlauth", webdata.relaystate);
 
-      STRING transid;
-      IF (RecordExists(instr))
-        transid := instr.id;
+      STRING requestid;
+      RECORD instr;
 
-      LogRPCTraffic("wrd:saml", "acservice", FALSE, GetClientRemoteIp(), transid, CELL[...webdata, DELETE requestdoc, DELETE responsedoc]);
+      IF (webdata.relaystate != "")
+      {
+        instr := DecryptForThisServer("wrd:samlauth", webdata.relaystate);
+        requestid := instr.id;
+      }
+      ELSE
+      {
+        // IdP initiated login, just go to site root and allow logout
+        instr := [ t := "r", u := authplugin->webcontext->targetsite->webroot, lo := TRUE ];
+      }
+
+      LogRPCTraffic("wrd:saml", "acservice", FALSE, GetClientRemoteIp(), requestid, CELL[...webdata, DELETE requestdoc, DELETE responsedoc]);
 
       RECORD resdata := DecodeSAMLMessage(webdata, FALSE);
       RECORD response := resdata.message;
@@ -177,8 +187,15 @@ PUBLIC MACRO RunSAMLSpEndpoint()
         IF (NOT RecordExists(response) OR response.type != "Response")
           THROW NEW Exception("Only Response allowed here, but got a '" || response.type || "'");
 
-        IF (LENGTH(response.assertion) != 1)
-          THROW NEW Exception("Not exactly one assertion found in response");
+        IF (response.inresponseto != requestid) // FIXME: ensure replay of response + relaystate doesn't work
+          THROW NEW Exception("SAML response was a for another request");
+        IF (requestid = "" AND response.issueinstant < AddTimeToDate(-10000, GetCurrentDateTime())) // FIXME: ensure replay of response doesn't work
+          THROW NEW Exception("Too old unsolicited SAML response");
+
+        IF (LENGTH(response.assertion) = 0)
+          THROW NEW Exception("No assertions found in response");
+        ELSE IF (LENGTH(response.assertion) != 1)
+          THROW NEW Exception(`Multiple assertions (${LENGTH(response.assertion)}) found in response`);
 
         IF (NOT RecordExists(response.assertion[0].subject))
           THROW NEW Exception("No subject found in SAML response");
@@ -206,25 +223,32 @@ PUBLIC MACRO RunSAMLSpEndpoint()
         OBJECT spsupport := authplugin->GetSAMLSPConfig(sp->GetTag());
 
         RECORD loginres := spsupport->ProcessAuthenticationStatement(statement);
-        RECORD userdata;
-        IF (authplugin->wrdschema->usermgmt AND loginres.entityid != 0)
+        IF (loginres.entityid != 0)
         {
-          RECORD authobj := LookupAuthobjectByEntityId(loginres.entityid);
-          IF (RecordExists(authobj))
-          {
-            userdata :=
-                [ authobjectid :=     authobj.id
-                , login :=            authobj.name
-                ];
-          }
+          RECORD ARRAY auditevents :=
+                  SELECT creationdate
+                       , COLUMN type
+                       , data :=        CELL[ requestid := "", responseid := "", ...DecodeHSON(COLUMN data) ]
+                    FROM wrd.auditevents
+                   WHERE COLUMN entity = loginres.entityid
+                     AND COLUMN type LIKE "wrd:login:saml:*"
+                     AND creationdate >= AddDaysToDate(-1, GetCurrentDateTime())
+                     AND data LIKE "hson:*"
+                ORDER BY creationdate DESC;
+
+          IF (requestid != "" AND RecordExists(SELECT FROM auditevents WHERE data.requestid = requestid))
+            THROW NEW Exception("Already processed a response for this SAML request");
+          IF (RecordExists(SELECT FROM auditevents WHERE data.responseid = response.id))
+            THROW NEW Exception("Already processed a this SAML response");
         }
 
-        WriteWRDAuditEvent(authplugin->accounttype, "login:saml:" || ToLowercase(loginres.code),
-              [ account := loginres.entityid
-              , login := RecordExists(userdata) ? userdata.login : ""
-              , message := [ sp_tag := sp->GetTag()
-                           , name := loginres.name
-                           ]
+        WriteWRDAuditEvent(authplugin->accounttype, "wrd:login:saml:" || ToLowercase(loginres.code),
+              [ account :=        loginres.entityid
+              , login :=          loginres.name
+              , message :=        [ sp_tag :=         sp->GetTag()
+                                  , requestid :=      requestid
+                                  , responseid :=     response.id
+                                  ]
               ]);
 
         RECORD submitinstr;
@@ -284,7 +308,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
 
         IF (RecordExists(submitinstr))
         {
-          LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+          LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), requestid ?? response.id, submitinstr);
 
           ExecuteSubmitInstruction(submitinstr);
         }
@@ -295,36 +319,42 @@ PUBLIC MACRO RunSAMLSpEndpoint()
         // might be all kinds of errors, such as a 'signature mismatch', no or a bad response, etc..
         LogHarescriptException(e);
 
-        RECORD subinstr := DecryptForThisServer("wrd:samlauth", resdata.relaystate);
-
         RECORD submitinstr;
-        SWITCH (subinstr.t)
+        IF (resdata.relaystate = "")
+          submitinstr := [ type := "close" ];
+        ELSE
         {
-          CASE "r" // Login, reload
+          RECORD subinstr := DecryptForThisServer("wrd:samlauth", resdata.relaystate);
+
+          SWITCH (subinstr.t)
           {
-            STRING url := subinstr.u;
-            url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
-            submitinstr := [ type := "redirect", url := url ];
-          }
-          CASE "p" // postmessage
-          {
-            submitinstr :=
-                [ type := "postmessage"
-                , message :=  EncodeJSON(
-                                  [ id := subinstr.id
-                                  , status := "error"
-                                  ])
-                ];
-          }
-          CASE "e" // external redirecto with login proof
-          {
-            STRING url := subinstr.u;
-            url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
-            submitinstr := [ type := "redirect", url := url ];
+            CASE "r" // Login, reload
+            {
+              STRING url := subinstr.u;
+              url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
+              submitinstr := [ type := "redirect", url := url ];
+            }
+            CASE "p" // postmessage
+            {
+              submitinstr :=
+                  [ type := "postmessage"
+                  , message :=  EncodeJSON(
+                                    [ id := subinstr.id
+                                    , status := "error"
+                                    ])
+                  ];
+            }
+            CASE "e" // external redirecto with login proof
+            {
+              STRING url := subinstr.u;
+              url := ReplaceVariableInURL(url, "wrdauth_returned", "error");
+              submitinstr := [ type := "redirect", url := url ];
+            }
           }
         }
 
-        LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
+        LogRPCTraffic("wrd:saml", "acservice", TRUE, GetClientRemoteIp(), requestid ?? response.id, submitinstr);
+
         ExecuteSubmitInstruction(submitinstr);
       }
     }
