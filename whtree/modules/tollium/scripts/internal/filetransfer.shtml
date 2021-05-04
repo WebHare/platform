@@ -214,6 +214,8 @@ SWITCH (type)
     }
     ELSE IF (rec.msg.type = "url")
       Redirect(rec.msg.url);
+    ELSE IF (rec.msg.type = "submitinstruction")
+      ExecuteSubmitInstruction(rec.msg.instr);
   }
   CASE "asynccallback"
   {

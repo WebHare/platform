@@ -1234,7 +1234,9 @@ PUBLIC OBJECTTYPE SAMLCoder
             OBJECT subnode;
             IF (CellExists(ent, "REQUIRED") AND ent.required)
               subnode := this->BuildNode(doc, ent);
-            nodes := [ this->BuildNodeByDescriptionPos(doc, subnode, ent.pos, value, localpath || ".") ];
+            subnode := this->BuildNodeByDescriptionPos(doc, subnode, ent.pos, value, localpath || ".");
+            IF (ObjectExists(subnode))
+              INSERT subnode INTO nodes AT END;
           }
         CASE "entity-array"
           {

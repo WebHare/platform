@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
-  <textgroup gid="authobjects">   <!-- authobjects -->
+  <textgroup gid="authobjects" limitlanguages="en nl">   <!-- authobjects -->
     <text tid="deleteduser">deleted user #<param p="1"/></text>
     <text tid="nametoolong">The name you have entered is too long.</text>
     <text tid="rolesamenamealreadyexists">A role with this name already exists.</text>
@@ -9,7 +9,7 @@
     <text tid="unknowndeleteduser">a deleted user</text>
     <text tid="usersamenamealreadyexists">A user with this name already exists.</text>
   </textgroup>
-  <textgroup gid="browser">   <!-- browser -->
+  <textgroup gid="browser" limitlanguages="en nl">   <!-- browser -->
     <textgroup gid="anonymize">   <!-- browser.anonymize -->
       <text tid="attr">Attribute</text>
       <text tid="atype">Attribute type</text>
@@ -130,12 +130,12 @@
       <text tid="schema_protected_import">Could not replace schema '<param p="1"/>', this schema is protected.</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="chooselinktype">   <!-- chooselinktype -->
+  <textgroup gid="chooselinktype" limitlanguages="en nl">   <!-- chooselinktype -->
     <text tid="chooselinktype">Choose link type</text>
     <text tid="linkselection">Link properties</text>
     <text tid="linktypes">Type</text>
   </textgroup>
-  <textgroup gid="common">   <!-- common -->
+  <textgroup gid="common" limitlanguages="en nl">   <!-- common -->
     <textgroup gid="gender">   <!-- common.gender -->
       <text tid="female">Female</text>
       <text tid="label">Gender</text>
@@ -151,7 +151,7 @@
       <text tid="4">Domain</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="commondialogs">   <!-- commondialogs -->
+  <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
     <textgroup gid="actions">   <!-- commondialogs.actions -->
       <text tid="email_results">E-mail</text>
       <text tid="export_results">Export</text>
@@ -314,7 +314,7 @@
       <text tid="returned">Corrected data</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="components">   <!-- components -->
+  <textgroup gid="components" limitlanguages="en nl">   <!-- components -->
     <text tid="addressfield">Address</text>
     <text tid="addressfield_incomplete">Field '<param p="1"/>' contains an incomplete address</text>
     <text tid="cannotdeletereferredentity">Cannot delete this item, there are other items that hold a reference to it.</text>
@@ -369,7 +369,7 @@
       <text tid="viewnotsupported">Cannot be displayed</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="editentity">   <!-- editentity -->
+  <textgroup gid="editentity" limitlanguages="en nl">   <!-- editentity -->
     <text tid="ends_at">ends at</text>
     <text tid="lifetime">Lifetime settings</text>
     <text tid="limit">Limited,</text>
@@ -379,7 +379,7 @@
     <text tid="wrd_creationdate">Available from</text>
     <text tid="wrd_limitdate">Available until</text>
   </textgroup>
-  <textgroup gid="entities">   <!-- entities -->
+  <textgroup gid="entities" limitlanguages="en nl">   <!-- entities -->
     <text tid="browsetitle">Entities</text>
     <text tid="selecttitle">Choose a value</text>
     <textgroup gid="actions">   <!-- entities.actions -->
@@ -389,7 +389,7 @@
       <text tid="searchfree">Search</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="entitychanges">   <!-- entitychanges -->
+  <textgroup gid="entitychanges" limitlanguages="en nl">   <!-- entitychanges -->
     <text tid="changetype">Change type</text>
     <text tid="creation">new value</text>
     <text tid="entitychanges">Changes</text>
@@ -404,14 +404,14 @@
     <text tid="user">User</text>
     <text tid="when">Date</text>
   </textgroup>
-  <textgroup gid="errors">   <!-- errors -->
+  <textgroup gid="errors" limitlanguages="en nl">   <!-- errors -->
     <text tid="dateofdeath_before_birth">The date of death cannot be before the date of birth</text>
     <text tid="dateofdeath_in_future">The date of death cannot be in the future</text>
     <text tid="field_invalidvalue">The value for field '<param p="1"/>' is invalid.</text>
     <text tid="field_unique">The submitted value for field '<param p="1"/>' is not unique</text>
     <text tid="limitdate_before_creationdate">The end date of this relation cannot be before the creation date</text>
   </textgroup>
-  <textgroup gid="exchange">   <!-- exchange -->
+  <textgroup gid="exchange" limitlanguages="en nl">   <!-- exchange -->
     <textgroup gid="import">   <!-- exchange.import -->
       <text tid="analyzing">Analyzing</text>
       <text tid="choosefile">Choose the file you want to import</text>
@@ -491,7 +491,7 @@
       <text tid="wrd_tag">Type</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="filetypes">   <!-- filetypes -->
+  <textgroup gid="filetypes" limitlanguages="en nl">   <!-- filetypes -->
     <text tid="samlidpendpoint">SAML IDP endpoint</text>
     <text tid="samlspendpoint">SAML SP endpoint</text>
     <text tid="schemaarchive">Archived WRD schema</text>
@@ -513,11 +513,11 @@
       <text tid="name">Prefill logged in user</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="gotoid">   <!-- gotoid -->
+  <textgroup gid="gotoid" limitlanguages="en nl">   <!-- gotoid -->
     <text tid="entityid">Id</text>
     <text tid="gotoid">Quick search</text>
   </textgroup>
-  <textgroup gid="links">   <!-- links -->
+  <textgroup gid="links" limitlanguages="en nl">   <!-- links -->
     <textgroup gid="update">   <!-- links.update -->
       <text tid="extraproperties">Extra properties</text>
       <text tid="leftentity">Link from</text>
@@ -529,7 +529,7 @@
       <text tid="updatelink">Edit link</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="main">   <!-- main -->
+  <textgroup gid="main" limitlanguages="en nl">   <!-- main -->
     <text tid="chooseattribute">Choose</text>
     <textgroup gid="actions">   <!-- main.actions -->
       <text tid="openschema">Open schema</text>
@@ -553,12 +553,12 @@
       <text tid="wrd_modificationdate">Modification date</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="messages">   <!-- messages -->
+  <textgroup gid="messages" limitlanguages="en nl">   <!-- messages -->
     <text tid="cannotopenschema">Cannot open schema '<param p="1"/>'. It might have been removed.</text>
     <text tid="norightsforschema">You do not have the right to view schema '<param p="1"/>'.</text>
     <text tid="nosuchentity">That entity does not exist in this schema</text>
   </textgroup>
-  <textgroup gid="querybuilder">   <!-- querybuilder -->
+  <textgroup gid="querybuilder" limitlanguages="en nl">   <!-- querybuilder -->
     <text tid="allhistory">All historic data</text>
     <text tid="and">and</text>
     <text tid="columnselect">Select columns</text>
@@ -610,7 +610,7 @@
       <text tid="title">Title</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="rights">   <!-- rights -->
+  <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
     <text tid="createschema">Create WRD schemas</text>
     <text tid="createschema_descr">May create new WRD schemas</text>
     <text tid="entities">WRD Entities</text>
@@ -750,7 +750,9 @@
       <text tid="connectedsamlentityid">Connected SAML Entity ID</text>
       <text tid="connectedsp">Connected SP</text>
       <text tid="idp">IDP</text>
+      <text tid="idpinitiatedlogin">Login</text>
       <text tid="main">SAML entities</text>
+      <text tid="noidpendpointfound">The endpoint file for this IDP could not be found.</text>
       <text tid="samlentityid">SAML Entity ID</text>
       <text tid="sp">SP</text>
       <text tid="type">Type</text>
@@ -762,7 +764,7 @@
       <text tid="wrd_title">Title</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="schema">   <!-- schema -->
+  <textgroup gid="schema" limitlanguages="en nl">   <!-- schema -->
     <textgroup gid="managetypes">   <!-- schema.managetypes -->
       <text tid="adddomain">Add domain</text>
       <text tid="deldomain">Delete domain</text>
@@ -773,7 +775,7 @@
       <text tid="title">Open WRD schema</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="schemamanager">   <!-- schemamanager -->
+  <textgroup gid="schemamanager" limitlanguages="en nl">   <!-- schemamanager -->
     <text tid="editschemasyncpoint">Edit synchronization source</text>
     <text tid="nosyncpoints">No synchronization sources have been defined</text>
     <text tid="peer">Remote server</text>
@@ -836,7 +838,7 @@
       <text tid="usermgmt">Allow WebHare right grants</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="search">   <!-- search -->
+  <textgroup gid="search" limitlanguages="en nl">   <!-- search -->
     <text tid="title">Zoek naar waarden</text>
     <textgroup gid="preview">   <!-- search.preview -->
       <text tid="title">Gegevens van geselecteerde waarde</text>
@@ -939,7 +941,7 @@
       </textgroup>
     </textgroup>
   </textgroup>
-  <textgroup gid="siteprofiles">   <!-- siteprofiles -->
+  <textgroup gid="siteprofiles" limitlanguages="en nl">   <!-- siteprofiles -->
     <text tid="loginpage">Default login page</text>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
@@ -1080,7 +1082,7 @@
       </textgroup>
     </textgroup>
   </textgroup>
-  <textgroup gid="types">   <!-- types -->
+  <textgroup gid="types" limitlanguages="en nl">   <!-- types -->
     <text tid="noparent">No parent type</text>
     <text tid="tagnotunique">An attribute with this tag already exists</text>
     <text tid="typetagnotunique">A type with this tag already exists</text>

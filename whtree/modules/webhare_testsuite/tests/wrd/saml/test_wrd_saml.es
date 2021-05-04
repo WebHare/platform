@@ -169,5 +169,20 @@ test.registerTests(
         test.true(/test-saml\/portal-sp/.exec(win.location.href), "Should have redirected to portal-sp site");
       }
     }
+
+  , "IdP initiated login"
+  , async function()
+    {
+      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/domains=[0]/domains=[open]/samlproviders=[0]/connectedproviders=[0]&language=en`);
+      await test.wait('ui');
+      let newwin = await test.expectWindowOpen(() => test.clickToddButton('Login'));
+      test.eq("submitinstruction", newwin.type);
+      test.eq("redirect", newwin.instr.type);
+      await test.load(newwin.instr.url);
+
+      // should redirect to the root of the testsuite site
+      test.eq("Basetest title", test.qS("#basetitle").textContent);
+      test.eq("/WebHare testsuite site/index.rtd", test.qS("#whfspath").textContent);
+    }
   ]
 );

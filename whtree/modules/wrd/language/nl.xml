@@ -750,7 +750,9 @@
       <text tid="connectedsamlentityid">Verbonden SAML Entiteit ID</text>
       <text tid="connectedsp">Verbonden SP</text>
       <text tid="idp">IDP</text>
+      <text tid="idpinitiatedlogin">Inloggen</text>
       <text tid="main">SAML entiteiten</text>
+      <text tid="noidpendpointfound">Het endpoint-bestand voor deze IDP kon niet worden gevonden.</text>
       <text tid="samlentityid">SAML Entiteit ID</text>
       <text tid="sp">SP</text>
       <text tid="type">Type</text>

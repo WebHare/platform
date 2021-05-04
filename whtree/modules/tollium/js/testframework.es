@@ -538,3 +538,25 @@ export { clickTolliumButton };
 export { selectListRow };
 export { getTolliumLabel };
 export { clickTolliumLabel };
+export async function expectWindowOpen(code)
+{
+  test.getWin()._testfw_oldopen = test.getWin().open;
+  try
+  {
+    let promise = new Promise((resolve, reject) =>
+    {
+      test.getWin().open = (url, target) => resolve({ url, target });
+      setTimeout(() => reject(new Error("Timeout waiting for window.open")), 30000);
+    });
+    if (code)
+      await code();
+    let result = await promise;
+    if (/filetransfer.shtml/.exec(result.url))
+      result = { ...result, ...await test.invoke("mod::tollium/lib/testframework.whlib#GetFileTransferData", result.url) };
+    return result;
+  }
+  finally
+  {
+    test.getWin().open = test.getWin()._testfw_oldopen;
+  }
+}

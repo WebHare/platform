@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/saml.whlib";
 
@@ -206,6 +207,18 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
       LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
 
       ExecuteSubmitInstruction(submitinstr);
+    }
+    CASE "idpinitiatedlogin"
+    {
+      RECORD config := DecryptForThisServer( "wrd:saml.idpinitiatedlogin", GetWebVariable("data"));
+      IF (config.validuntil < GetCurrentDateTime())
+        ExecuteSubmitInstruction([ type := "close" ]);
+
+      RECORD resp := GenerateSAMLIdPInitiatedResponse(wrdauthplugin, CELL
+          [ config.spentityid
+          ]);
+
+      ExecuteSubmitInstruction(resp);
     }
     DEFAULT
     {

@@ -1269,6 +1269,16 @@ PUBLIC OBJECTTYPE TolliumAsyncWindowOpenBase EXTEND TolliumAsyncFileTransferBase
         ? [ type := "url", url := url ]
         : [ type := "cancel" ];
   }
+
+  PUBLIC MACRO SendSubmitInstruction(RECORD instr)
+  {
+    IF (this->pvt_status != "pending")
+      THROW NEW Exception("Can only send files or url once" || this->pvt_status);
+    this->pvt_status := "sendsubmitinstruction";
+    this->pvt_response := instr.type != "close"
+        ? [ type := "submitinstruction", instr := instr ]
+        : [ type := "cancel" ];
+  }
 >;
 
 
