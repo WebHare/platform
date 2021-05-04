@@ -85,7 +85,7 @@
       </textgroup>
       <textgroup gid="payments">   <!-- site.forms.payments -->
         <text tid="afterpay-only-be">Afterpay BE est uniquement disponible pour adresses en Belgique</text>
-        <text tid="afterpay-only-nl">Afterpay BE est uniquement disponible pour adresses aux Pays Bas</text>
+        <text tid="afterpay-only-nl">Afterpay NL est uniquement disponible pour adresses aux Pays Bas</text>
         <text tid="selectbank">Choisissez banque</text>
         <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
           <text tid="agreeterms">J'accepte les <html:a data-href-param="1">conditions générales de AfterPay</html:a>.</text>

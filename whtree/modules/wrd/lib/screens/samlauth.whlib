@@ -323,7 +323,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       SWITCH (redir.code)
       {
         CASE "noidpendpointfound" { this->RunSimpleScreen("error", this->GetTid(".noidpendpointfound")); }
-        DEFAULT                   { this->RunSimpleScreen("error", this->GetTid(".unknownerror")); }
+        DEFAULT                   { THROW NEW Exception(`No message for error ${EncodeHSON(redir.code)}`); }
       }
       RETURN;
     }
