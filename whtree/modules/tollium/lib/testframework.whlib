@@ -7,6 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
@@ -1658,4 +1659,40 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
 PUBLIC STRING FUNCTION InlineScreens(STRING content, STRING hash DEFAULTSTO "")
 {
   RETURN `inline-base64::${EncodeBase64(`<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">${content}</screens>`)}${hash}`;
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_GetFileTransferData(STRING url)
+{
+  STRING portid := GetVariableFromURL(url, "l");
+  STRING type := GetVariableFromURL(url, "t");
+  IF (portid LIKE "*/*")
+    ABORT("Can only connect to normal applications!");
+
+  OBJECT ipclink := ConnectToIPCPort("tollium:link." || portid);
+  IF(NOT ObjectExists(ipclink))
+    ipclink := ConnectToGlobalIPCPort("tollium:link." || portid);
+
+  IF(NOT ObjectExists(ipclink))
+    THROW NEW Exception(`IPC port ${portid}' not found`);
+
+  SWITCH (type)
+  {
+    CASE "asyncwindowopen"
+    {
+      RECORD response := ipclink->DoRequest(CELL
+          [ type
+          , window := GetVariableFromURL(url, "w")
+          , component := GetVariableFromURL(url, "n")
+          , data := DecodeJSON(GetVariableFromURL(url, "d"))
+          , id := GetVariableFromURL(url, "s")
+          ]);
+
+      IF (response.status != "ok")
+        THROW NEW Exception(`Could not retrieve asyncwindowopen data (has the toolllium application crashed?`);
+
+      RETURN response.msg;
+    }
+  }
+
+  THROW NEW Exception(`Unsupported filetransfer type ${EncodeJSON(type)}`);
 }
