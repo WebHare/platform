@@ -535,10 +535,10 @@ endif
 
 endif
 
-build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
+build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
 	>build.harescriptvm
 
-success.harescriptvm harescript-testvm: bin/vmtest build.harescript
+success.harescriptvm harescript-testvm: bin/vmtest build.harescriptvm
 	$(TESTRUNNER) bin/vmtest --srcdir $(SRCDIR) --moduledir lib $(HARESCRIPTVMTESTOPTS)
 	> success.harescriptvm
 
