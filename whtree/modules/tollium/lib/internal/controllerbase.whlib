@@ -1495,7 +1495,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     this->pvt_baseurl := "about:blank";
 
     IF(this->reportissues)
-      SetMissingTidCallback(PTR this->OnMissingTid);
+      SetMissingTidCallback(PTR this->OnMissingTid(#1, GetMissingTidCallback()));
 
     this->KeepStorageAlive();
   }
@@ -1600,14 +1600,16 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   }
 
 
-  MACRO OnMissingTid(RECORD tidinfo)
+  MACRO OnMissingTid(RECORD tidinfo, MACRO PTR prevcallback)
   {
     RECORD insertpos := RecordLowerBound(this->missingtids, tidinfo, ["module","tid"]);
-    IF(insertpos.found)
-      RETURN;
-
-    INSERT tidinfo INTO this->missingtids AT insertpos.position;
-    this->AddAppIssue("missingtid");
+    IF(NOT insertpos.found)
+    {
+      INSERT tidinfo INTO this->missingtids AT insertpos.position;
+      this->AddAppIssue("missingtid");
+    }
+    IF(prevcallback != DEFAULT MACRO PTR)
+      prevcallback(tidinfo);
   }
 
   RECORD ARRAY FUNCTION GetAppMenu()
