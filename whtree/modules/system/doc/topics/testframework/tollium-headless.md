@@ -29,6 +29,11 @@ RunTestFramework([ PTR TestApp
 ## General testing tips
 
 ### Lists
+Common actions:
+- inspect contents: `DumpValue(TT("list")->rows);`
+- select a row: `TT("list")->selection := SELECT * FROM TT("list")->rows WHERE title = "My Item";`
+- trigger a 'double click' on a list: `TT("list")->openaction->TolliumClick();`
+
 When dealing with editable lists (listedit, arrayedit, lists with custom add/edit buttons..) test the Edit action after testing
 an Add action (even if just to read and verify a single field in the Edit screen) and dismiss the screen with `TTClick(":Ok")`.
 You shouldn't have to update focus or list selection between dismissal of the Add screen and opening the Edit screen. Eg:
@@ -102,6 +107,8 @@ To simulate an upload, run ExecuteUpload on an upload action component, eg:
 ```harescript
 TT("upload")->ExecuteUpload([[ filename := "filemanager_root_uploadtest2.dat", data := DEFAULT BLOB]]);
 ```
+
+If you need to upload a XLSX file for your test, considering generating it using %GenerateXLSXFile.
 
 ### Downloads
 Getting a file from a `<downloadaction>`:
