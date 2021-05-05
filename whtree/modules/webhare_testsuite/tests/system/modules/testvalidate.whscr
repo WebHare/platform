@@ -240,14 +240,14 @@ BLOB FUNCTION WrapAsScreenBody(STRING innercode)
 
 MACRO TestTidsForInconsistentScreen(RECORD validateres)
 {
-  TestEq(RECORD[], SELECT * FROM validateres.tids WHERE resourcename != "mod::system/nosuchscreen.xml");
+  TestEq(RECORD[], SELECT * FROM validateres.tids WHERE resourcename != "mod::webhare_testsuite/nosuchscreen.xml");
   INTEGER screenstart := 3;
   INTEGER fragmentstart := 8;
-  TestEq( [[ line := screenstart,     tid := "system:testgid.anycomponent" ]
-          ,[ line := screenstart+2,   tid := "system:testgid.x" ]
-          ,[ line := fragmentstart+2, tid := "system:testgid.testfragment.anyaction" ]
-          ,[ line := fragmentstart+6, tid := "system:testgid.testfragment.type-checkbox" ]
-          ,[ line := fragmentstart+7, tid := "system:testgid.testfragment.type-radiogagabutton" ]
+  TestEq( [[ line := screenstart,     tid := "webhare_testsuite:testgid.anycomponent" ]
+          ,[ line := screenstart+2,   tid := "webhare_testsuite:testgid.x" ]
+          ,[ line := fragmentstart+2, tid := "webhare_testsuite:testgid.testfragment.anyaction" ]
+          ,[ line := fragmentstart+6, tid := "webhare_testsuite:testgid.testfragment.type-checkbox" ]
+          ,[ line := fragmentstart+7, tid := "webhare_testsuite:testgid.testfragment.type-radiogagabutton" ]
           ], SELECT line,tid FROM validateres.tids ORDER BY line,tid);
 }
 
@@ -278,25 +278,25 @@ MACRO TestBasicValidate()
          ,[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
          ], (SELECT line, message FROM res.warnings ORDER BY line));
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
   TestEq(1,Length(res.errors));
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi]")]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi]")]);
   TestEq(1,Length(res.tids));
-  TestEq("system:test.hi", res.tids[0].tid);
+  TestEq("webhare_testsuite:test.hi", res.tids[0].tid);
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid ungroupedtid]")]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid ungroupedtid]")]);
   TestEq(1, Length(res.errors));
   TestEq(0, Length(res.tids));
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="test.hi"></div>')]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="test.hi"></div>')]);
   TestEq(1,Length(res.errors));
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="system:test.hi"></div>')]);
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="webhare_testsuite:test.hi"></div>')]);
   TestEq(1,Length(res.tids));
-  TestEq("system:test.hi", res.tids[0].tid);
+  TestEq("webhare_testsuite:test.hi", res.tids[0].tid);
 
-  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="~add"></div>')]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="~add"></div>')]);
   TestEq(1,Length(res.tids));
   TestEq("~add", res.tids[0].tid);
 
@@ -310,50 +310,50 @@ MACRO TestBasicValidate()
 
   // test proper screen validation with custom docs.
   //even if the screen on disk doesn't exist, i should still be allowed to validate it
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
   TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such implementation*in namespace*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 3));
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such implementation*in namespace*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 3));
   TestEq(1, Length(res.errors));
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := compositionwarningscreen ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := compositionwarningscreen ]);
   TestEq(RECORD[], res.errors);
-  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 8));
+  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 8));
   TestEq(1, Length(res.warnings));
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" deprecated="" />`) ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" deprecated="" />`) ]);
   TestEq(RECORD[], res.errors);
   TestEq([[ line := 1, message := "Attribute \'deprecated\' has been deprecated: Deprecated attribute" ]], SELECT line,message FROM res.warnings);
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />`) ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />`) ]);
   TestEq(RECORD[], res.errors);
   TestEq([[ line := 1, message := "Warning!" ]], SELECT line,message FROM res.warnings);
 
   //siteprofiles should also warn about broken screens
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
   TestEq(RECORD[], res.errors);
-  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml.siteprl" AND line = 8));
+  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml.siteprl" AND line = 8));
   TestEq(1, Length(res.warnings));
 
   //siteprofiles should also warn about bad webrules
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := badwebrules_siteprl ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml.siteprl", [ overridedata := badwebrules_siteprl ]);
   TestEq(RECORD[], res.errors);
   TestEq([[ line := 5, message := "This path triggered a warning" ]
          ], (SELECT line, message FROM res.warnings));
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<textedit nonexistingattribute="true"/>`) ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<textedit nonexistingattribute="true"/>`) ]);
   TestEq(1, Length(res.errors));
   TestEqLike('*: The attribute*is not allowed.', res.errors[0].message);
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*NOSUCHHANDLER*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*NOSUCHHANDLER*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
   TestEq(2, Length(res.errors), "Unexpected errors!");
   TestTidsForInconsistentScreen(res);
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen, onlytids := TRUE ]);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := inconsistentscreen, onlytids := TRUE ]);
   TestTidsForInconsistentScreen(res);
 
   res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids
@@ -375,31 +375,31 @@ MACRO TestBasicValidate()
   TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.hints);
 
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := optiontidssynthesis
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := optiontidssynthesis
                                                                 , onlytids := TRUE
                                                                 ]);
   TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
-  TestEq([[ attrname := "tid",    col := 0, line := 5, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color" ]
-         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-red_and_white" ]
-         ,[ attrname := "rowkey", col := 0, line := 7, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-blue_da_ba-dee" ]
-         ,[ attrname := "rowkey", col := 0, line := 8, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-__" ]
-         ,[ attrname := "rowkey", col := 0, line := 9, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-__" ]
+  TestEq([[ attrname := "tid",    col := 0, line := 5, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color" ]
+         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-red_and_white" ]
+         ,[ attrname := "rowkey", col := 0, line := 7, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-blue_da_ba-dee" ]
+         ,[ attrname := "rowkey", col := 0, line := 8, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-__" ]
+         ,[ attrname := "rowkey", col := 0, line := 9, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-__" ]
          ], res.tids);
 
   //We can't detect bad handlers yet as we cannot instantiate during validation
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
-  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib\'' ]
-                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib\'' ]
+                ,[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
                 ],res.errors, "*");
   TestEq(RECORD[],res.warnings);
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badlocalhandler ]);
-  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 11, message := 'No such method \'NOSUCHFUNCTION\' in objecttype mod::webhare_testsuite/tests/system/modules/data/brokenimpl.whlib#testbadlocalhandler' ]
-                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 12, message := 'The \'ongetoptions\' handler points to function \'BADOPTIONSHANDLER\' which has the wrong function signature. Expected RECORD FUNCTION (), got RECORD FUNCTION (STRING param1)' ]
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badlocalhandler ]);
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 11, message := 'No such method \'NOSUCHFUNCTION\' in objecttype mod::webhare_testsuite/tests/system/modules/data/brokenimpl.whlib#testbadlocalhandler' ]
+                ,[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 12, message := 'The \'ongetoptions\' handler points to function \'BADOPTIONSHANDLER\' which has the wrong function signature. Expected RECORD FUNCTION (), got RECORD FUNCTION (STRING param1)' ]
                 ],res.errors, "*");
   TestEq(RECORD[],res.warnings);
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
       `<text tid="module:invalid" />
        <text tid="invalid" />
        <text tid="module:group.valid" />`)]);
@@ -410,7 +410,7 @@ MACRO TestBasicValidate()
 
   //Test validating against empty library - including anycomponent as the current bug required a library-screen before a non-library screen
   //TODO should deprecate the library= syntax - objectname= is a much more common solution
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := StringToBlob(
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := StringToBlob(
     `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
         <screen name="anycomponent" library="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib"><body></body></screen>
         <screen name="nolibscreen"><body></body></screen>
@@ -985,12 +985,6 @@ ASYNC MACRO TestLoadScreen()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-MACRO FinalizeTests()
-{
-  //clear missing tids so they dont break this test, as that was what we were actually testing for...
-  GetTestController()->missingtids := RECORD[];
-}
-
 RunTestFramework([ PTR TestValidationValidates
                  , PTR TestBasicValidate
                  , PTR TestValidateWitty
@@ -1002,5 +996,4 @@ RunTestFramework([ PTR TestValidationValidates
                  , PTR TestESLint
                  , PTR OptionGids
                  , PTR TestLoadScreen
-                 , PTR FinalizeTests
                  ]);
