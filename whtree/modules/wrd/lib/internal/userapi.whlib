@@ -628,16 +628,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     }
   }
 
-  PUBLIC INTEGER ARRAY FUNCTION __GetRoleEntityIdsGrantedToUser(INTEGER user_authobjectid)
-  {
-    RECORD ARRAY rolegrants :=
-       SELECT DISTINCT COLUMN role
-         FROM system.rolegrants
-        WHERE COLUMN grantee = user_authobjectid;
-
-    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichRoles("ROLE", rolegrants, [ celltype := "authobjectid" ]);
-  }
-
   /** @short Get the roles of a user
       @param user Entity id of the user
       @return Entity ids of the roles
@@ -648,7 +638,13 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     INTEGER userauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid = userguid;
     IF(userauthobjectid = 0)
       THROW NEW Exception("No authobject for user #" || user);
-    RETURN this->__GetRoleEntityIdsGrantedToUser(userauthobjectid);
+
+    RECORD ARRAY rolegrants :=
+       SELECT DISTINCT COLUMN role
+         FROM system.rolegrants
+        WHERE COLUMN grantee = userauthobjectid;
+
+    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichRoles("ROLE", rolegrants, [ celltype := "authobjectid" ]);
   }
 
   /** @short Get the members of a role
