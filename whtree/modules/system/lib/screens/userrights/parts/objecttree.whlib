@@ -24,11 +24,12 @@ INTEGER ARRAY FUNCTION GetAuthobjectsWithWebhareRole(INTEGER roleid)
             AND rolegrants.role = roleid;
 }
 
-PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
+STATIC OBJECTTYPE ObjectTreeRightsExport
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
+  OBJECT userapi;
 
   OBJECT tolliumuser;
 
@@ -48,10 +49,11 @@ PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
   // Init
   //
 
-  MACRO NEW(OBJECT tolliumuser, STRING objecttypename, INTEGER objectid)
+  MACRO NEW(OBJECT contexts, STRING objecttypename, INTEGER objectid)
   {
-    this->tolliumuser := tolliumuser;
-    this->rightsinfo := GetRightsInfoObject(tolliumuser);
+    this->userapi := contexts->userapi;
+    this->tolliumuser := contexts->user;
+    this->rightsinfo := GetRightsInfoObject(contexts->user);
 
     this->objecttypename := objecttypename;
     this->objectid := objectid;
@@ -136,11 +138,20 @@ PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
         SELECT AS INTEGER ARRAY DISTINCT grantee
           FROM grants;
 
-    INTEGER ARRAY all_role_grantees :=
-        SELECT AS INTEGER ARRAY id
+    RECORD ARRAY all_role_grantees :=
+        SELECT id
           FROM system.authobjects
          WHERE id IN all_grantees
            AND type = 3;
+
+    IF(Length(all_role_grantees) > 0)
+    {
+      INTEGER ARRAY visible_role_grantees := this->tolliumuser->HasRightOnMultiple("system:browseunits", SELECT AS INTEGER ARRAY id FROM all_role_grantees);
+      DELETE FROM all_role_grantees WHERE id NOT IN visible_role_grantees;
+
+      IF(Length(all_role_grantees) > 0) //still present
+        all_role_grantees := this->userapi->EnrichRoles("ID", all_role_grantees, [ celltype := "authobjectid" ]);
+    }
 
     INTEGER ARRAY all_user_grantees :=
         SELECT AS INTEGER ARRAY id
@@ -156,9 +167,10 @@ PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
           FROM grants
          WHERE grantee IN all_user_grantees;
 
-    INTEGER ARRAY visible_role_grantees := this->tolliumuser->HasRightOnMultiple("system:browseunits", all_role_grantees);
     FOREVERY (RECORD rec FROM grants)
-      IF (rec.grantee IN visible_role_grantees)
+    {
+      RECORD matchrole := SELECT * FROM all_role_grantees WHERE id = rec.grantee;
+      IF (RecordExists(matchrole))
       {
         FOREVERY (INTEGER rolegrantee FROM GetAuthobjectsWithWebhareRole(rec.grantee))
           INSERT
@@ -170,9 +182,10 @@ PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
               , withgrantoption :=  rec.withgrantoption
               , rightname :=        rec.rightname
               , righttitle :=       rec.righttitle
-              , viarole :=          GetQualifiedAuthObjectName(rec.grantee)
+              , viarole :=          GetQualifiedAuthObjectName(rec.grantee) //TODO can't we use the names gathered in 'EnrichRoles' ?
               ] INTO rows AT END;
       }
+    }
 
 
     {
@@ -418,7 +431,7 @@ PUBLIC OBJECTTYPE ObjectTree EXTEND TolliumFragmentBase
   MACRO DoExportObjectRights()
   {
     RECORD val := this->objectlist->value;
-    OBJECT exporter := NEW ObjectTreeRightsExport(this->owner->tolliumuser, val.objecttypename, val.objectid);
+    OBJECT exporter := NEW ObjectTreeRightsExport(this->contexts, val.objecttypename, val.objectid);
     exporter->DownloadList(this->owner);
   }
 
