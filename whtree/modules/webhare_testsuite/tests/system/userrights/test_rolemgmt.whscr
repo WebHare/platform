@@ -162,10 +162,13 @@ MACRO TestExport()
   TestEq(TRUE, grants[0].withgrantoption);
 
   RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";
-  TestEq(4,Length(rolegrants));
+  TestEq(2,Length(rolegrants)); //just 2 rolegrants, those that match 'role2'. role1-renamed is deleted and should be invisible
   TestEq(TRUE, RecordExists(rolegrants[0].grantordata));
   TestEq("sysop@beta.webhare.net", rolegrants[0].grantor);
   TestEq(FALSE, rolegrants[0].withgrantoption);
+  TestEq(["role2"], rolegrants[0].objectpath);
+
+  TestEq(["role2"], rolegrants[1].objectpath);
 }
 
 RunTestframework( [ PTR TestAddRoleToUsers
