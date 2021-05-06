@@ -29,6 +29,9 @@ ASYNC MACRO TestAddRoleToUsers()
   TT("comment")->Value := "I have my reasons";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
+  //caching in userobjects require us to reopen this
+  TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
+
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
   // Verify the rolegrant in the export
@@ -44,6 +47,7 @@ ASYNC MACRO TestAddRoleToUsers()
 
   TestEq(INTEGER[testfw->GetUserObject("user1")->entityid], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[testfw->GetRoleObject("role1")->entityid], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
+  TestEq(TRUE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
 
   TT("userrolerightslist->rightstabs")->selectedtab := TT("userrolerightslist->userstab");
   TestEq(1, Length(TT("userrolerightslist->userlistbyrole")->rows));
@@ -66,7 +70,7 @@ ASYNC MACRO TestAddRoleToUsers()
          SELECT login, rightname,comment,objectpath FROM ListRightsAndRolesForExport(testfw->userapi) WHERE type="ROLEGRANT");
 
   TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
-  TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+  TestEQ(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
 
   topscreen->frame->focused := TT("userrolerightslist->directpermissions");
   TestEq(2, Length(TT("userrolerightslist->directpermissions")->rows));
@@ -93,12 +97,12 @@ ASYNC MACRO TestAddRoleToUsers()
 
   TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
   TestEQ(TRUE, testfw->GetUserObject("user2")->HasRole(testfw->GetRoleObject("role1")));
-  TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+  TestEQ(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
   TestEQ(FALSE, testfw->GetUserObject("user2")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-ASYNC MACRO TestEditRole()
+ASYNC MACRO TestEditDeleteRole()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
 
@@ -117,7 +121,28 @@ ASYNC MACRO TestEditRole()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   TestEq("role1-renamed", TT("unitcontents->userandrolelist")->selection[0].name);
 
+  INTEGER role1_id := GetTestController()->userapi->wrdschema->^whuser_role->Search("WRD_TITLE","role1-renamed");
+
   AWAIT ExpectAndAnswerMessagebox("YES", PTR TTClick("unitcontents->delete"));
+
+  TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(role1_id)));
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRoleTo(testfw->GetRoleObject("role2"), testfw->GetUserObject("user1")); //add an extra role for more useful copy test
+  testfw->CommitWork();
+
+  TestEq(1, Length(GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role2")->entityid)), "Check role2 1 member");
+
+//FIXME  TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
+
+  //Copying a user with a deleted role crashed earlier (because existence wasn't verified). See that it properly works now
+  TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="user1@beta.webhare.net";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("copypermissions"));
+  TT("selectuserrole->unitcontents->userandrolelist")->selection := SELECT * FROM TT("selectuserrole->unitcontents->userandrolelist")->rows WHERE name="user3@beta.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(role1_id)), "Verify user didn't receive the deleted role");
+  TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role2")->entityid)), "User not added to role2");
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
@@ -135,20 +160,23 @@ MACRO TestExport()
   TestEq(TRUE, grants[0].withgrantoption);
 
   RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";
-  TestEq(2,Length(rolegrants));
+  TestEq(4,Length(rolegrants));
   TestEq(TRUE, RecordExists(rolegrants[0].grantordata));
   TestEq("sysop@beta.webhare.net", rolegrants[0].grantor);
   TestEq(FALSE, rolegrants[0].withgrantoption);
 }
 
 RunTestframework( [ PTR TestAddRoleToUsers
-                  , PTR TestEditRole
+                  , PTR TestEditDeleteRole
                   , PTR EnsureUserMgmtStateClean
                   , PTR TestExport
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "user1"]
                                     ,[ login := "user2"]
+                                    ,[ login := "user3"]
                                     ]
-                     , testroles := [[ role := "role1" ]]
+                     , testroles := [[ role := "role1" ]
+                                    ,[ role := "role2" ]
+                                    ]
                      ]
                   );
