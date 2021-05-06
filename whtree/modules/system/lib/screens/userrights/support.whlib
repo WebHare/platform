@@ -284,11 +284,6 @@ STRING FUNCTION GetUnitPath(OBJECT authapi, OBJECT unitobj, OBJECT browseuser)
   RETURN Detokenize((SELECT AS STRING ARRAY wrd_title FROM units), "/");
 }
 
-PUBLIC INTEGER ARRAY FUNCTION GetUsersEntityIdsWithRole(OBJECT authapi, OBJECT role)
-{
-  RETURN authapi->__GetRoleMembersByAuthObjectId(role->authobjectid);
-}
-
 PUBLIC INTEGER ARRAY FUNCTION GetRoleEntityIdsGrantedToUser(OBJECT authapi, OBJECT user)
 {
   RETURN authapi->__GetRoleEntityIdsGrantedToUser(user->authobjectid);

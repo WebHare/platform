@@ -628,15 +628,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     }
   }
 
-  PUBLIC INTEGER ARRAY FUNCTION __GetRoleMembersByAuthObjectId(INTEGER role_authobjectid)
-  {
-    RECORD ARRAY rolegrants :=
-       SELECT DISTINCT grantee
-         FROM system.rolegrants
-        WHERE COLUMN role = VAR role_authobjectid;
-    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichUsers("GRANTEE", rolegrants, [ celltype := "authobjectid" ]);
-  }
-
   PUBLIC INTEGER ARRAY FUNCTION __GetRoleEntityIdsGrantedToUser(INTEGER user_authobjectid)
   {
     RECORD ARRAY rolegrants :=
@@ -670,7 +661,12 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     INTEGER roleauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=roleguid;
     IF(roleauthobjectid = 0)
       THROW NEW Exception("No authobject for role #" || role);
-    RETURN this->__GetRoleMembersByAuthObjectId(roleauthobjectid);
+
+    RECORD ARRAY rolegrants :=
+       SELECT DISTINCT grantee
+         FROM system.rolegrants
+        WHERE COLUMN role = VAR roleauthobjectid;
+    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichUsers("GRANTEE", rolegrants, [ celltype := "authobjectid" ]);
   }
 
   /** @short Set the members of a role, removing all unmentioned members

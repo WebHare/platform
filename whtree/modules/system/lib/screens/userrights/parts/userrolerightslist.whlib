@@ -214,7 +214,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
   MACRO ReloadUsersForSelectedRole()
   {
     this->userlistdirty := FALSE;
-    INTEGER ARRAY roleusers := GetUsersEntityIdsWithRole(this->contexts->userapi, this->pvt_wrdauthobject);
+    INTEGER ARRAY roleusers := this->contexts->userapi->GetRoleMembers(this->pvt_wrdauthobject->entityid);
 
     RECORD ARRAY rows := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := roleusers ] ], this->owner->tolliumuser);
     rows := EnrichWithUnitPath(rows, this->owner->tolliumuser);
