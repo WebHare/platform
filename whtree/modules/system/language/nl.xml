@@ -1975,6 +1975,8 @@
       <text tid="search">Gebruikers en rollen zoeken</text>
       <text tid="searchsimple">Zoeken</text>
       <text tid="setuserdefaults">Standaard gebruikersinstellingen</text>
+      <text tid="showauditlog">Toon auditlogboek</text>
+      <text tid="showauditlog-hint">Toon het audit log voor deze gebruiker</text>
       <text tid="showobject">Spring naar</text>
       <text tid="syncauthobjects">Database synchroniseren</text>
       <text tid="togglesearchbar">Zoeken...</text>

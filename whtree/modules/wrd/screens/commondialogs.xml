@@ -243,6 +243,9 @@
       <action name="refresh" onexecute="dorefresh" />
       <action name="showevent" title="" onexecute="doshowevent" />
     </actions>
+    <compositions>
+      <eventlistener name="auditloglistener" onevents="GotAuditLogEvents" />
+    </compositions>
     <body height="1pr">
       <line>
         <datetime name="fromdate" type="datetime" storeutc="true" />
@@ -268,6 +271,8 @@
         <column name="wrdaudit_type" type="text"/>
         <column name="wrdaudit_account" type="text" />
         <column name="wrdaudit_login" type="text" />
+        <column name="user_account" type="text" />
+        <column name="impersonator_account" type="text" />
       </list>
     </body>
     <footer>

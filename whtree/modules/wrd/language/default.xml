@@ -160,6 +160,7 @@
     </textgroup>
     <textgroup gid="auditlog">   <!-- commondialogs.auditlog -->
       <text tid="fromdate">Show events from</text>
+      <text tid="impersonator_account">Original user</text>
       <text tid="refresh">Refresh</text>
       <text tid="show_failure">Show failures</text>
       <text tid="show_other">Show other events</text>
@@ -168,11 +169,14 @@
       <text tid="status">Status</text>
       <text tid="title">Login events<ifparam p="1" value=""><else/> for <param p="1"/></ifparam></text>
       <text tid="todate">to</text>
+      <text tid="user_account">By user account</text>
       <text tid="wrd_creationdate">When</text>
       <text tid="wrdaudit_account">Account</text>
       <text tid="wrdaudit_login">Login name</text>
       <text tid="wrdaudit_type">Event</text>
       <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
+        <text tid="disabletotp">Disabled two factor authentication</text>
+        <text tid="failedvalidationchecks">Failed password validation</text>
         <text tid="forgotpassword">Forgot password</text>
         <text tid="getresetlink">Request password reset link</text>
         <text tid="incorrectpassword">Incorrect password</text>
@@ -180,14 +184,23 @@
         <text tid="logincookie">Logged in with cookie</text>
         <text tid="logindenied">Login was denied</text>
         <text tid="loginid">Logged in by id</text>
+        <text tid="loginsecondfactor-failed">Log in with second factor failed</text>
+        <text tid="loginsecondfactor-ok">Logged in with second factor</text>
         <text tid="logout">Logged out</text>
+        <text tid="requiresecondfactor">Second factor required for login</text>
+        <text tid="requiresetupsecondfactor">Required setup of two factor authentication</text>
         <text tid="resetpassword">Password was reset</text>
         <text tid="resetpasswordfailed">Password reset failed</text>
+        <text tid="resettotpbackupcodes">Reset two factor authentication backup codes</text>
+        <text tid="saml-error">SAML unknown error</text>
+        <text tid="saml-ok">SAML log in</text>
+        <text tid="saml-unknownlogin">SAML unknown user</text>
+        <text tid="setpassword">Set password</text>
+        <text tid="setuptotp">Setup two factor authentication</text>
         <text tid="unknownlogin">Unknown login name</text>
         <text tid="unknownlookuplogin">Login name lookup failed</text>
         <text tid="updatepassword">Password changed</text>
         <text tid="verificationfailed">Verification failed</text>
-        <text tid="verificationlink">Verification requested</text>
         <text tid="verificationok">Verification success</text>
       </textgroup>
     </textgroup>

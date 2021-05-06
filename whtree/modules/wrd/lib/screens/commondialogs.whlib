@@ -882,7 +882,11 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
       // If we have an account, hide the 'account' column
       IF (this->pvt_showaccount > 0)
         DELETE FROM this->events->columns WHERE name = "wrdaudit_account";
+
+      ^auditloglistener->masks := [ `wrd:auditlog.${this->contexts->wrdschema->id}.${this->pvt_showaccount}` ];
     }
+    ELSE
+      ^auditloglistener->masks := [ `wrd:auditlog.${this->contexts->wrdschema->id}.*` ];
 
     // Show events from the past week by default
     this->fromdate->value := this->tolliumuser->LocalToUTC(MakeDateFromParts(GetDayCount(GetCurrentDateTime()) - 7, 0));
@@ -898,6 +902,10 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
     }
   }
 
+  MACRO GotAuditLogEvents(RECORD ARRAY events)
+  {
+    ^events->Invalidate();
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -911,6 +919,10 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
                               , entity
                               , wrdaudit_login := login
                               , rowkey := id
+                              , byentity
+                              , bylogin
+                              , impersonator_entity
+                              , impersonator_login
                            FROM wrd.auditevents
                           WHERE auditevents.wrdschema = this->contexts->wrdschema->id
                                 AND (this->pvt_showaccount != 0 ? auditevents.entity = this->pvt_showaccount : TRUE)
@@ -923,12 +935,16 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
                                      );
 
     evts := this->contexts->wrdschema->accounttype->Enrich(evts, "entity", [ wrdaudit_account := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
+    evts := this->contexts->wrdschema->accounttype->Enrich(evts, "byentity", [ wrdaudit_byaccount := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
+    evts := this->contexts->wrdschema->accounttype->Enrich(evts, "impersonator_entity", [ wrdaudit_impersonator_account := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
 
     evts := SELECT TEMPORARY success_event := wrdaudit_type IN this->pvt_success_types
                  , TEMPORARY warning_event := wrdaudit_type IN this->pvt_warning_types
                  , TEMPORARY failure_event := wrdaudit_type IN this->pvt_failure_types
                  , *
                  , status := success_event ? 1 : warning_event ? 2 : failure_event ? 3 : 0
+                 , user_account :=          byentity != entity ? `${wrdaudit_byaccount}${wrdaudit_byaccount != bylogin ? `(${bylogin})` : ""}` : ""
+                 , impersonator_account :=  impersonator_entity != byentity ? `${wrdaudit_impersonator_account}${wrdaudit_impersonator_account != impersonator_login ? `(${impersonator_login})` : ""}` : ""
               FROM evts;
     RETURN evts;
   }
@@ -938,16 +954,29 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
     STRING title;
     SWITCH(type)
     {
-      CASE "wrd:login:ok"              { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
-      CASE "wrd:logincookie"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logincookie"); }
-      CASE "wrd:loginbyid:ok"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginid"); }
-      CASE "wrd:forgotpassword"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.forgotpassword"); }
-      CASE "wrd:getresetlink"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.getresetlink"); }
-      CASE "wrd:updatepassword"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.updatepassword"); }
-      CASE "wrd:resetpassword:ok"      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpassword"); }
-      CASE "wrd:resetpassword:failed"  { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpasswordfailed"); }
-      CASE "wrd:login:failed"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logindenied"); }
-      CASE "wrd:loginbyid:failed"      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+      CASE "wrd:login:ok"                         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+      CASE "wrd:logincookie"                      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logincookie"); }
+      CASE "wrd:loginbyid:ok"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginid"); }
+      CASE "wrd:forgotpassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.forgotpassword"); }
+      CASE "wrd:getresetlink"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.getresetlink"); }
+      CASE "wrd:updatepassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.updatepassword"); }
+      CASE "wrd:resetpassword:ok"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpassword"); }
+      CASE "wrd:resetpassword:failed"             { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpasswordfailed"); }
+      CASE "wrd:login:failed"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logindenied"); }
+      CASE "wrd:loginbyid:failed"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+      CASE "wrd:logout"                           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logout"); }
+      CASE "wrd:login:failedvalidationchecks"     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.failedvalidationchecks"); }
+      CASE "wrd:login:requiresecondfactor"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresecondfactor"); }
+      CASE "wrd:login:requiresetupsecondfactor"   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresetupsecondfactor"); }
+      CASE "wrd:login:saml:ok"                    { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-ok"); }
+      CASE "wrd:login:saml:unknownlogin"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-unknownlogin"); }
+      CASE "wrd:login:saml:error"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-error"); }
+      CASE "wrd:login:secondfactor:ok"            { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-ok"); }
+      CASE "wrd:login:secondfactor:failed"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-failed"); }
+      CASE "wrd:authsettings.disabletotp"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.disabletotp"); }
+      CASE "wrd:authsettings.resettotpbackupcodes"{ RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resettotpbackupcodes"); }
+      CASE "wrd:authsettings.setpassword"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setpassword"); }
+      CASE "wrd:authsettings.setuptotp"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setuptotp"); }
     }
 
     IF (type LIKE "wrdauth:*")

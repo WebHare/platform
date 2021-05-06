@@ -291,13 +291,79 @@ ASYNC MACRO TestExportSysop()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestAuditLog()
+{
+  // STORY: ensure the audit log of lisa has an event
+  testfw->SetTestUser("lisa");
+
+  STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
+  BOOLEAN lisawith2fa := __MatchesAny("lisa@beta.webhare.net", allowsecondfactormasks)
+
+  // Change lisa's password
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings"));
+  AWAIT ExpectScreenChange(+1, lisawith2fa ? PTR TTClick(":Change[1/2]") : PTR TTClick(":Change"));
+  TTFillByTitle(":Password", testfw->GetUserPassword("lisa"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
+  TTFillByTitle(":New password", "secret2");
+  TTFillByTitle(":Confirm new password", "secret2");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // grant necessary rights to manage lisa's unit to supervisor and unitmanager
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("supervisor"), 0, TRUE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("unitmanager"), 0, TRUE);
+  testfw->CommitWork();
+
+  // STORY: non-supervisor can see audit log
+  testfw->SetTestUser("supervisor");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
+  {
+
+    TTFillByTitle("unittree->unitlist", "webhare_testsuite.unit");
+    TTFillByTitle("unitcontents->userandrolelist", "lisa@beta.webhare.net");
+    TT("frame")->focused := TT("unitcontents->userandrolelist");
+
+    AWAIT ExpectScreenChange(+1, PTR TTClick(":Show audit log", [ menuitem := TRUE ]));
+    {
+      TestEQMembers(
+          [ [ byentity :=             testfw->GetUserWRDId("lisa")
+            , bylogin :=              "lisa@beta.webhare.net"
+            , user_account :=         ""
+            , impersonator_account := ""
+            , wrdaudit_type :=        "Set password"
+            ]
+          ], TT("events")->rows, "*");
+
+      AWAIT ExpectScreenChange(-1, PTR TTEscape);
+    }
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  }
+
+  // STORY: non-supervisor can't see audit log
+  testfw->SetTestUser("unitmanager");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
+  {
+    TTFillByTitle("unittree->unitlist", "webhare_testsuite.unit");
+    TTFillByTitle("unitcontents->userandrolelist", "lisa@beta.webhare.net");
+    TT("frame")->focused := TT("unitcontents->userandrolelist");
+
+    TestEQ(FALSE, TTClick(":Show audit log", [ allowfailure := TRUE, menuitem := TRUE ]));
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  }
+}
+
 
 RunTestframework( [ PTR Setup
                   , PTR ManageAuthenticationSettings
                   , PTR TestExport
                   , PTR TestExportSysop
+                  , PTR TestAuditLog
                   , PTR EnsureUserMgmtStateClean
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "supervisor", grantrights := ["system:supervisor"] ]
+                                    ,[ login := "unitmanager" ]
                                     ,[ login := "lisa"]
                                     ]
                      , testroles := [[ role := "powerplantmanagers" ]]

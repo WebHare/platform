@@ -160,6 +160,7 @@
     </textgroup>
     <textgroup gid="auditlog">   <!-- commondialogs.auditlog -->
       <text tid="fromdate">Toon events tussen</text>
+      <text tid="impersonator_account">Oorspronkelijke gebruiker</text>
       <text tid="refresh">Vernieuwen</text>
       <text tid="show_failure">Toon fouten</text>
       <text tid="show_other">Toon andere events</text>
@@ -168,11 +169,14 @@
       <text tid="status">Status</text>
       <text tid="title">Inlog-events<ifparam p="1" value=""><else/> voor <param p="1"/></ifparam></text>
       <text tid="todate">en</text>
+      <text tid="user_account">Door gebruikersaccount</text>
       <text tid="wrd_creationdate">Wanneer</text>
       <text tid="wrdaudit_account">Account</text>
       <text tid="wrdaudit_login">Inlogname</text>
       <text tid="wrdaudit_type">Event</text>
       <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
+        <text tid="disabletotp">Twee-factor-authenticatie uitgeschakeld</text>
+        <text tid="failedvalidationchecks">Wachtwoordvalidatie-foutmelding</text>
         <text tid="forgotpassword">Wachtwoord vergeten</text>
         <text tid="getresetlink">Wachtwoordherstellink opgevraagd</text>
         <text tid="incorrectpassword">Ongeldig wachtwoord</text>
@@ -180,14 +184,23 @@
         <text tid="logincookie">Ingelogd met cookie</text>
         <text tid="logindenied">Inlog was geweigerd</text>
         <text tid="loginid">Ingelogd op basis van id</text>
+        <text tid="loginsecondfactor-failed">Inloggen met tweede factor mislukt</text>
+        <text tid="loginsecondfactor-ok">Ingelogd met tweede factor</text>
         <text tid="logout">Uitgelogd</text>
+        <text tid="requiresecondfactor">Tweede factor benodigd voor login</text>
+        <text tid="requiresetupsecondfactor">Instellen van twee-factor-authenticatie vereist</text>
         <text tid="resetpassword">Wachtwoord was hersteld</text>
         <text tid="resetpasswordfailed">Wachtwoordherstel mislukt</text>
+        <text tid="resettotpbackupcodes">Nieuwe backup codes aangemaakt voor twee-factor-authenticatie</text>
+        <text tid="saml-error">SAML onbekende fout</text>
+        <text tid="saml-ok">SAML ingelogd</text>
+        <text tid="saml-unknownlogin">SAML onbekende gebruiker</text>
+        <text tid="setpassword">Wachtwoord ingesteld</text>
+        <text tid="setuptotp">Twee-factor-authenticatie ingesteld</text>
         <text tid="unknownlogin">Onbekende inlognaam</text>
         <text tid="unknownlookuplogin">Inlognaam niet gevonden</text>
         <text tid="updatepassword">Wachtwoord gewijzigd</text>
         <text tid="verificationfailed">Verificatie mislukt</text>
-        <text tid="verificationlink">Verificatie aangevraagd</text>
         <text tid="verificationok">Verificatie geslaagd</text>
       </textgroup>
     </textgroup>
