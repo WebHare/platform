@@ -27,8 +27,8 @@
           gid=".selectuserrole"
           allowresize="true"
           title=""
-          width="50x"
-          height="30x"
+          width="100x"
+          height="16gr"
           savestate="size">
     <body>
       <includefragment name="selectuserrole" fragment="userrights/parts/selectuserrole.selectuserrole" />

@@ -387,20 +387,24 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           FROM GetDirectGrantsTo(copy_to->authobject)
       ORDER BY objectid, rightid, withgrantoption;
 
-    INTEGER ARRAY existing_roles :=
-       SELECT AS INTEGER ARRAY DISTINCT COLUMN role
-         FROM system.rolegrants
-        WHERE COLUMN grantee = copy_to->authobjectid;
-
-    STRING ARRAY grant_columns := [ "OBJECTID", "RIGHTID", "WITHGRANTOPTION" ];
-
     //TODO give a chance to specify a new comment
     IF (copy_to->type != 3)
     {
-      FOREVERY (RECORD role FROM add_roles)
-        IF (role.role NOT IN existing_roles)
+      INTEGER ARRAY existing_roles :=
+         SELECT AS INTEGER ARRAY DISTINCT COLUMN role
+           FROM system.rolegrants
+          WHERE COLUMN grantee = copy_to->authobjectid;
+      DELETE FROM add_roles WHERE role IN existing_roles;
+
+      IF(Length(add_roles) > 0) //still roles to copy
+      {
+        add_roles := this->contexts->userapi->EnrichRoles("ROLE", add_roles, [ celltype := "authobjectid" ]);
+        FOREVERY (RECORD role FROM add_roles)
           TolliumGrantRoleTo(this->contexts, work, this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], "Copied: " || role.comment);
+      }
     }
+
+    STRING ARRAY grant_columns := [ "OBJECTID", "RIGHTID", "WITHGRANTOPTION" ];
 
     OBJECT rightsinfo := GetRightsInfoObject(this->tolliumuser);
     FOREVERY (RECORD grant FROM add_grants)
