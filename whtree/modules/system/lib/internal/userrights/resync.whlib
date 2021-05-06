@@ -12,8 +12,8 @@ MACRO AddAuthObjects(RECORD ARRAY syncables)
   DATETIME now := GetCurrentDateTime();
   FOREVERY (RECORD rec FROM syncables)
   {
-    INSERT INTO system_internal.authobjects(id, type, name, guid, creationdate, parent)
-      VALUES (rec.id, rec.type, rec.want.name, rec.guid, now, rec.want.parent);
+    INSERT INTO system_internal.authobjects(id, type, name, guid, creationdate, parent, deactivated)
+      VALUES (rec.id, rec.type, rec.want.name, rec.guid, now, rec.want.parent, rec.want.deactivated);
   }
 }
 
@@ -34,6 +34,7 @@ RECORD ARRAY FUNCTION GetSomeDBObjects(STRING whichguid)
            , deletiondate
            , type
            , action :=  "delete"
+           , deactivated
         FROM system_internal.authobjects
        WHERE (whichguid = "" ? TRUE : guid = whichguid)
          AND type IN [ 1, 2, 3 ]
@@ -104,7 +105,7 @@ RECORD ARRAY FUNCTION CheckDBObjectsAgainstAuthObjects(RECORD ARRAY dbobjects, R
 
     IF (dbrec.action = "delete") //existing dbobjects are always set to 'delete', here is where we decide to preserve them (if they are still wanted)
     {
-      IF (dbrec.name != rec.name OR dbrec.parent != rec.parent OR dbrec.deletiondate != DEFAULT DATETIME)
+      IF (dbrec.name != rec.name OR dbrec.parent != rec.parent OR dbrec.deletiondate != DEFAULT DATETIME OR dbrec.deactivated != rec.deactivated)
       {
         //TODO shouldn't we clear the name in authobjects if the user should be deleted?
         dbobjects[pos.position].action := "update"; //we need to update it
@@ -151,6 +152,7 @@ PUBLIC RECORD ARRAY FUNCTION ApplyDBWantedAuthObjects(RECORD ARRAY allwantauthob
     UPDATE system_internal.authobjects
        SET parent :=      rec.want.parent
          , name :=        rec.want.name
+         , deactivated := rec.want.deactivated
          , deletiondate := DEFAULT DATETIME
      WHERE id = rec.id;
   }
@@ -190,6 +192,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableUnits(OBJECT wrdunittype, INTEGER ARRAY 
            , guid :=          wrd_guid
            , name :=          wrd_title
            , type :=          2
+           , deactivated :=   FALSE
         FROM wrd_units;
   RETURN wantauthobjs;
 }
@@ -217,6 +220,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableUsers(OBJECT wrdusertype, INTEGER ARRAY 
              , type :=          1
              , realname :=      wrd_title
              , email :=         email
+             , deactivated :=   FALSE
           FROM users;
 }
 
@@ -224,7 +228,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableUsers(OBJECT wrdusertype, INTEGER ARRAY 
 PUBLIC RECORD ARRAY FUNCTION GetSyncableRoles(OBJECT wrdroletype, INTEGER ARRAY limitroles)
 {
   RECORD ARRAY roles := wrdroletype->RunQuery(
-        [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
+        [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE", "WRD_LIMITDATE" ]
         , historymode := "all"
         , filters := Length(limitroles)>0 ? [[ field := "WRD_ID", matchtype := "IN", value := limitroles ]]
                                           : DEFAULT RECORD ARRAY
@@ -235,7 +239,8 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableRoles(OBJECT wrdroletype, INTEGER ARRAY 
              , guid :=          wrd_guid
              , name :=          wrd_title
              , type :=          3
-          FROM roles;
+             , deactivated :=   wrd_limitdate != MAX_DATETIME
+        FROM roles;
 }
 PUBLIC RECORD ARRAY FUNCTION ResyncAllToSystemTables()
 {

@@ -14,6 +14,7 @@ PUBLIC SCHEMA
     , DATETIME "deletiondate"
     , INTEGER "type"
     , STRING "guid"
+    , BOOLEAN "deactivated"
     ; KEY id
     > authobjects
   , TABLE

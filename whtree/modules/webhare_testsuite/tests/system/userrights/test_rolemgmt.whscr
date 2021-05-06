@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -125,7 +126,9 @@ ASYNC MACRO TestEditDeleteRole()
 
   AWAIT ExpectAndAnswerMessagebox("YES", PTR TTClick("unitcontents->delete"));
 
-  TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(role1_id)));
+  TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(role1_id)), "Directly accessing the role and requesting its members is still allowed when deleted (so we can someday build 'undelete' in usermgmt and pre-show the role)");
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.authobjects WHERE id = GetTestController()->userapi->GetRole(role1_id)->authobjectid
+                                                                          AND deactivated));
 
   testfw->BeginWork();
   testfw->GetUserObject("sysop")->GrantRoleTo(testfw->GetRoleObject("role2"), testfw->GetUserObject("user1")); //add an extra role for more useful copy test
@@ -133,7 +136,7 @@ ASYNC MACRO TestEditDeleteRole()
 
   TestEq(1, Length(GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role2")->entityid)), "Check role2 1 member");
 
-//FIXME  TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
+  TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
 
   //Copying a user with a deleted role crashed earlier (because existence wasn't verified). See that it properly works now
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="user1@beta.webhare.net";
@@ -151,10 +154,9 @@ MACRO TestExport()
 {
   //Test the export
   RECORD ARRAY userexport := ListRightsAndRolesForExport(testfw->userapi);
-  //dumpvalue(userexport,'boxed');
   RECORD ARRAY grants := SELECT * FROM userexport WHERE type = "GRANT" ORDER BY comment;
 
-  TestEq(1,Length(grants)); //this is the initial assignment by testfw
+  TestEq(1,Length(grants)); //just one grant. 'role1' should not be shown as having gotten anything granted
   TestEq("Granted by RunTestframework", grants[0].comment);
   TestEq("", grants[0].grantor);
   TestEq(TRUE, grants[0].withgrantoption);
