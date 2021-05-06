@@ -1184,21 +1184,6 @@ MACRO CheckScreensAllClosed()
   THROW NEW Exception(msg);
 }
 
-MACRO CheckTolliumIssues()
-{
-  IF (testfw->HasFailed())
-    RETURN;
-
-  CheckScreensAllClosed();
-  IF(Length(controller->missingtids) > 0)
-  {
-    Print("There were missing tids!\n");
-    DumpValue(controller->missingtids,'boxed');
-    testfw->SetFailed();
-    SetConsoleExitCode(1);
-  }
-}
-
 PUBLIC OBJECT FUNCTION GetTestController()
 {
   IF(NOT ObjectExists(controller))
@@ -1217,8 +1202,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
 
     controller->user->language := "debug";
 
-    testfw->RegisterBeforeEachTest(PTR CheckScreensAllClosed);
-    testfw->RegisterAtTermination(PTR CheckTolliumIssues);
+    testfw->RegisterBeforeEachTest(PTR CheckScreensAllClosed); //note that RunSerie also invokes us *after* all test steps again
 
     controller->ActivateWebController();
   }

@@ -1393,8 +1393,8 @@ PUBLIC OBJECT FUNCTION OpenOOXMLSpreadSheetFile(BLOB xlsdoc)
   OBJECT xls := NEW ExcelDoc(xlsdoc);
   RETURN xls;
 }
-///@private Deprecate!
-PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols)
+
+PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols) __ATTRIBUTES__(DEPRECATED "This API will be removed. We recommend GetOOXMLSpreadsheetRows or directly invoking OpenOOXMLSpreadSheetFile")
 {
   OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(xlsdoc);
   OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);

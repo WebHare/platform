@@ -318,7 +318,9 @@ MACRO TestXLS_CrohoImport()
                                 , [ name := "beroepsvereisten", type := "string" ] // Beroepsvereisten
                                 ];
 
-  OBJECT importer := MakeOOXMLColumnReader(OpenTestFile("xlsxcroho.xlsx"), crohorcols);
+  OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(OpenTestFile("xlsxcroho.xlsx"));
+  OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
+  OBJECT importer := importxlsxsheet->MakeColumnReader(crohorcols);
   RECORD ARRAY result := importer->GetAllRows();
   TestEq("13", result[0].brinnummer);
   TestEq('Hogeschool Dirksen B.V.', result[5].orgunit_title);
@@ -344,7 +346,9 @@ MACRO TestXLS_XLSXImport()
                        , [ name := "utpartner",      type := "string" ]
                        ];
 
-  OBJECT importer := MakeOOXMLColumnReader(OpenTestFile("xlsimport.xlsx"), cols);
+  OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(OpenTestFile("xlsimport.xlsx"));
+  OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
+  OBJECT importer := importxlsxsheet->MakeColumnReader(cols);
   RECORD ARRAY result := importer->GetAllRows();
   //dumpvalue(result,'tree');
   TestEq("5461345788", result[0].paymentref);
@@ -358,7 +362,7 @@ MACRO TestXLS_XLSXImport()
   cols[END-1].type := "boolean";
   INSERT CELL trimwhitespace := FALSE INTO cols[3];
 
-  importer := MakeOOXMLColumnReader(OpenTestFile("xlsimport.xlsx"), cols);
+  importer := importxlsxsheet->MakeColumnReader(cols);
   result := importer->GetAllRows();
   TestEq(FALSE, result[0].utpartner);
   TestEq("Christopher Testing", result[0].firstname);

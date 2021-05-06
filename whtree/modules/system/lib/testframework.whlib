@@ -495,6 +495,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /// Checks to run at termination
   MACRO PTR ARRAY attermination;
 
+  // List of any missing tids
+  RECORD ARRAY missingtids;
 
   MACRO NEW(RECORD options)
   {
@@ -523,6 +525,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     this->RegisterTest("testfw.prepare", PTR this->RunPrepare);
     this->RegisterTest("whfs.prepare", PTR this->WHFSPrepare);
 
+    SetMissingTidCallback(PTR this->OnMissingTid(#1, GetMissingTidCallback()));
 
     IF (disallowtestframework != "")
       THROW NEW Exception("The testframework may only be used in an exclusive context: " || disallowtestframework);
@@ -538,7 +541,20 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     this->pvt_paranoid := paranoid;
   }
 
- /** Declare a user for further use in tests. Call before running any tests
+  MACRO OnMissingTid(RECORD tidinfo, MACRO PTR prevcallback)
+  {
+    IF(tidinfo.module NOT IN ["webhare_testsuite","webhare_testsuite_temp","webhare testsuite","webhare testsuite temp"])
+    {
+      RECORD insertpos := RecordLowerBound(this->missingtids, tidinfo, ["module","tid"]);
+      IF(NOT insertpos.found)
+        INSERT tidinfo INTO this->missingtids AT insertpos.position;
+    }
+
+    IF(prevcallback != DEFAULT MACRO PTR)
+      prevcallback(tidinfo);
+  }
+
+  /** Declare a user for further use in tests. Call before running any tests
       @param username User's name
   */
   PUBLIC MACRO DeclareTestUser(STRING username, STRING ARRAY grantrights)
@@ -1374,6 +1390,13 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   {
     FOREVERY(MACRO PTR torun FROM this->attermination)
       torun();
+
+    IF(Length(this->missingtids) > 0)
+    {
+      Print("There were missing tids!\n");
+      DumpValue(this->missingtids,'boxed');
+      this->SetFailed();
+    }
   }
 
   PUBLIC MACRO RunTests()

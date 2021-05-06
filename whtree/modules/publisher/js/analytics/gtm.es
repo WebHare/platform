@@ -64,7 +64,7 @@ export async function init()
     return false;
 
   didinit = true;
-  window.dataLayer.push({'gtm.start':Date.now()});//, ...getLocalStorageKeys("wh-pretag")});
+  window.dataLayer.push({'gtm.start':Date.now()});
 
   //give other event handlers a chance to run and add their events
   await new Promise(resolve => window.setTimeout(resolve,1));

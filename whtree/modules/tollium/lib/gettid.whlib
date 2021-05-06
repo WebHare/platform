@@ -37,6 +37,14 @@ PUBLIC MACRO SetTIDLanguage(STRING language)
   __SETWITTYGETTIDFALLBACK(PTR GetTid, PTR GetHTMLTid);
 }
 
+/** Get the current missing tid callback
+    @return Current callback
+*/
+PUBLIC MACRO PTR FUNCTION GetMissingTidCallback()
+{
+  RETURN missingtidcallback;
+}
+
 /** Sets the callback called when a missing tid is encountered
     @param callback Callback, signature: MACRO missingtidcallback(data)
 */
