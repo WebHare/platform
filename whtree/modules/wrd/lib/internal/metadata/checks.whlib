@@ -10,8 +10,11 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
   {
     RECORD ARRAY msgs;
+    RECORD ARRAY wrdschemas := SELECT name
+                                    , module := ToLowercase(name LIKE "*:*" ? Tokenize(name, ':')[0] : "")
+                                 FROM wrd.schemas
+                                WHERE name NOT LIKE "$wrd$deleted*";
 
-    RECORD ARRAY wrdschemas := SELECT name, module := ToLowercase(name LIKE "*:*" ? Tokenize(name, ':')[0] : "") FROM wrd.schemas;
     RECORD ARRAY definedschemas;
     STRING ARRAY moduleschemas;
     FOREVERY(RECORD permodule FROM SELECT module, names := GroupedValues(name) FROM wrdschemas GROUP BY module)
