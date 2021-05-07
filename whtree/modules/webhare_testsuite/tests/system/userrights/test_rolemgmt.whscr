@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -49,6 +50,8 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[testfw->GetUserObject("user1")->entityid], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[testfw->GetRoleObject("role1")->entityid], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
   TestEq(TRUE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));
+  TestEQ(TRUE, testfw->GetRoleAuthobjectid("role1") IN GetGrantedAuthObjects("webhare_testsuite:globalright", 0));
+  TestEQ(TRUE, testfw->GetUserAuthobjectid("user1") IN GetGrantedAuthObjects("webhare_testsuite:globalright", 0));
 
   TT("userrolerightslist->rightstabs")->selectedtab := TT("userrolerightslist->userstab");
   TestEq(1, Length(TT("userrolerightslist->userlistbyrole")->rows));
@@ -125,6 +128,8 @@ ASYNC MACRO TestEditDeleteRole()
   INTEGER role1_id := GetTestController()->userapi->wrdschema->^whuser_role->Search("WRD_TITLE","role1-renamed");
 
   AWAIT ExpectAndAnswerMessagebox("YES", PTR TTClick("unitcontents->delete"));
+  TestEQ(FALSE, testfw->GetRoleAuthobjectid("role1") IN GetGrantedAuthObjects("webhare_testsuite:globalright", 0));
+  TestEQ(FALSE, testfw->GetUserAuthobjectid("user1") IN GetGrantedAuthObjects("webhare_testsuite:globalright", 0));
 
   TestEq(2, Length(GetTestController()->userapi->GetRoleMembers(role1_id)), "Directly accessing the role and requesting its members is still allowed when deleted (so we can someday build 'undelete' in usermgmt and pre-show the role)");
   TestEq(TRUE, RecordExists(SELECT FROM system_internal.authobjects WHERE id = GetTestController()->userapi->GetRole(role1_id)->authobjectid
