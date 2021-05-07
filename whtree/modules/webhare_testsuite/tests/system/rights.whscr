@@ -147,7 +147,7 @@ MACRO DefaultRightsTest()
          , [ objectid := 9, path := DEFAULT INTEGER ARRAY ]
          ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], DEFAULT INTEGER ARRAY));
 
-  TestThrows(PTR limited_user->HasRightOn("webhare_testsuite:unknownright", 7));
+  TestThrowsLike('*does not exist*', PTR limited_user->HasRightOn("webhare_testsuite:unknownright", 7));
 
   testfw->EndTrans();
 }
@@ -255,7 +255,7 @@ MACRO GrantTest()
   testfw->Commit();
 
   testfw->StartTrans("limited", FALSE);
-  TestThrows(PTR limited_user->GrantRightTo("webhare_testsuite:objectright", limited2_user, FALSE));
+  TestThrowsLike('*only * global*', PTR limited_user->GrantRightTo("webhare_testsuite:objectright", limited2_user, FALSE));
   TestEq(FALSE, limited2_user->HasRight("webhare_testsuite:globalright"));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright", 0));
   TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright", 7));
@@ -268,7 +268,7 @@ MACRO GrantTest()
   // Grant with grant right (use objectright2, because it is implied by globalright)
 
   testfw->StartTrans("mysysop", FALSE);
-  TestThrows(PTR limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE));
+  TestThrowsLike('*does not have the right*', PTR limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE));
   sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, TRUE);
 
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
@@ -674,7 +674,7 @@ MACRO UnitTest()
 
   testfw->BeginWork();
 
-  TestThrows(PTR testfw->userapi->CreateUnit([name := "testunit"]));
+  TestThrowsLike('*WRD_TITLE*', PTR testfw->userapi->CreateUnit([name := "testunit"]));
 
   testfw->userapi->CreateUnit([wrd_title := "testunit"]);
 
