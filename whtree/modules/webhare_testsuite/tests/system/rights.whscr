@@ -626,15 +626,26 @@ MACRO EnumTest()
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:globalright", 0)));
   TestEq([ INTEGER(limited_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:globalright", 0, [ inherited := FALSE ])));
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright2", 7)));
+
+  TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0)));
+  TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 1)));
+  TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])));
   TestEq(DEFAULT INTEGER ARRAY, FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright2", 7, [ expandroles := FALSE, inherited := FALSE ])));
 
   sysop_user->RevokeRightFrom("webhare_testsuite:globalright", limited_user, FALSE);
   sysop_user->RevokeRightFromOn("webhare_testsuite:objectright", limited_user, 1, FALSE);
 
+  TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "Verify limited_user no longer has rights on any objects");
+
   OBJECT role1 := testfw->GetRoleObject("role1");
 
   sysop_user->GrantRightTo("webhare_testsuite:globalright", role1, FALSE);
+  sysop_user->GrantRightToOn("webhare_testsuite:objectright", role1, 1, FALSE);
+  TestEq(TRUE, role1->authobjectid IN GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ expandroles := FALSE, anyobject :=TRUE ]));
   sysop_user->GrantRoleTo(testfw->GetRoleObject("role1"), limited_user);
+
+  TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
+  TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE, dontexpandauthobjects := INTEGER[role1->authobjectid] ])), "remove limited1 when role1 ignored");
 
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEq(
