@@ -494,4 +494,15 @@ test.registerTests(
       test.eq(3, test.getPxlLog(/^publisher:form.+/).length, "Should be 3 PXL events...");
       test.eq("publisher:formslow", test.getPxlLog(/^publisher:form.+/)[1].event, 'middle event should be "slow" warning');
     }
+
+  , "Test back link"
+  , async function()
+    {
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
+      test.qS("#globalform .wh-form__button--previous").scrollIntoView();
+      test.true(test.canClick('#globalform .wh-form__button--previous'), "'previous' button should be available with a backlink");
+      test.click('.wh-form__button--previous');
+      await test.wait("load");
+      test.eq("Welcome to the testsite", test.qS("#content p").textContent);
+    }
   ]);
