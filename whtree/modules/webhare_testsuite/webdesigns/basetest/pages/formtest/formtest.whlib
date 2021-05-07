@@ -414,6 +414,8 @@ PUBLIC OBJECTTYPE GlobalTestForm EXTEND FormBase
 <
   MACRO NEW()
   {
+    IF(GetWebVariable("backlink")!="")
+      this->formbacklink := GetWebVariable("backlink");
   }
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
@@ -631,6 +633,9 @@ PUBLIC STATIC OBJECTTYPE MultipageTestForm EXTEND FormBase
     ^skipform->visiblecondition := FCIsSet(^showskipform);
     ^bonuspage->visiblecondition := FCMatch(^bonusquestion,"IN",["answer3"]);
     ^bonusquestion->visiblecondition := FCMatch(^metabonusquestion,"IN",["holygrail"]);
+
+    IF(GetWebVariable("backlink")!="")
+      this->formbacklink := GetWebVariable("backlink");
   }
 
   RECORD FUNCTION Submit(RECORD data)
