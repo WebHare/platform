@@ -966,6 +966,9 @@ True if this port should support virtual hosting.
       <d:integer name="type" nullable="false">
         <d:documentation>1: user, 2: unit, 3: user role (userrights). (4 and 5 were formerly module and database roles, but are obsolete since the flat registry)</d:documentation>
       </d:integer>
+      <d:boolean name="deactivated">
+        <d:documentation>If true, authobject is no longer visible in any usermgmt schema (currently used only for roles that only exist with a limitdate in WRD)</d:documentation>
+      </d:boolean>
       <d:datetime name="creationdate">
         <d:documentation>Time of authobject creation (may not have been set for very old authobjects)</d:documentation>
       </d:datetime>

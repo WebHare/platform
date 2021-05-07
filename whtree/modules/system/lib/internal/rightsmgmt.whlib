@@ -575,6 +575,7 @@ INTEGER ARRAY FUNCTION ExpandAuthobjectsWithRoleGrants(INTEGER ARRAY authobjects
          WHERE authobjects.id = rolegrants.role
            AND grantee IN grantlist
            AND authobjects.type = 3 /*role*/
+           AND NOT authobjects.deactivated
            AND role NOT IN VAR authobjects;
     authobjects := authobjects CONCAT grantlist;
     IF (NOT recursive)

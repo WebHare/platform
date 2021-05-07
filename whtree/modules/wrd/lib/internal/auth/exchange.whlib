@@ -164,6 +164,8 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
 
   //Gather the role grants
   RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
+  rolegrants := userapi->EnrichRoles("role", rolegrants, [ celltype := "authobjectid" ]); //enrich to kick out roles that don't exist in our userapi view
+
   FOREVERY(RECORD grant FROM rolegrants)
   {
     RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);

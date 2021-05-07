@@ -126,7 +126,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
   // used by the UserRights editor function DoShowPermissionsForUserOrRole()
   RECORD ARRAY FUNCTION GetPermissionRows(OBJECT wrdauthobject)
   {
-    INTEGER ARRAY granted_role_entityids := GetRoleEntityIdsGrantedToUser(this->contexts->userapi, wrdauthobject);
+    INTEGER ARRAY granted_role_entityids := this->contexts->userapi->GetUserRoles(wrdauthobject->entityid);
 
     RECORD ARRAY roles := GetRolesByFilter(this->contexts->controller, [ [ field := "WRD_ID", matchtype := "IN", value := granted_role_entityids ] ], this->owner->tolliumuser);
 
@@ -214,7 +214,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
   MACRO ReloadUsersForSelectedRole()
   {
     this->userlistdirty := FALSE;
-    INTEGER ARRAY roleusers := GetUsersEntityIdsWithRole(this->contexts->userapi, this->pvt_wrdauthobject);
+    INTEGER ARRAY roleusers := this->contexts->userapi->GetRoleMembers(this->pvt_wrdauthobject->entityid);
 
     RECORD ARRAY rows := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := roleusers ] ], this->owner->tolliumuser);
     rows := EnrichWithUnitPath(rows, this->owner->tolliumuser);

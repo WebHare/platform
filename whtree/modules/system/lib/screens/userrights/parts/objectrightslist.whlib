@@ -267,8 +267,7 @@ PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
   */
   RECORD ARRAY FUNCTION GetUsersInRole(RECORD parentrow)
   {
-    OBJECT roleobj := this->contexts->userapi->GetRole(parentrow.wrd_id);
-    INTEGER ARRAY granted_user_entityids := GetUsersEntityIdsWithRole(this->contexts->userapi, roleobj);
+    INTEGER ARRAY granted_user_entityids := this->contexts->userapi->GetRoleMembers(parentrow.wrd_id);
 
     RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := granted_user_entityids ] ], this->owner->tolliumuser);
     users := EnrichWithUnitPath(users, this->owner->tolliumuser);

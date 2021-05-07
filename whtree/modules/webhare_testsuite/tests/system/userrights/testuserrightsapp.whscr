@@ -240,7 +240,37 @@ ASYNC MACRO TestExport()
         ]
       ], SELECT * FROM rows ORDER BY username);
 
+  //Delete 'visiblerole'. This should eliminate it from the exportobjectrights
+  testfw->BeginWork();
+  testfw->userapi->wrdschema->^whuser_role->CloseEntity(visiblerole->entityid);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("objecttree->exportobjectrights"));
+  rec := AWAIT ExpectSentWebFile(PTR TTClick("download"));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  rows := GetOOXMLSpreadsheetRows(rec.file.data);
+  TestEQ(
+      [ [ path   :=       "/visiblefolder"
+        , username :=     "visibleunit/testuser@beta.webhare.net"
+        , "full name" :=  "testuser"
+        , right :=        "Browse"
+        , "via role" :=   ""
+        ]
+      , [ path   :=       "/visiblefolder"
+        , username :=     "visibleunit/visibleuser1@beta.webhare.net"
+        , "full name" :=  "visibleuser1"
+        , right :=        "Browse"
+        , "via role" :=   ""
+        ]
+      ], SELECT * FROM rows ORDER BY username);
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Undelete 'visiblerole' for the next test to work
+  testfw->BeginWork();
+  testfw->userapi->wrdschema->^whuser_role->UpdateEntity(visiblerole->entityid, [ wrd_limitdate := MAX_DATETIME ]);
+  testfw->CommitWork();
 }
 
 ASYNC MACRO TestExportSysop()
