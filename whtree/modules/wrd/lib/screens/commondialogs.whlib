@@ -4,7 +4,10 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::util/langspecific.whlib";
+LOADLIB "wh::internal/any.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 LOADLIB "mod::system/lib/commondialogs.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 
@@ -978,6 +981,21 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
     evts := this->contexts->wrdschema->accounttype->Enrich(evts, "byentity", [ wrdaudit_byaccount := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
     evts := this->contexts->wrdschema->accounttype->Enrich(evts, "impersonator_entity", [ wrdaudit_impersonator_account := this->contexts->wrdschema->accountlogintag ], [ rightouterjoin := TRUE ]);
 
+    IF (^filter->value != "")
+    {
+      STRING filterline := ` *${Substitute(NormalizeWhitespace(^filter->value), " ", "* *")}* `;
+      WHILE (SearchSubString(filterline, "**") != -1)
+        filterline := Substitute(filterline, "**", "*");
+      filterline := Substitute(filterline, " *^", " ");
+      filterline := Substitute(filterline, "$* ", " ");
+
+      STRING ARRAY filters := Tokenize(TrimWhitespace(filterline), " ");
+      evts :=
+          SELECT *
+            FROM evts
+           WHERE __MatchesAllMasks(`${wrdaudit_type} ${wrdaudit_account} ${wrdaudit_byaccount} ${wrdaudit_impersonator_account}`, filters);
+    }
+
     evts := SELECT TEMPORARY success_event := wrdaudit_type IN this->pvt_success_types
                  , TEMPORARY warning_event := wrdaudit_type IN this->pvt_warning_types
                  , TEMPORARY failure_event := wrdaudit_type IN this->pvt_failure_types
@@ -986,6 +1004,7 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
                  , user_account :=          byentity != entity ? `${wrdaudit_byaccount}${wrdaudit_byaccount != bylogin ? `(${bylogin})` : ""}` : ""
                  , impersonator_account :=  impersonator_entity != byentity ? `${wrdaudit_impersonator_account}${wrdaudit_impersonator_account != impersonator_login ? `(${impersonator_login})` : ""}` : ""
               FROM evts;
+
     RETURN evts;
   }
 

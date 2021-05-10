@@ -163,6 +163,7 @@
       <text tid="country">Country</text>
       <text tid="dataheading">Extra data</text>
       <text tid="entity">Affected user</text>
+      <text tid="filter">Filter</text>
       <text tid="fromdate">Show events from</text>
       <text tid="impersonator_account">Original user</text>
       <text tid="ip">IP address</text>

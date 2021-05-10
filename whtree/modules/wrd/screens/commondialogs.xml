@@ -250,8 +250,9 @@
       <line>
         <datetime name="fromdate" type="datetime" storeutc="true" />
         <datetime name="todate" type="datetime" storeutc="true" />
+        <textedit name="filter" defaultbutton="btn_refresh" tid=".filter" />
         <spacer />
-        <button action="refresh" />
+        <button name="btn_refresh" action="refresh" tid=".refresh" />
       </line>
       <line layout="left">
         <checkbox name="show_success" title="" labeltid=".show_success" value="true" onchange="dorefresh" />

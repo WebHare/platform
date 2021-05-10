@@ -163,6 +163,7 @@
       <text tid="country">Land</text>
       <text tid="dataheading">Extra gegevens</text>
       <text tid="entity">Bewerkte gebruik</text>
+      <text tid="filter">Filter</text>
       <text tid="fromdate">Toon events tussen</text>
       <text tid="impersonator_account">Oorspronkelijke gebruiker</text>
       <text tid="ip">IP-adres</text>
