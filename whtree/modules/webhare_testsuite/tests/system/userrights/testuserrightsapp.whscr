@@ -320,12 +320,30 @@ ASYNC MACRO TestAuditLog()
   testfw->SetTestUser("supervisor");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
   {
-
     TTFillByTitle("unittree->unitlist", "webhare_testsuite.unit");
     TTFillByTitle("unitcontents->userandrolelist", "lisa@beta.webhare.net");
     TT("frame")->focused := TT("unitcontents->userandrolelist");
 
-    AWAIT ExpectScreenChange(+1, PTR TTClick(":Show audit log", [ menuitem := TRUE ]));
+    // global show audit log
+    AWAIT ExpectScreenChange(+1, PTR TTClick(":Show audit log[1/2]", [ menuitem := TRUE ]));
+    {
+      TestEQMembers(
+          [ [ bylogin :=              "sysop@beta.webhare.net"
+            , wrdaudit_type :=        "Disabled two factor authentication"
+            ]
+          , [ byentity :=             testfw->GetUserWRDId("lisa")
+            , bylogin :=              "lisa@beta.webhare.net"
+            , user_account :=         ""
+            , impersonator_account := ""
+            , wrdaudit_type :=        "Set password"
+            ]
+          ], TT("events")->rows, "*");
+
+      AWAIT ExpectScreenChange(-1, PTR TTEscape);
+    }
+
+    // per-user show audit log
+    AWAIT ExpectScreenChange(+1, PTR TTClick(":Show audit log[2/2]", [ menuitem := TRUE ]));
     {
       TestEQMembers(
           [ [ byentity :=             testfw->GetUserWRDId("lisa")
@@ -349,7 +367,8 @@ ASYNC MACRO TestAuditLog()
     TTFillByTitle("unitcontents->userandrolelist", "lisa@beta.webhare.net");
     TT("frame")->focused := TT("unitcontents->userandrolelist");
 
-    TestEQ(FALSE, TTClick(":Show audit log", [ allowfailure := TRUE, menuitem := TRUE ]));
+    TestEQ(FALSE, TTClick(":Show audit log[1/2]", [ allowfailure := TRUE, menuitem := TRUE ]));
+    TestEQ(FALSE, TTClick(":Show audit log[2/2]", [ allowfailure := TRUE, menuitem := TRUE ]));
     AWAIT ExpectScreenChange(-1, PTR TTEscape);
   }
 }
