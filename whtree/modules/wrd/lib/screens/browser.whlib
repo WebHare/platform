@@ -249,15 +249,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     work->Finish();
   }
 
-  //Open de schemadata-editor
-  PUBLIC MACRO DoSchemaData()
-  {
-    OBJECT editor := this->LoadScreen("schema.editschemadata",
-        [ currentschema := this->contexts->wrdschema ]);
-
-    editor->RunModal();
-  }
-
   ////////////////////////////////////////////////////////
   // Support
   //
