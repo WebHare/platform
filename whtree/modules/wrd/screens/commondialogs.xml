@@ -237,7 +237,7 @@
           tid=".title"
           gid="wrd:commondialogs.auditlog"
           width="100x"
-          height="25x"
+          height="60x"
           savestate="position size">
     <actions>
       <action name="refresh" onexecute="dorefresh" />
@@ -278,6 +278,43 @@
     <footer>
       <defaultformbuttons buttons="close" />
     </footer>
+  </screen>
+
+  <screen name="auditlogevent"
+          allowresize="true"
+          tid=".title"
+          gid="wrd:commondialogs.auditlog"
+          width="80x"
+          height="35x"
+          minheight="35x"
+          savestate="position size"
+          >
+    <compositions>
+      <record name="event" />
+    </compositions>
+    <body height="1pr">
+      <text name="type" tid=".wrdaudit_type" />
+      <datetime composition="event" cellname="creationdate" precision="milliseconds" storeutc="true" type="datetime" tid=".wrd_creationdate" readonly="true" />
+      <line>
+        <text composition="event" cellname="login" name="login" tid=".wrdaudit_account" />
+        <textedit composition="event" cellname="entity" name="entity" valuetype="integer" readonly="true" tid="~id" />
+      </line>
+      <line>
+        <text composition="event" cellname="bylogin" name="bylogin" tid=".user_account" />
+        <textedit composition="event" cellname="byentity" name="byentity" valuetype="integer" readonly="true" tid="~id" />
+      </line>
+      <line>
+        <text composition="event" cellname="impersonator_login" name="impersonator_login" tid=".impersonator_account" />
+        <textedit composition="event" cellname="impersonator_entity" name="impersonator_entity" valuetype="integer" readonly="true" tid="~id" />
+      </line>
+      <text composition="event" cellname="ip" />
+      <text composition="event" cellname="country" />
+      <text composition="event" cellname="browsertriplet" tid=".browser" />
+      <heading name="dataheading" />
+      <panel borders="all" height="1pr">
+        <codeedit name="data" enabled="false" height="1pr" />
+      </panel>
+    </body>
   </screen>
 
 </screens>

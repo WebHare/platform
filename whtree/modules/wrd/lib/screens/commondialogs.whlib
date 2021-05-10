@@ -817,6 +817,46 @@ STRING ARRAY wrdauth_failure_types :=
 
 // Informational: [ "WRDAUTH:LOGOUT" ]
 
+
+STRING FUNCTION MapAuditLogTypeValue(STRING type, FUNCTION PTR onmaptype)
+{
+  STRING title;
+  SWITCH(type)
+  {
+    CASE "wrd:login:ok"                         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+    CASE "wrd:logincookie"                      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logincookie"); }
+    CASE "wrd:loginbyid:ok"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginid"); }
+    CASE "wrd:forgotpassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.forgotpassword"); }
+    CASE "wrd:getresetlink"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.getresetlink"); }
+    CASE "wrd:updatepassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.updatepassword"); }
+    CASE "wrd:resetpassword:ok"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpassword"); }
+    CASE "wrd:resetpassword:failed"             { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpasswordfailed"); }
+    CASE "wrd:usedverificationlink"             { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.usedverificationlink"); }
+    CASE "wrd:login:failed"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logindenied"); }
+    CASE "wrd:loginbyid:failed"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
+    CASE "wrd:logout"                           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logout"); }
+    CASE "wrd:login:failedvalidationchecks"     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.failedvalidationchecks"); }
+    CASE "wrd:login:requiresecondfactor"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresecondfactor"); }
+    CASE "wrd:login:requiresetupsecondfactor"   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresetupsecondfactor"); }
+    CASE "wrd:login:saml:ok"                    { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-ok"); }
+    CASE "wrd:login:saml:unknownlogin"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-unknownlogin"); }
+    CASE "wrd:login:saml:error"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-error"); }
+    CASE "wrd:login:secondfactor:ok"            { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-ok"); }
+    CASE "wrd:login:secondfactor:failed"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-failed"); }
+    CASE "wrd:authsettings.disabletotp"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.disabletotp"); }
+    CASE "wrd:authsettings.resettotpbackupcodes"{ RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resettotpbackupcodes"); }
+    CASE "wrd:authsettings.setpassword"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setpassword"); }
+    CASE "wrd:authsettings.setuptotp"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setuptotp"); }
+  }
+
+  IF (type LIKE "wrdauth:*")
+    title := GetTid("wrd:commondialogs.auditlog.wrdauth." || Substring(type, 8)); //FIXME remove in 2020
+  ELSE IF (onmaptype != DEFAULT FUNCTION PTR)
+    title := onmaptype(type);
+  RETURN title ?? type;
+}
+
+
 PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
@@ -951,39 +991,7 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
 
   STRING FUNCTION OnMapTypeValue(STRING type)
   {
-    STRING title;
-    SWITCH(type)
-    {
-      CASE "wrd:login:ok"                         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
-      CASE "wrd:logincookie"                      { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logincookie"); }
-      CASE "wrd:loginbyid:ok"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginid"); }
-      CASE "wrd:forgotpassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.forgotpassword"); }
-      CASE "wrd:getresetlink"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.getresetlink"); }
-      CASE "wrd:updatepassword"                   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.updatepassword"); }
-      CASE "wrd:resetpassword:ok"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpassword"); }
-      CASE "wrd:resetpassword:failed"             { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resetpasswordfailed"); }
-      CASE "wrd:login:failed"                     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logindenied"); }
-      CASE "wrd:loginbyid:failed"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.login"); }
-      CASE "wrd:logout"                           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.logout"); }
-      CASE "wrd:login:failedvalidationchecks"     { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.failedvalidationchecks"); }
-      CASE "wrd:login:requiresecondfactor"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresecondfactor"); }
-      CASE "wrd:login:requiresetupsecondfactor"   { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.requiresetupsecondfactor"); }
-      CASE "wrd:login:saml:ok"                    { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-ok"); }
-      CASE "wrd:login:saml:unknownlogin"          { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-unknownlogin"); }
-      CASE "wrd:login:saml:error"                 { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.saml-error"); }
-      CASE "wrd:login:secondfactor:ok"            { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-ok"); }
-      CASE "wrd:login:secondfactor:failed"        { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.loginsecondfactor-failed"); }
-      CASE "wrd:authsettings.disabletotp"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.disabletotp"); }
-      CASE "wrd:authsettings.resettotpbackupcodes"{ RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resettotpbackupcodes"); }
-      CASE "wrd:authsettings.setpassword"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setpassword"); }
-      CASE "wrd:authsettings.setuptotp"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setuptotp"); }
-    }
-
-    IF (type LIKE "wrdauth:*")
-      title := GetTid("wrd:commondialogs.auditlog.wrdauth." || Substring(type, 8)); //FIXME remove in 2020
-    ELSE IF (this->onmaptype != DEFAULT FUNCTION PTR)
-      title := this->onmaptype(type);
-    RETURN title ?? type;
+    RETURN MapAuditLogTypeValue(type, this->onmaptype);
   }
 
   MACRO DoShowEvent()
@@ -993,7 +1001,7 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
     IF (this->onshowevent != DEFAULT FUNCTION PTR)
       this->onshowevent(event);
     ELSE
-      Reflect(event);
+      this->RunScreen("#auditlogevent", CELL[ event, this->onmaptype ]);
   }
 
 
@@ -1033,7 +1041,85 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
   }
 >;
 
+PUBLIC OBJECTTYPE AuditLogEvent EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
 
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    data.event.ip := data.event.ip ?? this->GetTid(".unknown");
+    data.event.country := data.event.country ?? this->GetTid(".unknown");
+    data.event.browsertriplet := data.event.browsertriplet ?? this->GetTid(".unknown");
+
+    ^event->value := data.event;
+    STRING mappedtype := MapAuditLogTypeValue(data.event.type, data.onmaptype);
+    IF (mappedtype != data.event.type)
+      mappedtype := `${mappedtype} (${data.event.type})`;
+    ^type->value := mappedtype;
+
+    RECORD eventdata := data.event.data = "" ? DEFAULT RECORD : DecodeHSON(data.event.data);
+    ^data->value := this->GetFormattedJSON(eventdata, 0, 0);
+    ^dataheading->visible := IsValueSet(eventdata);
+    ^data->visible := IsValueSet(eventdata);
+
+    ^bylogin->visible := data.event.bylogin != data.event.login OR data.event.byentity != data.event.entity;
+    ^byentity->visible := ^bylogin->visible;
+    ^impersonator_login->visible := data.event.impersonator_login != data.event.bylogin OR data.event.impersonator_entity != data.event.byentity;
+    ^impersonator_entity->visible := ^impersonator_login->visible;
+  }
+
+  MACRO GotAuditLogEvents(RECORD ARRAY events)
+  {
+    ^events->Invalidate();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION GetFormattedJSON(VARIANT data, INTEGER curpos, INTEGER indent)
+  {
+    IF (IsDefaultValue(data))
+      RETURN EncodeJSON(data);
+
+    IF (IsTypeIDArray(TypeID(data)))
+    {
+      STRING encoded := EncodeJSON(data);
+      IF (TypeId(data) = TypeID(RECORD ARRAY) OR curpos + LENGTH(encoded) > 120)
+      {
+        encoded := "";
+        FOREVERY (VARIANT elt FROM data)
+          encoded := encoded || (#elt = 0 ? "[ " : RepeatText(" ", indent) || ", ") || this->GetFormattedJSON(elt, curpos + 2, 2) || "\n";
+        encoded := encoded || RepeatText(" ", indent) || "]\n";
+      }
+      RETURN encoded;
+    }
+    IF (TypeID(data) = TypeID(RECORD))
+    {
+      STRING encoded := "";
+      FOREVERY (RECORD rec FROM UnpackRecord(data))
+      {
+        STRING keyn := EncodeJSON(ToLowercase(rec.name));
+        encoded := encoded || (#rec = 0 ? "{ " : RepeatText(" ", indent) || ", ") || keyn || ": " || this->GetFormattedJSON(rec.value, curpos + 4 + LENGTH(keyn), LENGTH(keyn)) || "\n";
+      }
+      RETURN encoded || RepeatText(" ", indent) || "}\n";
+    }
+    RETURN EncodeJSON(data);
+  }
+>;
 
 RECORD FUNCTION SetupEntityList(OBJECT list, OBJECT type, RECORD ARRAY listcolumns, STRING condition, BOOLEAN showastree, RECORD listquery, RECORD ARRAY listfilters, RECORD ARRAY finallistcolumns)
 {

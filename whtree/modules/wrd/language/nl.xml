@@ -159,8 +159,13 @@
       <text tid="run">Uitvoeren</text>
     </textgroup>
     <textgroup gid="auditlog">   <!-- commondialogs.auditlog -->
+      <text tid="browser">Browser</text>
+      <text tid="country">Land</text>
+      <text tid="dataheading">Extra gegevens</text>
+      <text tid="entity">Bewerkte gebruik</text>
       <text tid="fromdate">Toon events tussen</text>
       <text tid="impersonator_account">Oorspronkelijke gebruiker</text>
+      <text tid="ip">IP-adres</text>
       <text tid="refresh">Vernieuwen</text>
       <text tid="show_failure">Toon fouten</text>
       <text tid="show_other">Toon andere events</text>
@@ -169,6 +174,7 @@
       <text tid="status">Status</text>
       <text tid="title">Inlog-events<ifparam p="1" value=""><else/> voor <param p="1"/></ifparam></text>
       <text tid="todate">en</text>
+      <text tid="unknown">Onbekend</text>
       <text tid="user_account">Door gebruikersaccount</text>
       <text tid="wrd_creationdate">Wanneer</text>
       <text tid="wrdaudit_account">Account</text>
@@ -200,6 +206,7 @@
         <text tid="unknownlogin">Onbekende inlognaam</text>
         <text tid="unknownlookuplogin">Inlognaam niet gevonden</text>
         <text tid="updatepassword">Wachtwoord gewijzigd</text>
+        <text tid="usedverificationlink">Verificatielink gebruikt</text>
         <text tid="verificationfailed">Verificatie mislukt</text>
         <text tid="verificationok">Verificatie geslaagd</text>
       </textgroup>

@@ -59,9 +59,9 @@
         <item action="getresetlink" />
         <item action="openas" disablemode="hidden" />
         <divider />
-        <item action="edit" />
-        <divider />
         <item action="showauditlog" disablemode="hidden" />
+        <divider />
+        <item action="edit" />
       </menu>
 
       <menu name="newcontextmenu">
