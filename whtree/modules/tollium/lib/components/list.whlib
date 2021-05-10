@@ -2272,7 +2272,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
   {
-    RECORD row := this->GetRowByToddRowkey(path);
+    RECORD row;
+    IF (this->rowkeytype = TypeID(STRING))
+      row := this->GetRowByToddRowkey(path);
     IF(NOT RecordExists(row) AND path LIKE '[*]')
     {
       IF(path='[open]')
@@ -2290,6 +2292,17 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       IF(seqnr >= 0 AND seqnr < Length(this->rows))
         row := this->rows[seqnr];
     }
+    IF(NOT RecordExists(row) AND path LIKE ':*')
+    {
+      FOREVERY (RECORD col FROM SELECT * FROM this->columns WHERE type = "text")
+      {
+        row := SELECT * FROM this->rows WHERE GetCell(rows, col.name) = SubString(path, 1);
+        IF (RecordExists(row))
+          BREAK;
+      }
+    }
+    IF(NOT RecordExists(row) AND this->rowkeytype != TypeID(STRING))
+      row := this->GetRowByToddRowkey(path);
     IF(NOT RecordExists(row))
       THROW NEW TolliumException(this, `Did not find a row with rowkey '${path}'`);
 
