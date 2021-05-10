@@ -29,6 +29,7 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
@@ -1111,6 +1112,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell return.verifier The verification code (should be emailed to the user)
       @cell return.verifiedlink The verified link (should be emailed to the user)
       @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+      @cell return.validuntil Until when the link is valid
   */
   PUBLIC RECORD FUNCTION CreateVerificationLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1145,6 +1147,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN [ verifier := verifier
            , verifiedlink := UpdateURLVariables(baselink, ["verifier" := verifier ])
            , entrylink := baselink
+           , validuntil := until
            ];
   }
 
@@ -1160,6 +1163,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(record) return.secret Secret passed to [CreateVerificationLink](#CreateVerificationLink)
       @cell(string) return.failreason Reason why verification failed
       @cell(boolean) return.failed_incorrectverifier TRUE if the verifier code was incorrect
+      @cell(boolean) return.usedmessage Data used for marking the link as used
   */
   PUBLIC RECORD FUNCTION ProcessVerificationLink(STRING encrypted_data, STRING verifier)
   {
@@ -1174,6 +1178,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                      , failreason := ""
                      , failed_incorrectverifier := FALSE
                      , data := DEFAULT RECORD
+                     , usedmessage := DEFAULT RECORD
                      ];
 
     RECORD decrypted, userentity;
@@ -1184,43 +1189,71 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       RECORD verifybase := this->accounttype->GetEntityFields(decrypted.e, ["WRD_GUID", "WRD_LIMITDATE" ]);
       DATETIME now := GetCurrentDatetime();
-
-      IF (CellExists(decrypted, "d"))
-        retval.data := DecodeHSON(decrypted.d);
-
-      IF(NOT RecordExists(verifybase) OR verifybase.wrd_limitdate < now OR verifybase.wrd_guid != decrypted.g)
+      IF (NOT RecordExists(verifybase))
       {
         retval.expireson := now;
         retval.expired := TRUE;
+        retval.failreason := `Could not find entity #${decrypted.e}`;
       }
       ELSE
       {
-        retval.expireson := decrypted.m;
-        retval.expired := retval.expireson < now;
-        retval.entityid := decrypted.e;
-      }
+        IF (CellExists(decrypted, "d"))
+          retval.data := DecodeHSON(decrypted.d);
 
-      IF(NOT retval.expired)
-      {
-        retval.success := ToUppercase(verifier) = decrypted.v;
-        IF (retval.success AND CellExists(decrypted, "s"))
-          retval.secret := decrypted.s;
-      }
+        IF (verifybase.wrd_limitdate < now OR verifybase.wrd_guid != decrypted.g)
+        {
+          retval.expireson := now;
+          retval.expired := TRUE;
 
-      IF (NOT retval.success)
-      {
-        IF (NOT RecordExists(verifybase))
-          retval.failreason := `Could not find entity #${decrypted.e}`;
-        ELSE IF (verifybase.wrd_limitdate < now)
-          retval.failreason := `Entity #${decrypted.e} is not active`;
-        ELSE IF (verifybase.wrd_guid != decrypted.g)
-          retval.failreason := `GUID mismatch for entity #${decrypted.e}: '${verifybase.wrd_guid}' != '${decrypted.g}'`;
-        ELSE IF (retval.expired)
-          retval.failreason := `Reset link has expired: ${FormatISO8601DateTime(retval.expireson)}`;
+          IF (verifybase.wrd_limitdate < now)
+            retval.failreason := `Entity #${decrypted.e} is not active`;
+          ELSE
+            retval.failreason := `GUID mismatch for entity #${decrypted.e}: '${verifybase.wrd_guid}' != '${decrypted.g}'`;
+        }
         ELSE
         {
-          retval.failreason := "Verifier check failed";
-          retval.failed_incorrectverifier := TRUE;
+          retval.expireson := decrypted.m;
+          retval.expired := retval.expireson < now;
+          retval.entityid := decrypted.e;
+
+          IF (retval.expired)
+            retval.failreason := `Reset link has expired: ${FormatISO8601DateTime(retval.expireson)}`;
+          ELSE IF (ToUppercase(verifier) != decrypted.v)
+          {
+            retval.failreason := "Verifier check failed";
+            retval.failed_incorrectverifier := TRUE;
+          }
+          ELSE
+          {
+            // Allow only one use of the verification link. Check the validuntil date, that should be unique enough
+            RECORD ARRAY auditevents :=
+                    SELECT creationdate
+                         , COLUMN type
+                         , data :=        CELL[ verifier := "", validuntil := DEFAULT DATETIME, ...DecodeHSON(COLUMN data) ]
+                      FROM wrd.auditevents
+                     WHERE COLUMN entity = decrypted.e
+                       AND COLUMN type LIKE "wrd:usedverificationlink"
+                       AND creationdate >= AddDaysToDate(-14, GetCurrentDateTime())
+                       AND data LIKE "hson:*"
+                  ORDER BY creationdate DESC;
+
+            IF (RecordExists(
+                  SELECT
+                    FROM auditevents
+                   WHERE data.validuntil = decrypted.m))
+            {
+              retval.failreason := "Verification link has already been used";
+            }
+            ELSE
+            {
+              retval.success := TRUE;
+              IF (CellExists(decrypted, "s"))
+                retval.secret := decrypted.s;
+              retval.usedmessage := CELL
+                  [ validuntil := decrypted.m
+                  ];
+            }
+          }
         }
       }
     }
@@ -1231,6 +1264,18 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     retval.failed := verifier != "" AND NOT retval.success;
     RETURN retval;
+  }
+
+  /** Marks a verification link as used
+      @param entityid Entity id
+      @param verificationresult Verification result returned by [ProcessVerificationLink](#ProcessVerificationLink)
+  */
+  PUBLIC MACRO MarkVerificationLinkUsed(INTEGER entityid, RECORD verificationresult)
+  {
+    this->LogCustomAuditEvent("wrd:usedverificationlink",
+        [ account := entityid
+        , message := verificationresult.usedmessage
+        ]);
   }
 
   /** @short Create a password reset link
@@ -1248,6 +1293,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ routerpage := ""
                                , verifierstart := ""
                                , data := DEFAULT RECORD
+                               , logdata := DEFAULT RECORD
                                ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
 
     IF(options.routerpage != "")
@@ -1256,6 +1302,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart, options.data ]);
     IF (NOT RecordExists(retval))
       RETURN DEFAULT RECORD;
+
+    this->LogCustomAuditEvent("wrd:getresetlink",
+        [ account := entityid
+        , message := CELL[ retval.validuntil
+                         , ...options.logdata
+                         ]
+        ]);
 
     RETURN retval;
   }

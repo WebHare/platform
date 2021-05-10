@@ -61,6 +61,7 @@ PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
         GetPrimary()->BeginWork();
         wrdauthplugin->accounttype->UpdateEntity(result.entityid, [ password := CreateWebharePasswordHash(GetWebVariable("password"))]);
         GetPrimary()->CommitWork();
+        wrdauthplugin->MarkVerificationLinkUsed(result.entityid, result);
         wrdauthplugin->LoginByid(result.entityid, FALSE);
       }
       INSERT CELL back := this->absolutebaseurl INTO result;

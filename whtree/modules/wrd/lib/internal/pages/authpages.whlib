@@ -150,6 +150,8 @@ PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
     OBJECT work := this->BeginWork();
+    // Re-process verification link at submit, don't want it to be used twice.
+    this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
     IF(NOT this->verifyresult.success)
       work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.linkexpired"));
 
@@ -161,6 +163,7 @@ PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
       OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
       OBJECT userentity := wrdschema->accounttype->GetEntity(this->verifyresult.entityid);
       userentity->UpdateEntity(CellInsert(CELL[], wrdschema->accountpasswordtag, CreateWebharePasswordHash(^passwordnew->value)));
+      this->formcontext->GetWRDAuthPlugin()->MarkVerificationLinkUsed(this->verifyresult.entityid, this->verifyresult);
     }
 
     IF(work->Finish())
@@ -283,6 +286,7 @@ PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
   RECORD updaterec := CellInsert(CELL[], authplugin->wrdschema->accountemailtag, verifyresult.secret.newemail);
   toupdate->UpdateEntity(updaterec);
   GetPrimary()->CommitWork();
+  authplugin->MarkVerificationLinkUsed(verifyresult.entityid, verifyresult);
 
   RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "emailchanged", wittyvars));
 }

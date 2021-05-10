@@ -530,12 +530,8 @@ PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
     STRING resetpage := authplugin->__GetLoginPageURL() ?? this->contexts->controller->baseurl;
     RECORD resetlink := authplugin->CreatePasswordResetLink(resetpage, data.user, [ routerpage := "resetpassword"
                                                                                   , verifierstart := "VC"
+                                                                                  , logdata := CELL[ data.resettype ]
                                                                                   ]);
-
-    authplugin->LogCustomAuditEvent("wrd:getresetlink",
-        [ account := data.user
-        , message := CELL[ data.resettype, resetlink.verifier ]
-        ]);
 
     ^resetlink->value := data.resettype = "directresetlink" ? resetlink.verifiedlink : resetlink.entrylink;
     ^resetcode->visible := data.resettype = "codedresetlink";

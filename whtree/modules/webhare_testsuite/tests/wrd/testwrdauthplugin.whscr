@@ -659,14 +659,24 @@ MACRO TestPasswordValidation()
       , code := "FAILEDVALIDATIONCHECKS"
       ], result, "*");
   TestAuditEvent(
-      [ entity := pwroot->entityid
-      , type := "wrd:login:failedvalidationchecks"
-      , login := "pwroot@allow2fa.test.webhare.net"
-      , impersonated := FALSE
-      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "hibp" ] ])
-      , browsertriplet := "mac-chrome-06"
-      , byentity := pwroot->entityid
-      , bylogin := "pwroot@allow2fa.test.webhare.net"
+      [ [ entity := pwroot->entityid
+        , type := "wrd:login:failedvalidationchecks"
+        , login := "pwroot@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "hibp" ] ])
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwroot->entityid
+        , bylogin := "pwroot@allow2fa.test.webhare.net"
+        ]
+      , [ entity := pwroot->entityid
+        , type := "wrd:getresetlink"
+        , login := "pwroot@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , __ignoredata := TRUE
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwroot->entityid
+        , bylogin := "pwroot@allow2fa.test.webhare.net"
+        ]
       ]);
 
   testfw->BeginWork();
@@ -679,14 +689,24 @@ MACRO TestPasswordValidation()
       , code := "FAILEDVALIDATIONCHECKS"
       ], result, "*");
   TestAuditEvent(
-      [ entity := pwunitoverride->entityid
-      , type := "wrd:login:failedvalidationchecks"
-      , login := "pwunitoverride@allow2fa.test.webhare.net"
-      , impersonated := FALSE
-      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "complexity" ] ])
-      , browsertriplet := "mac-chrome-06"
-      , byentity := pwunitoverride->entityid
-      , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+      [ [ entity := pwunitoverride->entityid
+        , type := "wrd:login:failedvalidationchecks"
+        , login := "pwunitoverride@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "complexity" ] ])
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwunitoverride->entityid
+        , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+        ]
+      , [ entity := pwunitoverride->entityid
+        , type := "wrd:getresetlink"
+        , login := "pwunitoverride@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , __ignoredata := TRUE
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwunitoverride->entityid
+        , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+        ]
       ]);
 
   testfw->BeginWork();
@@ -699,14 +719,24 @@ MACRO TestPasswordValidation()
       , code := "FAILEDVALIDATIONCHECKS"
       ], result, "*");
   TestAuditEvent(
-      [ entity := pwunitoverride->entityid
-      , type := "wrd:login:failedvalidationchecks"
-      , login := "pwunitoverride@allow2fa.test.webhare.net"
-      , impersonated := FALSE
-      , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "maxage" ]  ])
-      , browsertriplet := "mac-chrome-06"
-      , byentity := pwunitoverride->entityid
-      , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+      [ [ entity := pwunitoverride->entityid
+        , type := "wrd:login:failedvalidationchecks"
+        , login := "pwunitoverride@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , data := EncodeHSON([ failurecode := "FAILEDVALIDATIONCHECKS", failedvalidationchecks := [ "maxage" ]  ])
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwunitoverride->entityid
+        , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+        ]
+      , [ entity := pwunitoverride->entityid
+        , type := "wrd:getresetlink"
+        , login := "pwunitoverride@allow2fa.test.webhare.net"
+        , impersonated := FALSE
+        , __ignoredata := TRUE
+        , browsertriplet := "mac-chrome-06"
+        , byentity := pwunitoverride->entityid
+        , bylogin := "pwunitoverride@allow2fa.test.webhare.net"
+        ]
       ]);
 
   testfw->BeginWork();

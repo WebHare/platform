@@ -107,7 +107,8 @@ test.registerTests(
   , ToddTest.selectListRow("Select SYSOP", '', 'Sysop', {waitforrow: true})
   , ToddTest.plainButton("Confirm user as sysop", "OK")
 
-  , async function setPietjePassword()
+  , "Reset password of Pietje"
+  , async function()
     {
       await test.load(pietje_resetlink);
       await test.wait('ui');
@@ -134,7 +135,18 @@ test.registerTests(
       await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
     }
 
-  , async function setPietjePassword()
+  , "Check passwork link expired after use"
+  , async function ()
+    {
+      // test re-use isn't allowed
+      await test.load(pietje_resetlink);
+      await test.wait('ui');
+
+      test.eqMatch(/reset link.*expired/, test.getCurrentScreen().getNode().textContent);
+    }
+
+  , "Reset password of Jantje"
+  , async function()
     {
       await test.load(jantje_resetlink);
       await test.wait('ui');
