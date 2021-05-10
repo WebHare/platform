@@ -182,6 +182,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
     TolliumFragmentBase::StaticInit(description);
 
     this->managementmode := description.managementmode;
+    this->requireauthorization := NOT description.managementmode;
     this->allowsecondfactor := description.allowsecondfactor;
   }
 
@@ -309,7 +310,6 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
         [ valuekeeper := this->_valuekeeper
         , this->validationchecks
         , cursettings := this->_valuekeeper->GetExistingValue()
-        , ...authorized
         ]);
     this->Reload();
   }
@@ -352,6 +352,10 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
   {
+    // Require authorization when editing this user
+    IF (ObjectExists(this->owner->contexts->user) AND this->owner->contexts->user->entityid = entity->id)
+      this->requireauthorization := TRUE;
+
     this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag);
     this->Reload();
   }
@@ -364,8 +368,6 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   STRING pvt_validationchecks;
 
   RECORD _cursettings;
-
-  STRING _oldpassword;
 
   OBJECT _valuekeeper;
 
@@ -388,7 +390,6 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
   {
     this->_valuekeeper := data.valuekeeper;
     this->validationchecks := data.validationchecks;
-    this->_oldpassword := CellExists(data, "password") ? data.password : "";
     this->_cursettings := CellExists(data, "cursettings") ? data.cursettings : DEFAULT RECORD;
   }
 
@@ -519,8 +520,9 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
     this->_managementmode := data.managementmode;
     this->_require_totp := RecordExists(SELECT FROM ParsePasswordChecks(data.validationchecks) WHERE check = "require2fa");
 
-    ^disableheading->visible := NOT this->_require_totp;
-    ^btn_disabletotp->visible := NOT this->_require_totp;
+    ^disabletotp->enabled := NOT this->_require_totp OR this->_managementmode;
+    ^disableheading->visible := ^disabletotp->enabled;
+    ^btn_disabletotp->visible := ^disabletotp->enabled;
 
     RECORD locktag := this->_valuekeeper->GetExclusiveLogTag();
     IF (RecordExists(locktag) AND NOT this->GetExclusiveAccess(locktag))
@@ -531,10 +533,10 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Cancel()
   {
-    IF (this->_require_totp)
+    IF (this->_require_totp AND NOT this->_managementmode)
     {
       RECORD value := this->_valuekeeper->GetExistingValue();
-      IF (NOT RecordExists(value.totp) AND this->RunSimpleScreen("question", this->GetTid(".surenotsetrequiredtotp")) != "yes")
+      IF (NOT RecordExists(value.totp) AND NOT this->_managementmode AND this->RunSimpleScreen("question", this->GetTid(".surenotsetrequiredtotp")) != "yes")
         RETURN FALSE;
     }
     RETURN TRUE;
@@ -557,8 +559,9 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
       ^resetbackupcodes->enabled := NOT this->_managementmode;
       ^btn_resetbackupcodes->visible := NOT this->_managementmode;
 
-      ^disableheading->visible := NOT this->_require_totp;
-      ^btn_disabletotp->visible := NOT this->_require_totp;
+      ^disabletotp->enabled := NOT this->_require_totp OR this->_managementmode;
+      ^disableheading->visible := ^disabletotp->enabled;
+      ^btn_disabletotp->visible := ^disabletotp->enabled;
 
       ^warningpanel->visible := FALSE;
       ^warning_totprequired->visible := FALSE;
@@ -611,7 +614,7 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
 
   MACRO DoDisableTOTP()
   {
-    IF (this->RunSimpleScreen("question", this->GetTid(".suredisable2fa")) != "yes")
+    IF (this->RunSimpleScreen("question", this->_require_totp ? this->GetTid(".suredisablerequired2fa") : this->GetTid(".suredisable2fa")) != "yes")
       RETURN;
 
     IF (this->_requireauthorization AND NOT this->AskForAuthorization([ allowemptypassword := TRUE ]))

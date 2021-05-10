@@ -146,9 +146,6 @@ ASYNC MACRO ManageAuthenticationSettings()
   TestEQ("Configured", TT(":One-time access code")->value);
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Disable two-factor authentication"));
-  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR);
-  TTFillByTitle(":Password", testfw->GetUserPassword("sysop"));
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestAuditEvent(
       [ entity :=           homer
