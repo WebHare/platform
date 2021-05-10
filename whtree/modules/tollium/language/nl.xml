@@ -588,6 +588,7 @@
         <text tid="setuptotp">Twee-factor authenticatie met eenmalige toegangscodes instellen</text>
         <text tid="showtotpsecret">Toon de geheime sleutel</text>
         <text tid="suredisable2fa">Weet u zeker dat u twee-factor authenticatie wilt uitschakelen?</text>
+        <text tid="suredisablerequired2fa">Twee-factor-authenticatie is verplicht voor deze gebruiker. Als het nu uit wordt geschakeld, wordt de gebruiker verplicht het bij de volgende inlogpoging opnieuw in te schakelen.<br/><br/>Weet u zeker dat u het wilt uitschakelen?</text>
         <text tid="surenotsetrequiredtotp">Je moet twee-factor authenticatie instellen om in te kunnen loggen. Weet je zeker dat je dit dialoog wilt sluiten zonder het in te stellen?</text>
         <text tid="totp">Eenmalige toegangcodes</text>
         <text tid="totpbackupcodes">Backup codes</text>
@@ -596,7 +597,7 @@
         <text tid="totpsecretexplanation">Als je gebruik maakt van een andere applicatie (bijvoorbeeld een password manager) kun je de geheime sleutel gebruiken om de codes te genereren.</text>
         <text tid="totpsetupexplanation">Scan onderstaande QR-code met een authenticatie-applicatie zoals Google Authenticator of Microsoft Authenticator op je telefoon.</text>
         <text tid="usedbackupcodes"><param p="1"/> van <param p="2"/> backup codes gebruikt</text>
-        <text tid="warning_totprequired">Twee-factor authenticatie moet ingesteld zijn om in te kunnen loggen</text>
+        <text tid="warning_totprequired">Twee-factor authenticatie moet ingesteld zijn om in te kunnen loggen.</text>
         <text tid="wrongcode">Ongeldige code ingevoerd, probeer het alsjeblieft opnieuw.</text>
       </textgroup>
     </textgroup>

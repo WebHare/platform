@@ -588,6 +588,7 @@
         <text tid="setuptotp">Setup two-factor authentication with codes</text>
         <text tid="showtotpsecret">Show the secret key</text>
         <text tid="suredisable2fa">Are you sure you want to disable two factor authentication?</text>
+        <text tid="suredisablerequired2fa">Two factor authentication is required for this user. When disabled, the user will be forced to set it up again when logging in the next time. <br/><br/>Are you sure you want to disable it?</text>
         <text tid="surenotsetrequiredtotp">Two factor authentication needs to be configured to be able to log in. Are you sure you want to close this dialog without configuring it?</text>
         <text tid="totp">One-time access code</text>
         <text tid="totpbackupcodes">Backup codes</text>
@@ -596,7 +597,7 @@
         <text tid="totpsecretexplanation">If you use a password manager, you can use the secret key to generate the codes.</text>
         <text tid="totpsetupexplanation">Scan the QR-code below with an authentication app, such as Google Authenticator or Microsoft Authenticator on your mobile phone.</text>
         <text tid="usedbackupcodes">Used <param p="1"/> of <param p="2"/> backup codes</text>
-        <text tid="warning_totprequired">Configuring two factor authentication is required for logging in</text>
+        <text tid="warning_totprequired">Configuring two factor authentication is required for logging in.</text>
         <text tid="wrongcode">Incorrect code entered, please try again.</text>
       </textgroup>
     </textgroup>
