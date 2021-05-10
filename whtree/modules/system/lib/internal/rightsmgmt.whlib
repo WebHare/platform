@@ -508,7 +508,6 @@ RECORD ARRAY FUNCTION GetSpecificGrantDataFor(INTEGER ARRAY grantees, INTEGER ri
 
 
 /** Returns a list of all all grants to any of the listed grantees for a specific right (and optionally object)
-    @param grantees List of grantees to check for
     @param right Id of right to check
     @param tablename Name of dynamic rights table
     @param objs Id of objects to check for, DEFAULT INTEGER ARRAY for any object
