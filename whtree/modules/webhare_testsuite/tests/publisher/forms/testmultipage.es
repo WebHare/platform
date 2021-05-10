@@ -1,7 +1,8 @@
 import * as test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
-  [  async function()
+  [
+    async function()
     {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
@@ -425,5 +426,15 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq('4', test.qS('#currentpage').textContent);
+    }
+
+  , "Test back link"
+  , async function()
+    {
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
+      test.true(test.canClick('.wh-form__button--previous'), "'previous' button should be available with a backlink");
+      test.click('.wh-form__button--previous');
+      await test.wait("load");
+      test.eq("Welcome to the testsite", test.qS("#content p").textContent);
     }
   ]);
