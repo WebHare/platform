@@ -90,6 +90,11 @@ TRY
 
   __SetEffectiveUser(currentuser);
 
+  UpdateAuditContext(CELL
+      [ appinfo.requestdata.remoteip
+      , appinfo.requestdata.browsertriplet
+      ]);
+
   LogAuditEvent(
             "tollium:applicationstart",
             [ user :=         currentuser->GetUserEventIdentifier()
@@ -99,9 +104,7 @@ TRY
                               , target :=   appinfo.target
                               , message :=  appinfo.message
                               ]
-            , browsertriplet :=  appinfo.browsertriplet
             ]);
-
 }
 CATCH (OBJECT e)
 {
