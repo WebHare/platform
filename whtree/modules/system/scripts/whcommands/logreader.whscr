@@ -571,13 +571,13 @@ WHILE(TRUE)
         IF (line.v = 1)
         {
           lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source} login:${line.login} ${line.auth}\n  > ` ||
-              Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+              Substitute(TrimWhitespace(AnyToString(line.message, "tree")), "\n", "\n  > ") || "\n";
         }
         ELSE
         {
           lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source}\n  > ` ||
-              Substitute(AnyToString(line.auditcontext, "tree"), "\n", "\n  > ") || "\n> ";
-              Substitute(AnyToString(line.message, "tree"), "\n", "\n  > ") || "\n";
+              Substitute(TrimWhitespace(AnyToString(line.auditcontext, "tree")), "\n", "\n  > ") || "\n  > " ||
+              Substitute(TrimWhitespace(AnyToString(line.message, "tree")), "\n", "\n  > ") || "\n";
         }
 
         IF (filtersources)
