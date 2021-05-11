@@ -732,6 +732,7 @@
         <text tid="confirmdeletemail">Weet je zeker dat je de geselecteerde mail(s) wilt verwijderen ?</text>
         <text tid="confirmrequeuemail">Weet je zeker dat je de geselecteerde mail(s) opnieuw wil verzenden ?</text>
         <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
+          <text tid="cannotforwardsensitivemail">Gevoelige mails kunnen niet worden doorgestuurd</text>
           <text tid="creationdate">Aangemaakt op</text>
           <text tid="filter">Filter</text>
           <text tid="flush">Alles opnieuw proberen</text>

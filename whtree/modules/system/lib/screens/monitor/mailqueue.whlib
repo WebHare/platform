@@ -131,6 +131,11 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
       RECORD task := DescribeManagedTask(mail.rowkey);
       IF(NOT RecordExists(task))
         CONTINUE;
+      IF(CellExists(task.data, 'sensitive') AND task.data.sensitive)
+      {
+        this->RunSimpleScreen("error", this->GetTid(".cannotforwardsensitivemail"));
+        RETURN;
+      }
 
       STRING name := Length(selection) = 0 ? "originalmessage.eml" : "originalmessage-" || #mail + 1 || ".eml";
       BLOB msgblob := GetEMLFromMailTask(task.data);
