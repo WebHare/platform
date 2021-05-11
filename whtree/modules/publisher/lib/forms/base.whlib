@@ -280,6 +280,9 @@ PUBLIC OBJECTTYPE FormBase
   /// Custom data attributes
   PUBLIC RECORD formdataset;
 
+  /// "Previous" page link for the first form page
+  PUBLIC STRING formbacklink;
+
   /// Label for 'previous page' buttoon
   PUBLIC STRING formprevlabel;
 
@@ -741,6 +744,8 @@ PUBLIC OBJECTTYPE FormBase
       Print(` data-wh-form-id="${EncodeValue(this->__form.externalformname)}"`);
     IF(this->formref != "")
       Print(` data-wh-form-ref="${EncodeValue(this->formref)}"`);
+    IF(this->formbacklink != "")
+      Print(` data-wh-form-backlink="${EncodeValue(this->formbacklink)}"`);
 
     IF(this->formjshandler != "")
       Print(` data-wh-form-handler="${EncodeValue(this->formjshandler)}"`);

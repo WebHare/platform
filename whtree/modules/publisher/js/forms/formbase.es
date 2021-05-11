@@ -505,7 +505,11 @@ export default class FormBase
       {
         if(this.node.classList.contains('wh-form--allowprevious'))
         {
-          this.gotoPage(this._getDestinationPage(this._getPageState(), -1));
+          let pagestate = this._getPageState();
+          if(pagestate.curpage > 0)
+            this.gotoPage(this._getDestinationPage(pagestate, -1));
+          else if(this.node.dataset.whFormBacklink)
+            location.href = this.node.dataset.whFormBacklink;
         }
         return;
       }
@@ -958,7 +962,7 @@ export default class FormBase
     let curpagerole = pagestate.pages[pagestate.curpage] ? pagestate.pages[pagestate.curpage].dataset.whFormPagerole : '';
     let nextpagerole = morepages ? pagestate.pages[nextpage].dataset.whFormPagerole : "";
 
-    dompack.toggleClasses(this.node, { "wh-form--allowprevious": pagestate.curpage > 0 && curpagerole != 'thankyou'
+    dompack.toggleClasses(this.node, { "wh-form--allowprevious": (pagestate.curpage > 0 && curpagerole != 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink)
                                      , "wh-form--allownext":     morepages && nextpagerole != 'thankyou'
                                      , "wh-form--allowsubmit":   curpagerole != 'thankyou' && (!morepages || nextpagerole == 'thankyou')
                                      });

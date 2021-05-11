@@ -27,7 +27,7 @@
 
   <form class="wh-form wh-styledinput" id="globalform" [globalform.formattributes]>
     [globalform.formallfields]
-    <button type="submit" id="submitbutton2" name="submitbutton2" value="globalform">Submit</button>
+    [globalform.formrendernav]
   </form>
   <div>
     Last server submit response: <span id="globalformsubmitresponse"></span>
