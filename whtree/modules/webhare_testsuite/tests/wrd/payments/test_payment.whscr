@@ -35,7 +35,7 @@ MACRO TestPaymentFields()
   OBJECT wrdschema :=  testfw->GetWRDSchema();
   TestThrows(PTR wrdschema->^paydata->CreateAttribute("PAYDATA", "PAYMENT"), 'without domain should throw');
 
-  TestThrowsLike("Invalid provider attribute 'PAYMENTDATA.PAYMENT'", PTR GetPaymentAPI(wrdschema, [ providerfield := "PAYMENTDATA.PAYMENT", paymentfield := "PAYDATA.DATA" ]));
+  TestThrowsLike("Type 'PAYMENTDATA' does not exist*", PTR GetPaymentAPI(wrdschema, [ providerfield := "PAYMENTDATA.PAYMENT", paymentfield := "PAYDATA.DATA" ]));
   TestThrowsLike("Invalid provider attribute 'PAYPROV.WRD_TITLE'", PTR GetPaymentAPI(wrdschema,   [ providerfield := "PAYPROV.WRD_TITLE", paymentfield := "PAYDATA.DATA" ]));
 
   TestThrowsLike("*wrd:blabla*", PTR MakePaymentProviderValue("wrd:blabla", [ blabla := FALSE ]));

@@ -56,6 +56,9 @@ STATIC OBJECTTYPE PaymentAPI
                                , firstchecktime := 60000 //when to do the first check
                                ], options, [ required := [ "providerfield" ] ]);
 
+    IF(NOT ObjectExists(wrdschema))
+      THROW NEW Exception(`Passing a WRDSchema to the PaymentAPI is required`);
+
     STRING attrname;
     this->paymenthandler := options.paymenthandler;
     this->firstchecktime := options.firstchecktime;
@@ -68,6 +71,8 @@ STATIC OBJECTTYPE PaymentAPI
       STRING ARRAY toks := Tokenize(options.providerfield, '.');
 
       this->pvt_providertype := wrdschema->GetType(toks[0]);
+      IF(NOT ObjectExists(this->pvt_providertype))
+        THROW NEW Exception(`Type '${toks[0]}' does not exist in schema '${wrdschema->tag}'`);
       attrname := toks[1];
     }
     ELSE

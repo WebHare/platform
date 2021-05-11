@@ -206,8 +206,12 @@ MACRO TestVimeoProvider()
   TestEQ(DEFAULT RECORD, searchres[0].location);
 
   //Vimeo suddenly started repoter 720px heigh instead of the real 544 - stop testing height
-  TestEqMembers([URL := 'https://i.vimeocdn.com/video/349943863_960.jpg', WIDTH := 960], searchres[0].biggestthumbnail, "url,width");
-  TestEqMembers([URL := 'https://i.vimeocdn.com/video/349943863_960.jpg', WIDTH := 960], searchres[0].thumbnail, "url,width");
+  TestEq(960, searchres[0].biggestthumbnail.width);
+  //and vimeo started to drop the jpg extension. but for us all that matters is that we get something that looks like a url!
+  TestEqLike('https://*', searchres[0].biggestthumbnail.url);
+
+  TestEq(960, searchres[0].thumbnail.width);
+  TestEqLike('https://*', searchres[0].thumbnail.url);
 
   RECORD describeres := prov->DescribeVideo("50788492");
   TestEq(searchres[0], describeres);
@@ -221,8 +225,8 @@ MACRO TestVimeoProvider()
   TestEqFloat(1.77, searchres[0].playratio,0.05);
   TestEq("Pitch of Health stories for domain, impact, infrastructure, and scientific contribution", searchres[0].title);
   TestEQ(DEFAULT RECORD, searchres[0].location);
-  TestEq([HEIGHT := 360, URL := 'https://i.vimeocdn.com/video/634280563_640.jpg', WIDTH := 640], searchres[0].biggestthumbnail);
-  TestEq([HEIGHT := 360, URL := 'https://i.vimeocdn.com/video/634280563_640.jpg', WIDTH := 640], searchres[0].thumbnail);
+  TestEq(640, searchres[0].biggestthumbnail.width);
+  TestEq(640, searchres[0].thumbnail.width);
 
   describeres := prov->DescribeVideo("217139057");
   TestEq(searchres[0], describeres);
