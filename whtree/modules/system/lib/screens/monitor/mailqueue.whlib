@@ -149,7 +149,9 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
       RETURN;
 
     BLOB msgblob := GetEMLFromMaiLTask(task.data);
-    RunEmailViewDialog(this, msgblob, [ origin := task.data.origin ]);
+    RunEmailViewDialog(this, msgblob, [ origin := task.data.origin
+                                      , sensitive := CellExists(task.data,'sensitive') AND task.data.sensitive
+                                      ]);
   }
   MACRO DoResult()
   {

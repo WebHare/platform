@@ -186,6 +186,15 @@ PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
       RETURN;
     }
 
+    RECORD showdata := task.data;
+    IF(task.tasktype = "system:outgoingmail" AND CellExists(showdata,'sensitive') AND showdata.sensitive AND NOT this->contexts->user->HasRight("system:sysop"))
+    {
+      //TODO generalize for all task types?
+      //we assume a subject is never sensitive (as that would be too easily shoulder surfed anyway?) but mailcontents can be
+      //TODO at some point we should only grant sysops access to 'raw' task data and use the normal mailviewer for other task users
+      DELETE CELL toppart FROM showdata;
+    }
+
     ^id->value := ToString(this->taskid);
     ^tasktype->value := task.tasktype;
     ^creationdate->value := task.creationdate;

@@ -47,6 +47,9 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
 
   BLOB original;
   BLOB __htmlsource;
+  BOOLEAN issensitive;
+  BOOLEAN showsensitive;
+
   PUBLIC PROPERTY htmlsource(__htmlsource, -);
   PUBLIC PROPERTY origin(this->^origin->value, SetOrgin);
 
@@ -60,9 +63,14 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
     this->LoadEML(DEFAULT BLOB);
   }
 
-  PUBLIC MACRO LoadEML(BLOB data)
+  /** Load a raw message in MIME format
+      @param data The raw message
+      @cell(boolean) options.sensitive If set, this message is for sysop's eyes only */
+  PUBLIC MACRO LoadEML(BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ sensitive := FALSE ], options);
     this->embedded := RECORD[];
+    this->issensitive := options.sensitive;
     this->original := data;
     this->decodedmsg := Length(data) > 0 ? DecodeMIMEMessage(data) : DEFAULT RECORD;
     IF(RecordExists(this->decodedmsg))
@@ -97,13 +105,18 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
 
   MACRO Refresh()
   {
+    BOOLEAN showcontents := this->showsensitive OR NOT this->issensitive;
     ^mailfrom->value         := RecordExists(this->decodedmsg) ? this->decodedmsg.sender : "";
     ^mailto->value           := RecordExists(this->decodedmsg) ? this->decodedmsg.tos : "";
     ^mailcc->value           := RecordExists(this->decodedmsg) ? this->decodedmsg.ccs : "";
     ^mailbcc->value          := RecordExists(this->decodedmsg) ? this->decodedmsg.bccs : "";
     ^replyto->value          := RecordExists(this->decodedmsg) ? this->decodedmsg.replyto : "";
     ^mailsubject->value      := (RecordExists(this->decodedmsg) ? this->decodedmsg.subject : "");
-    ^attachmentrows->rows    := RecordExists(this->decodedmsg) ? GetAttachments(this->decodedmsg.data) : RECORD[];
+    ^attachmentrows->rows    := RecordExists(this->decodedmsg) AND showcontents ? GetAttachments(this->decodedmsg.data) : RECORD[];
+    ^sensitivecontent->visible := this->issensitive;
+    ^showsensitivecontentbutton->visible := this->issensitive AND this->contexts->user->HasRight("system:sysop");
+    ^showsensitivecontentbutton->enabled := ^showsensitivecontentbutton->visible AND NOT showcontents;
+    ^viewsource->enabled := showcontents;
 
     IF(RecordExists(this->decodedmsg))
     {
@@ -133,7 +146,11 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
       htmlpart := GetEmailPrimaryMIMEPart(this->decodedmsg.data, "text/html");
 
     ^preview->ResetContent();
-    IF (RecordExists(htmlpart))
+    IF(NOT showcontents)
+    {
+      ^preview->value := ``;
+    }
+    ELSE IF (RecordExists(htmlpart))
     {
       this->__htmlsource := htmlpart.data;
       OBJECT doc  := MakeXMLDocumentFromHTML(htmlpart.data);
@@ -168,6 +185,12 @@ PUBLIC STATIC OBJECTTYPE EmailContents EXTEND TolliumFragmentBase
   MACRO DoViewSource()
   {
     this->owner->RunScreen("mod::tollium/screens/components/emailcontents.xml#viewsource", [ message := this->original ]);
+  }
+
+  MACRO DoShowSensitiveContent()
+  {
+    this->showsensitive := TRUE;
+    this->Refresh();
   }
 >;
 

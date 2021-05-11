@@ -36,12 +36,15 @@ PUBLIC MACRO RunWittyTestDialog(OBJECT parent, RECORD data, RECORD options DEFAU
     @param parent Screen or controller loading this dialog
     @param email Email (as message/rfc822, also known as .EML)
     @cell(string) options.origin Origin of the message (used to be in X-WebHare-Origin)
+    @cell(boolean) options.sensitive Mark the mail contents as sensitive (for sysop eyes only)
 */
 PUBLIC MACRO RunEmailViewDialog(OBJECT parent, BLOB email, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ origin := "" ], options);
+  options := ValidateOptions(CELL[ origin := ""
+                                 , sensitive := FALSE
+                                 ], options);
 
-  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", [ mailblob := email, origin := options.origin ]);
+  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", CELL[ mailblob := email, options.origin, options.sensitive ]);
 }
 
 /** @short Run a dialog to test and preview %PrepareMailWitty email

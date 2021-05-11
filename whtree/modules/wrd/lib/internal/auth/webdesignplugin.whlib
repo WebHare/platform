@@ -448,7 +448,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     mail->mailto := STRING[email];
 
     GetPrimary()->BeginWork();
-    mail->QueueMailInWork( [ ignorerecipientwhitelist := TRUE ]);
+    mail->QueueMailInWork( [ ignorerecipientwhitelist := TRUE
+                           , sensitive := TRUE
+                           ]);
     GetPrimary()->CommitWork();
   }
 

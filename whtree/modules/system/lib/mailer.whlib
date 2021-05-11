@@ -557,11 +557,12 @@ PUBLIC BOOLEAN FUNCTION QueueMail(STRING origin, STRING ARRAY receivers, STRING 
     @param sender Email address of the sender
     @param mimeheaders Headers to send with the message (including From, To, etc headers, but without any Bcc headers)
     @param toppart Top-level part of the MIME message to send
-    @cell options.statuscallback Callback function to invoke when receiving status updates for this mail (eg bounce, delivery, complaint)
-    @cell options.statusdata Informational string passed to the status callback
-    @cell options.rawheaders No postprocessing of headers like To, Subject
-    @cell options.priority Mail task priority. Defaults to 'interactive'. Set to 'normal' or 'background' for mass/bulk mails (which shouldn't block eg. password resets)
-    @cell options.ignorerecipientwhitelist Don't honor the recipient whitelist. This should only be used for user-triggered emails (eg password reset)
+    @cell(string) options.statuscallback Callback function to invoke when receiving status updates for this mail (eg bounce, delivery, complaint)
+    @cell(string) options.statusdata Informational string passed to the status callback
+    @cell(boolean) options.rawheaders No postprocessing of headers like To, Subject
+    @cell(string) options.priority Mail task priority. Defaults to 'interactive'. Set to 'normal' or 'background' for mass/bulk mails (which shouldn't block eg. password resets)
+    @cell(boolean) options.ignorerecipientwhitelist Don't honor the recipient whitelist. This should only be used for user-triggered emails (eg password reset)
+    @cell(boolean) options.sensitive Mark this mail as sensitive, hide it to non-sysops
     @return IDs of the generated task, one per receiver
 */
 PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -571,6 +572,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                              , rawheaders := FALSE
                              , priority := "interactive"
                              , ignorerecipientwhitelist := FALSE
+                             , sensitive := FALSE
                              ], options);
 
   IF (NOT GetPrimary()->IsWorkOpen())
@@ -602,6 +604,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                        , subject := UCTruncate(subjectheader,300)
                        , receiver := email
                        , options.ignorerecipientwhitelist
+                       , options.sensitive
                        ];
     IF(options.statuscallback != "")
       INSERT CELL callback := [ func := options.statuscallback, data := options.statusdata ] INTO task;

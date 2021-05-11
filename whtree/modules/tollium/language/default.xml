@@ -626,6 +626,8 @@
       <text tid="errorsto">Errors-To</text>
       <text tid="origin">Origin</text>
       <text tid="replyto">Reply-To</text>
+      <text tid="sensitivecontent">The contents of this mail have been marked as sensitive</text>
+      <text tid="showsensitivecontent">Show sensitive content</text>
       <text tid="viewsource">View source</text>
     </textgroup>
     <textgroup gid="file">   <!-- components.file -->

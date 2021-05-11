@@ -233,10 +233,11 @@ PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
   {
     data := ValidateOptions([ mailblob := DEFAULT BLOB
                             , origin := ""
+                            , sensitive := FALSE
                             ], data);
 
     ^mailcontents->origin := data.origin;
-    ^mailcontents->LoadEML(data.mailblob);
+    ^mailcontents->LoadEML(data.mailblob, CELL[ data.sensitive ]);
   }
 >;
 

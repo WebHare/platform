@@ -626,6 +626,8 @@
       <text tid="errorsto">Errors-To</text>
       <text tid="origin">Bron</text>
       <text tid="replyto">Antwoorden op</text>
+      <text tid="sensitivecontent">De inhoud van deze mail is als gevoelig gemarkeerd</text>
+      <text tid="showsensitivecontent">Toon gevoelige inhoud</text>
       <text tid="viewsource">Bekijk broncode</text>
     </textgroup>
     <textgroup gid="file">   <!-- components.file -->
