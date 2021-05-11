@@ -4,14 +4,13 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/otp.whlib";
+LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
-
-LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -297,7 +296,7 @@ ASYNC MACRO TestAuditLog()
   testfw->SetTestUser("lisa");
 
   STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
-  BOOLEAN lisawith2fa := __MatchesAny("lisa@beta.webhare.net", allowsecondfactormasks);
+  BOOLEAN lisawith2fa := __MatchesAnyMask("lisa@beta.webhare.net", allowsecondfactormasks);
 
   // Change lisa's password
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings"));
@@ -337,7 +336,7 @@ ASYNC MACRO TestAuditLog()
             , impersonator_account := ""
             , wrdaudit_type :=        "Set password"
             ]
-          ], TT("events")->rows, "*");
+          ], (SELECT * FROM TT("events")->rows ORDER BY wrd_creationdate), "*");
 
       AWAIT ExpectScreenChange(-1, PTR TTEscape);
     }
