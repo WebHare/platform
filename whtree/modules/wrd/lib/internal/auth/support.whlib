@@ -251,9 +251,8 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
   RECORD logged := LogAuditEventBy("wrd:auth", CELL
       [ affecteduser_login
       , affecteduser_entityid
+      , type
       ], message);
-
-  LogDebug("wrd:wae2", CELL[ logged ]);
 
   RECORD toinsert := CELL
       [ creationdate
