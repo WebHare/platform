@@ -2164,6 +2164,8 @@
       <text tid="search">Find users and roles</text>
       <text tid="searchsimple">Search</text>
       <text tid="setuserdefaults">User defaults</text>
+      <text tid="showauditlog">Show audit log</text>
+      <text tid="showauditlog-hint">Show the audit log for this user</text>
       <text tid="showobject">Jump to</text>
       <text tid="syncauthobjects">Synchronize database</text>
       <text tid="togglesearchbar">Search...</text>

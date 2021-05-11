@@ -30,7 +30,7 @@
           icon="tollium:users/users"
           gid="userrights"
           tid=".screentitles.main"
-          flags="issysop anygrantablerights"
+          flags="issysop anygrantablerights issupervisor"
           onmessage="gotmessage">
     <actions gid=".actions">
       <action name="syncauthobjects" onexecute="dosyncauthobjects" frameflags="issysop" />
@@ -66,6 +66,7 @@
         <enableon source="unitcontents->userandrolelist" min="1" max="1" checkflags="!isrole canedit" onexecute="docopypermissions" requirefocus="true" />
       </action>
 
+      <action name="showauditlog" onexecute="DoShowAuditLog" frameflags="issupervisor" />
     </actions>
 
     <menus gid=".menus">
@@ -93,6 +94,7 @@
         <item action="unitcontents->getresetlink"/>
         <item action="syncauthobjects" disablemode="hidden" />
         <item action="setuserdefaults" disablemode="hidden"  />
+        <item action="showauditlog" disablemode="hidden"  />
         <divider />
         <item name="exportsmenu" tid=".exports">
           <item action="exportallgrants" />

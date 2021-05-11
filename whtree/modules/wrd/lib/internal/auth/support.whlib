@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/otp.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 
@@ -278,6 +279,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
   TRY
   {
     GetPrimary()->CommitWork();
+    BroadcastEvent(`wrd:auditlog.${accounttype->wrdschema->id}.${logged.auditcontext.affecteduser_entityid}`, DEFAULT RECORD);
     RETURN;
   }
   CATCH(OBJECT e)
@@ -290,6 +292,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
     GetPrimary()->BeginWork();
     INSERT toinsert INTO wrd.auditevents;
     GetPrimary()->CommitWork();
+    BroadcastEvent(`wrd:auditlog.${accounttype->wrdschema->id}.${logged.auditcontext.affecteduser_entityid}`, DEFAULT RECORD);
   }
 }
 

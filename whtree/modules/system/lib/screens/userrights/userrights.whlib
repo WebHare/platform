@@ -13,6 +13,8 @@ LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 
 PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
@@ -46,6 +48,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
 
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+    this->frame->flags.issupervisor := this->contexts->user->HasRight("system:supervisor");
     this->frame->flags.anygrantablerights := this->contexts->user->HasAnyGrantableRight();
     ^objectstab->visible := this->frame->flags.anygrantablerights;
     ^grantbutton->visible := this->frame->flags.anygrantablerights;
@@ -412,5 +415,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
 
     work->Finish();
+  }
+
+  MACRO DoShowAuditLog()
+  {
+    RunWRDAuditLogDialog(this, CELL
+        [ this->contexts->userapi->wrdschema
+        ]);
   }
 >;

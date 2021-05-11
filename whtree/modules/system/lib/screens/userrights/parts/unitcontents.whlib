@@ -10,6 +10,8 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
 
 PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
@@ -240,6 +242,8 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
       RETURN;
     }
 
+    ^showauditlog->enabled := this->contexts->user->HasRight("system:supervisor");
+
     INTEGER ARRAY onlineusers := GetOnlineUsersIDs();
     INTEGER unit_authobjectid := ObjectExists(this->pvt_unit) ? this->pvt_unit->authobjectid : 0;
     INTEGER unit_entityid := ObjectExists(this->pvt_unit) ? this->pvt_unit->entityid : 0;
@@ -462,6 +466,14 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     }
 
     this->contexts->screen->RunScreen("mod::system/screens/userrights/parts/unitcontents.xml#prepareresetlink", [ user := this->GetSelectedWRDAuthobject()->entityid ]);
+  }
+
+  MACRO DoShowAuditLog()
+  {
+    RunWRDAuditLogDialog(this->owner, CELL
+        [ this->contexts->userapi->wrdschema
+        , accountid :=      this->GetSelectedWRDAuthobject()->entityid
+        ]);
   }
 
   // ---------------------------------------------------------------------------
