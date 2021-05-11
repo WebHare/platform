@@ -735,6 +735,7 @@ PUBLIC MACRO UpdateAuditContext(RECORD auditcontext)
 /** Log an audit event caused by a specific WebHare user
     @param logsource Source or call of the error message
     @param auditcontext Authentication context
+    @cell(string) auditcontext.type Event type
     @cell(string) auditcontext.remoteip Remote IP (automatically filled within webserver requests)
     @cell(string) auditcontext.country Country code (automatically determined from remoteip if not set)
     @cell(string) auditcontext.browsertriplet Browser triplet
@@ -784,7 +785,8 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
   }
 
   auditcontext := ValidateOptions(
-      [ remoteip :=               ""
+      [ type :=                   ""
+      , remoteip :=               ""
       , country :=                ""
       , browsertriplet :=         ""
       , impersonator_entityid :=  0
