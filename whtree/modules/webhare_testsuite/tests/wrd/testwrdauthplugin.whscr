@@ -8,13 +8,13 @@ LOADLIB "wh::util/otp.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
-LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -519,6 +519,8 @@ MACRO TestLoginDenied()
   TestEq("", result.loginname);
   TestEq(0, result.entityid);
 
+  DATETIME logcheckstart := GetCurrentDatetime();
+
   // Login is denied when logging in by id
   result := DoReq( [ action := "loginid", userid := ToString(entityid), browsertriplet := "mac-chrome-06" ]);
   TestEq(FALSE, result.success);
@@ -562,6 +564,47 @@ MACRO TestLoginDenied()
       , impersonator_entity := entityid
       , impersonator_login := "logindenied@test.invalid"
       ]);
+
+  OBJECT logstream := OpenWebHareLogStream("audit", logcheckstart, MAX_DATETIME);
+  BOOLEAN found_logentry;
+  WHILE (TRUE)
+  {
+    RECORD rec := logstream->ReadRecord();
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    IF (rec.time < logcheckstart)
+      CONTINUE;
+
+    IF (rec.parts[0] = "wrd:auth")
+    {
+      RECORD auditcontext := DecodeHSON(rec.parts[2]);
+      RECORD message := DecodeHSON(rec.parts[3]);
+
+      IF (auditcontext.affecteduser_login = "logindenied@test.invalid" AND auditcontext.type = "wrd:loginbyid:failed")
+      {
+        TestEQ(
+            [ affecteduser_entityid :=  entityid
+            , affecteduser_login :=     'logindenied@test.invalid'
+            , browsertriplet :=         'mac-chrome-06'
+            , country :=                ''
+            , impersonator_entityid :=  entityid
+            , impersonator_login :=     'logindenied@test.invalid'
+            , remoteip :=               '127.0.0.1'
+            , type :=                   'wrd:loginbyid:failed'
+            , user_authobject :=        0
+            , user_entityid :=          entityid
+            , user_login :=             'logindenied@test.invalid'
+            ], auditcontext);
+
+        TestEQ(
+            [ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
+            , failurecode := "NOACCESS"
+            ], message);
+      }
+    }
+  }
+  logstream->Close();
 }
 
 MACRO TestPasswordValidation()
