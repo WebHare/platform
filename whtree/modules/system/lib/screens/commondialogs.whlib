@@ -229,40 +229,14 @@ PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
 <
-  BLOB original;
-
   PUBLIC MACRO Init(RECORD data)
   {
     data := ValidateOptions([ mailblob := DEFAULT BLOB
                             , origin := ""
                             ], data);
 
-    this->original := data.mailblob;
     ^mailcontents->origin := data.origin;
     ^mailcontents->LoadEML(data.mailblob);
-  }
-
-  PUBLIC MACRO DoViewSource()
-  {
-    OBJECT dialog := this->LoadScreen(".viewsource", [ message := this->original ]);
-    dialog->RunModal();
-  }
-
-  PUBLIC BOOLEAN FUNCTION RunDialog()
-  {
-    RETURN this->RunModal()="ok";
-  }
->;
-
-PUBLIC OBJECTTYPE ViewSource EXTEND TolliumScreenBase
-< PUBLIC MACRO Init(RECORD data)
-  {
-    STRING datastr := BlobToString(data.message); //FIXME limit size?
-
-    datastr := SubStitute(datastr, "\r\n", "\n");
-    datastr := SubStitute(datastr, "\r", "\n");
-
-    this->text->value := datastr;
   }
 >;
 

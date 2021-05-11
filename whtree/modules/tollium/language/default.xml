@@ -626,6 +626,7 @@
       <text tid="errorsto">Errors-To</text>
       <text tid="origin">Origin</text>
       <text tid="replyto">Reply-To</text>
+      <text tid="viewsource">View source</text>
     </textgroup>
     <textgroup gid="file">   <!-- components.file -->
       <text tid="alltypes">All Files</text>

@@ -21,7 +21,6 @@
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">Bekijk e-mail</text>
       <text tid="screentitle">E-mailwachtrij</text>
-      <text tid="viewsource">Bekijk broncode</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">Je hebt niet genoeg rechten om deze applicatie te starten.</text>

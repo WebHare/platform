@@ -21,7 +21,6 @@
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">View email</text>
       <text tid="screentitle">Mail Queue</text>
-      <text tid="viewsource">View source</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">You do not have enough rights to start this application.</text>
