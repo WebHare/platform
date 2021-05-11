@@ -21,7 +21,6 @@
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">Bekijk e-mail</text>
       <text tid="screentitle">E-mailwachtrij</text>
-      <text tid="viewsource">Bekijk broncode</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">Je hebt niet genoeg rechten om deze applicatie te starten.</text>
@@ -733,6 +732,7 @@
         <text tid="confirmdeletemail">Weet je zeker dat je de geselecteerde mail(s) wilt verwijderen ?</text>
         <text tid="confirmrequeuemail">Weet je zeker dat je de geselecteerde mail(s) opnieuw wil verzenden ?</text>
         <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
+          <text tid="cannotforwardsensitivemail">Gevoelige mails kunnen niet worden doorgestuurd</text>
           <text tid="creationdate">Aangemaakt op</text>
           <text tid="filter">Filter</text>
           <text tid="flush">Alles opnieuw proberen</text>
@@ -770,6 +770,7 @@
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Volgende poging op</text>
           <text tid="returnvaluetab">Teruggeven waarde</text>
+          <text tid="tasktype">Taaktype</text>
           <text tid="timeout">Tijdslimiet</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->

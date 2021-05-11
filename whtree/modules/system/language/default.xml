@@ -21,7 +21,6 @@
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">View email</text>
       <text tid="screentitle">Mail Queue</text>
-      <text tid="viewsource">View source</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">You do not have enough rights to start this application.</text>
@@ -912,6 +911,7 @@
         <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
         <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
         <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
+          <text tid="cannotforwardsensitivemail">Sensitive mails cannot be forwarded</text>
           <text tid="creationdate">Created at</text>
           <text tid="filter">Filter</text>
           <text tid="flush">Retry all mail</text>
@@ -949,6 +949,7 @@
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Next attempt at</text>
           <text tid="returnvaluetab">Return value</text>
+          <text tid="tasktype">Task type</text>
           <text tid="timeout">Time limit</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->

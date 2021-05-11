@@ -1,39 +1,62 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="components.emailcontents">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="components.emailcontents"
+         library="mod::tollium/lib/components/emailcontents.whlib">
 
-  <fragment name="emailcontents" lib="components/emailcontents.whlib">
+  <fragment name="emailcontents">
     <actions>
       <downloadaction name="downloadattachment" ondownload="dodownloadattachment" tid="~download">
         <enableon source="attachmentrows" min="1" max="1" />
       </downloadaction>
+      <action name="viewsource" onexecute="doviewsource" tid=".viewsource" />
+      <action name="showsensitivecontent" onexecute="doshowsensitivecontent" tid=".showsensitivecontent" />
     </actions>
     <contents>
-      <panel width="1pr" backgroundcolor="#f5f5f5" vscroll="true" spacers="top left right bottom">
-        <text name="mailfrom" width="1pr" wordwrap="true" tid="~mailfrom" />
+      <panel width="1pr" backgroundcolor="#f5f5f5" spacers="top left right bottom" vscroll="true">
+        <text name="mailfrom" width="1pr" tid="~mailfrom" wordwrap="true" />
         <text name="replyto" width="1pr" wordwrap="true" />
-        <text name="mailto" width="1pr" wordwrap="true" tid="~mailto" />
-        <text name="mailcc" width="1pr" wordwrap="true" tid="~mailcc" />
-        <text name="mailbcc" width="1pr" wordwrap="true" tid="~mailbcc" />
-        <text name="mailsubject" width="1pr" wordwrap="true" tid="~subject" />
-        <text name="origin" width="1pr" wordwrap="true" visible="false" />
-        <text name="errorsto" width="1pr" wordwrap="true" />
+        <text name="mailto" width="1pr" tid="~mailto" wordwrap="true" />
+        <text name="mailcc" width="1pr" tid="~mailcc" wordwrap="true" />
+        <text name="mailbcc" width="1pr" tid="~mailbcc" wordwrap="true" />
+        <text name="mailsubject" width="1pr" tid="~subject" wordwrap="true" />
+        <text name="origin" width="1pr" visible="false" wordwrap="true" />
+        <line>
+          <text name="errorsto" width="1pr" wordwrap="true" />
+          <spacer width="1pr" />
+          <button action="viewsource" />
+        </line>
       </panel>
       <split type="vertical" height="1pr">
-        <part height="4pr" spacers="top bottom left right">
-          <iframe name="preview" height="1pr" width="1pr" enablesandbox="true" sandbox="allow-popups allow-popups-to-escape-sandbox" />
+        <part height="4pr">
+          <panel name="sensitivecontent" backgroundcolor="#FEFFDE" visible="false" spacers="top bottom left right" borders="bottom">
+            <line>
+              <text valuetid=".sensitivecontent" />
+              <spacer width="1pr" />
+              <button action="showsensitivecontent" tid=".showsensitivecontent" name="showsensitivecontentbutton" />
+            </line>
+          </panel>
+          <panel spacers="top bottom left right" height="1pr">
+            <iframe name="preview"
+                    width="1pr"
+                    height="1pr"
+                    enablesandbox="true"
+                    sandbox="allow-popups allow-popups-to-escape-sandbox" />
+                  </panel>
         </part>
-        <part height="1pr" name="attachmentpart" spacers="left right top">
-          <list selectmode="single"
-                name="attachmentrows"
-                height="1pr"
-                visible="true"
-                openaction="downloadattachment">
-            <column type="text" name="name" tid="~filename" />
-            <column type="text" name="type" tid="~mimetype" />
-            <column type="integer" name="size" align="right" width="10x" tid="~filesize" />
+        <part name="attachmentpart" height="1pr" spacers="left right top">
+          <list name="attachmentrows" height="1pr" openaction="downloadattachment" selectmode="single" visible="true">
+            <column name="name" type="text" tid="~filename" />
+            <column name="type" type="text" tid="~mimetype" />
+            <column name="size" type="integer" width="10x" align="right" tid="~filesize" />
           </list>
         </part>
       </split>
     </contents>
   </fragment>
+
+  <screen name="viewsource" footerbuttons="close">
+    <body width="600px" height="500px" gid="mailclient">
+      <textarea name="text" width="1pr" height="1pr" title="" />
+    </body>
+  </screen>
 
 </screens>

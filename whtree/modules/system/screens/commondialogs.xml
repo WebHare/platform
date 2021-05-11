@@ -34,33 +34,10 @@
     </footer>
   </screen>
 
-  <screen name="mailviewer" gid="commondialogs.mailviewer" width="110x" height="50x" allowresize="true">
-    <actions>
-      <action name="viewsource" onexecute="doviewsource" shortcut="ctrl+u" />
-    </actions>
-
-    <body gid="mailclient" name="body" spacers="bottom">
+  <screen name="mailviewer" gid="commondialogs.mailviewer" width="110x" height="50x" allowresize="true" footerbuttons="close">
+    <body spacers="bottom">
       <emailcontents name="mailcontents" />
     </body>
-    <footer>
-      <grid>
-        <cell width="1pr">
-          <button action="viewsource" />
-        </cell>
-        <cell>
-          <defaultformbuttons buttons="close" />
-        </cell>
-      </grid>
-    </footer>
-  </screen>
-
-  <screen name="viewsource" gid="commondialogs.mailviewer" tid=".viewsource">
-    <body gid="mailclient" width="600px" height="500px">
-      <textarea name="text" title="" width="1pr" height="1pr" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
   <screen name="mailqueuedialog"
