@@ -73,7 +73,7 @@ LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
   MACRO DoShowText()
   {
     RECORD sel := ^contents->selection;
-    this->LoadScreen(".variabletext", [ text := sel.obj->result.value, name := sel.name ])->RunModal();
+    this->LoadScreen("mod::system/screens/debugger/debugger.xml#variabletext", [ text := sel.obj->result.value, name := sel.name ])->RunModal();
   }
 
   MACRO DoDownload(OBJECT handler)
