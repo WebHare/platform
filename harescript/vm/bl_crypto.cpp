@@ -25,7 +25,7 @@ CryptoContext::~CryptoContext()
 }
 
 CryptoContext::Hasher::Hasher(HSVM *vm, Blex::HashAlgorithm::Type alg)
-: OutputObject(vm)
+: OutputObject(vm, "Crypto hasher")
 {
         std::unique_ptr< Blex::Hasher > lhasher;
         Blex::GetHasher(alg, &lhasher);

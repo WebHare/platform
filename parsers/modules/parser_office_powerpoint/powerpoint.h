@@ -11,6 +11,7 @@
 #include <parsers/office_escher/internal.h> // For Blips
 #include <drawlib/drawlibv2/drawobject.h>
 #include "types.h"
+#include <harescript/vm/hsvm_context.h>
 
 namespace Parsers
 {
@@ -337,7 +338,7 @@ class PPointContext
         ~PPointContext();
 
         typedef std::shared_ptr<PowerpointConversion> PowerpointConversionPtr;
-        HareScript::IdMapStorage<PowerpointConversionPtr> conversionlist;
+        HareScript::RegisteredIdMapStorage<PowerpointConversionPtr> conversionlist;
 
 };
 

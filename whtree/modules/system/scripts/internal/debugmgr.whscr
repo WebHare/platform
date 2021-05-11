@@ -1058,6 +1058,13 @@ STATIC OBJECTTYPE AttachedJob
             , include_unreferenced := msg.include_unreferenced
             ], msgid);
       }
+      CASE "job-gethandlelist"
+      {
+        this->SendRequest(
+            [ type := "gethandlelist"
+            , groupid := this->pvt_groupid
+            ], msgid);
+      }
       DEFAULT
       {
         IF (debuglevel >= 5)
@@ -1458,6 +1465,7 @@ STATIC OBJECTTYPE ConnectedApplication
 
 RECORD ARRAY options :=
   [ [ name := "v", type := "stringopt" ]
+  , [ name := "debug", type := "switch" ]
   ];
 
 RECORD args := ParseArguments(GetConsoleArguments(), options);
@@ -1468,6 +1476,8 @@ IF (NOT RecordExists(args))
 }
 
 debuglevel := ToInteger(args.v, 0);
+IF (args.debug)
+  debuglevel := debuglevel = 0 ? 9 : debuglevel;
 
 OBJECT mgr := NEW DebugManager;
 RunEventLoop();

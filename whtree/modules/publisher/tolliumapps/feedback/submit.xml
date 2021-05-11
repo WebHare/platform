@@ -15,7 +15,7 @@
       <line layout="left">
         <text title="" valuetid=".intro" wordwrap="true" />
       </line>
-      <select name="type" type="radio">
+      <select name="type" type="radio" rowkeytype="integer">
       </select>
       <textarea name="remarks" />
       <arrayedit composition="extradata" cellname="extrafields" visible="false">

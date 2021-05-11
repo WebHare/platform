@@ -31,7 +31,7 @@ namespace Baselibs {
 TCPIPContext::LockedCache TCPIPContext::cache;
 
 TCPIPContext::SocketInfo::SocketInfo(HSVM *_vm, TCPIPContext *context, bool is_tcp)
-: OutputObject(_vm)
+: OutputObject(_vm, "TCP/IP socket")
 , vm(_vm)
 , context(context)
 , socket(is_tcp ? Blex::Socket::Stream : Blex::Socket::Datagram)

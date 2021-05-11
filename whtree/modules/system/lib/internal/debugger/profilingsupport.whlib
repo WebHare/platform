@@ -1107,3 +1107,53 @@ PUBLIC STATIC OBJECTTYPE DisplayedBlobReferences EXTEND DisplayedProfile
         ];
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE DisplayedHandleList EXTEND DisplayedProfile
+<
+  UPDATE PUBLIC STRING FUNCTION GetType()
+  {
+    RETURN "handlelist";
+  }
+
+  UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
+  {
+    // no processing at this time
+    this->processed := rawdata;
+  }
+
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetNamesListChildren(RECORD parentrow)
+  {
+    RETURN
+        SELECT rowkey :=    `${name}\t${id}`
+             , name
+             , id
+             , namesortkey :=   `${name}\n${Right(`0000000${id}`,8)}`
+          FROM this->processed.items;
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetShownLists()
+  {
+    RETURN [ "names" ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
+  {
+    RECORD ARRAY columns :=
+        [ [ name :=     "id"
+          , title :=    GetTid("system:debugger.profiles.handle")
+          , type :=     "integer"
+          , decimals := 0
+          , width :=    "12x"
+          , align :=    "right"
+          ]
+        ];
+
+    RETURN
+        [ istree :=         FALSE
+//        , sortcoluns :=     "name"
+        , sortascending :=  TRUE
+        , datacolumns :=    columns
+        ];
+  }
+>;

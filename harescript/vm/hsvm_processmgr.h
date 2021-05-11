@@ -30,6 +30,8 @@ class BLEXLIB_PUBLIC OutputObject
     private:
         int id;
 
+        const char *type;
+
     protected:
         HSVM *vm;
 
@@ -38,6 +40,7 @@ class BLEXLIB_PUBLIC OutputObject
 
     public:
         inline int GetId() { return id; }
+        inline const char * GetType() { return type; }
 
         /// Signalled status
         enum SignalledStatus
@@ -96,7 +99,7 @@ class BLEXLIB_PUBLIC OutputObject
         */
         virtual SignalledStatus IsWriteSignalled(Blex::PipeWaiter * /*waiter*/) { return Signalled; }
 
-        OutputObject(HSVM *vm);
+        OutputObject(HSVM *vm, const char *type);
         virtual ~OutputObject();
 
         int Register(HSVM *vm);

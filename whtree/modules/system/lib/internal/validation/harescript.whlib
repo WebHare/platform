@@ -5,11 +5,14 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 
@@ -80,17 +83,17 @@ RECORD FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING f
         IF(localgid="")
           lastlookuperror := `No gid attribute on ${screen->localname} '${ToLowercase(find_objecttype)}'`;
 
-        RETURN [ gid := localgid, eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
+        RETURN CELL[ gid := localgid, assume_screensfile, eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
       }
     }
 
     lastlookuperror := `Unable to find screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
-    RETURN [ gid := "", eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
+    RETURN CELL[ gid := "", assume_screensfile, eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
   }
   CATCH
   {
     lastlookuperror := `Unable to find file '${ToLowercase(assume_screensfile)}' for screen/fragment/tabsextension '${ToLowercase(find_objecttype)}'`;
-    RETURN [ gid := "", eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
+    RETURN CELL[ gid := "", assume_screensfile, eventmasks := GetResourceEventMasks([ assume_screensfile ]) ];
   }
 }
 
@@ -98,7 +101,7 @@ RECORD FUNCTION LookupScreenGid(STRING modulename, STRING resourcepath, STRING f
 PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
 {
   STRING modulename := GetModuleNameFromResourcePath(resourcepath);
-  RECORD ARRAY warnings;
+  RECORD ARRAY warnings, errors;
 
   RECORD ARRAY texts;
   RECORD ARRAY screens;
@@ -111,8 +114,11 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
   STRING rawtext := ToUpperCase(BlobToString(libdata));
   IF (SearchSubString(rawtext, 'GETTID') = -1 AND // Also matches GETTIDFORLANGUAGE
       SearchSubString(rawtext, 'GETHTMLTID') = -1 AND // Also matches GETHTMLTIDFORLANGUAGE
-      SearchSubString(rawtext, '/*TID*/') = -1)
-    RETURN [ warnings := DEFAULT RECORD ARRAY
+      SearchSubString(rawtext, '/*TID*/') = -1 AND
+      SearchSubString(rawtext, 'LOADSCREEN') = -1 AND
+      SearchSubString(rawtext, 'RUNSCREEN') = -1)
+    RETURN [ errors   := DEFAULT RECORD ARRAY
+           , warnings := DEFAULT RECORD ARRAY
            , texts    := DEFAULT RECORD ARRAY
            , screens  := DEFAULT RECORD ARRAY
            , skipped  := TRUE
@@ -126,6 +132,7 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
 
   STRING current_objecttype;
   STRING current_screen_gid;
+  STRING current_screen_resourcefile;
 
   STRING ARRAY eventmasks;
 
@@ -145,12 +152,14 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
       tok := GetNextTok(file);
       current_objecttype := tok.token;
       current_screen_gid := "";
+      current_screen_resourcefile := "";
       CONTINUE;
     }
 
     BOOLEAN is_gettid := ToUppercase(tok.token) IN ["GETTID","GETHTMLTID"];
     BOOLEAN is_getidforlanguage := ToUppercase(tok.token) IN ["GETTIDFORLANGUAGE","GETHTMLTIDFORLANGUAGE"];
     BOOLEAN is_explicittid := ToUppercase(tok.token) = "/*TID*/";
+    BOOLEAN is_screen := ToUppercase(tok.token) = "LOADSCREEN" OR ToUppercase(tok.token) = "RUNSCREEN";
     IF(is_gettid OR is_getidforlanguage OR is_explicittid)
     {
       BOOLEAN is_this_gettid;
@@ -245,16 +254,87 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
              ]
         INTO texts AT END;
     }
+    IF(is_screen)
+    {
+      IF(current_screen_resourcefile = "")
+      {
+        RECORD lookupres := LookupScreenGid(modulename, resourcepath, current_objecttype);
+        current_screen_resourcefile := lookupres.assume_screensfile;
+        eventmasks := eventmasks CONCAT lookupres.eventmasks;
+      }
+
+      IF(Length(prevtokens) < 2 OR ToUppercase(prevtokens[END-3].token) != "THIS" OR prevtokens[END-2].token != "->")
+        CONTINUE;
+
+      RECORD expect_parenthesis := GetNextTok(file);
+      IF (NOT RecordExists(expect_parenthesis) OR expect_parenthesis.token!="(")
+        CONTINUE;
+
+      RECORD expect_ref := GetNextTok(file);
+
+      // Ignore if first parameter of GetTid is not a STRING
+      IF (NOT RecordExists(expect_ref) OR Left(expect_ref.token,1) NOT IN ["'",'"','`'])
+        CONTINUE;
+
+      IF (Left(expect_ref.token,1) = '`' AND Right(expect_ref.rawtoken,1) != '`') //looks like a ` string ending with a ${
+        CONTINUE;
+
+      STRING screenref := DecodeJava(Substring(expect_ref.token, 1, Length(expect_ref.token)-2));
+
+      STRING absoluteref := MakeAbsoluteScreenReference(current_screen_resourcefile, screenref);
+      RECORD validateres :=  ValidateScreenReference("screen", absoluteref, screenref, resourcepath, expect_ref);
+      errors := errors CONCAT validateres.errors;
+      warnings := warnings CONCAT validateres.warnings;
+    }
   }
 
   CloseHarescriptFile(file);
 
-  RETURN [ warnings := warnings
+  RETURN [ errors   := errors
+         , warnings := warnings
          , texts    := texts
          , screens  := screens
          , skipped  := FALSE
          , eventmasks := GetSortedSet(eventmasks)
          ];
+}
+
+RECORD FUNCTION ValidateScreenReference(STRING type, STRING absolutereference, STRING orgref, STRING resourcepath, RECORD tok)
+{
+  RECORD retval :=
+      [ warnings :=     RECORD[]
+      , errors :=       RECORD[]
+      ];
+
+  IF (absolutereference NOT LIKE "*#*")
+    RETURN retval;
+
+  BLOB resourcefile := GetWebhareResource(Tokenize(absolutereference, "#")[0], [ allowmissing := TRUE ]);
+  IF (IsDefaultValue(resourcefile))
+  {
+    INSERT [ message := `Could not find screens file for ${type} ${EncodeJSON(orgref)}`
+           , warning := `Could not find screens file for ${type} ${EncodeJSON(orgref)} in ${resourcepath} line ${tok.line}`
+           , line := tok.line
+           , col := tok.col
+           , resourcename := resourcepath
+           ] INTO retval.errors AT END;
+  }
+  ELSE
+  {
+    OBJECT screendoc := MakeXMLDocument(resourcefile);
+    OBJECT screen := screendoc->GetEvaluatedElement(DEFAULT OBJECT, MakeSelector("screen", Tokenize(absolutereference, "#")[1]));
+    IF (NOT ObjectExists(screen))
+    {
+      INSERT [ message := `Could not find ${type} ${EncodeJSON(orgref)}`
+             , warning := `Could not find ${type} ${EncodeJSON(orgref)} in ${resourcepath} line ${tok.line}`
+             , line := tok.line
+             , col := tok.col
+             , resourcename := resourcepath
+             ] INTO retval.errors AT END;
+    }
+  }
+
+  RETURN retval;
 }
 
 STRING FUNCTION FixSpacesInTid(STRING intid)
@@ -300,6 +380,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
 
   UPDATE scaninfo.texts SET tid := FixSpacesInTid(tid) WHERE tid LIKE "* *";
   retval.tids := scaninfo.texts;
+  retval.errors := retval.errors CONCAT scaninfo.errors;
   retval.warnings := retval.warnings CONCAT scaninfo.warnings;
   retval.eventmasks := retval.eventmasks CONCAT scaninfo.eventmasks;
 

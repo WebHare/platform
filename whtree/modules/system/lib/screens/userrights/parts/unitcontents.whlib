@@ -514,11 +514,6 @@ PUBLIC STATIC OBJECTTYPE PrepareResetLink EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginFeedback();
-    OBJECT authplugin := this->contexts->controller->wrdauthplugin;
-    authplugin->LogCustomAuditEvent("wrd:getresetlink",
-        [ account := this->userid
-        , message := [ resettype := ^resettype->value ]
-        ]);
     IF(NOT work->Finish())
       RETURN FALSE;
 
@@ -535,7 +530,9 @@ PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
     STRING resetpage := authplugin->__GetLoginPageURL() ?? this->contexts->controller->baseurl;
     RECORD resetlink := authplugin->CreatePasswordResetLink(resetpage, data.user, [ routerpage := "resetpassword"
                                                                                   , verifierstart := "VC"
+                                                                                  , logdata := CELL[ data.resettype ]
                                                                                   ]);
+
     ^resetlink->value := data.resettype = "directresetlink" ? resetlink.verifiedlink : resetlink.entrylink;
     ^resetcode->visible := data.resettype = "codedresetlink";
     ^resetcode->value := resetlink.verifier;

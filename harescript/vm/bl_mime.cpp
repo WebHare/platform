@@ -157,7 +157,7 @@ void HS_CreateMimeDecoder(HSVM *vm, HSVM_VariableId id_set)
         int32_t body_start = HSVM_IntegerGet(vm, HSVM_Arg(8));
 
         MimeDecodeStorePtr newdecoder(new MimeDecodeStore(vm, toptype, topencoding, topdescription, topdisposition, topcontentid, defaultcontenttype, data_start, part_start, body_start));
-        int fileid = HSVM_RegisterIOObject(vm, newdecoder.get(), NULL, &FeedMimeData, NULL, NULL);
+        int fileid = HSVM_RegisterIOObject(vm, newdecoder.get(), NULL, &FeedMimeData, NULL, NULL, "MIME decoder");
         context->decoders[fileid] = newdecoder;
         HSVM_IntegerSet(vm, id_set, fileid);
 }

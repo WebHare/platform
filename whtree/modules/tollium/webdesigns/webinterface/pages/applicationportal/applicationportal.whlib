@@ -442,6 +442,29 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     EmbedWittyComponent("module::tollium/todd/internal/webpage.witty:main", this->rundata);
   }
 
+  STRING ARRAY FUNCTION ParseInAppPath(STRING apppath)
+  {
+    STRING ARRAY inapppath;
+    STRING curpath;
+
+    OBJECT s := NEW StringParser(apppath);
+    WHILE (NOT s->eof)
+    {
+      curpath := curpath || s->ParseWhileNotInSet("/\\");
+      if (s->TryParse("/"))
+      {
+        INSERT curpath INTO inapppath AT END;
+        curpath := "";
+        CONTINUE;
+      }
+      ELSE IF (s->TryParse("\\"))
+        curpath := curpath || s->ParseN(1);
+    }
+
+    INSERT curpath INTO inapppath AT END;
+    RETURN inapppath;
+  }
+
   RECORD FUNCTION ParseAppName(STRING appname)
   {
     // Parses appname of form appname(parameter1,parameter2(bla\)bla),parameter3)/inapppath1,inapppath2
@@ -476,7 +499,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       parameters := Tokenize(params, ",");
     }
     IF (s->TryParse("/"))
-      inapppath := Tokenize(s->remaining_data, "/");
+    {
+      inapppath := this->ParseInAppPath(s->remaining_data);
+    }
 
     RETURN CELL[ appname, parameters, inapppath];
   }

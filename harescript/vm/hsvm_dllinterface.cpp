@@ -53,7 +53,7 @@ typedef int (*HSVM_OutputWriter)(void *opaque_ptr, int numbytes, void const *dat
 class DllInterfaceOutputObject : public HareScript::OutputObject
 {
         public:
-        DllInterfaceOutputObject(HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction);
+        DllInterfaceOutputObject(HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction, const char *name);
         ~DllInterfaceOutputObject();
 
         std::pair< Blex::SocketError::Errors, unsigned > Read(unsigned numbytes, void *data);
@@ -117,9 +117,8 @@ struct DllInterfaceContextData
         DllInterfaceContextData();
         ~DllInterfaceContextData();
 
-        typedef IdMapStorage<OpenBlobInfo> OpenBlobs;
+        typedef RegisteredIdMapStorage<OpenBlobInfo> OpenBlobs;
         typedef std::map<int, DllInterfaceOutputObjectPtr> DllIfaceObjects;
-        typedef std::map<int, Blex::FileOffset> BlobOffsets;
 
         DllIfaceObjects dlliface_objects;
 
@@ -189,7 +188,8 @@ void DllInterfaceExternalOutputContextData::FlushOutputBuffer()
 
 
 DllInterfaceContextData::DllInterfaceContextData()
-: current_output(0)
+: blobs("Open blobs")
+, current_output(0)
 , current_job_output(0)
 {
 }
@@ -199,8 +199,8 @@ DllInterfaceContextData::~DllInterfaceContextData()
 }
 
 
-DllInterfaceOutputObject::DllInterfaceOutputObject(HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction)
-: HareScript::OutputObject(vm)
+DllInterfaceOutputObject::DllInterfaceOutputObject(HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction, const char *name)
+: HareScript::OutputObject(vm, name)
 , opaque_ptr(opaque_ptr)
 , inputfunction(inputfunction)
 , outputfunction(outputfunction)
@@ -1093,7 +1093,7 @@ int HSVM_CreateStream (HSVM *vm)
 
         newfile->file = VM.GetBlobManager().CreateTempStream(&newfile->name);
 
-        int tempfileid = HSVM_RegisterIOObject(vm, newfile.get(), NULL, &TempFileWriter, NULL, NULL);
+        int tempfileid = HSVM_RegisterIOObject(vm, newfile.get(), NULL, &TempFileWriter, NULL, NULL, "Stream");
         dll->tempfiles[tempfileid]=newfile;
         return tempfileid;
 
@@ -1319,7 +1319,8 @@ int HSVM_BlobOpen (HSVM *vm, HSVM_VariableId id)
         if (!blobinfo.openblob)
             throw VMRuntimeError(Error::IOError);
 
-        return dll->blobs.Set(std::move(blobinfo));
+        dll->blobs.SetVM(&VM);
+        return dll->blobs.Set(&VM, std::move(blobinfo));
         END_CATCH_VMEXCEPTIONS
         return 0;
 }
@@ -1487,12 +1488,12 @@ void HSVM_FlushOutputBuffer(struct HSVM *vm)
         END_CATCH_VMEXCEPTIONS
 }
 
-int HSVM_RegisterIOObject(struct HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction)
+int HSVM_RegisterIOObject(struct HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction, const char *name)
 {
         START_CATCH_VMEXCEPTIONS
         DllInterfaceContext dll(VM.GetContextKeeper());
 
-        DllInterfaceOutputObjectPtr newobj(new DllInterfaceOutputObject(vm, opaque_ptr, inputfunction, outputfunction, endofstreamfunction, closefunction));
+        DllInterfaceOutputObjectPtr newobj(new DllInterfaceOutputObject(vm, opaque_ptr, inputfunction, outputfunction, endofstreamfunction, closefunction, name));
         dll->dlliface_objects[newobj->GetId()] = newobj;
         return newobj->GetId();
         END_CATCH_VMEXCEPTIONS

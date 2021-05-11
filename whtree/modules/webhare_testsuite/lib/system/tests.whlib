@@ -46,20 +46,30 @@ PUBLIC MACRO EnsureUserMgmtStateClean()
 
 DATETIME lastcheck;
 
-PUBLIC RECORD FUNCTION TestAuditEvent(RECORD expected)
+PUBLIC RECORD FUNCTION TestAuditEvent(VARIANT expected)
 {
+  IF (TypeID(expected) = TypeID(RECORD))
+    expected := RecordExists(expected) ? RECORD[ expected ] : RECORD[];
+
   RECORD ARRAY auditevents := SELECT *, DELETE id, DELETE creationdate, DELETE wrdschema, DELETE country
                                 FROM wrd.auditevents
                                WHERE auditevents.wrdschema = testfw->GetWRDSchema()->id
-                                     AND creationdate > lastcheck;
+                                     AND creationdate > lastcheck
+                            ORDER BY creationdate, (SELECT AS INTEGER #expected FROM expected WHERE type = auditevents.type);
 
   // add defaults for impersonator
-  IF (RecordExists(expected) AND NOT expected.impersonated)
-    expected := CELL[ impersonator_entity := expected.byentity, impersonator_login := expected.bylogin, ...expected ];
+  FOREVERY (RECORD rec FROM expected)
+  {
+    IF (NOT rec.impersonated)
+      rec := CELL[ impersonator_entity := rec.byentity, impersonator_login := rec.bylogin, ...rec ];
+    IF (CellExists(rec, "__ignoredata"))
+      rec := CELL[ ...rec, data := SELECT AS STRING data FROM auditevents WHERE type = rec.type, DELETE __ignoredata ];
+    expected[#rec] := rec;
+    IF(NOT CellExists(rec,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
+      auditevents := SELECT *, DELETE ip FROM auditevents;
+  }
 
-  IF(NOT CellExists(expected,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
-    auditevents := SELECT *, DELETE ip FROM auditevents;
-  TestEq(RecordExists(expected) ? [ expected ] : RECORD[], auditevents);
+  TestEq(expected, auditevents);
   lastcheck := GetCurrentDatetime();
   Sleep(1);
   RETURN auditevents;

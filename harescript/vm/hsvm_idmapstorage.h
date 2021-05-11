@@ -5,12 +5,14 @@
 namespace HareScript
 {
 
+class VirtualMachine;
+
 /** IdMapStorage stores data, and returns an id to access it
     Warning: id's are NOT recycled. Don't use more that 2^31 id's. */
 template <class StoredClass>
  class IdMapStorage
 {
-    private:
+    protected:
         typedef std::map<int32_t, StoredClass> TheMap;
         TheMap storage;
         unsigned counter;
@@ -173,6 +175,73 @@ template <class StoredClass>
         return id;
 }
 
+#define HSVM_PUBLIC __attribute__((visibility("default")))
+
+class HSVM_PUBLIC IdMapStorageRapporter
+{
+    protected:
+        VirtualMachine *vm;
+        const char *name;
+
+        void RegisterHandleKeeper();
+        void UnregisterHandleKeeper();
+
+    public:
+        IdMapStorageRapporter(const char *_name)
+        : vm(nullptr)
+        , name(_name)
+        {
+        }
+
+        ~IdMapStorageRapporter();
+
+        void SetVM(VirtualMachine *_vm)
+        {
+                if (vm == _vm)
+                    return;
+
+                if (vm)
+                    UnregisterHandleKeeper();
+                vm = _vm;
+                if (vm)
+                    RegisterHandleKeeper();
+        }
+
+        virtual void RegisterHandles(std::function< void(std::string, int32_t) > const &cb) = 0;
+};
+
+template <class StoredClass>
+ class RegisteredIdMapStorage: public IdMapStorage< StoredClass >, public IdMapStorageRapporter
+{
+    public:
+        RegisteredIdMapStorage(const char *name)
+        : IdMapStorageRapporter(name)
+        {
+        }
+
+        virtual void RegisterHandles(std::function< void(std::string, int32_t) > const &cb)
+        {
+                for (auto &itr: this->storage)
+                     cb(name, itr.first);
+        }
+
+        /** Stores a storedclass object, returns an id unequal to 0. The operation either succeeds, or
+            nothing is done at all */
+        unsigned Set(VirtualMachine *vm, StoredClass const &obj) { SetVM(vm); return IdMapStorage< StoredClass >::Set(obj); }
+
+        /** Stores a storedclass object, returns an id unequal to 0. The operation either succeeds, or
+            nothing is done at all */
+        unsigned Set(VirtualMachine *vm, StoredClass &&obj) { SetVM(vm); return IdMapStorage< StoredClass >::Set(std::move(obj)); }
+
+        /** Stores a stored class object with the specified id. The operation either succeeds, or nothing is done at all
+            If storage is already in use, 0 is returned. */
+        unsigned SetAs(VirtualMachine *vm, StoredClass const &obj, unsigned id)  { SetVM(vm); return IdMapStorage< StoredClass >::SetAs(obj, id); }
+
+        /** Stores a stored class object with the specified id. The operation either succeeds, or nothing is done at all
+            If storage is already in use, 0 is returned. */
+        unsigned SetAs(VirtualMachine *vm, StoredClass &&obj, unsigned id) { SetVM(vm); return IdMapStorage< StoredClass >::SetAs(std::move(obj), id); }
+
+};
 
 } // End of namespace HareScript
 

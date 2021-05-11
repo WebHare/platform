@@ -31,12 +31,6 @@ PUBLIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     this->showwebharebackend->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend", FALSE);
   }
 
-  MACRO DoShowAdvanced()
-  {
-    OBJECT screen := this->LoadScreen(".tweaking", DEFAULT RECORD);
-    screen->RunModal();
-  }
-
   BOOLEAN FUNCTION Submit()
   {
     STRING ARRAY opts := this->opts->value;

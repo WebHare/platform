@@ -1427,7 +1427,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     INSERT
         [ when :=     GetCurrentDateTime()
         , source :=   "debugger"
-        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , command :=  "memorysnapshot-" || LENGTH(this->profiles) + 1
         , type :=     "memorysnapshot"
         , rawdata :=  data.rawdata
         ] INTO this->profiles AT END;
@@ -1442,7 +1442,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     INSERT
         [ when :=     GetCurrentDateTime()
         , source :=   "debugger"
-        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , command :=  "memorysnapshot-" || LENGTH(this->profiles) + 1
         , type :=     "memorysnapshot"
         , rawdata :=  data.rawdata
         ] INTO this->profiles AT END;
@@ -1457,7 +1457,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     INSERT
         [ when :=     GetCurrentDateTime()
         , source :=   "debugger"
-        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , command :=  "objectsnapshot-" || LENGTH(this->profiles) + 1
         , type :=     "objectsnapshot"
         , rawdata :=  data.rawdata
         ] INTO this->profiles AT END;
@@ -1467,7 +1467,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   ASYNC FUNCTION AsyncGetBlobReferences(BOOLEAN withunreferenced)
   {
-    RETURN this->job->GetBlobReferences(FALSE);
+    RETURN this->job->GetBlobReferences(withunreferenced);
   }
 
   MACRO DoGetBlobReferencesWithUnreferenced()
@@ -1477,8 +1477,28 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     INSERT
         [ when :=     GetCurrentDateTime()
         , source :=   "debugger"
-        , command :=  "snapshot-" || LENGTH(this->profiles) + 1
+        , command :=  "blobsnapshot-" || LENGTH(this->profiles) + 1
         , type :=     "blobreferences"
+        , rawdata :=  data.rawdata
+        ] INTO this->profiles AT END;
+
+    this->DoShowProfiles();
+  }
+
+  ASYNC FUNCTION AsyncGetHandleList(BOOLEAN withunreferenced)
+  {
+    RETURN this->job->GetHandleList();
+  }
+
+  MACRO DoGetHandleList()
+  {
+    RECORD data := WaitForPromise(this->ScheduleDelayedAction(PTR this->AsyncGetHandleList(TRUE)));
+
+    INSERT
+        [ when :=     GetCurrentDateTime()
+        , source :=   "debugger"
+        , command :=  "handlesnapshot-" || LENGTH(this->profiles) + 1
+        , type :=     "handlelist"
         , rawdata :=  data.rawdata
         ] INTO this->profiles AT END;
 

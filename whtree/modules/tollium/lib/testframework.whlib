@@ -1420,6 +1420,12 @@ PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING co
                               , findinvisible := FALSE
                               ], options);
 
+  IF (compname LIKE "*[menuitem]")
+  {
+    options.menuitem := TRUE;
+    compname := Left(compname, LENGTH(compname) - 10);
+  }
+
   OBJECT ptrsofar := screen, curcomp := ptrsofar->frame;
   IF(NOT ObjectExists(ptrsofar))
     THROW NEW Exception(`No open screen while looking for '${compname}'`);

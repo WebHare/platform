@@ -294,6 +294,28 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     this->RegenerateComponents();
   }
 
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    RECORD row;
+    IF (this->rowkeytype = TypeID(STRING))
+      row := this->GetRowByToddRowkey(path);
+    IF(NOT RecordExists(row) AND path LIKE '[*]')
+    {
+      //ADDME order by default sort before selecting the row
+      INTEGER seqnr := ToInteger(Substring(path, 1, Length(path)-2),-1);
+      IF(seqnr >= 0 AND seqnr < Length(this->options))
+        row := this->options[seqnr];
+    }
+    IF(NOT RecordExists(row) AND path LIKE ':*')
+      row := SELECT * FROM this->options WHERE title = SubString(path, 1);
+    IF(NOT RecordExists(row) AND this->rowkeytype != TypeID(STRING))
+      row := this->GetRowByToddRowkey(path);
+    IF(NOT RecordExists(row))
+      THROW NEW TolliumException(this, `Did not find a row with rowkey '${path}'`);
+
+    this->selection := [row];
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Callbacks from the storage

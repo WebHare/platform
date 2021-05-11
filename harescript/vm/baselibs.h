@@ -282,7 +282,7 @@ struct OSContext
         class ZipFile : public HareScript::OutputObject // To work with handle system
         {
             public:
-                ZipFile(HSVM *vm) : OutputObject(vm) { }
+                ZipFile(HSVM *vm) : OutputObject(vm, "ZIP file") { }
 
                 std::unique_ptr< Interface::InputStream > inputstream;
                 std::unique_ptr< Blex::ZipArchiveReader > archive;
@@ -380,7 +380,7 @@ struct OSContext
         private:
         struct Console : public HareScript::OutputObject
         {
-                Console() : OutputObject(NULL)
+                Console() : OutputObject(NULL, "Console")
                 {
                 }
 
@@ -392,7 +392,7 @@ struct OSContext
 
         struct Process : public HareScript::OutputObject
         {
-                Process(HSVM *_vm) : OutputObject(_vm), vm(_vm), started(false), write_unblocked(false)
+                Process(HSVM *_vm) : OutputObject(_vm, "Process"), vm(_vm), started(false), write_unblocked(false)
                 {
                 }
 
@@ -422,7 +422,7 @@ struct OSContext
 
         struct PipeEnd : public HareScript::OutputObject
         {
-                PipeEnd(HSVM *vm) : OutputObject(vm), owner_job(0)
+                PipeEnd(HSVM *vm) : OutputObject(vm, "Pipe end"), owner_job(0)
                 {
                 }
                 ~PipeEnd();
@@ -544,10 +544,10 @@ struct SystemContextData
 
         struct Log;
 
-        typedef IdMapStorage<std::shared_ptr<GeneratedArchive> > Archives;
+        typedef RegisteredIdMapStorage<std::shared_ptr<GeneratedArchive> > Archives;
         Archives archives;
 
-        typedef IdMapStorage<std::shared_ptr<Log> > Logs;
+        typedef RegisteredIdMapStorage<std::shared_ptr<Log> > Logs;
         Logs logs;
 
         typedef std::shared_ptr<CompressingStream> CompressingStreamPtr;

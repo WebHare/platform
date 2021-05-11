@@ -216,6 +216,7 @@ class Debugger
         void RPC_GetProfile();
         void RPC_GetMemorySnapshot();
         void RPC_GetBlobReferences();
+        void RPC_GetHandleList();
 
     public:
         Debugger(Environment &environment, JobManager &jobmgr);

@@ -944,8 +944,9 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
     @param inputfunction Input callback (may be NULL)
     @param outputfunction Output callback (may be NULL)
     @param endofstreamfunction End of streamcallback (may be NULL, will always return TRUE then)
+    @param name Name for reporting purposes
     @return Output object ID allocated by HareScript (usable for HSVM_PrintTo and HSVM_DeregisterOutputObject) */
- HSVM_PUBLIC int HSVM_RegisterIOObject(struct HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction) ;
+ HSVM_PUBLIC int HSVM_RegisterIOObject(struct HSVM *vm, void *opaque_ptr, HSVM_IOReader inputfunction, HSVM_IOWriter outputfunction, HSVM_IOEndOfStream endofstreamfunction, HSVM_IOClose closefunction, const char *name) ;
 
 /** De-register an i/o object
    @param vm Virtual machine

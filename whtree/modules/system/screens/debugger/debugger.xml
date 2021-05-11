@@ -55,6 +55,7 @@
       <action name="getmemorysnapshotwithunreferenced" onexecute="dogetmemorysnapshotwithunreferenced" frameflags="canrundelayedaction" />
       <action name="getobjectsnapshot" onexecute="dogetobjectsnapshot" frameflags="canrundelayedaction" />
       <action name="getblobreferences" onexecute="dogetblobreferenceswithunreferenced" frameflags="canrundelayedaction" />
+      <action name="gethandlelist" onexecute="dogethandlelist" frameflags="canrundelayedaction" />
       <action name="showprofiles" onexecute="doshowprofiles" />
 
       <action name="startfunctionprofiling" onexecute="dostartfunctionprofiling" frameflags="canrundelayedaction !runningprofile" />
@@ -95,6 +96,7 @@
           <item action="getmemorysnapshotwithunreferenced" />
           <item action="getobjectsnapshot" />
           <item action="getblobreferences" />
+          <item action="gethandlelist" />
           <item action="startfunctionprofiling" />
           <item action="startmemoryprofiling" />
           <item action="stopprofiling" />
