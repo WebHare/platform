@@ -161,14 +161,14 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   }
 >;
 
-PUBLIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
 <
   INTEGER taskid;
 
   MACRO Init(RECORD data)
   {
     this->taskid := data.id;
-    this->listener->masks := [ `system:managedtasks.any.${this->taskid}` ];
+    ^listener->masks := [ `system:managedtasks.any.${this->taskid}` ];
     this->Refresh();
   }
 
@@ -185,15 +185,17 @@ PUBLIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
       this->tolliumresult := "cancel";
       RETURN;
     }
-    this->id->value := ToString(this->taskid);
-    this->creationdate->value := task.creationdate;
-    this->nextattempt->value := task.nextattempt;
-    this->finished->value := task.finished;
-    this->lasterrors->value := task.lasterrors;
-    this->data->value := task.data;
-    this->retval->value := task.retval;
-    this->manualcall->value := "wh tasks run m" || this->taskid;
-    this->metadata->value := task.metadata;
-    this->timeout->value := task.timeout = 0 ? GetTid("tollium:common.labels.none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
+
+    ^id->value := ToString(this->taskid);
+    ^tasktype->value := task.tasktype;
+    ^creationdate->value := task.creationdate;
+    ^nextattempt->value := task.nextattempt;
+    ^finished->value := task.finished;
+    ^lasterrors->value := task.lasterrors;
+    ^data->value := showdata;
+    ^retval->value := task.retval;
+    ^manualcall->value := "wh tasks run m" || this->taskid;
+    ^metadata->value := task.metadata;
+    ^timeout->value := task.timeout = 0 ? GetTid("tollium:common.labels.none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
   }
 >;

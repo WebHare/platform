@@ -770,6 +770,7 @@
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Volgende poging op</text>
           <text tid="returnvaluetab">Teruggeven waarde</text>
+          <text tid="tasktype">Taaktype</text>
           <text tid="timeout">Tijdslimiet</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->

@@ -84,6 +84,7 @@
     <body spacers="none">
       <panel spacers="all">
         <text name="id" />
+        <text name="tasktype" />
         <datetime name="creationdate" readonly="true" storeutc="true" type="datetime" precision="seconds" />
         <datetime name="nextattempt" readonly="true" storeutc="true" type="datetime" precision="seconds" />
         <datetime name="finished" readonly="true" storeutc="true" type="datetime" precision="seconds" />
