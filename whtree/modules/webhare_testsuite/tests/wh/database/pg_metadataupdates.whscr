@@ -127,9 +127,35 @@ MACRO TestColumnAttributes()
   TestEq(FALSE, TextFieldHasNotNullCheck(testfw_testmodule, "attrtest", "name"));
 }
 
+MACRO TestMultiColumnUniqueIndex()
+{
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="mcindextest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:integer name="parent" references=".mcindextest" />
+      <d:varchar name="name" maxlength="256"/>
+      <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true" />
+    </d:table>
+  </databaseschema>
+`);
+
+  TABLE< INTEGER id, INTEGER parent NULL := 0, STRING name > tbl_mcindextext := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_temp.mcindextest");
+
+  testfw->BeginWork();
+  INSERT [ id := 1, parent := 0, name := `name` ] INTO tbl_mcindextext;
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  INSERT [ id := 2, parent := 0, name := `name` ] INTO tbl_mcindextext;
+  RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
+  TestEQLike("ERROR:*duplicate key value violates unique constraint*", (errors??[[message := "no error"]])[0].message);
+}
+
 RunTestframework([ PTR SetupTempSchema
                  , PTR TestByteaConversion
                  , PTR TestIndexDrops
                  , PTR TestColumnCreate()
                  , PTR TestColumnAttributes
+                 , PTR TestMultiColumnUniqueIndex
                  ]);

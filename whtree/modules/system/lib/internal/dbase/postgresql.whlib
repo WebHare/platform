@@ -114,6 +114,7 @@ PUBLIC STRING ARRAY FUNCTION ParsePostgreSQLExpressionList(STRING exprs)
           INSERT curexpr INTO result AT END;
           curexpr := "";
           p->Next();
+          p->ParseWhileInSet(" ");
         }
         ELSE
           curexpr := curexpr || p->ParseN(1);
@@ -715,6 +716,13 @@ STRING FUNCTION GetIndexColumnExpression(RECORD colrec, RECORD ind)
       expr := Substitute(conv, "$1", expr);
     }
   }
+  ELSE IF (ind.null_partial AND colrec.references_table != "")
+  {
+    IF (colrec.dbtype IN [ "int4", "int8" ])
+      expr := `COALESCE(${expr}, 0)`;
+    ELSE
+      THROW NEW Exception(`Cannot write out the default value for type ${colrec.dbtype} yet`); // just encode
+  }
 
   RETURN expr;
 }
@@ -735,7 +743,7 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
 
     RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
     IF (NOT RecordExists(colrec))
-      THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+      THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
     colpart := colpart || GetIndexColumnExpression(colrec, ind);
   }
@@ -752,12 +760,26 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
         cmd := cmd || " AND ";
       RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
       IF (NOT RecordExists(colrec))
-        THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
       IF (colrec.dbtype = "webhare_blob" OR colrec.references_table != "")
         cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NOT NULL)`;
       ELSE
         cmd := cmd || `${PostgreSQLEscapeIdentifier(col.name)} <> ${colrec.defval}`;
+    }
+  }
+  ELSE IF (ind.null_partial)
+  {
+    cmd := cmd || " WHERE ";
+    FOREVERY (RECORD col FROM ind.columns)
+    {
+      IF (#col != 0)
+        cmd := cmd || " OR ";
+      RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+      IF (NOT RecordExists(colrec))
+        THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+
+      cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NULL)`;
     }
   }
 
@@ -1091,8 +1113,41 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
         tablerec.indices :=
             SELECT *
+                 , null_partial := FALSE
                  , useindexname :=    `${tablerec.name}_wh_${name}`
               FROM tablerec.indices;
+
+        /* Multi-column unique indices have the problem that when at least one NULL is
+           present in their columns, they won't enforce uniqueness of the other columns
+           anymore. Toi solve this we create null-partial indices for all those indices.
+           It will contain only rows with at least one NULL, and coalesces those NULLs
+           to the default value for their type.
+        */
+        FOREVERY (RECORD ind FROM tablerec.indices)
+        {
+          IF (NOT ind.is_unique OR ind.nonullstores)
+            CONTINUE;
+
+          BOOLEAN have_nullable;
+          FOREVERY (RECORD col FROM ind.columns)
+          {
+            RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
+            IF (NOT RecordExists(colrec))
+              THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
+
+            IF (colrec.nullable)
+              have_nullable := TRUE;
+          }
+
+          IF (NOT have_nullable)
+            CONTINUE;
+
+          INSERT CELL
+              [ ...ind
+              , null_partial :=   TRUE
+              , useindexname :=    `${tablerec.name}_whnp_${ind.name}`
+              ] INTO tablerec.indices AT END;
+        }
 
         // Add indices for all non-unique foreign keys
         FOREVERY (RECORD col FROM SELECT * FROM tablerec.cols WHERE references_table != '' AND NOT isunique ORDER BY name)
@@ -1110,6 +1165,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                 , is_unique :=        FALSE
                 , is_uppercase :=     FALSE
                 , nonullstores :=     FALSE
+                , null_partial :=     FALSE
                 , columns :=          [ CELL[ col.name, len := 0 ] ]
                 ] INTO tablerec.indices AT END;
           }
