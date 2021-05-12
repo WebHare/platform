@@ -459,7 +459,7 @@ MACRO TestHSONAttr()
 
   TestEq([ extradata := DEFAULT RECORD ], testperson->GetFields(["extradata"]));
 
-  TestThrowsLike("*type record*", PTR testperson->UpdateEntity([ extradata := 45 ])); //only records!
+  TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity([ extradata := 45 ])); //only records!
 
   testperson->UpdateEntity([ extradata := [ x := 42 ]]);
   TestEq([ extradata := [ x := 42 ] ], testperson->GetFields(["extradata"]));
@@ -621,7 +621,7 @@ MACRO TestStatusRecordAttr()
   TestEq(DEFAULT RECORD, testperson->GetField("EXTRASTATUS"));
 
   TestThrowsLike("*not*acceptable*", PTR testperson->UpdateEntity([ extrastatus := [ status := "warning" ]]));
-  TestThrowsLike("*type record*", PTR testperson->UpdateEntity([ extrastatus := "warning" ]));
+  TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity([ extrastatus := "warning" ]));
   TestThrowsLike("*tatus*must be of type*", PTR testperson->UpdateEntity([ extrastatus := [ status := ["warning","error"] ]]));
   TestThrowsLike("*tatus*must be of type*", PTR testperson->UpdateEntity([ extrastatus := [ status := [1,2] ]]));
   TestThrowsLike("Missing status*", PTR testperson->UpdateEntity([ extrastatus := [ otherdata := 42 ]]));
@@ -702,7 +702,7 @@ MACRO TestAuthenticationAttrs()
   OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com" ]);
   TestEq(DEFAULT RECORD, testperson->GetField("AUTHSETTINGS"));
 
-  TestThrowsLike("*must be of type record*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
+  TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
   TestThrowsLike("*VERSION*", PTR testperson->UpdateEntity( [ authsettings := CELL[] ]));
   TestThrowsLike("*version 1*", PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1] ]));
   TestThrowsLike(`Expected version 1 while parsing value for attribute "AUTHSETTINGS"`, PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1 ] ]));

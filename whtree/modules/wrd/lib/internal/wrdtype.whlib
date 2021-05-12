@@ -81,9 +81,9 @@ STRING FUNCTION HandleInvalidUTF8(STRING attrname, STRING val, STRING decodeinva
     IF(IsValidUTF8(val))
       RETURN val;
 
-    THROW NEW Exception(`Trying to set a non-UTF8 value for field '${attrname}' (and not able to correct it)`);
+    THROW NEW Exception(`Trying to set a non-UTF8 value (and not able to correct it)`);
   }
-  THROW NEW Exception(`Trying to set a non-UTF8 value for field '${attrname}'`);
+  THROW NEW Exception(`Trying to set a non-UTF8 value`);
 }
 
 RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, RECORD ARRAY newsets, INTEGER ARRAY linkcheckattrs, INTEGER ARRAY whfslinkattrs, OBJECT whfsmapper)
@@ -1677,9 +1677,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   RECORD FUNCTION EnsureRecord(RECORD attr, VARIANT val)
   {
     IF(TypeID(val) = TypeID(RECORD ARRAY)) //the usual harescript cast
-      val := PickFirst(val);
+      RETURN PickFirst(val);
     IF(TypeId(val) != TYPEID(RECORD))
-      THROW NEW Exception(`Value for attribute '${attr.tag}' must be of type record`);
+      THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
     RETURN val;
   }
 
@@ -1696,12 +1696,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 3 /* Address */
       {
         IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(attr.tag || " value must be of type record");
+          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
+
         IF(RecordExists(val))
         {
           STRING rawdata;
           IF(NOT CellExists(val, 'country'))
-            THROW NEW Exception(attr.tag || " value must have a country field");
+            THROW NEW Exception("Value must have a country field");
 
           FOREVERY(RECORD field FROM UnpackRecord(val))
             rawdata := rawdata || EncodeJava(field.name) || "=" || EncodeJava(field.value) || "\n";
@@ -1711,7 +1712,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 2 /* Free text */, 4 /*Email*/, 5 /* Telephone  */, 21 /* URL */
       {
         IF(TypeId(val) != TYPEID(STRING))
-          THROW NEW Exception(attr.tag || " value must be of type string");
+          THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
 
         //FIXME: Check (e-mail) format, report errors through a 'nice' api. (it's not an invalid argument)
         IF(val!="")
@@ -1720,7 +1721,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 6, 12 /* Date and datetime types */
       {
         IF(TypeId(val) != TYPEID(DATETIME))
-          THROW NEW Exception(attr.tag || " value must be of type datetime");
+          THROW NEW Exception(`Value must be of type DATETIME, got ${GetTypeName(TYPEID(val))}`);
 
         IF(val != DEFAULT DATETIME)
           INSERT [ setting := 0, rawdata := GetDayCount(val) || "," || GetMsecondCount(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
@@ -1728,7 +1729,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 16 /* Boolean */
       {
         IF(TypeId(val) != TYPEID(BOOLEAN))
-          THROW NEW Exception(attr.tag || " value must be of type boolean");
+          THROW NEW Exception(`Value must be of type BOOLEAN, got ${GetTypeName(TYPEID(val))}`);
 
         IF(val)
           INSERT [ setting := 0, rawdata := "1", blobdata := DEFAULT BLOB ] INTO newsets AT END;
@@ -1736,7 +1737,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 7 /* Password */
       {
         IF(TypeId(val) != TYPEID(STRING))
-          THROW NEW Exception(attr.tag || " value must be of type string");
+          THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
 
         IF(val NOT LIKE "MD5:????????????????"
            AND val NOT LIKE "SSHA1:????????????????????????????"
@@ -1749,7 +1750,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
            AND val != "")
         {
           IF(isv2api)
-            THROW NEW Exception("Field '" || attr.tag || "' is receiving an unhashed password value - CreateWebharePasswordHash should have been invoked on the value");
+            THROW NEW Exception("Receivd an unhashed password value - CreateWebharePasswordHash should have been invoked on the value");
 
           val := CreateWebharePasswordHash(val);
         }
@@ -1761,15 +1762,15 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       {
         IF(TypeID(val) = TypeID(BLOB))
           IF(isv2api)
-            THROW NEW Exception("Field '" || attr.tag || "' is receiving a blob - please pass the original image record, or use WrapBlob on the value");
+            THROW NEW Exception("Received a blob - please pass the original image record, or use WrapBlob on the value");
           ELSE
             val := Length(val) > 0 ? WrapBlob(val,"") : DEFAULT RECORD;
 
         IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(attr.tag || " value must be of type record");
+          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
         IF(RecordExists(val) AND (val.width = 0 OR val.height = 0))
-          THROW NEW Exception("Field '" || attr.tag || "' received an invalid image");
+          THROW NEW Exception("Received an invalid image");
 
         IF(RecordExists(val))
         {
@@ -1786,7 +1787,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 14 /* Money */
       {
         IF(TypeId(val) NOT IN[ TYPEID(INTEGER), TYPEID(MONEY) ])
-          THROW NEW Exception(attr.tag || " value must be of type money");
+          THROW NEW Exception(`Value must be of type MONEY, got ${GetTypeName(TYPEID(val))}`);
         IF(val!=0)
           INSERT [ setting := 0, rawdata := FormatMoney(val,0,'.','',FALSE), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
@@ -1794,14 +1795,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 11,15 /* Time, Integer */
       {
         IF(TypeId(val) != TYPEID(INTEGER))
-          THROW NEW Exception(attr.tag || " value must be of type integer");
+          THROW NEW Exception(`Value must be of type INTEGER, got ${GetTypeName(TYPEID(val))}`);
         IF(val!=0)
           INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
       CASE 18 /* Integer64 */
       {
         IF(TypeId(val) NOT IN [ TYPEID(INTEGER), TYPEID(INTEGER64) ])
-          THROW NEW Exception(attr.tag || " value must be of type integer64");
+          THROW NEW Exception(`Value must be of type INTEGER64, got ${GetTypeName(TYPEID(val))}`);
         IF(val!=0)
           INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
@@ -1810,7 +1811,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) = TYPEID(STRING))
         {
           IF(NOT isv2api)
-            THROW NEW Exception(attr.tag || " value must be of type integer. CreateEntity2 and UpdateFields2 would permit passing a STRING with a tag");
+            THROW NEW Exception("Value must be of type integer. CreateEntity2 and UpdateFields2 would permit passing a STRING with a tag");
 
           INTEGER entityid := onmapdomvalue(attr.tag, val);
           IF(entityid!=0)
@@ -1824,7 +1825,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         ELSE
         {
           IF(TypeId(val) != TYPEID(INTEGER))
-            THROW NEW Exception(`${attr.tag} value must be of type integer but is of type ${GetTypeName(TypeID(val))}`);
+          THROW NEW Exception(`Value must be of type INTEGER or STRING, got ${GetTypeName(TYPEID(val))}`);
         }
       }
       CASE 8 /* multiple select*/
@@ -1832,7 +1833,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) = TYPEID(STRING ARRAY))
         {
           IF(NOT isv2api)
-            THROW NEW Exception(attr.tag || " value must be of type integer array. CreateEntity2 and UpdateFields2 would permit passing a STRING ARRAY of tags");
+            THROW NEW Exception("Value must be of type integer array. CreateEntity2 and UpdateFields2 would permit passing a STRING ARRAY of tags");
 
           newsets := SELECT setting := Any(onmapdomvalue(attr.tag, setting))
                           , rawdata := ""
@@ -1850,13 +1851,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         }
         ELSE
         {
-          THROW NEW Exception(attr.tag || " value must be of type integer array");
+          THROW NEW Exception(`Value must be of type INTEGER ARRAY or STRING ARRAY, got ${GetTypeName(TYPEID(val))}`);
         }
       }
       CASE 13
       {
         IF(TypeId(val) != TYPEID(RECORD ARRAY))
-          THROW NEW Exception(attr.tag || " value must be of type record array");
+          THROW NEW Exception(`Value must be of type RECORD ARRAY, got ${GetTypeName(TYPEID(val))}`);
 
         FOREVERY(RECORD row FROM val)
         {
@@ -1872,7 +1873,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             //ADDME: Special cell handling (WRD_CREATIONDATE et al ?!)
             RECORD subattr := this->GetAttribute(attr.tag || "." || subval.name);
             IF(NOT RecordExists(subattr))
-              THROW NEW Exception("No such array subcell '" || subval.name || "' in '" || this->tag || "." || attr.tag || "'");
+              THROW NEW Exception(`No such array subcell '${subval.name}'`);
 
             INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as, importmode) INTO outputrow.settings AT END;
           }
@@ -1884,7 +1885,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         //ADDME: Return a record like this or simply a blob? Use JoinBlobSetting?
 
         IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(attr.tag || " value must be of type record");
+          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
         //ADDME: Compensate missing fields
         IF (RecordExists(val))
@@ -1902,7 +1903,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 17 /* rich */
       {
         IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(attr.tag || " value must be of type record");
+          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
         val := __ValidateRichDocumentLike(val, TRUE, NOT IsDefaultValue(whfsmapper));
 
@@ -1976,7 +1977,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 22 //RECORD (HSON)
       {
         IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(attr.tag || " value must be of type record");
+          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
         IF(RecordExists(val))
         {
@@ -1990,12 +1991,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 23 //ENUM
       {
         IF(TypeId(val) != TYPEID(STRING))
-          THROW NEW Exception(attr.tag || " value must be of type string");
+          THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
 
         IF(val!="")
         {
           IF(NOT importmode AND NOT IsAllowedEnumValue(val, attr.allowedvalues))
-            THROW NEW Exception(`Value '${val}' is not an acceptable value for attribute '${attr.tag}'`);
+            THROW NEW Exception(`Value '${val}' is not an acceptable value`);
 
           INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
         }
@@ -2003,7 +2004,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE 24 //ENUMARRAY
       {
         IF(TypeId(val) != TYPEID(STRING ARRAY))
-          THROW NEW Exception(`'${attr.tag}' value must be of type string array, got '${GetTypeName(TYPEID(val))}'`);
+          THROW NEW Exception(`Value must be of type STRING ARRAY, got ${GetTypeName(TYPEID(val))}`);
 
         IF(Length(val)>0)
         {
@@ -2011,11 +2012,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           FOREVERY(STRING setval FROM val)
           {
             IF(NOT importmode AND NOT IsAllowedEnumValue(setval, attr.allowedvalues))
-              THROW NEW Exception(`Illegal value '${setval}' for attribute '${attr.tag}'`);
+              THROW NEW Exception(`Illegal value '${setval}'`);
 
             RECORD lb := LowerBound(outvals, setval);
             IF(lb.found) //duplicate
-              THROW NEW Exception(`Setting duplicate value '${setval}' for attribute '${attr.tag}'`);
+              THROW NEW Exception(`Setting duplicate value '${setval}'`);
 
             INSERT setval INTO outvals AT lb.position;
           }
@@ -2030,7 +2031,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         {
           IF(NOT CellExists(val,"__paymentprovider") OR Length(UnpackRecord(val)) != 1 OR TypeID(val.__paymentprovider) != TYPEID(RECORD))
           {
-            THROW NEW Exception(`Invalid provider value for attribute '${attr.tag}'`);
+            THROW NEW Exception(`Invalid provider value`);
           }
 
           INTEGER keypair := IsDefaultValue(whfsmapper)
@@ -2048,7 +2049,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         {
           RECORD setval := ValidatePaymentValue(val);
           IF(NOT RecordExists(setval))
-            THROW NEW Exception(`Invalid payment value for attribute '${attr.tag}'`);
+            THROW NEW Exception(`Invalid payment value`);
           val := setval;
        }
 
@@ -2068,13 +2069,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(RecordExists(val))
         {
           IF(NOT CellExists(val,'status'))
-           THROW NEW Exception(`Missing status field for attribute '${attr.tag}'`);
+           THROW NEW Exception(`Missing status field`);
           IF(TYPEID(val.status)!=TYPEID(STRING))
-           THROW NEW Exception(`Status field for attribute '${attr.tag}' must be of type string, got '${GetTypeName(TYPEID(val))}'`);
+           THROW NEW Exception(`Status field must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
 
           STRING status := val.status;
           IF(NOT importmode AND NOT IsAllowedEnumValue(status, attr.allowedvalues))
-            THROW NEW Exception(`Status '${status}' is not an acceptable value for attribute '${attr.tag}'`);
+            THROW NEW Exception(`Status '${status}' is not an acceptable value`);
 
           val := CELL[...val, DELETE status ];
 
@@ -2103,7 +2104,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       DEFAULT
       {
-        THROW NEW Exception(`Attribute '${attr.tag}' type ${attr.attributetypename} not yet supported`);
+        THROW NEW Exception(`Type ${attr.attributetypename} not yet supported`);
       }
     }
 
