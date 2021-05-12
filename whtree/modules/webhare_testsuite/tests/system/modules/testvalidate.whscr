@@ -856,6 +856,13 @@ MACRO TestValidateForm()
   TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*location*unique*"));
 }
 
+MACRO TestValidateWHLIB()
+{
+  //TODO let WHLIBs specify their XML file
+  RECORD validation := ValidateSingleFile(Resolve("data/refcheck.whlib"));
+  TestEq(RECORD[], validation.errors);
+}
+
 MACRO OptionGids()
 {
   SetTidLanguage("debug");
@@ -992,6 +999,7 @@ RunTestFramework([ PTR TestValidationValidates
                  , PTR TestSiteProfiles
                  , PTR TestValidateSVG
                  , PTR TestValidateForm
+                 , PTR TestValidateWHLIB
                  , PTR TestTidScan
                  , PTR TestESLint
                  , PTR OptionGids
