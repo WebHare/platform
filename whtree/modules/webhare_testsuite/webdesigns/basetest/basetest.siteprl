@@ -216,6 +216,12 @@
     <denyfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
   </apply>
 
+  <!-- Test fsobjecttemplates -->
+  <apply>
+    <to type="all" pathmask="*/no_emptyrtd_folder/*"/>
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" newonlytemplate="true" />
+  </apply>
+
   <!-- Content type that isn't copied -->
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" cloneoncopy="false">
     <member name="idfield" type="string" />

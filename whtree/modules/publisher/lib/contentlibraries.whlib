@@ -370,7 +370,8 @@ STATIC OBJECTTYPE AdaptiveContentSlotsStore
                 , namespace
                 , title
              FROM types
-            WHERE id != 0;
+            WHERE id != 0
+                  AND NOT newonlytemplate;
   }
 
   PUBLIC STRING ARRAY FUNCTION GetEventMasks(STRING ARRAY types DEFAULTSTO DEFAULT STRING ARRAY)

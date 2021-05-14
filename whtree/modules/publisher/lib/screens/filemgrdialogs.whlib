@@ -178,8 +178,12 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
       DELETE FROM types WHERE id NOT IN this->limittypes;
 
     INTEGER ARRAY allowedtypes := SELECT AS INTEGER ARRAY id FROM types;
-    IF(this->edittypeisfile AND this->isnew AND NOT ^showalltypes->value) //if New, remove filetypes that require content
-      DELETE FROM types WHERE requirescontent = TRUE;
+    INTEGER ARRAY allowedemptytypes ;
+
+    IF(this->isnew AND NOT ^showalltypes->value) //if New, remove filetypes that require content
+      allowedemptytypes := SELECT AS INTEGER ARRAY id FROM types WHERE newonlytemplate = FALSE AND (this->edittypeisfile ? requirescontent = FALSE : TRUE);
+    ELSE
+      allowedemptytypes := allowedtypes;
 
     //Add the types
     RECORD ARRAY rows := SELECT rowkey := "type:" || id
@@ -188,7 +192,8 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
                               , contenttype := namespace
                               , type := id
                               , template := 0
-                           FROM types;
+                           FROM types
+                          WHERE id IN allowedemptytypes;
 
     //And add any templates. Don't show templates for any type for which the base folder type isblocked
     rows := rows CONCAT SELECT rowkey := "template:" || id
