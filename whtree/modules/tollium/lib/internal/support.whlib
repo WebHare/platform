@@ -6,6 +6,8 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -53,7 +55,17 @@ PUBLIC OBJECTTYPE TolliumAppContextSystem
   {
     name := ToLowercase(name);
     IF(name = "publisher:applytester")
+    {
+      IF(GetDtapStage() = "development")
+        THROW NEW Exception(`GetAppContext is deprecated and will be removed in the future. Calls to GetAppContext("publisher:applytester") should be replaced with contexts->applytester`);
       RETURN this->contexts->applytester; //fall back to modern approach
+    }
+    IF(name = "publisher:objectpropsapi")
+    {
+      IF(GetDtapStage() = "development")
+        THROW NEW Exception(`GetAppContext is deprecated and will be removed in the future. Calls to GetAppContext("publisher:objectpropsapi") should be replaced with contexts->objectpropsapi`);
+      RETURN this->contexts->objectpropsapi; //fall back to modern approach
+    }
 
     FOREVERY(RECORD ctx FROM this->__tacs_contexts)
       IF(ctx.name=name)
@@ -70,7 +82,16 @@ PUBLIC OBJECTTYPE TolliumAppContextSystem
     name := ToLowercase(name);
     IF(name = "publisher:applytester")
     {
+      IF(GetDtapStage() = "development")
+        THROW NEW Exception(`RegisterAppcontext is deprecated and will be removed in the future.`);
       this->contexts->applytester := contextobj; //fall back to modern approach
+      RETURN;
+    }
+    IF(name = "publisher:objectpropsapi")
+    {
+      IF(GetDtapStage() = "development")
+        THROW NEW Exception(`RegisterAppcontext is deprecated and will be removed in the future.`);
+      this->contexts->objectpropsapi := contextobj; //fall back to modern approach
       RETURN;
     }
 

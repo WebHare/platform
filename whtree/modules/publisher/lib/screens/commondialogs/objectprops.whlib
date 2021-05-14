@@ -316,7 +316,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   MACRO NEW()
   {
     this->contexts->objectpropsapi := NEW ObjectPropsAPI(this);
-    this->RegisterAppContext("publisher:objectpropsapi", this->contexts->objectpropsapi);
   }
 
   MACRO ReadUserSettings()

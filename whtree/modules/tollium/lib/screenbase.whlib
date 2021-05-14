@@ -369,8 +369,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF(ObjectExists(this->__pvt_tacs_parent))
       this->pvt_contexts := NEW TolliumContexts((__screenbuildinfo.contextparent ?? this->__pvt_tacs_parent)->contexts, this);
 
-    FOREVERY(RECORD appcontext FROM __screenbuildinfo.options.appcontexts)
-      this->RegisterAppContext(appcontext.name, appcontext.context);
     FOREVERY(RECORD context FROM UnpackRecord(__screenbuildinfo.options.contexts))
       MemberUpdate(this->contexts, context.name, context.value);
 
@@ -593,9 +591,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       @param screen The name of the screen to open (relative resource path)
       @param initdata Record to pass to the Init() of the screen
       @param options Options
-      @cell(record array) options.appcontexts Application contexts (old)
-      @cell(string) options.appcontexts.name Name of the context
-      @cell(object) options.appcontexts.context Context object
       @cell(record) options.contexts Record with contexts to set (use [ "^name" := ... ] for hatted contexts)
       @return The data returned by Submit
   */
@@ -617,7 +612,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       @param name The name of the screen to opoen
       @param params Parameters
       @param options Options
-      @cell(record array) options.appcontexts Application contexts (old)
       @cell(record) options.contexts Record with contexts to set (use [ "^name" := ... ] for hatted contexts)
       @return The screen object, which can be configured before invoking RunModal */
   PUBLIC OBJECT FUNCTION LoadScreen(STRING name, RECORD params DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
