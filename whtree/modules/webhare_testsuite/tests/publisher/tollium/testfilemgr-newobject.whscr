@@ -57,10 +57,12 @@ ASYNC MACRO TestCreateObjectDialog()
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "Rich text document"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   testfw->BeginWork();
   OBJECT no_pagelisttest_folder := GetTestsuiteTempFolder()->CreateFolder([name := "no_pagelisttest_folder"]);
+  OBJECT no_emptyrtd_folder := GetTestsuiteTempFolder()->CreateFolder([name := "no_emptyrtd_folder"]);
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), no_pagelisttest_folder->id, [ isfolder := FALSE ] ));
@@ -68,6 +70,12 @@ ASYNC MACRO TestCreateObjectDialog()
   TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "Rich text document"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), no_emptyrtd_folder->id, [ isfolder := FALSE ] ));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "Rich text document"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   RECORD res := AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id,

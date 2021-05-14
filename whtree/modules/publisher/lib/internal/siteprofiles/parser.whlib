@@ -1019,16 +1019,34 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               }
               CONTINUE;
             }
-            CASE "allowfoldertype", "denyfoldertype"
+            CASE "allowfoldertype"
             {
-              INSERT [ isallow := node->localname LIKE "allow*"
+              INSERT [ isallow := TRUE
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , newonlytemplate := ParseXSBoolean(node->GetAttribute("newonlytemplate"))
+                     , setnewonlytemplate := node->HasAttribute("newonlytemplate")
+                     ] INTO apply.modifyfoldertypes AT END;
+              CONTINUE;
+            }
+            CASE "denyfoldertype"
+            {
+              INSERT [ isallow := FALSE
                      , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfoldertypes AT END;
               CONTINUE;
             }
-            CASE "allowfiletype", "denyfiletype"
+            CASE "allowfiletype"
             {
-              INSERT [ isallow := node->localname LIKE "allow*"
+              INSERT [ isallow := TRUE
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , newonlytemplate := ParseXSBoolean(node->GetAttribute("newonlytemplate"))
+                     , setnewonlytemplate := node->HasAttribute("newonlytemplate")
+                     ] INTO apply.modifyfiletypes AT END;
+              CONTINUE;
+            }
+            CASE "denyfiletype"
+            {
+              INSERT [ isallow := FALSE
                      , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfiletypes AT END;
               CONTINUE;

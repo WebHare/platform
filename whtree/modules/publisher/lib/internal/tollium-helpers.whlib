@@ -712,6 +712,17 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
   RETURN dialog;
 }
 
+RECORD ARRAY FUNCTION ApplyModifyTypes(RECORD ARRAY intypes, RECORD ARRAY modifyrules)
+{
+  FOREVERY(RECORD mod FROM modifyrules)
+  {
+    UPDATE intypes SET __visible := mod.isallow
+                     , newonlytemplate := mod.isallow AND mod.setnewonlytemplate ? mod.newonlytemplate : newonlytemplate
+                 WHERE namespace LIKE mod.typedef;
+  }
+  RETURN intypes;
+}
+
 PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagecode, BOOLEAN showdevelopertypes, BOOLEAN showall)
 {
   RECORD csp := GetCachedSiteProfiles();
@@ -724,16 +735,14 @@ PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagec
                                    , tolliumicon := foldertype.tolliumicon
                                    , isdevelopertype := foldertype.isdevelopertype
                                    , __visible := FALSE
+                                   , newonlytemplate := FALSE
                                 FROM csp.contenttypes
                                WHERE RecordExists(foldertype);
 
   IF(showall)
     UPDATE foldertypes SET __visible := TRUE;
   ELSE FOREVERY (RECORD apply FROM applytester->__GetAppliesForcell("MODIFYFOLDERTYPES"))
-  {
-    FOREVERY(RECORD mod FROM apply.modifyfoldertypes)
-      UPDATE foldertypes SET __visible := mod.isallow WHERE namespace LIKE mod.typedef;
-  }
+    foldertypes := ApplyModifyTypes(foldertypes, apply.modifyfoldertypes);
 
   IF(NOT applytester->__Deprecated_GetObjInfo().isfake)
     UPDATE foldertypes SET __visible := TRUE WHERE id = applytester->__Deprecated_GetObjInfo().obj.type;
@@ -760,16 +769,16 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
                                  , iswidgettype := filetype.isembeddedobjecttype
                                  , requirescontent := filetype.requirescontent
                                  , __visible := FALSE
+                                 , newonlytemplate := FALSE
                               FROM csp.contenttypes
                              WHERE RecordExists(filetype);
 
   IF(showall)
-    UPDATE filetypes SET __visible := TRUE;
-  ELSE FOREVERY (RECORD apply FROM applytester->__GetAppliesForcell("MODIFYFILETYPES"))
   {
-    FOREVERY(RECORD mod FROM apply.modifyfiletypes)
-      UPDATE filetypes SET __visible := mod.isallow WHERE namespace LIKE mod.typedef;
+    UPDATE filetypes SET __visible := TRUE;
   }
+  ELSE FOREVERY (RECORD apply FROM applytester->__GetAppliesForcell("MODIFYFILETYPES"))
+    filetypes := ApplyModifyTypes(filetypes, apply.modifyfiletypes);
 
   IF(NOT applytester->__Deprecated_GetObjInfo().isfake)
     UPDATE filetypes SET __visible := TRUE WHERE id = applytester->__Deprecated_GetObjInfo().obj.type;
