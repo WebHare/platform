@@ -709,7 +709,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
           Print(fielddescription.renderedmergefields);
         }
         ELSE IF(NOT fielddescription.hasmergefields AND RecordExists(fielddescription.richvalue))
-          this->webdesign->RenderRTD(fielddescription.richvalue.data);
+          this->webdesign->RenderRTD(fielddescription.richvalue);
         Print(`</div>`);
       }
       CASE "imgedit"
