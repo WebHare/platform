@@ -52,6 +52,10 @@ STATIC OBJECTTYPE EditDocumentAPI
 
   RECORD ARRAY extensiondata;
 
+  MACRO PTR pvt_oncanview;
+  MACRO PTR pvt_oncanpreview;
+
+
   // The content types that are edited by this editor (only these types are read/written through GetInstanceData/SetInstanceData)
   PUBLIC STRING ARRAY editcontenttypes;
 
@@ -70,8 +74,20 @@ STATIC OBJECTTYPE EditDocumentAPI
   /// Callback invoked with a feedback object for validation before explicit save
   PUBLIC MACRO PTR onvalidate;
 
-  /// Callback MACRO (OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
+  /// Callback MACRO(OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
   PUBLIC MACRO PTR onsave;
+
+  /// Callback BOOLEAN FUNCTION(OBJECT fsobject) invoked after changes to check if the published file can be viewed
+  PUBLIC PROPERTY oncanview(pvt_oncanview, SetOnCanView);
+
+  /// Window open action callback MACRO(OBJECT openhandler, OBJECT fsobject) invoked to view the published file
+  PUBLIC MACRO PTR onview;
+
+  /// Callback BOOLEAN FUNCTION(OBJECT fsobject) invoked after changes to check if the file draft can be previewed
+  PUBLIC PROPERTY oncanpreview(pvt_oncanpreview, SetOnCanPreview);
+
+  /// Window open action callback MACRO(OBJECT openhandler, OBJECT fsobject, BOOLEAN autosave) invoked to view the draft or autosave
+  PUBLIC MACRO PTR onpreview;
 
   /// Root folders to add for internal link dialogs
   PUBLIC INTEGER ARRAY internallinkroots;
@@ -129,6 +145,11 @@ STATIC OBJECTTYPE EditDocumentAPI
     this->MarkDocumentAsDirty();
   }
 
+  PUBLIC MACRO CancelEditor()
+  {
+    this->editscreen->tolliumresult := "cancel";
+  }
+
   /* Extend the editor meta tabs.
      This is an EXPERIMENTAL API for PTHU and it will go away in the future, hopefully to be replaced with clean siteprl hooks not requiring OnSave etc hooking (eg we might start passing 'contentdata' to the tabs) */
   PUBLIC MACRO __LoadMetaTabs(STRING tabsptr)
@@ -173,9 +194,16 @@ STATIC OBJECTTYPE EditDocumentAPI
     RETURN this->editscreen->GetInstanceObject()->id;
   }
 
-  PUBLIC MACRO CancelEditor()
+  MACRO SetOnCanView(MACRO PTR callback)
   {
-    this->editscreen->tolliumresult := "cancel";
+    this->pvt_oncanview := callback;
+    this->editscreen->RefreshState();
+  }
+
+  MACRO SetOnCanPreview(MACRO PTR callback)
+  {
+    this->pvt_oncanpreview := callback;
+    this->editscreen->RefreshState();
   }
 >;
 
@@ -260,8 +288,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       this->tolliumresult := "cancel";
       RETURN;
     }
-
-    this->frame->flags.canpreview := fsobject->parentsite != 0 AND OpenSite(fsobject->parentsite)->outputweb != 0;
 
     this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
     this->filetype := fsobject->type;
@@ -471,10 +497,20 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF (ObjectExists(fsobj))
     {
       BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
-      this->frame->flags.canview := GetOncePublishedFromPublished(fsobj->published) AND canpublish;
+      IF (this->contexts->editdocumentapi->oncanpreview != DEFAULT MACRO PTR)
+        this->frame->flags.canpreview := this->contexts->editdocumentapi->oncanpreview(fsobj);
+      ELSE
+        this->frame->flags.canpreview := canpublish;
+      IF (this->contexts->editdocumentapi->oncanview != DEFAULT MACRO PTR)
+        this->frame->flags.canview := this->contexts->editdocumentapi->oncanview(fsobj);
+      ELSE
+        this->frame->flags.canview := GetOncePublishedFromPublished(fsobj->published) AND canpublish;
     }
     ELSE
+    {
+      this->frame->flags.canpreview := FALSE;
       this->frame->flags.canview := FALSE;
+    }
     this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
 
     this->frame->flags.canrevertdraft := ObjectExists(this->currentautosave ?? this->currentdraft) AND this->frame->flags.canedit AND NOT this->readonly;
@@ -968,34 +1004,54 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     this->LoadScreen(".sendpreviewlink")->RunModal();
   }
 
+  OBJECT FUNCTION GetPreviewObject(BOOLEAN autosave)
+  {
+    this->UpdateAutosave();
+
+    RETURN autosave
+        ? this->GetEditingSourceObject()
+        : this->GetBaseSourceObject();
+  }
+
   PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave)
   {
     this->UpdateAutosave();
 
-    RETURN CreatePreviewLink(validuntil, password, this->fileid, autosave
-          ? this->GetEditingSourceObject()->id
-          : this->GetBaseSourceObject()->id);
+    RETURN CreatePreviewLink(validuntil, password, this->fileid, this->GetPreviewObject(autosave)->id);
   }
 
   MACRO DoPreviewCurrentContent(OBJECT openhandler)
   {
-    //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
-    STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", TRUE);
-    IF(url != "")
-      openhandler->SendURL(url);
+    IF (this->contexts->editdocumentapi->onpreview != DEFAULT MACRO PTR)
+      this->contexts->editdocumentapi->onpreview(openhandler, this->GetPreviewObject(TRUE), TRUE);
+    ELSE
+    {
+      //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
+      STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", TRUE);
+      IF(url != "")
+        openhandler->SendURL(url);
+    }
   }
 
   MACRO DoPreviewdraft(OBJECT openhandler)
   {
-    //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
-    STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", FALSE);
-    IF(url != "")
-      openhandler->SendURL(url);
+    IF (this->contexts->editdocumentapi->onpreview != DEFAULT MACRO PTR)
+      this->contexts->editdocumentapi->onpreview(openhandler, this->GetPreviewObject(FALSE), FALSE);
+    ELSE
+    {
+      //ADDME Can we create a previewurl that ONLY works for the currentuser, as long as he's logged in ?
+      STRING url := this->CreatePreviewLink(AddDaysTodate(1, GetCurrentDatetime()), "", FALSE);
+      IF(url != "")
+        openhandler->SendURL(url);
+    }
   }
 
   MACRO DoViewPublished(OBJECT openhandler)
   {
-    openhandler->SendURL(OpenWHFSObject(this->fileid)->url);
+    IF (this->contexts->editdocumentapi->onview != DEFAULT MACRO PTR)
+      this->contexts->editdocumentapi->onview(openhandler, OpenWHFSObject(this->fileid));
+    ELSE
+      openhandler->SendURL(OpenWHFSObject(this->fileid)->url);
   }
 
   BOOLEAN FUNCTION Cancel()
