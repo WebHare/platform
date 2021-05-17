@@ -67,10 +67,10 @@ Thet following examples sets a minimum width for fields and include this mixin:
   width:250px;
   height:250px;
 }
-
 ```
 
-
+Every form group has a `data-wh-form-group-for` attribute that contains the names of the fields inside this group. Because
+this is a list, you should use the `~=` operator when selecting (eg `[data-wh-form-group-for~="shippingmethod.shippingmethod")`)
 
 ### RESPONSIVE STYLING
 

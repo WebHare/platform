@@ -274,17 +274,18 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
     ^screentabs->extendposition := 1;
     ^screentabs->insertpoints := [ [ name := "email", component := ^email ]
-                                      , [ name := "username", component := ^username ]
-                                      , [ name := "password", component := ^password ]
-                                      ];
+                                 , [ name := "username", component := ^username ]
+                                 //new apps should use the 'safe' insertpoints below
+                                 , [ name := "account", component := ^insertpoint_account ]
+                                 , [ name := "advanced", component := ^insertpoint_advanced ]
+                                 ];
     ^screentabs->extendcomponents := [ [ name := "user_email", component := ^email ]
-                                          , [ name := "user_username", component := ^username ]
-                                          , [ name := "user_firstname", component := ^userobj->GetComponent("WRD_FIRSTNAME") ]
-                                          , [ name := "user_infix", component := ^userobj->GetComponent("WRD_INFIX") ]
-                                          , [ name := "user_lastname", component := ^userobj->GetComponent("WRD_LASTNAME") ]
-                                          , [ name := "user_password", component := ^password ]
-                                          , [ name := "userobj", component := ^userobj ]
-                                          ];
+                                     , [ name := "user_username", component := ^username ]
+                                     , [ name := "user_firstname", component := ^userobj->GetComponent("WRD_FIRSTNAME") ]
+                                     , [ name := "user_infix", component := ^userobj->GetComponent("WRD_INFIX") ]
+                                     , [ name := "user_lastname", component := ^userobj->GetComponent("WRD_LASTNAME") ]
+                                     , [ name := "userobj", component := ^userobj ]
+                                     ];
 
     RECORD screendata := this->policy.screenextension;
 
