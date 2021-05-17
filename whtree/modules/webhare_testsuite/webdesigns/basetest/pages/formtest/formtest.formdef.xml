@@ -94,7 +94,7 @@
       <wt:matchattributes name="matchattributes_type2_true" title="type2_true" attr1="type2" attr2="true" />
       <wt:matchattributes name="matchattributes_type2_false" title="type2_false" attr1="type2" attr2="false" />
 
-      <group name="richtextgroup" title="">
+      <group name="richtextgroup" title=""> <!-- TODO why is there a 'richtextgroup' ? -->
         <richtext name="richtexttid" title="">
           <body xmlns="http://www.w3.org/1999/xhtml">
             <h2>before <span data-wh-gettid=".richtext-tid">This text is replaced by the 'site.coretest.richtext-tid' tid value</span> after</h2>

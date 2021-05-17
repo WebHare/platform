@@ -18,6 +18,7 @@ test.registerTests(
         test.true(form.action.startsWith("javascript:"), "Action should be JavaScript");
 
         let richtext_h2 = test.qS(".wh-form__fields .wh-form__richtext h2");
+        let richtext_p = test.qS(".wh-form__fields .wh-form__richtext p");
         let label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
         let label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
         let label_option3 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-3]");
@@ -62,6 +63,7 @@ test.registerTests(
         test.eq(null, test.qS('#coretest-invisible'), 'dynamic invisible field should be');
         test.eq('secret', test.qS("#coretest-password").placeholder);
         test.eq("before &lt;richtext&gt; inhoud vanuit tid after", richtext_h2.innerHTML);
+        test.eq("Dynamic richtext", richtext_p.innerHTML);
         test.eq(dompack.closest(field_matchattributes_type2_false, ".wh-form__fieldgroup"), dompack.closest(richtext_h2, ".wh-form__fieldgroup").previousSibling);
         test.true(label_namelijk, 'missing label namelijk - forms did not render extra field?');
         test.eq("<u>name</u>lijk", label_namelijk.innerHTML);

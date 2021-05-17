@@ -307,6 +307,13 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
 
     IF(nocheckboxselect)
       ^checkboxes->value := INTEGER[];
+
+    TestEqLike(`*<h2*>*before*after*</h2>*`, BlobToString(^richtexttid->richvalue.htmltext), "Checking whether we can read static htmltexts");
+
+    OBJECT rt_dynamic := this->AppendFormField(DEFAULT OBJECT, "richtext", "rt_dynamic");
+    TestEq(DEFAULT RECORD, rt_dynamic->richvalue);
+    rt_dynamic->richvalue := [ htmltext := StringToBlob(`<html><body><p class="normal">Dynamic richtext</p></body></html>`) ];
+    TestEqLike(`*Dynamic richtext*`, BlobToString(rt_dynamic->richvalue.htmltext));
   }
 
   PUBLIC MACRO RPC_Prefill()

@@ -112,13 +112,22 @@ PUBLIC RECORD FUNCTION ParseFormRichText(RECORD fielddef, OBJECT node, RECORD pa
   RETURN fielddef;
 }
 
-PUBLIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
+PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
 <
+  RECORD __richvalue;
+
   PUBLIC PROPERTY richvalue(GetRichValue, SetRichValue);
 
   PUBLIC STRING __renderedmergefields;
 
-  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ValuelessFormFieldBase(form, parent, field)
+  {
+    IF(CellExists(field, 'richvalue'))
+      this->__richvalue := field.richvalue;
+  }
+
+ UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
   {
     RETURN CELL[ ...this->GetBaseRenderData()
                , type := "richtext"
@@ -126,25 +135,26 @@ PUBLIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
                  //ADDME: Maybe check if there are actually embedded components present which 'requiremergefieldscontext'
                , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND this->field.mayhavemergefields
                , renderedmergefields := this->__renderedmergefields
+               , this->richvalue
                ];
   }
 
   RECORD FUNCTION GetRichValue()
   {
-    RETURN RecordExists(this->field.richvalue) ? this->field.richvalue.data : DEFAULT RECORD;
+    RETURN RecordExists(this->__richvalue) ? this->__richvalue.data : DEFAULT RECORD;
   }
 
   MACRO SetRichValue(RECORD value)
   {
     IF (RecordExists(value))
-      this->field.richvalue := [ data := ValidateRichDocument(value) ];
+      this->__richvalue := [ data := ValidateRichDocument(value) ];
     ELSE
-      this->field.richvalue := DEFAULT RECORD;
+      this->__richvalue := DEFAULT RECORD;
   }
 
   UPDATE PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
   {
-    IF(RecordExists(this->GetRichValue()))
-      context->RenderRTD(this->GetRichValue());
+    IF(RecordExists(this->__richvalue))
+      context->RenderRTD(this->__richvalue.data);
   }
 >;
