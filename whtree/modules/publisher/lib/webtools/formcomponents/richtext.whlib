@@ -124,9 +124,7 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
   : ValuelessFormFieldBase(form, parent, field)
   {
     IF(CellExists(field, 'richvalue'))
-
       this->__richvalue := field.richvalue;
-
   }
 
  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
