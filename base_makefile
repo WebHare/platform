@@ -824,7 +824,7 @@ clean-deps:
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 
-# Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebulds
+# Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebuilds
 
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
