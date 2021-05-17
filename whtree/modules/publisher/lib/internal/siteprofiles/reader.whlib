@@ -1880,3 +1880,25 @@ PUBLIC RECORD FUNCTION GetRTDType(STRING typename)
   RETURN GetAdhocCached([ getrtdtype := typename ], PTR GetCacheableRTDType(typename));
 }
 
+//Get a map of the resource IDs to which all sites refer. This is needed to resolve things like GetSiteSettingIDs.
+PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
+{
+  RECORD ARRAY allsites := SELECT id, name FROM system.sites;
+  OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
+  allsites := sitesettingstype->Enrich(allsites, "ID", ["SITEDESIGN","WEBFEATURES"]);
+
+  FOREVERY(RECORD site FROM allsites)
+  {
+    INTEGER ARRAY resourceids;
+    RECORD ARRAY tocheck := (SELECT * FROM gathersp.profilerefs WHERE name = site.sitedesign AND isfeature = FALSE)
+                            CONCAT
+                            (SELECT * FROM gathersp.profilerefs WHERE name IN site.webfeatures AND isfeature = TRUE);
+    FOREVERY(RECORD result FROM tocheck)
+      resourceids := resourceids CONCAT result.resourceids;
+
+    INSERT CELL resourceids := GetSortedSet(resourceids) INTO allsites[#site];
+  }
+
+  RETURN allsites;
+}
+

@@ -1,9 +1,14 @@
 <?wh
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 OBJECTTYPE FakeContext < > ;
@@ -72,6 +77,11 @@ MACRO TestCompiler()
   RECORD res := compiler->Compile( [ baseprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
                                    , siteactivatedprofiles := DEFAULT RECORD ARRAY
                                    ] );
+  RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(gathersp);
+  RECORD testsuitesite := SELECT * FROM activeprofiles WHERE id = OpenTestsuiteSite()->id;
+  TestEq(2, Length(testsuitesite.resourceids));
+  TestEq("mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl", gathersp.siteprofiles[testsuitesite.resourceids[0]-1]);
+  TestEq("mod::webhare_testsuite/webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml", gathersp.siteprofiles[testsuitesite.resourceids[1]-1]);
 
   TestEqStructure([[ col := 0, resourcename := "", line := 0, message := ""]], compiler->GetErrors());
 
