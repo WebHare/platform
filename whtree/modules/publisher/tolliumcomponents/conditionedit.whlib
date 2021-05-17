@@ -20,8 +20,8 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
   // Variables
   //
 
-  // List of condition component references
-  OBJECT ARRAY conditionobjs;
+  // Condition component reference
+  OBJECT conditionobj;
 
 
   // ---------------------------------------------------------------------------
@@ -59,13 +59,13 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
   UPDATE MACRO PreShowComponent()
   {
     // Create a new condition if there isn't one already
-    IF (Length(this->conditionobjs) = 0)
+    IF (NOT ObjectExists(this->conditionobj))
       this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
   }
 
   UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
   {
-    RETURN this->conditionobjs;
+    RETURN ObjectExists(this->conditionobj) ? [ this->conditionobj ] : OBJECT[];
   }
 
 
@@ -79,10 +79,7 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO AddCondition(OBJECT conditionobj)
   {
-    // Add an empty condition after the given condition
-    this->CreateCondition(DEFAULT RECORD, conditionobj);
-
-    this->ConditionChanged();
+    // Won't be called: Our condition cannot have siblings as we don't have and "and" or "or" parent
   }
 
   /** @short Called by subconditions to remove a sibling condition
@@ -90,19 +87,7 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
   */
   PUBLIC MACRO DeleteCondition(OBJECT conditionobj)
   {
-    INTEGER pos := SearchElement(this->conditionobjs, conditionobj);
-    IF (pos >= 0)
-    {
-      // Delete the condition
-      DELETE FROM this->conditionobjs AT pos;
-      conditionobj->DeleteComponent();
-
-      // Keep at least one condition
-      IF (Length(this->conditionobjs) = 0)
-        this->CreateCondition(DEFAULT RECORD, DEFAULT OBJECT);
-    }
-
-    this->ConditionChanged();
+    // Won't be called: Our condition cannot have siblings as we don't have and "and" or "or" parent
   }
 
   /** @short Called by subconditions after their value has changed
@@ -124,13 +109,26 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
 
   // ---------------------------------------------------------------------------
   //
+  // Callbacks
+  //
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    TolliumFragmentBase::ValidateValue(work);
+    IF(this->required AND NOT RecordExists(this->value))
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->errorlabel ?? this->title));
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
   // Property getters/setters
   //
 
   RECORD FUNCTION GetValue()
   {
     // Return the single condition
-    RETURN Length(this->conditionobjs) > 0 ? this->conditionobjs[0]->condition : DEFAULT RECORD;
+    RETURN ObjectExists(this->conditionobj) ? this->conditionobj->condition : DEFAULT RECORD;
   }
 
   MACRO SetValue(RECORD value)
@@ -139,11 +137,20 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
     IF (EncodeHSON(value) = EncodeHSON(this->value))
       RETURN;
 
-    FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
-      conditionobj->DeleteComponent();
-    this->conditionobjs := OBJECT[];
+    IF (ObjectExists(this->conditionobj))
+      this->conditionobj->DeleteComponent();
     this->CreateCondition(value, DEFAULT OBJECT);
     this->ConditionChanged();
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN required)
+  {
+    TolliumFragmentBase::SetRequired(required);
+    IF (required = this->pvt_required)
+      RETURN;
+
+    IF (ObjectExists(this->conditionobj))
+      this->conditionobj->required := this->required;
   }
 
 
@@ -157,22 +164,17 @@ PUBLIC OBJECTTYPE ConditionEdit EXTEND TolliumFragmentBase
     // Initialize the new condition component
     RECORD oldparent := __creation_settings;
     __creation_settings := [ parent := this, editcomponent := this ];
-    OBJECT conditionobj := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "condition");
+    this->conditionobj := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "condition");
     __creation_settings := oldparent;
 
-    // Add a reference to the list of condition components
-    INTEGER pos := SearchElement(this->conditionobjs, aftercondition) + 1;
-    IF (pos = 0)
-      pos := Length(this->conditionobjs);
-    INSERT conditionobj INTO this->conditionobjs AT pos;
-
     // Insert the component and set the condition
-    ^condition->InsertComponentAfter(conditionobj, aftercondition, TRUE);
-    conditionobj->condition := condition;
-    conditionobj->canadd := FALSE;
-    conditionobj->candelete := FALSE;
+    ^condition->InsertComponentAfter(this->conditionobj, DEFAULT OBJECT, TRUE);
+    this->conditionobj->condition := condition;
+    this->conditionobj->canadd := FALSE;
+    this->conditionobj->candelete := FALSE;
+    this->conditionobj->required := this->required;
 
-    RETURN conditionobj;
+    RETURN this->conditionobj;
   }
 >;
 
@@ -355,7 +357,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
           IF (result.components[0] NOT EXTENDSFROM ConditionTypeFragmentBase)
             THROW NEW TolliumException(result.components[0], `Fragment '${^field->selection.fragment}' for condition type '${^field->selection.type}' does not extend from ConditionTypeFragmentBase`);
 
-            // Store the fragment's components
+          // Store the fragment's components
           this->fragmentobjs := result.components;
         }
         ^subconditionspacer->visible := FALSE;
