@@ -1140,6 +1140,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , e := entityid
         , g := verifybase.wrd_guid
         , m := until
+        , c := now
         , ...(IsValueSet(options.data) ? [ d := EncodeHSON(options.data) ] : CELL[])
         ];
     IF(RecordExists(options.secret))
@@ -1171,7 +1172,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     this->GetWRDAuthDomain();
 
-    RECORD retval := [ expired := FALSE
+    RECORD retval := [ creationdate := DEFAULT DATETIME
+                     , expired := FALSE
                      , expireson := DEFAULT DATETIME
                      , success := FALSE
                      , failed := FALSE
@@ -1217,8 +1219,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           retval.expireson := decrypted.m;
           retval.expired := retval.expireson < now;
           retval.entityid := decrypted.e;
+          retval.creationdate := CellExists(decrypted, "c") ? decrypted.c : DEFAULT DATETIME;
 
-          IF (retval.expired)
+          // Need the creation date for verification, expire old links
+          IF (retval.creationdate = DEFAULT DATETIME)
+            retval.failreason := `Reset link has expired`;
+          ELSE IF (retval.expired)
             retval.failreason := `Reset link has expired: ${FormatISO8601DateTime(retval.expireson)}`;
           ELSE IF (ToUppercase(verifier) != decrypted.v)
           {
@@ -1235,7 +1241,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                       FROM wrd.auditevents
                      WHERE COLUMN entity = decrypted.e
                        AND COLUMN type LIKE "wrd:usedverificationlink"
-                       AND creationdate >= AddDaysToDate(-14, GetCurrentDateTime())
+                       AND creationdate >= retval.creationdate
                        AND data LIKE "hson:*"
                   ORDER BY creationdate DESC;
 
@@ -1245,6 +1251,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                    WHERE data.validuntil = decrypted.m))
             {
               retval.failreason := "Verification link has already been used";
+            }
+            ELSE IF (RecordExists(auditevents))
+            {
+              retval.failreason := "Another verification link has already been used";
             }
             ELSE
             {
