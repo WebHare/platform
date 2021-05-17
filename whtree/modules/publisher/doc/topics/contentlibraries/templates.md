@@ -16,3 +16,18 @@ template source:
   </apply>
 ```
 
+You can disable the original type in 'new file/folder' dialogs to prevent the
+creation of 'empty' objects. Eg if you set up a few 'news' templates you might
+want to prevent users from not using the templates. You can use the `newonlytemplate`
+option for this, eg:
+
+```xml
+  <apply>
+    <to type="all" />
+    <setlibrary ... />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" newonlytemplate="true" />
+  </apply>
+```
+
+Remember that allowfiletype is just a convenience option for users but isn't strictly enforced, eg copy/move
+actions can easily avoid these restrictions.

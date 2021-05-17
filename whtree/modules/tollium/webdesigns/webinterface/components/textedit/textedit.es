@@ -302,10 +302,12 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
 
     this.width.min += this.prefixsuffixsize + othercontent;
 
+    const leftrightmargins = 10;
     let maxcalcwidth = $todd.desktop.x_width * 30 + this.prefixsuffixsize;
     let calcwidth = this.maxlength > 0
-        ? $todd.desktop.x_width * (this.maxlength + 1) + this.prefixsuffixsize + othercontent
+        ? $todd.desktop.x_width * (this.maxlength + 1) + this.prefixsuffixsize + othercontent + leftrightmargins
         : maxcalcwidth;
+
 
     this.width.calc = Math.max(this.width.min, Math.min(calcwidth, maxcalcwidth));
   }
