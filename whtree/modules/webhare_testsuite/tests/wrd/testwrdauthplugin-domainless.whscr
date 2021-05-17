@@ -709,6 +709,10 @@ MACRO TestWRDAuthRouter()
   TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter.verifiedlink));
   TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-setpassword")));
 
+  RECORD passwordsetter2 := wrdplugin->CreatePasswordResetLink(wittydata.forgotpasswordlink, user, [ routerpage := "setpassword" ]);
+  TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter.verifiedlink));
+  TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-setpassword")));
+
   // Change the password
   OBJECT formtester := OpenFormsapiFormTester(testfw->browser);
   formtester->SubmitForm(
@@ -719,6 +723,10 @@ MACRO TestWRDAuthRouter()
   // Password link should be expired now
   testfw->browser->DeleteAllCookies(); //force logout otherwise can't access the reset
   TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter.verifiedlink));
+  TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-linkexpired")));
+
+  // 2nd password reset link should be expired too
+  TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter2.verifiedlink));
   TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-linkexpired")));
 }
 
