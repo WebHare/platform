@@ -220,18 +220,13 @@ endif
 WHLDFLAGS=$(GLOBALLDFLAGS)
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
-	CPPFLAGS += -DHAVE_LIBGIT=1
-  harescript_HsMod_git_AddLibs = git2
 else
 	WHLDFLAGS += -Wl,-rpath '-Wl,/usr/local/lib' -Wl,-rpath '-Wl,/usr/local/lib64'   -Wl,-rpath '-Wl,$$ORIGIN/../lib'
 	CPPFLAGS += -DUSE_VALGRIND=1 # not supported on darwin
-	CPPFLAGS += -DHAVE_LIBGIT=1
-  harescript_HsMod_git_AddLibs = git2
 endif
 
-LDFLAGS_SHARED=-shared
-LDFLAGS_MODULE=
-LDFLAGS_EXE=
+CPPFLAGS += -DHAVE_LIBGIT=1
+harescript_HsMod_git_AddLibs = git2
 
 # CPP_PCH_FLAGS_XXX MUST be first in list, gcc bug or so.
 Compile = $(HIDE)echo "- Compiling $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
@@ -244,13 +239,13 @@ define GeneratePrecompiledHeader
 endef #end define GeneratePrecompiledHeader
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
- 	LinkShared       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkModule       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
+ 	LinkShared       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkModule       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 else
-	LinkShared       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -o $2 $1 $(addprefix -l,$3)
-	LinkModule       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -o $2 $1 $(addprefix -l,$3)
-	LinkExecutable   = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
+	LinkShared       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkModule       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 endif
 
 BLEX_BASE_LIBS += z dl
@@ -519,6 +514,7 @@ harescript-clean:
 
 build.harescript: $(harescript_DEPLOYABLES)
 	>build.harescript
+
 
 ifeq ($(WEBHARE_IN_DOCKER),1)
 
@@ -828,10 +824,11 @@ clean-deps:
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 
-# We need to find dependencies in a fixed location, because brew's "adding/deleting, not updating" files is not detected by make
+# Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebuilds
 
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
+$(ALLPCHS) $(LIBHSVM_OBJS): $(BREWPREFIX)/opt/aws-sdk-cpp/INSTALL_RECEIPT.json
 
 endif # end darwin check
 

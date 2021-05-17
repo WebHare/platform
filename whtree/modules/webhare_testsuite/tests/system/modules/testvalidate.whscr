@@ -468,7 +468,7 @@ MACRO TestValidateModuleDef()
   RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next ]);
   //DumpValue(res.errors);
   TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
-         ], SELECT line, message FROM res.hints ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.warnings ORDER BY line,message)  ;
 
   BLOB moduledef_badsearchproviders := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -856,6 +856,13 @@ MACRO TestValidateForm()
   TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*location*unique*"));
 }
 
+MACRO TestValidateWHLIB()
+{
+  //TODO let WHLIBs specify their XML file
+  RECORD validation := ValidateSingleFile(Resolve("data/refcheck.whlib"));
+  TestEq(RECORD[], validation.errors);
+}
+
 MACRO OptionGids()
 {
   SetTidLanguage("debug");
@@ -992,6 +999,7 @@ RunTestFramework([ PTR TestValidationValidates
                  , PTR TestSiteProfiles
                  , PTR TestValidateSVG
                  , PTR TestValidateForm
+                 , PTR TestValidateWHLIB
                  , PTR TestTidScan
                  , PTR TestESLint
                  , PTR OptionGids

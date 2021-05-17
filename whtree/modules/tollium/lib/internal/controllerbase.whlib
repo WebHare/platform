@@ -1980,12 +1980,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       THROW;
     }
 
-    RECORD screenoptions := ValidateOptions([ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ], loaddata.options);
-    IF(Length(screenoptions.appcontexts) > 0 AND GetDtapStage() = "development")
-    {
-      DumpValue(GetStacktrace(),'boxed');
-      this->RunSimpleScreen("warning", `appcontexts have been deprecated, use plain contexts`);
-    }
+    RECORD screenoptions := ValidateOptions([ contexts := DEFAULT RECORD ], loaddata.options);
 
 
     RECORD savescreenbuildinfo := __screenbuildinfo;
@@ -2244,7 +2239,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     {
       RECORD contextinfo := [ language := GetTidLanguage() ];
       this->__LoadAppContexts(module.globalappcontexts, contextinfo);
-      this->__LoadAppContexts(app.appcontexts, contextinfo);
       this->currentapplication := app;
       SetErrorContextInfo([ source := "tollium:app", app := app.name, user_wrdid := this->tolliumuser->entityid, language := GetTidLanguage() ]);
 

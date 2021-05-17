@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Editliveblog EXTEND TolliumScreenBase
+<
+  MACRO OnItemEdit(RECORD row)
+  {
+    this->RunScreen("#editliveblogitem");
+    this->RunScreen("#this_one_is_invalid"); //TODO once we validate better we CAN pick up this one!
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE EditliveblogItem EXTEND TolliumScreenBase
+<
+>;

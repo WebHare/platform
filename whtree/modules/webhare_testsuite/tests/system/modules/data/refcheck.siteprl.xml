@@ -1,0 +1,11 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editliveblog" library="refcheck.whlib">
+    <body />
+  </screen>
+
+  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editliveblogitem" library="refcheck.whlib">
+    <body />
+  </screen>
+
+</siteprofile>

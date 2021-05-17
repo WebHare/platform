@@ -312,12 +312,14 @@ RECORD FUNCTION ValidateScreenReference(STRING type, STRING absolutereference, S
   BLOB resourcefile := GetWebhareResource(Tokenize(absolutereference, "#")[0], [ allowmissing := TRUE ]);
   IF (IsDefaultValue(resourcefile))
   {
+    /* We aren't that smart! we might have just missed which file to open... don't do this until we're a lot surer...
     INSERT [ message := `Could not find screens file for ${type} ${EncodeJSON(orgref)}`
            , warning := `Could not find screens file for ${type} ${EncodeJSON(orgref)} in ${resourcepath} line ${tok.line}`
            , line := tok.line
            , col := tok.col
            , resourcename := resourcepath
            ] INTO retval.errors AT END;
+           */
   }
   ELSE
   {

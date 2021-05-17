@@ -68,7 +68,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
           //FIXME simplify and share core with pvt_loadscreen
           IF(topnode->localname = "screen" AND NOT this->onlytids) //only screen is complete enough for a sensible internal consistency valiadtion
           {
-            __screenbuildinfo := [ options := [ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ]
+            __screenbuildinfo := [ options := [ contexts := DEFAULT RECORD ]
                                  , parent := DEFAULT OBJECT
                                  , controller := DEFAULT OBJECT
                                  , privateptr := DEFAULT OBJECT
