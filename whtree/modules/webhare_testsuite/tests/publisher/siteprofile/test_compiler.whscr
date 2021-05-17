@@ -60,9 +60,12 @@ MACRO TestCompiler()
   RECORD gathersp := compiler->GatherSiteProfiles();
   INTEGER siteprl_neverused_webdesign :=  SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webdesigns/basetest/neverused_compiletest.siteprl.xml") + 1;
   INTEGER siteprl_neverused_webfeature := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webfeatures/neverused_feature.siteprl.xml") + 1;
+  INTEGER siteprl_module := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml") + 1;
 
   TestEq(TRUE, siteprl_neverused_webdesign > 0);
   TestEq(TRUE, siteprl_neverused_webfeature > 0);
+  TestEq(TRUE, siteprl_module > 0);
+  TestEq(TRUE, siteprl_module IN gathersp.baseprofiles);
   TestEq([[ resourceids := [ siteprl_neverused_webdesign ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = FALSE AND name = "webhare_testsuite:neverused_compiletest");
   TestEq([[ resourceids := [ siteprl_neverused_webfeature ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = TRUE AND name = "webhare_testsuite:unusedfeature");
 

@@ -20,6 +20,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
@@ -199,11 +200,15 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     RECORD ARRAY webdesigns  := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE Length(siteprofiles) > 0;
     RECORD ARRAY webfeatures := SELECT * FROM GetAvailableWebFeatures() WHERE siteprofile != "";
     STRING ARRAY allsiteprls := SELECT AS STRING ARRAY siteprofile FROM webfeatures;
+    STRING ARRAY basesiteprofiles;
+
+    FOREVERY(RECORD mod FROM GetWebHareModules())
+      basesiteprofiles := basesiteprofiles CONCAT mod.basesiteprofiles;
 
     FOREVERY(RECORD webdesign FROM webdesigns)
       allsiteprls := allsiteprls CONCAT webdesign.siteprofiles;
 
-    allsiteprls := GetSortedSet(allsiteprls);
+    allsiteprls := GetSortedSet(allsiteprls CONCAT basesiteprofiles);
 
     //Rebuild a simple reference -> resourceid list
     RECORD ARRAY profilerefs := SELECT isfeature := TRUE
@@ -223,8 +228,11 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                  ] INTO profilerefs AT END;
     }
 
+    INTEGER ARRAY baseprofiles := SELECT AS INTEGER ARRAY BinaryFind(allsiteprls, siteprl) + 1 FROM ToRecordArray(basesiteprofiles, "siteprl");
+
     RETURN CELL[ siteprofiles := allsiteprls
                , profilerefs
+               , baseprofiles
                ];
   }
 
