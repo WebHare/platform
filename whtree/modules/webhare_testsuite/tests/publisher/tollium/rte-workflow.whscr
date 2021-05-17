@@ -35,10 +35,10 @@ ASYNC MACRO EditRTD()
 
   AWAIT ExpectScreenChange(+1, PTR TTCLick("sendpreviewlink"));
 
-  topscreen->passwordprotect->value := TRUE;
-  topscreen->password->value := "secret";
-  topscreen->wizard->nextbutton->TolliumClick();
-  previewlink := topscreen->link->value;
+  TT("passwordprotect")->value := TRUE;
+  TT("password")->value := "secret";
+  TT("wizard")->nextbutton->TolliumClick();
+  previewlink := TT("link")->value;
 
   Print(previewlink||"\n");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -83,7 +83,7 @@ ASYNC MACRO RecycleDraft()
   OBJECT rte := TT("doceditor")->contents->rte;
   rte->TolliumWeb_FormUpdate('<p class="normal">This is a recyclable draft text</p>');
   rte->__debug_simulatedirty();
-  TestEq(TRUE, topscreen->saveasdraftbutton->TolliumClick());
+  TestEq(TRUE, TTClick("saveasdraftbutton"));
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
   TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
