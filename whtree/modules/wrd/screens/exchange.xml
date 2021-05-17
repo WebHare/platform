@@ -249,7 +249,7 @@
               columnheaders="false"
               icons="tollium:users/user"
               width="40x"
-              height="10x"
+              height="20x"
               oncheck="onselectedcheck">
             <column type="text" name="title" title="" checkboxname="selected" sortkeyname="sortpersonaldata" />
             <column type="icon" name="haspersonaldata" title="" />
