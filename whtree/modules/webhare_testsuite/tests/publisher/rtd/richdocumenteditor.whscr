@@ -20,6 +20,15 @@ OBJECT FUNCTION Rte()
   RETURN TT("doceditor")->contents->rte;
 }
 
+BOOLEAN FUNCTION OnCanView(OBJECT fsobject)
+{
+  RETURN TRUE;
+}
+
+MACRO OnView(OBJECT openhandler, OBJECT fsobject, BOOLEAN autosave DEFAULTSTO FALSE)
+{
+  openhandler->SendUrl("https://example.org/");
+}
 
 MACRO Create()
 {
@@ -56,6 +65,23 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // It should be writeable
   TestEq(FALSE, topscreen->contexts->editdocumentapi->readonly);
+
+  // View should not be available
+  RECORD openres := ExecuteWindowOpenAction(TT("viewpublished"));
+  TestEq("cancel", openres.type);
+
+  // Test if we can make view explicitly available
+  topscreen->contexts->editdocumentapi->oncanview := PTR OnCanView;
+  topscreen->contexts->editdocumentapi->onview := PTR OnView;
+  openres := ExecuteWindowOpenAction(TT("viewpublished"));
+  TestEq("url", openres.type);
+  TestEq("https://example.org/", openres.url);
+
+  // Reset custom view availability
+  topscreen->contexts->editdocumentapi->oncanview := DEFAULT MACRO PTR;
+  topscreen->contexts->editdocumentapi->onview := DEFAULT MACRO PTR;
+  openres := ExecuteWindowOpenAction(TT("viewpublished"));
+  TestEq("cancel", openres.type);
 
   // Add some text and save draft
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
@@ -97,6 +123,13 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // Publish the document
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
+
+  // Test custom preview handler
+  topscreen->contexts->editdocumentapi->onpreview := PTR OnView;
+  openres := ExecuteWindowOpenAction(TT("previewdraft"));
+  TestEq("url", openres.type);
+  TestEq("https://example.org/", openres.url);
+  topscreen->contexts->editdocumentapi->onpreview := DEFAULT MACRO PTR;
 
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
