@@ -193,6 +193,41 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       Print("Done " || name || "\n");
   }
 
+  PUBLIC RECORD FUNCTION GatherSiteProfiles()
+  {
+    //Gather unique list of siteprofiles
+    RECORD ARRAY webdesigns  := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE Length(siteprofiles) > 0;
+    RECORD ARRAY webfeatures := SELECT * FROM GetAvailableWebFeatures() WHERE siteprofile != "";
+    STRING ARRAY allsiteprls := SELECT AS STRING ARRAY siteprofile FROM webfeatures;
+
+    FOREVERY(RECORD webdesign FROM webdesigns)
+      allsiteprls := allsiteprls CONCAT webdesign.siteprofiles;
+
+    allsiteprls := GetSortedSet(allsiteprls);
+
+    //Rebuild a simple reference -> resourceid list
+    RECORD ARRAY profilerefs := SELECT isfeature := TRUE
+                                     , name := rowkey
+                                     , resourceids := INTEGER[BinaryFind(allsiteprls, siteprofile) + 1 ]
+                                  FROM webfeatures;
+
+    FOREVERY(RECORD webdesign FROM webdesigns)
+    {
+      INTEGER ARRAY resourceids;
+      FOREVERY(STRING siteprof FROM webdesign.siteprofiles)
+        INSERT BinaryFind(allsiteprls, siteprof) + 1 INTO resourceids AT END;
+
+      INSERT CELL[ isfeature := FALSE
+                 , name := webdesign.rowkey
+                 , resourceids
+                 ] INTO profilerefs AT END;
+    }
+
+    RETURN CELL[ siteprofiles := allsiteprls
+               , profilerefs
+               ];
+  }
+
   PUBLIC RECORD ARRAY FUNCTION GetSiteActivatedProfiles()
   {
     RECORD ARRAY allsites := SELECT id, name FROM system.sites;

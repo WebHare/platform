@@ -1,0 +1,16 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:xyz="urn:xyz">
+
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/unusedfoldertype"
+              title="webhare_testsuite: unused folder type">
+    <members>
+      <string name="astring" />
+    </members>
+  </foldertype>
+
+  <apply>
+    <to type="all" />
+    <xyz:test data="should-never-be-visible-(webfeature)" />
+  </apply>
+
+</siteprofile>

@@ -57,6 +57,15 @@ MACRO TestCompiler()
   INTEGER testsiteid := OpenTestsuiteSite()->id;
 
   OBJECT compiler := NEW RecompileContext();
+  RECORD gathersp := compiler->GatherSiteProfiles();
+  INTEGER siteprl_neverused_webdesign :=  SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webdesigns/basetest/neverused_compiletest.siteprl.xml") + 1;
+  INTEGER siteprl_neverused_webfeature := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webfeatures/neverused_feature.siteprl.xml") + 1;
+
+  TestEq(TRUE, siteprl_neverused_webdesign > 0);
+  TestEq(TRUE, siteprl_neverused_webfeature > 0);
+  TestEq([[ resourceids := [ siteprl_neverused_webdesign ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = FALSE AND name = "webhare_testsuite:neverused_compiletest");
+  TestEq([[ resourceids := [ siteprl_neverused_webfeature ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = TRUE AND name = "webhare_testsuite:unusedfeature");
+
   RECORD res := compiler->Compile( [ baseprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
                                    , siteactivatedprofiles := DEFAULT RECORD ARRAY
                                    ] );

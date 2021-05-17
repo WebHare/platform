@@ -270,6 +270,11 @@
     </webdesign>
     <webdesign hidden="true" name="alttest" title="WH testsuite: selftest 'attest'" siteprofile="webdesigns/basetest/alttest.siteprl.xml">
     </webdesign>
+    <webdesign name="neverused_compiletest"
+               hidden="true"
+               siteprofile="webdesigns/basetest/neverused_compiletest.siteprl.xml"
+               title="WH testsuite: never used siteprl" />
+
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
     <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
     <webfeature hidden="true" name="testfeature" title="WH testsuite: Test feature" siteprofile="webfeatures/testfeature.siteprl"/>
@@ -282,6 +287,11 @@
     <webfeature hidden="true" name="conversionstest" title="WH testsuite: conversionstest" siteprofile="webfeatures/conversionstest.siteprl.xml"/>
     <webfeature hidden="true" name="actions" title="WH testsuite: actions" siteprofile="webfeatures/actions.siteprl.xml"/>
     <webfeature hidden="true" name="versioned" title="WH testsuite: versioned" siteprofile="webfeatures/versioned.siteprl.xml"/>
+    <webfeature name="unusedfeature"
+                hidden="true"
+                siteprofile="webfeatures/neverused_feature.siteprl.xml"
+                title="WH testsuite: never used feature" />
+
     <customnode name="test" namespace="urn:xyz" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
     <webdesignplugin name="test" namespace="http://www.webhare.net/xmlns/webhare_testsuite" objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" hooksfeatures="preparemail" />
