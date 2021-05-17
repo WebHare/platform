@@ -1420,6 +1420,8 @@
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:Required" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
+      <xs:attribute name="errorlabeltid" type="sc:Tid" />
+      <xs:attribute name="errorlabel" type="xs:string" />
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
