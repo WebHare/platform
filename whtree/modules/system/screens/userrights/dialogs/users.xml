@@ -24,6 +24,7 @@
             <box checkbox="true" layout="left" hr="false" name="whuser_disabled" composition="userobj" cellname="whuser_disabled" title="" tid=".whuser_disabled" enablecomponents="whuser_disablereason" >
               <textarea name="whuser_disablereason" composition="userobj" cellname="whuser_disablereason" required="true" />
             </box>
+            <spacer name="insertpoint_account" visible="false" />
           </tab>
           <tab name="advanced">
             <datetime readonly="true" name="creationdate" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="wrd_creationdate"  />
@@ -38,7 +39,7 @@
               <textedit name="wrd_guid" required="true" width="1pr" title="" />
             </line>
             <textedit name="browsertitleprefix" visible="false" width="1pr"/>
-
+            <spacer name="insertpoint_advanced" visible="false" />
           </tab>
           <tab name="commentbox" tid="~comments">
             <textarea title="" name="comments" composition="userobj" cellname="whuser_comment" height="1pr" width="1pr"/>
