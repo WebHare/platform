@@ -7,31 +7,19 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 // Time field
 PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
 <
-  STRING pvt_compmargin;
-  OBJECT ARRAY allchildren;
-
-  BOOLEAN military;
-
-  OBJECT edithour;
-  OBJECT editmin;
-  OBJECT editsec;
-  OBJECT editmsec;
-  OBJECT editampm;
-
   PUBLIC PROPERTY value(GetValue, SetValue);
-  PUBLIC PROPERTY invalidtime(GetInvalidTime, -);
-  PUBLIC PROPERTY precision(GetPrecision, SetPrecision);     ///< Allowed values: 'minutes'/'seconds'/'milliseconds'
-  UPDATE PUBLIC PROPERTY readonly(GetReadonly, SetReadonly);
-  UPDATE PUBLIC PROPERTY required(GetRequired, SetRequired);
-  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
+  PUBLIC PROPERTY invalidtime(^dt->invalidtime, -);
+  PUBLIC PROPERTY precision(^dt->precision, ^dt->precision);     ///< Allowed values: 'minutes'/'seconds'/'milliseconds'
+  UPDATE PUBLIC PROPERTY readonly(^dt->readonly, ^dt->readonly);
+  UPDATE PUBLIC PROPERTY required(^dt->required, ^dt->required);
+  UPDATE PUBLIC PROPERTY title(^dt->title, ^dt->title);
+  UPDATE PUBLIC PROPERTY errorlabel(^dt->errorlabel, ^dt->errorlabel);
 
   MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
     EXTEND this BY TolliumIsDirtyable;
 
-    this->pvt_compmargin := "0px";
-    this->military := TRUE;
     this->invisibletitle := TRUE;
   }
 
@@ -39,7 +27,6 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(def);
     this->precision := def.precision;
-    this->military := ObjectExists(this->owner->tolliumuser) ? this->owner->tolliumuser->timemilitary : TRUE;
     this->title := this->pvt_title;
     this->required := def.required;
     this->readonly := def.readonly;
@@ -48,32 +35,6 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
   UPDATE MACRO PreInitComponent()
   {
     this->dt->dirtylistener := this->dirtylistener;
-  }
-
-  // Forwards
-  BOOLEAN FUNCTION GetRequired()
-  {
-    RETURN this->dt->required;
-  }
-  UPDATE MACRO SetRequired(BOOLEAN newrequired)
-  {
-    this->dt->required := newrequired;
-  }
-  BOOLEAN FUNCTION GetReadonly()
-  {
-    RETURN this->dt->readonly;
-  }
-  UPDATE MACRO SetReadonly(BOOLEAN newreadonly)
-  {
-    this->dt->readonly := newreadonly;
-  }
-  STRING FUNCTION GetTitle()
-  {
-    RETURN this->dt->title;
-  }
-  UPDATE MACRO SetTitle(STRING newtitle)
-  {
-    this->dt->title := newtitle;
   }
 
   INTEGER FUNCTION GetValue()
@@ -87,23 +48,11 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
     ELSE
       this->dt->value := MakeDateFromParts(1, newtime);
   }
-  BOOLEAN FUNCTION GetInvalidTime()
-  {
-    RETURN this->dt->invalidtime;
-  }
   UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
   {
     RETURN TypeID(value) = TypeID(INTEGER);
   }
 
-  STRING FUNCTION GetPrecision()
-  {
-    RETURN this->dt->precision;
-  }
-  MACRO SetPrecision(STRING newprecision)
-  {
-    this->dt->precision := newprecision;
-  }
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
     this->dt->ValidateValue(work);
