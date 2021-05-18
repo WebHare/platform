@@ -13,6 +13,7 @@ LOADLIB "wh::internal/interface.whlib";
 PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
 PUBLIC RECORD FUNCTION __INTERNAL_DEBUGCOPYOBJECTTORECORD(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
 PUBLIC RECORD ARRAY FUNCTION __INTERNAL_DEBUGGETOBJECTWEB(BOOLEAN include_unreferenced) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_INTERNAL_LISTHANDLES()  __ATTRIBUTES__(EXTERNAL);
 PUBLIC RECORD FUNCTION __INTERNAL_DEBUGGETBLOBREFERENCES(BOOLEAN include_unreferenced) __ATTRIBUTES__(EXTERNAL);
 PUBLIC RECORD FUNCTION __INTERNAL_GetRawFunctionProfile() __ATTRIBUTES__(EXTERNAL);
 PUBLIC RECORD FUNCTION __INTERNAL_GetVMStatistics() __ATTRIBUTES__(EXTERNAL);
@@ -196,7 +197,6 @@ PUBLIC MACRO __HS_INTERNAL_ReportFunctionProfile(STRING source, STRING command, 
       , type :=                     "functionprofile"
       ]);
 
-  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
   link->Close();
 }
 
@@ -461,7 +461,6 @@ PUBLIC MACRO ReportMemorySnapshot(STRING source, STRING command, RECORD options 
       , type :=                     "memorysnapshot"
       ]);
 
-  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
   link->Close();
 }
 
@@ -488,7 +487,32 @@ PUBLIC MACRO ReportBlobReferences(STRING source, STRING command, RECORD options 
       , type :=                     "blobreferences"
       ]);
 
-  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
+  link->Close();
+}
+
+/** Sends the current handle list to the profiling monitor
+    @param source Source for profile (eg. script identifier)
+    @param command More info about location / parameters
+    @cell options.start Start time
+*/
+PUBLIC MACRO ReportHandleList(STRING source, STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT link := ConnectToIPCPort(profilingportname) ?? ConnectToGlobalIPCPort(profilingportname);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  DATETIME start := CellExists(options, "START") ? options.start : GetCurrentDateTime();
+  link->SendMessage(
+      [ task :=                     "addprofile"
+      , source :=                   source
+      , start :=                    start
+      , command :=                  command
+      , authenticationrecord :=     GetAuthenticationRecord()
+      , extradata :=                options
+      , rawdata :=                  __HS_INTERNAL_LISTHANDLES()
+      , type :=                     "handlelist"
+      ]);
+
   link->Close();
 }
 
