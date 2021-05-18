@@ -341,13 +341,12 @@ OBJECTTYPE RepublishState
         {
           RECORD ARRAY links := this->GetReferencesTo([fsobj]);
           FOREVERY(RECORD link FROM links)
-            IF(Length(apply.siteids) = 0 OR link.parentsite IN apply.siteids)
-              this->ExecuteRepubDep(republish, link.parent, link.parentsite, apply.siteids);
+            this->ExecuteRepubDep(republish, link.parent, link.parentsite, apply.siteprofileids);
 
         }
         ELSE IF(republish.scope="")
         {
-          this->ExecuteRepubDep(republish, applytester->__Deprecated_GetObjInfo().isfile ? applytester->__Deprecated_GetObjInfo().obj.parent : fsobj, applytester->__Deprecated_GetObjInfo().obj.parentsite, apply.siteids);
+          this->ExecuteRepubDep(republish, applytester->__Deprecated_GetObjInfo().isfile ? applytester->__Deprecated_GetObjInfo().obj.parent : fsobj, applytester->__Deprecated_GetObjInfo().obj.parentsite, apply.siteprofileids);
         }
       }
     }
@@ -438,17 +437,14 @@ OBJECTTYPE RepublishState
      }
   }
 
-   PRIVATE MACRO ExecuteRepubDep(RECORD republish, INTEGER basefolder, INTEGER basesite, INTEGER ARRAY siteids)
+   PRIVATE MACRO ExecuteRepubDep(RECORD republish, INTEGER basefolder, INTEGER basesite, INTEGER ARRAY siteprofileids)
    {
      IF(republish.sitemask!="") //takes precedence over have_site
      {
        IF(republish.folder="")
          RETURN; //don't care without a folder
 
-       RECORD ARRAY affected_sites := SELECT id, name
-                                        FROM system.sites
-                                       WHERE ToUppercase(name) LIKE ToUppercase(republish.sitemask)
-                                             AND (Length(siteids)=0 OR id IN siteids);
+       RECORD ARRAY affected_sites := SELECT * FROM GetSitesReferredByResources(siteprofileids) WHERE ToUppercase(name) LIKE ToUppercase(republish.sitemask);
        FOREVERY(RECORD siterec FROM affected_sites)
        {
          INTEGER target := LookupWHFSObject(siterec.id, republish.folder);
@@ -1909,7 +1905,7 @@ RECORD FUNCTION GetCacheableCurrentProfileReferrals()
 {
   RECORD gathersp := GetCachedSiteProfiles();
   RECORD ARRAY referrals := GetSiteActiveProfileReferrals(gathersp);
-  referrals := SELECT id, roottype, siteprofileids FROM referrals ORDER BY id;
+  referrals := SELECT id, name, roottype, siteprofileids FROM referrals ORDER BY id;
   RETURN CELL[ value := referrals
              , ttl := 60*60*1000
              , eventmasks := site_referrals_mask
@@ -1921,11 +1917,16 @@ RECORD ARRAY FUNCTION GetCurrentProfileReferrals()
   RETURN GetAdhocCached([ type := "profilereferrals" ], PTR GetCacheableCurrentProfileReferrals);
 }
 
-PUBLIC INTEGER ARRAY FUNCTION GetSiteSettingIDs(RECORD sitesetting)
+RECORD ARRAY FUNCTION GetSitesReferredByResources(INTEGER ARRAY siteprofileids)
 {
   RECORD siteprofs := GetCachedSiteProfiles();
   RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(siteprofs);
-  RETURN SELECT AS INTEGER ARRAY id FROM activeprofiles WHERE IsResourceMatch(sitesetting.siteprofileids, activeprofiles.siteprofileids);
+  RETURN SELECT * FROM activeprofiles WHERE IsResourceMatch(VAR siteprofileids, activeprofiles.siteprofileids);
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetSiteSettingIDs(RECORD sitesetting)
+{
+  RETURN SELECT AS INTEGER ARRAY id FROM  GetSitesReferredByResources(sitesetting.siteprofileids);
 }
 
 PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
