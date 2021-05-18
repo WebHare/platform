@@ -6,6 +6,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -83,9 +85,7 @@ RECORD ARRAY actions :=
 
 ASYNC MACRO DoSiteProfileRecompile()
 {
-  GetPrimary()->BeginWork();
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
-  GetPrimary()->CommitWork();
+  RecompileSiteProfiles();
 }
 
 ASYNC MACRO ScheduleHotfixCheck()

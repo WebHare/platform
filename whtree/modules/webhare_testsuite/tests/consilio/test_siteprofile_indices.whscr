@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -13,6 +14,8 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC MACRO TestModernSiteProfileIndices()
 {
+  FixConsilioIndices([ reportmissing := TRUE ]);
+
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   Testeq(TRUE, ObjectExists(maincatalog));
 
@@ -62,6 +65,8 @@ PUBLIC MACRO TestLegacySiteProfileIndices()
   TestEq(0, index_3);
 
   testfw->CommitWork();
+
+  FixConsilioIndices([ reportmissing := TRUE ]); //indices are created in the background so explicitly enforce them
 
   // The indices 1 and 2 must be present now, 3 doesn't match the site name
   index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());

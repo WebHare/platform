@@ -888,7 +888,7 @@ OBJECTTYPE WHFSObject
       {
         UPDATE system.sites SET name := newname WHERE root = this->id;
         //siteprofiles rules can apply by name, but they often convert this to siteids, so renaming a site requires recompilation
-        GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+        GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
       }
     }
 

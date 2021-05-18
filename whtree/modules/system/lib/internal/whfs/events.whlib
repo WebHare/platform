@@ -18,7 +18,6 @@ LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 
 //debuglevel, set using envvar WEBHARE_DEBUGEVENTS. 0 = not yet read, -1 = no debugging, 1 = log actions, 3 = and traces too
 INTEGER debuglevel;
-OBJECT siteproflock;
 INTEGER counter;
 
 STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
@@ -34,7 +33,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   RECORD ARRAY analyzertasks;
 
   RECORD ARRAY historyitems;
-  BOOLEAN recompilesiteprofiles;
+  BOOLEAN checksitesettings;
   BOOLEAN scancompilables;
 
   INTEGER ARRAY linkcheckedremovedsettings;
@@ -127,15 +126,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     IF (LENGTH(this->linkcheckedsettings) != 0)
       __OpenLocalService("system:__systemservice")->ProcessLinkCheckedSettings(this->linkcheckedsettings);
 
-    IF(this->recompilesiteprofiles)
-    {
-      /* Set a lock so no new publish processes will run until we've prepared
-         the new siteprofiles */
-      IF(ObjectExists(siteproflock))
-        ABORT("Dupe onprecommit detected");
-      siteproflock := OpenLockManager()->LockMutex("system:siteprofrecompile"); //Lock to indicate we'll be recompiling siteprofiles
-    }
-
     IF(this->scancompilables)
       ScanAllCompilables(FALSE);
   }
@@ -148,12 +138,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       IF(debuglevel >= 3)
         PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
     }
-
-    IF(ObjectExists(siteproflock))
-    {
-      siteproflock->Close();
-      siteproflock := DEFAULT OBJECT;
-    }
+    this->checksitesettings := FALSE;
   }
 
   /** Called when the transaction has committed
@@ -176,20 +161,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       ScanLimitedCompilables(SELECT AS INTEGER ARRAY DISTINCT id FROM this->completions WHERE type IN ["addfile","replacefile"]);
     CATCH (OBJECT e)
       firstexception := e;
-
-    IF(ObjectExists(siteproflock))
-    {
-      OBJECT savelock := siteproflock;
-      siteproflock := DEFAULT OBJECT;
-
-      TRY
-        MakeFunctionPtr("mod::publisher/lib/internal/siteprofiles/compiler.whlib#RecompileSiteprofiles")();
-      CATCH (OBJECT e)
-        firstexception := firstexception ?? e;
-
-      savelock->Close();
-      this->recompilesiteprofiles := FALSE;
-    }
 
     IF (uncommitted_fstypes_changes)
     {
@@ -278,12 +249,12 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       service->CloseService();
     }
 
-    IF(Length(this->completions)>0)
+    IF(Length(this->completions) > 0 OR this->checksitesettings)
     {
       OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
       IF(ObjectExists(eventcompletionlink))
       {
-        eventcompletionlink->SendMessage( [ type := "newcompletions",  data := this->completions ]);
+        eventcompletionlink->SendMessage( CELL[ type := "newcompletions",  data := this->completions, this->checksitesettings ]);
         eventcompletionlink->Close();
       }
       ELSE //handle the completions locally
@@ -424,22 +395,18 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     INSERT data INTO this->completions AT END;
   }
 
-  PUBLIC BOOLEAN FUNCTION IsSiteProfileRecompileOnCommitTriggered()
+  PUBLIC MACRO TriggerSiteSettingsCheckOnCommit()
   {
-    RETURN this->recompilesiteprofiles;
-  }
-  PUBLIC MACRO TriggerSiteProfileRecompileOnCommit()
-  {
-    IF(this->recompilesiteprofiles)
+    IF(this->checksitesettings)
       RETURN; //already set
 
     IF(debuglevel >= 1)
     {
-      Print(`WHFS Event: TriggerSiteProfileRecompileOnCommit\n`);
+      Print(`WHFS Event: TriggerSiteSettingsCheckOnCommit\n`);
       IF(debuglevel >= 3)
         PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
     }
-    this->recompilesiteprofiles := TRUE;
+    this->checksitesettings := TRUE;
   }
   PUBLIC MACRO TriggerScanCompilables()
   {
