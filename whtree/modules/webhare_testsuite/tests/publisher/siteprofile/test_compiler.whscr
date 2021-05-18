@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -71,38 +72,39 @@ MACRO TestCompiler()
   TestEq(TRUE, siteprl_neverused_webfeature > 0);
   TestEq(TRUE, siteprl_module > 0);
   TestEq(TRUE, siteprl_module IN gathersp.baseprofiles);
-  TestEq([[ resourceids := [ siteprl_neverused_webdesign ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = FALSE AND name = "webhare_testsuite:neverused_compiletest");
-  TestEq([[ resourceids := [ siteprl_neverused_webfeature ] ]], SELECT resourceids FROM gathersp.profilerefs WHERE isfeature = TRUE AND name = "webhare_testsuite:unusedfeature");
+  TestEq([[ siteprofileids := [ siteprl_neverused_webdesign ] ]], SELECT siteprofileids FROM gathersp.profilerefs WHERE isfeature = FALSE AND name = "webhare_testsuite:neverused_compiletest");
+  TestEq([[ siteprofileids := [ siteprl_neverused_webfeature ] ]], SELECT siteprofileids FROM gathersp.profilerefs WHERE isfeature = TRUE AND name = "webhare_testsuite:unusedfeature");
 
-  RECORD res := compiler->Compile( [ baseprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
-                                   , siteactivatedprofiles := DEFAULT RECORD ARRAY
-                                   ] );
   RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(gathersp);
   RECORD testsuitesite := SELECT * FROM activeprofiles WHERE id = OpenTestsuiteSite()->id;
-  TestEq(2, Length(testsuitesite.resourceids));
-  TestEq("mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl", gathersp.siteprofiles[testsuitesite.resourceids[0]-1]);
-  TestEq("mod::webhare_testsuite/webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml", gathersp.siteprofiles[testsuitesite.resourceids[1]-1]);
+  TestEq(2, Length(testsuitesite.siteprofileids));
+  TestEq("mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl", gathersp.siteprofiles[testsuitesite.siteprofileids[0]-1]);
+  TestEq("mod::webhare_testsuite/webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml", gathersp.siteprofiles[testsuitesite.siteprofileids[1]-1]);
+
+  RECORD test1_only;
+  RECORD res := compiler->CompileSiteprofiles([ siteprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
+                                              , profilerefs := RECORD[]
+                                              , baseprofiles := [ 1 ]
+                                              ]);
 
   TestEqStructure([[ col := 0, resourcename := "", line := 0, message := ""]], compiler->GetErrors());
 
-
   //First test test3 directly
   compiler := NEW RecompileContext();
-  res := compiler->Compile( [ baseprofiles := DEFAULT STRING ARRAY
-                            , siteactivatedprofiles := [[ name := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml"
-                                                        , siteid := testsiteid
-                                                        ]
-                                                       ]
-                            ]);
+  res := compiler->CompileSiteprofiles([ siteprofiles := [ "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml" ]
+                                       , profilerefs := RECORD[[ isfeature := FALSE, name := "webhare_testsuite:test3", siteprofileids := [1] ]]
+                                       , baseprofiles := INTEGER[]
+                                       ]);
 
-  TestEq(1, Length(res.result.webrules));
-  TestEq([testsiteid], res.result.webrules[0].siteids);
+  TestEq(2, Length(res.result.webrules), "We see 2 rules now, site filtering will need to be done later now");
+  TestEq([1], res.result.webrules[0].siteprofileids);
 
   //Test basesiteprofile against empty system
   compiler := NEW RecompileContext();
-  res := compiler->Compile( [ baseprofiles := ["mod::publisher/data/publisher.siteprl.xml"]
-                            , siteactivatedprofiles := DEFAULT RECORD ARRAY
-                            ]);
+  res := compiler->CompileSiteprofiles([ siteprofiles := [ "mod::publisher/data/publisher.siteprl.xml" ]
+                                       , profilerefs := RECORD[]
+                                       , baseprofiles := [ 1 ]
+                                       ]);
 
   RECORD ARRAY faked_db_contents := SELECT *
                                       FROM system.fs_types
@@ -128,12 +130,11 @@ MACRO TestCompiler()
   TestEq([orphan := FALSE ], htmlfile.toupdate, "Upgrade back to non-orphan type!");
 
   compiler := NEW RecompileContext();
-  res := compiler->Compile( [ baseprofiles := ["mod::publisher/data/publisher.siteprl.xml"]
-                            , siteactivatedprofiles := [[ name := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml"
-                                                        , siteid := testsiteid
-                                                        ]
-                                                       ]
-                            ]);
+  res := compiler->CompileSiteprofiles([ siteprofiles := [  "mod::publisher/data/publisher.siteprl.xml", "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
+                                       , profilerefs := RECORD[[ isfeature := FALSE, name := "webhare_testsuite:test1", siteprofileids := [2] ]]
+                                       , baseprofiles := INTEGER[1]
+                                       ]);
+
   res := compiler->ApplyStandardPostProcessing(res);
   TestEq(TRUE, 1 IN res.hiddenfoldertypes);
   TestEq(TRUE, 2 IN res.hiddenfoldertypes);
@@ -144,6 +145,24 @@ MACRO TestCompiler()
   TestEq([id:=4], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/mswordfile"));
 }
 
+MACRO TestUnreferencedSiteprofiles()
+{
+  RECORD fullcompileres := __DoRecompileSiteprofiles(FALSE, FALSE, FALSE);
+  //dumpvalue(GetCachedSiteProfiles());
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/unusedfiletype")), "This type should exist, even though its webdesign/siteprofile is not referred");
+  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/unusedfoldertype")), "This type should exist, even though its feature is not referred");
+
+  RECORD testsite_applicability := GetSiteApplicabilityInfo(OpenTestsuiteSite()->id);
+  TestEq(2, Length(testsite_applicability.siteprofileids));
+
+  INTEGER ARRAY affectedsites := GetSiteSettingIDs( [ siteprofileids := testsite_applicability.siteprofileids ]);
+  IF(ObjectExists(OpenTestsuiteAltSite()))
+    TestEq(SortArray(INTEGER[OpenTestsuiteSite()->id, OpenTestsuiteAltSite()->id]), SortArray(affectedsites), "*only* our testsite(s) should be affected by its test siteprofiles");
+  ELSE
+    TestEq(INTEGER[OpenTestsuiteSite()->id], affectedsites, "*only* our testsite(s) should be affected by its test siteprofiles");
+}
+
 RunTestframework([ PTR TestParsing
                  , PTR TestCompiler
+                 , PTR TestUnreferencedSiteprofiles
                  ]);

@@ -50,12 +50,7 @@ PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
 
 PUBLIC BOOLEAN FUNCTION AppliesToAllSites(RECORD sitesetting)
 {
-  RETURN sitesetting.allsites;
-}
-
-PUBLIC INTEGER ARRAY FUNCTION GetSiteSettingIDs(RECORD sitesetting)
-{
-  RETURN sitesetting.siteids;
+  RETURN Length(sitesetting.siteprofileids) = 0;
 }
 
 /** Describes a content type

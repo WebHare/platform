@@ -158,7 +158,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileGlobalSettings(STRING ns, STRIN
       IF(globalsetting.idx >= Length(elements))
         CONTINUE;
 
-      INSERT [ siteprofile := siteprof, node := elements[globalsetting.idx], siteids := globalsetting.siteids, allsites := globalsetting.allsites ] INTO retval AT END;
+      INSERT CELL[ siteprofile := siteprof, node := elements[globalsetting.idx], globalsetting.siteprofileids ] INTO retval AT END;
     }
   RETURN SELECT * FROM retval WHERE ObjectExists(siteprofile);
 }

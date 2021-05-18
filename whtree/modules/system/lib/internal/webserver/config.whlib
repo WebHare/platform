@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 //webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as long as it exists:
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder;

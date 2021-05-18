@@ -29,6 +29,8 @@ LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
+//eventmasks to use when caching site -> csp rules mappinsg
+CONSTANT STRING ARRAY site_referrals_mask := [ "publisher:internal.siteprofiles.recompiled", "system:whfs.sitemeta.*", "system:sites" ];
 OBJECT current_apply_rule_tester_cache;
 
 PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
@@ -40,11 +42,16 @@ PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
          ];
 }
 
+BOOLEAN FUNCTION IsResourceMatch(INTEGER ARRAY rule_siteprofileids, INTEGER ARRAY test_siteprofileids)
+{
+  RETURN Length(rule_siteprofileids) = 0 //applies everywhere
+         OR Length(ArrayIntersection(rule_siteprofileids, test_siteprofileids)) > 0;
+}
+
 BOOLEAN FUNCTION MatchPathRegex(STRING pattern, STRING path)
 {
   OBJECT compiledpattern := NEW RegEx(pattern, "i"); //case insensitive
   BOOLEAN result := compiledpattern->Test(path);
-  //DumpValue(CELL[pattern,path,result]);
   RETURN result;
 }
 
@@ -189,19 +196,6 @@ PUBLIC INTEGER FUNCTION GetHareScriptTypeForMember(RECORD memberrec)
 //
 // APPLY/TO interpretation
 //
-/*
-PUBLIC BOOLEAN FUNCTION ApplyIsMatch(RECORD apply, RECORD site, RECORD folder, RECORD affected, BOOLEAN affected_is_file)
-{
-  IF(apply.allsites = FALSE AND (NOT RecordExists(site) OR site.id NOT IN apply.siteids))
-    RETURN FALSE;
-
-  FOREVERY (RECORD appl FROM apply.tos)
-    IF(ToIsMatch(appl, site, folder, affected, affected_is_file, DEFAULT OBJECT))
-      RETURN TRUE;
-  RETURN FALSE;
-}
-
-*/
 RECORD FUNCTION GetFakeRootObject()
 {
   RETURN [ id := 0,  parent := 0, parentsite := 0, fullpath := "", whfspath := "/", url := "", type := 0, indexdoc := 0 ];
@@ -233,11 +227,12 @@ RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid)
   IF(NOT RecordExists(fsobjinfo))
     RETURN DEFAULT RECORD;
 
+  RECORD siteapply := GetSiteApplicabilityInfo(fsobjinfo.parentsite);
   RECORD site;
-  IF (fsobjinfo.parentsite != 0)
+  IF (fsobjinfo.parentsite != 0) //TODO consider caching this info with GetSiteApplicabilityInfo
   {
     site := SELECT * FROM system.sites WHERE id = fsobjinfo.parentsite;
-    INSERT CELL type := (SELECT AS INTEGER type FROM system.fs_objects WHERE id=site.id) INTO site;
+    INSERT CELL type := siteapply.roottype  INTO site;
   }
 
   RECORD objectitself := fsobjinfo;
@@ -247,6 +242,7 @@ RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid)
          , obj := objectitself
          , isfile := fsobjinfo.isfolder = FALSE
          , isfake := FALSE
+         , siteprofileids := siteapply.siteprofileids
          ];
 }
 
@@ -260,15 +256,19 @@ RECORD FUNCTION GetFakeBaseInfoForApplyCheck(INTEGER parentfolder, BOOLEAN isfil
 
   // Create a fake file/folder record, for site profiles to work
   RECORD curitem := GetFakeObject(NOT isfile, ftypeid, curparent.fullpath, curparent.whfspath, curparent.url, curparent.id, 0);
+  RECORD siteapply := GetSiteApplicabilityInfo(curparent.parentsite);
   RECORD parentsite := RecordExists(curparent) ? RECORD(SELECT * FROM system.sites WHERE id = curparent.parentsite) : DEFAULT RECORD;
   IF (RecordExists(parentsite))
-    INSERT CELL type := (SELECT AS INTEGER type FROM system.fs_objects WHERE id = VAR parentsite.id) INTO parentsite;
+  {
+    INSERT CELL type := siteapply.roottype INTO parentsite;
+  }
 
   RETURN [ site := parentsite
          , parent := curparent
          , obj := curitem
          , isfile := isfile
          , isfake := TRUE
+         , siteprofileids := siteapply.siteprofileids
          ];
 }
 
@@ -878,18 +878,18 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN recs;
   }
 
-  RECORD ARRAY FUNCTION FilterApplies(RECORD ARRAY recs, INTEGER siteid)
+  RECORD ARRAY FUNCTION FilterApplies(RECORD ARRAY recs, INTEGER ARRAY siteprofileids)
   {
     FOREVERY (RECORD rec FROM recs)
     {
       FOREVERY (RECORD c FROM UnpackRecord(rec))
-        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "ALLSITES", "SITEIDS", "TOS", "APPLYINDEX", "APPLYNODETYPE" ])
+        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "TOS", "APPLYINDEX", "APPLYNODETYPE", "SITEPROFILEIDS" ])
           rec := CellDelete(rec, c.name);
       rec.tos := this->MinimizeApplies(rec.tos);
       recs[#rec] := rec;
     }
 
-    DELETE FROM recs WHERE NOT allsites AND siteid NOT IN siteids;
+    DELETE FROM recs WHERE NOT IsResourceMatch(recs.siteprofileids, VAR siteprofileids);
     RETURN recs;
   }
 
@@ -901,11 +901,11 @@ STATIC OBJECTTYPE ApplyRuleTester
           , applies :=                DEFAULT RECORD ARRAY
           ], GetCachedSiteProfiles());
 
-    value.applies := this->FilterApplies(value.applies, siteid);
+    value.applies := this->FilterApplies(value.applies, GetSiteApplicabilityInfo(siteid).siteprofileids);
 
     RETURN
         [ value :=        value
-        , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+        , eventmasks :=   site_referrals_mask
         , ttl :=          60 * 1000
         ];
   }
@@ -1125,7 +1125,7 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   BOOLEAN FUNCTION ApplyIsMatch(RECORD apply)
   {
-    IF(apply.allsites = FALSE AND (NOT RecordExists(this->objinfo.site) OR this->objinfo.site.id NOT IN apply.siteids))
+    IF(NOT IsResourceMatch(apply.siteprofileids, this->objinfo.siteprofileids))
       RETURN FALSE;
 
     FOREVERY (RECORD appl FROM apply.tos)
@@ -1200,11 +1200,11 @@ STATIC OBJECTTYPE ApplyRuleTester
         {
           // Only give back requested cell plus a few standard cells
           RECORD result :=
-              [ siteprofile :=   apply.siteprofile
-              , applyindex :=    apply.applyindex
-              , applynodetype := CellExists(apply, 'applynodetype') ? apply.applynodetype : "apply" //compatibility with 4.27 compiled siteprofs
-              , siteids :=       apply.siteids
-              ];
+              CELL[ apply.siteprofile
+                  , apply.applyindex
+                  , apply.applynodetype
+                  , apply.siteprofileids
+                  ];
 
           result := CellInsert(result, cellname, GetCell(apply, cellname));
           INSERT result INTO filtered AT END;
@@ -1883,22 +1883,60 @@ PUBLIC RECORD FUNCTION GetRTDType(STRING typename)
 //Get a map of the resource IDs to which all sites refer. This is needed to resolve things like GetSiteSettingIDs.
 PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
 {
-  RECORD ARRAY allsites := SELECT id, name FROM system.sites;
+  RECORD ARRAY allsites := SELECT sites.id, sites.name, roottype := fs_objects.type
+                             FROM system.sites, system.fs_objects
+                            WHERE sites.id = fs_objects.id;
+
   OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
   allsites := sitesettingstype->Enrich(allsites, "ID", ["SITEDESIGN","WEBFEATURES"]);
 
   FOREVERY(RECORD site FROM allsites)
   {
-    INTEGER ARRAY resourceids;
+    INTEGER ARRAY siteprofileids;
     RECORD ARRAY tocheck := (SELECT * FROM gathersp.profilerefs WHERE name = site.sitedesign AND isfeature = FALSE)
                             CONCAT
                             (SELECT * FROM gathersp.profilerefs WHERE name IN site.webfeatures AND isfeature = TRUE);
     FOREVERY(RECORD result FROM tocheck)
-      resourceids := resourceids CONCAT result.resourceids;
+      siteprofileids := siteprofileids CONCAT result.siteprofileids;
 
-    INSERT CELL resourceids := GetSortedSet(resourceids) INTO allsites[#site];
+    INSERT CELL siteprofileids := GetSortedSet(siteprofileids) INTO allsites[#site];
   }
 
   RETURN allsites;
 }
 
+RECORD FUNCTION GetCacheableCurrentProfileReferrals()
+{
+  RECORD gathersp := GetCachedSiteProfiles();
+  RECORD ARRAY referrals := GetSiteActiveProfileReferrals(gathersp);
+  referrals := SELECT id, roottype, siteprofileids FROM referrals ORDER BY id;
+  RETURN CELL[ value := referrals
+             , ttl := 60*60*1000
+             , eventmasks := site_referrals_mask
+             ];
+}
+
+RECORD ARRAY FUNCTION GetCurrentProfileReferrals()
+{
+  RETURN GetAdhocCached([ type := "profilereferrals" ], PTR GetCacheableCurrentProfileReferrals);
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetSiteSettingIDs(RECORD sitesetting)
+{
+  RECORD siteprofs := GetCachedSiteProfiles();
+  RECORD ARRAY activeprofiles := GetSiteActiveProfileReferrals(siteprofs);
+  RETURN SELECT AS INTEGER ARRAY id FROM activeprofiles WHERE IsResourceMatch(sitesetting.siteprofileids, activeprofiles.siteprofileids);
+}
+
+PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
+{
+  IF(siteid != 0)
+  {
+    RECORD ARRAY referrals  := GetCurrentProfileReferrals();
+    INTEGER matchpos := RecordBinaryFind(referrals, [ id := siteid ], [ "ID" ]);
+    IF(matchpos >= 0)
+      RETURN referrals[matchpos];
+  }
+
+  RETURN [ siteprofileids := INTEGER[], roottype := 0 ];
+}

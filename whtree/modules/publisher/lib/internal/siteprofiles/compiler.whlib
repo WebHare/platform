@@ -78,7 +78,8 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                     , hints                := RECORD[]
                     , contenttypes         := RECORD[]
                     , grouptypes           := RECORD[]
-                    , siteprofiles         := RECORD[]
+                    , siteprofiles         := STRING[]
+                    , profilerefs          := RECORD[]
                     , success              := FALSE
                     , applies              := RECORD[]
                     , globalsettings       := RECORD[]
@@ -146,7 +147,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   RECORD ARRAY siteprofiles;
   RECORD ARRAY contenttypes;
 
-  MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteids, BOOLEAN allsites, STRING ARRAY loadpath)
+  MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteprofileids, STRING ARRAY loadpath)
   {
     IF(this->debug)
       Print("Load " || name || " from " || Detokenize(loadpath," >") || "\n");
@@ -172,23 +173,23 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       this->grouptypes := this->grouptypes CONCAT loaded.grouptypes;
 
       INSERT [ resourcename := name
-             , siteids := INTEGER[]
-             , allsites := FALSE
+             , siteprofileids := siteprofileids
              , siteprofile := loaded
              ] INTO this->siteprofiles AT END;
     }
     ELSE
     {
       loaded := this->siteprofiles[existingpos].siteprofile;
+
+      //if both we and the siteprofile already have limited application, combine them
+      IF(Length(this->siteprofiles[existingpos].siteprofileids) > 0)
+      { //note that global siteprofiles load before anything specific, so we KNOW Length(siteprofileids) to be > 0
+        this->siteprofiles[existingpos].siteprofileids := ArrayUnion(this->siteprofiles[existingpos].siteprofileids, siteprofileids);
+      }
     }
 
-    IF(allsites)
-      this->siteprofiles[existingpos].allsites := TRUE;
-    ELSE IF(Length(siteids)>0 AND NOT this->siteprofiles[existingpos].allsites)
-      this->siteprofiles[existingpos].siteids := ArrayUnion(this->siteprofiles[existingpos].siteids, siteids);
-
-    FOREVERY(STRING apply FROM loaded.applysiteprofiles)
-      this->LoadSiteProfileRecursively(apply, siteids, allsites, loadpath);
+    FOREVERY(STRING apply FROM loaded.applysiteprofiles) //note that if the siteprofile is already loaded, this just 'spreads' our siteprofileids recusrively
+      this->LoadSiteProfileRecursively(apply, this->siteprofiles[existingpos].siteprofileids, loadpath);
 
     IF(this->debug)
       Print("Done " || name || "\n");
@@ -213,18 +214,18 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     //Rebuild a simple reference -> resourceid list
     RECORD ARRAY profilerefs := SELECT isfeature := TRUE
                                      , name := rowkey
-                                     , resourceids := INTEGER[BinaryFind(allsiteprls, siteprofile) + 1 ]
+                                     , siteprofileids := INTEGER[BinaryFind(allsiteprls, siteprofile) + 1 ]
                                   FROM webfeatures;
 
     FOREVERY(RECORD webdesign FROM webdesigns)
     {
-      INTEGER ARRAY resourceids;
+      INTEGER ARRAY siteprofileids;
       FOREVERY(STRING siteprof FROM webdesign.siteprofiles)
-        INSERT BinaryFind(allsiteprls, siteprof) + 1 INTO resourceids AT END;
+        INSERT BinaryFind(allsiteprls, siteprof) + 1 INTO siteprofileids AT END;
 
       INSERT CELL[ isfeature := FALSE
                  , name := webdesign.rowkey
-                 , resourceids
+                 , siteprofileids
                  ] INTO profilerefs AT END;
     }
 
@@ -377,18 +378,21 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     RETURN outtypes;
   }
 
-  PUBLIC RECORD FUNCTION Run(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION RunSPCompiler()
   {
-    RECORD compileresult := this->Compile(options);
+    RECORD gathersp := this->GatherSiteProfiles();
+    RECORD compileresult := this->CompileSiteprofiles(gathersp);
     compileresult := this->ApplyStandardPostProcessing(compileresult);
 
-    this->result.siteprofiles := SELECT name := resourcename
-                                      , applysiteprofiles := siteprofile.applysiteprofiles
-                                      , sites := siteids
-                                   FROM this->siteprofiles;
+    //this->result.siteprofiles := SELECT name := resourcename
+    //                                  , applysiteprofiles := siteprofile.applysiteprofiles
+    //                                  , sites := siteids
+    //                               FROM this->siteprofiles;
     this->result.contenttypes := this->ApplyContentTypes(compileresult.allcontenttypes);
     this->result.grouptypes := this->grouptypes;
     this->result.hiddenfoldertypes := compileresult.hiddenfoldertypes;
+    this->result.profilerefs := gathersp.profilerefs;
+    this->result.siteprofiles := gathersp.siteprofiles;
 
     SaveCompiledSiteProfiles(this->result);
     INSERT CELL fullcspdata := this->result INTO compileresult;
@@ -479,17 +483,8 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     RETURN compileresult;
   }
 
-  PUBLIC RECORD FUNCTION Compile(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION CompileSiteprofiles(RECORD gathersp)
   {
-    options := ValidateOptions( [ baseprofiles := DEFAULT STRING ARRAY
-                                , siteactivatedprofiles := DEFAULT RECORD ARRAY
-                                ], options, [ optional := ["baseprofiles","siteactivatedprofiles"]]);
-
-    IF(NOT CellExists(options, 'baseprofiles'))
-      INSERT CELL baseprofiles := PrepareCompile()->basesiteprofiles INTO options;
-    IF(NOT CellExists(options, 'siteactivatedprofiles'))
-      INSERT CELL siteactivatedprofiles := this->GetSiteActivatedProfiles() INTO options;
-
     RECORD ARRAY errors;
 
     DATETIME now := GetCurrentDateTime();
@@ -497,17 +492,18 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
 
     RECORD ARRAY compiledsiteprofiles;
 
-    // Get all base profiles
-    FOREVERY(STRING siteprof FROM options.baseprofiles)
-      this->LoadSiteProfileRecursively(siteprof, DEFAULT INTEGER ARRAY, TRUE, STRING[]);
+    // First load all base profiles (these always apply)
+    FOREVERY(INTEGER baseprofile FROM gathersp.baseprofiles)
+      this->LoadSiteProfileRecursively(gathersp.siteprofiles[baseprofile - 1], INTEGER[], STRING[]);
 
-    FOREVERY(RECORD activated FROM (SELECT name, siteids := GroupedValues(siteid) FROM options.siteactivatedprofiles GROUP BY name))
-    {
-      this->LoadSiteProfileRecursively(activated.name, activated.siteids, FALSE, STRING[]);
-    }
+    // Then run through the siteprofiles that can be activated by a resource id
+    FOREVERY(STRING siteprofile FROM gathersp.siteprofiles)
+      IF(#siteprofile + 1 NOT IN gathersp.baseprofiles)
+        this->LoadSiteProfileRecursively(siteprofile, INTEGER[#siteprofile + 1], STRING[]);
 
     this->ProcessGroupMemberships();
 
+     // Copy siteprofileids from siteprofiles to the individual rules
     FOREVERY(RECORD siteprof FROM this->siteprofiles)
     {
       FOREVERY(RECORD rule FROM siteprof.siteprofile.rules)
@@ -516,32 +512,28 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
         {
           RECORD addrule;
           IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
-            addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+            addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
           ELSE //<filetype> and <foldertype> are not scoped
-            addrule := CELL[...rule, DELETE ruletype, siteids := INTEGER[], allsites := TRUE ];
+            addrule := CELL[...rule, DELETE ruletype, siteprofileids := INTEGER[] ];
 
           INSERT addrule INTO this->result.applies AT END;
         }
         ELSE IF(rule.ruletype = "globalsetting")
         {
-          RECORD addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+          RECORD addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
           INSERT addrule INTO this->result.globalsettings AT END;
         }
         ELSE IF(rule.ruletype = "sitesetting")
         {
-          IF(siteprof.allsites)
+          IF(Length(siteprof.siteprofileids) = 0)
           {
             this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
             CONTINUE;
           }
 
-          INTEGER ARRAY siteids := GetMatchesBySiteFilter(rule.sitefilter, siteprof.siteids);
-          IF(Length(siteids) = 0)
-            CONTINUE; //No matches!
-
-          this->result.webrules      := this->result.webrules     CONCAT SELECT *, siteids := VAR siteids FROM rule.webrules;
-          this->result.addtoindices  := this->result.addtoindices CONCAT SELECT *, siteids := VAR siteids FROM rule.addtoindices;
-          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteids := VAR siteids FROM rule.addtocatalogs;
+          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.webrules;
+          this->result.addtoindices  := this->result.addtoindices  CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.addtoindices;
+          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.addtocatalogs;
         }
       }
     }
@@ -605,7 +597,7 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
     OBJECT recompiler := NEW RecompileContext;
     recompiler->debug := debug;
     recompiler->reportmissing := reportmissing;
-    response := recompiler->Run();
+    response := recompiler->RunSPCompiler();
   }
   CATCH(OBJECT e)
   {
