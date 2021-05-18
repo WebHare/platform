@@ -197,19 +197,26 @@ MACRO TestRoundToMultiple()
 {
   //                                                 -5  -4  -3  -2  -1  0  1  2  3  4  5
   TestRounding(5, "toward-zero",          INTEGER64[ -5,  0,  0,  0,  0, 0, 0, 0, 0, 0, 5 ]);
+  TestRounding(5, "toward-infinity",      INTEGER64[ -5, -5, -5, -5, -5, 0, 5, 5, 5, 5, 5 ]);
   TestRounding(5, "down",                 INTEGER64[ -5, -5, -5, -5, -5, 0, 0, 0, 0, 0, 5 ]);
   TestRounding(5, "up",                   INTEGER64[ -5,  0,  0,  0,  0, 0, 5, 5, 5, 5, 5 ]);
   TestRounding(5, "half-toward-zero",     INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
+  TestRounding(5, "half-toward-infinity", INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
   TestRounding(5, "half-down",            INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
   TestRounding(5, "half-up",              INTEGER64[ -5, -5, -5,  0,  0, 0, 0, 0, 5, 5, 5 ]);
 
   //                                                 -6  -5  -4  -3  -2  -1  0  1  2  3  4  5  6
   TestRounding(6, "toward-zero",          INTEGER64[ -6,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 6 ]);
+  TestRounding(6, "toward-infinity",      INTEGER64[ -6, -6, -6, -6, -6, -6, 0, 6, 6, 6, 6, 6, 6 ]);
   TestRounding(6, "down",                 INTEGER64[ -6, -6, -6, -6, -6, -6, 0, 0, 0, 0, 0, 0, 6 ]);
   TestRounding(6, "up",                   INTEGER64[ -6,  0,  0,  0,  0,  0, 0, 6, 6, 6, 6, 6, 6 ]);
   TestRounding(6, "half-toward-zero",     INTEGER64[ -6, -6, -6,  0,  0,  0, 0, 0, 0, 0, 6, 6, 6 ]);
+  TestRounding(6, "half-toward-infinity", INTEGER64[ -6, -6, -6, -6,  0,  0, 0, 0, 0, 6, 6, 6, 6 ]);
   TestRounding(6, "half-down",            INTEGER64[ -6, -6, -6, -6,  0,  0, 0, 0, 0, 0, 6, 6, 6 ]);
   TestRounding(6, "half-up",              INTEGER64[ -6, -6, -6,  0,  0,  0, 0, 0, 0, 6, 6, 6, 6 ]);
+
+  TestThrowsLike("*the same*", PTR RoundToMultiple(3, 2m, "down"));
+  TestThrowsLike("*INTEGER*INTEGER64*MONEY*", PTR RoundToMultiple(3f, 2f, "down"));
 }
 
 PRINT("\n === Running TestNumbers\n");
