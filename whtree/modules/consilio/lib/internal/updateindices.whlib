@@ -467,7 +467,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
                  AND contentprovider = "publisher:webhare"
                  AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
       {
-        IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.fsobject = siteid) OR IsFolderAncestorOf(contentsource.fs_objects.id, siteid)) // folder is already covered by searchroot
+        IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.fsobject = siteid) OR IsFolderAncestorOf(contentsource.fsobject, siteid)) // folder is already covered by searchroot
         {
           existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
           BREAK;
