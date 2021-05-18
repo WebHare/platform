@@ -1293,9 +1293,9 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     }
 
     //Also validate the components contained inside any <options>
-    FOREVERY(RECORD opt FROM this->pvt_optionsources)
-      IF(opt.type="option")
-        FOREVERY(OBJECT comp FROM opt.item.lineitems)
+    FOREVERY(RECORD opt FROM this->storage->rows)
+      IF(CellExists(opt,'lineitems'))
+        FOREVERY(OBJECT comp FROM opt.lineitems)
           comp->ValidateValue(Work);
   }
 

@@ -40,6 +40,15 @@ ASYNC MACRO TestSubcomponentsRegression()
 
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#generateinvoice"), [ delete_existing := TRUE ]));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Updating a select's options would make the select skip subcomponent validation
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#updateoptions"), [ update_options := FALSE ]));
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":OK"), [ messagemask := "*required field*", awaitcall := TRUE ]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#updateoptions"), [ update_options := TRUE ]));
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":OK"), [ messagemask := "*required field*", awaitcall := TRUE ]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestInvisibleSelectRegression()
