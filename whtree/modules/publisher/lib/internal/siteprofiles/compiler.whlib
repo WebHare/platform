@@ -28,29 +28,6 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
   RETURN SELECT * FROM system.fs_types;
 }
 
-
-INTEGER ARRAY FUNCTION GetMatchesBySiteFilter(RECORD sitefilter, INTEGER ARRAY limitids)
-{
-  IF(NOT RecordExists(sitefilter))
-    RETURN limitids;
-
-  OBJECT compiledpattern;
-  IF(CellExists(sitefilter, "siteregex"))
-    compiledpattern := NEW RegEx(sitefilter.siteregex, "i"); //case insensitive
-
-  OBJECT compiledwebrootpattern;
-  IF(CellExists(sitefilter, "webrootregex"))
-    compiledwebrootpattern := NEW RegEx(sitefilter.webrootregex, "i"); //case insensitive
-
-  RETURN SELECT AS INTEGER ARRAY id
-           FROM system.sites
-          WHERE id IN limitids
-                AND (CellExists(sitefilter, "sitename") ? ToUppercase(sites.name) = ToUppercase(sitefilter.sitename) : TRUE)
-                AND (CellExists(sitefilter, "sitemask") ? ToUppercase(sites.name) LIKE ToUppercase(sitefilter.sitemask) : TRUE)
-                AND (CellExists(sitefilter, "siteregex") ? compiledpattern->Test(sites.name) : TRUE)
-                AND (CellExists(sitefilter, "webrootregex") ? compiledwebrootpattern->Test(sites.webroot) : TRUE);
-}
-
 PUBLIC STATIC OBJECTTYPE RecompileContext
 <
   RECORD ARRAY current_fs_types;
@@ -531,9 +508,9 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
             CONTINUE;
           }
 
-          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.webrules;
-          this->result.addtoindices  := this->result.addtoindices  CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.addtoindices;
-          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids FROM rule.addtocatalogs;
+          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
+          this->result.addtoindices  := this->result.addtoindices  CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtoindices;
+          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
         }
       }
     }

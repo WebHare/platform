@@ -155,11 +155,14 @@ MACRO TestUnreferencedSiteprofiles()
   RECORD testsite_applicability := GetSiteApplicabilityInfo(OpenTestsuiteSite()->id);
   TestEq(2, Length(testsite_applicability.siteprofileids));
 
-  INTEGER ARRAY affectedsites := GetSiteSettingIDs( [ siteprofileids := testsite_applicability.siteprofileids ]);
+  INTEGER ARRAY affectedsites := GetSiteSettingIDs( [ siteprofileids := testsite_applicability.siteprofileids, sitefilter := DEFAULT RECORD ]);
   IF(ObjectExists(OpenTestsuiteAltSite()))
     TestEq(SortArray(INTEGER[OpenTestsuiteSite()->id, OpenTestsuiteAltSite()->id]), SortArray(affectedsites), "*only* our testsite(s) should be affected by its test siteprofiles");
   ELSE
     TestEq(INTEGER[OpenTestsuiteSite()->id], affectedsites, "*only* our testsite(s) should be affected by its test siteprofiles");
+
+  TestEq(INTEGER[OpenTestsuiteSite()->id], GetSiteSettingIDs( [ siteprofileids := testsite_applicability.siteprofileids, sitefilter :=  [ sitename := ToLowercase(OpenTestsuiteSite()->name) ] ]));
+  TestEq(INTEGER[], GetSiteSettingIDs( [ siteprofileids := testsite_applicability.siteprofileids, sitefilter :=  [ sitemask := "*backend" ] ]));
 }
 
 RunTestframework([ PTR TestParsing

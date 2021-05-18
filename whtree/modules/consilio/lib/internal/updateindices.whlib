@@ -419,6 +419,10 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD siteprofs := GetCachedSiteProfiles();
   FOREVERY (RECORD addtoindex FROM siteprofs.addtoindices)
   {
+    INTEGER ARRAY siteids := GetSiteSettingIDs(addtoindex);
+    IF(Length(siteids) = 0)
+      CONTINUE;
+
     // Create the index if needed
     STRING indexname := addtoindex.name;
     STRING definedby := addtoindex.siteprofile || ":" || addtoindex.line;
@@ -441,7 +445,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
     OBJECT catalog := OpenConsilioCatalogById(indexid);
 
-    FOREVERY (INTEGER siteid FROM GetSiteSettingIDs(addtoindex))
+    FOREVERY (INTEGER siteid FROM siteids)
     {
       // Read the content source settings. The following attributes are stored directly with the content source: 'tag',
       // 'maxgroupobjects', 'discardsummaries'.

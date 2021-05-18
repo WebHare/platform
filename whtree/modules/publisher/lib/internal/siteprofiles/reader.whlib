@@ -1879,7 +1879,7 @@ PUBLIC RECORD FUNCTION GetRTDType(STRING typename)
 //Get a map of the resource IDs to which all sites refer. This is needed to resolve things like GetSiteSettingIDs.
 PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
 {
-  RECORD ARRAY allsites := SELECT sites.id, sites.name, roottype := fs_objects.type
+  RECORD ARRAY allsites := SELECT sites.id, sites.name, roottype := fs_objects.type, sites.webroot
                              FROM system.sites, system.fs_objects
                             WHERE sites.id = fs_objects.id;
 
@@ -1905,7 +1905,7 @@ RECORD FUNCTION GetCacheableCurrentProfileReferrals()
 {
   RECORD gathersp := GetCachedSiteProfiles();
   RECORD ARRAY referrals := GetSiteActiveProfileReferrals(gathersp);
-  referrals := SELECT id, name, roottype, siteprofileids FROM referrals ORDER BY id;
+  referrals := SELECT id, name, roottype, webroot, siteprofileids FROM referrals ORDER BY id;
   RETURN CELL[ value := referrals
              , ttl := 60*60*1000
              , eventmasks := site_referrals_mask
@@ -1924,11 +1924,34 @@ RECORD ARRAY FUNCTION GetSitesReferredByResources(INTEGER ARRAY siteprofileids)
   RETURN SELECT * FROM activeprofiles WHERE IsResourceMatch(VAR siteprofileids, activeprofiles.siteprofileids);
 }
 
+//expand a <sitesetting> to explain to which sites it applies
 PUBLIC INTEGER ARRAY FUNCTION GetSiteSettingIDs(RECORD sitesetting)
 {
-  RETURN SELECT AS INTEGER ARRAY id FROM  GetSitesReferredByResources(sitesetting.siteprofileids);
+  //first filter the sites by whether they actually use on of our siteprofiles
+  RECORD ARRAY filtered := GetSitesReferredByResources(sitesetting.siteprofileids);
+
+  //apply regexes
+  IF(RecordExists(sitesetting.sitefilter))
+  {
+    OBJECT compiledpattern;
+    IF(CellExists(sitesetting.sitefilter, "siteregex"))
+      compiledpattern := NEW RegEx(sitesetting.sitefilter.siteregex, "i"); //case insensitive
+
+    OBJECT compiledwebrootpattern;
+    IF(CellExists(sitesetting.sitefilter, "webrootregex"))
+      compiledwebrootpattern := NEW RegEx(sitesetting.sitefilter.webrootregex, "i"); //case insensitive
+
+    filtered := SELECT *
+                  FROM filtered
+                 WHERE (CellExists(sitesetting.sitefilter, "sitename") ? ToUppercase(name) = ToUppercase(sitesetting.sitefilter.sitename) : TRUE)
+                       AND (CellExists(sitesetting.sitefilter, "sitemask") ? ToUppercase(name) LIKE ToUppercase(sitesetting.sitefilter.sitemask) : TRUE)
+                       AND (CellExists(sitesetting.sitefilter, "siteregex") ? compiledpattern->Test(name) : TRUE)
+                       AND (CellExists(sitesetting.sitefilter, "webrootregex") ? compiledwebrootpattern->Test(webroot) : TRUE);
+  }
+  RETURN SELECT AS INTEGER ARRAY id FROM filtered;
 }
 
+//describe a specific site for apply testing
 PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 {
   IF(siteid != 0)
