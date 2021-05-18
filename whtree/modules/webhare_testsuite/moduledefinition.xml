@@ -283,7 +283,6 @@
     <webfeature hidden="true" name="siteprl_datastorage" title="WH testsuite: siteprl_datastorage" siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"/>
     <webfeature hidden="true" name="siteprl_datastorage2" title="WH testsuite: siteprl_datastorage2" siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"/>
     <webfeature hidden="true" name="autocreatetest" title="WH testsuite: autocreatetest" siteprofile="webfeatures/autocreatetest.siteprl.xml"/>
-    <webfeature hidden="true" name="autocreatetest_without_str" title="WH testsuite: autocreatetest_without_str" siteprofile="webfeatures/autocreatetest_without_str.siteprl.xml"/>
     <webfeature hidden="true" name="conversionstest" title="WH testsuite: conversionstest" siteprofile="webfeatures/conversionstest.siteprl.xml"/>
     <webfeature hidden="true" name="actions" title="WH testsuite: actions" siteprofile="webfeatures/actions.siteprl.xml"/>
     <webfeature hidden="true" name="versioned" title="WH testsuite: versioned" siteprofile="webfeatures/versioned.siteprl.xml"/>
