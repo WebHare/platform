@@ -1035,7 +1035,7 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
     this->rtelinkhandlers := def.linkhandlers;
     this->editable->ValidateSettings();
 
-    OBJECT applytester := this->owner->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->owner->contexts->applytester;
     IF(ObjectExists(applytester))
       this->editable->applytester := applytester;
       //this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
