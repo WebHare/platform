@@ -280,12 +280,6 @@
     <webfeature hidden="true" name="autocreatetest" title="WH testsuite: autocreatetest" siteprofile="webfeatures/autocreatetest.siteprl.xml"/>
     <webfeature hidden="true" name="autocreatetest_without_str" title="WH testsuite: autocreatetest_without_str" siteprofile="webfeatures/autocreatetest_without_str.siteprl.xml"/>
     <webfeature hidden="true" name="conversionstest" title="WH testsuite: conversionstest" siteprofile="webfeatures/conversionstest.siteprl.xml"/>
-    <webfeature hidden="true" name="consilio_nonurl" title="WH testsuite: consilio_nonurl" siteprofile="webfeatures/consilio_nonurl.siteprl.xml"/>
-    <webfeature hidden="true" name="consilio_withurl" title="WH testsuite: consilio_withurl" siteprofile="webfeatures/consilio_withurl.siteprl.xml"/>
-    <webfeature hidden="true" name="fixdynamicexecute_nodynexec" title="WH testsuite: fixdynamicexecute_nodynexec" siteprofile="webfeatures/fixdynamicexecute_nodynexec.siteprl.xml"/>
-    <webfeature hidden="true" name="fixdynamicexecute_dynexec" title="WH testsuite: fixdynamicexecute_dynexec" siteprofile="webfeatures/fixdynamicexecute_dynexec.siteprl.xml"/>
-    <webfeature hidden="true" name="addmappedcell_before" title="WH testsuite: addmappedcell_before" siteprofile="webfeatures/addmappedcell_before.siteprl.xml"/>
-    <webfeature hidden="true" name="addmappedcell_after" title="WH testsuite: addmappedcell_after" siteprofile="webfeatures/addmappedcell_after.siteprl.xml"/>
     <webfeature hidden="true" name="actions" title="WH testsuite: actions" siteprofile="webfeatures/actions.siteprl.xml"/>
     <webfeature hidden="true" name="versioned" title="WH testsuite: versioned" siteprofile="webfeatures/versioned.siteprl.xml"/>
     <customnode name="test" namespace="urn:xyz" />

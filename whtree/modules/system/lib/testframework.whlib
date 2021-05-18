@@ -955,15 +955,27 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     wrdschema->DeleteSelf();
   }
 
+  PUBLIC MACRO DeleteTestModule()
+  {
+    IF(IsModuleInstalled(testfw_testmodule))
+      IF(NOT DeleteModule(testfw_testmodule))
+        THROW NEW Exception(`Deletion of module '${testfw_testmodule} failed!`);
+
+    IF(this->usedatabase AND GetPrimary()->SchemaExists(testfw_testmodule))
+    {
+      GetPrimary()->BeginWork();
+      GetPrimary()->DropSchema(testfw_testmodule);
+      GetPrimary()->CommitWork();
+    }
+  }
+
   MACRO CleanupTests()
   {
     IF(this->disablecreatecleanup)
       RETURN;
 
     //kill the testmodule if it exists
-    IF(IsModuleInstalled(testfw_testmodule))
-      IF(NOT DeleteModule(testfw_testmodule))
-        THROW NEW Exception(`Deletion of module '${testfw_testmodule} failed!`);
+    this->DeleteTestModule();
 
     //kill folders from this or older beta runs
     FOREVERY(RECORD tokill FROM ReadDiskDirectory(this->publisheroutputbase,"*"))
@@ -996,10 +1008,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     }
 
     GetPrimary()->Beginwork();
-
-    //Wipe testmodule database schema if it exists
-    IF(GetPrimary()->SchemaExists(testfw_testmodule))
-      GetPrimary()->DropSchema(testfw_testmodule, [ cascade := TRUE ]);
 
     //Wipe existing WRD schemas
     FOREVERY (STRING name FROM SELECT AS STRING ARRAY COLUMN tag

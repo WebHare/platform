@@ -62,9 +62,7 @@ MACRO MyPrepare()
 
 MACRO TestFixDynamicExecution()
 {
-  testfw->BeginWork();
-  testfw->GetTestSite()->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:fixdynamicexecute_nodynexec"]]);
-  testfw->CommitWork();
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/fixdynamicexecute_nodynexec.siteprl.xml");
 
   testfw->BeginWork();
   OBJECT workfolder := testfw->GetTestSite()->rootobject->CreateFolder([name := "dynexectests"]);
@@ -84,9 +82,8 @@ MACRO TestFixDynamicExecution()
   Testeq(TRUE, testfw->browser->GotoWebPage(workfolder->url));
   TestEq(0, Length(testfw->browser->content));
 
-  testfw->BeginWork();
-  testfw->GetTestSite()->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:fixdynamicexecute_dynexec"]]);
-  testfw->CommitWork();
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/fixdynamicexecute_dynexec.siteprl.xml");
+
   testfw->WaitForPublishCompletion(workfolder->id);
 
   testfw->BeginWork();

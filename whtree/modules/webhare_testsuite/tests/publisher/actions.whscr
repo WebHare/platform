@@ -12,7 +12,6 @@ LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -568,18 +567,6 @@ MACRO SiteProfActionsTest()
   TestEq(testhtml->id, RetrieveManagedTaskResult(applyruletasks[0].id,  MAX_DATETIME).received_whfsid);
 }
 
-
-STRING testreferences_siteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/referencestest">'
-      || '<member name="whfsref" type="whfsref" />'
-      || '<member name="whfsrefarray" type="whfsrefarray" />'
-    || '</contenttype>'
-    || '<apply>'
-    || '  <to type="file" parentmask="/referred2/" />'
-    || '  <republish scope="references" />'
-    || '</apply>'
-  || '</siteprofile>';
 
 //Note: invoking UpdateData/RunEditFileHooks as that's currently the trigger other paths would use too to trigger republish events.
 MACRO DoPublisherEdit(INTEGER fileid) //do an edit on a file like the publisher interface would

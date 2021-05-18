@@ -897,33 +897,6 @@ MACRO TestPhotoAlbum()
   testfw->RollbackWork();
 }
 
-MACRO TestTypeChange()
-{
-  testfw->BeginWork();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]); //'<member name="url" type="string" />'
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT testfile1 := testsite->rootobject->CreateFile([ name:="testfile1", type := 0]);
-  testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest",
-      [ url := "http://example.com"
-      ]);
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]); //'<member name="url" type="url" />'
-  testfw->CommitWork();
-
-  // Test if value didn't change, and whether type change has happened
-  testfw->BeginWork();
-  TestEqMembers([ url := "http://example.com"
-                ], testfile1->GetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest"), "url");
-  TestThrowsLike('Incorrect value*url*', PTR testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest",
-      [ url := "invalid_url"
-      ]));
-  testfw->CommitWork();
-}
-
 MACRO TestArrayMembers()
 {
   // Test finding objects by (array) members values
@@ -1096,7 +1069,6 @@ RunTestframework([ PTR Prepare
                  , PTR FindTest
                  , PTR InplaceUpdateTest
                  , PTR TestPhotoAlbum
-                 , PTR TestTypeChange
                  , PTR TestArrayMembers
                  , PTR TestDirectInstanceData
                  ]);

@@ -111,43 +111,7 @@ MACRO TestCheckedLinks()
   testfw->CommitWork();
 }
 
-MACRO TestTypeChange()
-{
-  testfw->BeginWork();
-  OBJECT testsite := testfw->GetTestSite();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]);
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "test.txt" ]);
-
-  OBJECT whfs_consiliotest := OpenWHFSType("http://www.webhare.net/xmlns/beta/consiliotest");
-
-  whfs_consiliotest->SetInstanceData(testdatafile->id,
-      [ url :=          "http://example.com/3"
-      ]);
-
-  testfw->CommitWork();
-
-  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));
-
-  testfw->BeginWork();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]);
-  testfw->CommitWork();
-
-  TestEQ(
-      [ [ url :=    "http://example.com/3", referrer := "url" ]
-      ], SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
-
-  testfw->BeginWork();
-  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]);
-  testfw->CommitWork();
-
-  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));
-}
-
 RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR Prepare
                  , PTR TestCheckedLinks
-                 , PTR TestTypeChange
                  ]);

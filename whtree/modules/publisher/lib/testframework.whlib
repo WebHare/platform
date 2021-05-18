@@ -134,3 +134,14 @@ PUBLIC MACRO TestSiteProfilesNoErrors()
   TestEq(0, Length(csp.errors), "There are siteprofile errors");
 }
 
+PUBLIC MACRO SetupTestModuleToLoadBaseProfile(STRING profile)
+{
+  testfw->DeleteTestModule();
+  testfw->SetupTestModule( [ moduledefinition :=
+    `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+       <meta><version>0.1.0</version></meta>
+       <publisher><siteprofile path="${EncodeValue(profile)}"/></publisher>
+     </module>`]);
+  TestSiteProfilesNoErrors();
+}
+
