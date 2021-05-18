@@ -32,6 +32,18 @@
     </footer>
   </screen>
 
+  <screen name="updateoptions" footerbuttons="ok cancel">
+    <body>
+      <select name="radio" type="radio">
+        <option rowkey="test">
+          <textedit required="true" />
+        </option>
+        <option rowkey="other" />
+      </select>
+    </body>
+  </screen>
+
+
   <screen name="testinvisibleselect">
     <compositions>
       <record name="contentitem_nl" />

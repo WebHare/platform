@@ -28,6 +28,20 @@ PUBLIC STATIC OBJECTTYPE GenerateInvoice EXTEND TolliumScreenBase
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE UpdateOptions EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (data.update_options)
+      ^radio->options := ^radio->options;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginFeedback()->Finish();
+  }
+>;
+
 PUBLIC STATIC OBJECTTYPE TestInvisibleSelect EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
