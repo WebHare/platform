@@ -14,6 +14,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -70,7 +71,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     }
 
     INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
-    FOREVERY(INTEGER siteid FROM addtocatalog.siteids)
+    FOREVERY(INTEGER siteid FROM GetSiteSettingIDs(addtocatalog))
     {
       OBJECT site := OpenSite(siteid);
       IF(NOT ObjectExists(site))
@@ -289,7 +290,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
               haserrors := TRUE;
               BREAK;
             }
-            ELSE IF (folder->parentsite NOT IN indexrule.siteids AND NOT indexrule.allsites)
+            ELSE IF (NOT AppliesToAllSites(indexrule) AND folder->parentsite NOT IN GetSiteSettingIDs(indexrule))
             {
               Print("Folder '" || attr->nodevalue || "' not assigned in site in " || definedby || "\n");
               haserrors := TRUE;
@@ -418,6 +419,10 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   RECORD siteprofs := GetCachedSiteProfiles();
   FOREVERY (RECORD addtoindex FROM siteprofs.addtoindices)
   {
+    INTEGER ARRAY siteids := GetSiteSettingIDs(addtoindex);
+    IF(Length(siteids) = 0)
+      CONTINUE;
+
     // Create the index if needed
     STRING indexname := addtoindex.name;
     STRING definedby := addtoindex.siteprofile || ":" || addtoindex.line;
@@ -440,7 +445,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
     OBJECT catalog := OpenConsilioCatalogById(indexid);
 
-    FOREVERY (INTEGER siteid FROM addtoindex.siteids)
+    FOREVERY (INTEGER siteid FROM siteids)
     {
       // Read the content source settings. The following attributes are stored directly with the content source: 'tag',
       // 'maxgroupobjects', 'discardsummaries'.

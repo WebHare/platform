@@ -47,6 +47,12 @@
     </members>
   </widgettype>
 
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">
+    <member name="str" type="string" />
+    <member name="rich" type="richdocument" />
+    <member name="intextlink" type="intextlink" />
+    <member name="url" type="url" />
+  </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/beta/test2" cloneoncopy="true">
     <member name="stringtest" type="string" />

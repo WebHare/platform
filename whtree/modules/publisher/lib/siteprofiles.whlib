@@ -6,6 +6,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib" EXPORT DescribeContentTypeById;
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject;
+LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -158,7 +159,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileGlobalSettings(STRING ns, STRIN
       IF(globalsetting.idx >= Length(elements))
         CONTINUE;
 
-      INSERT [ siteprofile := siteprof, node := elements[globalsetting.idx], siteids := globalsetting.siteids, allsites := globalsetting.allsites ] INTO retval AT END;
+      INSERT CELL[ siteprofile := siteprof, node := elements[globalsetting.idx], globalsetting.siteprofileids, sitefilter := ReadSiteFilter(elements[globalsetting.idx]) ] INTO retval AT END;
     }
   RETURN SELECT * FROM retval WHERE ObjectExists(siteprofile);
 }

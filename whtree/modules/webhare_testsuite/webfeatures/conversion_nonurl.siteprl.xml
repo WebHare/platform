@@ -1,8 +1,8 @@
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-    <contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">
+    <contenttype namespace="http://www.webhare.net/xmlns/beta/conversiontest">
       <member name="str" type="string" />
       <member name="rich" type="richdocument" />
       <member name="intextlink" type="intextlink" />
-      <member name="url" type="url" />
+      <member name="url" type="string" />
     </contenttype>
   </siteprofile>

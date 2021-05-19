@@ -3,6 +3,8 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
@@ -10,6 +12,7 @@ LOADLIB "mod::system/lib/internal/whfs/conversion.whlib";
 LOADLIB "mod::system/lib/migrations.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
 
 OBJECT testsite, subfile;
 
@@ -171,8 +174,43 @@ MACRO TestContentTypeConversions()
   testfw->CommitWork();
 }
 
+MACRO TestTypeChange()
+{
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/conversion_nonurl.siteprl.xml");
+
+  testfw->BeginWork();
+  OBJECT testfile1 := testsite->rootobject->CreateFile([ name:="testfile1", type := 0]);
+  OBJECT testfile2 := testsite->rootobject->CreateFile([ name:="testfile2", type := 0]);
+  testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/conversiontest",
+      [ url := "not_an_url_value"
+      ]);
+  testfile2->SetInstanceData("http://www.webhare.net/xmlns/beta/conversiontest",
+      [ url := "http://example.com/3"
+      ]);
+  testfw->CommitWork();
+
+  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testfile1->id));
+  TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testfile2->id));
+
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/conversion_withurl.siteprl.xml");
+
+  // Test if value didn't change, and whether type change has happened
+  testfw->BeginWork();
+  TestEqMembers([ url := "not_an_url_value"
+                ], testfile1->GetInstanceData("http://www.webhare.net/xmlns/beta/conversiontest"), "url");
+  TestThrowsLike('Incorrect value*url*', PTR testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/conversiontest",
+      [ url := "invalid_url"
+      ]));
+
+  TestEQ(
+      [ [ url :=    "http://example.com/3", referrer := "url" ]
+      ], SELECT url, referrer FROM GetLinksForFSObject(testfile2->id) ORDER BY url);
+
+  testfw->CommitWork();
+}
 
 RunTestframework([ PTR Prepare
                  , PTR TestConversions
                  , PTR TestContentTypeConversions
+                 , PTR TestTypeChange
                  ]);

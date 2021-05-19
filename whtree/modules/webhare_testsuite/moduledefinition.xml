@@ -270,6 +270,11 @@
     </webdesign>
     <webdesign hidden="true" name="alttest" title="WH testsuite: selftest 'attest'" siteprofile="webdesigns/basetest/alttest.siteprl.xml">
     </webdesign>
+    <webdesign name="neverused_compiletest"
+               hidden="true"
+               siteprofile="webdesigns/basetest/neverused_compiletest.siteprl.xml"
+               title="WH testsuite: never used siteprl" />
+
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
     <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
     <webfeature hidden="true" name="testfeature" title="WH testsuite: Test feature" siteprofile="webfeatures/testfeature.siteprl"/>
@@ -278,16 +283,14 @@
     <webfeature hidden="true" name="siteprl_datastorage" title="WH testsuite: siteprl_datastorage" siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"/>
     <webfeature hidden="true" name="siteprl_datastorage2" title="WH testsuite: siteprl_datastorage2" siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"/>
     <webfeature hidden="true" name="autocreatetest" title="WH testsuite: autocreatetest" siteprofile="webfeatures/autocreatetest.siteprl.xml"/>
-    <webfeature hidden="true" name="autocreatetest_without_str" title="WH testsuite: autocreatetest_without_str" siteprofile="webfeatures/autocreatetest_without_str.siteprl.xml"/>
     <webfeature hidden="true" name="conversionstest" title="WH testsuite: conversionstest" siteprofile="webfeatures/conversionstest.siteprl.xml"/>
-    <webfeature hidden="true" name="consilio_nonurl" title="WH testsuite: consilio_nonurl" siteprofile="webfeatures/consilio_nonurl.siteprl.xml"/>
-    <webfeature hidden="true" name="consilio_withurl" title="WH testsuite: consilio_withurl" siteprofile="webfeatures/consilio_withurl.siteprl.xml"/>
-    <webfeature hidden="true" name="fixdynamicexecute_nodynexec" title="WH testsuite: fixdynamicexecute_nodynexec" siteprofile="webfeatures/fixdynamicexecute_nodynexec.siteprl.xml"/>
-    <webfeature hidden="true" name="fixdynamicexecute_dynexec" title="WH testsuite: fixdynamicexecute_dynexec" siteprofile="webfeatures/fixdynamicexecute_dynexec.siteprl.xml"/>
-    <webfeature hidden="true" name="addmappedcell_before" title="WH testsuite: addmappedcell_before" siteprofile="webfeatures/addmappedcell_before.siteprl.xml"/>
-    <webfeature hidden="true" name="addmappedcell_after" title="WH testsuite: addmappedcell_after" siteprofile="webfeatures/addmappedcell_after.siteprl.xml"/>
     <webfeature hidden="true" name="actions" title="WH testsuite: actions" siteprofile="webfeatures/actions.siteprl.xml"/>
     <webfeature hidden="true" name="versioned" title="WH testsuite: versioned" siteprofile="webfeatures/versioned.siteprl.xml"/>
+    <webfeature name="unusedfeature"
+                hidden="true"
+                siteprofile="webfeatures/neverused_feature.siteprl.xml"
+                title="WH testsuite: never used feature" />
+
     <customnode name="test" namespace="urn:xyz" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
     <webdesignplugin name="test" namespace="http://www.webhare.net/xmlns/webhare_testsuite" objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" hooksfeatures="preparemail" />

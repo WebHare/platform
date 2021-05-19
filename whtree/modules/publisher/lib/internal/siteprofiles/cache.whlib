@@ -48,6 +48,11 @@ PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
   RETURN whfscache_csp;
 }
 
+PUBLIC BOOLEAN FUNCTION AppliesToAllSites(RECORD sitesetting)
+{
+  RETURN Length(sitesetting.siteprofileids) = 0;
+}
+
 /** Describes a content type
     @param id Id of the content type
     @cell(boolean) options.isfolder If provided, fallback on normal file / normal folder when the provided id is 0.

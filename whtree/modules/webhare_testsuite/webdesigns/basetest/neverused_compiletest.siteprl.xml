@@ -1,0 +1,17 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:xyz="urn:xyz">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/unusedfiletype"
+            kind="rawfile"
+            title="webhare_testsuite: unused file type">
+    <members>
+      <string name="astring" />
+    </members>
+  </filetype>
+
+  <apply>
+    <to type="all" />
+    <xyz:test data="should-never-be-visible-(webdesign)" />
+  </apply>
+
+</siteprofile>

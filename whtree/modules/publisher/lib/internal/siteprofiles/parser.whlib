@@ -1459,8 +1459,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         CONTINUE;
 
       INSERT [ siteprofile := this->siteprof->name
-//             , siteids := siteids
-//             , allsites := allsites
              , idx := #node
              , ns := node->namespaceuri
              , localname := node->localname

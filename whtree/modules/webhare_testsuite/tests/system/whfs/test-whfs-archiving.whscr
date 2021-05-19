@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -260,6 +261,8 @@ MACRO Archiving_Nometa()
 
 MACRO ArchivingAddMappedCell()
 {
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/addmappedcell_before.siteprl.xml");
+
   testfw->BeginWork();
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   OBJECT testsite := CreateSiteFromFolder(firstfolder->id);
@@ -274,8 +277,9 @@ MACRO ArchivingAddMappedCell()
   BLOB arc := archivesfolder->ExportFolder([ initialname := "" ]).files[0].data;
   testfw->CommitWork();
 
+  SetupTestModuleToLoadBaseProfile("mod::webhare_testsuite/webfeatures/addmappedcell_after.siteprl.xml");
+
   testfw->BeginWork();
-  testsite->UpdateSiteMetadata([ webfeatures := [ "webhare_testsuite:addmappedcell_after"]]);
   addmappedtestfile->RecycleSelf();
   testfw->CommitWork();
 
