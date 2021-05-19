@@ -833,12 +833,6 @@
         <xs:attribute name="isacceptableindex" type="xs:boolean" />
         <xs:attribute name="ispublishable" type="xs:boolean" />
         <xs:attribute name="ispublishedassubdir" type="xs:boolean" />
-        <!-- If this type is viewable within the browser, e.g. when previewing files in the publisher, default: false -->
-        <xs:attribute name="isviewable" type="xs:boolean">
-          <xs:annotation>
-            <xs:documentation>Deprecated - no longer used</xs:documentation>
-          </xs:annotation>
-        </xs:attribute>
         <xs:attribute name="previewlibrary" type="xs:string">
           <xs:annotation>
             <xs:documentation>

@@ -271,8 +271,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   RECORD FUNCTION ReadFileType(RECORD ctype, OBJECT ftype)
   {
     ctype.filetype := GetBaseFiletypeRecord();
-    IF(ftype->HasAttribute("isviewable"))
-      this->AddWarning(ftype, "The attribute 'isviewable' is obsolete and should be removed");
     if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
       this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
     if(ftype->HasAttribute("kind") AND ftype->HasAttribute("typedef"))
