@@ -23,7 +23,11 @@ class JSONParser
                 TS_DQStringEsc,
                 TS_NumberPrefix,
                 TS_Number,
-                TS_Error
+                TS_Error,
+                TS_CommentStart,
+                TS_LineComment,
+                TS_BlockComment,
+                TS_BlockCommentEnd
         };
 
         enum TokenType
@@ -66,6 +70,7 @@ class JSONParser
 
         /// Tokenizer state
         TokenState state;
+        bool comment_after_numberprefix;
 
         /// Current token
         std::string currenttoken;
@@ -101,12 +106,20 @@ class JSONParser
         /// Whether translation for the empty key is present
         bool allowemptykey;
 
+        /// Whether comments are allowed
+        bool allowcomments;
+
+        /// Whether we parse into JSONArray and JSONObject
+        bool wrapobjects;
+
         bool HandleToken(std::string const &token, TokenType tokentype);
         bool ParseSimpleValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool ParseHSONTypedValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
+        bool WrapObject(HSVM_VariableId var);
+        bool WrapArray(HSVM_VariableId var);
 
     public:
-        JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations);
+        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId _translations);
 
         bool HandleByte(uint8_t byte);
         bool Finish(HSVM_VariableId target);
@@ -149,9 +162,10 @@ std::ostream & operator <<(std::ostream &out, JSONParser::ParseState parsestate)
 }
 
 
-JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
+JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId _translations)
 : vm(_vm)
 , state(TS_Default)
+, comment_after_numberprefix(false)
 , encoder(std::back_inserter(currenttoken))
 , parsestate(_hson ? PS_HSONStart : PS_RootValue)
 , line(1)
@@ -160,6 +174,8 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
 , errorcolumn(1)
 , hson(_hson)
 , allowemptykey(false)
+, allowcomments(_allowcomments)
+, wrapobjects(_wrapobjects)
 {
         root = HSVM_AllocateVariable(vm);
         if (_translations)
@@ -179,7 +195,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
                 }
         }
 
-        HSVM_SetDefault(vm, root, HSVM_VAR_Record);
+        HSVM_SetDefault(vm, root, wrapobjects ? HSVM_VAR_Object : HSVM_VAR_Record);
         levels.push_back(Level(root, PS_Error));
 }
 
@@ -219,13 +235,14 @@ bool JSONParser::HandleByte(uint8_t byte)
         bool is_whitespace = val == ' ' || val == '\r' || val == '\n' || val == '\t';
         bool is_tokenchar = val == '{' || val == '}' || val == '[' || val ==  ']' || val == ':' || val == ',';
         bool is_specialchar = val == '\'' || val == '\"' || val == '-' || val ==  '+' || val == '.';
+        bool is_comment = allowcomments && val == '/';
 
         // First process tokens that are terminated by a token outside their class (that still needs to be processed afterwards)
 
         if (state == TS_LongToken)
         {
                 // long token ends by whitespace or tokenchar or specialchar
-                if (is_whitespace || is_tokenchar || is_specialchar)
+                if (is_whitespace || is_tokenchar || is_specialchar || is_comment)
                 {
                         // Process the long token
                         if (!HandleToken(currenttoken, JTT_Token))
@@ -261,36 +278,82 @@ bool JSONParser::HandleByte(uint8_t byte)
                         if (state == TS_NumberPrefix)
                         {
                                 // Only seen prefixes, skip whitespace
+                                if (is_comment)
+                                {
+                                        comment_after_numberprefix = true;
+                                        state = TS_CommentStart;
+                                        return true;
+                                }
                                 if (!is_whitespace)
                                 {
                                         // Check if other than prefix
                                         if (val != '+' && val != '-')
-                                            state = TS_Number;
+                                        {
+                                                state = TS_Number;
+                                                comment_after_numberprefix = false;
+                                        }
 
                                         // Add to token
                                         encoder(val);
+                                        return true;
                                 }
                         }
-                        else if (is_whitespace)
+                        else if (is_whitespace || is_comment)
                         {
-                                // Whitespace, ends the number
+                                // Whitespace or comment, ends the number
                                 if (!HandleToken(currenttoken, JTT_Number))
                                 {
                                         state = TS_Error;
                                         return false;
                                 }
 
-                                // Set the state. No need to continue, whitespace is ignored anyway
+                                // Continue to process the current character too
                                 state = TS_Default;
                         }
                         else
                         {
                                 // Add to token (this adds also non-number charactes, but don't care now)
                                 encoder(val);
+                                return true;
                         }
-
-                        return true;
                 }
+        }
+
+        if (state == TS_CommentStart)
+        {
+                if (val == '/')
+                    state = TS_LineComment;
+                else if (val == '*')
+                    state = TS_BlockComment;
+                else
+                {
+                        errormessage = "Unexpected character '" + currenttoken + "' encountered, expected '/' or '*'";
+                        errorline = line;
+                        errorcolumn = column - 1;
+                        state = TS_Error;
+                        return false;
+                }
+                return true;
+        }
+        if (state == TS_LineComment)
+        {
+                if (val == '\n')
+                    state = comment_after_numberprefix ? TS_NumberPrefix : TS_Default;
+                return true;
+        }
+        if (state == TS_BlockComment)
+        {
+                if (val == '*')
+                    state = TS_BlockCommentEnd;
+                return true;
+        }
+        if (state == TS_BlockCommentEnd)
+        {
+                if (val == '/')
+                    state = comment_after_numberprefix ? TS_NumberPrefix : TS_Default;
+                else if (val != '*')
+                    state = TS_BlockComment;
+                return true;
         }
 
         if (state == TS_Default || state == TS_Initial)
@@ -302,6 +365,12 @@ bool JSONParser::HandleByte(uint8_t byte)
                 // Ignore whitespace
                 if (is_whitespace)
                     return true;
+
+                if (is_comment)
+                {
+                        state = TS_CommentStart;
+                        return true;
+                }
 
                 currenttoken.clear();
                 if (is_tokenchar)
@@ -471,7 +540,7 @@ bool JSONParser::Finish(HSVM_VariableId target)
         if (state != TS_Error)
             HSVM_CopyFrom(vm, value, root);
         else
-            HSVM_SetDefault(vm, value, HSVM_VAR_Record);
+            HSVM_SetDefault(vm, value, wrapobjects ? HSVM_VAR_Object : HSVM_VAR_Record);
 
         HSVM_DeallocateVariable(vm, root);
         return state != TS_Error;
@@ -519,12 +588,15 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     // End of object (this handles empty objects and extra ',' after last member)
                     if (tokentype == JTT_SpecialToken && token[0] == '}')
                     {
+                            if (wrapobjects)
+                                WrapObject(levels.back().var);
+
                             parsestate = levels.back().restorestate;
                             levels.pop_back();
                             return true;
                     }
 
-                    if ((tokentype != JTT_String && tokentype != JTT_Token) || (token.empty() && !allowemptykey))
+                    if ((tokentype != JTT_String && tokentype != JTT_Token) || (token.empty() && !allowemptykey && !wrapobjects))
                     {
                             errormessage = "Expected a cellname";
                             parsestate = PS_Error;
@@ -559,6 +631,9 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     }
                     else
                     {
+                            if (wrapobjects)
+                                WrapObject(levels.back().var);
+
                             parsestate = levels.back().restorestate;
                             levels.pop_back();
                     }
@@ -578,10 +653,15 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     }
                     else
                     {
-                            // Convert arrays that are all integers, strings or records to their equivalent XXXArray
-                            HSVM_VariableType type = levels.back().arrayelttype;
-                            if (type == HSVM_VAR_IntegerArray || type == HSVM_VAR_StringArray || type == HSVM_VAR_RecordArray)
-                                GetVirtualMachine(vm)->stackmachine.ForcedCastTo(levels.back().var, static_cast< VariableTypes::Type >(type));
+                            if (wrapobjects)
+                                WrapArray(levels.back().var);
+                            else
+                            {
+                                    // Convert arrays that are all integers, strings or records to their equivalent XXXArray
+                                    HSVM_VariableType type = levels.back().arrayelttype;
+                                    if (type == HSVM_VAR_IntegerArray || type == HSVM_VAR_StringArray || type == HSVM_VAR_RecordArray)
+                                        GetVirtualMachine(vm)->stackmachine.ForcedCastTo(levels.back().var, static_cast< VariableTypes::Type >(type));
+                            }
 
                             parsestate = levels.back().restorestate;
                             levels.pop_back();
@@ -604,10 +684,15 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
             {
                     if (tokentype == JTT_SpecialToken && token[0] == ']')
                     {
-                            // Convert arrays that are all integers, strings or records to their equivalent XXXArray
-                            HSVM_VariableType type = levels.back().arrayelttype;
-                            if (type == HSVM_VAR_IntegerArray || type == HSVM_VAR_StringArray || type == HSVM_VAR_RecordArray)
-                                GetVirtualMachine(vm)->stackmachine.ForcedCastTo(levels.back().var, static_cast< VariableTypes::Type >(type));
+                            if (wrapobjects)
+                                WrapArray(levels.back().var);
+                            else
+                            {
+                                    // Convert arrays that are all integers, strings or records to their equivalent XXXArray
+                                    HSVM_VariableType type = levels.back().arrayelttype;
+                                    if (type == HSVM_VAR_IntegerArray || type == HSVM_VAR_StringArray || type == HSVM_VAR_RecordArray)
+                                        GetVirtualMachine(vm)->stackmachine.ForcedCastTo(levels.back().var, static_cast< VariableTypes::Type >(type));
+                            }
 
                             parsestate = levels.back().restorestate;
                             levels.pop_back();
@@ -646,16 +731,25 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                          } break;
                     case PS_ObjectWantValue:
                         {
-                                HSVM_ColumnId colid = 0;
-                                if (!translations.empty())
+                                if (wrapobjects)
                                 {
-                                        Translations::const_iterator itr = translations.find(lastname);
-                                        if (itr != translations.end())
-                                            colid = itr->second;
+                                        HSVM_VariableId elt = HSVM_ArrayAppend(vm, levels.back().var);
+                                        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, elt, GetVirtualMachine(vm)->cn_cache.col_name), lastname);
+                                        target = HSVM_RecordCreate(vm, elt, GetVirtualMachine(vm)->cn_cache.col_value);
                                 }
-                                if (colid == 0)
-                                    colid = HSVM_GetColumnIdRange(vm, &*lastname.begin(), &*lastname.end());
-                                target = HSVM_RecordCreate(vm, levels.back().var, colid);
+                                else
+                                {
+                                        HSVM_ColumnId colid = 0;
+                                        if (!translations.empty())
+                                        {
+                                                Translations::const_iterator itr = translations.find(lastname);
+                                                if (itr != translations.end())
+                                                    colid = itr->second;
+                                        }
+                                        if (colid == 0)
+                                            colid = HSVM_GetColumnIdRange(vm, &*lastname.begin(), &*lastname.end());
+                                        target = HSVM_RecordCreate(vm, levels.back().var, colid);
+                                }
                                 restorestate = PS_ObjectWantComma;
                         } break;
                     default:
@@ -698,7 +792,10 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                                             return false;
                                     }
 
-                                    HSVM_RecordSetEmpty(vm, target);
+                                    if (wrapobjects)
+                                        HSVM_SetDefault(vm, target, HSVM_VAR_RecordArray);
+                                    else
+                                        HSVM_RecordSetEmpty(vm, target);
                                     parsestate = PS_ObjectWantName;
                                     return true;
                             }
@@ -894,7 +991,7 @@ bool JSONParser::ParseSimpleValue(HSVM_VariableId target, std::string const &tok
 
                     if (token == Blex::StringPair(str_null, str_null + 4) && !hson)
                     {
-                            HSVM_SetDefault(vm, target, HSVM_VAR_Record);
+                            HSVM_SetDefault(vm, target, wrapobjects ? HSVM_VAR_Object : HSVM_VAR_Record);
                             return true;
                     }
                     if (token == Blex::StringPair(str_false, str_false + 5))
@@ -1225,6 +1322,31 @@ bool JSONParser::ParseHSONTypedValue(HSVM_VariableId target, std::string const &
         }
 }
 
+bool JSONParser::WrapObject(HSVM_VariableId var)
+{
+        HSVM_OpenFunctionCall(vm, 1);
+        HSVM_CopyFrom(vm, HSVM_CallParam(vm, 0), var);
+        const HSVM_VariableType args[1] = { 0x01 };
+        VarId retval = HSVM_CallFunction(vm, "wh::system.whlib", "__WrapJSONObject", 0x01, 1, args);
+        if (retval && !HSVM_TestMustAbort(vm))
+            HSVM_CopyFrom(vm, var, retval);
+        HSVM_CloseFunctionCall(vm);
+
+        return retval && !HSVM_TestMustAbort(vm);
+}
+
+bool JSONParser::WrapArray(HSVM_VariableId var)
+{
+        HSVM_OpenFunctionCall(vm, 1);
+        HSVM_CopyFrom(vm, HSVM_CallParam(vm, 0), var);
+        const HSVM_VariableType args[1] = { 0x01 };
+        VarId retval = HSVM_CallFunction(vm, "wh::system.whlib", "__WrapJSONArray", 0x01, 1, args);
+        if (retval && !HSVM_TestMustAbort(vm))
+            HSVM_CopyFrom(vm, var, retval);
+        HSVM_CloseFunctionCall(vm);
+
+        return retval && !HSVM_TestMustAbort(vm);
+}
 
 std::string JSONParser::GetErrorMessage() const
 {
@@ -1240,17 +1362,19 @@ class JSONEncoder
         {
         LT_Root,
         LT_Array,
-        LT_Object
+        LT_Object,
+        LT_UnpackedObject
         };
 
         struct Level
         {
-                Level(HSVM_VariableId _var, LevelType _type) : var(_var), type(_type), pos(0) { }
+                Level(HSVM_VariableId _var, LevelType _type) : var(_var), type(_type), pos(0), allocated(false) { }
                 HSVM_VariableId var;
                 LevelType type;
                 unsigned pos;
                 unsigned len;
                 Blex::PodVector< HSVM_ColumnId > columns;
+                bool allocated;
         };
 
     private:
@@ -1344,6 +1468,16 @@ std::string GetErrorLocationFromLevels(HSVM *vm, std::vector< JSONEncoder::Level
                     unsigned colname_len = HSVM_GetColumnName(vm, itr.columns[itr.pos - 1], colname_buffer);
                     errormsg += std::string(colname_buffer, colname_buffer + colname_len);
                 }
+                else if (itr.type == JSONEncoder::LT_UnpackedObject)
+                {
+                        errormsg += ".";
+                        HSVM_VariableId elt = HSVM_ArrayGetRef(vm, itr.var, itr.pos - 1);
+                        HSVM_VariableId name = HSVM_RecordGetRef(vm, elt, GetVirtualMachine(vm)->cn_cache.col_name);
+                        if (name && HSVM_GetType(vm, name) == HSVM_VAR_String)
+                            errormsg += HSVM_StringGetSTD(vm, name);
+                        else
+                            errormsg += std::string("???");
+                }
         }
 
         return errormsg;
@@ -1399,12 +1533,17 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                         case LT_Array:
                             {
                                     dest.push_back(']');
+                                    if (current.allocated)
+                                        HSVM_DeallocateVariable(vm, current.var);
                                     levels.pop_back();
                                     continue;
                             }
                         case LT_Object:
+                        case LT_UnpackedObject:
                             {
                                     dest.push_back('}');
+                                    if (current.allocated)
+                                        HSVM_DeallocateVariable(vm, current.var);
                                     levels.pop_back();
                                     continue;
                             }
@@ -1455,6 +1594,27 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                             dest.push_back(':');
 
                             to_encode = HSVM_RecordGetRef(vm, current.var, colid);
+                    } break;
+                case LT_UnpackedObject:
+                    {
+                            // Reachable in JSON mode only
+                            if (current.pos != 0)
+                                dest.push_back(',');
+
+                            HSVM_VariableId rec = HSVM_ArrayGetRef(vm, current.var, current.pos);
+                            HSVM_VariableId name = HSVM_RecordGetRequiredTypedRef(vm, rec, GetVirtualMachine(vm)->cn_cache.col_name, HSVM_VAR_String);
+                            if (!name)
+                                return;
+                            to_encode = HSVM_RecordGetRequiredRef(vm, rec, GetVirtualMachine(vm)->cn_cache.col_value);
+                            if (!to_encode)
+                                return;
+
+                            Blex::StringPair str;
+                            HSVM_StringGet(vm, name, &str.begin, &str.end);
+                            dest.push_back('"');
+                            Blex::EncodeJSON(str.begin, str.end, std::back_inserter(dest));
+                            dest.push_back('"');
+                            dest.push_back(':');
                     } break;
                 case LT_Root:
                     {
@@ -1749,6 +1909,63 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     return;
                             }
 
+                            if (!HSVM_ObjectExists(vm, to_encode))
+                            {
+                                    const char *str_null = "null";
+                                    unsigned oldsize = dest.size();
+                                    dest.resize(oldsize + 4);
+                                    std::copy(str_null, str_null + 4, dest.begin() + oldsize);
+                                    continue;
+                            }
+
+                            HSVM_OpenFunctionCall(vm, 1);
+                            HSVM_CopyFrom(vm, HSVM_CallParam(vm, 0), to_encode);
+                            GetVirtualMachine(vm)->GetStackMachine().ObjectSetReferencePrivilegeStatus(HSVM_CallParam(vm, 0), true);
+                            const HSVM_VariableType args[1] = { HSVM_VAR_Object };
+
+                            HSVM_VariableId retval = HSVM_CallFunction(vm, "wh::system.whlib", "__UnwrapJSONObject", 1, 1, args);
+                            if (!retval)
+                                return;
+
+                            HSVM_VariableId var = HSVM_AllocateVariable(vm);
+                            HSVM_CopyFrom(vm, var, retval);
+
+                            HSVM_CloseFunctionCall(vm);
+                            HSVM_VariableType type = HSVM_GetType(vm, var);
+                            if (type == HSVM_VAR_RecordArray)
+                            {
+                                    // object, unpacked
+                                    Level level(var, LT_UnpackedObject);
+                                    level.allocated = true;
+                                    level.len = HSVM_ArrayLength(vm, var);
+                                    levels.push_back(level);
+                                    dest.push_back('{');
+                                    continue;
+                            }
+                            else if (type == HSVM_VAR_VariantArray)
+                            {
+                                    // array
+                                    Level level(var, LT_Array);
+                                    level.allocated = true;
+                                    level.len = HSVM_ArrayLength(vm, var);
+                                    levels.push_back(level);
+                                    dest.push_back('[');
+                                    continue;
+                            }
+                            else if (type == HSVM_VAR_String)
+                            {
+                                    char const *start, *end;
+                                    HSVM_StringGet(vm, var, &start, &end);
+                                    HSVM_DeallocateVariable(vm, var);
+                                    if (start != end)
+                                    {
+                                            dest.insert(dest.end(), start, end);
+                                            continue;
+                                    }
+                            }
+                            else
+                                HSVM_DeallocateVariable(vm, var);
+
                             ThrowCannotEncodeType(vm, type, hson, levels, false);
                             return;
                     } break;
@@ -1857,7 +2074,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, translations) {}
+                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _wrapobjects, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _wrapobjects, translations) {}
 
                 JSONParser jsonparser;
 
@@ -1883,14 +2100,67 @@ std::pair< Blex::SocketError::Errors, unsigned > JSONContextData::Parser::Write(
 const int JSONContextId = 20;
 typedef Blex::Context< JSONContextData, JSONContextId, void> JSONContext;
 
+namespace
+{
+
+struct DecoderOptions
+{
+        bool allowcomments;
+        bool wrapobjects;
+};
+
+bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOptions *options)
+{
+        for (unsigned idx = 0, e = HSVM_RecordLength(*vm, opts); idx < e; ++idx)
+        {
+                HSVM_ColumnId colid = HSVM_RecordColumnIdAtPos(*vm, opts, idx);
+                HSVM_VariableId var = HSVM_RecordGetRef(*vm, opts, colid);
+
+                if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_allowcomments)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->allowcomments = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_wrapobjects)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->wrapobjects = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else
+                {
+                        char colname[HSVM_MaxColumnName];
+                        HSVM_GetColumnName(*vm, colid, colname);
+                        HSVM_ThrowException(*vm, ("Unexpected option '" + std::string(colname) + "'").c_str());
+                        return false;
+                }
+
+                char colname[HSVM_MaxColumnName];
+                HSVM_GetColumnName(*vm, colid, colname);
+                HSVM_ThrowException(*vm, ("Option '" + std::string(colname) + "' has the wrong type").c_str());
+                return false;
+
+        }
+        return true;
+}
+
+} // anonymous namespace
 
 void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
 {
         JSONContext context(vm->GetContextKeeper());
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(0));
+        DecoderOptions decoderopts{}; // zero-initialize!
+        if (!ParseDecoderOptions(vm, HSVM_Arg(1), &decoderopts))
+            return;
 
-        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, HSVM_Arg(1)));
+        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.wrapobjects, HSVM_Arg(2)));
         context->parsers[parser->GetId()] = parser;
 
         HSVM_IntegerSet(*vm, id_set, parser->GetId());
@@ -1941,7 +2211,11 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         std::string data = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
 
-        JSONParser jsonparser(*vm, is_hson, HSVM_Arg(2));
+        DecoderOptions decoderopts{}; // zero-initialize!
+        if (!ParseDecoderOptions(vm, HSVM_Arg(2), &decoderopts))
+            return;
+
+        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.wrapobjects, HSVM_Arg(3));
         for (std::string::iterator it = data.begin(); it != data.end(); ++it)
             if (!jsonparser.HandleByte(static_cast< uint8_t >(*it)))
                 break;
@@ -1982,10 +2256,10 @@ void InitJSON(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifre
 {
         JSONContext::Register(creg);
 
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERALLOCATE::I:BR", JSONDecoderAllocate));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERALLOCATE::I:BRR", JSONDecoderAllocate));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERPROCESS::B:IS", JSONDecoderProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERFINISH::R:I", JSONDecoderFinish));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERQUICK::R:SBR", JSONDecoderQuick));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERQUICK::R:SBRR", JSONDecoderQuick));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOSTRING::S:VBR", JSONEncodeToString));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOBLOB::X:VBR", JSONEncodeToBlob));
 }

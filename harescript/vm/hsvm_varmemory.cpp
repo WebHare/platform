@@ -1478,6 +1478,14 @@ bool VarMemory::ObjectHasDeletableMembers(VarId obj)
         return backing->has_deletable_members;
 }
 
+bool VarMemory::ObjectIsSharedReference(VarId obj)
+{
+        VarObject const *var = &GetVarReadPtr(obj)->data.object;
+        if (var->backed.bufpos == SharedPool::AllocationUnused)
+            return false;
+        return backings.IsShared(var->backed.bufpos);
+}
+
 void VarMemory::WeakObjectInitializeDefault(VarId id)
 {
         VarStore *dest = RecycleVariable(id,VariableTypes::WeakObject,0);

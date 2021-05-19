@@ -1381,6 +1381,13 @@ void WeakObjectExists(VarId id_set,VirtualMachine *vm)
 {
         HSVM_BooleanSet(*vm, id_set, vm->GetStackMachine().WeakObjectExists(HSVM_Arg(0)));
 }
+void TestObjectSharedReference(VarId id_set,VirtualMachine *vm)
+{
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
+        bool isshared = vm->GetStackMachine().ObjectIsSharedReference(HSVM_Arg(0));
+        vm->GetStackMachine().MoveFrom(HSVM_RecordCreate(*vm, id_set, vm->cn_cache.col_value), HSVM_Arg(0));
+        HSVM_BooleanSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "ISSHARED")), isshared);
+}
 
 void HS_GetTypeName(VarId id_set, VirtualMachine *vm)
 {
@@ -1623,6 +1630,7 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DESCRIBEOBJECTSTRUCTURE::R:OB", DescribeObjectStructure));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_GETISOBJECTTYPESTATIC::B:O", GetIsObjectTypeStatic));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_MAKEOBJECTREFERENCEPRIVILEGED::O:O", MakeObjectPrivate));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_TESTOBJECTSHAREDREFERENCE::R:O", TestObjectSharedReference));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_COLLECTGARBAGE:::", CollectGarbage));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_OBJECTMATCHESOUID::B:OS", ObjectMatchesOUID));

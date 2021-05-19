@@ -436,6 +436,7 @@ class ColumnNameCache
     public:
         ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper);
 
+        ColumnNameId col_allowcomments;
         ColumnNameId col_authenticationrecord;
         ColumnNameId col_baseptr;
         ColumnNameId col_casesensitive;
@@ -553,6 +554,7 @@ class ColumnNameCache
         ColumnNameId col_variables;
         ColumnNameId col_vm;
         ColumnNameId col_week;
+        ColumnNameId col_wrapobjects;
         ColumnNameId col_write;
         ColumnNameId col_year;
         ColumnNameId col_yearofweek;

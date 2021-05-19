@@ -748,7 +748,7 @@ PUBLIC MACRO UpdateAuditContext(RECORD auditcontext)
     @cell(string) auditcontext.affecteduser_login Affected user login
     @param data Event data
     @return Written data
-    @cell return.auditcontext Final audit context @includecelldef param.auditcontext
+    @cell return.auditcontext Final audit context @includecelldef #LogAuditEventBy.auditcontext
 */
 PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RECORD data)
 {
@@ -777,7 +777,7 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
 
   IF (NOT CellExists(__auditcontext, "REMOTEIP") AND NOT CellExists(auditcontext, "REMOTEIP"))
   {
-    // GetClientRemoteIP will fail with execption if we're not within a request.
+    // GetClientRemoteIP will fail with exception if we're not within a request.
     // Can't use IsRequest() from webserver.whlib due to recursive loadlibs
     TRY
       auditcontext := CELL[ ...auditcontext, remoteip := GetClientRemoteIP(), country := "" ];

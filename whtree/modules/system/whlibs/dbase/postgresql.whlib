@@ -1175,7 +1175,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     IF (newlevel NOT IN [ "read committed", "repeatable read", "serializable" ])
       THROW NEW Exception(`Illegal isolation level '${newlevel}', expected one of 'read committed', 'repeatable read', 'serializable'`);
     IF (this->IsWorkOpen())
-      THROW NEW Exception(`Cannot change tranaction isolation level while work is open`);
+      THROW NEW Exception(`Cannot change transaction isolation level while work is open`);
     this->pvt_transactionisolationlevel := newlevel;
   }
 

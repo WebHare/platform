@@ -12,6 +12,12 @@ LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncCo
 RECORD abort_errordata;
 PUBLIC MACRO PTR __system_reflecthook;
 
+/// Used for bypassing the parameter parsers of JSONObject and JSONArray
+RECORD jsonobject_directinit;
+
+/// callback called when Clone is called (for optimizing)
+PUBLIC FUNCTION PTR __system_jsonobjectclonehook;
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // General functions
@@ -4005,25 +4011,98 @@ PUBLIC STRING FUNCTION GetExternalSessionData() __ATTRIBUTES__(EXTERNAL);
 */
 PUBLIC MACRO SetExternalSessionData(STRING newid) __ATTRIBUTES__(EXTERNAL);
 
+
+PUBLIC VARIANT FUNCTION __WrapJSONObject(VARIANT value)
+{
+  RECORD ARRAY cells := RECORD ARRAY(value);
+  IF (IsValueSet(cells))
+  {
+    INTEGER e := LENGTH(cells);
+
+    // Order by name
+    cells := SELECT * FROM cells ORDER BY name;
+
+    // Remove duplicates
+    STRING prev := cells[0].name;
+    FOR (INTEGER i := 1; i < e; i := i + 1)
+    {
+      STRING cur := cells[i].name;
+      IF (prev = cur)
+      {
+        // got the same name twice. loop while overwriting the previous occurrences
+        INTEGER writepos := i - 1;
+        cells[writepos] := cells[i];
+        FOR (i := i + 1; i < e; i := i + 1)
+        {
+          cur := cells[i].name;
+          IF (prev != cur)
+          {
+            writepos := writepos + 1;
+            prev := cur;
+          }
+          cells[writepos] := cells[i];
+        }
+        cells := ArraySlice(cells, 0, writepos + 1);
+        BREAK;
+      }
+      prev := cur;
+    }
+  }
+  jsonobject_directinit := [ value := cells ];
+  RETURN NEW JSONObject();
+}
+
+PUBLIC VARIANT FUNCTION __WrapJSONArray(VARIANT value)
+{
+  jsonobject_directinit := [ value := VARIANT ARRAY(value) ];
+  RETURN NEW JSONArray();
+}
+
+PUBLIC STRING FUNCTION __JSONPrintObject(OBJECT obj)
+{
+  IF (MemberExists(obj, "TOJSON"))
+    RETURN obj->ToJSON();
+  RETURN "";
+}
+
+PUBLIC VARIANT FUNCTION __UnwrapJSONObject(OBJECT obj)
+{
+  IF (MemberExists(obj, "__INTERNAL_UNWRAPJSONOBJECT"))
+    RETURN obj->__INTERNAL_UNWRAPJSONOBJECT();
+  IF (MemberExists(obj, "TOJSON"))
+    RETURN STRING(obj->ToJSON());
+  THROW NEW Exception(`Cannot JSON-encode an OBJECT without ToJSON() function`);
+}
+
 /** Decodes a HSON blob
     @param indata HSON-encoded value
     @return Decoded HSON value
 */
 PUBLIC VARIANT FUNCTION DecodeHSONBlob(BLOB indata)
 {
-  INTEGER id := JSONDECODERALLOCATE(TRUE, DEFAULT RECORD);
+  INTEGER id := JSONDECODERALLOCATE(TRUE, DEFAULT RECORD, DEFAULT RECORD);
   INTEGER fileid := OpenBlobAsFile(indata);
-  WHILE (TRUE)
+  TRY
   {
-    STRING data := ReadFrom(fileid, 16384);
-    IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
-      BREAK;
+    WHILE (TRUE)
+    {
+      STRING data := ReadFrom(fileid, 16384);
+      IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
+        BREAK;
+    }
+    RECORD res := JSONDECODERFINISH(id);
+    IF (NOT res.success)
+      THROW NEW Exception("HSON decoding error: " || res.msg);
+    RETURN res.value;
   }
-  __HS_CloseFile(fileid);
-  RECORD res := JSONDECODERFINISH(id);
-  IF (NOT res.success)
-    THROW NEW Exception("HSON decoding error: " || res.msg);
-  RETURN res.value;
+  CATCH
+  {
+    // Ensure resource cleanup
+    JSONDECODERFINISH(id);
+    THROW;
+  }
+  FINALLY
+    __HS_CloseFile(fileid);
 }
 
 /** Decodes a HSON string
@@ -4032,7 +4111,7 @@ PUBLIC VARIANT FUNCTION DecodeHSONBlob(BLOB indata)
 */
 PUBLIC VARIANT FUNCTION DecodeHSON(STRING indata)
 {
-  RECORD res := JSONDECODERQUICK(indata, TRUE, DEFAULT RECORD);
+  RECORD res := JSONDECODERQUICK(indata, TRUE, DEFAULT RECORD, DEFAULT RECORD);
   IF (NOT res.success)
     THROW NEW Exception("HSON decoding error: " || res.msg);
   RETURN res.value;
@@ -4058,33 +4137,46 @@ PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
     @param indata JSON-encoded value
     @param translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
       to remap JSON keys that aren't valid cell names in HareScript.
+    @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */
-PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  INTEGER id := JSONDECODERALLOCATE(FALSE, translations);
+  INTEGER id := JSONDECODERALLOCATE(FALSE, options, translations);
   INTEGER fileid := OpenBlobAsFile(indata);
-  WHILE (TRUE)
+  TRY
   {
-    STRING data := ReadFrom(fileid, 16384);
-    IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
-      BREAK;
+    WHILE (TRUE)
+    {
+      STRING data := ReadFrom(fileid, 16384);
+      IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
+        BREAK;
+    }
+    RECORD res := JSONDECODERFINISH(id);
+    IF (res.success)
+      RETURN res.value;
+    RETURN DEFAULT RECORD;
   }
-  __HS_CloseFile(fileid);
-  RECORD res := JSONDECODERFINISH(id);
-  IF (res.success)
-    RETURN res.value;
-  RETURN DEFAULT RECORD;
+  CATCH
+  {
+    JSONDECODERFINISH(id);
+    THROW;
+  }
+  FINALLY
+    __HS_CloseFile(fileid);
 }
 
 /** Decodes a JSON string
     @param indata JSON-encoded value
     @param translations @includecelldef #DecodeJSONBlob.translations
+    @cell(boolean) options.allowcomments Allow comments in the JSON
+    @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
     @return Decoded JSON value
 */
-PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN JSONDECODERQUICK(indata, FALSE, translations).value;
+  RETURN JSONDECODERQUICK(indata, FALSE, options, translations).value;
 }
 
 /** @short Encode data as a JSON string
@@ -4628,4 +4720,473 @@ PUBLIC VARIANT FUNCTION RoundToMultiple(VARIANT value, VARIANT roundunit, STRING
 PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag)
 {
   RETURN RecordExists(__debugconfig) AND tag IN __debugconfig.tags;
+}
+
+
+/** JSON object wrapper, contains a (key, value) store with case-sensitive
+    keys
+*/
+PUBLIC STATIC OBJECTTYPE JSONObject
+<
+  /** Ordered by name
+      @cell name Property name
+      @cell value Value
+  */
+  RECORD ARRAY props;
+
+  /** Constructs a new JSON object, converts the records and arrays
+      in the value to JSONObject and JSONArray
+      @param initval Value to initialize this object with
+  */
+  MACRO NEW(VARIANT initval DEFAULTSTO CELL[])
+  {
+    // Shortcut for freestanding functions that need more direct control
+    IF (IsValueSet(jsonobject_directinit))
+    {
+      this->props := jsonobject_directinit.value;
+      jsonobject_directinit := DEFAULT RECORD;
+      RETURN;
+    }
+
+    this->props := ImportUnpackedRecordToJSONObjectCells(UnpackRecord(initval), TRUE, DEFAULT RECORD);
+  }
+
+  // Internal call used by EncodeJSON
+  RECORD ARRAY FUNCTION __INTERNAL_UNWRAPJSONOBJECT()
+  {
+    RETURN this->props;
+  }
+
+  /** Returns the list of all set properties */
+  PUBLIC STRING ARRAY FUNCTION GetKeys()
+  {
+    RETURN SELECT AS STRING ARRAY name FROM this->props;
+  }
+
+  /** Get the value of a property
+      @param name Proprty namae
+      @cell options.fallback Return this value (wrapped) if the property doesn't exist
+      @return Value associated with this property, or an exception when the property doesn't exist.
+  */
+  PUBLIC VARIANT FUNCTION GetProp(STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ fallback := FALSE
+        ], options,
+        [ optional := [ "fallback" ]
+        , notypecheck := [ "fallback" ]
+        ]);
+    RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
+    IF (NOT pos.found)
+    {
+      IF (CellExists(options, "FALLBACK"))
+        RETURN WrapJSONObjectsInternal(options.fallback, DEFAULT RECORD);
+      ELSE
+        THROW NEW Exception(`No such property ${EncodeJSON(name)}`);
+    }
+    RETURN this->props[pos.position].value;
+  }
+
+  /** Set the value of a property
+      @param name Key
+      @param value Value to set
+  */
+  PUBLIC MACRO SetProp(STRING name, VARIANT value)
+  {
+    value := WrapJSONObjectsInternal(value, DEFAULT RECORD);
+    RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
+    IF (pos.found)
+      this->props[pos.position] := CELL[ name, value ]; // allow type change
+    ELSE
+      INSERT CELL[ name, value ] INTO this->props AT pos.position;
+  }
+
+  /** Removes a property
+      @param name Name of the property to delete
+  */
+  PUBLIC MACRO DeleteProp(STRING name)
+  {
+    RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
+    IF (pos.found)
+      DELETE FROM this->props AT pos.position;
+  }
+
+  /** Returns whether a property with this name is present in this object
+      @param name Name of the property
+      @return Whether a property with this name is present
+  */
+  PUBLIC BOOLEAN FUNCTION HasProp(STRING name)
+  {
+    RECORD pos := RecordLowerBound(this->props, CELL[ name ], [ "NAME" ]);
+    RETURN pos.found;
+  }
+
+  /** Returns the list of property names and values
+      @return Property names and values
+      @cell(string) return.name Property name
+      @cell return.value Property value
+  */
+  PUBLIC RECORD ARRAY FUNCTION Unpack()
+  {
+    RETURN this->props;
+  }
+
+  /** Returns the value in this object as HareScript value (converting all
+      contained JSONObject and JSONArray objects to their HareScript value
+      too)
+      @return Contents of this object converted to HareScript value
+  */
+  PUBLIC RECORD FUNCTION GetValue()
+  {
+    RECORD retval;
+    FOREVERY (RECORD rec FROM this->props)
+    {
+      // ADDME: throw when length = 0, length>64 or key already exists (only differs in case)
+      VARIANT insertval := rec.value;
+      IF (TypeID(rec.value) = TypeID(OBJECT))
+      {
+        IF (IsValueSet(rec.value))
+          insertval := rec.value->GetValue();
+        ELSE
+          insertval := DEFAULT RECORD;
+      }
+      retval := CellInsert(retval, rec.name, insertval);
+    }
+    RETURN retval;
+  }
+
+  /** Overwrites the contents of this object
+      @param val New contents
+  */
+  PUBLIC MACRO SetValue(VARIANT val DEFAULTSTO CELL[])
+  {
+    this->props := ImportUnpackedRecordToJSONObjectCells(UnpackRecord(val), TRUE, DEFAULT RECORD);
+  }
+
+  /** Returns a deep clone of this object
+      @return(object #JSONObject) Independent clone of this object and its contents
+  */
+  PUBLIC OBJECT FUNCTION DeepClone()
+  {
+    IF (IsValueSet(__system_jsonobjectclonehook))
+      __system_jsonobjectclonehook(this);
+
+    RECORD ARRAY cells := this->props;
+    FOR (INTEGER i := 0, e := LENGTH(cells); i < e; i := i + 1)
+    {
+      VARIANT value := cells[i].value;
+      IF (TypeID(value) = TypeID(OBJECT))
+        cells[i].value := value->DeepClone();
+    }
+
+    jsonobject_directinit := [ value := cells ];
+    RETURN NEW JSONObject();
+  }
+
+  /** Assign the contents of a record/object to this object
+      @param newrec Object to assign the contents of
+  */
+  PUBLIC MACRO Assign(VARIANT newrec)
+  {
+    newrec := WrapJSONObjectsInternal(newrec, DEFAULT RECORD);
+    IF (TypeID(newrec) != TypeID(OBJECT))
+      THROW NEW Exception(`Expected a RECORD or a JSONObject`);
+    IF (IsDefaultValue(newrec))
+      RETURN;
+    IF (newrec NOT EXTENDSFROM JSONObject)
+      THROW NEW Exception(`Expected a RECORD or a JSONObject`);
+
+    RECORD ARRAY elts := newrec->Unpack();
+    FOR (INTEGER i := 0, e := LENGTH(elts); i < e; i := i + 1)
+    {
+      RECORD rec := elts[i];
+      elts[i] := DEFAULT RECORD; // Remove the ref, prevent cloning if possible
+      this->SetProp(rec.name, rec.value);
+    }
+  }
+>;
+
+/** JSON array wrapper, contains a list of values
+*/
+PUBLIC STATIC OBJECTTYPE JSONArray
+< /// Stored values
+  VARIANT ARRAY elements;
+
+  /// @type(integer) Length of this array
+  PUBLIC PROPERTY length(GetLength, -);
+
+  /** Constructs a new JSON array, converts the records and arrays
+      in the value to JSONObject and JSONArray
+      @param initval Value to initialize this object with
+  */
+  MACRO NEW(VARIANT ARRAY initval DEFAULTSTO VARIANT[])
+  {
+    // Shortcut for freestanding functions that need more direct control
+    IF (IsValueSet(jsonobject_directinit))
+    {
+      this->elements := jsonobject_directinit.value;
+      jsonobject_directinit := DEFAULT RECORD;
+      RETURN;
+    }
+
+    this->elements := ImportArrayToJSONArrayElements(initval, DEFAULT RECORD);
+  }
+
+  INTEGER FUNCTION GetLength()
+  {
+    RETURN LENGTH(this->elements);
+  }
+
+  // Internal call used by EncodeJSON
+  VARIANT ARRAY FUNCTION __INTERNAL_UNWRAPJSONOBJECT()
+  {
+    RETURN this->elements;
+  }
+
+  /** Get the value from the specified index
+      @param idx Index into the array
+      @return Value stored at this index, or an exception when the index is ouf of range
+  */
+  PUBLIC VARIANT FUNCTION GetElt(INTEGER idx)
+  {
+    IF (idx < 0 OR idx >= LENGTH(this->elements))
+      THROW NEW Exception(`No such element ${idx}, array is ${LENGTH(this->elements)} elements long`);
+    RETURN this->elements[idx];
+  }
+
+  /** Sets the value at the specified index
+      @param idx Index into the array
+      @param value Value to set
+  */
+  PUBLIC MACRO SetElt(INTEGER idx, VARIANT value)
+  {
+    IF (idx < 0 OR idx >= LENGTH(this->elements))
+      THROW NEW Exception(`No such element ${idx}, array is ${LENGTH(this->elements)} elements long`);
+    this->elements[idx] := WrapJSONObjectsInternal(value, DEFAULT RECORD);
+  }
+
+  /** Adds a value to the back of the array
+      @param value Value to add
+  */
+  PUBLIC MACRO Push(VARIANT value)
+  {
+    INSERT WrapJSONObjectsInternal(value, DEFAULT RECORD) INTO this->elements AT END;
+  }
+
+  /** Removes values from the array, and adds some new ones
+      @param start Position to delete/add elements
+      @param deletecount Number of elements to delete
+      @param vals Values to add
+      @return(object #JSONArray) Object with the removed values
+  */
+  PUBLIC OBJECT FUNCTION Splice(INTEGER start, INTEGER deletecount DEFAULTSTO 2147483647, VARIANT ARRAY ...vals)
+  {
+    INTEGER len := LENGTH(this->elements);
+    IF (deletecount < 0)
+      deletecount := 0;
+    IF (start < 0)
+    {
+      start := start + len;
+      IF (start < 0)
+        start := 0;
+    }
+    ELSE IF (start > len)
+      start := len;
+    IF (len - deletecount < start) // need (len < start + deletecount), transformed to avoid overflow
+      deletecount := len - start;
+
+    // Construct new array
+    VARIANT ARRAY newelements :=
+        ArraySlice(this->elements, 0, start) CONCAT
+        ImportArrayToJSONArrayElements(vals, DEFAULT RECORD) CONCAT
+        ArraySlice(this->elements, start + deletecount);
+
+    jsonobject_directinit := [ value := ArraySlice(this->elements, start, deletecount) ];
+    OBJECT retval := NEW JSONArray;
+    this->elements := newelements;
+
+    RETURN retval;
+  }
+
+  /** Appends the contents of an array
+      @param value Array with values to add
+  */
+  PUBLIC MACRO AppendArray(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(OBJECT)) // Assume JSONArray
+      value := value->GetRawElements();
+    value := VARIANT ARRAY(value);
+
+    FOR (INTEGER i := 0, e := LENGTH(value); i < e; i := i + 1)
+    {
+      VARIANT elt := value[i];
+      value[i] := FALSE;
+      INSERT WrapJSONObjectsInternal(elt, DEFAULT RECORD) INTO this->elements AT END;
+    }
+  }
+
+  /** Adds a value to the start of the array
+      @param value Value to add
+  */
+  PUBLIC MACRO Unshift(VARIANT value)
+  {
+    INSERT WrapJSONObjectsInternal(value, DEFAULT RECORD) INTO this->elements AT 0;
+  }
+
+  /** Returns the raw values in the array
+      @return Array elements
+  */
+  PUBLIC VARIANT ARRAY FUNCTION GetRawElements()
+  {
+    RETURN this->elements;
+  }
+
+  /** Returns the value in this array as HareScript value (converting all
+      contained JSONObject and JSONArray objects to their HareScript value
+      too)
+      @return Contents of this array converted to HareScript value
+  */
+  PUBLIC VARIANT ARRAY FUNCTION GetValue()
+  {
+    VARIANT ARRAY retval := this->elements;
+    FOR (INTEGER i := 0, e := LENGTH(retval); i < e; i := i + 1)
+      IF (TypeID(retval[i]) = TypeID(OBJECT))
+      {
+        IF (IsValueSet(retval[i]))
+          retval[i] := retval[i]->GetValue();
+        ELSE
+          retval[i] := DEFAULT RECORD;
+      }
+    RETURN retval;
+  }
+
+  /** Overwrites the contents of this array
+      @param val New contents
+  */
+  PUBLIC MACRO SetValue(VARIANT ARRAY val DEFAULTSTO VARIANT[])
+  {
+    this->elements := ImportArrayToJSONArrayElements(val, DEFAULT RECORD);
+  }
+
+  /** Returns a deep clone of this object
+      @return(object #JSONArray) Independent clone of this object
+  */
+  PUBLIC OBJECT FUNCTION DeepClone()
+  {
+    IF (IsValueSet(__system_jsonobjectclonehook))
+      __system_jsonobjectclonehook(this);
+
+    VARIANT ARRAY elements := this->elements;
+    FOR (INTEGER i := 0, e := LENGTH(elements); i < e; i := i + 1)
+    {
+      VARIANT value := elements[i];
+      IF (TypeID(value) = TypeID(OBJECT))
+        elements[i] := value->DeepClone();
+    }
+
+    jsonobject_directinit := [ value := elements ];
+    RETURN NEW JSONArray();
+  }
+>;
+
+/** Construct a JSONObject from a list of name/value pairs
+    @param cells List of keys and values
+    @cell(string) cells.name Key name
+    @cell cells.value Value
+    @return(object #JSONObject) New object
+*/
+PUBLIC OBJECT FUNCTION RepackJSONObject(RECORD ARRAY cells)
+{
+  jsonobject_directinit := [ value := ImportUnpackedRecordToJSONObjectCells(cells, FALSE, DEFAULT RECORD) ];
+  RETURN NEW JSONObject();
+}
+
+RECORD ARRAY FUNCTION ImportUnpackedRecordToJSONObjectCells(RECORD ARRAY cells, BOOLEAN lowercase, RECORD translations)
+{
+  BOOLEAN usedtranslation;
+  INTEGER e := LENGTH(cells);
+  FOR (INTEGER i := 0; i < e; i := i + 1)
+  {
+    STRING name := cells[i].name;
+    VARIANT value := cells[i].value;
+    cells[i] := DEFAULT RECORD; // if cells isn't shared, make sure value is the only reference to the value
+    IF (CellExists(translations, name))
+    {
+      name := GetCell(translations, name);
+      usedtranslation := TRUE;
+    }
+    ELSE IF (lowercase)
+      name := ToLowercase(name);
+    cells[i] := CELL[ name, value := WrapJSONObjectsInternal(value, translations) ];
+  }
+  cells := SELECT * FROM cells ORDER BY name;
+  IF (usedtranslation)
+  {
+    STRING prev := cells[0].name;
+    FOR (INTEGER i := 1; i < e; i := i + 1)
+    {
+      STRING cur := cells[i].name;
+      IF (prev = cur)
+        THROW NEW Exception(`Multiple properties with name ${EncodeJSON(cur)} after translation`);
+      prev := cur;
+    }
+  }
+  RETURN cells;
+}
+
+VARIANT ARRAY FUNCTION ImportArrayToJSONArrayElements(VARIANT arr, RECORD translations)
+{
+  arr := VARIANT ARRAY(arr);
+  FOR (INTEGER i := 0, e := LENGTH(arr); i < e; i := i + 1)
+  {
+    VARIANT elt := arr[i];
+    arr[i] := FALSE; // if arr isn't shared, make sure elt is the only reference to the value
+    arr[i] := WrapJSONObjectsInternal(elt, translations);
+  }
+  RETURN arr;
+}
+
+/** Converts all records and arrays in a value to JSONObject and JSONArray,
+    respectively.
+    @param value Value to convert
+    @cell(record) options.translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
+      to remap JSON keys that aren't valid cell names in HareScript.
+    @return Value with all records converted to JSONObject objects and all arrays
+    to JSONArray objects
+*/
+PUBLIC VARIANT FUNCTION WrapJSONObjects(VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ translations :=     DEFAULT RECORD
+      ], options);
+
+  RETURN WrapJSONObjectsInternal(value, options.translations);
+}
+
+VARIANT FUNCTION WrapJSONObjectsInternal(VARIANT value, RECORD translations)
+{
+  VARIANT t := TypeID(value);
+  IF (t = TypeID(RECORD))
+  {
+    IF (IsDefaultValue(value))
+      RETURN DEFAULT OBJECT;
+    jsonobject_directinit := [ value := ImportUnpackedRecordToJSONObjectCells(UnpackRecord(value), TRUE, translations) ];
+    RETURN NEW JSONObject();
+  }
+  IF (IsTypeIDArray(t))
+  {
+    jsonobject_directinit := CELL[ value := ImportArrayToJSONArrayElements(value, translations) ];
+    RETURN NEW JSONArray();
+  }
+  IF (t = TypeID(OBJECT) OR t = TypeID(WEAKOBJECT))
+  {
+    value := OBJECT(value);
+    IF (IsDefaultValue(value))
+      RETURN value;
+    IF (value NOT EXTENDSFROM JSONObject AND value NOT EXTENDSFROM JSONArray)
+      THROW NEW Exception(`Can only store JSONObject and JSONArray objects`);
+    RECORD rec := __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(value);
+    RETURN rec.isshared ? rec.value->DeepClone() : rec.value;
+  }
+  RETURN value;
 }

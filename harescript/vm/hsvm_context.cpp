@@ -4306,6 +4306,7 @@ void VirtualMachine::PushTailcallFrame(std::function< void(bool) > const &tailca
 
 ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
 {
+        col_allowcomments = columnnamemapper.GetMapping("ALLOWCOMMENTS");
         col_authenticationrecord = columnnamemapper.GetMapping("AUTHENTICATIONRECORD");
         col_baseptr = columnnamemapper.GetMapping("BASEPTR");
         col_casesensitive = columnnamemapper.GetMapping("CASESENSITIVE");
@@ -4423,6 +4424,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_variables = columnnamemapper.GetMapping("VARIABLES");
         col_vm = columnnamemapper.GetMapping("VM");
         col_week = columnnamemapper.GetMapping("WEEK");
+        col_wrapobjects = columnnamemapper.GetMapping("WRAPOBJECTS");
         col_write = columnnamemapper.GetMapping("WRITE");
         col_year = columnnamemapper.GetMapping("YEAR");
         col_yearofweek = columnnamemapper.GetMapping("YEAROFWEEK");
