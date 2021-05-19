@@ -254,6 +254,9 @@ ifneq ($(WHBUILD_PLATFORM),darwin)
 	BLEX_BASE_LIBS += rt            # cap
 	# For asynchronous DNS
 	BLEX_BASE_LIBS += anl
+else
+  # for aws-cpp-sdk linker errors
+	BLEX_HSVM_LIBS += aws-crt-cpp aws-c-common
 endif
 
 harescript_HsMod_oci_AddLibs = clntsh
