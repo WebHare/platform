@@ -109,7 +109,7 @@ class JSONParser
         /// Whether comments are allowed
         bool allowcomments;
 
-        /// Whether comments are allowed
+        /// Whether we parse into JSONArray and JSONObject
         bool wrapobjects;
 
         bool HandleToken(std::string const &token, TokenType tokentype);
