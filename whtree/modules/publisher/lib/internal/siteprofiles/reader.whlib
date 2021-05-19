@@ -1956,7 +1956,7 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 {
   IF(siteid != 0)
   {
-    RECORD ARRAY referrals  := GetCurrentProfileReferrals();
+    RECORD ARRAY referrals := GetCurrentProfileReferrals();
     INTEGER matchpos := RecordBinaryFind(referrals, [ id := siteid ], [ "ID" ]);
     IF(matchpos >= 0)
       RETURN referrals[matchpos];

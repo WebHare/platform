@@ -165,7 +165,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       }
     }
 
-    FOREVERY(STRING apply FROM loaded.applysiteprofiles) //note that if the siteprofile is already loaded, this just 'spreads' our siteprofileids recusrively
+    FOREVERY(STRING apply FROM loaded.applysiteprofiles) //note that if the siteprofile is already loaded, this just 'spreads' our siteprofileids recursively
       this->LoadSiteProfileRecursively(apply, this->siteprofiles[existingpos].siteprofileids, loadpath);
 
     IF(this->debug)
