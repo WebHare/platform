@@ -4,6 +4,7 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 REQUIRENPMVERSION="5.3.0"
 export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
+export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "-v" -o "$1" == "--verbose" ]; then
@@ -233,19 +234,8 @@ setup_buildsystem()
 
   if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
-      echo ""
-      echo "On OSX we rely on Homebrew (http://brew.sh) and some additional packages being installed."
-      echo "If you want me to install it, type YES"
-      echo ""
-      read answer
-      if [ "$answer" != "YES" ]; then
-        die "Then I fear you're on your own"
-      fi
-      echo "Invoking Homebrew's installer"
-      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      if ! which brew >/dev/null 2>&1 ; then
-        die "Homebrew is still unavailable"
-      fi
+      echo "On OSX we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
+      exit 1
     fi
 
     if [ -z "$NOBREW" ]; then
