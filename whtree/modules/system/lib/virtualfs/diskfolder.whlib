@@ -39,10 +39,7 @@ MACRO CopyDirectory(STRING from_directory, STRING to_directory)
   {
     IF(file.type = 1)
     {
-      IF(file.name != ".." AND file.name != ".")
-      {
-        CopyDirectory(from_directory || "/" || file.name, to_directory || "/" || file.name);
-      }
+      CopyDirectory(from_directory || "/" || file.name, to_directory || "/" || file.name);
     }
     ELSE
     {
@@ -126,8 +123,7 @@ PUBLIC OBJECTTYPE DiskFolderFS EXTEND VirtualFSBase
              , read :=              TRUE
              , creationdate :=      DEFAULT DATETIME
              , modificationdate :=  modified
-           FROM files
-          WHERE name NOT IN [".",".."];
+           FROM files;
 
     RETURN
         SELECT *

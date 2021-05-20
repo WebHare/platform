@@ -544,7 +544,7 @@ PUBLIC STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EX
     @long Reads a directory, optionally filtering the contents with a mask.
           The UNIX globbing rules will apply when using this mask (eg, "*.*" only
           matches files with an extension, not all files as it would do on DOS/NT).
-          This function also returns the "." and ".." directory entries, if they exist.
+          This function never returns the "." and ".." directory entries.
     @param directory Path to directory to read.
     @param mask Mask of files to read (* to read all files)
     @return A record array of found files and directories

@@ -18,9 +18,7 @@ RECORD ARRAY FUNCTION GetDirectoryItems(STRING basepath, STRING diskpath, BOOLEA
               , expandable := type = 1
               , isfolder := type = 1
            FROM ReadDiskDirectory(diskpath,"*")
-          WHERE name != "."
-                AND name != ".."
-                AND (acceptfiles OR type != 0)
+          WHERE acceptfiles OR type != 0
        ORDER BY ToUppercase(name);
 }
 
