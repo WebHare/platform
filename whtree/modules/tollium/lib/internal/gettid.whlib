@@ -76,7 +76,8 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, 
     IF(NOT IsAbsoluteTid(tid))
     {
       IF(resourcename = "")
-        THROW NEW Exception("ParseXMLTidPtr requires a set module if the tid/gid doesn't specify one");
+        THROW NEW Exception(`ParseXMLTidPtr requires a set module if the tid/gid doesn't specify one (for tid '${tid}')`);
+
       tid := __GetModuleNameFromResourcePath(resourcename) || ":" || tid;
     }
 

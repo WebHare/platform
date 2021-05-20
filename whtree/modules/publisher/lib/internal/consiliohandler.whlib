@@ -67,7 +67,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
   to_delete := GetSortedSet(to_delete);
 
   IF (options.debug)
-    Print(`To update: ${AnyToString(to_update, "tree")}To Delete: ${AnyToString(to_delete, "tree")}`);
+    Print(`To update: ${EncodeJSON(to_update)}\nTo delete: ${EncodeJSON(to_delete)}\n`);
 
   DATETIME now := GetCurrentDateTime();
   FOREVERY (INTEGER objid FROM to_delete)
@@ -102,7 +102,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
       Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
 
     //TODO pass queueing priority based on startingpoint ordering
-    RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP" ]);
+    RECORD result := CheckGroup(data, [ rebuild := TRUE ]);
     INSERT CELL[ objid, result ] INTO results AT END;
   }
 

@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+OpenPrimary();
+RECORD ARRAY shouldbeondisk := SELECT fs_objects.id, sitename := sites.name, fs_objects.fullpath, type, bytes := Length(fs_objects.data)
+                                 FROM system.fs_objects, system.sites
+                                WHERE fs_objects.type IN VAR whconstant_whfstypes_scriptsondisk
+                                      AND fs_objects.parentsite = sites.id
+                                      AND fs_objects.parentsite != 0
+                             ORDER BY sites.name, fullpath;
+dumpvalue(shouldbeondisk,'boxed');

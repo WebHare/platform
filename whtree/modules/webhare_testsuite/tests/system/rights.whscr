@@ -647,6 +647,16 @@ MACRO EnumTest()
   TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
   TestEq([ INTEGER(sysop_user->authobjectid) ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE, dontexpandauthobjects := INTEGER[role1->authobjectid] ])), "remove limited1 when role1 ignored");
 
+  //grant through multiple routes
+  OBJECT role2 := testfw->GetRoleObject("role2");
+  sysop_user->GrantRightToOn("webhare_testsuite:objectright", role2, 2, FALSE);
+  sysop_user->GrantRoleTo(role2, limited_user);
+  TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
+
+  sysop_user->GrantRightToOn("webhare_testsuite:objectright", limited_user, 3, FALSE);
+  TestEq([ INTEGER(sysop_user->authobjectid), limited_user->authobjectid ], FilterByKnownUsers(GetGrantedAuthObjects("webhare_testsuite:objectright", 0, [ anyobject := TRUE ])), "It has access again through role1");
+
+
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEq(
         [ [ inherited       := TRUE
@@ -706,6 +716,7 @@ RunTestframework( [ PTR InitDB
                                     ,[ login := "limited2"]
                                     ]
                      , testroles := [[ role := "role1" ]
+                                    ,[ role := "role2" ]
                                     ,[ role := "sysoprole" ]
                                     ]
                      ]
