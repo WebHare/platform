@@ -140,28 +140,6 @@ MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadlin
   }
 }
 
-/** Wait for all event completions to finish
-    @param deadline Error out when the wait hasn't completed after this time
-*/
-MACRO WaitForEventCompletions(DATETIME deadline)
-{
-  OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
-  WHILE (TRUE)
-  {
-    /* A single request is usually enough for synchronization, because it handles all
-       completions between requests
-    */
-    RECORD rec := eventcompletionlink->DoRequest( [ type := "havependingcompletions" ]);
-    IF (NOT rec.msg.result)
-      BREAK;
-
-    Sleep(10);
-    IF(GetCurrentDatetime() >= deadline)
-      ABORT("system:eventcompletion isn't completing");
-  }
-  eventcompletionlink->Close();
-}
-
 /** Wait for output analyser scans to finish
     @param folderids Ids of folders that must be completed
     @param deadline Error out when the wait hasn't completed after this time
@@ -195,7 +173,6 @@ MACRO EnsureTasksExecuted(DATETIME when)
   DATETIME deadline := AddTimeToDate(60000,GetCurrentDatetime());
 
   WaitForPublisherScheduledTasks(when, deadline);
-  WaitForEventCompletions(deadline);
   WaitForOutputAnalyzer(INTEGER [ GetTestsuiteTempFolder()->id ], deadline);
 
   testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
