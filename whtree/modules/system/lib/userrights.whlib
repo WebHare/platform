@@ -139,10 +139,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetGrantedAuthObjects(STRING rightname, INTEGER ob
   }
 
   // Remove duplicates
-  grantees :=
-      SELECT AS INTEGER ARRAY id
-        FROM ToRecordArray(grantees, "ID")
-    GROUP BY id;
+  grantees := GetSortedSet(grantees);
 
   // Remove ignorable
   IF(Length(options.dontexpandauthobjects) > 0)
@@ -160,7 +157,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetGrantedAuthObjects(STRING rightname, INTEGER ob
     WHILE (TRUE)
     {
       INTEGER ARRAY role_grantees :=
-          SELECT AS INTEGER ARRAY grantee
+          SELECT AS INTEGER ARRAY DISTINCT grantee
             FROM system.rolegrants
            WHERE role IN grantees
              AND grantee NOT IN grantees;
