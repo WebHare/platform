@@ -1,12 +1,14 @@
 <?wh
 
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 PUBLIC MACRO CheckSiteSettings()
 {
-  //can we shortcircuit and not update webserver config if it doesn't look like anything changed? or probably RefreshGlobalWebserverSettings should have such intelligence
+  OpenPrimary();
 
+  //can we shortcircuit and not update webserver config if it doesn't look like anything changed? or probably RefreshGlobalWebserverSettings should have such intelligence
   //reevaluate <webrules>
   RefreshGlobalWebserverConfig();
   //recheck indices
