@@ -107,6 +107,7 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
   //
 
   RECORD ARRAY completions;
+  BOOLEAN checksitesettings;
 
   OBJECT parentlink;
   INTEGER parentlinkcb;
@@ -143,11 +144,25 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
 
   UPDATE BOOLEAN FUNCTION HaveIdleWork()
   {
-    RETURN Length(this->completions) > 0;
+    RETURN Length(this->completions) > 0 OR this->checksitesettings;
   }
 
   UPDATE MACRO HandleIdleWork()
   {
+    IF(this->checksitesettings)
+    {
+      this->checksitesettings := FALSE;
+      TRY
+      {
+        CallFunctionFromJob(Resolve("sitesettings.whlib#CheckSiteSettings"));
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2, "Checksitesettings failure: " || e->what || "\n");
+      }
+    }
+
     this->completions := HandleCompletions(this->completions);
 
     IF (NOT ObjectExists(this->parentlink))
@@ -166,7 +181,10 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
   UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
   {
     IF(message.type="newcompletions")
+    {
       this->completions := this->completions CONCAT message.data;
+      this->checksitesettings := this->checksitesettings OR message.checksitesettings;
+    }
     IF(message.type="havependingcompletions")
       RETURN [ result := "message", msg := [ result := IsValueSet(this->completions) ] ];
 

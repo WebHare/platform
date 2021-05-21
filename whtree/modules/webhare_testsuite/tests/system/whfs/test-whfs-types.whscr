@@ -24,8 +24,6 @@ MACRO Prepare()
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   testsite := CreateSiteFromFolder(firstfolder->id);
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
-
   testfw->CommitWork();
 }
 

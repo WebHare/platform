@@ -34,7 +34,7 @@ MACRO Normalizations()
 MACRO Prepare()
 {
   RECORD simulatedtestport := testfw->CreateWebserverPort([ port := 0, virtualhosts:=["urlhistory.example.net"], secure_keyfile := "demo", outputserver := TRUE ]);
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ withcontent := FALSE, waitwebserver := TRUE, enableoutput := FALSE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ withcontent := FALSE, enableoutput := FALSE ]);
 
   testfw->BeginWork();
   testfw->GetTestsite()->SetPrimaryOutput(simulatedtestport.webservers[0].id, '/');

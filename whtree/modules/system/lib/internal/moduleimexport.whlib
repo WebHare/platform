@@ -480,9 +480,7 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   UpdateAllModuleSchemas();
 
   // Recompile siteprofiles and refresh the webserver configuration in-line.
-  GetPrimary()->BeginWork();
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
-  GetPrimary()->CommitWork();
+  RecompileSiteProfiles();
 
   // Softreset (used to clear all caches, now only linked to specific cache keys) restart needed scripts
   BroadcastEvent("system:softreset", [ toreload := DEFAULT STRING ARRAY ]);

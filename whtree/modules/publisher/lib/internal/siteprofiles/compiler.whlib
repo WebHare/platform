@@ -588,8 +588,10 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
   IF(Length(response.errors)>0)
     LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.errors ]);
 
-  // ADDME use recompilation result directly, UpdateConsilioIndices goes through GetCSP but the data should be in 'response'
-  FixConsilioIndices([ reportmissing := reportmissing ]);
+  //async update webserver check/indices
+  GetPrimary()->BeginWork();
+  GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
+  GetPrimary()->CommitWork();
 
   RETURN [ errors := response.errors
          , warnings := response.warnings

@@ -400,6 +400,7 @@ MACRO MacForkLayer()
 MACRO TestHomerThroughWebdav()
 {
   //__webbrowser_debugall := TRUE;
+  testfw->RefreshWebserverConfig();
 
   //We need to use our testing site
   OBJECT testsite := testfw->GetTestSite();

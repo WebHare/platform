@@ -10,6 +10,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -17,6 +18,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT SetFlagsInPublished, GetFlagsFromPublished, IsPublish, GetErrorFromPublished, GetOncePublishedFromPublished, TestFlagFromPublished
                                                           , PublishedFlag_OncePublished, PublishedFlag_Scheduled, PublishedFlag_Warning, PublishedFlag_HasWebDesign
                                                           , PublishedFlag_StripExtension, PublishedFlag_HasPublicDraft, PublishedFlag_SubmittedForApproval;
@@ -294,19 +296,51 @@ BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN recursive)
   RETURN isscheduled;
 }
 
+/** Wait for all event completions to finish
+    @param deadline Error out when the wait hasn't completed after this time
+*/
+MACRO WaitForEventCompletions(DATETIME deadline)
+{
+  OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
+  WHILE (TRUE)
+  {
+    /* A single request is usually enough for synchronization, because it handles all
+       completions between requests
+    */
+    RECORD rec := eventcompletionlink->DoRequest( [ type := "havependingcompletions" ]);
+    IF(NOT CellExists(rec,"msg"))
+    {
+      DumpValue(rec,'tree');
+      THROW NEW Exception("system:eventcompletion iss unexpectedly unavailable");
+    }
+    IF (NOT rec.msg.result)
+      BREAK;
+
+    Sleep(10);
+    IF(GetCurrentDatetime() >= deadline)
+      THROW NEW Exception("system:eventcompletion isn't completing");
+  }
+  eventcompletionlink->Close();
+}
+
 /** Wait for publication to complete
     @param startingfolder Folder we're waiting to complete republishing (recursively)
     @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
     @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
+    @cell(boolean) options.skipeventcompletion Do not wait for publisher (republish) events to complete processing
     @return True if publication completed, false on timeout*/
 PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ deadline := MAX_DATETIME
                              , reportfrequency := 0
+                             , skipeventcompletion := FALSE
                              ], options);
 
   IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
     THROW NEW Exception(`Cannot have open work while waiting for publish completion`);
+
+  IF(NOT options.skipeventcompletion)
+    WaitForEventCompletions(options.deadline);
 
   OBJECT eventmgr := NEW EventManager;
   TRY

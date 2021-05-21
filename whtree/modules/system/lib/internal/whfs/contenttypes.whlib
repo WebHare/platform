@@ -1666,13 +1666,8 @@ STATIC OBJECTTYPE WHFSType
                                                                       , newinstancedata := newinstancedata
                                                                       ]);
 
-    IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings"
-       AND NOT GetWHFSCommitHandler()->IsSiteProfileRecompileOnCommitTriggered()
-       AND RecordExists(SELECT FROM system.sites WHERE id = objectid))
-    {
-      //this might change siteprofile associations or webdesign/webfeatures
-      GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
-    }
+    IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+      GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
 
     RECORD file := SELECT parentsite, parent, type FROM system.fs_objects WHERE id = objectid;
     IF(RecordExists(file)) //no conflict removed it ?

@@ -442,7 +442,7 @@ PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
                       , root := rootfolderid
                       , siteowner := 0
                       ]);
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
   GetWHFSCommitHandler()->TriggerScanCompilables();
   GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid);
   GetPrimary()->BroadcastOnCommit("system:sites", [ siteid := rootfolderid ]);
@@ -455,7 +455,7 @@ PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
 PUBLIC MACRO RemoveSiteFromFolder(INTEGER rootfolderid)
 {
   DELETE FROM system.sites WHERE id = rootfolderid;
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
   GetWHFSCommitHandler()->TriggerScanCompilables();
   GetPrimary()->BroadcastOnCommit("system:sites", [ siteid := rootfolderid ]);
 }
