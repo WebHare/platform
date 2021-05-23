@@ -4,6 +4,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 RECORD info := ParseArguments(GetConsoleArguments(),
@@ -60,7 +61,7 @@ RECORD ARRAY recyclebinitems := SELECT when := ANY(when)
                                      , historyid := ANY(id)
                                      , currentname := ANY(currentname)
                                   FROM system.fs_history
-                                 WHERE type = 0
+                                 WHERE type = whconstant_historytype_recycle
                               GROUP BY fs_object
                               ORDER BY ANY(when) DESC;
 

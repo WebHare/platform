@@ -100,7 +100,7 @@ PUBLIC RECORD ARRAY FUNCTION SearchRecycleBin(RECORD options)
            , deletetype :=        "normal"
         FROM system.fs_objects AS deletedobjects
            , system.fs_history
-       WHERE fs_history.type = 0 // deletion
+       WHERE fs_history.type = whconstant_historytype_recycle
              AND fs_history.fs_object = deletedobjects.id
              AND (options.site != 0 ? deletedobjects.parent IN limitrecyclebins : TRUE)
              AND (options.owner != 0 ? fs_history.user = options.owner : TRUE)

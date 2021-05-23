@@ -65,6 +65,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_systemfolder := 2;
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/shtmlfile
 PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 
+/// fs_history.type recycle action
+PUBLIC CONSTANT INTEGER whconstant_historytype_recycle := 0;
+
 //Scriptable types which are reflected to disk so the compiler can see them
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
   [  7 //semidynamic

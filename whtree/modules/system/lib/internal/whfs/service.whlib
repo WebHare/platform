@@ -54,7 +54,7 @@ PUBLIC STATIC OBJECTTYPE WHFSCalls
       FOREVERY(RECORD recycle FROM torecycle)
       {
         INSERT INTO system.fs_history(fs_object, user, type, when, currentparent, currentname)
-               VALUES(recycle.id, GetEffectiveUserId(), 0, now, recycle.parent, overwrite_recycle_name ?? recycle.name);
+               VALUES(recycle.id, GetEffectiveUserId(), whconstant_historytype_recycle, now, recycle.parent, overwrite_recycle_name ?? recycle.name);
       }
       UPDATE system.fs_objects SET name := ToString(id), parent := versionparent WHERE id IN (SELECT AS INTEGER ARRAY id FROM torecycle);
 
