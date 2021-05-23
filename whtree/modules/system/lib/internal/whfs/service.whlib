@@ -14,85 +14,82 @@ MACRO DiscardSitesRecursively(INTEGER startfolderid)
     RemoveSiteFromFolder(site);
 }
 
-PUBLIC STATIC OBJECTTYPE WHFSCalls
-<
-  PUBLIC RECORD FUNCTION Recycle(INTEGER ARRAY objectids, STRING overwrite_recycle_name DEFAULTSTO "") //TODO remove this DEFAULTSTO once we remove the WHFSCalls object entirely - just clean up the callers
+PUBLIC RECORD FUNCTION RecycleWHFSObjects(INTEGER ARRAY objectids, STRING overwrite_recycle_name)
+{
+  RECORD retval := [ repubbedfiles := RECORD[] ];
+
+  RECORD ARRAY torecyclegroups := SELECT id, parent, parentsite, name
+                                    FROM system.fs_objects
+                                   WHERE id IN objectids;
+
+  torecyclegroups := SELECT parent, torecycle := GroupedValues(torecyclegroups)
+                       FROM torecyclegroups
+                   GROUP BY parent;
+
+  IF(overwrite_recycle_name != "" AND (Length(torecyclegroups) != 1 OR Length(torecyclegroups[0].torecycle) != 1))
+    THROW NEW Exception(`cannot specify overwrite_recycle_name when recycling more than one file`);
+
+  FOREVERY(RECORD recyclegroup FROM torecyclegroups) //Recycle grouped by directory
   {
-    RECORD retval := [ repubbedfiles := RECORD[] ];
+    RECORD ARRAY torecycle := recyclegroup.torecycle;
+    //Verify rights on the to-be-archived objects (ADDME: anyway to optimize such checks? can we submit a list of objects to verify)
+/*    IF (NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", 0))
+      FOREVERY(INTEGER todelete FROM objectids)
+        IF(NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", todelete))
+          THROW NEW Exception("Must have system:fs_fullaccess to delete a file or folder");
 
-    RECORD ARRAY torecyclegroups := SELECT id, parent, parentsite, name
-                                      FROM system.fs_objects
-                                     WHERE id IN objectids;
+    IF (NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", parents[0]))
+      THROW NEW Exception("Must have system:fs_fullaccess to a file or folder's parent to delete it");
+*/
 
-    torecyclegroups := SELECT parent, torecycle := GroupedValues(torecyclegroups)
-                         FROM torecyclegroups
-                     GROUP BY parent;
+    INTEGER newfolderid;
+    DATETIME now := GetCurrentDatetime();
+    INTEGER versionparent := EnsureVersionFolder(torecycle[0].parentsite);
 
-    IF(overwrite_recycle_name != "" AND (Length(torecyclegroups) != 1 OR Length(torecyclegroups[0].torecycle) != 1))
-      THROW NEW Exception(`cannot specify overwrite_recycle_name when recycling more than one file`);
+    //Discard duplicate recycles
+    DELETE FROM torecycle WHERE parent = versionparent;
 
-    FOREVERY(RECORD recyclegroup FROM torecyclegroups) //Recycle grouped by directory
+    FOREVERY(RECORD recycle FROM torecycle)
     {
-      RECORD ARRAY torecycle := recyclegroup.torecycle;
-      //Verify rights on the to-be-archived objects (ADDME: anyway to optimize such checks? can we submit a list of objects to verify)
-  /*    IF (NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", 0))
-        FOREVERY(INTEGER todelete FROM objectids)
-          IF(NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", todelete))
-            THROW NEW Exception("Must have system:fs_fullaccess to delete a file or folder");
-
-      IF (NOT GetEffectiveUser()->HasRightOn("system:fs_fullaccess", parents[0]))
-        THROW NEW Exception("Must have system:fs_fullaccess to a file or folder's parent to delete it");
-  */
-
-      INTEGER newfolderid;
-      DATETIME now := GetCurrentDatetime();
-      INTEGER versionparent := EnsureVersionFolder(torecycle[0].parentsite);
-
-      //Discard duplicate recycles
-      DELETE FROM torecycle WHERE parent = versionparent;
-
-      FOREVERY(RECORD recycle FROM torecycle)
-      {
-        INSERT INTO system.fs_history(fs_object, user, type, when, currentparent, currentname)
-               VALUES(recycle.id, GetEffectiveUserId(), whconstant_historytype_recycle, now, recycle.parent, overwrite_recycle_name ?? recycle.name);
-      }
-      UPDATE system.fs_objects SET name := ToString(id), parent := versionparent WHERE id IN (SELECT AS INTEGER ARRAY id FROM torecycle);
-
-      // If an indexdoc is recycled, recalc indexdoc
-      RECORD parentrec :=
-          SELECT id
-               , indexdoc
-            FROM system.fs_objects
-           WHERE id = recyclegroup.parent;
-
-      INTEGER indexdoc := RecordExists(parentrec) ? parentrec.indexdoc : 0;
-
-      IF(indexdoc IN objectids)
-      {
-        INTEGER new_indexdoc :=
-            SELECT AS INTEGER id
-              FROM system.fs_objects
-             WHERE parent = parentrec.id
-               AND NOT isfolder
-               AND ToLowercase(name) IN whconstant_webserver_indexpages;
-
-        UPDATE system.fs_objects
-           SET indexdoc := new_indexdoc
-         WHERE id = parentrec.id;
-      }
-
-      IF(indexdoc != 0)
-      {
-        UPDATE system.fs_objects
-           SET published := ConvertToWillpublish(published, FALSE, FALSE,  PubPrio_DirectEdit)
-         WHERE id = VAR indexdoc;
-
-        INSERT [ parentsite := torecycle[0].parentsite, parent := parentrec.id, file := indexdoc ] INTO retval.repubbedfiles AT END;
-      }
-
-      FOREVERY(INTEGER objid FROM objectids)
-        DiscardSitesRecursively(objid); //ADDME If recycling, save deleted site metadata.
+      INSERT INTO system.fs_history(fs_object, user, type, when, currentparent, currentname)
+             VALUES(recycle.id, GetEffectiveUserId(), whconstant_historytype_recycle, now, recycle.parent, overwrite_recycle_name ?? recycle.name);
     }
-    RETURN retval;
+    UPDATE system.fs_objects SET name := ToString(id), parent := versionparent WHERE id IN (SELECT AS INTEGER ARRAY id FROM torecycle);
+
+    // If an indexdoc is recycled, recalc indexdoc
+    RECORD parentrec :=
+        SELECT id
+             , indexdoc
+          FROM system.fs_objects
+         WHERE id = recyclegroup.parent;
+
+    INTEGER indexdoc := RecordExists(parentrec) ? parentrec.indexdoc : 0;
+
+    IF(indexdoc IN objectids)
+    {
+      INTEGER new_indexdoc :=
+          SELECT AS INTEGER id
+            FROM system.fs_objects
+           WHERE parent = parentrec.id
+             AND NOT isfolder
+             AND ToLowercase(name) IN whconstant_webserver_indexpages;
+
+      UPDATE system.fs_objects
+         SET indexdoc := new_indexdoc
+       WHERE id = parentrec.id;
+    }
+
+    IF(indexdoc != 0)
+    {
+      UPDATE system.fs_objects
+         SET published := ConvertToWillpublish(published, FALSE, FALSE,  PubPrio_DirectEdit)
+       WHERE id = VAR indexdoc;
+
+      INSERT [ parentsite := torecycle[0].parentsite, parent := parentrec.id, file := indexdoc ] INTO retval.repubbedfiles AT END;
+    }
+
+    FOREVERY(INTEGER objid FROM objectids)
+      DiscardSitesRecursively(objid); //ADDME If recycling, save deleted site metadata.
   }
->;
+  RETURN retval;
+}
