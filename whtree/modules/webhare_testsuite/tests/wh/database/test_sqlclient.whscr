@@ -44,6 +44,9 @@ MACRO WithArguments()
   proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr", "--showmode","json","select from system.fs_objects limit 1"],FALSE,TRUE,TRUE,TRUE);
   proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
   TestEq("[{}]",TrimWhitespace(GetOutputUntilTermination(proc))); //one empty record..
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr", "--showmode","json","select from system.fs_objects where filelink = 0 limit 1"],FALSE,TRUE,TRUE,TRUE);
+  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
+  TestEq("[{}]",TrimWhitespace(GetOutputUntilTermination(proc))); //one empty record..
   proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr", "--showmode","json","select * from wrd.entity_settings limit 1"],FALSE,TRUE,TRUE,TRUE);
   proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
   RECORD res := DecodeJSON(GetOutputUntilTermination(proc));
@@ -66,7 +69,7 @@ MACRO WithArguments()
   }
   stream->Close();
 
-  TestEQ(3, LENGTH(items));
+  TestEQ(4, LENGTH(items));
   TestEQMembers(
       [ user_entityid := -1
       , user_login := 'CLI:webhare_testsuite_user1'

@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internal/tabledefs.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 
@@ -102,7 +103,8 @@ MACRO GetSchemaAndTableDecls()
                                      , column_name
                                   FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
                      FROM GetPrimary()->GetTableListing(s.schema_name) AS t
-          FROM GetPrimary()->GetSchemaListing() AS s;
+          FROM GetPrimary()->GetSchemaListing() AS s
+         WHERE ToUppercase(schema_name) != "PUBLIC";
   }
 
 
@@ -115,104 +117,9 @@ MACRO GetSchemaAndTableDecls()
     IF (LENGTH(tables) = 0)
         CONTINUE;
 
-    STRING schemadef := "SCHEMA <\n";
-    STRING schema_prefix := ToUppercase(f_schema.schema_name) = "PUBLIC" ? "" : f_schema.schema_name || ".";
-
-    BOOLEAN first_table := TRUE;
-
-    FOREVERY (RECORD f_table FROM tables)
-    {
-      IF (GetDatabaseType() = "postgresql" AND f_schema.schema_name = "system")
-      {
-        IF (f_table.table_name = "sites")
-          INSERT [ column_name := "webroot", data_type := "VARCHAR" ] INTO f_table.columns AT END;
-        ELSE IF (f_table.table_name = "fs_objects")
-        {
-          f_table.columns := f_table.columns CONCAT
-              [ [ column_name := "fullpath", data_type := "VARCHAR" ]
-              , [ column_name := "highestparent", data_type := "INTEGER" ]
-              , [ column_name := "indexurl", data_type := "STRING" ]
-              , [ column_name := "isactive", data_type := "BOOLEAN" ]
-              , [ column_name := "publish", data_type := "BOOLEAN" ]
-              , [ column_name := "url", data_type := "VARCHAR" ]
-              , [ column_name := "whfspath", data_type := "VARCHAR" ]
-              ];
-        }
-      }
-
-      // renames are not visible from the column definitions
-      IF (f_schema.schema_name = "system" AND f_table.table_name = "sites")
-      {
-        f_table.columns := f_table.columns CONCAT
-            [ [ column_name := "id", data_type := "INTEGER", rename := "root" ] ];
-      }
-      IF (f_schema.schema_name = "system" AND f_table.table_name = "fs_objects")
-      {
-        f_table.columns := f_table.columns CONCAT
-            [ [ column_name := "highestparent", data_type := "INTEGER", rename := "parentsite" ]
-            , [ column_name := "indexurl", data_type := "STRING", rename := "link" ]
-            , [ column_name := "url", data_type := "VARCHAR", rename := "objecturl" ]
-            ];
-      }
-
-      RECORD tabledef;
-      STRING tabletype;
-      tabletype := (" TABLE <\n  ");
-      RECORD ARRAY columns := f_table.columns;
-      BOOLEAN isfirst := TRUE;
-      FOREVERY (RECORD f_column FROM columns)
-      {
-        IF (NOT isfirst)
-          tabletype := tabletype || ",\n  ";
-        isfirst := FALSE;
-        tabletype := tabletype || __whdb_GetHareScriptType(f_column.data_type) || " \"" || f_column.column_name || "\"";
-        IF (CellExists(f_column, "rename"))
-          tabletype := tabletype || ` AS ${f_column.rename}`;
-      }
-      IF (GetDatabaseType() = "postgresql" AND f_table.primary_key_name != "")
-        tabletype := tabletype || `; KEY ${f_table.primary_key_name}`;
-      tabletype := tabletype || "> ";
-      STRING tabledecl;
-      IF (schema_prefix = "")
-      {
-        STRING hs_name := HareScriptizeName(f_table.table_name);
-        tabledecl := tabletype || hs_name;
-        RECORD decl := [ type := "TABLE", name := hs_name, dbname := f_table.table_name, decl := tabledecl || ";\n" ];
-        INSERT decl INTO all_decls AT END;
-      }
-      ELSE
-      {
-        tabledecl := tabletype || '"' || f_table.table_name || '"';
-        IF (NOT first_table)
-          schemadef := schemadef || ",\n";
-        schemadef := schemadef || tabledecl;
-      }
-
-      INSERT CELL dbname := f_schema.schema_name || "." || f_table.table_name INTO tabledef;
-      INSERT CELL localname := schema_prefix || f_table.table_name INTO tabledef;
-      INSERT CELL decl := tabledecl INTO tabledef;
-      INSERT tabledef INTO all_tables AT END;
-/*
-      // If this table has an alternative local name
-      IF (LENGTH(f_table.altlocalname) != 0)
-      {
-        // Build new decl, replace in tabledef
-        tabledecl := tabletype || f_table.altlocalname || ";";
-        tabledef.localname := f_table.altlocalname;
-        tabledef.decl := tabledecl;
-
-        INSERT tabledef INTO result AT END;
-      }*/
-      IF (first_table)
-        first_table := FALSE;
-    }
-    IF (schema_prefix != "")
-    {
-      STRING hs_name := HareScriptizeName(f_schema.schema_name);
-      schemadef := schemadef || "> " || hs_name || ";\n";
-      RECORD decl := [ type := "SCHEMA", name := hs_name, dbname := f_schema.schema_name, decl := schemadef ];
-      INSERT decl INTO all_decls AT END;
-    }
+    STRING hs_name := HareScriptizeName(f_schema.schema_name);
+    RECORD decl := [ name := hs_name, dbname := f_schema.schema_name, decl := GetHarescriptSchemaDefinition(GetPrimary(),  f_schema.schema_name) ];
+    INSERT decl INTO all_decls AT END;
   }
 //  PrintRecordArrayTo(0, all_decls, "boxed");
 }
@@ -232,10 +139,7 @@ BLOB FUNCTION GetScript(STRING line, BOOLEAN withrecordshow, STRING ARRAY loadli
   PrintTo(blobid, "MACRO __BindTables(INTEGER trans) {");
   FOREVERY (RECORD decl FROM all_decls)
   {
-    IF (decl.type = "TABLE")
-      PrintTo(blobid, decl.name || ":=BindTransactionToTable(trans,'" || EncodeJava(decl.dbname) || "');");
-    ELSE
-      PrintTo(blobid, decl.name || ":=BindTransactionToSchema(trans,'" || EncodeJava(decl.dbname) || "');");
+    PrintTo(blobid, decl.name || ":=BindTransactionToSchema(trans,'" || EncodeJava(decl.dbname) || "');");
   }
   PrintTo(blobid, "} ");
   PrintTo(blobid, "PUBLIC RECORD FUNCTION SQLHook(RECORD __state){SetPrimaryWebhareTransaction(__state.transid);__BindTables(__state.transid);INTEGER __trans:=__state.transid;");
