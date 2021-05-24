@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/history.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -879,15 +880,17 @@ OBJECTTYPE WHFSObject
       GetWHFSCommitHandler()->FolderIndexDocUpdated(this->pvt_id);
     }
 
-    IF(NOT CellExists(newmetadata,"modificationdate"))
-      INSERT CELL modificationdate := GetCurrentDatetime() INTO newmetadata;
+    DATETIME now := GetCurrentDatetime();
+    IF(NOT CellExists(newmetadata,"modificationdate") OR newmetadata.modificationdate = DEFAULT DATETIME)
+      newmetadata := CELL[ ...newmetadata, modificationdate := now ];
     IF(NOT CellExists(newmetadata,"modifiedby"))
       INSERT CELL modifiedby := GetEffectiveUserID() INTO newmetadata;
 
+    INTEGER new_parentsite := oldversion.parent;
     IF (CellExists(newmetadata, "PARENT") AND newmetadata.parent != oldversion.parent)
     {
       commithandler->ObjectMove(oldversion.parentsite, oldversion.parent, this->pvt_id);
-      INTEGER new_parentsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = newmetadata.parent;
+      new_parentsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = newmetadata.parent;
       commithandler->ObjectMoved(new_parentsite, newmetadata.parent, this->pvt_id);
     }
     ELSE IF (isrename)
@@ -907,9 +910,14 @@ OBJECTTYPE WHFSObject
       commithandler->FileRepublish(oldversion.parentsite, oldversion.parent, this->pvt_id);
 
     newpublished := SetFlagsInPublished(newpublished, PublishedFlag_StripExtension, this->isfolder = FALSE AND IsStripExtension(newcontenttype, newname));
+    IF(oldversion.parentsite != new_parentsite AND NOT TestFlagFromPublished(newpublished, PublishedFlag_History))
+    {
+      //check if we need to enable history now...
+      IF(IsHistoryEnabledForSite(new_parentsite))
+        newpublished := SetFlagsInPublished(newpublished, PublishedFlag_History, TRUE);
+    }
 
-    DELETE CELL published FROM newmetadata;
-    INSERT CELL published := newpublished INTO newmetadata;
+    newmetadata := CELL[ ...newmetadata, published := newpublished ];
 
     //This is our deepest and final check.
     IF( (CellExists(newmetadata,'data') AND newtype IN whconstant_whfstypes_scriptable)
@@ -941,6 +949,7 @@ OBJECTTYPE WHFSObject
     }
 
     RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
+    AddModifyHistory(now, oldversion, newversion);
     this->DoUpdateHooks(oldversion, newversion);
 
     IF(options.setindex)
@@ -970,6 +979,20 @@ OBJECTTYPE WHFSObject
       this->pvt_exists := FALSE;
 
     RETURN this->pvt_exists;
+  }
+
+  /** Get the change history for this object */
+  PUBLIC RECORD ARRAY FUNCTION GetHistory()
+  {
+    RETURN SELECT type := type = whconstant_historytype_recycle ? "recycled"
+                          : type = whconstant_historytype_create ? "created"
+                          : type = whconstant_historytype_modify ? "modified"
+                          : "#" || type
+                , user
+                , when
+             FROM system.fs_history
+            WHERE fs_object = this->id
+         ORDER BY when;
   }
 
 
@@ -1321,6 +1344,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
     INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
     published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));
+    IF(IsHistoryEnabledForSite(this->parentsite))
+      published := SetFlagsInPublished(published, PublishedFlag_History, TRUE);
 
     IF(isfolder = FALSE AND CellExists(metadata,"publish"))
     {
@@ -1513,6 +1538,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
                                , newtype := CellExists(metadata,'type') ? metadata.type : 0
                                ]);
 
+    AddCreateHistory(metadata);
     RETURN newfolder;
   }
 
@@ -1551,19 +1577,14 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     INSERT metadata INTO system.fs_objects;
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
 
-    IF(options.setindex)
-      this->UpdateMetadata([indexdoc := metadata.id]);
+    // If this is a file with an indexdoc name, make it the indexdoc of this folder.
+    // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
+    IF (options.setindex OR ToLowercase(metadata.name) IN whconstant_webserver_indexpages)
+      this->UpdateMetadata([ indexdoc := metadata.id ]);
 
     OBJECT toret := OpenWHFSObject(metadata.id);
     IF(NOT ObjectExists(toret))
       THROW NEW WHFSException("OTHER","Unexpected database insert error (access denied?)");
-
-    // If this is a file with an indexdoc name, make it the indexdoc of this folder.
-    // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
-    IF (ToLowercase(toret->name) IN whconstant_webserver_indexpages)
-    {
-      this->UpdateMetadata([indexdoc := toret->id]);
-    }
 
     IF(options.runhooks)
     {
@@ -1581,6 +1602,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     }
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
+    AddCreateHistory(metadata);
     RETURN toret;
   }
 

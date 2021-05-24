@@ -71,6 +71,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 /// fs_history.type recycle action
 PUBLIC CONSTANT INTEGER whconstant_historytype_recycle := 0;
 
+/// fs_history.type created action
+PUBLIC CONSTANT INTEGER whconstant_historytype_create := 4;
+
+/// fs_history.type modified action
+PUBLIC CONSTANT INTEGER whconstant_historytype_modify := 5;
+
 //Scriptable types which are reflected to disk so the compiler can see them
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
   [  7 //semidynamic

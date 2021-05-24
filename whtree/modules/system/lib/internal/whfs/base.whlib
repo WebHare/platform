@@ -179,26 +179,6 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
   }
 }
 
-//To avoid races, create the versionfolder for a site immediately when creating the site. But having multiple shouldn't really mater
-PUBLIC INTEGER FUNCTION EnsureVersionFolder(INTEGER site)
-{
-  //Always prefer the 'oldest' version folder. cleanupversions will merge newers into the oldest anyway
-  INTEGER versionroot := SELECT AS INTEGER id
-                           FROM system.fs_objects
-                          WHERE parent = whconstant_whfsid_versions
-                                AND filelink = site
-                       ORDER BY creationdate;
-  IF(versionroot = 0)//create that first
-  {
-    DATETIME now := GetCurrentdatetime();
-    versionroot := MakeAutonumber(system.fs_objects, "id");
-
-    INSERT INTO system.fs_objects(id, parent, name, filelink, creationdate, modificationdate, isfolder)
-           VALUES(versionroot, 11, ToString(versionroot), site, now, now, TRUE);
-  }
-  RETURN versionroot;
-}
-
 PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path)
 {
   RETURN ToUppercase(path) LIKE "/WEBHARE-PRIVATE/WHFS-*";

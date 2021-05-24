@@ -4,6 +4,7 @@
   <test script="test-whfs-siteprofiles_apply.whscr" />
   <test script="test-whfs-conversions.whscr" />
   <test script="test-whfs-archiving.whscr" />
+  <test script="test-whfs-history.whscr" />
   <test script="test-whfs-versioning.whscr" />
   <test script="test-whfs-types.whscr" />
   <test script="test-whfs-types_bulkapi.whscr" />
