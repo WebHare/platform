@@ -858,9 +858,6 @@ IF (NOT RecordExists(parsedargs))
 
 OpenPrimary();
 
-// Make sure the site profiles are compiled (for ci server - shouldn't need it as TS should be properly set up?)
-//RecompileSiteProfiles();
-
 testrunner := NEW RunTests([ outputdir := parsedargs.outputdir ]);
 
 STRING testgroup := "all";

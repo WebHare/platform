@@ -600,7 +600,6 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
 }
 PUBLIC RECORD FUNCTION RecompileSiteProfiles()
 {
-  //RECORD response := CallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compiler.whlib", "__DoRecompileSiteprofiles", TRUE, FALSE, FALSE);
   OBJECT service  := WaitForPromise(OpenWebHareService("system:spcompiler"));
   TRY
   {
