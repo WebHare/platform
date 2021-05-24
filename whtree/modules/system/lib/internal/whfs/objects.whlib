@@ -1519,52 +1519,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     RETURN newfolder;
   }
 
-  /** @short Get a file, create if it doesn't exist.
-      @param requiredmetadata The required metadata. The name cell is used to lookup the existing file
-      @param optionalmetadata Optional metadata, will only be used when creating the file
-      @return The file */
-  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
-  {
-    OBJECT existing := this->OpenByName(requiredmetadata.name);
-    IF(ObjectExists(existing))
-    {
-      IF(existing->isfolder)
-        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a file, but its a folder");
-
-      IF (requiredmetadata.name = existing->name)
-        DELETE CELL name FROM requiredmetadata;
-
-      IF (RecordExists(UnpackRecord(requiredmetadata)))
-        existing->UpdateMetadata(requiredmetadata);
-
-      RETURN existing;
-    }
-    RETURN this->CreateFile(MakeMergedRecord(requiredmetadata, optionalmetadata));
-  }
-
-  /** @short Get an folder, create if it doesn't exist.
-      @param requiredmetadata The required metadata. The name cell is used to lookup the existing folder
-      @param optionalmetadata Optional metadata, will only be used when creating the folder
-      @return The folder */
-  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
-  {
-    OBJECT existing := this->OpenByName(requiredmetadata.name);
-    IF(ObjectExists(existing))
-    {
-      IF(NOT existing->isfolder)
-        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a folder, but its a file");
-
-      IF (requiredmetadata.name = existing->name)
-        DELETE CELL name FROM requiredmetadata;
-
-      IF (RecordExists(UnpackRecord(requiredmetadata)))
-        existing->UpdateMetadata(requiredmetadata);
-
-      RETURN existing;
-    }
-    RETURN this->CreateFolder(MakeMergedRecord(requiredmetadata, optionalmetadata));
-  }
-
   /** Create a new file
       @param metadata Metadata of the new file. All cells except name are optional
       @cell(integer) newmetadata.id Id of the new file
@@ -1632,6 +1586,52 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
     RETURN toret;
+  }
+
+  /** @short Get an folder, create if it doesn't exist.
+      @param requiredmetadata The required metadata. The name cell is used to lookup the existing folder
+      @param optionalmetadata Optional metadata, will only be used when creating the folder
+      @return The folder */
+  PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT existing := this->OpenByName(requiredmetadata.name);
+    IF(ObjectExists(existing))
+    {
+      IF(NOT existing->isfolder)
+        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a folder, but its a file");
+
+      IF (requiredmetadata.name = existing->name)
+        DELETE CELL name FROM requiredmetadata;
+
+      IF (RecordExists(UnpackRecord(requiredmetadata)))
+        existing->UpdateMetadata(requiredmetadata);
+
+      RETURN existing;
+    }
+    RETURN this->CreateFolder(MakeMergedRecord(requiredmetadata, optionalmetadata));
+  }
+
+  /** @short Get a file, create if it doesn't exist.
+      @param requiredmetadata The required metadata. The name cell is used to lookup the existing file
+      @param optionalmetadata Optional metadata, will only be used when creating the file
+      @return The file */
+  PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  {
+    OBJECT existing := this->OpenByName(requiredmetadata.name);
+    IF(ObjectExists(existing))
+    {
+      IF(existing->isfolder)
+        THROW NEW Exception("Expected '" || requiredmetadata.name || "' in '" || this->whfspath || "' to be a file, but its a folder");
+
+      IF (requiredmetadata.name = existing->name)
+        DELETE CELL name FROM requiredmetadata;
+
+      IF (RecordExists(UnpackRecord(requiredmetadata)))
+        existing->UpdateMetadata(requiredmetadata);
+
+      RETURN existing;
+    }
+    RETURN this->CreateFile(MakeMergedRecord(requiredmetadata, optionalmetadata));
   }
 
 
