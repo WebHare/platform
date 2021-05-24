@@ -7,6 +7,7 @@ LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
@@ -226,6 +227,14 @@ STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
 */
 RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
 {
+  IF(CellExists(metadata,'creationdate'))
+  {
+    IF(GetDtapStage() = "development") //A lot of code and calculation relies on creationdate being stable, so don't let anyone change it through the APIs
+      THROW NEW Exception(`creationdate can no longer be set or updated`);
+
+    DELETE CELL creationdate FROM metadata;
+  }
+
   IF(CellExists(metadata,'title') AND Length(metadata.title)>1024)
     THROW NEW WHFSException("OTHER","The field 'title' may not be longer than 256 characters");
   IF(CellExists(metadata,'description') AND Length(metadata.description)>2048)
@@ -1326,23 +1335,12 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
           published := published - (published%200000);
     }
 
-    IF(NOT CellExists(metadata,"CREATIONDATE") OR metadata.creationdate = DEFAULT DATETIME)
-    {
-      DELETE CELL creationdate FROM metadata;
-      INSERT CELL creationdate := GetCurrentDatetime() INTO metadata;
-    }
-    IF(NOT CellExists(metadata,"MODIFICATIONDATE") OR metadata.modificationdate = DEFAULT DATETIME)
-    {
-      DELETE CELL modificationdate FROM metadata;
-      INSERT CELL modificationdate := CellExists(metadata,"CREATIONDATE")
-                                        ? metadata.creationdate
-                                        : GetCurrentDatetime() INTO metadata;
-    }
+    metadata := CELL[ ...metadata, creationdate := GetCurrentDatetime() ];
+    IF(NOT CellExists(metadata, "modificationdate") OR metadata.modificationdate = DEFAULT DATETIME)
+      metadata := CELL[ ...metadata, modificationdate := metadata.creationdate ];
 
     IF(NOT CellExists(metadata,"modifiedby"))
-    {
       INSERT CELL modifiedby := GetEffectiveUserID() INTO metadata;
-    }
 
     DELETE CELL isfolder FROM metadata;
     DELETE CELL parent FROM metadata;
@@ -1476,7 +1474,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell newmetadata.title Title of the folder (string, max 256 characters, optional)
       @cell newmetadata.description Description of the folder (string, max 2048 characters, optional)
       @cell newmetadata.keywords Keywords (string, max 1024 characters, optional)
-      @cell newmetadata.creationdate Creationdate for this folder (datetime, optional)
       @cell newmetadata.modificationdate Modificationdate for this folder (datetime, optional)
       @cell newmetadata.name Name of this folder (string, must check ok with IsValidWHFSName, required);
       @cell newmetadata.type Id of the type of this folder (integer, optional)
@@ -1525,7 +1522,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell(string) newmetadata.title Title of the file (max 256 bytes)
       @cell(string) newmetadata.description Description of the file (max 2048 bytes)
       @cell(string) newmetadata.keywords Keywords (string, max 1024 bytes, optional)
-      @cell(datetime) newmetadata.creationdate Creationdate for this file
       @cell(datetime) newmetadata.modificationdate Modificationdate for this file
       @cell(string) newmetadata.name Name of this file (required, must check ok with %IsValidWHFSName)
       @cell(integer) newmetadata.type Id of the type of this file
