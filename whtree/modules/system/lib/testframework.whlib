@@ -2276,7 +2276,7 @@ INTEGER ARRAY FUNCTION FilterOutRecycledObjects(INTEGER ARRAY ids)
 
     RECORD ARRAY newworklist;
     FOREVERY (RECORD rec FROM worklist)
-      IF (rec.parent != 0 AND rec.parent != 11) // filter out everything in whfs-versions
+      IF (rec.parent != 0 AND rec.parent != whconstant_whfsid_versions) // filter out everything in whfs-versions
       {
         RECORD pos := RecordLowerBound(folders, [ id := rec.parent ], [ "ID" ]);
         INSERT [ id := rec.id, parent := folders[pos.position].parent ] INTO worklist AT END;

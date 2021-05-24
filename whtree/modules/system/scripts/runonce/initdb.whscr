@@ -106,7 +106,7 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "webhare-private"
                                  , type := whconstant_whfstype_systemfolder
                                  ]
-                               , [ id := 11
+                               , [ id := whconstant_whfsid_versions
                                  , parent := whconstant_whfsid_private
                                  , name := "whfs-versions"
                                  , type := whconstant_whfstype_normalfolder
