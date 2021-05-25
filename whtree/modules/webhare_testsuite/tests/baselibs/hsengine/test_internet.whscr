@@ -922,10 +922,23 @@ MACRO TestWebBrowser()
   TestEQ(TRUE, browser->GotoWebPage("http://localhost:" || res.msg.accepting_port));
   TestEQ("0123456789", BlobToString(browser->content));
 
+  //A GET automatically retries on short body
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n012345678" ]);
-  TestEQ(FALSE, browser->GotoWebPage("http://localhost:" || res.msg.accepting_port));
-  TestEQ(-200, browser->GetHTTPStatusCode());
-  TestEQ("012345678", BlobToString(browser->content));
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n1234567890" ]);
+  TestEQ(TRUE, browser->GotoWebPage("http://localhost:" || res.msg.accepting_port));
+  TestEQ(200, browser->GetHTTPStatusCode());
+  TestEQ("1234567890", BlobToString(browser->content));
+
+  //But any other method would terminate
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n012345678" ]);
+  TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  TestEQ(0, browser->GetHTTPStatusCode());
+  TestEQ("", BlobToString(browser->content));
+
+  res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901" ]);
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  TestEQ(200, browser->GetHTTPStatusCode());
+  TestEQ("2345678901", BlobToString(browser->content));
 
   job->Close();
 }
