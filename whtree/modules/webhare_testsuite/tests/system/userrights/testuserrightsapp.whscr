@@ -22,10 +22,10 @@ ASYNC MACRO Setup()
   INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
 
   testfw->SetTestUser("lisa");
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
   TestEqLike("Rights problem", topscreen->title);
 
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-2, PTR TTClick(":OK"));
 
   testfw->BeginWork();
   testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("lisa"), GetTestController()->userapi->GetUnit(lisaunit)->authobjectid, TRUE);

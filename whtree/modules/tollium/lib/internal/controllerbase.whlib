@@ -1396,6 +1396,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   STRING laststartedapp;
 
+  OBJECT ARRAY notifiedwindows;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -1819,7 +1821,12 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       IF (pos != -1)
         DELETE FROM this->stolen_screens AT pos;
 
-      this->EmitEvent("windowstack", CELL[ screen, isopening := FALSE ]);
+      pos := SearchElement(this->notifiedwindows, screen);
+      IF (pos != -1)
+      {
+        DELETE FROM this->notifiedwindows AT pos;
+        this->EmitEvent("windowstack", CELL[ screen, isopening := FALSE, isskipped := FALSE ]);
+      }
     }
   }
 
@@ -1899,7 +1906,14 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       RETURN;
 
     IF(ObjectExists(screen->tolliumparent))
+    {
       this->EnsureVisibleScreen(screen->tolliumparent);
+      IF(screen->tolliumparent NOT IN this->notifiedwindows)
+      {
+        INSERT screen->tolliumparent INTO this->notifiedwindows AT END;
+        this->EmitEvent("windowstack", CELL[ screen := screen->tolliumparent, isopening := TRUE, isskipped := TRUE ]);
+      }
+    }
 
     INSERT screen INTO this->windowstack AT END;
     screen->frame->OnShowFrame();
@@ -2012,7 +2026,15 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         screen->tolliumscreenmanager->DoInitComponents(allcomponents, builder);
 
       IF(NOT builder->HasFailed())
+      {
         screen->TolliumInitializeScreen(loaddata.params);
+
+        /* A screen might have opened a subscreen and become visible. If the tolliumresult is set now, it won't enter
+           the loop, so it must be removed from the windowstack here
+        */
+        IF (screen->tolliumresult != "")
+          this->DeleteScreenFromWindowStack(screen);
+      }
     }
     CATCH(OBJECT<TolliumException> e)
     {
@@ -3238,7 +3260,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       THROW NEW Exception(`Cannot run the tollium eventloop without a visible screen`);
 
     OBJECT screen := MakePublicObjectReference(newscreen ?? this->windowstack[END - 1]);
-    BOOLEAN didnotifynewscreen;
 
     OBJECT modalframe := screen->frame;
 
@@ -3344,8 +3365,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
           IF(debug_logcontroller)
             LogDebug("tollium:controller", "Exit message loop for " || modalframe->instancename || " - not running or tolliumresult set");
 
-          IF(NOT didnotifynewscreen)
-            this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE ]);
+          IF(screen NOT IN this->notifiedwindows)
+            this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE, isskipped := TRUE ]);
 
           //guess we're done
           this->DeleteScreenFromWindowStack(MakePublicObjectReference(screen));
@@ -3413,10 +3434,10 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         callbacks_start := AddTimeToDate(callback_time, now);
       }
 
-      IF(NOT didnotifynewscreen)
+      IF(screen NOT IN this->notifiedwindows)
       {
-        didnotifynewscreen := TRUE;
-        this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE ]);
+        INSERT screen INTO this->notifiedwindows AT END;
+        this->EmitEvent("windowstack", CELL[ screen, isopening := TRUE, isskipped := FALSE ]);
       }
 
       // Go into wait for some event to occur (new client message, timeout, event)
