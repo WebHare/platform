@@ -455,8 +455,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF(is_recycle)
     {
-      //Create the recycle action
-      RECORD res := __OpenLocalService("system:whfs")->Recycle([ objectid ]);
+      //Create the recycle action FIXME break recursive dependency so we can can just invoke it
+
+      RECORD res := MakeFunctionPtr(Resolve("service.whlib#RecycleWHFSObjects"))([ objectid ], "");
       FOREVERY(RECORD repub FROM res.repubbedfiles)
         this->FileRepublish(repub.parentsite, repub.parent, repub.file);
     }

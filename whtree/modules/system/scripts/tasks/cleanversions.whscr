@@ -4,6 +4,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 RECORD info := ParseArguments(GetConsoleArguments(),
@@ -24,6 +25,28 @@ BOOLEAN debug := info.debug;
 BOOLEAN dryrun := info.dryrun;
 BOOLEAN perfile := info.perfile;
 OBJECT trans := OpenPrimary();
+
+// Version folders might race or more likely, have their matching site deleted. Merge these duplicates
+RECORD ARRAY dupeversionfolders := SELECT filelink, dupes := GroupedValues(CELL[id, creationdate])
+                                     FROM system.fs_objects
+                                    WHERE parent = whconstant_whfsid_versions
+                                 GROUP BY filelink
+                                   HAVING COUNT(*)>1;
+
+IF(Length(dupeversionfolders) > 0 AND NOT dryrun)
+{
+  trans->BeginWork();
+  FOREVERY(RECORD dupe FROM dupeversionfolders)
+  {
+    RECORD ARRAY movelist := SELECT * FROM dupe.dupes ORDER BY creationdate;
+    INTEGER destid := movelist[0].id;
+    INTEGER ARRAY tomove := SELECT AS INTEGER ARRAY id FROM ArraySlice(movelist,1);
+
+    UPDATE system.fs_objects SET parent := destid WHERE parent IN tomove;
+    DELETE FROM system.fs_objects WHERE id IN tomove;
+  }
+  trans->CommitWork();
+}
 
 IF(NOT perfile)
   trans->BeginWork();
@@ -60,7 +83,7 @@ RECORD ARRAY recyclebinitems := SELECT when := ANY(when)
                                      , historyid := ANY(id)
                                      , currentname := ANY(currentname)
                                   FROM system.fs_history
-                                 WHERE type = 0
+                                 WHERE type = whconstant_historytype_recycle
                               GROUP BY fs_object
                               ORDER BY ANY(when) DESC;
 

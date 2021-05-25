@@ -200,7 +200,7 @@ MACRO DoReplaceWith(RECORD task)
 
   //Create a copy for the recyclebin so the original contents are not lost immediately
   OBJECT copy := toreplace->CopyTo(toreplace->parentobject, GenerateUFS128BitId()); //copy to random name
-  NEW WHFSCalls->Recycle(INTEGER[copy->id], toreplace->name);
+  RecycleWHFSObjects(INTEGER[copy->id], toreplace->name);
 
   FOREVERY(INTEGER cancopy FROM ArrayUnion(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
   {

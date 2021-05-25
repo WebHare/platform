@@ -1,0 +1,43 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+MACRO TestBasicHistory()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT testsite := CreateSiteFromFolder(firstfolder->id);
+
+  OBJECT firstfile := testsite->rootobject->CreateFile([name := "firstfile", title := "My first file", data := StringToBlob("First file content")]);
+  TestEq(FALSE, TestFlagFromPublished(firstfile->published, PublishedFlag_History));
+
+  testsite->UpdateSiteMetadata([ historydays := 14 ]);
+  TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(firstfile->id)->published, PublishedFlag_History));
+
+  OBJECT subfile := testsite->rootobject->CreateFile([name := "subfile"]);
+  TestEq(RECORD[], firstfile->GetHistory());
+  TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop") ]], subfile->GetHistory(), "*");
+
+  TestEq(TRUE, TestFlagFromPublished(subfile->published, PublishedFlag_History));
+
+  testfw->SetTestUser("marge");
+  firstfile->UpdateMetadata([description := "new descr", data := StringToBlob("First file content updated")]);
+  TestEqMembers([[ type := "modified", user := testfw->GetUserAuthobjectId("marge") ]], firstfile->GetHistory(), "*");
+
+  testfw->CommitWork();
+}
+
+RunTestframework([ PTR TestBasicHistory
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "marge" ]
+                                    ,[ login := "homer" ]
+                                    ]
+                     ]);

@@ -1672,7 +1672,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:integer>
       <d:integer name="type">
         <d:documentation>
-          History action type. 0=deletion, 1 to 3 unused.
+          History action type. 0=deletion, 1 to 3 unused. 4=create, 5=modify, 6=move/undelete
         </d:documentation>
       </d:integer>
       <d:integer name="currentparent" references=".fs_objects" ondelete="set default">
@@ -1680,7 +1680,12 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The parent at the moment the action was created
         </d:documentation>
       </d:integer>
-      <d:varchar name="currentname" nullable="0" maxlength="256">
+      <d:integer name="related" references=".fs_objects" ondelete="cascade">
+        <d:documentation>
+          Related fs_object, used to store 'original' values when modifying
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="currentname" maxlength="256">
         <d:documentation>
           The name at the moment the action was created
         </d:documentation>
@@ -1861,6 +1866,11 @@ The full base URL on which this site will be published, calculated by combining 
 
         </d:documentation>
       </d:varchar>
+      <d:integer name="historydays">
+        <d:documentation>
+          How many days of history to keep in this site
+        </d:documentation>
+      </d:integer>
       <d:varchar name="versioningpolicy" maxlength="128">
         <d:documentation>
           Whether the site is under version control
@@ -2344,9 +2354,7 @@ The full base URL on which this site will be published, calculated by combining 
       </accesscheck>
     </webservice>
 
-    <localservice name="whfs" library="internal/whfs/service.whlib" objectname="WHFSCalls" reuse="true" />
     <localservice name="rights" library="internal/rightsmgmt.whlib" objectname="ElevatedRightsCalls" reuse="true" />
-    <localservice name="diversion" library="internal/virtualfs/diversion.whlib" objectname="DiversionCalls" reuse="true" />
 
     <!-- The __systemservice is a generic service, that will accept the local transaction -->
     <localservice name="__systemservice" library="internal/systemservice.whlib" objectname="SystemService" reuse="true" />

@@ -6,6 +6,7 @@ LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
@@ -295,6 +296,7 @@ STATIC OBJECTTYPE SiteObject
       @cell(string) metadata.lockreason Reason for locking the site
       @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
       @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
+      @cell(integer) metadata.historydays Number of days to keep history
       @return Update result @includecelldef #TestSiteOutputAvailability.return
       @cell return.success Whether the operation was successful. Can be false when modifying the outputweb or outputfolder
   */
@@ -317,6 +319,7 @@ STATIC OBJECTTYPE SiteObject
                                              , lockreason := ""
                                              , outputweb := 0
                                              , outputfolder := ""
+                                             , historydays := 0
                                              ], metadata, [ optional := ["*"], title := "site metadata" ]);
 
     RECORD currentrec := SELECT * FROM system.sites WHERE id = this->id;
@@ -391,6 +394,13 @@ STATIC OBJECTTYPE SiteObject
     {
       ScheduleFolderRepublish(this->id, /*recursive=*/TRUE, /*non_template_too=*/TRUE);
       GetWHFSCommitHandler()->SiteUpdated(this->id);
+    }
+    IF(CellExists(siterecupdate, 'historydays') AND siterecupdate.historydays > 0 AND currentrec.historydays <= 0) //enabling history
+    {
+      UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_History, TRUE) WHERE id = this->id AND NOT TestFlagFromPublished(published, PublishedFlag_History);
+
+      INTEGER ARRAY sitefolders := INTEGER[this->id, ...GetWHFSDescendantIds(this->id, TRUE, FALSE)];
+      UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_History, TRUE) WHERE parent IN sitefolders AND NOT TestFlagFromPublished(published, PublishedFlag_History);
     }
 
     GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
