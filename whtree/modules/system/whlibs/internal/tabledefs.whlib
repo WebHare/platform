@@ -13,8 +13,7 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
       FROM columns
   ORDER BY column_name != tabledef.primary_key_name, column_name;
 
-  IF (MemberExists(trans,"transactionisolationlevel") //loks like pgsql
-      AND table_schema = "system")
+  IF (trans->type = "postgresql" AND table_schema = "system")
   {
     IF (tabledef.table_name = "sites")
       INSERT [ column_name := "webroot", data_type := "VARCHAR" ] INTO columns AT END;
