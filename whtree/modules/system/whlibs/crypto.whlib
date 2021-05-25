@@ -208,6 +208,18 @@ PUBLIC STRING FUNCTION GeneratePassword(STRING base, INTEGER len, BOOLEAN mixed_
 }
 
 
+/** @short Generate a V4 UUID (or GUID in Microsoft-speak)
+    @return The V4 UUID in xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx format */
+PUBLIC STRING FUNCTION GenerateUUID()
+{
+  STRING uuid := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  INTEGER clock_seq_hi_and_reserved := (ToInteger(Substring(uuid, 16, 1),16) BITAND 0x3) BITOR 0x8;
+  STRING cshir_hex := ToLowercase(ToString(clock_seq_hi_and_reserved,16));
+  uuid := `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-4${Substring(uuid, 13, 3)}-${cshir_hex}${Substring(uuid, 17, 3)}-${Substring(uuid, 20)}`;
+  RETURN uuid;
+}
+
+
 /** @short Generate a random text
     @param len Number of random characters
     @param allowed_chars String with the allowed characters

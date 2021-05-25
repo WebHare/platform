@@ -326,8 +326,8 @@ CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtf
 
   TestEq("CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtfOfyWAQ==", EncodeBase64(Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGH" ])));
   TestEq("NRWZ4akrOQRMcgXunoNKCrBkduDSMygcxX6dIbbZ9EWhXwpOBbA7vhGW50pIPremj9L51H1F+RlFUobjV7am3g==", EncodeBase64(Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG\x00" ])));
-  TestThrows(PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG" ]));
-  TestThrows(PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGHI" ]));
+  TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG" ]));
+  TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGHI" ]));
 
   /* reference values for DES-ECB
 php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D96",0) . "\n";'
@@ -347,7 +347,7 @@ jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlF
   TestEq("qIpzDBARpTOJIK+3EaJ8PPeoU2cJJMBkK++iFZ6xk0RVIl9ujzrKtI5NaoOP/5IXo15M0kq+z5qW5mPq/2jXUw==", EncodeBase64(Encrypt("des-ecb","0131D960", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
   TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D968", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
   TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestThrows(PTR Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [iv := "x"]));
+  TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [iv := "x"]));
 
   //not expecting this to throw
   TestEq("", EncodeBase16(Decrypt("bf-cbc","0131D9619DC1376E","xxx")));
@@ -441,8 +441,8 @@ O1t8+FbRGplZNW0qXQIDAQAB
 
 MACRO PKCSTest()
 {
-  TestThrows(PTR DecodePEMFile(""));
-  TestThrows(PTR DecodePEMFile("-----BEGIN CERTIFICATE-----"));
+  TestThrowsLike('*header*', PTR DecodePEMFile(""));
+  TestThrowsLike('*end*line*', PTR DecodePEMFile("-----BEGIN CERTIFICATE-----"));
 
   // certificate without newlines
   STRING democert :=
@@ -464,7 +464,7 @@ MACRO PKCSTest()
     || "RY8UMVbM9JW6NbVwsTK2yLesyLPQXvfIcpanIu7CSf09uL2JGeniDWCw1NsPmXI="
     || "-----END CERTIFICATE-----";
 
-  TestThrows(PTR DecodePEMFile(democert));
+  TestThrowsLike('*Unable to parse*', PTR DecodePEMFile(democert));
 
   STRING doubleoucert := `"-----BEGIN CERTIFICATE-----
 MIIFVzCCBD+gAwIBAgIQdYBZ8ztM853ggCpfYBGgJjANBgkqhkiG9w0BAQsFADCB
@@ -533,7 +533,20 @@ MACRO HMACTest()
   TestEq(DecodeBase16("bee30857da74243402da2d2cf9829bb7ee11ee1938bea39e8a31e5fe8fc403b8"), GetHashForString(testdata, "HMAC:SHA-256", testkey));
   TestEq(DecodeBase16("0e9e7c51b93c5c27ae46677fbe517c5487373c079771805c6bccdef27753366396734d90101629c960b02061f4961cd9"), GetHashForString(testdata, "HMAC:SHA-384", testkey));
   TestEq(DecodeBase16("f9f0b5243e07f0730e02bfdb4f04f835f8e1d2357ccc015c7643930580dc6d0d863ecc04361dffd1ca49acf6bd64f27661afcddf14c82086a50dc637571d1a00"), GetHashForString(testdata, "HMAC:SHA-512", testkey));
+
+
 }
+
+MACRO GUIDTest()
+{
+  FOR(INTEGER i := 0; i < 100; i := i + 1) //test 100 GUIDss
+  {
+    STRING uuid := GenerateUUID();
+    TestEqLike("????????-????-4???-????-????????????", uuid);
+    TestEq(TRUE, Substring(uuid, 19,1) IN ['8','9','a','b']);
+  }
+}
+
 
 //unsigned char key[8] = {0x01, 0x31, 0xD9, 0x61, 0x9D, 0xC1, 0x37, 0x6E};
 //unsigned char data[8] = {0x5C, 0xD5, 0x4C, 0xA8, 0x3D, 0xEF, 0x57, 0xDA};
@@ -550,3 +563,4 @@ EvpTest();
 PKCSTest();
 NTLMTests();
 HMACTest();
+GUIDTest();
