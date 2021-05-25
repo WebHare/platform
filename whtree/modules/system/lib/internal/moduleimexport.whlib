@@ -23,7 +23,6 @@ LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -576,8 +575,7 @@ PUBLIC STATIC OBJECTTYPE ModuleArchiver
         SELECT name
              , type
              , modified
-          FROM entries
-         WHERE name NOT IN [".",".."];
+          FROM entries;
   }
 
   /** Check filenames for strange stuff. Throw on stuff that really may not be there.
@@ -911,8 +909,7 @@ RECORD ARRAY FUNCTION ScanModuleDirectory(STRING path, STRING localpath)
       SELECT *
            , path :=        localpath
            , fullpath :=    MergePath(localpath, name)
-        FROM entries
-       WHERE name NOT IN [ ".", ".." ];
+        FROM entries;
 
   FOREVERY (RECORD entry FROM entries)
     IF (entry.type = 1)

@@ -6,6 +6,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::internal/tabledefs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -17,34 +18,6 @@ LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/imexport.whlib";
 
-
-STRING FUNCTION GetDefStmt(RECORD tabledef, RECORD ARRAY columns, STRING indent)
-{
-  STRING hs_tabledef;
-
-  columns :=
-    SELECT *
-      FROM columns
-  ORDER BY column_name != tabledef.primary_key_name, column_name;
-
-  FOREVERY (RECORD col FROM columns)
-  {
-    IF(#col>0)
-      hs_tabledef := hs_tabledef || "\n" || indent || ", ";
-
-    STRING hstype := __whdb_GetHarescriptType(col.data_type);
-    hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
-    IF ( (hstype = "INTEGER" AND col.referenced_table_name != "") OR (col.column_name = tabledef.primary_key_name))
-      hs_tabledef := hs_tabledef || " NULL := 0" ;
-    IF (ToLowercase(col.data_type) = "bytea")
-      hs_tabledef := hs_tabledef || " __ATTRIBUTES__(BINARY)" ;
-  }
-  IF (tabledef.primary_key_name != "")
-    hs_tabledef := hs_tabledef || `\n${indent}; KEY "${EncodeJava(tabledef.primary_key_name)}"`;
-
-  RETURN hs_tabledef;
-}
-
 STRING FUNCTION GetDatabaseWHLIB(OBJECT trans, STRING schemaname)
 {
   STRING bindfuncname := 'Bind';
@@ -53,17 +26,7 @@ STRING FUNCTION GetDatabaseWHLIB(OBJECT trans, STRING schemaname)
   bindfuncname := bindfuncname || 'Tables';
 
   STRING hs_schemadef := '<?wh\nLOADLIB "mod::system/lib/database.whlib";\n\n'
-                         || 'PUBLIC SCHEMA\n< ';
-
-  FOREVERY(RECORD tablerec FROM SELECT * FROM trans->GetTableListing(schemaname) ORDER BY table_name)
-  {
-    IF(#tablerec>0)
-      hs_schemadef := hs_schemadef || "\n  , ";
-
-    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
-    hs_schemadef := hs_schemadef || "TABLE\n    < " || GetDefStmt(tablerec, columns,"    ") || '\n    > "' || EncodeJava(ToLowercase(tablerec.table_name)) || '"';
-  }
-  hs_schemadef := hs_schemadef || "\n  > " || ToLowercase(schemaname) || ";\n"
+                  || GetHarescriptSchemaDefinition(trans, schemaname)
                   || '\n'
                   || 'MACRO ' || bindfuncname || '(INTEGER transactionid)\n'
                   || '{\n'

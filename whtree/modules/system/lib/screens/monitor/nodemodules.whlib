@@ -102,7 +102,7 @@ RECORD ARRAY FUNCTION __RecursiveGetFiles(STRING path, STRING localpath, BOOLEAN
       SELECT *
            , localpath := localpath || "/" || name // path (in the module)
            , isnodemodule := in_nodemodules_map
-        FROM ReadDiskDirectory(path, "*") WHERE name NOT IN [".", "..", ".DS_Store", ".git" ];
+        FROM ReadDiskDirectory(path, "*") WHERE name NOT IN [ ".DS_Store", ".git" ];
 
   RECORD ARRAY extrafiles;
 

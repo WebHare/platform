@@ -19,7 +19,7 @@
     <runonce tag="initdb_20191209" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_20200713" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce tag="poststartcleanup_20210522" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
     <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
 
@@ -1672,7 +1672,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:integer>
       <d:integer name="type">
         <d:documentation>
-          History action type. 0=deletion, 1=edit+delete, 2=simple move (only parent/name changed), 3=edit
+          History action type. 0=deletion, 1 to 3 unused.
         </d:documentation>
       </d:integer>
       <d:integer name="currentparent" references=".fs_objects" ondelete="set default">

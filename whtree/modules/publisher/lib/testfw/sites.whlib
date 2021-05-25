@@ -5,6 +5,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/modules/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
 /** @short Setup a website for continuous integration tests
     @param webdesigntemplate Name of the webdesign to use, eg "mysite:mydesign"
@@ -47,7 +48,10 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
   OBJECT newsite := testfw->SetupTestWebdesignWebsite(siteopts); //ADDME merge this into us?
 
   IF(options.istemplate)
+  {
     SetupWebDesign(webdesigntemplate, testfw_testmodule, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
+    RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
+  }
 
   RECORD meta := [ sitedesign := options.istemplate ? `${testfw_testmodule}:testdesign` : webdesigntemplate
                  , webfeatures := options.webfeatures

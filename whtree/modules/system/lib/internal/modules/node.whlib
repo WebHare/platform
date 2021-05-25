@@ -50,14 +50,14 @@ PUBLIC RECORD ARRAY FUNCTION ListNodeModuleFolders(STRING basepath)
            , localpath := Substring(path, Length(basepath)) // path (in the module)
            , isnodemodule := TRUE
         FROM ReadDiskDirectory(basepath || "nodejs", "*") CONCAT ReadDiskDirectory(basepath || "js", "*")
-       WHERE type > 0 AND name NOT IN [".", "..", ".DS_Store", ".git"];
+       WHERE type > 0 AND name NOT IN [ ".DS_Store", ".git" ];
 
   RECORD ARRAY webdesigns :=
       SELECT *
            , localpath := Substring(path, Length(basepath)) // path (in the module)
            , isnodemodule := TRUE
         FROM ReadDiskDirectory(basepath || "webdesigns", "*")
-       WHERE type > 0 AND name NOT IN [".", "..", ".DS_Store", ".git"];
+       WHERE type > 0 AND name NOT IN [ ".DS_Store", ".git" ];
 
   FOREVERY(RECORD webdesign FROM webdesigns)
   {
@@ -66,7 +66,7 @@ PUBLIC RECORD ARRAY FUNCTION ListNodeModuleFolders(STRING basepath)
             , localpath := Substring(path, Length(basepath)) // path (in the module)
             , isnodemodule := TRUE
          FROM ReadDiskDirectory(webdesign.path || "/node_modules", "*")
-        WHERE type > 0 AND name NOT IN [".", "..", ".DS_Store", ".git"];
+        WHERE type > 0 AND name NOT IN [ ".DS_Store", ".git" ];
   }
 
   RETURN nodemoduledirs;

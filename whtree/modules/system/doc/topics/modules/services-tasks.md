@@ -22,7 +22,7 @@ services should be careful not to do anything which might cause them to fail
 completing.
 
 ### Setup
-A managedtask type is declared in moduledefiniton.xml in the `<servicemanager>` section:
+A managedtask type is declared in moduledefinition.xml in the `<servicemanager>` section:
 
 ```xml
   <servicemanager>

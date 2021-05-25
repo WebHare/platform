@@ -99,8 +99,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadWebHareResourceFolder(STRING resourcepath)
 */
 PUBLIC STRING FUNCTION GetModuleDefinitionXMLResourceName(STRING modulename)
 {
-  STRING res := "mod::" || modulename || "/moduledefinition.xml";
-  RETURN RecordExists(RetrieveWebHareResource(res, [ allowmissing := TRUE ])) ? res : "";
+  RETURN `mod::${modulename}/moduledefinition.xml`;
 }
 
 /** Get the XML module definition for a module

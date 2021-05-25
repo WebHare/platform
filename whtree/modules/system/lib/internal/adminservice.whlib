@@ -127,8 +127,7 @@ RECORD ARRAY FUNCTION ScanModuleDirectory(STRING path, STRING localpath)
       SELECT *
            , path :=        localpath
            , fullpath :=    MergePath(localpath, name)
-        FROM entries
-       WHERE name NOT IN [ ".", ".." ];
+        FROM entries;
 
   FOREVERY (RECORD entry FROM entries)
     IF (entry.type = 1)

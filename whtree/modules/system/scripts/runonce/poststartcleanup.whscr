@@ -55,4 +55,6 @@ IF(trans->ColumnExists("SYSTEM","FS_OBJECTS","ID"))
     legacy_designfiles->RecycleSelf();
 }
 
+DELETE FROM system.fs_history WHERE type IN [1,2,3]; //"3" was found in actual use up to 2016, to be sure we will just remove 1 t/m 3
+
 trans->CommitWork();

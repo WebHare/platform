@@ -1,0 +1,97 @@
+<?wh
+
+//LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+
+STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, RECORD ARRAY columns, STRING indent)
+{
+  STRING hs_tabledef;
+
+  columns :=
+    SELECT *
+      FROM columns
+  ORDER BY column_name != tabledef.primary_key_name, column_name;
+
+  IF (trans->type = "postgresql" AND table_schema = "system")
+  {
+    IF (tabledef.table_name = "sites")
+      INSERT [ column_name := "webroot", data_type := "VARCHAR" ] INTO columns AT END;
+    ELSE IF (tabledef.table_name = "fs_objects")
+    {
+      columns := columns CONCAT
+          [ [ column_name := "fullpath", data_type := "VARCHAR" ]
+          , [ column_name := "highestparent", data_type := "INTEGER", referenced_table_name := "" ]
+          , [ column_name := "indexurl", data_type := "STRING" ]
+          , [ column_name := "isactive", data_type := "BOOLEAN" ]
+          , [ column_name := "publish", data_type := "BOOLEAN" ]
+          , [ column_name := "url", data_type := "VARCHAR" ]
+          , [ column_name := "whfspath", data_type := "VARCHAR" ]
+          ];
+    }
+  }
+  // renames are not visible from the column definitions
+  IF (table_schema = "system" AND tabledef.table_name = "sites")
+  {
+    tabledef.columns := columns CONCAT
+        [ [ column_name := "id", data_type := "INTEGER", rename := "root" ] ];
+  }
+  IF (table_schema = "system" AND tabledef.table_name = "fs_objects")
+  {
+    columns := columns CONCAT
+        [ [ column_name := "highestparent", data_type := "INTEGER", rename := "parentsite", referenced_table_name := ""  ]
+        , [ column_name := "indexurl", data_type := "STRING", rename := "link" ]
+        , [ column_name := "url", data_type := "VARCHAR", rename := "objecturl" ]
+        ];
+  }
+
+  FOREVERY (RECORD col FROM columns)
+  {
+    IF(#col>0)
+      hs_tabledef := hs_tabledef || "\n" || indent || ", ";
+
+    STRING hstype := __whdb_GetHarescriptType(col.data_type);
+    hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
+    IF (CellExists(col, "rename"))
+      hs_tabledef := hs_tabledef || ` AS "${EncodeJava(col.rename)}"`;
+
+    IF ( hstype IN ["INTEGER","INTEGER64"] AND (col.referenced_table_name != "" OR col.column_name = tabledef.primary_key_name))
+      hs_tabledef := hs_tabledef || " NULL := 0" ;
+    IF (ToLowercase(col.data_type) = "bytea")
+      hs_tabledef := hs_tabledef || " __ATTRIBUTES__(BINARY)" ;
+  }
+  IF (tabledef.primary_key_name != "")
+    hs_tabledef := hs_tabledef || `\n${indent}; KEY "${EncodeJava(tabledef.primary_key_name)}"`;
+
+  RETURN hs_tabledef;
+}
+
+
+PUBLIC STRING FUNCTION GetHarescriptSchemaDefinition(OBJECT trans, STRING schemaname)
+{
+  BOOLEAN ispublicschema := ToLowercase(schemaname)="public";
+  STRING hs_schemadef;
+  IF(NOT ispublicschema)
+    hs_schemadef := 'PUBLIC SCHEMA\n  < ';
+
+  FOREVERY(RECORD tablerec FROM SELECT * FROM trans->GetTableListing(schemaname) ORDER BY table_name)
+  {
+    IF(#tablerec>0)
+      hs_schemadef := `${hs_schemadef}\n  ${ispublicschema ? ";" : ","} `;
+
+    STRING code_tablename;
+    IF(ispublicschema)
+      code_tablename := ToLowercase(tablerec.table_name);
+    ELSE
+      code_tablename := '"' || EncodeJava(ToLowercase(tablerec.table_name)) || '"';
+
+    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
+    hs_schemadef := hs_schemadef || "TABLE\n    < " || GetDefStmt(trans, schemaname, tablerec, columns,"    ") || `\n    > ${code_tablename}`;
+  }
+  hs_schemadef := hs_schemadef || "\n";
+  IF(ispublicschema)
+    hs_schemadef := hs_schemadef || ";\n";
+  ELSE
+    hs_schemadef := hs_schemadef || "  > " || ToLowercase(schemaname) || ";\n";
+  RETURN hs_schemadef;
+}

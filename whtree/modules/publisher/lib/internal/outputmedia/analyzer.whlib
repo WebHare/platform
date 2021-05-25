@@ -164,9 +164,6 @@ MACRO RemoveDiskDirectory(STRING folderurl, STRING folderpath, BOOLEAN pushevent
   //onanalyzerissue("LOG", "RemoveDiskDirectory '"||folderpath);
   FOREVERY (RECORD entry FROM ReadDiskDirectory(folderpath, "*"))
   {
-    IF (entry.name = "." OR entry.name="..") // Skip current & parent directories
-      CONTINUE;
-
     IF (entry.type = 0) // File
     {
       // Remove the file
