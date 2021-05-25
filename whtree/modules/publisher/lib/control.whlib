@@ -46,7 +46,6 @@ PUBLIC MACRO __RepublishFolder(INTEGER folderid, BOOLEAN toplevel, BOOLEAN non_t
                      AND publish = TRUE
                      AND (non_template_too ? TRUE :
                                 (fs_objects.type=22 /*standalone*/
-                                 OR fs_objects.template!=0
                                  OR fs_objects.lastpublishdate < fs_objects.modificationdate
                                  OR GetErrorFromPublished(published)!=0
                                  OR TestFlagFromPublished(published, PublishedFlag_HasWebDesign)

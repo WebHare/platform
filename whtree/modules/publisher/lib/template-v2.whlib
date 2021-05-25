@@ -1549,16 +1549,12 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
   //Decode the actual file!
   RECORD ARRAY __publisher_docobjects;
   RECORD profile;
-  IF (contentfiletypeprops.needsprofile)
-  {
-    profile := ReadConversionProfile(file.profile);
-
-    IF(NOT RecordExists(profile))
-      PUBLISHER_Exception(file.profile = 0 ? 109 : 113,""); //No associated profile
-  }
-
   IF (contentfile.type = 4) //word doc!
   {
+    //NOTE worddocs are the only 'needsprofile' type...
+    //TODO if there's still a (limited?) need for profiles, hardcode or registrykey an ID for ReadConversionProfile?
+    PUBLISHER_Exception(109,""); //No associated profile
+
     worddocid := OpenMSWordDocument(contentfile.data);
     IF(worddocid=0)
       PUBLISHER_EXCEPTION(3003,"Unable to open source document"); //FIXME: Proper I/O error code?!

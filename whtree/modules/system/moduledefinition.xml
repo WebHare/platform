@@ -1416,11 +1416,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           The parent of the selected item
         </d:documentation>
       </d:integer>
-      <d:integer name="profile" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          The (word conversion) profile used to publish this file (in the old template V2 system), if its type requires any.
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="profile"/>
       <d:boolean name="publish" internalcolumnname="PUBLISH">
         <d:documentation>
           Checks if the document needs to be published or not
@@ -1431,31 +1427,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Status en flags indicating the current publishing, task and error status of the file.
         </d:documentation>
       </d:integer>
-      <d:boolean name="requireprofile">
-        <d:documentation>
-          Whether this document requires a (word conversion) profile (in the old template V2 system)
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="requireprofileinsubfolders">
-        <d:documentation>
-          Whether subfolders of this selected item require (word conversion) profiles (in the old template V2 system)
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="requiretemplate">
-        <d:documentation>
-          Checks if this document requires a template
-        </d:documentation>
-      </d:boolean>
-      <d:boolean name="requiretemplateinsubfolders">
-        <d:documentation>
-          Checks if subfolders of this selected item require templates
-        </d:documentation>
-      </d:boolean>
-      <d:integer name="template" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-          The id of the template that is running the current file
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="requireprofile" />
+      <d:obsoletecolumn name="requireprofileinsubfolders" />
+      <d:obsoletecolumn name="requiretemplate" />
+      <d:obsoletecolumn name="requiretemplateinsubfolders" />
+      <d:obsoletecolumn name="template"/>
       <d:varchar name="title" maxlength="256">
         <d:documentation>
           The title of the currently selected item

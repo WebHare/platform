@@ -352,11 +352,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     //ADDME: Set using site profile?
     ^keywords->visible := NOT this->isfolder;
 
-    // Explicitly enable template/profile selection for content links
-    BOOLEAN enable_template;
-    BOOLEAN enable_profile;
-
-
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
     {
       ^modified->visible := FALSE;
@@ -371,8 +366,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
             OR this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
         {
           ^path->folder := this->parentfolder->id;
-          enable_template := TRUE;
-          enable_profile := TRUE;
         }
 
         canschedule := canschedule AND this->curtype.ispublishable;
@@ -455,9 +448,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           IF (ObjectExists(linkedfile))
           {
             inittype := DescribeContentTypeById(linkedfile->type) ?? this->curtype;
-
-            enable_template := inittype.needstemplate;
-            enable_profile := inittype.needsprofile;
           }
         }
       }
@@ -469,7 +459,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       //illegal filename? (can happen through webdav: eg word temp files)
       BOOLEAN cansetpublish := canschedule OR (this->sourceitem->publish AND (NOT inittype.ispublishable OR NOT IsValidWHFSName(this->sourceitem->name,FALSE)));
 
-      ^notpublished->visible := NOT cansetpublish AND NOT this->curtype.needstemplate AND NOT this->curtype.needsprofile;
+      ^notpublished->visible := NOT cansetpublish;
       ^notpublishedtext->value := NOT this->sourceitem->isactive ? GetTid("publisher:commondialogs.objectprops.trashnotpublished") : inittype.ispublishable ? GetTid("publisher:commondialogs.objectprops.sitenotpublished") : GetTid("publisher:commondialogs.objectprops.typenotpublished", ^type->value);
       ^publish->visible := cansetpublish;
       IF(this->startdata.why = "edit")
@@ -506,11 +496,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     // Tasks
     ^tasksettings->visible := canschedule;
     this->ReloadTaskList();
-
-    // Template & profiles
-    BOOLEAN templateprofiledisable := this->TemplateProfileSettingsDisabled();
-    this->SetupTemplateFields(enable_template, templateprofiledisable);
-    this->SetupProfileFields(enable_profile, templateprofiledisable);
 
     // Extensions
     this->InitializeExtensions();
@@ -810,12 +795,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       ^link->readonly := TRUE;
       ^path->readonly := TRUE;
 
-      ^template->readonly := TRUE;
-      ^force_template_local->readonly := TRUE;
-      ^force_template_recursive->readonly := TRUE;
-      ^profile->readonly := TRUE;
-      ^force_profile_local->readonly := TRUE;
-      ^force_profile_recursive->readonly := TRUE;
       ^publish->readonly := TRUE;
       ^makeindex->visible := FALSE;
       ^tasksactions->visible := FALSE;
@@ -827,7 +806,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       ^ok_button->visible := FALSE;
       ^cancel_button->title := GetTid("tollium:common.actions.ok");
     }
-    ^publicationsettings->visible := ^template->visible OR ^profile->visible OR ^publish->visible OR ^makeindex->visible;
+    ^publicationsettings->visible := ^publish->visible OR ^makeindex->visible;
     ^publishpanel->visible := ^notpublished->visible OR ^publicationsettings->visible OR ^tasksettings->visible;
   }
 
@@ -902,7 +881,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO InitConsilioAndWebpackInfo()
   {
-    IF (this->sourceitem->isactive AND this->curtype.needstemplate)
+    IF (this->sourceitem->isactive)
     {
       ^linkcheck->visible := TRUE;
       ^objectreport->fs_object := this->itemid;
@@ -1108,208 +1087,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       LogHarescriptException(e);
       PRINT("Got exception loading webcontext: " || e->what);
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions - templates & profiles
-  //
-
-  /// Returns whether template & profile settings should be disabled (outside of site, or set in siteprofile)
-  BOOLEAN FUNCTION TemplateProfileSettingsDisabled()
-  {
-    IF(NOT RecordExists(this->parentsite))
-      RETURN TRUE;
-
-    RETURN RecordExists(this->contexts->applytester->__GetAppliesForcell("disabletemplateprofile"));
-  }
-
-  MACRO SetupTemplateFields(BOOLEAN alwaysshow, BOOLEAN alwayshidden)
-  {
-    /////////////////////////////////
-    // Setup template selection
-
-    //ADDME: Move GetAssociableFiles into WHFS?
-    IF(alwayshidden OR (NOT alwaysshow AND NOT this->isfolder AND NOT this->curtype.needstemplate))
-    {
-      ^template->visible := FALSE;
-      ^force_template_local->visible := FALSE;
-      ^force_template_recursive->visible := FALSE;
-    }
-    ELSE
-    {
-      BOOLEAN readonly := ObjectExists(this->parentfolder) AND (this->isfolder ? this->parentfolder->requiretemplateinsubfolders : this->parentfolder->requiretemplate);
-      INTEGER curtemplate := this->isnew ? ObjectExists(this->parentfolder) ? this->parentfolder->template : 0 : this->sourceitem->template;
-
-      RECORD ARRAY availabletemplates :=
-          [ [ rowkey :=   0
-            , title :=    GetTid("publisher:commondialogs.objectprops.notemplate")
-            ]
-          ] CONCAT this->GetAssociableFiles(28/*template*/, curtemplate);
-
-      ^template->options := availabletemplates;
-      ^template->value := curtemplate;
-      ^template->readonly := readonly;
-      ^template_forced->visible := readonly;
-
-      IF(this->isfolder AND NOT readonly)
-      {
-        ^force_template_local->value     := this->isnew ? FALSE : this->sourceitem->requiretemplate;
-        ^force_template_recursive->value := this->isnew ? FALSE : this->sourceitem->requiretemplateinsubfolders;
-      }
-      ELSE
-      {
-        ^force_template_local->visible := FALSE;
-        ^force_template_recursive->visible := FALSE;
-      }
-    }
-  }
-
-  MACRO SetupProfileFields(BOOLEAN alwaysshow, BOOLEAN alwayshidden)
-  {
-    IF(alwayshidden OR (NOT alwaysshow AND NOT this->isfolder AND NOT this->curtype.needsprofile))
-    {
-      ^profile->visible := FALSE;
-      ^force_profile_local->visible := FALSE;
-      ^force_profile_recursive->visible := FALSE;
-    }
-    ELSE
-    {
-      BOOLEAN readonly := ObjectExists(this->parentfolder) AND (this->isfolder ? this->parentfolder->requireprofileinsubfolders : this->parentfolder->requireprofile);
-      INTEGER curprofile := this->isnew ? ObjectExists(this->parentfolder) ? this->parentfolder->profile : 0 : this->sourceitem->profile;
-
-      RECORD ARRAY availableprofiles :=
-          [ [ rowkey :=   0
-            , title :=    GetTid("publisher:commondialogs.objectprops.noprofile")
-            ]
-          ] CONCAT this->GetAssociableFiles(29/*profile*/, curprofile);
-
-      ^profile->options := availableprofiles;
-      ^profile->value := curprofile;
-      ^profile->readonly := readonly;
-      ^profile_forced->visible := readonly;
-
-      IF(this->isfolder AND NOT readonly)
-      {
-        ^force_profile_local->value     := this->isnew ? FALSE : this->sourceitem->requireprofile;
-        ^force_profile_recursive->value := this->isnew ? FALSE : this->sourceitem->requireprofileinsubfolders;
-      }
-      ELSE
-      {
-        ^force_profile_local->visible := FALSE;
-        ^force_profile_recursive->visible := FALSE;
-      }
-    }
-  }
-
-  /// Returns the title to show for an associable file
-  STRING FUNCTION MakeFileTitle(INTEGER fileid, STRING title, STRING fullpath, INTEGER parentsite, BOOLEAN isactive)
-  {
-    STRING retval;
-    IF(title != "")
-      retval := title;
-    ELSE IF(RecordExists(this->parentsite) AND this->parentsite.id = parentsite)
-      retval := fullpath; //same site, so local reference
-    ELSE
-    {
-      STRING sitename := SELECT AS STRING name FROM system.sites WHERE id=parentsite;
-      IF(sitename!="")
-        retval := sitename || ":" || fullpath;
-    }
-    IF(retval="")
-      retval := fullpath;
-    IF(NOT isactive)
-      retval := GetTid("publisher:common.fsobjects.deleted", retval);
-    RETURN retval;
-  }
-
-  /** Return the list of templates/profiles that can be associated with this object
-      @param filetype
-      @param addfileid Currently associated file (will be added to list if not presnet)
-      @return
-      @cell return.rowkey
-      @cell return.title
-  */
-  RECORD ARRAY FUNCTION GetAssociableFiles(INTEGER filetype, INTEGER addfileid)
-  {
-    RECORD ARRAY allowed_files;
-
-    IF(addfileid!=0)
-    {
-      RECORD filerec := SELECT * FROM system.fs_objects WHERE id = addfileid;
-      allowed_files := [[ id := addfileid
-                        , isactive := RecordExists(filerec) ? filerec.isactive : FALSE
-                        , title := RecordExists(filerec) ? filerec.title : "#" || addfileid
-                        , fullpath := RecordExists(filerec) ? filerec.fullpath : ""
-                        , parentsite := RecordExists(filerec) ? filerec.parentsite : 0
-                        ]
-                       ];
-    }
-
-    //Grab all files in parent and current folders
-    INTEGER curfolder;
-    IF (ObjectExists(this->sourceitem) AND this->sourceitem->isfolder)
-      curfolder := this->sourceitem->id;
-    ELSE
-      curfolder := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
-
-    WHILE(curfolder != 0)
-    {
-      allowed_files := allowed_files
-                  CONCAT SELECT fs_objects.id, title, fullpath, parentsite, isactive
-                           FROM system.fs_objects
-                         WHERE fs_objects.type = filetype
-                               AND parent=curfolder;
-      curfolder := SELECT AS INTEGER parent FROM system.fs_objects WHERE id=curfolder;
-    }
-
-    //Grab files from the site profiles
-    RECORD affected;
-    IF (ObjectExists(this->sourceitem))
-    {
-      IF (this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
-        affected := RECORD(SELECT * FROM system.fs_objects WHERE id = this->sourceitem->filelink);
-      ELSE
-        affected := RECORD(SELECT * FROM system.fs_objects WHERE id = this->sourceitem->id);
-    }
-    RECORD folder := ObjectExists(this->parentfolder) ? RECORD(SELECT * FROM system.fs_objects WHERE id = this->parentfolder->id) : DEFAULT RECORD;
-
-    allowed_files := allowed_files CONCAT this->GetLegacyAllowedAssociations(filetype!=29);
-
-    allowed_files := SELECT DISTINCT id,title,fullpath,parentsite,isactive FROM allowed_files;
-    allowed_files := SELECT rowkey := id, title := this->MakeFileTitle(id,title,fullpath,parentsite,isactive) FROM allowed_files;
-    allowed_files := SELECT * FROM allowed_files ORDER BY ToUppercase(title);
-    RETURN allowed_files;
-  }
-
-  RECORD ARRAY FUNCTION GetLegacyAllowedAssociations(BOOLEAN gettemplate)
-  {
-    RECORD ARRAY allowed_files;
-    INTEGER filesiteid := this->contexts->applytester->__Deprecated_GetObjInfo().obj.parentsite;
-    FOREVERY(RECORD apply FROM this->contexts->applytester->__GetAppliesForcell(gettemplate ? "ALLOWTEMPLATES" : "ALLOWPROFILES"))
-    {
-      RECORD ARRAY relevant := gettemplate ? apply.allowtemplates : apply.allowprofiles;
-      FOREVERY(RECORD rel FROM relevant)
-      {
-        IF(rel.site!="")
-        {
-          filesiteid := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name)=ToUppercase(rel.site);
-          IF(filesiteid=0)
-            CONTINUE;
-        }
-        INTEGER relfile := LookupWHFSObject(filesiteid, rel.fullpath);
-        IF(relfile != 0)
-        {
-          //NOTE: if a file was found inside a site, its active, so no need to check for 'isactive'
-          allowed_files := allowed_files
-                    CONCAT SELECT fs_objects.id, title, fullpath, parentsite, isactive
-                             FROM system.fs_objects
-                            WHERE fs_objects.id = relfile
-                                  AND fs_objects.type = (gettemplate ? 28 : 29);
-        }
-      }
-    }
-    RETURN allowed_files;
   }
 
   // ---------------------------------------------------------------------------
@@ -1768,46 +1545,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     RETURN this->parentfolder->GenerateUniqueName(suggestedname);
   }
 
-  RECORD FUNCTION GenerateTemplateProfileMetadataChanges()
-  {
-    RECORD metadata;
-    IF(RecordExists(this->parentsite) AND this->TemplateProfileSettingsDisabled())
-    {
-      INSERT CELL template := 0 INTO metadata;
-      INSERT CELL profile := 0 INTO metadata;
-      IF(this->isfolder)
-      {
-        INSERT CELL requiretemplate := TRUE INTO metadata;
-        INSERT CELL requiretemplateinsubfolders := TRUE INTO metadata;
-        INSERT CELL requireprofile := TRUE INTO metadata;
-        INSERT CELL requireprofileinsubfolders := TRUE INTO metadata;
-      }
-    }
-    ELSE
-    {
-      IF(^template->visible)
-      {
-        INSERT CELL template := ^template->value INTO metadata;
-        IF(this->isfolder)
-        {
-          INSERT CELL requiretemplate := ^force_template_local->value INTO metadata;
-          INSERT CELL requiretemplateinsubfolders := ^force_template_recursive->value INTO metadata;
-        }
-      }
-      IF(^profile->visible)
-      {
-        INSERT CELL profile := ^profile->value INTO metadata;
-        IF(this->isfolder)
-        {
-          INSERT CELL requireprofile := ^force_profile_local->value INTO metadata;
-          INSERT CELL requireprofileinsubfolders := ^force_profile_recursive->value INTO metadata;
-        }
-      }
-    }
-
-    RETURN metadata;
-  }
-
   MACRO UpdateTasks(INTEGER objid)
   {
     //First, delete old tasks
@@ -2170,9 +1907,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         IF (indexactions.status = "scheduleddelete")
           indexactions := DEFAULT RECORD;
       }
-
-      // Add changes for templates & profiles
-      metadata := CELL[...metadata, ...this->GenerateTemplateProfileMetadataChanges()];
 
       //set pinning flag if it is changed, or set on a new object
       IF((this->isnew = TRUE AND ^pinobject->value) OR (this->isnew = FALSE AND ^pinobject->value != this->sourceitem->ispinned))

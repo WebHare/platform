@@ -62,13 +62,8 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          , extensions := DEFAULT STRING ARRAY
          , blobiscontent := FALSE
          , pagelistprovider := ""
-  //       , needstemplate := FALSE
-  //       , needsprofile := FALSE
          , requirescontent := FALSE
          , isdevelopertype := FALSE
-  //       , isacceptableindex := FALSE
-  //       , ispublishedassubdir := FALSE
-  //       , ispublishable := FALSE
          , dynamicexecution := DEFAULT RECORD
          , isembeddedobjecttype := FALSE
          , generatepreview := FALSE

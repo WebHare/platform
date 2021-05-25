@@ -28,7 +28,7 @@ PUBLIC MACRO PTR onanalyzerissue := PTR PrintAnalyzerIssue;
 
 PUBLIC MACRO RequeueSubItem(INTEGER folderid, RECORD subitem)
 {
-  onanalyzerissue("QUEUE", subitem.id || "\t" || folderid || "\t" || subitem.lastpublishtime  || "\t" || subitem.template || "\t" || subitem.profile || "\t" || GetErrorFromPublished(subitem.published));
+  onanalyzerissue("QUEUE", subitem.id || "\t" || folderid || "\t" || subitem.lastpublishtime  || "\t0\t0\t" || GetErrorFromPublished(subitem.published));
 }
 
 INTEGER FUNCTION GetFileContentType(INTEGER type, INTEGER filelinkid)
@@ -92,8 +92,6 @@ RECORD ARRAY FUNCTION GetFolderSubs(BOOLEAN lowercase, INTEGER folderid)
                             , id
                             , published
                             , sourcetype := type
-                            , template
-                            , profile
                             , lastpublishtime
                             , onoutput := FALSE
                             , forcerepublish := FALSE

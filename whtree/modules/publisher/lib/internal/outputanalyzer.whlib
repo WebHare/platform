@@ -59,7 +59,7 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
 
     //Quick requeue of pending files
     RECORD ARRAY to_reschedule :=
-        SELECT id, parent, lastpublishtime, template, profile, published
+        SELECT id, parent, lastpublishtime, published
           FROM system.fs_objects
          WHERE isfolder = FALSE
                AND published > 0

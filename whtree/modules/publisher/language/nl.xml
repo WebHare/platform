@@ -121,7 +121,6 @@
       <text tid="requestcancelled">Het publicatieverzoek is geannuleerd - het document is teruggezet naar de conceptversie.</text>
       <text tid="siteprofileerrors">De volgende fouten zijn opgetreden bij het uitvoeren van de site profielen:<br/><br/><param p="1"/></text>
       <text tid="submitversionedfiletoapplychanges">De wijzigingen zijn nog niet online zichtbaar: u dient het bestand nog in te dienen voor beoordeling.</text>
-      <text tid="takeownershipconfirm">Indien u eigendom van een sjabloon of semi-dynamisch contentbestand overneemt, zal de code worden uitgevoerd met uw rechten.<br/><br/>Weet u zeker dat u het eigendom van dit bestand wil overnemen?</text>
       <text tid="unpinconfirm">Weet u zeker dat u de bescherming op dit object wilt opheffen?</text>
     </textgroup>
     <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
@@ -132,9 +131,6 @@
       <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
       <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
       <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-      <text tid="forcedbyparent">(Geforceerd door bovenliggende map)</text>
-      <text tid="forceprofile">Forceer profiel</text>
-      <text tid="forcetemplate">Forceer sjabloon</text>
       <text tid="link">Link</text>
       <text tid="local">in deze map</text>
       <text tid="lockreason">Reden voor vergrendeling:</text>
@@ -148,10 +144,6 @@
       <text tid="newsite-title">Nieuwe website</text>
       <text tid="nobrokenlinks">Er zijn geen kapotte links</text>
       <text tid="nolinks">Geen links gevonden</text>
-      <text tid="noprofile">&lt;Geen profiel&gt;</text>
-      <text tid="notasiteprofileinrepository">Alleen siteprofielen kunnen als vertrouwd worden gemarkeerd.</text>
-      <text tid="notemplate">&lt;Geen sjabloon&gt;</text>
-      <text tid="openbracket">(</text>
       <text tid="originallocation">Oorspronkelijke locatie</text>
       <text tid="output">Uitvoer</text>
       <text tid="outputfolder">Submap in uitvoer-URL</text>
@@ -160,37 +152,25 @@
       <text tid="path">Pad</text>
       <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
       <text tid="pinfolder">Bescherm deze map (verbied hernoemen en verwijderen)</text>
-      <text tid="profile">Profiel</text>
-      <text tid="propeditor">Eigenschappen</text>
-      <text tid="properties">Eigenschappen</text>
       <text tid="publicationsettings">Publicatie-instellingen</text>
       <text tid="publish">Publiceer dit bestand</text>
       <text tid="publishedurl">URL</text>
       <text tid="publishtab">Publicatie</text>
-      <text tid="recursive">in alle submappen</text>
       <text tid="requestapproval">Indienen</text>
       <text tid="restrictions">Beperkingen</text>
       <text tid="rights">Rechten</text>
-      <text tid="secondaryoutput">Secundaire uitvoer</text>
       <text tid="showapplyrules">Toon &lt;apply&gt; regels</text>
       <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
-      <text tid="siteprofile">Siteprofiel</text>
-      <text tid="siteprofileerrors">De volgende propertyeditors hebben fouten veroorzaakt</text>
-      <text tid="siteprofiles">Site profielen</text>
-      <text tid="sitesettings">Site-instellingen</text>
       <text tid="sitesettings-title">Instellingen van site '<param p="1"/>'</text>
       <text tid="sitetab">Site</text>
-      <text tid="takeownership">Neem eigendom over</text>
       <text tid="tasksettings">Taken</text>
       <text tid="taskstab">Taken</text>
-      <text tid="template">Sjabloon</text>
       <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
       <text tid="trustedsiteprofilesbox">Vertrouwde siteprofielen</text>
       <text tid="type">Type</text>
       <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
       <text tid="unknown">&lt;Onbekend&gt;</text>
       <text tid="viewurl">Bekijken</text>
-      <text tid="webpackinfo">Gekoppelde webpacks</text>
       <text tid="whfspath">Siteprofiel</text>
       <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
         <text tid="notasks">Er zijn geen taken ingesteld</text>
@@ -1286,9 +1266,6 @@
       <text tid="repubfile">Herpubliceren</text>
       <text tid="repubfolder">Geselecteerde map (zonder submappen)</text>
       <text tid="repubfolderrecurse">Geselecteerde map en submappen</text>
-      <text tid="repubmask">Met een wildcard mask</text>
-      <text tid="repubsite">Huidige site</text>
-      <text tid="repubsiteall">Huidige site inclusief bestanden zonder sjabloon</text>
       <text tid="restore">Herstellen</text>
       <text tid="showmodifications">Wijzigingen</text>
       <text tid="unpinitems">Bescherming opheffen</text>
@@ -1725,20 +1702,13 @@
   </textgroup>
   <textgroup gid="sysmgmt">   <!-- sysmgmt -->
     <textgroup gid="filesystem">   <!-- sysmgmt.filesystem -->
-      <text tid="applet">Publisher en bestandssysteem</text>
-      <text tid="badtemplatepermission">'<param p="1"/>' is geen valide sjabloon permissie. Om meerdere permissies in te voeren kunt u deze door kommas scheiden</text>
       <text tid="defaultcontentlisting">Standaard contentlisting</text>
-      <text tid="docmgmt">Documentbeheer</text>
-      <text tid="globalversionexpiry">Geschiedenisitems verlopen na</text>
       <text tid="loglevel-debug">Debugging</text>
       <text tid="loglevel-fatalerrors">Alleen fatale fouten</text>
       <text tid="loglevel-statistics">Statistieken</text>
       <text tid="maxpublishtime">Maximale publicatietijd</text>
-      <text tid="processes">Aantal publicatieprocessen</text>
-      <text tid="processes_suggest">(aangeraden: <param p="1"/>)</text>
       <text tid="publication">Publicaties</text>
       <text tid="queueloglevel">Queue logniveau</text>
-      <text tid="templatehspermissions">Sjabloon HareScript permissies</text>
       <text tid="title">Publisher en bestandssysteem configuratie</text>
       <text tid="trashcan">Prullenbak</text>
       <text tid="trashcanexpire">Objecten in prullenbak laten voor</text>

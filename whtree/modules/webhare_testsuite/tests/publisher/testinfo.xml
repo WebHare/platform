@@ -6,7 +6,6 @@
   <test name="filemanager" path="filemanager/" />
   <test name="contentlibraries" path="contentlibraries/" />
 
-  <test script="linktest.whscr"/>
   <test script="actions.whscr"/>
   <test script="main.whscr" flaky="1" />
   <test script="recyclebin.whscr"/>

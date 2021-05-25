@@ -95,17 +95,11 @@ RECORD FUNCTION DescribeType(OBJECT intype)
 RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files, OBJECT encoder)
 {
   STRING ARRAY errors;
-  RECORD folderdata := SELECT requireprofile,
-                              requiretemplate,
-                              requireprofileinsubfolders,
-                              requiretemplateinsubfolders,
-                              title,
+  RECORD folderdata := SELECT title,
                               description,
                               keywords,
                               type,
                               ordering,
-                              defaulttemplate := template,
-                              defaultprofile := profile,
                               fullpath,
                               indexdoc,
                               ispinned
@@ -115,11 +109,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
 
 
   //Convert ID fields to plain fields
-  STRING foldertemplate, folderprofile, folderindex;
-  IF (folderdata.defaulttemplate!=0)
-    foldertemplate := MyGetFileStoreName(folderdata.defaulttemplate, folderdata.fullpath);
-  IF (folderdata.defaultprofile!=0)
-    folderprofile := MyGetFileStoreName(folderdata.defaultprofile, folderdata.fullpath);
+  STRING folderindex;
   IF (folderdata.indexdoc != 0)
     folderindex := MyGetFileStoreName(folderdata.indexdoc, folderdata.fullpath);
 
@@ -176,11 +166,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
 //  PrintTo(xmldatastream, EncodeRecordAsXML(meta,"meta"));
   encoder->EncodeRecordTo(xmldatastream, "meta", meta);
 
-  folderdata := [ requireprofile              := folderdata.requireprofile
-                , requiretemplate             := folderdata.requiretemplate
-                , requireprofileinsubfolders  := folderdata.requireprofileinsubfolders
-                , requiretemplateinsubfolders := folderdata.requiretemplateinsubfolders
-                , title                       := folderdata.title
+  folderdata := [ title                       := folderdata.title
                 , description                 := folderdata.description
                 , keywords                    := folderdata.keywords
                 , ordering                    := folderdata.ordering
@@ -190,8 +176,6 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
   RECORD xml_metadata := [ subversion := 1
                          , data := folderdata
                          , type := typenamespace
-                         , templatepath := foldertemplate
-                         , profilepath := folderprofile
                          , indexpath := folderindex
                          , contentinstances := (SELECT namespace, instance FROM expinstances)
                          ];
@@ -212,8 +196,6 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                                 , ispinned         := file.ispinned
                                 , externallink     := file.externallink
                                 ]
-                      , templatepath := MyGetFileStoreName(file.template, file.fullpath)
-                      , profilepath := MyGetFileStoreName(file.profile, file.fullpath)
                       , linkpath := MyGetFileStoreName(file.filelink, file.fullpath)
                       , contentinstances := (SELECT namespace, instance FROM file.contentinstances)
                       , type := GetNamespaceForType(file.type, FALSE)

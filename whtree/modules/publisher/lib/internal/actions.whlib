@@ -845,8 +845,6 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
 
     parentfolderobj->CreateFile([ type := newfiletype->id
                                 , name := filename
-                                , template := newfiletype->needstemplate ? parentfolderobj->template : 0
-                                , profile := newfiletype->needsprofile ? parentfolderobj->profile : 0
                                 , published := new_published
                                 , ispinned := folderindex.protectindexfile
                                 , dataistrusted := TRUE
@@ -862,9 +860,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
       IF (ObjectExists(newfile))
       {
         RECORD filetype := DescribeContentTypeById(newfile->type, [ isfolder := FALSE, mockifmissing := TRUE]);
-        newfile->UpdateMetaData([ template := filetype.needstemplate ? parentfolderobj->template : 0
-                                , profile := filetype.needsprofile ? parentfolderobj->profile : 0
-                                , published := new_published
+        newfile->UpdateMetaData([ published := new_published
                                 , ispinned := folderindex.protectindexfile
                                 ]);
         parentfolderobj->UpdateMetadata([ indexdoc := newfile->id ]);
@@ -878,8 +874,6 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
       parentfolderobj->CreateFile([ typens := "http://www.webhare.net/xmlns/publisher/contentlink"
                                   , name := folderindex.newfilename ?? folderindex.file.name
                                   // We'll assume new contentlinks need template and profile, because they're mostly used to link to Word documents
-                                  , template := parentfolderobj->template
-                                  , profile := parentfolderobj->profile
                                   , published := new_published
                                   , filelink := folderindex.file.id
                                   , ispinned := folderindex.protectindexfile
