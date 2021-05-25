@@ -151,7 +151,7 @@ MACRO TestLinkDispatcher()
         ], recv);
 
   //rec := t1.linka->ReceiveMessage(DEFAULT DATETIME);
-  TestEQ([ type := "cancel", forcesend := TRUE ], t1.linka->ReceiveMessage(DEFAULT DATETIME).msg);
+  TestEQ([ type := "cancel", forcesend := TRUE, data := RECORD[] ], t1.linka->ReceiveMessage(DEFAULT DATETIME).msg);
   TestEQ("gone", t1.linka->ReceiveMessage(DEFAULT DATETIME).status);
 
   e2_3->Close();

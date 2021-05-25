@@ -522,7 +522,7 @@ PUBLIC OBJECTTYPE TransportLink
   MACRO Close()
   {
     IF (NOT this->nocancelatclose)
-      this->link->SendMessage([ type := "cancel", forcesend := TRUE ]);
+      this->link->SendMessage([ type := "cancel", forcesend := TRUE, data := RECORD[] ]);
 
     IF (this->ack_timeout != 0)
     {

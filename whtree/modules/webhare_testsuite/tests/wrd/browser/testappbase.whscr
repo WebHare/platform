@@ -7,11 +7,11 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 ASYNC MACRO TestSchemaManager()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser"));
+  AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("wrd:browser"));
   topscreen->schemas->selection := SELECT * FROM topscreen->schemas->rows WHERE tag = OpenTestsuiteWRDSchema()->tag;
   AWAIT ExpectScreenChange(+1, PTR topscreen->editschema->TolliumClick);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-2, PTR topscreen->TolliumExecuteCancel());
 }
 
 RunTestFramework([ PTR CreateWRDTestSchema

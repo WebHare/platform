@@ -23,10 +23,12 @@ ASYNC MACRO TestRadio()
 ASYNC MACRO TestSubscreenRegression()
 {
   //Test a screen that open a subscreen immediately. This broke optionsetting in WRD Brwoser
-  RECORD resp := AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(Resolve("screens/select.xml#testsubscreen")));
+  RECORD resp := AWAIT ExpectScreenChange(+2, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#testsubscreen")));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
-  OBJECT browser := AWAIT resp.expectcallreturn();
-  TestEq(1, Length(browser->^pulldown->GetChildComponents())); //should have expanded into 1 <pulldown>
+  TestEq(1, Length(topscreen->^pulldown->GetChildComponents())); //should have expanded into 1 <pulldown>
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT resp.expectcallreturn();
 }
 
 ASYNC MACRO TestSubcomponentsRegression()

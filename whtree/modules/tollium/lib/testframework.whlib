@@ -143,6 +143,7 @@ MACRO OnScreenChange(RECORD event)
       , isopen :=       event.isopening
       , stacklength :=  newstacklength
       , trace :=        trace
+      , isskipped :=    event.isskipped
       ]);
 
   HandleUnprocessedErrors();
@@ -150,12 +151,18 @@ MACRO OnScreenChange(RECORD event)
   IF (event.isopening)
   {
     topscreen := event.screen;
-    INSERT [ screen := event.screen, trace := trace ] INTO screenstack AT END;
+    INSERT CELL[ event.screen, trace, event.isskipped ] INTO screenstack AT END;
   }
   ELSE
   {
     DELETE FROM screenstack AT END-1;
-    topscreen := LENGTH(screenstack) != 0 ? screenstack[END - 1].screen : DEFAULT OBJECT;
+    IF (LENGTH(screenstack) > 0)
+    {
+      screenstack[END-1].isskipped := FALSE;
+      topscreen := screenstack[END-1].screen;
+    }
+    ELSE
+      topscreen := DEFAULT OBJECT;
   }
 }
 
@@ -633,6 +640,20 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
     }
     IF (rec.type = "screenchange" AND rec.stacklength = wantdepth)
     {
+      IF (rec.isskipped)
+      {
+        STRING msg := `Screen automatically opened a subscreen, please use +${diff+1} as expected change`;
+        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+        THROW NEW Exception(msg);
+      }
+      // check if more screens automatically opened/closed
+      IF (LENGTH(screenstack) != rec.stacklength)
+      {
+        INTEGER currentdiff := LENGTH(screenstack) - lastwaitedstacklength;
+        STRING msg := `More screens automatically ${LENGTH(screenstack) > rec.stacklength ? "opened" : "closed"}, please use ${currentdiff>=0?"+":""}${currentdiff} as expected change`;
+        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
+        THROW NEW Exception(msg);
+      }
       // Got the wanted screen, test its props
       IF (rec.screen->frame->screenname NOT LIKE options.namemask)
       {
