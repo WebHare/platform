@@ -384,7 +384,12 @@ OBJECT FUNCTION* GetHTTPResponse(INTEGER connectionid, BOOLEAN expect_body_in_re
   BLOB content := MakeBlobFromSTream(contentstream);
 
   IF (have_content_length AND LENGTH(content) != response.content_length)
-    response.code := -response.code;
+  {
+    response.message := "Premature end of body (status code was: " || response.code || ")";
+    response.code := 0;
+    response.receivefailed := TRUE;
+    RETURN response;
+  }
 
   response.content := content;
   RETURN response;
