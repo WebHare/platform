@@ -2,6 +2,7 @@
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 
 RECORD cachefolders; //FIXME can't we store these inside the wrdschema object ?
@@ -13,10 +14,10 @@ OBJECT FUNCTION GetWHFSFolderForSchema(INTEGER schemaid)
   IF(schemaid <= 0)
     THROW NEW Exception("Invalid schema id #" || schemaid);
 
-  INTEGER parentfolder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent=13 AND ToUppercase(name) = "S" || schemaid;
+  INTEGER parentfolder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = whconstant_whfsid_wrdstore AND ToUppercase(name) = "S" || schemaid;
   OBJECT folder;
   IF(parentfolder = 0)
-    folder := OpenWHFSObject(13)->CreateFolder([name := "s" || schemaid ]);
+    folder := OpenWHFSObject(whconstant_whfsid_wrdstore)->CreateFolder([name := "s" || schemaid ]);
   ELSE
     folder := OpenWHFSObject(parentfolder);
 

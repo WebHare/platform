@@ -886,14 +886,7 @@ OBJECTTYPE WHFSObject
     IF(NOT CellExists(newmetadata,"modifiedby"))
       INSERT CELL modifiedby := GetEffectiveUserID() INTO newmetadata;
 
-    INTEGER new_parentsite := oldversion.parent;
-    IF (CellExists(newmetadata, "PARENT") AND newmetadata.parent != oldversion.parent)
-    {
-      commithandler->ObjectMove(oldversion.parentsite, oldversion.parent, this->pvt_id);
-      new_parentsite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = newmetadata.parent;
-      commithandler->ObjectMoved(new_parentsite, newmetadata.parent, this->pvt_id);
-    }
-    ELSE IF (isrename)
+    IF (isrename)
     {
       commithandler->ObjectRename(oldversion.parentsite, oldversion.parent, this->pvt_id);
       IF(this->isfolder AND this->parentsite = this->id)
@@ -910,13 +903,6 @@ OBJECTTYPE WHFSObject
       commithandler->FileRepublish(oldversion.parentsite, oldversion.parent, this->pvt_id);
 
     newpublished := SetFlagsInPublished(newpublished, PublishedFlag_StripExtension, this->isfolder = FALSE AND IsStripExtension(newcontenttype, newname));
-    IF(oldversion.parentsite != new_parentsite AND NOT TestFlagFromPublished(newpublished, PublishedFlag_History))
-    {
-      //check if we need to enable history now...
-      IF(IsHistoryEnabledForSite(new_parentsite))
-        newpublished := SetFlagsInPublished(newpublished, PublishedFlag_History, TRUE);
-    }
-
     newmetadata := CELL[ ...newmetadata, published := newpublished ];
 
     //This is our deepest and final check.

@@ -1,0 +1,107 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "url", type := "param", required := TRUE ]
+                              ]);
+IF(NOT RecordExists(args))
+{
+  Print(`Syntax: wh lookupurl <url>
+`);
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OBJECT trans := OpenPrimary();
+RECORD unp := UnpackURL(args.url);
+IF(unp.urlpath LIKE ".uc/*")
+{
+  //FIXME share properly with UC GetDiskPath
+  RECORD analyzed := AnalyzeUnifiedURLToken(Substring(unp.urlpath, 4), "");
+  IF (analyzed.urlschema = "v2")
+  {
+    STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
+    STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
+    hash := Left(hash, 3) || "/" || SubString(hash, 3);
+
+    STRING diskpath := MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
+    Print(`Disk cache location: ${diskpath}\n`);
+  }
+
+  //Analyze unified cache URL
+  RECORD metadata := GetCachedDataSourceMetadataFromURL(args.url);
+  IF(metadata.type = 2)
+  {
+    Print(`WHFS fs_setting #${metadata.id}`);
+    RECORD setting := SELECT * FROM system.fs_settings WHERE id = metadata.id;
+    IF(NOT RecordExists(setting))
+    {
+      Print(`, but this setting no longer exists\n`);
+      RETURN;
+    }
+
+    Print(`, ${Length(setting.blobdata)} bytes`);
+    IF(setting.setting LIKE "hson:*")
+    {
+      RECORD data := DecodeScanData(setting.setting);
+      IF(RecordExists(data))
+        Print(`, ${data.mimetype}, ${data.filename}`);
+    }
+    Print("\n");
+
+    Print(`WHFS fs_instance #${setting.fs_instance}`);
+    RECORD instance := SELECT * FROM system.fs_instances WHERE id = setting.fs_instance;
+    Print(`, type ${(SELECT AS STRING namespace FROM system.fs_types WHERE id = instance.fs_type) ?? ToString(instance.fs_type)}\n`);
+
+    Print(`WHFS fs_object #${instance.fs_object}`);
+    RECORD fsobject := SELECT * FROM system.fs_objects WHERE id = instance.fs_object;
+    Print(`, ${fsobject.whfspath}`);
+    Print(`, type ${(SELECT AS STRING namespace FROM system.fs_types WHERE id = fsobject.type) ?? ToString(fsobject.type)}\n`);
+
+    IF(fsobject.indexurl != "")
+      Print(`URL: ${fsobject.indexurl}\n`);
+
+    IF(fsobject.whfspath LIKE "/webhare-private/wrd/s*/*")
+    {
+      //Down the rabbithole we go! This is actually a reference from a WRD schema
+      INTEGER wrdschemaid := ToInteger(Substring(Tokenize(fsobject.whfspath,'/')[3],1),0);
+      Print(`WRD schema #${wrdschemaid}`);
+      OBJECT wrdschema := OpenWRDSchemaById(wrdschemaid);
+      IF(NOT ObjectExists(wrdschema))
+      {
+        Print(`, but this schema no longer exists\n`);
+        RETURN;
+      }
+      Print(`, ${wrdschema->tag}\n`);
+
+      RECORD ARRAY links := SELECT * FROM wrd.entity_settings_whfslink WHERE entity_settings_whfslink.fsobject = VAR fsobject.id;
+      IF(Length(links) = 0)
+      {
+        Print(`The object does not appear to be referenced by the WRD schema\n`);
+        RETURN;
+      }
+      dumpvalue(links,'boxed'); //TODO form this point on
+    }
+  }
+  ELSE
+  {
+    DumpValue(metadata);
+  }
+}
+ELSE
+{
+  DumpValue(LookupPublisherURL(args.url));
+}

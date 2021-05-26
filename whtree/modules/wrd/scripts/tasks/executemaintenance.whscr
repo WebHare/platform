@@ -1,10 +1,12 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
@@ -14,6 +16,7 @@ OBJECT trans;
 
 MACRO RequeueWRDCleanups()
 {
+  //Queue a deletion for all deleted schemas we see
   RECORD ARRAY killschemas := SELECT id,name FROM wrd.schemas WHERE ToUppercase(name) LIKE "$WRD$DELETED$*";
   FOREVERY(RECORD killschema FROM killschemas)
   {
@@ -21,12 +24,20 @@ MACRO RequeueWRDCleanups()
     ScheduleManagedTask("wrd:deletetask", [ id := killschema.id ]);
   }
 
+  //Destroy /webhare-private/wrd/ stores pointing to a nonexisting wrd schema id
   INTEGER ARRAY existingschemas := SELECT AS INTEGER ARRAY id FROM wrd.schemas WHERE ToUppercase(name) NOT LIKE "$WRD$DELETED$*";
   DELETE FROM system.fs_objects
-        WHERE parent = 13
+        WHERE parent = whconstant_whfsid_wrdstore
               AND name LIKE "s*"
               AND ToInteger(Substring(name,1),-1) NOT IN existingschemas;
+}
 
+//Garbage collect objects in /webhare-private/wrd/ that are no longer referred
+MACRO CleanupOldWRDPublisherInstances()
+{
+  INTEGER ARRAY cleanup := GetWRDObsoleteWHFSObjects();
+  IF(Length(cleanup) > 0)
+    DELETE FROM system.fs_objects WHERE id IN cleanup;
 }
 
 MACRO CleanupAuditLogs()
@@ -39,13 +50,16 @@ MACRO CleanupAuditLogs()
     DELETE FROM wrd.auditevents WHERE wrdschema = schemarec.id AND creationdate < cutoff;
     trans->CommitWork();
   }
-
 }
 
 trans := OpenPrimary();
 
 trans->BeginWork();
 RequeueWRDCleanups();
+trans->CommitWork();
+
+trans->BeginWork();
+CleanupOldWRDPublisherInstances(); //we must come after RequeueWRDCleanups so unneeded wrdstores are already gone
 trans->CommitWork();
 
 trans->BeginWork();
