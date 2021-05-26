@@ -66,10 +66,6 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       {
         RETURN this->currentobjects[3]->value ? MAX_DATETIME : this->currentobjects[2]->value;
       }
-//      CASE 13 /* Array */
-//      {
-//        RETURN this->arrayvalue;
-//      }
       CASE 19,17,22,25,26,27,28 /* Instance, richdoc, HSON, paymentprovider, payment, statusrecord, authenticationsettings */
       {
         RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeHSON(this->currentobjects[0]->value);
@@ -108,10 +104,6 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       {
         this->currentobjects[0]->value := val;
       }
-//      CASE 13 /* Array */
-//      {
-//        this->arrayvalue := RECORD ARRAY(val);
-//      }
       CASE 11 /* Time */
       {
         this->currentobjects[0]->value := MakeDateFromParts(0,val);

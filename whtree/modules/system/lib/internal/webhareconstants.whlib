@@ -17,6 +17,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_private := 10;
 //Folder id for webhare-private/whfs-versions
 PUBLIC CONSTANT INTEGER whconstant_whfsid_versions := 11;
 
+//Folder id for webhare-private/wrd
+PUBLIC CONSTANT INTEGER whconstant_whfsid_wrdstore := 13;
+
 //Folder id for webhare-private/whfs-drafts
 PUBLIC CONSTANT INTEGER whconstant_whfsid_publicdrafts := 15;
 

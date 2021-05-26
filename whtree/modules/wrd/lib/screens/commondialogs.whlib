@@ -286,9 +286,7 @@ PUBLIC OBJECTTYPE EditEntity EXTEND TolliumScreenBase
     FOREVERY (RECORD attr FROM this->typeattrs)
     {
       OBJECT wrdfield;
-      /*IF (attr.attributetype = 3) // Address
-        wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "addressbox");
-      ELSE */IF (attr.attributetype = 13) // Array
+      IF (attr.attributetype = 13) // Array
         wrdfield := this->CreateCustomComponent("http://www.webhare.net/xmlns/wrd/components", "arraybox");
       ELSE
       {

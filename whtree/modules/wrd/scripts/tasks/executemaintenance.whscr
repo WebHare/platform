@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
@@ -14,6 +15,7 @@ OBJECT trans;
 
 MACRO RequeueWRDCleanups()
 {
+  //Queue a deletion for all deleted schemas we see
   RECORD ARRAY killschemas := SELECT id,name FROM wrd.schemas WHERE ToUppercase(name) LIKE "$WRD$DELETED$*";
   FOREVERY(RECORD killschema FROM killschemas)
   {
@@ -21,9 +23,10 @@ MACRO RequeueWRDCleanups()
     ScheduleManagedTask("wrd:deletetask", [ id := killschema.id ]);
   }
 
+  //Destroy /webhare-private/wrd/ stores pointing to a nonexisting wrd schema id
   INTEGER ARRAY existingschemas := SELECT AS INTEGER ARRAY id FROM wrd.schemas WHERE ToUppercase(name) NOT LIKE "$WRD$DELETED$*";
   DELETE FROM system.fs_objects
-        WHERE parent = 13
+        WHERE parent = whconstant_whfsid_wrdstore
               AND name LIKE "s*"
               AND ToInteger(Substring(name,1),-1) NOT IN existingschemas;
 

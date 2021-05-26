@@ -112,7 +112,11 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , type := whconstant_whfstype_normalfolder
                                  ]
                                //, [ id := 12, parent := 0, name := "webhare-moduledata", type := 2 ] //stopped autocreating sep 2019. TODO at some point start cleaning up existing ID 12 folders, once we're sure newsletter is gone everywhere
-                               , [ id := 13, parent := whconstant_whfsid_private, name := "wrd",            type := 0 ]
+                               , [ id := whconstant_whfsid_wrdstore
+                                 , parent := whconstant_whfsid_private
+                                 , name := "wrd"
+                                 , type := 0
+                                 ]
                                , [ id := 14, parent := whconstant_whfsid_private, name := "whfs-autosaves",  type := 0 ]
                                , [ id := 15, parent := whconstant_whfsid_private, name := "whfs-drafts",  type := 0 ]
                                , [ id := 16, parent := 0, name := "WebHare backend",  type := 0 ]
