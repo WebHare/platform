@@ -20,7 +20,8 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               ]);
 IF(NOT RecordExists(args))
 {
-  Print(`Synatx: wh lookupurl <url>\n`);
+  Print(`Syntax: wh lookupurl <url>
+`);
   TerminateScriptWithError("Invalid syntax");
 }
 
