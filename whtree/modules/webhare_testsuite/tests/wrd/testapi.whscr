@@ -946,13 +946,28 @@ MACRO RichDoc()
                                                 ]
                               , testintextlink := [ internallink := destlink->id, externallink := "", append := "#bla" ]
                               ] );
+
+  RECORD ARRAY rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
+  INTEGER64 rawsetting_testinstance := SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id;
+  INTEGER64 rawsetting_testintextlink := SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id;
+  RECORD rawlink_testinstance := SELECT * FROM wrd.entity_settings_whfslink WHERE id = rawsetting_testinstance;
+  RECORD rawlink_testintextlink := SELECT * FROM wrd.entity_settings_whfslink WHERE id = rawsetting_testintextlink;
+
+  TestEq(TRUE, RecordExists(rawlink_testinstance));
+  TestEq(TRUE, RecordExists(rawlink_testintextlink));
+  TestEq(FALSE, rawlink_testinstance.fsobject IN GetWRDObsoleteWHFSObjects());
+  TestEq(FALSE, rawlink_testintextlink.fsobject IN GetWRDObsoleteWHFSObjects());
+
   //ensure updating works
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink->id, externallink := "", append := "" ]
                               ] );
   testpersonobj->UpdateEntity([ testintextlink := [ internallink := destlink->id, externallink := "", append := "#test" ]
                               ] );
-  testfw->CommitWork();
 
+  rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
+  TestEq(rawsetting_testintextlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+
+  testfw->CommitWork();
   RECORD org_testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE", "TESTINSTANCE", "TESTINTEXTLINK"]);
   RECORD testrec1 := org_testrec1;
 
@@ -978,7 +993,6 @@ MACRO RichDoc()
     TestEq(TRUE, CellExists(rec, "WRD_SETTINGID"));
     TestEq(TRUE, CellExists(rec, "__BLOBSOURCE"));
   }
-
   queryres[0].richie.embedded := RecurseDeleteSettingIds(queryres[0].richie.embedded, ["HASH", "LINK"]);
   TestEq(myrichexp, queryres[0].richie);
   TEstTestInstance( queryres[0].testinstance);
@@ -1030,6 +1044,21 @@ MACRO RichDoc()
   basertd.instances[0].data.html := "UPDATED HTML";
   testpersonobj->UpdateEntity([ richie := basertd ] );
   TestEq("UPDATED HTML", testpersonobj->GetField("RICHIE").instances[0].data.html);
+
+  // IDs still stable
+  rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
+  TestEq(rawsetting_testinstance, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id);
+  TestEq(rawsetting_testintextlink, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+
+  testpersonobj->UpdateEntity([ testinstance := DEFAULT RECORD
+                              , testintextlink := DEFAULT RECORD
+                              ] );
+
+  rawsettings := SELECT * FROM wrd.entity_settings where entity = testpersonobj->id;
+  TestEq(0i64, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINSTANCE").id);
+  TestEq(0i64, SELECT AS INTEGER64 id FROM rawsettings WHERE attribute = wrdperson->GetAttribute("TESTINTEXTLINK").id);
+  TestEq(TRUE, rawlink_testinstance.fsobject IN GetWRDObsoleteWHFSObjects(), "The instance will no longer be referred");
+  TestEq(FALSE, rawlink_testintextlink.fsobject IN GetWRDObsoleteWHFSObjects(), "Linktype 2s point straight towards their object, so they'll never get on the obsolete list");
 
   testfw->CommitWork();
 }

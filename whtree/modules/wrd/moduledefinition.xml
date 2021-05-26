@@ -309,8 +309,12 @@
 
     <d:table name="entity_settings_whfslink" primarykey="id" parentlinkcolumn="id">
       <d:__longkey name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
-      <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0" />
-      <d:integer name="linktype" /> <!-- 0: RTD, 1: instance data, 2: FS object -->
+      <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0">
+        <d:documentation>Referencing to file in /webhare-private/wrd/sNNN/PPP holding data (for linktype 0 and 1) or the fsobject being pointed to (for linktype 2)</d:documentation>
+      </d:integer>
+      <d:integer name="linktype">
+        <d:documentation>Type of this link. 0: RTD, 1: Instance, 2: FSObject</d:documentation>
+      </d:integer>
     </d:table>
 
     <d:table name="entity_settings" primarykey="id" parentlinkcolumn="entity">

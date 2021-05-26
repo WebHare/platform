@@ -1,6 +1,10 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 
@@ -60,4 +64,18 @@ PUBLIC MACRO CleanupOutdatedChanges()
   DELETE FROM wrd.changesets
    WHERE creationdate < AddDaysToDate(-1, now)
          AND NOT RecordExists(SELECT FROM wrd.changes WHERE changeset = changesets.id);
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetWRDObsoleteWHFSObjects()
+{
+  INTEGER ARRAY wrdstores := SELECT AS INTEGER ARRAY id
+                               FROM system.fs_objects
+                              WHERE parent = whconstant_whfsid_wrdstore
+                                    AND name LIKE "s*"
+                                    AND ToInteger(Substring(name,1),-1) > 0;
+
+  INTEGER ARRAY existingobjects := SELECT AS INTEGER ARRAY DISTINCT id FROM system.fs_objects WHERE parent IN wrdstores;
+  INTEGER ARRAY activeobjects := SELECT AS INTEGER ARRAY DISTINCT fsobject FROM wrd.entity_settings_whfslink WHERE linktype IN [ 0, 1 ];
+  INTEGER ARRAY cleanup := ArrayDelete(existingobjects, activeobjects);
+  RETURN cleanup;
 }
