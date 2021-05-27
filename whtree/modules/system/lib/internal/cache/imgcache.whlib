@@ -28,7 +28,6 @@ RECORD lastobjinfo;
 
 DATETIME moddatecutoff;
 PUBLIC STRING imgcache_globalbaseurl; //set by eg webdesign to enforce CDN preferences
-PUBLIC STRING imgcache_debug_urlschema := "v2";
 CONSTANT STRING u1packet := "type:C,id:L,cc:L,md:L,ms:L,imgdatalen:C";
 
 BOOLEAN FUNCTION IsImageRefpointRelevant(RECORD resizemethod)
@@ -119,8 +118,6 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
 
   IF(sourceid=0)
     RETURN "";
-
-  BOOLEAN use_legacy_urlschema := imgcache_debug_urlschema = "v1";
 
   IF(moddatecutoff = DEFAULT DATETIME)
     moddatecutoff := ReadRegistryKey("system.cache.moddatecutoff");
@@ -272,26 +269,11 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   STRING hash := Left(GetHashForString(packet || hosthash || useextension || GetClusterKeyBase("cachesecret"), "MD5"),4);
   packet := ToLowercase(EncodeBase16(hash || packet));
 
-  IF (use_legacy_urlschema)
-    packet := Left(packet,2) || "/" || Substring(packet,2);
-
   STRING suffix := datatype=1 ? "i" : embed ? "e" : "f";
   suffix := suffix || packet;
 
   filename := Left(filename, 80);
-  IF (use_legacy_urlschema)
-  {
-    IF(embed = TRUE AND filename != "")
-    {
-      INTEGER slashpos := SearchLastSubstring(suffix,'/');
-      suffix := Left(suffix, slashpos+1) || EncodeURL(filename || '-' || Substring(suffix,slashpos+1));
-    }
-    suffix := suffix || useextension;
-  }
-  ELSE
-  {
-    suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
-  }
+  suffix := suffix || "/" || EncodeURL( (filename ?? "data") || useextension);
 
   IF(cachehost != "")
   {
@@ -469,7 +451,6 @@ RECORD FUNCTION GetUnifiedURLTokenParts(STRING token)
   INTEGER datatype;
   STRING extension;
   STRING filename;
-  STRING urlschema;
   STRING urlpart;
 
   INTEGER qpos := SearchSubstring(token,'?');
@@ -477,82 +458,34 @@ RECORD FUNCTION GetUnifiedURLTokenParts(STRING token)
     token := Left(token,qpos);
 
   STRING datatoken;
-  IF (token LIKE "???/*") // Legacy url decoder
+  urlpart := token;
+
+  IF(token LIKE "i*")
+    datatype := 1;
+  ELSE IF(token LIKE "f*")
+    datatype := 2;
+  ELSE IF(token LIKE "e*")
+    datatype := 3;
+
+  IF(datatype > 0)
   {
-    IF(token LIKE "i??/*")
-      datatype := 1;
-    ELSE IF(token LIKE "f??/*")
-      datatype := 2;
-    ELSE IF(token LIKE "e??/*")
-      datatype := 3;
+    //<i><token>/<filename><.extension>
+    INTEGER slashpos := SearchSubstring(token, "/");
+    datatoken := SubString(token, 1, slashpos - 1);
 
-    IF(datatype > 0)
+    // Get extension from end of url part
+    INTEGER extensionstart := SearchLastSubstring(token, '.');
+    IF (extensionstart > slashpos)
     {
-      urlschema := "v1";
-
-      INTEGER extendingslash := SearchSubstring(token,'/',5);
-      IF(extendingslash != -1) //there's a trailing slash. old image urls supported this. we'll need to strip for that
-        token := Left(token, extendingslash);
-
-      // Ignore trailing slashes
-      urlpart := token;
-
-      //<i><first two bytes>/<rest><.extension>
-      INTEGER extensionstart := SearchLastSubstring(token,'.');
-      IF(extensionstart >= 0)
-      {
-        extension := Substring(token, extensionstart);
-        token := Left(token, extensionstart);
-        datatoken := Substring(token,1,2) || Substring(token, 4, extensionstart-4);
-      }
-      ELSE
-      {
-        datatoken := Substring(token,1,2) || Substring(token, 4);
-      }
-
-      //Do we have the image on disk ?
-      INTEGER lastdash := SearchLastSubstring(datatoken,'-');
-      IF(lastdash != -1)
-      {
-        filename := Substring(datatoken, 2, lastdash - 2) || extension;
-        datatoken := Left(datatoken,2) || Substring(datatoken, lastdash+1);
-      }
-      ELSE
-        filename := "data" || extension;
+      extension := Substring(token, extensionstart);
+      token := Left(token, extensionstart);
     }
-  }
-  ELSE
-  {
-    urlschema := "v2";
-    urlpart := token;
 
-    IF(token LIKE "i*")
-      datatype := 1;
-    ELSE IF(token LIKE "f*")
-      datatype := 2;
-    ELSE IF(token LIKE "e*")
-      datatype := 3;
+    // Get filename, and ignore slashes
+    filename := DecodeURL(Tokenize(SubString(token, slashpos + 1), "/")[0] || extension); // ignore multiple slashes
 
-    IF(datatype > 0)
-    {
-      //<i><token>/<filename><.extension>
-      INTEGER slashpos := SearchSubstring(token, "/");
-      datatoken := SubString(token, 1, slashpos - 1);
-
-      // Get extension from end of url part
-      INTEGER extensionstart := SearchLastSubstring(token, '.');
-      IF (extensionstart > slashpos)
-      {
-        extension := Substring(token, extensionstart);
-        token := Left(token, extensionstart);
-      }
-
-      // Get filename, and ignore slashes
-      filename := DecodeURL(Tokenize(SubString(token, slashpos + 1), "/")[0] || extension); // ignore multiple slashes
-
-      // Build a canonical url-part
-      urlpart := LEFT(token, 1) || datatoken || "/" || filename;
-    }
+    // Build a canonical url-part
+    urlpart := LEFT(token, 1) || datatoken || "/" || filename;
   }
 
   RETURN CELL
@@ -560,7 +493,6 @@ RECORD FUNCTION GetUnifiedURLTokenParts(STRING token)
       , datatype
       , extension
       , filename
-      , urlschema
       , urlpart
       ];
 }
@@ -575,7 +507,6 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
                    , item :=      DEFAULT RECORD
                    , filename :=  ""
                    , extension := ""
-                   , urlschema := ""
                    , urlpart :=   ""
                    ];
 
@@ -583,7 +514,6 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
   retval.datatype := data.datatype;
   retval.extension := data.extension;
   retval.filename := data.filename;
-  retval.urlschema := data.urlschema;
   retval.urlpart := data.urlpart;
 
   IF (data.datatoken != "")
@@ -690,16 +620,9 @@ PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, 
         CONTINUE;
 
       STRING diskname;
-      IF (data.urlschema = "v1")
-      {
-        diskname := "/" || data.urlpart;
-      }
-      ELSE IF (data.urlschema = "v2")
-      {
-        STRING token := Left(data.urlpart, SearchLastSubstring(data.urlpart, "/"));
-        diskname := ToLowercase(EncodeBase16(GetHashForString(token, "SHA-256"))) || data.extension;
-        diskname := "/" || Left(diskname, 3) || "/" || SubString(diskname, 3);
-      }
+      STRING token := Left(data.urlpart, SearchLastSubstring(data.urlpart, "/"));
+      diskname := ToLowercase(EncodeBase16(GetHashForString(token, "SHA-256"))) || data.extension;
+      diskname := "/" || Left(diskname, 3) || "/" || SubString(diskname, 3);
 
       RECORD foundpos := RecordLowerBound(deletion_candidates, [ name := ToLowercase(diskname) ], ["NAME"]);
       IF(foundpos.found AND deletion_candidates[foundpos.position].expired)

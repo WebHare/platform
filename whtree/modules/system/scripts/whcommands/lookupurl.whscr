@@ -31,15 +31,12 @@ IF(unp.urlpath LIKE ".uc/*")
 {
   //FIXME share properly with UC GetDiskPath
   RECORD analyzed := AnalyzeUnifiedURLToken(Substring(unp.urlpath, 4), "");
-  IF (analyzed.urlschema = "v2")
-  {
-    STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
-    STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
-    hash := Left(hash, 3) || "/" || SubString(hash, 3);
+  STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
+  STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
+  hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-    STRING diskpath := MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
-    Print(`Disk cache location: ${diskpath}\n`);
-  }
+  STRING diskpath := MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
+  Print(`Disk cache location: ${diskpath}\n`);
 
   //Analyze unified cache URL
   RECORD metadata := GetCachedDataSourceMetadataFromURL(args.url);
