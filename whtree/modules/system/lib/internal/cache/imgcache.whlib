@@ -534,6 +534,12 @@ PUBLIC RECORD FUNCTION AnalyzeUnifiedURLToken(STRING token, STRING hosthash)
   RETURN DEFAULT RECORD;
 }
 
+PUBLIC RECORD FUNCTION ParseUnifiedURLToken(STRING datatoken)
+{
+  datatoken := Substring(DecodeBase16(datatoken),4);
+  RETURN DecodeUnifiedData(datatoken);
+}
+
 PUBLIC RECORD FUNCTION GetCachedDataSourceMetadataFromURL(STRING url)
 {
   INTEGER uc := SearchSubstring(url, "/.uc/");
@@ -572,6 +578,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentUnifiedCacheContents(DATETIME ignore_modi
       INSERT [ fullpath :=    img.path
              , name :=        "/" || subdir.name || "/" || img.name
              , expired :=     TRUE
+             , urltoken :=    ""
              ] INTO deletion_candidates AT END;
     }
   }
@@ -626,9 +633,33 @@ PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, 
 
       RECORD foundpos := RecordLowerBound(deletion_candidates, [ name := ToLowercase(diskname) ], ["NAME"]);
       IF(foundpos.found AND deletion_candidates[foundpos.position].expired)
+      {
+        deletion_candidates[foundpos.position].urltoken := data.datatoken;
         deletion_candidates[foundpos.position].expired := FALSE;
+      }
     }
   }
   RETURN deletion_candidates;
+}
+
+//Expire images in the cache whose source no longer exists
+PUBLIC RECORD ARRAY FUNCTION ExpireForMissingSources(RECORD ARRAY indata)
+{
+  FOREVERY(RECORD img FROM indata)
+  {
+    IF(img.expired)
+      CONTINUE;
+
+    RECORD parsed := ParseUnifiedURLToken(img.urltoken);
+    RECORD dbdata;
+    IF(RecordExists(parsed))
+      TRY
+        dbdata := LookupDataForUnifiedURL(parsed);
+      CATCH; //lookup throws if the object doesn't exist, that'll suffice for our ends
+
+    IF(NOT RecordExists(dbdata))
+      indata[#img].expired := TRUE;
+  }
+  RETURN indata;
 }
 

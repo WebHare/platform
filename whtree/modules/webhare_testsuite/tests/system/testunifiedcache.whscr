@@ -21,6 +21,7 @@ STRING link_grayscalehomer,link_testhostdata, link_kikker, link_fs_frogger, link
 DATETIME after_kikker_hit;
 STRING default_imgcache := "public, max-age=31536000, immutable";
 STRING incorrect_imgcache := "public, max-age=86400"; //used when requesting incorrect urls
+OBJECT homer;
 
 MACRO ImgCacheTest()
 {
@@ -39,7 +40,7 @@ MACRO ImgCacheTest()
   OBJECT unused_kikkertje := root->CreateFile( [ data := toupload, publish := FALSE, name := "kwaak_unused.jpg" ]);
 
   BLOB toupload2 := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
-  OBJECT homer := root->CreateFile( [ data := toupload2, publish := FALSE, name := "homersbrain.bmp" ]);
+  homer := root->CreateFile( [ data := toupload2, publish := FALSE, name := "homersbrain.bmp" ]);
 
   STRING legacy_badkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25]);
   STRING badkikkerlink := GetCachedImageLink(kikkertje->GetWrapped(), [ method := "scale", setwidth:=25, setheight:=25, baseurl := baseurl]);
@@ -423,7 +424,7 @@ MACRO CleanupTests()
   Sleep(10000); //give caches time to clear out... by default takes 5 seconds
   //FIXME need a more accurate way to flush/ensure cache clean...
 
-  RECORD ARRAY cachecontents := GetCurrentUnifiedCacheContents(MAX_DATETIME);
+  RECORD ARRAY currentcachecontents := GetCurrentUnifiedCacheContents(MAX_DATETIME);
 
   // Lookup via trace leaves traces in the access log, so ignore all entries before this lookup
   DATETIME tracestarttime := GetCurrentDatetime();
@@ -434,23 +435,34 @@ MACRO CleanupTests()
   STRING filename_testhostdata := GetCacheDiskPathFromLink(link_testhostdata);
   STRING filename_fs_frogger := GetCacheDiskPathFromLink(link_fs_frogger);
 
-  DELETE FROM cachecontents WHERE fullpath != filename_kikker
-                                       AND fullpath != filename_unused_kikker
-                                       AND fullpath != filename_grayscalehomer
-                                       AND fullpath != filename_testhostdata
-                                       AND fullpath != filename_fs_frogger;
+  currentcachecontents := SELECT *
+                            FROM currentcachecontents
+                           WHERE fullpath IN [ filename_kikker
+                                             , filename_unused_kikker
+                                             , filename_grayscalehomer
+                                             , filename_testhostdata
+                                             , filename_fs_frogger
+                                             ];
 
-  TestEq(5, Length(cachecontents));
+  TestEq(5, Length(currentcachecontents));
 
-  cachecontents := SELECT * FROM FilterRecentHits(cachecontents, after_kikker_hit, tracestarttime) WHERE expired;
+  RECORD ARRAY cachecontents := SELECT * FROM FilterRecentHits(currentcachecontents, after_kikker_hit, tracestarttime);
 
   //unused kikker should be a deletion candidate
-  TestEq(TRUE, RecordExists(SELECT FROM cachecontents WHERE fullpath = filename_unused_kikker));
+  TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_unused_kikker);
   //but grayscale and testhost were seen 'after' kikker so should not be marked as expired
-  TestEq(FALSE, RecordExists(SELECT FROM cachecontents WHERE fullpath = filename_kikker));
-  TestEq(FALSE, RecordExists(SELECT FROM cachecontents WHERE fullpath = filename_grayscalehomer), filename_grayscalehomer);
-  TestEq(FALSE, RecordExists(SELECT FROM cachecontents WHERE fullpath = filename_testhostdata), filename_testhostdata);
-  TestEq(FALSE, RecordExists(SELECT FROM cachecontents WHERE fullpath = filename_fs_frogger), filename_fs_frogger);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_kikker);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_testhostdata, filename_testhostdata);
+  TestEq([[ expired := FALSE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_fs_frogger, filename_fs_frogger);
+
+  //forcibly delete the gray homer
+  testfw->BeginWork();
+  homer->DeleteSelf();
+  testfw->CommitWork();
+
+  cachecontents := ExpireForMissingSources(cachecontents);
+  TestEq([[ expired := TRUE ]], SELECT expired FROM cachecontents WHERE fullpath = filename_grayscalehomer, filename_grayscalehomer);
 }
 
 RunTestframework([ PTR ImgCacheTest
