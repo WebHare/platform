@@ -30,7 +30,16 @@ MACRO TestBasicHistory()
 
   testfw->SetTestUser("marge");
   firstfile->UpdateMetadata([description := "new descr", data := StringToBlob("First file content updated")]);
+
+  RECORD ARRAY firstfile_history := firstfile->GetHistory();
+  TestEqMembers([[ type := "modified", user := testfw->GetUserAuthobjectId("marge") ]], firstfile_history, "*");
+  TestEq(firstfile->modificationdate, firstfile_history[0].when);
+
+  //If we update something twice in a row (same transaction) we should see only one modification event
+  firstfile->UpdateMetadata([title := "new title"]);
+  firstfile_history := firstfile->GetHistory();
   TestEqMembers([[ type := "modified", user := testfw->GetUserAuthobjectId("marge") ]], firstfile->GetHistory(), "*");
+  TestEq(firstfile->modificationdate, firstfile_history[0].when);
 
   testfw->CommitWork();
 }
