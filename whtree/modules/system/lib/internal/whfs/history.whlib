@@ -1,8 +1,10 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 //To avoid races, create the versionfolder for a site immediately when creating the site. But having multiple shouldn't really mater
@@ -45,6 +47,20 @@ PUBLIC MACRO AddModifyHistory(DATETIME now, RECORD oldversion, RECORD newversion
   IF(NOT TestFlagFromPublished(newversion.published, PublishedFlag_History))
     RETURN;
 
-  INSERT INTO system.fs_history(fs_object, user, type, when)
-         VALUES(oldversion.id, GetEffectiveUserId(), whconstant_historytype_modify, now);
+  OBJECT commithandler := GetWHFSCommitHandler();
+  RECORD editevent := RecordLowerBound(commithandler->historyitems, [ fsobject := oldversion.id ], [ "fsobject" ]);
+  IF(editevent.found) //we already have created a system.fs_history this transaction...
+  {
+    UPDATE system.fs_history SET when := now WHERE id = commithandler->historyitems[editevent.position].historyid;
+  }
+  ELSE
+  {
+    INTEGER historyeventid := MakeAutonumber(system.fs_history, "id");
+    INSERT INTO system.fs_history(id, fs_object, user, type, when)
+           VALUES(historyeventid, oldversion.id, GetEffectiveUserId(), whconstant_historytype_modify, now);
+
+     INSERT CELL[ fsobject := oldversion.id
+                , historyid := historyeventid
+                ] INTO commithandler->historyitems AT editevent.position;
+  }
 }
