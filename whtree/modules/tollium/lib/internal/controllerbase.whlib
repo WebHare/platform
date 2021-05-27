@@ -1616,10 +1616,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   RECORD ARRAY FUNCTION GetAppMenu()
   {
-    RECORD ARRAY appmenu := [[ title := GetTid('tollium:shell.restartapp')
-                             , cmd := [ type := "currentapp:restart" ]
-                            ]];
-
+    RECORD ARRAY appmenu;
     appmenu := RunModuleHookTarget("tollium:appmenu"
                       , CELL[ appmenu
                             , appname := RecordExists(this->currentapplication) ? this->currentapplication.name : ""

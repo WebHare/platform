@@ -774,6 +774,15 @@ export class BackendApplication extends ApplicationBase
     });
   }
 
+  generateAppMenu()
+  {
+    return [ { title: getTid('tollium:shell.restartapp')
+             , cmd: { type: "currentapp:restart" }
+             }
+           , ...super.generateAppMenu()
+           ];
+  }
+
 /****************************************************************************************************************************
  * Communications
  */
