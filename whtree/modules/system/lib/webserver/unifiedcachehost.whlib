@@ -72,16 +72,11 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
   //Get the disk hash key for this image
   STRING FUNCTION GetDiskPath(RECORD analyzed)
   {
-    IF (analyzed.urlschema = "v2")
-    {
-      STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
-      STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
-      hash := Left(hash, 3) || "/" || SubString(hash, 3);
+    STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
+    STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;
+    hash := Left(hash, 3) || "/" || SubString(hash, 3);
 
-      RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
-    }
-
-    THROW NEW Exception(`Unsupported unified cache urlschema '${analyzed.urlschema}'`);
+    RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc2/", hash);
   }
 
   BLOB FUNCTION ProcessImage(RECORD imgrec, RECORD imginfo)

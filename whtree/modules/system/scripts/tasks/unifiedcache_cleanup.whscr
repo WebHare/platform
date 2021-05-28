@@ -24,6 +24,7 @@ INTEGER delete_after_days := ToInteger(info.deleteafterdays,2); //delete files n
 DATETIME ignore_modified_after := AddTimeToDate(-ignore_newer_than,GetCurrentDatetime());
 RECORD ARRAY deletion_candidates := GetCurrentUnifiedCacheContents(ignore_modified_after);
 deletion_candidates := FilterRecentHits(deletion_candidates, AddDaysTodate(-delete_after_days, GetRoundedDatetime(GetCurrentDatetime(), 86400*1000)), ignore_modified_after);
+deletion_candidates := ExpireForMissingSources(deletion_candidates);
 
 IF(info.dryrun OR info.debug)
 {

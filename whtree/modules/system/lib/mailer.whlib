@@ -1147,7 +1147,7 @@ STATIC OBJECTTYPE WittyMailComposer
     this->__mailtemplatepath := mailwitty;
 
     IF(NOT IsAbsoluteResourcePath(mailwitty))
-      THROW NEW Exception("The witty path must be an absolute resource");
+      THROW NEW Exception(`The witty path '${mailwitty}' is not an absolute resource`);
 
     IF(mailwitty LIKE "?*::?*:*") //refers to a component
     {
