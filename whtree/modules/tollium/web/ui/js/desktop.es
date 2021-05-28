@@ -189,7 +189,7 @@ $todd.ApplicationBar = class
                                       color="w"
                                       className="t-apptab__icon" />}
               {newtab.close = <span className="t-apptab__close" />}
-              {newtab.title = <span className="t-apptab__title">{app.title}</span> }
+              {newtab.title = <span title={app.title} className="t-apptab__title">{app.title}</span> }
               {newtab.countbadge = <span className="t-apptab__countbadge" display="none" />}
             </div>;
 
@@ -374,6 +374,7 @@ $todd.ApplicationBar = class
     if (tab.app.appicon)
       toddImages.updateImage(tab.icon, tab.app.appicon, tab.app.appiconwidth, tab.app.appiconheight, 'w');
     tab.title.textContent = tab.app.title;
+    tab.title.title = tab.app.title;
     tab.menuitem.textContent = tab.app.title;
     //    this.appnavmenu.fireEvent("wh-refresh"); //does not seem to really need refresh to update app items?
     //tab.root.classList.toggle("allowclose", event.allowclose);
