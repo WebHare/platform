@@ -38,8 +38,17 @@ PUBLIC MACRO AddCreateHistory(RECORD metadata)
   IF(NOT TestFlagFromPublished(metadata.published, PublishedFlag_History))
     RETURN;
 
-  INSERT INTO system.fs_history(fs_object, user, type, when)
-         VALUES(metadata.id, GetEffectiveUserId(), whconstant_historytype_create, metadata.creationdate);
+  OBJECT commithandler := GetWHFSCommitHandler();
+  RECORD editevent := RecordLowerBound(commithandler->historyitems, [ fsobject := metadata.id ], [ "fsobject" ]);
+
+  INTEGER historyeventid := MakeAutonumber(system.fs_history, "id");
+  INSERT INTO system.fs_history(id, fs_object, user, type, when)
+         VALUES(historyeventid, metadata.id, GetEffectiveUserId(), whconstant_historytype_create, metadata.creationdate);
+
+  INSERT CELL[ fsobject := metadata.id
+             , historyid := historyeventid
+             , iscreate := TRUE
+             ] INTO commithandler->historyitems AT editevent.position;
 }
 
 PUBLIC MACRO AddModifyHistory(DATETIME now, RECORD oldversion, RECORD newversion)
@@ -51,7 +60,8 @@ PUBLIC MACRO AddModifyHistory(DATETIME now, RECORD oldversion, RECORD newversion
   RECORD editevent := RecordLowerBound(commithandler->historyitems, [ fsobject := oldversion.id ], [ "fsobject" ]);
   IF(editevent.found) //we already have created a system.fs_history this transaction...
   {
-    UPDATE system.fs_history SET when := now WHERE id = commithandler->historyitems[editevent.position].historyid;
+    IF(NOT commithandler->historyitems[editevent.position].iscreate) //we leave creates alone, just pretend it was properly created the first time around
+      UPDATE system.fs_history SET when := now WHERE id = commithandler->historyitems[editevent.position].historyid;
   }
   ELSE
   {
@@ -59,8 +69,9 @@ PUBLIC MACRO AddModifyHistory(DATETIME now, RECORD oldversion, RECORD newversion
     INSERT INTO system.fs_history(id, fs_object, user, type, when)
            VALUES(historyeventid, oldversion.id, GetEffectiveUserId(), whconstant_historytype_modify, now);
 
-     INSERT CELL[ fsobject := oldversion.id
-                , historyid := historyeventid
-                ] INTO commithandler->historyitems AT editevent.position;
+    INSERT CELL[ fsobject := oldversion.id
+               , historyid := historyeventid
+               , iscreate := FALSE
+               ] INTO commithandler->historyitems AT editevent.position;
   }
 }

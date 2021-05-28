@@ -21,9 +21,9 @@ MACRO TestBasicHistory()
 
   testsite->UpdateSiteMetadata([ historydays := 14 ]);
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(firstfile->id)->published, PublishedFlag_History));
+  TestEq(RECORD[], firstfile->GetHistory());
 
   OBJECT subfile := testsite->rootobject->CreateFile([name := "subfile"]);
-  TestEq(RECORD[], firstfile->GetHistory());
   TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop") ]], subfile->GetHistory(), "*");
 
   TestEq(TRUE, TestFlagFromPublished(subfile->published, PublishedFlag_History));
@@ -40,6 +40,10 @@ MACRO TestBasicHistory()
   firstfile_history := firstfile->GetHistory();
   TestEqMembers([[ type := "modified", user := testfw->GetUserAuthobjectId("marge") ]], firstfile->GetHistory(), "*");
   TestEq(firstfile->modificationdate, firstfile_history[0].when);
+
+  //Updating a just created file should also dedupe to just one event
+  subfile->UpdateMetadata([title := "new title for subfile"]);
+  TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop") ]], subfile->GetHistory(), "*");
 
   testfw->CommitWork();
 }
