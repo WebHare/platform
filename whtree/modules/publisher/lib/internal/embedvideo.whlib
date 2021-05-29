@@ -2,12 +2,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::tollium/lib/rtd/embeddedobject.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
 
-PUBLIC OBJECTTYPE EmbedVideoObject EXTEND EmbeddedObjectBase
+
+PUBLIC OBJECTTYPE EmbedVideoObject EXTEND WidgetBase
 <
-  UPDATE PUBLIC MACRO RenderPreview()
+  UPDATE PUBLIC MACRO Render()
   {
     Print('<div style="height:110px">');
 
@@ -24,16 +25,9 @@ PUBLIC OBJECTTYPE EmbedVideoObject EXTEND EmbeddedObjectBase
     Print('</div>');
   }
 
-  UPDATE PUBLIC MACRO RenderObject(OBJECT webdesign)
+  UPDATE PUBLIC MACRO RenderLive()
   {
     STRING aspectclass := ABS(4f/3f - this->data.playratio) < 0.1 ? "aspect_4_3 wh-video--aspect_4_3" : "aspect_16_9 wh-video--aspect_16_9";
     Print('<div class="wh-video ' || aspectclass || '" data-video="' || EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data))) || '"></div>');
-  }
-
-  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
-  {
-    RECORD ARRAY videosettings := webdesign->targetapplytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "videowidget");
-    IF(Length(videosettings) > 0)
-      THROW NEW Exception("<videowidget> requires that the rendering uses widgets, not legacy embedded objects. You probably need to set a <rtdtype>.");
   }
 >;

@@ -2,25 +2,27 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/rtd/embeddedobject.whlib";
 
-PUBLIC OBJECTTYPE EmbeddedHTMLObject EXTEND EmbeddedObjectBase
+PUBLIC OBJECTTYPE EmbeddedHTMLObject EXTEND WidgetBase
 <
-  UPDATE PUBLIC MACRO RenderPreview()
+  UPDATE PUBLIC MACRO Render()
   {
     Print('<div style="padding:0 10px;min-height:60px;font-size:80%">');
     Print(EncodeHTML(this->data.html));
     Print('</div>');
   }
 
-  UPDATE PUBLIC MACRO RenderObject(OBJECT webdesign)
+  UPDATE PUBLIC MACRO RenderLive()
   {
     Print(this->data.html);
   }
 
-  PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
   {
     Print(this->data.html);
   }

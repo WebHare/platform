@@ -53,7 +53,6 @@
           <xs:element name="filetype" type="FileType" />
           <xs:element name="foldertype" type="FolderType" />
           <xs:element name="grouptype" type="GroupType" />
-          <xs:element name="embeddedobjecttype" type="EmbeddedObjectType" />
           <xs:element name="widgettype" type="WidgetType" />
           <xs:element name="apply" type="Apply" />
           <xs:element ref="s:imgsizepreset" />
@@ -354,40 +353,6 @@
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
-
-  <xs:complexType name="EmbeddedObjectType">
-    <xs:sequence>
-      <xs:element name="member" type="Member" minOccurs="0" maxOccurs="unbounded">
-        <xs:unique name="membernames4">
-          <xs:selector xpath="./sp:member" />
-          <xs:field xpath="@name" />
-        </xs:unique>
-      </xs:element>
-      <xs:element name="ingroup" type="InGroup" minOccurs="0" maxOccurs="unbounded" />
-    </xs:sequence>
-    <xs:attributeGroup ref="WidgetBaseAttrs" />
-    <xs:attribute name="isfiletype" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          If true, registers this embeddedobjecttype as a file type
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="ispublishable" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          If true, and if 'isfiletype 'is set, allows this embeddedobjecttype to be published for previews.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="generatepreview" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          Generate widget preview for files of this type.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:complexType>
 
   <xs:complexType name="WidgetType">
     <xs:complexContent>

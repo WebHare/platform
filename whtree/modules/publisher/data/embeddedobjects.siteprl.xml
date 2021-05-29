@@ -21,15 +21,14 @@
     </newtab>
   </tabsextension>
 
-  <embeddedobjecttype editextension="#embedhtml"
-                      generatepreview="true"
-                      isfiletype="true"
-                      namespace="http://www.webhare.net/xmlns/publisher/embedhtml"
-                      renderobjectname="mod::publisher/lib/components/embedhtml.whlib#EmbeddedHTMLObject"
-                      tid="widgets.htmlwidget.title">
-    <member name="html" type="string" />
-    <ingroup type="http://www.webhare.net/xmlns/publisher/generalwidgets" />
-  </embeddedobjecttype>
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/embedhtml"
+              editextension="#embedhtml"
+              renderobjectname="mod::publisher/lib/components/embedhtml.whlib#EmbeddedHTMLObject"
+              tid="widgets.htmlwidget.title">
+    <members>
+      <member name="html" type="string" />
+    </members>
+  </widgettype>
 
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
               editextension="#embedhtml"
@@ -42,28 +41,27 @@
   </widgettype>
 
   <!-- RTD Video component -->
-  <embeddedobjecttype editfunctionname="mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance"
-                      generatepreview="true"
-                      isfiletype="true"
-                      namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
-                      renderobjectname="mod::publisher/lib/internal/embedvideo.whlib#EmbedVideoObject"
-                      tid="siteprofile.widgets.embedvideo">
-    <member name="network" type="string" />
-    <member name="videoid" type="string" />
-    <member name="thumbnail" type="file" />
-    <member name="creationdate" type="datetime" />
-    <member name="title" type="string" />
-    <member name="description" type="string" />
-    <member name="duration" type="integer" />
-    <member name="starttime" type="integer" />
-    <member name="endtime" type="integer" />
-    <member name="location" type="string" />
-    <member name="playratio" type="float" />
-    <member name="loop" type="boolean" />
-    <member name="mute" type="boolean" />
-    <member name="autoplay" type="boolean" />
-    <ingroup type="http://www.webhare.net/xmlns/publisher/generalwidgets" />
-  </embeddedobjecttype>
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
+              editfunctionname="mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance"
+              renderobjectname="mod::publisher/lib/internal/embedvideo.whlib#EmbedVideoObject"
+              tid="siteprofile.widgets.embedvideo">
+    <members>
+      <member name="network" type="string" />
+      <member name="videoid" type="string" />
+      <member name="thumbnail" type="file" />
+      <member name="creationdate" type="datetime" />
+      <member name="title" type="string" />
+      <member name="description" type="string" />
+      <member name="duration" type="integer" />
+      <member name="starttime" type="integer" />
+      <member name="endtime" type="integer" />
+      <member name="location" type="string" />
+      <member name="playratio" type="float" />
+      <member name="loop" type="boolean" />
+      <member name="mute" type="boolean" />
+      <member name="autoplay" type="boolean" />
+    </members>
+  </widgettype>
 
   <apply>
     <to type="all" />

@@ -111,7 +111,7 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , title := ""
          , tolliumicon := ""
          , groupmemberships := DEFAULT RECORD ARRAY
-         , isembeddedobjecttype := type = "embeddedobjecttype" OR type="widgettype"
+         , isembeddedobjecttype := type = "widgettype"
          , isrtdtype := type = "rtdtype"
          , wittycomponent := ""
          , previewcomponent := ""
