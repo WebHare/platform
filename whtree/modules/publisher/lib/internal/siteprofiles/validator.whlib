@@ -124,8 +124,6 @@ STATIC OBJECTTYPE Validating
     {
       IF(ctype.isembeddedobjecttype)
       {
-        BOOLEAN expectwidgetbase := ctype.type="widgettype";
-
         IF(ctype.wittycomponent != "")
         {
           this->ValidateWittyComponent(this->GetCtypeErrorContext(ctype), ctype.wittycomponent);

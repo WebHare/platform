@@ -1269,11 +1269,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 INSERT intercept INTO apply.hookintercepts AT END;
               CONTINUE;
             }
-            CASE "richdocumenteditor"
-            {
-              this->AddError(node, "Support for <richdocumenteditor> has been dropped in 4.31");
-              //No CONTINUE - we didn't have one so we'll not add that yet... so support is not really removed yet but CI will fail for now
-            }
           }
         }
 

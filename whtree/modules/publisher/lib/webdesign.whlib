@@ -1204,7 +1204,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     {
       RECORD parenttype := this->pvt_targetapplytester->GetRTDTypeSettings();
       IF(NOT RecordExists(parenttype))
-        THROW NEW Exception("No RTDType registered - make sure a <rtddoc> node is set. Older sites should use MakeRTD");
+        THROW NEW Exception("No RTDType registered - make sure a <rtddoc> node is set");
 
       rtd->rtdtype := parenttype.rtdtype;
     }
@@ -1292,33 +1292,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       RETURN DEFAULT MACRO PTR;
 
     RETURN this->GetRTDBody(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
-  }
-
-  /** @private obsolete, use OpenRTD */
-  PUBLIC OBJECT FUNCTION MakeRTD(RECORD richdoc, STRING structuredefpath)
-  {
-    IF(structuredefpath NOT LIKE "*::*" AND structuredefpath NOT LIKE "/*")
-      structuredefpath := this->__config.designfolder || structuredefpath;
-
-    OBJECT rtd := NEW PublishableRichDocument;
-    rtd->ImportFromrecord(richdoc);
-    rtd->webdesign := this;
-    rtd->pvt_baseobject := this->targetobject;
-    rtd->pvt_applytester := this->pvt_targetapplytester;
-
-    BLOB structuredef := this->targetsite->rootobject->GetResource(structuredefpath);
-    rtd->ApplyStructureDefinition(LoadClassicStructureDef(structuredef));
-    rtd->PrepareForRendering(this);
-    RETURN rtd;
-  }
-
-  /** @private obsolete, use OpenRTDFromFile */
-  PUBLIC OBJECT FUNCTION MakeRTDFromFile(INTEGER fileid)
-  {
-    OBJECT file := __OpenWHFSRichDocument(OpenWHFSObject(fileid), DEFAULT OBJECT);
-    file->PrepareForRendering(this);
-    file->webdesign := this;
-    RETURN file;
   }
 
   /** @short Get a link to the specified static file

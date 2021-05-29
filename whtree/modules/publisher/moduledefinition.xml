@@ -980,7 +980,6 @@
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="embeddededitor" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="setembeddedobjectrenderer" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="extendproperties" />
-    <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="richdocumenteditor" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="rtddoc" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="setwidget" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="mswordconversion" />

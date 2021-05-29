@@ -547,7 +547,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         {
           IF(hyperlinkinfo.target != "")
           {
-            IF(ObjectExists(outputobject->document->pvt_structure) AND NOT GetRTDTypeFromClassicStructureDef(outputobject->document->pvt_structure).allownewwindowlinks)
+            IF(ObjectExists(outputobject->document->pvt_structure) AND NOT outputobject->document->pvt_structure->allownewwindowlinks)
               hyperlinkinfo.target := "";
           }
 
@@ -1056,11 +1056,7 @@ PUBLIC OBJECT FUNCTION __OpenWHFSRichDocument(OBJECT file, OBJECT webdesign)
   }
   ELSE
   {
-    IF(Length(settings.structuredef)=0)
-      THROW NEW Exception("No rtd structure definition XML has been defined for file #" || file->id);
-
-    OBJECT structure := LoadClassicStructureDef(settings.structuredef);
-    richdoc->ApplyStructureDefinition(structure);
+    THROW NEW Exception("No rtd structure definition XML has been defined for file #" || file->id);
   }
   RETURN richdoc;
 }

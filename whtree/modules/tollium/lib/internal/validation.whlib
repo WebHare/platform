@@ -6,14 +6,6 @@ LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-PUBLIC STATIC OBJECTTYPE RichStructureValidator EXTEND XMLValidatorBase
-<
-  UPDATE PUBLIC MACRO ValidateDocument()
-  {
-    this->AddError(this->xml->documentelement, "<richstructure> files are no longer supported");
-  }
->;
-
 PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
 <
   UPDATE PUBLIC MACRO ValidateDocument()

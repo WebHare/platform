@@ -85,50 +85,6 @@ MACRO RichdocumentStrongEmphasis()
   Testeq(`<p class="normal">I am <strong>bold</strong> and <em>cursive</em></p>`, doc->GetElementById("content")->innerhtml);
 }
 
-MACRO RichdocumentRenderRegressions()
-{
-  OBJECT doc := NEW PublishableRichDocument;
-  doc->ImportFromRecord([ htmltext := StringToBlob('<html><body><h1 class="heading1">Verwondering</h1>'
-                                                   || '<ul class="unordered"><li>Lij</li><li>st</li></ul>'
-                                                   || '</body></html')
-                        , embedded := DEFAULT RECORD ARRAY
-                       ]);
-
-  OBJECT structure := NEW RichDocumentStructure;
-  OBJECT structuredoc :=MakeXMLDocument(StringToBlob(
-                         '<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure" contentareawidth="570px"><blockstyles defaultstyle="NORMAL">'
-                         || '<textstyle tag="HEADING1"><formatting base="none"><allow textstyles="i u" /></formatting></textstyle>'
-                         || '<textstyle tag="NORMAL"><formatting base="none"><allow textstyles="b i u sub sup a-href strike img" /></formatting></textstyle>'
-                         || '<textstyle tag="UNORDERED" containertag="ul" /></blockstyles></richstructure>'));
-
-  structure->LoadFromXML(structuredoc->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
-  doc->ApplyStructureDefinition(structure);
-
-  OBJECT result := doc->RenderAllAsHTMLDocument();
-  TestEq("ul", result->body->childnodes->GetCurrentElements()[1]->nodename);
-  TestEq("li", result->body->childnodes->GetCurrentElements()[1]->firstelementchild->nodename);
-
-  BLOB resultblob := doc->RenderAllToBlob();
-  STRING resultstring := doc->RenderAllToString();
-  Testeq(resultstring, BlobToSTring(resultblob));
-  Testeq(resultstring, BlobToString(NEW HtmlRewriterContext()->GenerateHTML(result->body)));
-
-  Print("FIXME: proper P -> LI conversion, maar we doen nu alles op objectniveau dus vraag me af hoe uberhaupt de UL wrapping om meerdere LIs nu goed kan gaan...\n");
-/*
-
-  //Now remove the UL from the structure
-  structuredoc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/richstructure", "textstyle")->Item(2)->Dispose();
-  structure->LoadFromXML(structuredoc->documentelement);
-  doc->ApplyStructureDefinition(structure);
-
-  result := doc->RenderAllAsHTMLDocument();
-  print(result->outerxml||'\n');
-  TestEq("p", result->body->childnodes->GetCurrentElements()[1]->nodename);
-  TestEq("Lij", result->body->childnodes->GetCurrentElements()[1]->innerxml);
-
-  */
-}
-
 MACRO ParserApiTest()
 {
   testfw->BeginWork();
@@ -285,7 +241,7 @@ MACRO RichDocInstanceTest()
                                      ]);
 
 
-  TestThrows(PTR myrichdoc->SetInstance("xyz", [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]));
+  TestThrowsLike('No such*xyz*', PTR myrichdoc->SetInstance("xyz", [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]));
 
   //Create a reference to the new block
   myrichdoc->body->AppendChild(myrichdoc->CreateInstanceBlockNode(instanceid));
@@ -691,5 +647,4 @@ RunTestframework([ PTR RichdocumentTest
                  , PTR PublishRichDocImageTest
                  , PTR IntLinktest
                  , PTR RichdocumentStrongEmphasis
-                 , PTR RichdocumentRenderRegressions
                  ]);

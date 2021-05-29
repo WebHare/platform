@@ -931,7 +931,6 @@
       <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
       <xs:element name="intercept" type="sc:Intercept" />
-      <xs:element name="richdocumenteditor" type="RichDocumentEditor" />
       <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
       <xs:element name="tagsource" type="TagSource" />
       <xs:element name="customplugin" type="CustomPlugin" />
@@ -1507,29 +1506,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-  </xs:complexType>
-
-  <xs:complexType name="RichDocumentEditor">
-    <xs:sequence>
-      <xs:element minOccurs="0" maxOccurs="1" name="structuredefinition">
-        <xs:complexType>
-          <xs:attribute name="fullpath" />
-        </xs:complexType>
-      </xs:element>
-      <xs:element minOccurs="0" maxOccurs="unbounded" name="css">
-        <xs:complexType>
-          <xs:attribute name="fullpath" />
-        </xs:complexType>
-      </xs:element>
-      <xs:element minOccurs="0" maxOccurs="1" name="limitinternallinks">
-        <xs:complexType>
-          <xs:attribute name="root" />
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-    <xs:attribute name="css" type="xs:string" />
-    <xs:attribute name="htmlclass" type="xs:string" />
-    <xs:attribute name="bodyclass" type="xs:string" />
   </xs:complexType>
 
   <xs:complexType name="ScheduleTimedTask">
