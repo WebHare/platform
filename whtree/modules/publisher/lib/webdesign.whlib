@@ -63,42 +63,6 @@ VARIANT FUNCTION CleanupWittyData(VARIANT indata)
   RETURN indata;
 }
 
-OBJECT ARRAY FUNCTION GenerateUniqueAnchors(OBJECT ARRAY anchors)
-{
-  STRING ARRAY seenanchors;
-  FOREVERY(OBJECT anchor FROM anchors)
-    IF(anchor->anchor != "")
-      INSERT anchor->anchor INTO seenanchors AT END;
-
-  OBJECT ARRAY outanchors;
-  FOREVERY(OBJECT anchor FROM anchors)
-  {
-    IF(anchor->anchor != "") //need to generate one
-    {
-      INSERT anchor INTO outanchors AT END;
-      CONTINUE;
-    }
-
-    STRING basetext := TrimWhitespace(anchor->SuggestAnchor());
-    IF(basetext="")
-      CONTINUE;
-
-    STRING suggestedbase := GetSafeName(basetext, [utf8:=true]);
-    FOR(INTEGER attempt := 1;;attempt := attempt+1)
-    {
-      STRING tryanchor := attempt=1 ? suggestedbase : suggestedbase || "-" || attempt;
-      IF(tryanchor NOT IN seenanchors)
-      {
-        INSERT tryanchor INTO seenanchors AT END;
-        anchor->SetAnchor(tryanchor);
-        BREAK;
-      }
-    }
-    INSERT anchor INTO outanchors AT END;
-  }
-  RETURN outanchors;
-}
-
 RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
 {
   RECORD langrec;
@@ -150,7 +114,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   BOOLEAN pvt_renderwidgetpreview;
   //Macro ptr to render the widget preview
   PUBLIC MACRO PTR __renderwidgetpreview;
-  OBJECT ARRAY pvt_anchors;
   //The dependency resolver v2
   OBJECT pvt_dependencyresolverv2;
   //preparing for page? (ie can't change contentnavstops)
@@ -166,6 +129,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   OBJECT defaultformrenderer;
   /// Extra resource dependencies (for automatic outputtools reload)
   STRING ARRAY resourcedeps;
+  /// Already generated anchors
+  STRING ARRAY __seenanchors;
 
   // ---------------------------------------------------------------------------
   //
@@ -246,9 +211,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING ARRAY __additionalresources;
   ///If set, we're rendering a 'standard content page' - a builtin page that expects to be able to simply render <h2>, <p> etc.
   PUBLIC BOOLEAN isstandardcontentpage;
-
-  ///Optin to an experiment where we don't use GetSuggestedAnchorsForFile to solicit anchor definitions
-  PUBLIC BOOLEAN __anchor_experiment;
 
   // ---------------------------------------------------------------------------
   //
@@ -424,24 +386,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //
   // Helper functions
   //
-
-  MACRO __PrepareAnchors()
-  {
-    IF(this->__anchor_experiment)
-      RETURN;
-
-    //FIXME deal with duplicate explicitly suggested anchors.
-    OBJECT ARRAY anchors;
-    IF(ObjectExists(this->pageobject))
-    {
-      IF (this->__is_newstyle_pageobject)
-        anchors := this->pageobject->GatherSuggestedAnchors();
-      ELSE
-        anchors := this->pageobject->GatherSuggestedAnchors(this);
-    }
-
-    this->pvt_anchors := GenerateUniqueAnchors(anchors);
-  }
 
   UPDATE MACRO PreparePlugins()
   {
@@ -777,7 +721,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
         this->pageobject->PrepareForRendering(this);
     }
 
-    this->__PrepareAnchors();
     IF(NOT this->__is_newstyle_pageobject)
       this->__truecontentbody := this->__GetContentBodyPtr();
 
@@ -793,16 +736,15 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   }
 
 
-  STRING ARRAY __experimental_seenanchors;
-  PUBLIC STRING FUNCTION __Experimental_GenerateAnAnchor(STRING intext)
+  PUBLIC STRING FUNCTION GenerateAnchor(STRING intext)
   {
     STRING suggestedbase := GetSafeName(intext, [ utf8 := TRUE, fallback := "anchor" ]);
     FOR(INTEGER attempt := 1;;attempt := attempt+1)
     {
       STRING tryanchor := attempt = 1 ? suggestedbase : suggestedbase || "-" || attempt;
-      IF(tryanchor NOT IN this->__experimental_seenanchors)
+      IF(tryanchor NOT IN this->__seenanchors)
       {
-        INSERT tryanchor INTO this->__experimental_seenanchors AT END;
+        INSERT tryanchor INTO this->__seenanchors AT END;
         RETURN tryanchor;
       }
     }
@@ -1455,24 +1397,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INSERT [ prefix := addprefix, namespace := addnamespace ] INTO this->pvt_htmlprefixes AT END;
   }
 
-  /** Create an anchor.
-      @param tagname The tag your anchor will be using
-      @param title The title your anchor will have
-    */
-  PUBLIC OBJECT FUNCTION CreateAnchor(STRING tagname, STRING title)
-  {
-    RETURN NEW CustomAnchor(tagname, title);
-  }
-
-  // @deprecated
-  PUBLIC RECORD ARRAY FUNCTION GetContentNav()
-  {
-    IF(this->__anchor_experiment)
-      RETURN RECORD[];
-
-    RETURN SELECT AS RECORD ARRAY anchor->GetInfo() FROM TorecordArray(this->pvt_anchors,'anchor');
-  }
-
   /** @short Render a block from GetSharedBlocks/ResolveLocalSharedBlocks as a widget */
   PUBLIC MACRO RenderSharedBlock(RECORD sharedblock)
   {
@@ -1522,25 +1446,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     OBJECT embobj := GetEmbeddedObjectRenderer(this->targetobject, this->pvt_targetapplytester, rtdinfo.rtdtype, widgetdata, this).widget;
     embobj->RenderLive();
-  }
-
-  ///@private GetSuggestedAnchorsForFile is deprecated - we want to stop doing this preparation phase
-  PUBLIC RECORD ARRAY FUNCTION GetSuggestedAnchorsForFile(INTEGER fileid)
-  {
-    IF(this->__anchor_experiment)
-      RETURN RECORD[];
-    OBJECT infile := OpenWHFSObject(fileid);
-    OBJECT rtd := this->OpenRTDFromFile(infile);
-    OBJECT ARRAY anchors := rtd->GatherSuggestedAnchors(this);
-    anchors := GenerateUniqueAnchors(anchors);
-
-    RECORD ARRAY outanchors := SELECT AS RECORD ARRAY anchor->GetInfo() FROM TorecordArray(anchors,"anchor");
-    outanchors := SELECT title
-                       , anchor := link
-                       , tagname
-                       , link := infile->indexurl != "" ? infile->indexurl || link : ""
-                    FROM outanchors;
-    RETURN outanchors;
   }
 
   ///@private Creating your own Form renderer may be removed - noone has succesfully managed it yet (or not without regretting it)
@@ -1679,12 +1584,6 @@ PUBLIC OBJECTTYPE StaticPageBase
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
-  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
-  {
-    RETURN DEFAULT OBJECT ARRAY;
-  }
-
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     DELETE CELL body FROM this->__pageinfo;
@@ -1773,12 +1672,6 @@ PUBLIC OBJECTTYPE DynamicPageBase
   {
     IF(CellExists(this->__pageinfo,'body') AND this->__pageinfo.body != DEFAULT MACRO PTR)
       this->__pageinfo.body();
-  }
-
-  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
-  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
-  {
-    RETURN DEFAULT OBJECT ARRAY;
   }
 
   /** Override GetDynamicPageCacheSettings to set your own cache settings. The page

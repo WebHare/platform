@@ -7,7 +7,6 @@
   <div id="whfspath">[whfspath]</div>
 
   <div id="content" data-dynamiclink="[dynamiclink]"
-                    data-anchors="[anchors]"
                     data-webdesign-prepareforrendering="[webdesign_prepareforrendering]"
                     data-dynamicpageparameters="[dynamicpageparameters_hson]"
                     [if sitelanguage.nl]data-sitelanguage-nl[/if]

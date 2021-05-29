@@ -113,13 +113,6 @@ OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
   }
 
 
-  UPDATE PUBLIC RECORD FUNCTION UpdatePageConfig(RECORD pageconfig)
-  {
-    pageconfig := BetaSharedDesign::UpdatePageConfig(pageconfig);
-    INSERT CELL anchors := EncodeJSON(SELECT title, link, tagname FROM this->GetContentNav()) INTO pageconfig;
-    RETURN pageconfig;
-  }
-
 /*
 FIXME
       wordpublisher->SetToclevelAsRawHTML(99);
@@ -161,14 +154,6 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
       linkrecord := MakeIntExtExternalLink("x-go-rewrite:#no-really");
 
     RETURN BetaWebDesign::GetIntExtLinkTarget(linkrecord);
-  }
->;
-
-PUBLIC OBJECTTYPE ExperimentalAnchorsDesign EXTEND BaseTestDesign
-<
-  MACRO NEW()
-  {
-    this->__anchor_experiment := TRUE;
   }
 >;
 

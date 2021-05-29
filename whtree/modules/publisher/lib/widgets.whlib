@@ -43,7 +43,6 @@ CONSTANT RECORD blockwidgetoptions :=
 PUBLIC OBJECTTYPE WidgetBase
 <
   RECORD __pvt_widgetsettings;
-  BOOLEAN __pvt_gotanchors;
   OBJECT ARRAY __pvt_openrtds;
   PUBLIC BOOLEAN __pvt_renderwide;
 
@@ -81,9 +80,6 @@ PUBLIC OBJECTTYPE WidgetBase
       @return(object %RichDocument) The requested document */
   PUBLIC OBJECT FUNCTION OpenRTD(RECORD richdoc, VARIANT options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->__pvt_gotanchors)
-      THROW NEW Exception("It's too late to open RTD documents - should have invoked OpenRTD from NEW");
-
     IF(TypeID(options) = TypeID(STRING))
       options := [ rtdtype := options ];
     options := ValidateOptions([ rtdtype := "" ], options);
@@ -206,19 +202,6 @@ PUBLIC OBJECTTYPE WidgetBase
   PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->context->RenderWidgetInstance(widgetdata, options);
-  }
-
-  ///@private GatherSuggestedAnchors is deprecated - we want to stop doing this preparation phase
-  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
-  {
-    this->__pvt_gotanchors := TRUE;
-
-    OBJECT ARRAY anchors;
-    FOREVERY(OBJECT rtd FROM this->__pvt_openrtds)
-    {
-      anchors := anchors CONCAT rtd->GatherSuggestedAnchors(webdesign);
-    }
-    RETURN anchors;
   }
 
   OBJECT FUNCTION GetMergeFields()
