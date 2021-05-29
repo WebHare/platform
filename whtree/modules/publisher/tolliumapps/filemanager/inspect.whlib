@@ -611,6 +611,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
     this->ReloadApplyRules();
     this->RefreshFSObjectType();
     this->RefreshRefs();
+    this->RefreshHistory();
     ^consiliotab->Refresh(this->fsobj);
     this->OnApplySelect();
     RETURN TRUE;
@@ -815,6 +816,14 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
       this->FillDBInfo(^draftdbinfo, OpenWHFSDraft(^drafts->selection.id)->fsobject, ^drafts->selection.versionid);
     ELSE
       this->FillDBInfo(^draftdbinfo, DEFAULT OBJECT, 0);
+  }
+
+  MACRO RefreshHistory()
+  {
+    RECORD ARRAY historyitems;
+    RECORD ARRAY history := SELECT * FROM this->fsobj->GetHistory() ORDER BY when;
+    history := this->contexts->userapi->EnrichUsers("user", history, [ celltype := "authobjectid" ]);
+    ^historyitems->rows := SELECT user, type, login, fullname, when FROM history;
   }
 
   MACRO RefreshRefs()
