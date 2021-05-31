@@ -339,8 +339,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
-    BOOLEAN islegacy := structuredefns = "http://www.webhare.net/xmlns/tollium/richstructure";
-    SWITCH (styleblock->localname)
+
+     SWITCH (styleblock->localname)
     {
       CASE "textstyle"
       {
@@ -349,29 +349,13 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.split := ParseXSBoolean(styleblock->GetAttribute("split"));
         style.importfrom := ParseXSList(styleblock->GetAttribute("importfrom")); //new format: read and split attribute to get the selectors
 
-        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements()) //legacy structuredef format, no longer supported
+        FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
         {
           INSERT importnode->GetAttribute("selector") INTO style.importfrom AT END;
         }
 
-        IF(islegacy)
-        {
-          OBJECT formattingnode := styleblock->GetChildElementsByTagNameNS(structuredefns, "formatting")->Item(0);
-          IF(ObjectExists(formattingnode))
-          {
-            OBJECT allownode := formattingnode->GetChildElementsByTagNameNS(structuredefns, "allow")->Item(0);
-            IF(ObjectExists(allownode))
-              style.textstyles := ParseXSList(allownode->GetAttribute("textstyles"));
-          }
-          ELSE
-          {
-            style.textstyles := richstructure_constants.alltextstyles;
-          }
-        }
-        ELSE //modern style requires naming all formatting.
-        {
-          style.textstyles := ParseXSList(styleblock->GetAttribute("textstyles"));
-        }
+        //modern style requires naming all formatting.
+        style.textstyles := ParseXSList(styleblock->GetAttribute("textstyles"));
 
         RECORD matchbuiltin := SELECT * FROM richstructure_constants.builtinstyles WHERE tag = style.tag;
         IF(RecordExists(matchbuiltin))
@@ -1543,30 +1527,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   }
 >;
 
-//ADDME mostly dupe of tollium/components/rte.whlib
-PUBLIC OBJECT FUNCTION LoadClassicStructureDef(BLOB structuredeffile)
-{
-  OBJECT structuredoc := MakeXMLDocument(structuredeffile);
-  OBJECT schemadef := __RetrieveCachedXMLSchema("mod::tollium/data/richstructuredef.xsd").doc;
-
-  RECORD ARRAY errors := schemadef->ValidateDocument(structuredoc);
-  IF(Length(errors)>0)
-    THROW NEW Exception("Errors validating rich structure document\n" || anytostring(errors,'boxed'));
-
-  OBJECT structuredef := NEW RichDocumentStructure;
-  structuredef->LoadFromXML(structuredoc->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
-  RETURN structuredef;
-}
-
-PUBLIC RECORD FUNCTION GetRTDTypeFromClassicStructureDef(OBJECT structuredef)
-{
-  RECORD base := MakeBaseSiteprofileXMLStructure();
-  base.structure := structuredef->structure;
-  base.allowedobjects := structuredef->GetAllowedObjects();
-  base.allownewwindowlinks := structuredef->allownewwindowlinks;
-  RETURN base;
-}
-
 PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT startnode)
 {
   OBJECT widgetsnode := startnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "widgets")->Item(0);
@@ -1632,28 +1592,6 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForFile(INTEGER basefileid)
   }
 
   RECORD retval := GetRTDSettingsForApplyTester(GetApplyTesterForObject(usefileid));
-  RECORD limitlinks;
-  IF(ObjectExists(retval.limitinternallinksnode))
-  {
-    limitlinks := [ root := retval.limitinternallinksnode->GetAttribute("root")
-                  ];
-  }
-  IF(RecordExists(limitlinks))
-  {
-    OBJECT basefolder;
-    IF(limitlinks.root LIKE "/*") //interpret as absolute form site root
-    {
-      basefolder := OpenWHFSObject(OpenWHFSObject(usefileid)->parentsite)->OpenByPath(substring(limitlinks.root,1));
-    }
-    ELSE
-    {
-      basefolder := OpenWHFSObject(usefileid)->parentobject->OpenByPath(limitlinks.root);
-    }
-    IF(NOT ObjectExists(basefolder))
-      THROW NEW Exception("Unable to find link limit root '" || limitlinks.root || "'");
-
-    retval.internallinkroots := [ INTEGER(basefolder->id) ];
-  }
   RETURN retval;
 }
 
@@ -1682,39 +1620,6 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForApplyTester(OBJECT applytester)
       retval.htmlclass := rtdtypesettings.htmlclass;
     IF(rtdtypesettings.has_bodyclass)
       retval.bodyclass := rtdtypesettings.bodyclass;
-  }
-  ELSE
-  {
-    RECORD ARRAY richdocsettings := retval.applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "richdocumenteditor");
-
-    FOREVERY(RECORD doc FROM richdocsettings)
-    {
-      OBJECT structurenode := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "structuredefinition")->Item(0);
-      IF(ObjectExists(structurenode))
-        retval.structuredef := GetWebhareResource(doc.siteprofile->ParseFSPath(structurenode, "fullpath"));
-
-      OBJECT ARRAY cssnodes := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "css")->GetCurrentElements();
-      IF (LENGTH(cssnodes) != 0)
-      {
-        // Overwrite previous css settings
-        retval.cssfiles := DEFAULT RECORD ARRAY;
-        FOREVERY (OBJECT cssnode FROM cssnodes)
-        {
-          STRING path := doc.siteprofile->ParseFSPath(cssnode,"fullpath");
-          INSERT [ path := path
-                 ] INTO retval.cssfiles AT END;
-        }
-      }
-
-      retval.limitinternallinksnode := doc.node->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "limitinternallinks")->Item(0);
-
-      IF(doc.node->HasAttribute("css"))
-        retval.css := doc.node->GetAttribute("css");
-      IF(doc.node->HasAttribute("htmlclass"))
-        retval.htmlclass := doc.node->GetAttribute("htmlclass");
-      IF(doc.node->HasAttribute("bodyclass"))
-        retval.bodyclass := doc.node->GetAttribute("bodyclass");
-    }
   }
 
   IF(RecordExists(rtdtypesettings) AND rtdtypesettings.margins != "") //we don't copy these from the RTDType

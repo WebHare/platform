@@ -68,7 +68,5 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
 
     FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
       this->AddHint(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
-    FOREVERY(OBJECT embeddedobjecttype FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","embeddedobjecttype"))
-      this->AddHint(embeddedobjecttype, "<embeddedobjecttype>s should be replaced by widgettypes");
   }
 >;

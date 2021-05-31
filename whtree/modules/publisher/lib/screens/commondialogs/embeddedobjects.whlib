@@ -83,7 +83,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
       IF(NOT newtype.isembeddedobjecttype)
       {
-        Print("Ignoring type '" || newtype.namespace || "', it is not an <embeddedobjecttype>\n");
+        Print("Ignoring type '" || newtype.namespace || "', it is not a <widgettype>\n");
         CONTINUE;
       }
       IF(newtype.namespace = "http://www.webhare.net/xmlns/publisher/embedvideo")

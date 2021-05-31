@@ -407,7 +407,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     // All xml elements that contain contenttype definitions
     RECORD ARRAY contenttypeelements :=
         [ [ ns := whconstant_xmlns_publisher,   name := "contenttype" ]
-        , [ ns := whconstant_xmlns_publisher,   name := "embeddedobjecttype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "widgettype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "rtdtype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "filetype" ]
@@ -539,7 +538,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
     INSERT CELL members := newmembers.members INTO typeinfo;
 
-    IF (nodename IN [ "embeddedobjecttype", "widgettype" ])
+    IF (nodename = "widgettype")
     {
       INSERT CELL editor := this->GetWidgetEditor(ctype)
                 , renderer := this->GetWidgetRenderer(ctype)
@@ -547,33 +546,27 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 , requiremergefieldscontext := ParseXSBoolean(ctype->GetAttribute("requiremergefieldscontext"))
              INTO typeinfo;
 
-      IF(ParseXSBoolean(ctype->GetAttribute("isfiletype")) OR nodename="widgettype")
-      {
-        RECORD filetypeinfo := GetBaseFiletypeRecord();
-        filetypeinfo.siteprofile := this->filename;
-        filetypeinfo.line := ctype->linenum;
+      RECORD filetypeinfo := GetBaseFiletypeRecord();
+      filetypeinfo.siteprofile := this->filename;
+      filetypeinfo.line := ctype->linenum;
 
-        filetypeinfo.isembeddedobjecttype := typeinfo.isembeddedobjecttype;
-        filetypeinfo.tolliumicon := typeinfo.tolliumicon;
-        IF(filetypeinfo.tolliumicon = "" AND filetypeinfo.isembeddedobjecttype)
-          filetypeinfo.tolliumicon := "tollium:files/widget";
+      filetypeinfo.isembeddedobjecttype := typeinfo.isembeddedobjecttype;
+      filetypeinfo.tolliumicon := typeinfo.tolliumicon;
+      IF(filetypeinfo.tolliumicon = "" AND filetypeinfo.isembeddedobjecttype)
+        filetypeinfo.tolliumicon := "tollium:files/widget";
 
-        filetypeinfo.title := typeinfo.title;
-        typeinfo.fstype.needstemplate := nodename!="widgettype";
-        typeinfo.fstype.isfiletype := TRUE;
-        typeinfo.fstype.ispublishedassubdir := nodename!="widgettype";
-        typeinfo.fstype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
-        typeinfo.fstype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
+      filetypeinfo.title := typeinfo.title;
+      typeinfo.fstype.needstemplate := nodename!="widgettype";
+      typeinfo.fstype.isfiletype := TRUE;
+      typeinfo.fstype.ispublishedassubdir := nodename!="widgettype";
+      typeinfo.fstype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
+      typeinfo.fstype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
 
-        typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
-        typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
-        typeinfo.filetype := filetypeinfo;
-      }
+      typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
+      typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
+      typeinfo.filetype := filetypeinfo;
 
-      IF(nodename="widgettype" AND ctype->HasAttribute("ingroup"))
-        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ]];
-      IF( (nodename="widgettype" OR nodename="embeddedobjecttype") AND Length(typeinfo.groupmemberships)=0)
-        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
+      typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ?? "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
     }
 
     RETURN typeinfo;
@@ -1275,11 +1268,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               IF(RecordExists(intercept))
                 INSERT intercept INTO apply.hookintercepts AT END;
               CONTINUE;
-            }
-            CASE "richdocumenteditor"
-            {
-              this->AddError(node, "Support for <richdocumenteditor> has been dropped in 4.31");
-              //No CONTINUE - we didn't have one so we'll not add that yet... so support is not really removed yet but CI will fail for now
             }
           }
         }

@@ -350,15 +350,15 @@
   </apply>
 
   <!-- RTDType and widget testing -->
-  <embeddedobjecttype editextension="#editlevel1"
-                      isfiletype="true"
-                      ispublishable="true"
-                      namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"
-                      renderlibrary="lib/basetest.whlib"
-                      renderobjectname="Level1Widget">
-    <member name="richdoc" type="richdocument" />
-    <member name="fileref" type="whfsref" />
-  </embeddedobjecttype>
+  <widgettype editextension="#editlevel1"
+              namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"
+              renderobjectname="lib/basetest.whlib#Level1Widget">
+
+    <members>
+      <member name="richdoc" type="richdocument" />
+      <member name="fileref" type="whfsref" />
+    </members>
+  </widgettype>
 
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editlevel1">
     <newtab>

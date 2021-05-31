@@ -135,7 +135,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   STRING pvt_toplaintextmethod;
   STRING pvt_warnlengthexceededwarningtid;
 
-  BOOLEAN pvt_havestructuredatafile;
   RECORD ARRAY loadcss;
   STRING _usercss; //user/component added CSS code
 
@@ -177,8 +176,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   /// Limit RTE internal links to these subfolders
   PUBLIC INTEGER ARRAY internallinkroots;
-
-  //PUBLIC PROPERTY structuredef(this->cleaner->structuredef, this->cleaner->structuredef);
 
   ///How often we sent a value to the client. The initial empty value is #0, the inital set value is #1
   INTEGER valuegeneration;
@@ -930,20 +927,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   //
   // Setting up more complex structures
   //
-  MACRO LoadStructureDefFile(BLOB structuredata)
-  {
-    OBJECT structuredoc := MakeXMLDocument(structuredata);
-    OBJECT schemadef := __RetrieveCachedXMLSchema("mod::tollium/data/richstructuredef.xsd").doc;
-
-    RECORD ARRAY errors := schemadef->ValidateDocument(structuredoc);
-    IF(Length(errors)>0)
-      THROW NEW Exception("Errors validating rich structure document\n" || anytostring(errors,'boxed'));
-
-    // It's ugly we have to do this... but RichDocumentEditor is also used for non-rtdtyped stuff and we have to do a lot more of refactoring of its construction (or just split off further the code for 'free' RTEs)
-    this->editable->structuredef := NEW RichDocumentStructure;
-    this->editable->structuredef->LoadFromXML(structuredoc->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
-    this->LoadRTDTypeInfo(GetRTDTypeFromClassicStructureDef(this->editable->structuredef));
-  }
   MACRO LoadRTDTypeInfo(RECORD rtdtypeinfo)
   {
     // FIXME: should we test for this or can rtdtypeinfo (if not retrieved using GetRTDSettingsFromType) exist without "rtdtype" cell ?
@@ -1025,13 +1008,6 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
     IF (LENGTH(cssfiles) != 0)
       this->SetCSSFiles(cssfiles);
 
-    IF(def.structuredatafile!="")
-    {
-      this->pvt_havestructuredatafile := TRUE;
-      this->LoadStructureDefFile(GetWebhareResource(def.structuredatafile));
-    }
-
-
     this->rtelinkhandlers := def.linkhandlers;
     this->editable->ValidateSettings();
 
@@ -1043,7 +1019,7 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
 
   UPDATE MACRO PostInitComponent()
   {
-    IF(GetDtapStage() = "development" AND NOT this->pvt_havestructuredatafile)
+    IF(GetDtapStage() = "development")
       THROW NEW TolliumException(this, "The <rte> component should be replaced by either <richdocument> or <richarea>");
   }
 >;
@@ -1171,16 +1147,9 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     this->htmlclass := settings.htmlclass;
     this->bodyclass := settings.bodyclass;
 
-    IF(Length(settings.structuredef)>0)
-    {
-      this->LoadStructureDefFile(settings.structuredef);
-    }
-    ELSE
-    {
-      this->editable->structuredef := NEW RichDocumentStructure;
-      this->editable->structuredef->LoadFromRTDType(settings);
-      this->LoadRTDTypeInfo(settings);
-    }
+    this->editable->structuredef := NEW RichDocumentStructure;
+    this->editable->structuredef->LoadFromRTDType(settings);
+    this->LoadRTDTypeInfo(settings);
 
     IF(RecordExists(this->rtdtypeinfo.structure) AND this->rtdtypeinfo.structure.contentareawidth = "" AND ObjectExists(settings.applytester)) //can we get it from a <webdesign> node ?
     {

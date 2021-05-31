@@ -2992,11 +2992,6 @@ To change a <xs:attribute /> for adding descriptions
         <xs:sequence>
           <xs:element ref="linkhandlers" minOccurs="0" maxOccurs="1" />
         </xs:sequence>
-        <xs:attribute name="structuredatafile" type="DataFileRef">
-          <xs:annotation>
-            <xs:appinfo><sc:deprecated>Support for structure definitions will be removed</sc:deprecated></xs:appinfo>
-          </xs:annotation>
-        </xs:attribute>
         <xs:attribute name="cssfile" type="DataFileRef">
           <xs:annotation>
             <xs:appinfo><sc:deprecated>Support for structure definitions (and their corresonding CSS) will be removed</sc:deprecated></xs:appinfo>

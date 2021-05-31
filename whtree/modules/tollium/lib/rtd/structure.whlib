@@ -1,8 +1,0 @@
-<?wh
-/** @private Find an alternative for LoadStructureDef. separate structurefiles are deprecated */
-LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
-
-PUBLIC OBJECT FUNCTION LoadStructureDef(BLOB doc) __ATTRIBUTES__(DEPRECATED "Internal function, avoid calling externally")
-{
-RETURN Loadclassicstructuredef(doc);
-}

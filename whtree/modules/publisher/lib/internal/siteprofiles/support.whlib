@@ -111,7 +111,7 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , title := ""
          , tolliumicon := ""
          , groupmemberships := DEFAULT RECORD ARRAY
-         , isembeddedobjecttype := type = "embeddedobjecttype" OR type="widgettype"
+         , isembeddedobjecttype := type = "widgettype"
          , isrtdtype := type = "rtdtype"
          , wittycomponent := ""
          , previewcomponent := ""
@@ -124,8 +124,7 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
 PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
 {
   RETURN MakeMergedRecord(MakeBasicTypeInfo("rtdtype"),
-         [ structuredef := DEFAULT BLOB
-         , structure := DEFAULT RECORD
+         [ structure := DEFAULT RECORD
          , cssfiles := DEFAULT RECORD ARRAY
          , internallinkroots := DEFAULT INTEGER ARRAY
          , css := ""
@@ -135,7 +134,6 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , allownewwindowlinks := FALSE
          , ignoresiteprofilewidgets := FALSE
          , applytester := DEFAULT OBJECT
-         , limitinternallinksnode := DEFAULT OBJECT
          , linkhandlers := DEFAULT RECORD
          , margins := ""
          , tag_b := "b"
