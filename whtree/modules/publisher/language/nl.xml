@@ -513,6 +513,7 @@
         <text tid="filescantbehidden">Bestandstypen kunnen niet verborgen worden</text>
         <text tid="fsobjecttype">Type</text>
         <text tid="fstypeid">Type ID</text>
+        <text tid="history">Geschiedenis</text>
         <text tid="inspect">Inspecteer object #<param p="1"/> (<param p="2"/>)</text>
         <text tid="ishidden">Verborgen</text>
         <text tid="name">Naam</text>

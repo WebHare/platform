@@ -116,6 +116,15 @@
           <textedit name="dynamicexecution_webpageobjectname" enabled="false" visible="false" width="1pr" />
           <text name="dynamicexecution_cached" visible="false"  />
         </tab>
+        <tab name="history">
+          <list name="historyitems" height="1pr" width="1pr">
+            <column name="when" type="datetime" storeutc="true" precision="milliseconds"/>
+            <column name="type" type="text" />
+            <column name="user" type="integer" />
+            <column name="login" type="text" tid="~username"/>
+            <column name="fullname" type="text" tid="~fullname"/>
+          </list>
+        </tab>
         <tab name="references">
           <list name="refs"
                 height="1pr"

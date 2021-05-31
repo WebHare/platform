@@ -513,6 +513,7 @@
         <text tid="filescantbehidden">Filetypes cannot be hidden</text>
         <text tid="fsobjecttype">Type</text>
         <text tid="fstypeid">Type ID</text>
+        <text tid="history">History</text>
         <text tid="inspect">Inspect object #<param p="1"/> (<param p="2"/>)</text>
         <text tid="ishidden">Hidden</text>
         <text tid="name">Name</text>
