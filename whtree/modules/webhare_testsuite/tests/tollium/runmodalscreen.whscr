@@ -2,7 +2,7 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-OBJECT ASYNC FUNCTION RunModalScreen()
+ASYNC MACRO RunModalScreen()
 {
   RECORD rec;
 
@@ -35,11 +35,28 @@ OBJECT ASYNC FUNCTION RunModalScreen()
   TestEq("ok", AWAIT rec.expectcallreturn());
 
   rec := AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml#booleanresult"));
+  AWAIT rec.expectinitfinish();
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
   TestEq("cancel", AWAIT rec.expectcallreturn());
+}
 
-  RETURN TRUE;
+ASYNC MACRO TestWaitingScreen()
+{
+  RECORD res := AWAIT ExpectScreenChange(+2, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml", [ subscreen := TRUE, subscreenimmediate := FALSE ]));
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  TestEQ(FALSE, topscreen->finishedinit);
+  AWAIT res.expectinitfinish();
+  TestEQ(FALSE, topscreen->finishedinit);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // screens that return a tolliumresult in the init aren't visible
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/tolliumrunscreen.xml", [ subscreen := TRUE, subscreenimmediate := TRUE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT res.expectinitfinish();
 }
 
 RunTestFramework([ PTR RunModalScreen
+                 , PTR TestWaitingScreen
                  ]);

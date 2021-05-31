@@ -143,27 +143,39 @@ MACRO OnScreenChange(RECORD event)
       , isopen :=       event.isopening
       , stacklength :=  newstacklength
       , trace :=        trace
-      , isskipped :=    event.isskipped
       ]);
 
   HandleUnprocessedErrors();
 
   IF (event.isopening)
   {
+    RECORD initdefer := CreateDeferredPromise();
+    IF (event.initialized)
+      initdefer.resolve(DEFAULT RECORD);
+
     topscreen := event.screen;
-    INSERT CELL[ event.screen, trace, event.isskipped ] INTO screenstack AT END;
+    INSERT CELL
+        [ event.screen
+        , trace
+        , initdefer
+        ] INTO screenstack AT END;
   }
   ELSE
   {
+    screenstack[END-1].initdefer.resolve(DEFAULT RECORD);
     DELETE FROM screenstack AT END-1;
     IF (LENGTH(screenstack) > 0)
-    {
-      screenstack[END-1].isskipped := FALSE;
       topscreen := screenstack[END-1].screen;
-    }
     ELSE
       topscreen := DEFAULT OBJECT;
   }
+}
+
+MACRO OnScreenInit(RECORD event)
+{
+  FOREVERY (RECORD elt FROM screenstack)
+    IF (elt.screen = event.screen)
+      elt.initdefer.resolve(DEFAULT RECORD);
 }
 
 BOOLEAN FUNCTION OnNoForwardProgress(OBJECT screen, OBJECT e)
@@ -588,22 +600,51 @@ OBJECT ASYNC FUNCTION ExpectImmediateCallResult(RECORD call)
   RETURN call.defer.promise;
 }
 
+ASYNC FUNCTION ExpectInitFinish(RECORD screenevent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ timeout :=      60000
+      ], options);
+
+  RECORD ARRAY trace := InitExpect(); // save trace before first await, captures calling context.
+
+  OBJECT timeout := CreateSleepPromise(options.timeout);
+
+  IF (debug_expects) PRINT(`Expect init of screen to finish\n`);
+
+  RECORD waitres := AWAIT CreatePromiseRace(OBJECT[ screenevent.initdefer.promise, timeout ], [ wrap := TRUE ]);
+  IF (waitres.source = timeout)
+  {
+    PRINT("Timeout waiting for init to complete\n");
+    DumpStackTrace(trace);
+    THROW NEW Exception(`Timeout waiting for screen Init() to finish after ${options.timeout}ms`);
+  }
+
+  IF (debug_expects) PRINT("Init function of screen has finished\n");
+
+  in_expect_call := FALSE;
+  HandleUnprocessedErrors();
+
+  RETURN DEFAULT RECORD;
+}
+
 OBJECT ASYNC FUNCTION ReturnAsyncImmediately() { RETURN DEFAULT RECORD; }
 
 /** Expect the screen stack to change
     @param diff Expected change, eg +1 expects one screen to open, -2 expects two screens to close
     @param call Trigger call that will cause the screen change to happen
-    @param options
-    @cell options.allowscreenchangeafter
-    @cell options.namemask
-    @cell options.titlemask
-    @return
+    @cell options.allowscreenchangeafter Allow more automatic screen changes after the expected change has been reached. Defaults to FALSE, set
+      to TRUE when you expect the screen to auto-close or another screen to auto-open.
+    @cell options.namemask Mask for the expected name of the screen
+    @cell options.titlemask Mask for the expected title of the screen
+    @return Extra wait functions
     @cell return.expectcallreturn Expect call that requires the trigger-call to have finished.
+    @cell return.expectinitfinish Expect call that requires the Init function of the curren topscreen to have finished
 */
 PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ allowscreenchangeafter :=   TRUE
+      [ allowscreenchangeafter :=   FALSE
       , namemask :=                 "*"
       , titlemask :=                "*"
       ], options);
@@ -614,7 +655,7 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
 
   IF (debug_expects) PRINT("Enter ExpectScreenChange" || (call = DEFAULT FUNCTION PTR ? "" : ", calling " ||ExplainFunctionPtrSignature(call)) || ", want depth " || wantdepth || ", last waited " || lastwaitedstacklength || ", now: " || LENGTH(screenstack) || "\n");
 
-  FUNCTION PTR waitcallresult;
+  FUNCTION PTR waitcallresult, waitinitfinish;
 
   // If we have a call, there should not be any pending screen changes
   IF (call != DEFAULT FUNCTION PTR)
@@ -640,20 +681,6 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
     }
     IF (rec.type = "screenchange" AND rec.stacklength = wantdepth)
     {
-      IF (rec.isskipped)
-      {
-        STRING msg := `Screen automatically opened a subscreen, please use +${diff+1} as expected change`;
-        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
-        THROW NEW Exception(msg);
-      }
-      // check if more screens automatically opened/closed
-      IF (LENGTH(screenstack) != rec.stacklength)
-      {
-        INTEGER currentdiff := LENGTH(screenstack) - lastwaitedstacklength;
-        STRING msg := `More screens automatically ${LENGTH(screenstack) > rec.stacklength ? "opened" : "closed"}, please use ${currentdiff>=0?"+":""}${currentdiff} as expected change`;
-        PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
-        THROW NEW Exception(msg);
-      }
       // Got the wanted screen, test its props
       IF (rec.screen->frame->screenname NOT LIKE options.namemask)
       {
@@ -667,6 +694,9 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
         PRINT("** " || msg || "\n" || GetScreenDetails(rec.screen));
         THROW NEW Exception(msg);
       }
+
+      IF (IsValueSet(screenstack))
+        waitinitfinish := PTR ExpectInitFinish(screenstack[END-1]);
       BREAK;
     }
     ELSE IF (rec.type = "noforwardprogress")
@@ -735,7 +765,7 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
         PRINT("** got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " after reaching expected screen depth\n" || GetScreenDetails(rec.screen));
 
         OBJECT e := NEW Exception("Got an unexpected " || GetScreenShortName(rec.screen) || (rec.isopen ? " opening" : " closing") || " after reaching expected screen depth");
-        e->trace := rec.trace; // Not awaited yet, no need to trace captured at function start
+        e->trace := trace; // Not awaited yet, no need to trace captured at function start
         THROW e;
       }
       ELSE IF (rec.type = "callresult")
@@ -748,7 +778,7 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
   in_expect_call := FALSE;
   HandleUnprocessedErrors();
 
-  RETURN [ expectcallreturn := waitcallresult ];
+  RETURN [ expectcallreturn := waitcallresult, expectinitfinish := waitinitfinish ];
 }
 
 /** Expect a file to be sent to the user
@@ -1213,6 +1243,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
     controller->debugging := testfw->debug;
 
     controller->AddListener("windowstack", PTR OnScreenChange);
+    controller->AddListener("screeninit", PTR OnScreenInit);
     controller->__onnoforwardprogress := PTR OnNoForwardProgress;
     controller->__onsendwebfile := PTR OnSendWebFile;
     controller->__onnoactionhandlerfound := PTR OnNoActionHandlerFound;
