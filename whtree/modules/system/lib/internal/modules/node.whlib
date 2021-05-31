@@ -400,7 +400,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       issues := issues CONCAT CheckRequests(flatmodules, flatlockmodules);
 
       IF (LENGTH(issues) != 0)
-        RETURN [ ...issues, [ error := `package-lock.json is not in sync with package.json. package.json should not be modified manually. Please run 'wh npm install'` ] ];
+        RETURN [ ...issues, [ error := `package-lock.json is not in sync with package.json. package.json should not be modified manually. Please run 'npm install'` ] ];
 
       //Compare actual modules against packagelock.json
       RECORD ARRAY matchlockactual := JoinArrays(flatlockmodules, "name", actualnodemodules
@@ -420,10 +420,10 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       // Check if the deps in package "" from package-lock.json are a 1-to-1 match with the package.json
       OBJECT lockrootdeps := SELECT AS OBJECT value FROM lockpackages WHERE name = "";
       IF (NOT ObjectExists(lockrootdeps))
-        RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'wh npm install'" ] ];
+        RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'npm install'" ] ];
       RECORD ARRAY lockrootdeps_deps := SELECT name, range := value FROM lockrootdeps->GetProp("dependencies")->Unpack();
       IF (EncodeHSON(lockrootdeps_deps) != EncodeHSON(SELECT name, range FROM flatmodules ORDER BY name))
-        RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'wh npm install'" ] ];
+        RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'npm install'" ] ];
 
       // Get the list of all installed packages on disk
       RECORD ARRAY ondiskpackages := SELECT * FROM ListActualV2Packages(nodefolder.modulespath, "node_modules") ORDER BY name;

@@ -8,7 +8,7 @@ cd ../../../..
 WHTREE="`pwd`"
 
 if [ -z "$WEBHARE_IN_DOCKER" ]; then #when in local build dir
-  wh npm install --no-save
+  npm install --no-save
 fi
 
 FAIL=0

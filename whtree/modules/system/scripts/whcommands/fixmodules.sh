@@ -37,7 +37,7 @@ FAIL=0
 if [ -z "$ONLYBROKEN" ]; then
   if [ -z "$ONLYMODULES" ] && [ "$#" == 0 ] && cd $WEBHARE_DIR 2>/dev/null ; then
     echo "Updating WebHare"
-    wh npm install --no-save
+    npm install --no-save
     NPMRETVAL=$?
     if [ "$NPMRETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $NPMRETVAL
@@ -59,7 +59,7 @@ if [ -z "$ONLYBROKEN" ]; then
         echo "Updating webdesign '$MODULENAME:`basename \"$Q\"`'"
 
         if [ -f package.json ]; then
-          wh npm install --no-save
+          npm install --no-save
           NPMRETVAL=$?
           if [ "$NPMRETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $NPMRETVAL
@@ -75,7 +75,7 @@ else
     if cd "$path" 2>/dev/null ; then
       echo "Updating $path"
       if [ -f package.json ]; then
-        wh npm install --no-save
+        npm install --no-save
         NPMRETVAL=$?
         if [ "$NPMRETVAL" != "0" ]; then
           echo NPM FAILED with errorcode $NPMRETVAL
