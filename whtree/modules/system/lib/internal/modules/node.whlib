@@ -177,7 +177,7 @@ RECORD ARRAY FUNCTION CheckRequests(RECORD ARRAY flatmodules, RECORD ARRAY flatl
     // Get all modules from the packagelock with this name
     RECORD ARRAY namematches :=
         SELECT *
-             , satisfiesrange := VersionSatisfiesRange(version, item.range, [ comparemode := "npm" ])
+             , satisfiesrange := NPMPackageVersionSatisfiesRange(version, item.range)
           FROM RecordRange(flatlockmodules, item, [ "NAME" ]);
 
     // Any matches?
@@ -270,6 +270,17 @@ RECORD ARRAY FUNCTION ListActualV2Packages(STRING packagedir, STRING path)
   RETURN packages;
 }
 
+BOOLEAN FUNCTION NPMPackageVersionSatisfiesRange(STRING version, STRING semverrange)
+{
+  IF(semverrange LIKE "*#*")
+    RETURN TRUE; //if we're matching against a hash, just accept any version
+
+  BOOLEAN satisfied := VersionSatisfiesRange(version, semverrange, [ comparemode := "npm" ]);
+  //IF(NOT satisfied)
+  //  DumpValue(CELL[version, semverrange]);
+  RETURN satisfied;
+}
+
 
 RECORD FUNCTION GetLockFileV2Versions(STRING packagedir, RECORD ARRAY actualnodemodules)
 {
@@ -297,7 +308,9 @@ RECORD FUNCTION GetLockFileV2Versions(STRING packagedir, RECORD ARRAY actualnode
       IF (rec.name NOT LIKE "node_modules/*")
         CONTINUE;
 
-      STRING version := rec.value->GetProp("version");
+      STRING version := rec.value->GetProp("version", [ fallback := "" ]);
+      IF(version = "")
+        THROW NEW Exception(`No version information in ${hidden_lockfile_path}`);
       STRING package := SubString(rec.name, 13);
 
       UPDATE actualnodemodules
@@ -347,7 +360,7 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
         IF (pos.found)
         {
           INSERT pkg.name INTO lockpackages[pos.position].usedby AT END;
-          IF (pkg.name = "" AND NOT VersionSatisfiesRange(lockpackages[pos.position].version, dep.range, [ comparemode := "npm" ]))
+          IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(lockpackages[pos.position].version, dep.range))
             RETURN [ [ error := `Installed modules are not in sync with package.json, please run 'wh fixmodules'` ] ];
         }
         INTEGER nmpos := SearchLastSubstring(basepath, "node_modules/");
@@ -394,7 +407,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       issues := issues CONCAT SELECT error := `${error} (${packagefile})` FROM actualnodemodules WHERE error != '';
 
       //Decode package-lock.json modules
-      RECORD lockdeps := packagelockjson->HasProp('dependencies') ? packagelockjson->GetProp("dependencies")->GetValue() : CELL[];
+      RECORD lockdeps := packagelockjson->HasProp('dependencies') ? packagelockjson->GetProp("dependencies", [ fallback := CELL[] ])->GetValue() : CELL[];
       RECORD ARRAY flatlockmodules := SELECT optional := FALSE, ...value, name := ToLowercase(name) FROM UnpackRecord(lockdeps);
 
       issues := issues CONCAT CheckRequests(flatmodules, flatlockmodules);
@@ -418,10 +431,15 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       RECORD ARRAY lockpackages := packagelockjson->HasProp("packages") ? SELECT * FROM packagelockjson->GetProp("packages")->Unpack() ORDER BY name : RECORD[];
 
       // Check if the deps in package "" from package-lock.json are a 1-to-1 match with the package.json
+      RECORD ARRAY lockrootdeps_deps;
       OBJECT lockrootdeps := SELECT AS OBJECT value FROM lockpackages WHERE name = "";
-      IF (NOT ObjectExists(lockrootdeps))
+      IF (ObjectExists(lockrootdeps))
+      {
+        lockrootdeps_deps := SELECT name, range := value FROM lockrootdeps->GetProp("dependencies", [ fallback := CELL[] ])->Unpack();
+      }
+      ELSE IF(Length(flatmodules) > 0)
         RETURN [ ...issues, [ error := "The package-lock.json is missing the root dependencies. Please run 'npm install'" ] ];
-      RECORD ARRAY lockrootdeps_deps := SELECT name, range := value FROM lockrootdeps->GetProp("dependencies")->Unpack();
+
       IF (EncodeHSON(lockrootdeps_deps) != EncodeHSON(SELECT name, range FROM flatmodules ORDER BY name))
         RETURN [ ...issues, [ error := "The package-lock.json is not up to date with respect to the package.json. Please run 'npm install'" ] ];
 
@@ -431,12 +449,17 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       // Read the node_modules/.package-lock.json (with the current installed version info)
       STRING hidden_lockfile_path := MergePath(nodefolder.modulespath, ".package-lock.json");
       RECORD props := GetDiskFileProperties(hidden_lockfile_path);
-      IF (NOT RecordExists(props))
-        RETURN [ ...issues, [ error := "No version info available for installed packages. Please run 'wh fixmodules'" ] ];
+      OBJECT hiddenpackagelockjson;
+      IF(RecordExists(props))
+        hiddenpackagelockjson := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path, [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
 
-      OBJECT hiddenpackagelockjson := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path, [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
-      IF (NOT hiddenpackagelockjson->HasProp("packages"))
+      IF (NOT ObjectExists(hiddenpackagelockjson) OR NOT hiddenpackagelockjson->HasProp("packages"))
+      {
+        IF(Length(flatmodules) = 0 AND Length(ondiskpackages) = 0)
+          RETURN issues; //it's okay to have no package-lock if there are no dependencies anyway
+
         RETURN [ ...issues, [ error := "No version info available for installed packages. Please run 'wh fixmodules'" ] ];
+      }
 
       // modification date must be after the moddate of all ondisk package folders
       IF (props.modified < SELECT AS DATETIME MAX(modified) FROM ondiskpackages)
@@ -459,7 +482,9 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
           RETURN [ ...issues, [ error := "The installed packages are out of date with respect to the package-lock.json. Please run 'wh fixmodules'" ] ];
 
         // the version must match
-        IF (package.value->GetProp("version") != lockpackages[pos.position].value->GetProp("version"))
+        STRING seenpackageversion := package.value->GetProp("version", [ fallback := "" ]);
+        STRING expectpackageversion := lockpackages[pos.position].value->GetProp("version", [ fallback := "" ]);
+        IF (seenpackageversion != expectpackageversion)
           RETURN [ ...issues, [ error := "The installed packages are out of date with respect to the package-lock.json. Please run 'wh fixmodules'" ] ];
       }
 
