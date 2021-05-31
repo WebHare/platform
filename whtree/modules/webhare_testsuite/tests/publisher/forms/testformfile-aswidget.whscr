@@ -56,7 +56,7 @@ PUBLIC MACRO BuildForm()
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
   TestEq([[ field := "thankyou"
-          , value := '<h1 class="heading1">Thank you!<\/h1><p class="normal">We humbly thank you for completing our form, Widgettester.<\/p><div class="embedblock1result">Block1 Widget Rendered: <i>abcdefgh<\/i><\/div>'
+          , value := '<h1 class="heading1"><a class="wh-anchor" id="thank-you"></a>Thank you!</h1><p class="normal">We humbly thank you for completing our form, Widgettester.<\/p><div class="embedblock1result">Block1 Widget Rendered: <i>abcdefgh<\/i><\/div>'
          ]], res.result.richvalues);
 
   RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := emailfieldname, fn := "firstname", "upload", "address" ] ]);

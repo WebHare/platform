@@ -26,8 +26,4 @@ PUBLIC OBJECTTYPE RenderRTD EXTEND StaticPageBase
   {
     this->doc->RenderAllObjects();
   }
-  UPDATE PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
-  {
-    RETURN this->doc->GatherSuggestedAnchors(webdesign);
-  }
 >;

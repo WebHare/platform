@@ -34,12 +34,6 @@ PUBLIC OBJECTTYPE WebPageBase
     this->__pageinfo := __pageinfo ?? [ absolutebaseurl := "", subpath := "", append := "" ];
   }
 
-  ///@private GatherSuggestedAnchorsForFile is deprecated - we want to stop doing this preparation phase
-  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors()
-  {
-    RETURN DEFAULT OBJECT ARRAY;
-  }
-
   /** Update this function to return the macro ptr that renders the page body
       @return Page body rendering function
   */

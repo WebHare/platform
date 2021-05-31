@@ -564,11 +564,11 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
 
         STRING containertag := RecordExists(blockstyle) ? blockstyle.containertag : "h2";
         Print(`<${containertag} class="wh-form__grouptitle ${RecordExists(blockstyle) ? ToLowercase(blockstyle.tag) : ""}">`);
-        IF(this->webdesign->__anchor_experiment AND containertag IN this->webdesign->contentnavstops)
+        IF(containertag IN this->webdesign->contentnavstops)
         {
           STRING content := TrimWhitespace(DecodeHTML(fielddescription.htmltitle));
           IF(content != "")
-            Print('<a class="wh-anchor" id="' || EncodeAttributeValue(this->webdesign->__Experimental_GenerateAnAnchor(content)) || '"></a>');
+            Print('<a class="wh-anchor" id="' || EncodeAttributeValue(this->webdesign->GenerateAnchor(content)) || '"></a>');
         }
         Print(fielddescription.htmltitle);
         Print(`</${containertag}>`);

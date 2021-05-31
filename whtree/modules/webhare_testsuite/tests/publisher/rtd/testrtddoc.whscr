@@ -54,48 +54,6 @@ MACRO VerifyIt()
   TestEq("other", settings_override.htmlclass);
 }
 
-MACRO GatherAnchors()
-{
-  //Test manual anchor gathering
-  RECORD ARRAY anchors := GetWebDesign(overridefileid)->GetSuggestedAnchorsForFile(testrtdfileid);
-  STRING baseurl := OpenWHFSObject(testrtdfileid)->indexurl;
-  TestEq([[ title := "Eerste kop", anchor := "#eerste-kop"   , tagname := "h1", link := baseurl || "#eerste-kop"   ]
-        , [ title := "Tweedekop",  anchor := "#tweedekop"    , tagname := "h1", link := baseurl || "#tweedekop"    ]
-        , [ title := "Eerste kop", anchor := "#eerste-kop-2" , tagname := "h1", link := baseurl || "#eerste-kop-2" ]
-        , [ title := "Eerste kop", anchor := "#eerste-kop-3" , tagname := "h1", link := baseurl || "#eerste-kop-3" ]
-        , [ title := "Eerste kop", anchor := "#eerste-kop-4" , tagname := "h1", link := baseurl || "#eerste-kop-4" ]
-        , [ title := "Tweedekop",  anchor := "#tweedekop-2"  , tagname := "h1", link := baseurl || "#tweedekop-2"  ]
-        ], anchors);
-}
-
-MACRO GenerateAnchors()
-{
-  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-
-  RECORD publishres := RunFilePublish(testrtdfileid, FALSE);
-  TestEq(TRUE, publishres.success);
-
-  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
-  OBJECT ARRAY h1s := doc->GetElements("h1");
-  TestEq(8, Length(h1s));
-  TestEq("eerste-kop",h1s[0]->QuerySelector("a")->GetAttribute("id"));
-  TestEq('wh-anchor', h1s[0]->QuerySelector("a")->GetAttribute("class"));
-  TestEq("tweedekop",h1s[1]->QuerySelector("a")->GetAttribute("id"));
-  TestEq("eerste-kop-2",h1s[2]->QuerySelector("a")->GetAttribute("id"), "If eerste-kop-2, the embedded richdoc was ignored");
-  TestEq(FALSE,Objectexists(h1s[3]->QuerySelector("a")));
-  TestEq("eerste-kop-3",h1s[4]->QuerySelector("a")->GetAttribute("id"));
-  TestEq("eerste-kop-4",h1s[5]->QuerySelector("a")->GetAttribute("id"));
-  TestEq("tweedekop-2",h1s[6]->QuerySelector("a")->GetAttribute("id"));
-
-  RECORD ARRAY anchors := RECORD ARRAY(DecodeJSON(doc->GetElement("#content")->GetAttribute("data-anchors")));
-  IF(testfw->debug)
-    dumpvalue(anchors,'boxed');
-  TestEq(6, Length(anchors));
-  TestEq("#eerste-kop", anchors[0].link);
-  TestEq("Eerste kop", anchors[0].title);
-  TestEq("h1", anchors[0].tagname);
-}
-
 MACRO GenerateAnchorsExperimental()
 {
   testfw->BeginWork();
@@ -161,8 +119,6 @@ MACRO RewriteLinks()
 
 RunTestframework([ PTR PrepIt
                  , PTR VerifyIt
-                 , PTR GatherAnchors
-                 , PTR GenerateAnchors
                  , PTR GenerateAnchorsExperimental
                  , PTR RewriteLinks
                  ]);

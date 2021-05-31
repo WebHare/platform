@@ -192,21 +192,14 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         this->Print("<" || blocktag);
         this->print(" class=\"" || EncodeAttributeValue(this->GetClassName(blocknode)) || "\">");
 
-        IF(ObjectExists(outputobject->document->webdesign)
-           AND outputobject->document->webdesign->__anchor_experiment)
+        IF(ObjectExists(outputobject->document->webdesign))
         {
           IF(RecordExists(outputobject->blockstyle) AND outputobject->blockstyle.containertag IN outputobject->document->webdesign->contentnavstops)
           {
             STRING content := TrimWhitespace(blocknode->textcontent);
             IF(content != "")
-              this->Print('<a class="wh-anchor" id="' || EncodeAttributeValue(outputobject->document->webdesign->__Experimental_GenerateAnAnchor(content)) || '"></a>');
+              this->Print('<a class="wh-anchor" id="' || EncodeAttributeValue(outputobject->document->webdesign->GenerateAnchor(content)) || '"></a>');
           }
-        }
-        ELSE IF(outputobject->document->generateanchors)
-        {
-          STRING blockanchor := outputobject->generatedanchor;
-          IF(blockanchor != "")
-            this->Print('<a class="wh-anchor" id="' || EncodeAttributeValue(outputobject->document->anchorprefix || blockanchor) || '"></a>');
         }
       }
       this->FormatNodes(outputobject, blocknode, keepwhitespace);
@@ -609,7 +602,6 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
   PUBLIC PROPERTY blockstyle(pvt_blockstyle, -);
   PUBLIC PROPERTY blocknode(pvt_blocknode,-);
   PUBLIC PROPERTY document(richdoc,-);
-  PUBLIC STRING generatedanchor;
   PUBLIC RECORD __table;
 
   MACRO NEW(OBJECT richdoc, OBJECT blocknode)
@@ -673,15 +665,6 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
       }
       INSERT row INTO this->__table.rows AT END;
     }
-  }
-
-  PUBLIC STRING FUNCTION GetAnchor()
-  {
-    RETURN this->generatedanchor;
-  }
-  PUBLIC STRING FUNCTION GetAnchorLink()
-  {
-    RETURN this->document->__GetAnchorLink(this->GetAnchor());
   }
 
   PUBLIC BOOLEAN FUNCTION HasContent()
@@ -800,8 +783,6 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
   PUBLIC OBJECT webdesign;
   PUBLIC OBJECT previewcontext; //if set, create previews for embedded objects
 
-  ///Generate anchors
-  PUBLIC BOOLEAN generateanchors;
   ///Prefix for anchor (FIXME should be set through webdesign and inherit to sub-rtds)
   PUBLIC STRING anchorprefix;
 
@@ -887,36 +868,6 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
     RETURN excerpt;
   }
 
-  PUBLIC OBJECT ARRAY FUNCTION GatherSuggestedAnchors(OBJECT webdesign)
-  {
-    IF(NOT this->didscan)
-      THROW NEW Exception("Unexpected GetSuggestedAnchors call - didn't get to ScanDocument");
-
-    OBJECT ARRAY anchors;
-    this->generateanchors := TRUE; //requesting anchors allows us to generate them
-
-    STRING ARRAY contentnavstops;
-    IF(ObjectExists(webdesign))
-      contentnavstops := webdesign->contentnavstops;
-
-    //Gather all current anchors first
-    FOREVERY(OBJECT obj FROM this->flatobjects)
-    {
-      IF(obj->isembeddedobject)
-      {
-        IF(ObjectExists(obj->__GetEmbeddedObject()))
-          anchors := anchors CONCAT obj->__embeddedobject->GatherSuggestedAnchors(webdesign);
-        CONTINUE; //we're not supporting anchors on embedded objects yet
-      }
-
-      IF(obj->blockstyle.containertag IN contentnavstops)
-      {
-        INSERT NEW AnchorableRichObject(obj) INTO anchors AT END;
-      }
-    }
-    RETURN anchors;
-  }
-
   MACRO GenerateRichObjects(OBJECT topnode)
   {
     FOREVERY(OBJECT node FROM topnode->childnodes->GetCurrentElements())
@@ -931,7 +882,7 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
       @cell return.tagname The original HTML tagname
       @cell return.classname The classname of the object
       @cell return.type Object type: 'block' (h1,h2,p...), 'list'.
-      @cell return.richobject The rich object wrapping the node
+      @cell return.node The DOM node for this block
   */
   PUBLIC RECORD ARRAY FUNCTION GetOutline()
   {
@@ -942,25 +893,16 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
   RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
   {
     STRING tagname := ToLowercase(richobj->blocknode->tagname);
-    RECORD outlinerecord := [ tagname :=   tagname
-                            , classname := richobj->blocknode->GetAttribute("class")
-                            , type :=      tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
-                            , rows :=      RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
+    RECORD outlinerecord := [ tagname :=    tagname
+                            , classname :=  richobj->blocknode->GetAttribute("class")
+                            , type :=       tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
+                            , rows :=       RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
                             , richobject := richobj
+                            , node :=       richobj->blocknode
                             ];
-    IF(NOT (ObjectExists(this->webdesign) AND this->webdesign->__anchor_experiment))
-    {
-      INSERT CELL anchor :=    richobj->GetAnchor()
-                , link :=      richobj->GetAnchorLink()
-             INTO outlinerecord;
-    }
     RETURN outlinerecord;
   }
 
-  PUBLIC STRING FUNCTION __GetAnchorLink(STRING anchor)
-  {
-    RETURN anchor != "" AND this->generateanchors ? "#" || this->anchorprefix || anchor : "";
-  }
   RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
   {
     RECORD ARRAY nodes;
