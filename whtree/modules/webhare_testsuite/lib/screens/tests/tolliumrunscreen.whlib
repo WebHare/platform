@@ -1,9 +1,22 @@
 <?wh
 
+LOADLIB "wh::promise.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE ModalResult EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ModalResult EXTEND TolliumScreenBase
 <
+  /// Set to TRUE when Init finishes
+  PUBLIC BOOLEAN finishedinit;
+
+  MACRO Init(RECORD data)
+  {
+    IF(CellExists(data,'subscreen') AND data.subscreen)
+      this->RunScreen("#waiting", data);
+
+    WaitForPromise(CreateSleepPromise(200));
+    this->finishedinit := TRUE;
+  }
   BOOLEAN FUNCTION Submit()
   {
     RETURN TRUE;
@@ -30,5 +43,20 @@ PUBLIC OBJECTTYPE BooleanResult EXTEND TolliumScreenBase
   {
     this->__SetScreenResult(FALSE);
     RETURN FALSE; // Ignored after setting screen result
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Waiting EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (data.subscreenimmediate)
+      this->Close();
+    ELSE
+      CreateSleepPromise(100)->Then(PTR this->Close);
+  }
+  MACRO Close()
+  {
+    this->tolliumresult := "close";
   }
 >;
