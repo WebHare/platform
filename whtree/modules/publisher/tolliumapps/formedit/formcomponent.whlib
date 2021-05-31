@@ -203,7 +203,7 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
       IF(integrationsettings.infotextrtdtype != "")
         ^infotext->SetupForRTDType(integrationsettings.infotextrtdtype);
 
-      ^infotext->value := GetRichTextAttribute(this, this->node, "infotext");
+      ^infotext->value := this->contexts->formcomponentapi->GetRichTextAttribute(this->node, "infotext");
       suggestresize := TRUE;
     }
     ELSE
@@ -394,7 +394,7 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
       this->contexts->formcomponentapi->SetConditionAttribute(this->node, "visibleconditionid", ^visiblecondition->value);
 
       IF(^infotext->visible)
-        SetRichTextAttribute(this, this->node, "infotext", ^infotext->value);
+        this->contexts->formcomponentapi->SetRichTextAttribute(this->node, "infotext", ^infotext->value);
 
       IF (ObjectExists(this->compfragment))
         this->compfragment->StoreData();

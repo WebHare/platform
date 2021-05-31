@@ -13,29 +13,9 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 
 
-PUBLIC RECORD FUNCTION GetRichTextAttributeById(OBJECT screen, STRING instanceid)
+PUBLIC MACRO __SetRichTextInstance(OBJECT screen, OBJECT comp, RECORD value)
 {
-  RETURN screen->contexts->formcomponentapi->__GetRichTextAttributeById(instanceid);
-}
-
-PUBLIC RECORD FUNCTION GetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename)
-{
-  RETURN screen->contexts->formcomponentapi->GetRichTextAttribute(comp, attributename);
-}
-
-PUBLIC STRING FUNCTION SetRichTextAttributeId(OBJECT screen, STRING instanceid, RECORD value)
-{
-  RETURN screen->contexts->formcomponentapi->__SetRichTextAttributeId(instanceid, value);
-}
-
-PUBLIC MACRO SetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename, RECORD value)
-{
-  screen->contexts->formcomponentapi->SetRichTextAttribute(comp, attributename, value);
-}
-
-PUBLIC MACRO SetRichTextInstance(OBJECT screen, OBJECT comp, RECORD value)
-{
-  SetRichTextAttribute(screen, comp, "text", value);
+  screen->contexts->formcomponentapi->SetRichTextAttribute(comp, "text", value);
 
   RECORD options := [ encoding := "utf-8", suppress_urls := TRUE ];
   STRING plaintext := RecordExists(value) ? BlobToString(ConvertHtmlToPlainText(value.htmltext, options)) : "";
@@ -72,7 +52,7 @@ PUBLIC STATIC OBJECTTYPE RichText EXTEND FormComponentExtensionBase
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
   {
     IF (NOT work->HasFailed())
-      SetRichTextInstance(this, this->node, ^text->value);
+      __SetRichTextInstance(this, this->node, ^text->value);
   }
 >;
 

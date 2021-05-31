@@ -1075,7 +1075,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
       STRING thankyoutext := GetTidForLanguage(this->uselanguage, "publisher:tolliumapps.formedit.initialthankyou");
       RECORD text := [ htmltext := StringToBlob(`<html><body><p class="normal">${thankyoutext}</p></body></html>`) ];
-      SetRichTextInstance(this, thankyouquestion, text);
+      __SetRichTextInstance(this, thankyouquestion, text);
     }
     ELSE
     {
