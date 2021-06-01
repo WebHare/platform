@@ -4,7 +4,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
 
-PUBLIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
@@ -22,24 +22,24 @@ PUBLIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     IF(this->tolliumuser->GetRegistryKey("publisher.prefs.showmenubar", FALSE))
       INSERT "showmenubar" INTO opts AT END;
 
-    this->opts->value := opts;
+    ^opts->value := opts;
 
-    this->autotitles->value := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
+    ^autotitles->value := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
 
-    this->tweaks->visible := this->tolliumuser->HasRight("system:sysop");
-    this->showwhfsprivate->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE);
-    this->showwebharebackend->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend", FALSE);
+    ^tweaks->visible := this->tolliumuser->HasRight("system:sysop");
+    ^showwhfsprivate->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE);
+    ^showwebharebackend->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend", FALSE);
   }
 
   BOOLEAN FUNCTION Submit()
   {
-    STRING ARRAY opts := this->opts->value;
+    STRING ARRAY opts := ^opts->value;
 
-    IF( (this->showwhfsprivate->value AND NOT this->tolliumuser->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE))
-        OR (this->showwebharebackend->value AND NOT this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend",FALSE))
+    IF( (^showwhfsprivate->value AND NOT this->tolliumuser->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE))
+        OR (^showwebharebackend->value AND NOT this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend",FALSE))
       )
     {
-      IF(this->RunMessageBox(".confirmenabletweak")!="yes")
+      IF(this->RunSimpleScreen("warning", this->GetTid(".confirmenabletweak")) != "yes")
         RETURN FALSE;
     }
 
@@ -49,12 +49,12 @@ PUBLIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.groupfolders", "groupfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showforeignfolders", "showforeignfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showmenubar", "showmenubar" IN opts);
-    this->tolliumuser->SetRegistryKey("publisher.prefs.autotitles", this->autotitles->value);
+    this->tolliumuser->SetRegistryKey("publisher.prefs.autotitles", ^autotitles->value);
 
-    IF(this->tweaks->visible)
+    IF(^tweaks->visible)
     {
-      this->tolliumuser->SetRegistryKey("publisher.filemgr.showwhfsprivate",   this->showwhfsprivate->value);
-      this->tolliumuser->SetRegistryKey("publisher.filemgr.showwebharebackend", this->showwebharebackend->value);
+      this->tolliumuser->SetRegistryKey("publisher.filemgr.showwhfsprivate", ^showwhfsprivate->value);
+      this->tolliumuser->SetRegistryKey("publisher.filemgr.showwebharebackend", ^showwebharebackend->value);
     }
     RETURN work->Finish();
   }

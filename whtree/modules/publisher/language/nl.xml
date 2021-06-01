@@ -429,26 +429,6 @@
       <text tid="deleted">verwijderd</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="config">   <!-- config -->
-    <textgroup gid="messageboxes">   <!-- config.messageboxes -->
-      <text tid="confirmenabletweak">Het maken van verkeerde wijzigingen aan verborgen mappen kan deze WebHare installatie onbruikbaar maken.<br/><br/>Weet u zeker dat u deze tweaks wil inschakelen?</text>
-    </textgroup>
-    <textgroup gid="prefs">   <!-- config.prefs -->
-      <text tid="autotitles">Bestandsnamen</text>
-      <text tid="autotitles-false">Kies zelf namen voor mappen en bestanden</text>
-      <text tid="autotitles-true">Laat WebHare namen genereren voor nieuwe bestanden en mappen</text>
-      <text tid="opts">Algemene instellingen</text>
-      <text tid="opts-groupfolders">Groepeer mappen in bestandslijst</text>
-      <text tid="opts-nouploadrename">Behoud originele bestandsnaam na uploaden</text>
-      <text tid="opts-propsafterupload">Open het eigenschappenscherm na uploaden van één bestand</text>
-      <text tid="opts-showforeignfolders">Toon externe mappen</text>
-      <text tid="opts-showmenubar">Toon menubalk</text>
-      <text tid="prefs">Voorkeuren</text>
-      <text tid="showwebharebackend">Toon de 'WebHare backend' site</text>
-      <text tid="showwhfsprivate">Toon de interne WebHare folders</text>
-      <text tid="tweaks">Tweaks</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="contentproviders">   <!-- contentproviders -->
     <textgroup gid="webhare">   <!-- contentproviders.webhare -->
       <text tid="folder">Te indexeren map</text>
@@ -2016,6 +1996,24 @@
           <text tid="notypesavailable">Er zijn geen content-slot-types beschikbaar</text>
           <text tid="slotprops"><ifparam p="1" value="">Nieuw content slot<else/>Eigenschappen van content slot '<param p="1"/>'</ifparam></text>
           <text tid="type">Type content slot</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="config">   <!-- tolliumapps.filemanager.config -->
+        <textgroup gid="prefs">   <!-- tolliumapps.filemanager.config.prefs -->
+          <text tid="autotitles">Bestandsnamen</text>
+          <text tid="autotitles-false">Kies zelf namen voor mappen en bestanden</text>
+          <text tid="autotitles-true">Laat WebHare namen genereren voor nieuwe bestanden en mappen</text>
+          <text tid="confirmenabletweak">Het maken van verkeerde wijzigingen aan verborgen mappen kan deze WebHare installatie onbruikbaar maken.<br/><br/>Weet u zeker dat u deze tweaks wil inschakelen?</text>
+          <text tid="opts">Algemene instellingen</text>
+          <text tid="opts-groupfolders">Groepeer mappen in bestandslijst</text>
+          <text tid="opts-nouploadrename">Behoud originele bestandsnaam na uploaden</text>
+          <text tid="opts-propsafterupload">Open het eigenschappenscherm na uploaden van één bestand</text>
+          <text tid="opts-showforeignfolders">Toon externe mappen</text>
+          <text tid="opts-showmenubar">Toon menubalk</text>
+          <text tid="prefs">Voorkeuren</text>
+          <text tid="showwebharebackend">Toon de 'WebHare backend' site</text>
+          <text tid="showwhfsprivate">Toon de interne WebHare folders</text>
+          <text tid="tweaks">Tweaks</text>
         </textgroup>
       </textgroup>
       <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->

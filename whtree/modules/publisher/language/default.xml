@@ -429,26 +429,6 @@
       <text tid="deleted">deleted</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="config" limitlanguages="en nl">   <!-- config -->
-    <textgroup gid="messageboxes">   <!-- config.messageboxes -->
-      <text tid="confirmenabletweak">Making incorrect modifications to hidden folders may break this WebHare installation.<br/><br/>Are you sure you want to enable these tweaks?</text>
-    </textgroup>
-    <textgroup gid="prefs">   <!-- config.prefs -->
-      <text tid="autotitles">File names</text>
-      <text tid="autotitles-false">Choose file and folder names yourself</text>
-      <text tid="autotitles-true">Let WebHare create names for new files and folders</text>
-      <text tid="opts">General settings</text>
-      <text tid="opts-groupfolders">Group folders in file list</text>
-      <text tid="opts-nouploadrename">Keep original filename after uploading</text>
-      <text tid="opts-propsafterupload">Open the properties screen after uploading one file</text>
-      <text tid="opts-showforeignfolders">Show foreign folders</text>
-      <text tid="opts-showmenubar">Show menu bar</text>
-      <text tid="prefs">Preferences</text>
-      <text tid="showwebharebackend">Show the 'WebHare backend' site</text>
-      <text tid="showwhfsprivate">Show the internal WebHare folders</text>
-      <text tid="tweaks">Tweaks</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="contentproviders" limitlanguages="en nl">   <!-- contentproviders -->
     <textgroup gid="webhare">   <!-- contentproviders.webhare -->
       <text tid="folder">Folder to index</text>
@@ -2016,6 +1996,24 @@
           <text tid="notypesavailable">There are no content slot types available</text>
           <text tid="slotprops"><ifparam p="1" value="">New content slot<else/>Properties of content slot '<param p="1"/>'</ifparam></text>
           <text tid="type">Content slot type</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="config">   <!-- tolliumapps.filemanager.config -->
+        <textgroup gid="prefs">   <!-- tolliumapps.filemanager.config.prefs -->
+          <text tid="autotitles">File names</text>
+          <text tid="autotitles-false">Choose file and folder names yourself</text>
+          <text tid="autotitles-true">Let WebHare create names for new files and folders</text>
+          <text tid="confirmenabletweak">Making incorrect modifications to hidden folders may break this WebHare installation.<br/><br/>Are you sure you want to enable these tweaks?</text>
+          <text tid="opts">General settings</text>
+          <text tid="opts-groupfolders">Group folders in file list</text>
+          <text tid="opts-nouploadrename">Keep original filename after uploading</text>
+          <text tid="opts-propsafterupload">Open the properties screen after uploading one file</text>
+          <text tid="opts-showforeignfolders">Show foreign folders</text>
+          <text tid="opts-showmenubar">Show menu bar</text>
+          <text tid="prefs">Preferences</text>
+          <text tid="showwebharebackend">Show the 'WebHare backend' site</text>
+          <text tid="showwhfsprivate">Show the internal WebHare folders</text>
+          <text tid="tweaks">Tweaks</text>
         </textgroup>
       </textgroup>
       <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->

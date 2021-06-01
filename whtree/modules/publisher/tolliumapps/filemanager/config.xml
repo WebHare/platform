@@ -1,13 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/config.whlib"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
-         gid="config"
-         >
-
-  <messageboxes gid=".messageboxes">
-    <messagebox name="confirmenabletweak" buttons="yes no" icon="warning" />
-  </messageboxes>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.filemanager.config" library="config.whlib">
 
   <screen name="prefs" gid=".prefs">
     <body layout="form">
@@ -27,6 +18,7 @@
         <checkbox name="showwhfsprivate" labeltid=".showwhfsprivate" title="" />
       </box>
     </body>
+
     <footer>
       <defaultformbuttons buttons="ok cancel" />
     </footer>
