@@ -29,11 +29,9 @@ endif
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
-	BREWPREFIX := $(BREWPREFIX)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
-
 
 	ifneq (,$(wildcard $(BREWPREFIX)/lib/libocci.dylib))
 		#OCI detected, enable it if WHBUILD_OCI is not yet set
@@ -45,7 +43,6 @@ else
 	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/
 	# Set LD_LIBRARY_PATH for tests
 	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/lib64:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
-	SYSLIBDIRSUFFIX=64
 	GLOBALLDFLAGS += -L/usr/local/lib64
 
 	CPPFLAGS += -I/usr/include/postgresql/
@@ -106,7 +103,7 @@ ifeq ($(WHBUILD_PLATFORM),linux)
    endif
 endif
 
-GLOBALLDFLAGS += -Llib -L/usr/local/lib$(SYSLIBDIRSUFFIX) $(CROSSLIBDIR)
+GLOBALLDFLAGS += -Llib $(CROSSLIBDIR)
 
 ifeq ($(BUILDSYSTEM),gcc)
     CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
@@ -164,10 +161,6 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	MACOSVERSION := $(shell sw_vers | grep ProductVersion | cut -f 2 | cut -d "." -f 1-2)
 	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 	GLOBALLDFLAGS += -mmacosx-version-min=$(MACOSVERSION)
-
-	ifneq ($(BUILDSYSTEM),llvm)
-		GLOBALLDFLAGS += -pthread
-	endif
 else
 	GLOBALLDFLAGS += -pthread
 endif
@@ -493,7 +486,7 @@ endif
 
 # Link a shared library
 
-lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_OBJS) | $(LINKCONFIG)
+lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_OBJS)
 	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS) $(BLEX_STATIC_LIBS))
 
 blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.o
@@ -828,6 +821,7 @@ clean-deps:
 ifeq ($(WHBUILD_PLATFORM),darwin)
 
 # Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebuilds
+# Unfortunately this does generate some harmless linker warnings 'ld: warning: ignoring file .../INSTALL_RECEIPT.json, ... unknown-unsupported file format'
 
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
