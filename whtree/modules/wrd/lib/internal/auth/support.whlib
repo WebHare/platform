@@ -66,7 +66,8 @@ PUBLIC RECORD FUNCTION LookupAuthobjectByEntityid(INTEGER entityid)
   RETURN LookupAuthobjectByGuid(EncodeWRDGUID(rawguid));
 }
 
-/** Returns authentication settings with the specified password hash as current password
+/** Returns authentication settings with the specified password hash as current password.
+    @long This should be used when creating new entities, but not to update password as using the returned value won't retain any password history and will reset 2FA settings
     @param passwordhash Current password hash
     @cell options.validfrom Date when the password was set, defaults to current time
     @return Authentication settings @includecelldef #ValidateAuthenticationSettingValue.return

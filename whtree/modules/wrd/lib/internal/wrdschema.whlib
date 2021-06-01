@@ -382,7 +382,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   PUBLIC PROPERTY accountemailtag(GetAccountemailTag, -);
   /// @type(string) Get the tag of the password attribute
   PUBLIC PROPERTY accountpasswordtag(GetAccountpasswordTag, -);
-  /// @type(string) Get the tag of the password attribute
+  /// @type(boolean) Whether the password field is of authenticationsettings type
   PUBLIC PROPERTY accountpasswordisauthsettings(GetAccountPasswordIsAuthSettings, -);
 
   /** @private Should not be constructed directly
