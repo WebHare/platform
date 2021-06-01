@@ -1194,7 +1194,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoPrefs()
   {
-    IF(this->LoadScreen("config.prefs")->RunModal() = "ok")
+    IF(this->RunScreen("config.xml#prefs") = "ok")
       this->ApplyUserPrefs(TRUE);
   }
 

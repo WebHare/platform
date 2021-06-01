@@ -26,16 +26,24 @@ BOOLEAN dryrun := info.dryrun;
 BOOLEAN perfile := info.perfile;
 OBJECT trans := OpenPrimary();
 
+trans->BeginWork();
+
 // Version folders might race or more likely, have their matching site deleted. Merge these duplicates
-RECORD ARRAY dupeversionfolders := SELECT filelink, dupes := GroupedValues(CELL[id, creationdate])
-                                     FROM system.fs_objects
-                                    WHERE parent = whconstant_whfsid_versions
-                                 GROUP BY filelink
+RECORD ARRAY versionfolders := SELECT id, creationdate, site := filelink
+                                 FROM system.fs_objects
+                                WHERE parent = whconstant_whfsid_versions;
+
+// Zero out nonexisting sites. This will merge recyclebins for folders that are no longer sites with the main outside-site recyclebin
+INTEGER ARRAY validsites := SELECT AS INTEGER ARRAY id FROM system.sites;
+UPDATE versionfolders SET site := 0 WHERE site NOT IN validsites;
+
+RECORD ARRAY dupeversionfolders := SELECT site, dupes := GroupedValues(CELL[id, creationdate])
+                                     FROM versionfolders
+                                 GROUP BY site
                                    HAVING COUNT(*)>1;
 
 IF(Length(dupeversionfolders) > 0 AND NOT dryrun)
 {
-  trans->BeginWork();
   FOREVERY(RECORD dupe FROM dupeversionfolders)
   {
     RECORD ARRAY movelist := SELECT * FROM dupe.dupes ORDER BY creationdate;
@@ -45,8 +53,10 @@ IF(Length(dupeversionfolders) > 0 AND NOT dryrun)
     UPDATE system.fs_objects SET parent := destid WHERE parent IN tomove;
     DELETE FROM system.fs_objects WHERE id IN tomove;
   }
-  trans->CommitWork();
 }
+
+trans->CommitWork();
+
 
 IF(NOT perfile)
   trans->BeginWork();
