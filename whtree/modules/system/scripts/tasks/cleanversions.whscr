@@ -50,9 +50,10 @@ IF(Length(dupeversionfolders) > 0 AND NOT dryrun)
     INTEGER destid := movelist[0].id;
     INTEGER ARRAY tomove := SELECT AS INTEGER ARRAY id FROM ArraySlice(movelist,1);
 
-    UPDATE system.fs_objects SET parent := destid WHERE parent IN tomove;
+    UPDATE system.fs_objects SET name := ToString(id), parent := destid WHERE parent IN tomove;
     DELETE FROM system.fs_objects WHERE id IN tomove;
   }
+  UPDATE system.fs_objects SET name := ToString(id) WHERE parent = whconstant_whfsid_versions;
 }
 
 trans->CommitWork();
