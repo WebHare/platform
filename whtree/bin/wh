@@ -301,6 +301,7 @@ setup_buildsystem()
   if [ "$?" == "2" ]; then
     echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
     echo "You may need to update nodejs or manually install npm (eg npm install -g npm)"
+    exit 1
   fi
 
   export SRCDIR=$WEBHARE_CHECKEDOUT_TO
