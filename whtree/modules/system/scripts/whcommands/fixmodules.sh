@@ -52,14 +52,24 @@ if [ -z "$ONLYBROKEN" ]; then
     MODULENAME=$P
     getmoduledir MODULEDIR $P
     cd $MODULEDIR
-    [ -f package.json ] && npm install --no-save
+    if [ -f package.json ]; then
+      if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
+        npm install # upgrade lockfile
+      else
+        npm install --no-save
+      fi
+    fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
       if cd $Q 2>/dev/null ; then
         echo "Updating webdesign '$MODULENAME:`basename \"$Q\"`'"
 
         if [ -f package.json ]; then
-          npm install --no-save
+          if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
+            npm install # upgrade lockfile
+          else
+            npm install --no-save
+          fi
           NPMRETVAL=$?
           if [ "$NPMRETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $NPMRETVAL

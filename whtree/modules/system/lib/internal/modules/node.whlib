@@ -360,8 +360,13 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
         IF (pos.found)
         {
           INSERT pkg.name INTO lockpackages[pos.position].usedby AT END;
+          IF(lockpackages[pos.position].version = "")
+            BREAK; //if npm didn't lock the version, not our problem..
+
           IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(lockpackages[pos.position].version, dep.range))
-            RETURN [ [ error := `Installed modules are not in sync with package.json, please run 'wh fixmodules'` ] ];
+          {
+            RETURN [ [ error := `Installed module '${lockpackages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${lockpackages[pos.position].version}', wanted range '${dep.range})` ] ];
+          }
         }
         INTEGER nmpos := SearchLastSubstring(basepath, "node_modules/");
         IF (nmpos = -1)
