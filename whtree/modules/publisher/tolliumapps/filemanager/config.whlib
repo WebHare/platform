@@ -16,8 +16,15 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     IF(this->tolliumuser->GetRegistryKey("publisher.prefs.groupfolders", TRUE))
       INSERT "groupfolders" INTO opts AT END;
 
-    IF(this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE))
-      INSERT "showforeignfolders" INTO opts AT END;
+    IF(this->contexts->user->HasRight("system:supervisor"))
+    {
+      IF(this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE))
+        INSERT "showforeignfolders" INTO opts AT END;
+    }
+    ELSE
+    {
+      DELETE FROM ^opts->options WHERE rowkey = "showforeignfolders";
+    }
 
     IF(this->tolliumuser->GetRegistryKey("publisher.prefs.showmenubar", FALSE))
       INSERT "showmenubar" INTO opts AT END;
