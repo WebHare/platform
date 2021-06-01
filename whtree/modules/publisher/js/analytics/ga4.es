@@ -2,6 +2,7 @@
 */
 
 import * as whintegration from '@mod-system/js/wh/integration';
+import { debugflags } from 'dompack';
 import { promiseScript } from 'dompack/extra/preload';
 import { onConsentChange } from "./consenthandler.es";
 
@@ -33,15 +34,37 @@ if(!window.gtag)
     load();
 }
 
-export function initOnConsent()
+export function initOnConsent(options)
 {
+  options = { requiredconsent: "*"
+            , ...options
+            };
+
   if(!(ga4settings && ga4settings.a && ga4settings.m))
     console.error("<googleanalytics4/> tag must be configured with launch=manual to support initOnConsent");
 
   onConsentChange(consentsettings =>
   {
-    if(consentsettings.consent.length)
-     load();
+    if (options.requiredconsent == "*")
+    {
+      if(consentsettings.consent.length)
+      {
+        if(debugflags.anl)
+          console.log(`[anl] Got any consent, starting GA4`);
+        load();
+      }
+    }
+    else if (consentsettings.consent.includes(options.requiredconsent))
+    {
+      if(debugflags.anl)
+        console.log(`[anl] Got consent '${options.requiredconsent}', starting GA4`);
+      load();
+    }
+    else
+    {
+      if(debugflags.anl)
+        console.log("[anl] No consent yet to start GA4");
+    }
   });
 }
 

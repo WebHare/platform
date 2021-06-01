@@ -80,12 +80,31 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
   window.got_consent_analytics=false;
   window.got_consent_remarketing = false;
 
-  if(urlparams.get("gtmplugin_integration") != "none")
-    gtm.initOnConsent();
-  if(urlparams.get("ga4_integration") != "none")
-    ga4.initOnConsent();
+  let requiredconsent = urlparams.get("analyticsrequiredconsent");
 
-  consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
+
+  if(urlparams.get("gtmplugin_integration") != "none")
+  {
+    if (requiredconsent)
+      console.error("requireconsent option not supported for GTM");
+
+    gtm.initOnConsent();
+  }
+  if(urlparams.get("ga4_integration") != "none")
+  {
+    if (requiredconsent)
+      ga4.initOnConsent({ requiredconsent: requiredconsent });
+    else
+      ga4.initOnConsent();
+  }
+
+  if(urlparams.has("defaultconsent"))
+  {
+    consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent").split(",") });
+  }
+  else
+    consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
+
   consenthandler.onConsent('analytics', () => window.got_consent_analytics=true);
   consenthandler.onConsent('remarketing', () => window.got_consent_remarketing=true);
   dompack.register(".wh-requireconsent__overlay", overlay => overlay.addEventListener("click", startCookieRequest));

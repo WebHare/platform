@@ -781,6 +781,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param fromparent Get child attributes of this parent. Use 0 for the toplevel attributes or -1 to get ALL attributes (recursively)
       @return Record per attribute (not all described)
       @cell(integer) return.id Id of attribute (0 for base attributes)
+      @cell(string array) return.allowedvalues list of values which are allowed for a enum or enumarray type
       @cell(integer) return.attributetype WRD attribute type id of this attribute
       @cell(string) return.attributetypename WRD attribute type name of this attribute
       @cell(boolean) return.base Whether this is a base attribute
@@ -796,7 +797,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(integer) return.maxlength
       @cell(boolean) return.checklinks
       @cell(boolean) return.multiline
-      @cell(integer) return.ordering
       @cell(integer) return.parent Parent attribute
       @cell(string) return.tag Tag
       @cell(string) return.title Translated title of this attribute

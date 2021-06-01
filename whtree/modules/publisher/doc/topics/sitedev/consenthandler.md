@@ -44,6 +44,25 @@ Consent status is also marked as property on the documentElement, eg you can tes
 
 You can also test for consent using `consenthandler.hasConsent(consentflag)`
 
+
+## Default (implicit) consent
+
+For some specific cookies, such as anonymized tracking and functional cookies you may choose to have those consent settings set by default. This way it's still possible to let the user explicitly disable those.
+
+Example usage in JS:
+
+```js
+consenthandler.setup("<sitename>-consent", showCookieBanner, { defaultconsent: ["analytics"] });
+```
+
+It works like this:
+
+- The defaultconsent is used as fallback as long as no explicit consent has been set yet
+- As soon as explicit consent is given, only those consent tags are used.
+  Forexample a defaultconsent: ["analytics"] loses it's effect when setConsent([]) or setConsent(["thirdparty"]) is used
+- When setConsent is used and a consent that was active due to defaultconsent before, the page will be reloaded (just like with revoking consent which was explicit)
+
+
 ## Setting up consent overlays
 
 Wrap consent-requiring elements inside a `wh-requireconsent` element, and insert
@@ -101,13 +120,47 @@ If you use our testing GTM container GTM-TN7QQM, you will see the consent trigge
 in the console.
 
 ## GA4 compatibility
-Make sure your `<googleanalytics4>` node has its launch property set to `manual`. Then add the following JavaScript code
-to link it to the consent layer:
+
+You can avoid loading GTM until the consent choices have been made (eg until a cookiebar is answered) by adding integration="manual". For example:
+
+```xml
+<apply minservertype="production">
+  <to type="all" />
+  <gtm account="G-0000000000" integration="manual" />
+</apply>
+```
+
+Then add the following JavaScript code to link it to the consent layer:
+
+In case any given permission given implies we are allowed to use Google Analytics:
 
 ```js
 import * as ga4 from '@mod-publisher/js/analytics/ga4.es';
 ga4.initOnConsent();
 ```
+
+For some sites we may want (anonimized) analytics active by default but give the option to disable it.
+In this example we implicitly give analytics consent, but it's possible for the user to revoke.
+(in this case by clicking deny, but many sites will have a special privacy/consent settings page where you can specifically switch off analytics)
+
+
+```js
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
+import * as ga4 from '@mod-publisher/js/analytics/ga4.es';
+
+consenthandler.setup("<sitename>-consent", showCookieBanner, { defaultconsent: ["analytics"] });
+ga4.initOnConsent({ requiredconsent: "analytics" });
+
+function showCookieBanner()
+{
+  //show a consent/cookie-bar here
+
+  ackbutton.addEventListener("click", () => consenthandler.setConsent(["analytics","remarketing"]));
+  denybutton.addEventListener("click", () => consenthandler.setConsent([]));
+}
+```
+
+
 
 ## GTM compatibility
 Make sure you use the publisher version of the gtm plugin in your siteprofile - in general, `<gtm />` should have no `xmlns=` attribute.

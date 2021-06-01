@@ -1229,7 +1229,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <html:p>The name of the action to use for this component, as defined in the &lt;actions> section.</html:p>
+          <html:p>The name of the action to use when the component is activated.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -1656,7 +1656,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="frameflags" type="CheckFlags">
       <xs:annotation>
         <xs:documentation>
-          <!-- FIXME: Doc -->
+          Check on the frameflags. If they don't match the enableon will be disabled.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2456,7 +2456,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
-          <!-- FIXME: Doc -->
+          Action to use when the image is clicked.
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2464,7 +2464,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="placeholder" type="sc:ImageSrc" default="placeholders/na">
       <xs:annotation>
         <xs:documentation>
-          <!-- FIXME: Doc -->
+          Icon to show as placeholder when no image has been set. Defaults to "tollium:placeholders/na".
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3380,8 +3380,15 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: doc -->
-    <xs:attribute name="storeutc" type="xs:boolean" />
+    <xs:attribute name="storeutc" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to TRUE the value of the component is assumed to be UTC.
+          The date and time will be presented in the timezone of the user, but when reading the selected value will be converted to UTC.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attributeGroup ref="SaveStateValueOnly" />
   </xs:complexType>
 
@@ -3815,7 +3822,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AcceptDropsTypeBase">
     <xs:attribute name="frameflags" type="CheckFlags">
       <xs:annotation>
-        <xs:documentation>>Check these flags on the frame before permitting the drop at all. If these flags flags evaluate to 'true', the action will be enabled. To check if a flag evaluates to 'false' prepand it with !.</xs:documentation>
+        <xs:documentation>Check these flags on the frame before permitting the drop at all. If these flags flags evaluate to 'true', the action will be enabled. To check if a flag evaluates to 'false' prepand it with !.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="targetflags" type="CheckFlags">
@@ -5975,18 +5982,21 @@ To change a <xs:attribute /> for adding descriptions
       <xs:field xpath="@name" />
     </xs:unique>
   </xs:element>
+
   <xs:element name="listedit" type="ListEdit">
     <xs:unique name="uniquecolumnnames_listedit">
       <xs:selector xpath="./s:column" />
       <xs:field xpath="@name" />
     </xs:unique>
   </xs:element>
+
   <xs:element name="movetoselect" type="MoveToSelect">
     <xs:unique name="uniquecolumnnames_movetoselect">
       <xs:selector xpath="./s:column" />
       <xs:field xpath="@name" />
     </xs:unique>
   </xs:element>
+
   <xs:element name="box" type="Box"/>
   <xs:element name="browsecustom" type="BrowseCustom" />
   <xs:element name="browseserverpath" type="BrowseServerPath" />
