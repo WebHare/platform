@@ -12,8 +12,6 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::wrd/lib/auth.whlib";
-
 
 MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
 {
@@ -165,10 +163,7 @@ PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
     {
       OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
       OBJECT userentity := wrdschema->accounttype->GetEntity(this->verifyresult.entityid);
-      IF(wrdschema->accountpasswordisauthsettings)
-        userentity->UpdateEntity(CellInsert(CELL[], wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash(^passwordnew->value))));
-      ELSE
-        userentity->UpdateEntity(CellInsert(CELL[], wrdschema->accountpasswordtag, CreateWebharePasswordHash(^passwordnew->value)));
+      userentity->UpdatePassword(wrdschema->accountpasswordtag, ^passwordnew->value);
 
       this->formcontext->GetWRDAuthPlugin()->MarkVerificationLinkUsed(this->verifyresult.entityid, this->verifyresult);
     }
