@@ -34,6 +34,8 @@ MODULESLIST=("$@")
 
 FAIL=0
 
+# TODO once we drop support for lockfile V1 and just error-out on it, we can remove the lockfileVersion checks here
+
 if [ -z "$ONLYBROKEN" ]; then
   if [ -z "$ONLYMODULES" ] && [ "$#" == 0 ] && cd $WEBHARE_DIR 2>/dev/null ; then
     echo "Updating WebHare"
@@ -75,7 +77,11 @@ else
     if cd "$path" 2>/dev/null ; then
       echo "Updating $path"
       if [ -f package.json ]; then
-        npm install --no-save
+        if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
+          npm install # upgrade lockfile
+        else
+          npm install --no-save
+        fi
         NPMRETVAL=$?
         if [ "$NPMRETVAL" != "0" ]; then
           echo NPM FAILED with errorcode $NPMRETVAL
