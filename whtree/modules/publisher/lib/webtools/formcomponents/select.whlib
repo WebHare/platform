@@ -521,7 +521,7 @@ PUBLIC OBJECTTYPE EditSelectOption EXTEND TolliumScreenBase
       IF(RecordExists(data.row))
       {
         this->currentinfotextid := data.row.infotextid;
-        ^infotext->value := GetRichTextAttributeById(this, this->currentinfotextid);
+        ^infotext->value := this->contexts->formcomponentapi->__GetRichTextAttributeById(this->currentinfotextid);
       }
     }
     ELSE
@@ -573,7 +573,7 @@ PUBLIC OBJECTTYPE EditSelectOption EXTEND TolliumScreenBase
       DELETE CELL title FROM data;
 
     data := CELL[ ...data
-                , infotextid := SetRichTextAttributeId(this, this->currentinfotextid, ^infotext->value)
+                , infotextid := this->contexts->formcomponentapi->__SetRichTextAttributeId(this->currentinfotextid, ^infotext->value)
                 ];
 
     RETURN data;

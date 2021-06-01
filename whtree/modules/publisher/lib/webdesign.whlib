@@ -555,7 +555,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                                               , applytester := this->targetapplytester
                                               ]);
     IF(NOT selfhosted)
+    {
       form->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [target := formobject->id]);
+      form->formidprefix := "formwidget_" || formobject->id || "_";
+    }
 
     RETURN form;
   }

@@ -662,6 +662,7 @@ OBJECTTYPE MyType
 >;
 ```
 
+### ^Hat properties
 The special hat-property (`PROPERTY ^`) is used when accessing objects items with
 a name starting with `^`. If a member value with that name is present, that will
 member value will be used for access. Otherwise, that hat property is evaluated.
@@ -691,6 +692,9 @@ PRINT(myobj->^a || "\n"); // prints "^a:2"
 myobj->InsertProp("^a", "direct"); // insert directly into the object
 PRINT(myobj->^a || "\n"); // now prints "direct"
 ```
+
+A hat property that is not (yet) actually instantiated on the object is not visible to
+%MemberExists.
 
 ### Inheritance
 

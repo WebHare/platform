@@ -729,10 +729,6 @@
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" />
   </xs:complexType>
 
-  <xs:complexType name="InGroup">
-    <xs:attribute name="type" type="xs:anyURI" use="required" />
-  </xs:complexType>
-
   <xs:complexType name="ObjectType">
     <xs:attribute name="namespace" type="xs:anyURI">
       <xs:annotation>
