@@ -88,6 +88,12 @@ export function append(node, ...nodes)
 {
   node.appendChild(generateInsertList(nodes));
 }
+//replace all child nodes with a new list of child nodes: https://dom.spec.whatwg.org/#dom-parentnode-replacechildren
+export function replaceChildren(node, ...nodes)
+{
+  node.innerHTML = "";
+  append(node, ...nodes);
+}
 
 //offer toggleClass ourselves as IE11's native version is broken - does not understand the last parameter
 /** Toggle a single class */

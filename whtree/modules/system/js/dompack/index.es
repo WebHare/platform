@@ -11,7 +11,7 @@ export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue,
        } from './src/events.es';
 export { qS, qSA, contains, closest, matches
        , empty, isDomReady, onDomReady, getJSONAttribute
-       , before, after, replaceWith, remove, prepend, append
+       , before, after, replaceWith, remove, prepend, append, replaceChildren
        , toggleClass, toggleClasses
        , setStyles
        , getBaseURI, getRelativeBounds } from './src/tree.es';
