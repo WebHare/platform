@@ -94,6 +94,8 @@ OBJECTTYPE CheckerObject
                                      , nowarnings := FALSE
                                      ], options);
 
+    IF(this->options.filemask = "")
+      this->options.filemask := "*";
     IF (this->options.color)
       SetAnsiCmdMode("enabled");
 
@@ -108,8 +110,8 @@ OBJECTTYPE CheckerObject
     IF(this->options.nowarnings)
       this->validateconfig.nowarnings := TRUE;
 
-    //verify node modules
-    IF(this->options.filemask = "")
+    //verify node modules, if node_modules matches it (eg '*', '**' etc)
+    IF("node_modules" LIKE this->options.filemask)
     {
       RECORD ARRAY nodeissues := CheckNodeModulesInModule(moddir);
       FOREVERY(RECORD issue FROM nodeissues)
@@ -122,7 +124,7 @@ OBJECTTYPE CheckerObject
     //verify code
     STRING ARRAY scanlist := GetValidatableFiles(this->validateconfig, modname
                                                  , [ onskippedfile := PTR this->OnSkippedFile
-                                                   , filemask := this->options.filemask ?? "*"
+                                                   , filemask := this->options.filemask
                                                    ]);
 
     FOREVERY(STRING toscan FROM scanlist)

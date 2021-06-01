@@ -527,7 +527,8 @@ if [ -n "$ISMODULETEST" ]; then
 
   if [ -z "$RUNEXPLICITTESTS" ]; then
     echo "`date` Check module"
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --color $TESTINGMODULENAME ; then
+    # this one weird trick (--filemask '*'') prevents pre-4.32 WebHares from doing NPM checks.. so they won't bother us about lockfile v2 (npm v7)
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --filemask '*' --color $TESTINGMODULENAME ; then
       testfail "wh checkmodule failed"
     fi
 
