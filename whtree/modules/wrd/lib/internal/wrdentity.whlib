@@ -3,10 +3,13 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/any.whlib";
+
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 // ---------------------------------------------------------------------------
 //
@@ -422,6 +425,48 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
 
 
+  /** Update the password for this entity
+      @param attrtag Name of the password field (must be of type PASSWORD or AUTHENTICATIONSETTINGS)
+      @param newpassword The new password */
+  PUBLIC MACRO UpdatePassword(STRING attrtag, STRING newpassword)
+  {
+    RECORD attr := this->wrdtype->GetAttribute(attrtag);
+    IF(NOT RecordExists(attr))
+      THROW NEW Exception(`No such attribute ${EncodeJSON(attrtag)} in type ${EncodeJSON(this->wrdtype->tag)}`);
+
+    SWITCH (attr.attributetype)
+    {
+      CASE wrd_attributetype_free
+      {
+        this->UpdateEntity(CellInsert(CELL[], attrtag, newpassword));
+      }
+      CASE wrd_attributetype_password
+      {
+        this->UpdateEntity(CellInsert(CELL[], attrtag, newpassword != "" ? CreateWebharePasswordHash(newpassword) : ""));
+      }
+      CASE wrd_attributetype_authenticationsettings
+      {
+        RECORD value := this->GetField(attrtag);
+        IF(NOT RecordExists(value))
+        {
+          IF(newpassword = "")
+            RETURN; //no change, no password was set yet
+
+          value := GetDefaultAuthenticationSettings();
+        }
+        INSERT CELL [ validfrom := GetCurrentDatetime()
+                    , passwordhash := newpassword != "" ? CreateWebharePasswordHash(newpassword) : ""
+                    ] INTO value.passwords AT END;
+
+        this->UpdateEntity(CellInsert(CELL[], attrtag, value));
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetype}' and cannot store a password`);
+      }
+    }
+  }
+
   /** Tests if a password is correct, can be used on password, free and authenticationsettings attributes
       @param attrtag Tag of the attribute with the password
       @param testvalue Password to test
@@ -445,7 +490,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
       }
       DEFAULT
       {
-        THROW NEW Exception(`Attribute ${EncodeJSON(attrtag)} is not of type 'FREE', 'PASSWORD' or 'AUTHENTICATIONSETTINGS'`);
+        THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetype}' and cannot store a password`);
       }
     }
   }
