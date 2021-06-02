@@ -162,7 +162,8 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
     this->parent->InsertComponentAfter(this->pvt_table, DEFAULT OBJECT, FALSE);
 
     // Register our local drag type
-    this->owner->RegisterLocalDragType(this->overlaydragtype, DEFAULT STRING ARRAY);
+    // NOTE drag/drop is completely broken, table jumps into Upload code. this will take some repairing, so disable it for now
+    //this->owner->RegisterLocalDragType(this->overlaydragtype, DEFAULT STRING ARRAY);
   }
 
   PUBLIC UPDATE MACRO StaticInit(RECORD def)
@@ -212,6 +213,7 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
   {
     this->pvt_orderable := orderable;
 
+    /* See earlier, drag/drop is broken
     //FIXME: Update draginfo to enable/disable dragging?
     IF (this->sortby = "ordering" AND orderable)
     {
@@ -231,7 +233,7 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
             ]
           ];
     }
-    ELSE
+    ELSE */
     {
       this->pvt_table->acceptdrops := DEFAULT RECORD ARRAY;
     }
@@ -679,8 +681,8 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
           , validcell           := TRUE
           ];
 
-      IF (this->pvt_orderable)
-        tablecell->draginfo := [ type := this->overlaydragtype, data := [ id := rec.id ] ];
+      //IF (this->pvt_orderable) //drag/drop is broken
+      //  tablecell->draginfo := [ type := this->overlaydragtype, data := [ id := rec.id ] ];
 
       tablecell->panel->InsertLinesAfter(
         [ [ items := [ OBJECT(newcomps[#rec].panel) ]

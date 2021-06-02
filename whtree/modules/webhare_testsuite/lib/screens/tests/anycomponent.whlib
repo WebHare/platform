@@ -602,7 +602,7 @@ PUBLIC MACRO RunAnyComponent(OBJECT controller, RECORD data)
       ABORT("Failed to parse parameters: " || input);
   }
 
-  controller->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := data.params[0], settings := settings ])->RunModal();
+  controller->RunScreen("mod::webhare_testsuite/screens/tests/anycomponent.xml#anycomponent", [ component := data.params[0], settings := settings ]);
 }
 
 PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase

@@ -1102,6 +1102,10 @@ export default class ObjTable extends ComponentBase
       return false;
     }
 
+    //make sure no parent table processes this too
+    event.preventDefault();
+    event.stopPropagation(); //do not
+
     toddupload.uploadFilesForDrop(this, dragdata, function(msg, dialogclosecallback)
     {
       // Upload successfully (or no files)
