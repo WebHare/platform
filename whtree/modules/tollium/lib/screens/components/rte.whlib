@@ -83,7 +83,11 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
 
   MACRO DoDownload(OBJECT imgreceiver)
   {
-    imgreceiver->SendWrappedFile(this->original);
+    RECORD tosend := this->original;
+    //Restore the extension if needed so downloaders have a usable file
+    IF(tosend.extension != "" AND ToUppercase(tosend.filename) NOT LIKE ToUppercase("*" || tosend.extension))
+      tosend.filename := tosend.filename || tosend.extension;
+    imgreceiver->SendWrappedFile(tosend);
   }
 >;
 
