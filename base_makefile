@@ -29,6 +29,8 @@ endif
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
+        # Convert BREWPREFIX to a static value, so the shell command will be evaluated only once.
+        BREWPREFIX := $(BREWPREFIX)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
