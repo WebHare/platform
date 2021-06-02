@@ -597,6 +597,16 @@ if (typeof Element !== 'undefined' && !Element.prototype.matches)
   };
 }
 
+//
+// end of closest, matches
+//
+///////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// ParentNode, ChildNode interfaces
+//
+
 //before,after etc polyfill
 if(!Element.prototype.before)
 {
@@ -644,8 +654,18 @@ if(!Element.prototype.before)
   }
 }
 
+//replaceChildren polyfill (separate, because it's newer)
+if(!Element.prototype.replaceChildren)
+{
+  Element.prototype.replaceChildren = function()
+  {
+    this.innerHTML = "";
+    this.append.apply(this, arguments);
+  }
+}
+
 //
-// end of closest,
+// end of ParentNode, Childnode
 //
 ///////////////////////////////////////////////////////////////////////////////////
 
