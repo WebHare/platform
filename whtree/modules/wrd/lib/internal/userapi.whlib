@@ -338,12 +338,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     RETURN TRUE;
   }
 
-  // Convert string passwords to authsettings
-  RECORD FUNCTION CheckAuthSettings(RECORD data)
-  {
-    RETURN data;
-  }
-
   /** Creates a new user
       @param data User data
       @cell data.whuser_unit Id of the unit to create this user in
