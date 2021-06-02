@@ -240,8 +240,8 @@ void Connection::PullFromStreamOrMapping()
 
                         /* Calculate amount of data to send. startrangepos = max(outmmap_offset, range_start)
                            We should send up to range_limit - startrangepos bytes, but never more than outmmap_mappedsize - bufferstart */
-                        unsigned tosend = std::min<unsigned>(unsigned(range_limit - std::max<Blex::FileOffset>(outmmap_offset, range_start))
-                                                            ,outmmap_mappedsize - buffer_start);
+                        Blex::FileOffset tosend = std::min<Blex::FileOffset>(range_limit - std::max<Blex::FileOffset>(outmmap_offset, range_start)
+                                                                            ,outmmap_mappedsize - buffer_start);
                         assert(tosend > 0 && tosend+buffer_start <= outmmap_mappedsize);
 
                         WS_PRINT("Mapping " << outmmap_mappedsize << " bytes at offset " << outmmap_offset << " - sending " << tosend << " bytes starting at pos " << buffer_start);
