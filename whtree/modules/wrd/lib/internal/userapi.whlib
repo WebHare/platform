@@ -341,17 +341,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   // Convert string passwords to authsettings
   RECORD FUNCTION CheckAuthSettings(RECORD data)
   {
-    IF (this->wrdschema->accountpasswordisauthsettings AND CellExists(data, this->wrdschema->accountpasswordtag))
-    {
-      VARIANT pwdata := GetCell(data, this->wrdschema->accountpasswordtag);
-      IF (TypeID(pwdata) = TypeID(STRING))
-      {
-        data := CELL
-            [ ...data
-            , ...CellInsert(CELL[], this->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(pwdata))
-            ];
-      }
-    }
     RETURN data;
   }
 
@@ -366,7 +355,14 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
 
-    data := this->CheckAuthSettings(data);
+    IF (this->wrdschema->accountpasswordisauthsettings AND CellExists(data, this->wrdschema->accountpasswordtag))
+    {
+      VARIANT pwdata := GetCell(data, this->wrdschema->accountpasswordtag);
+      IF (TypeID(pwdata) = TypeID(STRING))
+        data := CELL[ ...data
+                    , ...CellInsert(CELL[], this->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(pwdata))
+                    ];
+    }
 
     OBJECT lock;
     lock := OpenLockManager()->LockMutex("wrd:usermgmt");
@@ -406,7 +402,12 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
 
-    data := this->CheckAuthSettings(data);
+    IF (this->wrdschema->accountpasswordisauthsettings AND CellExists(data, this->wrdschema->accountpasswordtag))
+    {
+      VARIANT pwdata := GetCell(data, this->wrdschema->accountpasswordtag);
+      IF (TypeID(pwdata) = TypeID(STRING))
+        THROW NEW Exception(`Passwords cannot be written directly through UpdateUser when you've switched to authentication settings`);
+    }
 
     OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
     TRY
