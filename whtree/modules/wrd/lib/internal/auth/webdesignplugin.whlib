@@ -1331,30 +1331,27 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC MACRO UpdateCurrentUserPassword(STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[], options);
-
     INTEGER entity := this->GetLoggedinEntity();
     IF(entity = 0)
       THROW NEW Exception("Not logged in");
 
-    //store the old password hash in case you need a policy 'last X passwords are forbidden for reuse'
-    STRING previouspasswordhash := this->accounttype->GetEntityField(entity, this->wrdschema->accountpasswordtag);
-    VARIANT settings := this->accounttype->GetEntityField(entity, this->wrdschema->accountpasswordtag);
-    IF (TypeID(settings) = TypeID(STRING))
-      settings := CreateWebharePasswordHash(newpassword);
-    ELSE
-    {
-      settings := settings ?? GetDefaultAuthenticationSettings();
-      INSERT
-          [ validfrom :=      GetCurrentDateTime()
-          , passwordhash :=   CreateWebharePasswordHash(newpassword)
-          ] INTO settings.passwords AT END;
-    }
-    this->accounttype->UpdateEntity(entity, CellInsert(CELL[], this->wrdschema->accountpasswordtag, settings));
+    this->UpdateUserPassword(entity, newpassword, options);
+  }
 
+  /** Set the password for a user
+      @param userid User whose password we're updating
+      @param newpassword New password
+      */
+  PUBLIC MACRO UpdateUserPassword(INTEGER userid, STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[], options);
+
+    IF(this->wrdschema->accountpasswordtag = "")
+      THROW NEW Exception(`No account passwordtag configured in this WRD schema`);
+
+    this->wrdschema->accounttype->GetEntity(userid)->UpdatePassword(this->wrdschema->accountpasswordtag, newpassword);
     this->LogCustomAuditEvent("wrd:updatepassword",
-        [ account := entity
-        , message := [ previouspasswordhash := previouspasswordhash ]
+        [ account := userid
         ]);
   }
 

@@ -712,6 +712,22 @@ MACRO TestAuthenticationAttrs()
                         ]
       ]));
 
+  testperson->UpdatePassword("authsettings", "hi");
+  TestEq(TRUE, testperson->VerifyPassword("authsettings", "hi"));
+
+  TestEq(1, testperson->GetField("authsettings").version);
+  TestEq(1, Length(testperson->GetField("authsettings").passwords));
+
+  testperson->UpdatePassword("authsettings", "");
+  TestEq(FALSE, testperson->VerifyPassword("authsettings", "hi"));
+  TestEq(FALSE, testperson->VerifyPassword("authsettings", ""), "A non-set password should never validate against anything but require explicit handling if you really want that..");
+
+  testperson->UpdatePassword("authsettings", "oiii");
+  TestEq(3, Length(testperson->GetField("authsettings").passwords));
+  TestEq(FALSE, testperson->VerifyPassword("authsettings", "hi"));
+  TestEq(FALSE, testperson->VerifyPassword("authsettings", ""));
+  TestEq(TRUE, testperson->VerifyPassword("authsettings", "oiii"));
+
   STRING totpurl := GetTOTPUrl("01234567891234567890", "authattrs@example.com", "webhare_testsuite");
 
   testperson->UpdateEntity(
