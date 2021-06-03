@@ -425,9 +425,7 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
                               , type: "javascript/auto"
                               }
                             ]
-      , nodemodulepaths:    [ ...baseconfig.nodemodulepaths
-                            , bundle.diskpath + '/node_modules/designfiles'  //should only include if designfiles compatibility is enabled
-                            ]
+      , nodemodulepaths:    baseconfig.nodemodulepaths
       , babeltranspile:     [ "\\.es$" ].concat(bundle.bundleconfig.babeltranspile)
       , babelenvtarget:     { "targets": bundle.browsertargets
                             }
