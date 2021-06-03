@@ -128,7 +128,7 @@ SWITCH (type)
       Print(EncodeJSON([status := "OK", url := rec.msg.tokens[0] ]));
     }
   }
-  CASE "download"
+  CASE "download" //'download' is still used by embedded files (eg RTE CSS)
   {
     RECORD rec := ipclink->DoRequest(
         [ type := GetWebVariable("t")
@@ -163,7 +163,7 @@ SWITCH (type)
     AddHTTPHeader("Content-Disposition", data.disposition,FALSE);
     SendWebFile(data.data);
   }
-  CASE "asyncdownload"
+  CASE "asyncdownload" //used by <downloadaction>
   {
     RECORD rec := ipclink->DoRequest(
         [ type := GetWebVariable("t")

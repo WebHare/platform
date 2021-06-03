@@ -110,6 +110,11 @@
     <xyz:test data="applytest-throughglobal" />
   </apply>
 
+  <apply>
+    <to type="folder" sitemask="WebHare testsuite site" pathmask="/tmp/showforeigns/" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <foldersettings visibleforeignfolders="true" />
+  </apply>
+
   <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
               renderobjectname="mod::webhare_testsuite/lib/rte/testcomp.whlib#RTDInstanceTestObj">
     <members>

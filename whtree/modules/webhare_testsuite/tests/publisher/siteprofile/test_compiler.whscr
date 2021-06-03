@@ -136,7 +136,7 @@ MACRO TestCompiler()
                                        ]);
 
   res := compiler->ApplyStandardPostProcessing(res);
-  TestEq(TRUE, 1 IN res.hiddenfoldertypes);
+  TestEq(FALSE, 1 IN res.hiddenfoldertypes, "Foreign folders used to be hidden, but are now controlled by the userpreference OR siteprofile settings");
   TestEq(TRUE, 2 IN res.hiddenfoldertypes);
   TestEq(FALSE, 0 IN res.hiddenfoldertypes);
 

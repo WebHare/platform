@@ -1196,6 +1196,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             {
               apply.foldersettings := [ filterscreen := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("filterscreen"))
                                       , has_filterscreen := node->HasAttribute("filterscreen")
+                                      , visibleforeignfolders := ParseXSBoolean(node->GetAttribute("visibleforeignfolders"))
+                                      , has_visibleforeignfolders := node->HasAttribute("visibleforeignfolders")
                                       , ordering := node->GetAttribute("ordering")
                                       , contentslisthandler := DEFAULT RECORD
                                       ];
