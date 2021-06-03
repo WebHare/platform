@@ -62,8 +62,17 @@ On macOS, just `brew install InstantClientTap/instantclient/instantclient-sdk` a
 
 To quickly run a specific blextest, eg 'string' (you really want this when editing stringmanip.cc):
 ```bash
-BLEXTEST=string WHBUILD_NODEPS=1 wh make blex-test
+BLEXTEST=string wh make blex-test
 ```
+
+To replace binaries with their debugging counterparts, use the `-overwrite` targets. Eg to replace the webserver and libblex_webhare with
+their debug counterparts
+
+```bash
+WHBUILD_DEBUG=1 wh make webserver-overwrite libblex_webhare-overwrite
+```
+
+(don't forget to restart the processes, eg `pkill webserver`)
 
 ## Troubleshooting common build failures
 Try repeating the make command. If you only see 'error' or 'waiting for finished jobs' you may have to scroll up a bit to find the error (make often runs multiple tasks at the same time. if one task reported an error, it will finish the other running jobs so you may need to look for the error).

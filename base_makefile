@@ -841,7 +841,7 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = consilio webserver dbserver dumprawtable webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher hsm_parser hsm_parser_office_msword hsm_parser_office_powerpoint hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_office_powerpoint hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
 
 showtargets:
 	@echo $(BIN_ALIASES)
