@@ -144,44 +144,19 @@ MACRO DeleteTest()
 
 MACRO TypeChangeTest()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->SetTestUser("sysop");
+  testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
 
   //test removing publish when changing a file from a publishable type to non publishable (e.g a webdav uploaded file gaining its proper type)
-
   OBJECT testfile := testsite->rootobject->CreateFile([name := "testpublish.whlib", type := 5, publish := TRUE]);
   TestEq(TRUE, testfile->publish);
   testfile->UpdateMetadata([type := 16]);
+  TestEq(16, testfile->type);
   TestEq(FALSE, testfile->publish);
 
-  //test applying profile/template when changing a type
-  OBJECT changetestfolder := testsite->rootobject->CreateFolder([name := "typechangetest"]);
-  OBJECT mytpl := changetestfolder->CreateFile([name := "my.tpl", type := 28 ]);
-  OBJECT myprl := changetestfolder->CreateFile([name := "my.prl", type := 29 ]);
-  changetestfolder->UpdateMetadata ( [ template := mytpl->id, profile := myprl->id ]); //set the defaults
-
-  OBJECT datafile := changetestfolder->CreateFile([name := "data.doc", type := 13 ]);
-  TestEq(0, datafile->template);
-  TestEq(0, datafile->profile);
-
-  datafile->UpdateMetadata( [ type := 5 ]); //make it a HTML file
-  TestEq(mytpl->id, datafile->template);
-  TestEq(0, datafile->profile);
-
-  datafile->UpdateMetadata( [ type := 4 ]); //make it a word doc
-  TestEq(mytpl->id, datafile->template);
-  TestEq(myprl->id, datafile->profile);
-
-  datafile->UpdateMetadata( [ type := 5 ]); //back to HTML
-  TestEq(mytpl->id, datafile->template);
-  TestEq(0, datafile->profile);
-
-  datafile->UpdateMetadata( [ type := 13 ]); //back to multimedia
-  TestEq(0, datafile->template);
-  TestEq(0, datafile->profile);
-
-  testfw->EndTrans();
+  testfw->RollbackWork();
 }
 
 MACRO SiteOutputContainTest()
@@ -534,8 +509,6 @@ MACRO SiteProfActionsTest()
   OBJECT testsite := testfw->GetTestSite();
   testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
   testfw->CommitWork(); //flush the siteprofile updates
-
-  TestSiteProfilesNoErrors();
 
   DATETIME should_run_after := GetCurrentDatetime();
   RECORD betatask := SELECT lastrun, currentstart, nexttime FROM system_internal.tasks WHERE tag="webhare_testsuite.singleshottest";

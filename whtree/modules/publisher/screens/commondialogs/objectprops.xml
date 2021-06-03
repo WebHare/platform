@@ -99,21 +99,6 @@
               <text name="notpublishedtext" title="" value="" />
             </panel>
             <panel  name="publicationsettings">
-              <heading tid=".publicationsettings"/>
-              <line>
-                <select name="template" type="pulldown" />
-                <text name="template_forced" title="" valuetid=".forcedbyparent" visible="false" />
-              </line>
-              <checkbox name="force_template_local" tid=".forcetemplate" labeltid=".local" />
-              <checkbox name="force_template_recursive" title="" labeltid=".recursive" />
-
-              <line>
-                <select name="profile" type="pulldown" />
-                <text name="profile_forced" title="" valuetid=".forcedbyparent" visible="false" />
-              </line>
-              <checkbox name="force_profile_local" tid=".forceprofile" labeltid=".local" />
-              <checkbox name="force_profile_recursive" title="" labeltid=".recursive" />
-
               <line layout="left">
                 <checkbox name="publish" title="" labeltid=".publish" />
               </line>

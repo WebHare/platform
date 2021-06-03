@@ -214,9 +214,9 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
 */
 STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
 {
-  STRING ARRAY base := [ "TITLE", "DESCRIPTION", "CREATIONDATE", "MODIFICATIONDATE", "MODIFIEDBY", "NAME", "KEYWORDS", "TYPE", "TEMPLATE", "PROFILE", "ORDERING", "FILELINK", "ISPINNED" ];
+  STRING ARRAY base := [ "TITLE", "DESCRIPTION", "CREATIONDATE", "MODIFICATIONDATE", "MODIFIEDBY", "NAME", "KEYWORDS", "TYPE", "ORDERING", "FILELINK", "ISPINNED" ];
   IF(folder)
-    base := base CONCAT [ "REQUIRETEMPLATE", "REQUIREPROFILE" ,"REQUIRETEMPLATEINSUBFOLDERS", "REQUIREPROFILEINSUBFOLDERS", "INDEXDOC" ];
+    base := base CONCAT [ "INDEXDOC" ];
   ELSE
     base := base CONCAT [ "DATA", "EXTERNALLINK", "PUBLISH", "PUBLISHED", "WRAPPED", "SCANDATA" ];
   RETURN base;
@@ -371,14 +371,6 @@ OBJECTTYPE WHFSObject
   INTEGER pvt_modifiedby;
 
 
-  /// Object id of the template of this object
-  INTEGER pvt_template;
-
-
-  /// Object id of the profile of this object
-  INTEGER pvt_profile;
-
-
   /// WHFS type of this object
   INTEGER pvt_type;
 
@@ -480,14 +472,6 @@ OBJECTTYPE WHFSObject
 
   /// Modified by
   PUBLIC PROPERTY modifiedby(pvt_modifiedby,-);
-
-  /// Id of template
-  PUBLIC PROPERTY template(pvt_template, -);
-
-
-  /// Id of profile
-  PUBLIC PROPERTY profile(pvt_profile, -);
-
 
   /// Id of the type of this whfs object
   PUBLIC PROPERTY type(pvt_type,-);
@@ -597,21 +581,11 @@ OBJECTTYPE WHFSObject
     this->pvt_modificationdate := me.modificationdate;
     this->pvt_modifiedby := me.modifiedby;
 
-    this->pvt_template := me.template;
-    this->pvt_profile := me.profile;
     this->pvt_type := me.type;
     this->pvt_isactive := me.isactive;
     this->pvt_ispinned := me.ispinned;
     this->pvt_ordering := me.ordering;
     this->pvt_indexurl := me.indexurl;
-  }
-
-  /** Run the update hooks
-      @param oldversion Old database record
-      @param newversion New database record
-  */
-  MACRO DoUpdateHooks(RECORD oldversion, RECORD newversion)
-  {
   }
 
   // ---------------------------------------------------------------------------
@@ -639,18 +613,8 @@ OBJECTTYPE WHFSObject
       @cell newmetadata.modificationdate Modificationdate for this object (datetime)
       @cell newmetadata.name Name of this object (string, must check ok with IsValidWHFSName);
       @cell newmetadata.type Id of the type of this object (integer)
-      @cell newmetadata.template Id of the template of this object (integer, must be 0 or link to valid template)
-      @cell newmetadata.profile Id of the profile of this object (integer, must be 0 or link to valid profile)
       @cell newmetadata.ordering Relative ordering vs other objects in the parent folder (integer)
 
-      @cell newmetadata.requiretemplate Whether all files in this folder must use the template of this folder
-        (boolean, folders only)
-      @cell newmetadata.requireprofile Whether all files in this folder must use the profiles of this folder
-        (boolean, folders only)
-      @cell newmetadata.requiretemplateinsubfolders Whether all subfolders must force the template of this folder
-        recursively (boolean, folders only)
-      @cell newmetadata.requireprofileinsubfolders Whether all subfolders must force the profile of this folder
-        recursively (boolean, folders only)
       @cell newmetadata.indexdoc Id of indexdocument of this folder (integer, folders only, must link to file
         within this folder)
 
@@ -745,78 +709,10 @@ OBJECTTYPE WHFSObject
                                , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
                                ]);
 
-    RECORD parentinfo := SELECT template
-                              , profile
-                              , reqtemplate := this->isfolder ? requiretemplateinsubfolders : requiretemplate
-                              , reqprofile  := this->isfolder ? requireprofileinsubfolders : requireprofile
-                           FROM system.fs_objects
-                          WHERE id = oldversion.parent;
-
     INTEGER newtype := CellExists(newmetadata, 'type') ? newmetadata.type : this->pvt_type;
     STRING newname  := CellExists(newmetadata,'name') ? newmetadata.name : oldversion.name ;
     INTEGER newlink := this->isfolder ? 0 : CellExists(newmetadata, 'filelink') ? newmetadata.filelink : oldversion.filelink;
     INTEGER newcontenttype := newtype = 20 ? (SELECT AS INTEGER type FROM system.fs_objects WHERE id=newlink) : newtype;
-    BOOLEAN old_need_template := this->needstemplate;
-    BOOLEAN old_need_profile  := this->needsprofile;
-    BOOLEAN new_need_template;
-    BOOLEAN new_need_profile;
-
-    IF(this->isfolder OR (newtype = this->pvt_type AND (newtype!=20 OR newlink = this->filelink)))
-    {
-      new_need_template := old_need_template;
-      new_need_profile := old_need_profile;
-    }
-    ELSE //Need to recheck desttype/link
-    {
-
-      new_need_template := LookupNeedsTemplate(newtype,newlink);
-      new_need_profile := LookupNeedsProfile(newtype,newlink);
-    }
-
-    BOOLEAN inherit_template_from_parent := new_need_template AND RecordExists(parentinfo) AND parentinfo.reqtemplate;
-    BOOLEAN inherit_profile_from_parent  := new_need_profile AND RecordExists(parentinfo) AND parentinfo.reqprofile;
-
-    IF(new_need_template AND NOT old_need_template AND NOT CellExists(newmetadata,'template')) //it's a new requirement, but our caller didn't bother specifying anything
-      inherit_template_from_parent := TRUE;
-    IF(new_need_profile AND NOT old_need_profile AND NOT CellExists(newmetadata,'profile')) //it's a new requirement, but our caller didn't bother specifying anything
-      inherit_profile_from_parent := TRUE;
-
-    IF(NOT new_need_template)
-    {
-      DELETE CELL template FROM newmetadata;
-      INSERT CELL template := 0 INTO newmetadata;
-    }
-    IF(NOT new_need_profile)
-    {
-      DELETE CELL profile FROM newmetadata;
-      INSERT CELL profile := 0 INTO newmetadata;
-    }
-    IF(inherit_template_from_parent)
-    {
-      DELETE CELL template FROM newmetadata;
-      INSERT CELL template := parentinfo.template INTO newmetadata;
-
-      IF(this->isfolder)
-      {
-        DELETE CELL requiretemplate FROM newmetadata;
-        DELETE CELL requiretemplateinsubfolders FROM newmetadata;
-        INSERT CELL requiretemplate := TRUE INTO newmetadata;
-        INSERT CELL requiretemplateinsubfolders := TRUE INTO newmetadata;
-      }
-    }
-    IF(inherit_profile_from_parent)
-    {
-      DELETE CELL profile FROM newmetadata;
-      INSERT CELL profile := parentinfo.profile INTO newmetadata;
-
-      IF(this->isfolder)
-      {
-        DELETE CELL requireprofile FROM newmetadata;
-        DELETE CELL requireprofileinsubfolders FROM newmetadata;
-        INSERT CELL requireprofile := TRUE INTO newmetadata;
-        INSERT CELL requireprofileinsubfolders := TRUE INTO newmetadata;
-      }
-    }
 
     IF(CellExists(newmetadata,'publish') AND NOT CellExists(newmetadata,'published'))
     {
@@ -917,18 +813,6 @@ OBJECTTYPE WHFSObject
 
     commithandler->ObjectUpdate(this->parentsite, this->pvt_parent, this->pvt_id);
 
-    // If template/profile data is updates, cascade them through the tree
-    IF (this->isfolder
-        AND (CellExists(newmetadata, "TEMPLATE")
-             OR CellExists(newmetadata, "PROFILE")
-             OR CellExists(newmetadata, "REQUIRETEMPLATE")
-             OR CellExists(newmetadata, "REQUIRETEMPLATEINSUBFOLDERS")
-             OR CellExists(newmetadata, "REQUIREPROFILE")
-             OR CellExists(newmetadata, "REQUIREPROFILEINSUBFOLDERS")))
-    {
-      FixupTemplateProfileInfo(this->pvt_id, CellExists(newmetadata, "REQUIRETEMPLATEINSUBFOLDERS"), CellExists(newmetadata, "REQUIREPROFILEINSUBFOLDERS"));
-    }
-
     IF(this->isfolder AND isrename) //TODO wouldn't above code already trigger a repub?
     {
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
@@ -936,7 +820,6 @@ OBJECTTYPE WHFSObject
 
     RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
     AddModifyHistory(now, oldversion, newversion);
-    this->DoUpdateHooks(oldversion, newversion);
 
     IF(options.setindex)
       this->parentobject->UpdateMetadata([ indexdoc := this->id ]);
@@ -1227,22 +1110,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   // Variables
   //
 
-  /// Whether the template of this folder is forced on all the files in this folder
-  BOOLEAN pvt_requiretemplate;
-
-
-  /// Whether the profile of this folder is forced on all the files in this folder
-  BOOLEAN pvt_requireprofile;
-
-
-  /// Whether the template of this folder is forced on all subfolders and files in those folders recursively
-  BOOLEAN pvt_requiretemplateinsubfolders;
-
-
-  /// Whether the profile of this folder is forced on all subfolders and files in those folders recursively
-  BOOLEAN pvt_requireprofileinsubfolders;
-
-
   /// Id of the index document of this folder
   INTEGER pvt_indexdoc;
 
@@ -1251,22 +1118,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   //
   // Properties
   //
-
-  /// Whether the template of this folder is forced on all the files in this folder
-  PUBLIC PROPERTY requiretemplate(pvt_requiretemplate, -);
-
-
-  /// Whether the template of this folder is forced on all subfolders and files in those folders recursively
-  PUBLIC PROPERTY requiretemplateinsubfolders(pvt_requiretemplateinsubfolders, -);
-
-
-  /// Whether the profile of this folder is forced on all the files in this folder
-  PUBLIC PROPERTY requireprofile(pvt_requireprofile, -);
-
-
-  /// Whether the profile of this folder is forced on all subfolders and files in those folders recursively
-  PUBLIC PROPERTY requireprofileinsubfolders(pvt_requireprofileinsubfolders, -);
-
 
   /// Id of the index document of this folder
   PUBLIC PROPERTY indexdoc(pvt_indexdoc, -);
@@ -1294,17 +1145,10 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   UPDATE MACRO RefreshMetadata(RECORD me)
   {
     WHFSObject::RefreshMetadata(me);
-    this->pvt_requiretemplate := me.requiretemplate;
-    this->pvt_requiretemplateinsubfolders := me.requiretemplateinsubfolders;
-
-    this->pvt_requireprofile := me.requireprofile;
-    this->pvt_requireprofileinsubfolders := me.requireprofileinsubfolders;
-
     this->pvt_indexdoc := me.indexdoc;
   }
 
-  /** Fixups the metadata for new objects (calculate new published value, set creationdate, modificationdate,
-      owner, (require)template/profile(insubfolders)
+  /** Fixups the metadata for new objects (calculate new published value, set creationdate, modificationdate, owner)
       @param metadata Metadata for new object
       @param isfolder Type of the new object
   */
@@ -1312,8 +1156,16 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   {
     STRING ARRAY caninsert := GetUpdatableMetadataFields(isfolder) CONCAT ["ID"];
     FOREVERY(RECORD cellrec FROM UnpackRecord(metadata))
-      IF(ToUppercase(cellrec.name) NOT IN caninsert)
+    {
+      IF(cellrec.name IN ["PROFILE","TEMPLATE","REQUIREPROFILE","REQUIRETEMPLATE","REQUIREPROFILEINSUBFOLDERS","REQUIRETEMPLATEINSUBFOLDERS"])
+      {
+        THROW NEW WHFSException("OTHER",`The field '${cellrec.name}' has been removed in WebHare 4.32`);
+      }
+      ELSE IF(cellrec.name NOT IN caninsert) //note: cellnames retuned by UnpackRecord are always in uppercase
+      {
         THROW NEW WHFSException("OTHER",`The field '${cellrec.name}' is invalid, or this specific field can not be set during inserts`);
+      }
+    }
 
     IF(NOT this->pvt_exists)
       THROW NEW WHFSException("OTHER","The parent object is already deleted");
@@ -1372,46 +1224,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
     INSERT CELL parent := this->pvt_id INTO metadata;
 
-    IF(isfolder OR type IN GetNeedsTemplateTypes())
-    {
-      IF(isfolder ? this->pvt_requiretemplateinsubfolders : this->pvt_requiretemplate)
-      {
-        DELETE CELL template FROM metadata;
-        INSERT CELL template := this->template INTO metadata;
-
-        IF(isfolder)
-        {
-          DELETE CELL requiretemplate FROM metadata;
-          DELETE CELL requiretemplateinsubfolders FROM metadata;
-          INSERT CELL requiretemplate := TRUE INTO metadata;
-          INSERT CELL requiretemplateinsubfolders := TRUE INTO metadata;
-        }
-      }
-      ELSE IF(NOT CellExists(metadata,'template'))
-      {
-        INSERT CELL template := this->template INTO metadata;
-      }
-    }
-    IF(isfolder OR type IN GetNeedsProfileTypes())
-    {
-      IF(isfolder ? this->pvt_requireprofileinsubfolders : this->pvt_requireprofile)
-      {
-        DELETE CELL profile FROM metadata;
-        INSERT CELL profile := this->profile INTO metadata;
-
-        IF(isfolder)
-        {
-          DELETE CELL requireprofile FROM metadata;
-          DELETE CELL requireprofileinsubfolders FROM metadata;
-          INSERT CELL requireprofile := TRUE INTO metadata;
-          INSERT CELL requireprofileinsubfolders := TRUE INTO metadata;
-        }
-      }
-      ELSE IF(NOT CellExists(metadata,'profile'))
-      {
-        INSERT CELL profile := this->profile INTO metadata;
-      }
-    }
 //    IF(NOT CellExists(metadata, "ordering"))// Added 10-04-2015 for the new ordering mechanism (next 3 nonemtpy lines)
 //      INSERT CELL ordering := 0 INTO metadata;
 
@@ -1421,49 +1233,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
 
 //    DumpValue(metadata, 'tree');
     RETURN metadata;
-  }
-
-
-  /** Run update hooks (correct templates and profiles recursively)
-  */
-  UPDATE MACRO DoUpdateHooks(RECORD oldversion, RECORD newversion)
-  {
-    WHFSObject::DoUpdateHooks(oldversion, newversion);
-
-    BOOLEAN repub_folder, repub_grandchildren;
-
-    IF(newversion.requiretemplate AND (oldversion.requiretemplate = FALSE OR oldversion.template != newversion.template))
-    {
-      UPDATE system.fs_objects
-             SET template := newversion.template
-           WHERE parent = this->id
-                 AND type IN GetNeedsTemplateTypes()
-                 AND isfolder = FALSE;
-      repub_folder := TRUE;
-    }
-
-    IF(newversion.requireprofile AND (oldversion.requireprofile = FALSE OR oldversion.profile != newversion.profile))
-    {
-      UPDATE system.fs_objects
-             SET profile := newversion.profile
-           WHERE parent = this->id
-                 AND type IN GetNeedsProfileTypes()
-                 AND isfolder = FALSE;
-      repub_folder := TRUE;
-    }
-
-    //Now get our template/profile recursion plan
-    BOOLEAN doreqtempl := newversion.requiretemplateinsubfolders != oldversion.requiretemplateinsubfolders;
-    BOOLEAN doreqprofl := newversion.requireprofileinsubfolders  != oldversion.requireprofileinsubfolders;
-    BOOLEAN dosettempl := newversion.requiretemplateinsubfolders AND (oldversion.requiretemplateinsubfolders=FALSE OR oldversion.template != newversion.template);
-    BOOLEAN dosetprofl := newversion.requireprofileinsubfolders  AND (oldversion.requireprofileinsubfolders=FALSE  OR oldversion.profile != newversion.profile);
-
-    IF(dosettempl OR dosetprofl)
-      repub_grandchildren := TRUE;
-    IF(doreqtempl OR doreqprofl OR dosettempl OR dosetprofl)
-      RecurseTemplProf(this->id, doreqtempl, doreqprofl, dosettempl, dosetprofl
-                      ,newversion.requiretemplateinsubfolders, newversion.requireprofileinsubfolders
-                      ,newversion.template, newversion.profile);
   }
 
   // ---------------------------------------------------------------------------
@@ -1488,17 +1257,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell newmetadata.modificationdate Modificationdate for this folder (datetime, optional)
       @cell newmetadata.name Name of this folder (string, must check ok with IsValidWHFSName, required);
       @cell newmetadata.type Id of the type of this folder (integer, optional)
-      @cell newmetadata.template Id of the template of this folder (integer, must be 0 or link to valid template, optional)
-      @cell newmetadata.profile Id of the profile of this folder (integer, must be 0 or link to valid profile, optional)
       @cell newmetadata.ordering Relative ordering vs other objects in the parent folder (integer, optional)
-      @cell newmetadata.requiretemplate Whether all files in this folder must use the template of this folder
-        (boolean, optional)
-      @cell newmetadata.requireprofile Whether all files in this folder must use the profiles of this folder
-        (boolean, optional)
-      @cell newmetadata.requiretemplateinsubfolders Whether all subfolders must force the template of this folder
-        recursively (boolean, optional)
-      @cell newmetadata.requireprofileinsubfolders Whether all subfolders must force the profile of this folder
-        recursively (boolean, optional)
       @cell newmetadata.indexdoc Id of indexdocument of this folder (integer, must link to file within this folder,
         optional)
   */
@@ -1546,7 +1305,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   */
   PUBLIC OBJECT FUNCTION CreateFile(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    //note: template, profile, dataistrusted and published are not documented as they are deprecated or for internal use only
+    //note: dataistrusted and published are not documented as they are deprecated or for internal use only
     //      dataistrusted should have been an option, not metadata
     options := ValidateOptions( [ runhooks := TRUE
                                 , setindex := FALSE
@@ -2041,8 +1800,6 @@ PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid)
 
   RECORD objinfo := SELECT id, isfolder, parent, highestparent, parentsite, fullpath, whfspath, objecturl, indexurl
                          , name, title, description, keywords, scandata
-                         , requiretemplate, requiretemplateinsubfolders, template
-                         , requireprofile, requireprofileinsubfolders, profile
                          , creationdate, modificationdate, modifiedby
                          , type, indexdoc, filelink, externallink, isactive, ispinned, ordering
                          , publish, published, firstpublishdate, lastpublishdate
@@ -2085,12 +1842,6 @@ PUBLIC OBJECT FUNCTION OpenWHFSObjectByPath(STRING fullpath, RECORD options DEFA
     @cell(string) return.title Value is empty
     @cell(string) return.description Value is empty
     @cell(string) return.keywords Value is empty
-    @cell(boolean) return.requiretemplate Boolean is set to FALSE
-    @cell(boolean) return.requiretemplateinsubfolders Boolean is set to FALSE
-    @cell(integer) return.template Id to give up the template id. Value is 0
-    @cell(boolean) return.requireprofile Boolean is set to FALSE
-    @cell(boolean) return.requireprofileinsubfolders Boolean is set to FALSE
-    @cell(integer) return.profile Id to give up the profile id. Value is 0
     @cell(datetime) return.creationdate Date of creation. Value is DEFAULT DATETIME
     @cell(datetime) return.modificationdate Date from last modification. Value is DEFAULT DATETIME
     @cell(integer) return.modifiedby Value is 0
@@ -2123,12 +1874,6 @@ PUBLIC OBJECT FUNCTION OpenWHFSRootObject()
         , title                         := ""
         , description                   := ""
         , keywords                      := ""
-        , requiretemplate               := FALSE
-        , requiretemplateinsubfolders   := FALSE
-        , template                      :=   0
-        , requireprofile                := FALSE
-        , requireprofileinsubfolders    := FALSE
-        , profile                       := 0
         , creationdate                  := DEFAULT DATETIME
         , modificationdate              := DEFAULT DATETIME
         , modifiedby                    := 0
@@ -2617,31 +2362,13 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
         }
 
         // Source is a file, remove irrelevant cells
-        DELETE CELL requiretemplate, requireprofile, requiretemplateinsubfolders
-                  , requireprofileinsubfolders, indexdoc FROM newmetadata;
+        DELETE CELL indexdoc FROM newmetadata;
 
         IF( (type="contentlink" OR type="internallink") AND newmetadata.type NOT IN [18,19,20])
         {
           DELETE CELL data FROM newmetadata;
           newmetadata.type := type="contentlink" ? 20 : 19;
           newmetadata.filelink := copyrec.sourceid;
-        }
-      }
-
-      IF(this->mapfilereferences)
-      {
-        // Unmap references when needed
-        IF (CellExists(newmetadata, "TEMPLATE"))
-        {
-          INTEGER template := this->UnmapWHFSRef(newmetadata.template);
-          DELETE CELL template FROM newmetadata;
-          INSERT CELL template:=template INTO newmetadata;
-        }
-        IF (CellExists(newmetadata, "PROFILE"))
-        {
-          INTEGER profile := this->UnmapWHFSRef(newmetadata.profile);
-          DELETE CELL profile FROM newmetadata;
-          INSERT CELL profile:=profile INTO newmetadata;
         }
       }
 
@@ -2791,9 +2518,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
     IF (new_index != destfolder->indexdoc)
       destfolder->UpdateMetadata ([ indexdoc := new_index ]);
-
-    // Fixup stuff like required template/profile, recursively
-    FixupTemplateProfileInfo(destfolder->id, FALSE, FALSE);
   }
 
 
@@ -2918,8 +2642,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
   {
     RECORD sourceinfo := SELECT name, title, keywords, description, externallink
                               , ordering, type, indexdoc, data, filelink
-                              , template, requiretemplate, requiretemplateinsubfolders
-                              , profile, requireprofile, requireprofileinsubfolders
                               , publish, modifiedby, ispinned, wrapped := DecodeScanData(scandata)
                            FROM system.fs_objects
                           WHERE id = source.sourceid;
@@ -3041,8 +2763,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
                 , ispinned := CellExists(metainfo.data,'ispinned') ? metainfo.data.ispinned : FALSE
                 , externallink := CellExists(metainfo.data,'externallink') ? metainfo.data.externallink : ''
                 , keywords := CellExists(metainfo.data,'keywords') ? metainfo.data.keywords : ''
-                , template := metainfo.templatepath
-                , profile :=  metainfo.profilepath
                 , filelink := CellExists(metainfo,'linkpath') ? metainfo.linkpath : ''
                 , ordering := metainfo.data.ordering
                 , type := ObjectExists(typeobj) ? typeobj->id : 0
@@ -3311,7 +3031,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
            SET published := ConvertToWillpublish(published, FALSE, FALSE,  PubPrio_DirectEdit)
            WHERE id IN updatedindices
                  AND publish = TRUE
-                 AND template != 0
                  AND isactive = TRUE;
 
     RECORD ARRAY republishes :=
@@ -3321,7 +3040,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
           FROM system.fs_objects
          WHERE id IN updatedindices
            AND publish = TRUE
-           AND template != 0
            AND isactive = TRUE;
 
     FOREVERY (RECORD rec FROM republishes)

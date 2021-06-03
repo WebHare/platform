@@ -69,8 +69,8 @@ MACRO TestWHFSType()
   RECORD unrecognized := DescribeContentTypeById(999999999);
   TestEq(DEFAULT RECORD, unrecognized);
 
-  TestThrows(PTR DescribeContentTypeById(4, [ mockifmissing := TRUE]));
-  TestThrows(PTR DescribeContentTypeById(999999999, [ mockifmissing := TRUE ]));
+  TestThrowsLike('*mockifmissing*isfolder*', PTR DescribeContentTypeById(4, [ mockifmissing := TRUE]));
+  TestThrowsLike('*mockifmissing*isfolder*', PTR DescribeContentTypeById(999999999, [ mockifmissing := TRUE ]));
 
   unrecognized := DescribeContentTypeById(999999999, [ isfolder := TRUE, mockifmissing := TRUE ]);
   TestEq(999999999, unrecognized.id);

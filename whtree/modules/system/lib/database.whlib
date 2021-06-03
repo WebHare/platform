@@ -223,10 +223,6 @@ PUBLIC SCHEMA
    , TABLE
     < BLOB "data"
     , BOOLEAN "publish" __ATTRIBUTES__(READONLY)
-    , BOOLEAN "requireprofile"
-    , BOOLEAN "requireprofileinsubfolders"
-    , BOOLEAN "requiretemplate"
-    , BOOLEAN "requiretemplateinsubfolders"
     , DATETIME "creationdate"
     , DATETIME "modificationdate"
     , INTEGER "modifiedby" NULL := 0
@@ -240,9 +236,7 @@ PUBLIC SCHEMA
     , INTEGER "ordering"
     , INTEGER "parent" NULL := 0
     , INTEGER "highestparent" __ATTRIBUTES__(READONLY)
-    , INTEGER "profile" NULL := 0
     , INTEGER "published"
-    , INTEGER "template" NULL := 0
     , INTEGER "type" NULL := 0
     , BOOLEAN "isfolder"
     //, INTEGER "parent_inside_site" __ATTRIBUTES__(READONLY) //TODO cleanup in moduledefinition.xml and C++ code

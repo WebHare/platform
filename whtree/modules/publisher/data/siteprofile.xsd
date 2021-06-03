@@ -1534,9 +1534,7 @@
     </xs:annotation>
     <xs:attribute name="notemplateprofile" type="xs:boolean">
       <xs:annotation>
-        <xs:documentation>
-          Disable template and profile selection
-        </xs:documentation>
+        <xs:documentation>Disable template and profile selection (note that HareScript templates and conversionprofiles have been permanently removed in WH 4.32)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>

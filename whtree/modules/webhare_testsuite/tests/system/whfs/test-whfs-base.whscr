@@ -316,135 +316,6 @@ MACRO IsActiveTest()
   testfw->CommitWork();
 }
 
-MACRO TemplateProfileTest()
-{
-  testfw->BeginWork();
-
-  OBJECT firstfolder := testfw->GetWHFSTestRoot();
-  OBJECT templprofbase := firstfolder->CreateFolder([name := "activetest"]);
-  OBJECT templprofbase2 := firstfolder->CreateFolder([name := "activetest2"]);
-  OBJECT testtemplate := firstfolder->CreateFile([name := "testtemplate", type := 28]);
-  OBJECT testprofile := firstfolder->CreateFile([name := "testprofile", type := 29]);
-  OBJECT testtemplate2 := firstfolder->CreateFile([name := "testtemplate2", type := 28]);
-  OBJECT testprofile2 := firstfolder->CreateFile([name := "testprofile2", type := 29]);
-
-  OBJECT testdoc, testhtml, testsub;
-
-  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4]);
-  TestEq(0, testdoc->template);
-  TestEq(0, testdoc->profile);
-  testdoc->DeleteSelf();
-
-  //Set the template & profile as defaults
-  templprofbase->UpdateMetadata([template := testtemplate->id, profile := testprofile->id]);
-
-  //DOCs should pick up both template&profile defaults
-  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4]);
-  TestEq(testtemplate->id, testdoc->template);
-  TestEq(testprofile->id, testdoc->profile);
-  testdoc->DeleteSelf();
-
-  //HTML documents should remain unaffected by profile, but affected by template
-  testhtml := templprofbase->CreateFile([name := "fake.html", type := 7]);
-  TestEq(testtemplate->id, testhtml->template);
-  TestEq(0, testhtml->profile);
-  testhtml->DeleteSelf();
-
-  //New folder should pick 'm up too
-  testsub := templprofbase->CreateFolder([name := "subdir"]);
-  TestEq(testtemplate->id, testsub->template);
-  TestEq(testprofile->id, testsub->profile);
-
-  //Explicitly set them, the defaults should be ignored now
-  testdoc := templprofbase->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
-  TestEq(0, testdoc->template);
-  TestEq(0, testdoc->profile);
-
-  //Now mark the template&profile as required
-  templprofbase->UpdateMetadata([requiretemplate := TRUE, requireprofile := TRUE]);
-  testdoc->Refresh();
-  TestEq(testtemplate->id, testdoc->template);
-  TestEq(testprofile->id, testdoc->profile);
-
-  //Try to change the template&profile
-  testdoc->UpdateMetadata([template := testtemplate2->id, profile := testprofile2->id]);
-  testdoc->Refresh();
-  TestEq(testtemplate->id, testdoc->template);
-  TestEq(testprofile->id, testdoc->profile);
-
-  //Try to create a new file with a forced different template
-  OBJECT testdoc2 := templprofbase->CreateFile([name := "fake2.doc", type := 4, template := testtemplate2->id, profile := testprofile2->id]);
-  TestEq(testtemplate->id, testdoc2->template);
-  TestEq(testprofile->id, testdoc2->profile);
-
-  //Now we test auto-reapply and auto-removal of templates/profiles
-  testdoc->UpdateMetadata( [ type := 5 ]); //turn it into a HTML file.
-  TestEq(0, testdoc->profile);
-  TestEq(testtemplate->id, testdoc->template);
-
-  //Even forcing a profile should be ignored
-  testdoc->UpdateMetadata( [ profile := testprofile->id ]);
-  TestEq(0, testdoc->profile);
-
-  //turn it into an unknown file (should want neither template nor profile)
-  testdoc->UpdateMetadata( [ type := 0, template := testtemplate->id ]);
-  TestEq(0, testdoc->profile);
-  TestEq(0, testdoc->template);
-
-  //test the 'we suddenly detected a 0 byte files type' scenario (webdav often does this)
-  OBJECT laterdetectfile := templprofbase->CreateFile( [name := "xxxxx"]);
-  TestEq(0, laterdetectfile->type);
-  TestEq(0, laterdetectfile->template);
-  laterdetectfile->UpdateData(StringToBlob('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> <HTML><TITLE>I am html!</TITLE></HTML>'));
-  TestEq(5, laterdetectfile->type);
-  TestEq(testtemplate->id, laterdetectfile->template);
-
-  /* regression test:
-     - Heb map met een bestand, vanuit site A met template A, gekopieerd naar site B
-     - Na kopieren is bestand geforceerd aan template A gekoppeld, en wordt geforceerd door zijn map
-     - Echter, zijn map is geforceerd gekoppeld aan template B
-  */
-  OBJECT folder_with_template_a := templprofbase->CreateFolder([ name := "sub_a" ]);
-  OBJECT testdoc_a := folder_with_template_a->CreateFile( [name := "sub_a.doc", type := 4 ]);
-  TestEq(testtemplate->id, testdoc_a->template);
-  TestEq(FALSE, folder_with_template_a->requiretemplate);
-  TestEq(FALSE, folder_with_template_a->requiretemplateinsubfolders);
-
-  templprofbase2->UpdateMetadata( [ template := testtemplate2->id, requiretemplateinsubfolders := TRUE ]);
-  OBJECT folder_with_template_b := templprofbase2->CreateFolder([ name := "sub_b" ]);
-  TestEq(TRUE, folder_with_template_b->requiretemplate);
-  TestEq(TRUE, folder_with_template_b->requiretemplateinsubfolders);
-  OBJECT copied_folder := folder_with_template_a->CopyTo(folder_with_template_b,"copy_sub_a");
-
-  //should have adapted to templprofbase2 requiremtents now
-  TestEq(testtemplate2->id, copied_folder->template);
-  TestEq(TRUE, copied_folder->requiretemplate);
-  TestEq(TRUE, copied_folder->requiretemplateinsubfolders);
-
-  OBJECT copy_of_testdoc_a := copied_folder->OpenByPath("sub_a.doc");
-  TestEq(testtemplate2->id, copy_of_testdoc_a->template);
-
-  /* copying fixed template/profile requirements, but moving didn't! */
-  folder_with_template_a->MoveTo(folder_with_template_b,"move_sub_a");
-
-  //should have adapted to templprofbase2 requiremtents now
-  TestEq(testtemplate2->id, folder_with_template_a->template);
-  TestEq(TRUE, folder_with_template_a->requiretemplate);
-  TestEq(TRUE, folder_with_template_a->requiretemplateinsubfolders);
-
-  OBJECT moved_testdoc_a := folder_with_template_a->OpenByPath("sub_a.doc");
-  TestEq(testtemplate2->id, moved_testdoc_a->template);
-
-  //issue 6829: template not forced on a new contentlink.
-  testdoc := firstfolder->CreateFile([name := "fake.doc", type := 4]);
-  TestEq(0,testdoc->template); //no template yet (so no accidental copying)
-
-  OBJECT testlink := folder_with_template_a->CreateFile([name := "linktodoc.doc", type := 20, filelink := testdoc->id]);
-  TestEq(folder_with_template_a->template, testlink->template);
-
-  testfw->CommitWork();
-}
-
 MACRO GetSetTest()
 {
   testfw->BeginWork();
@@ -640,7 +511,7 @@ MACRO IndexDocTest()
   OBJECT idfolder1 := testfolderobj->CreateFolder([ name := "idfolder1" ]);
   TestEq(0, idfolder1->indexdoc);
 
-  OBJECT testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
+  OBJECT testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4 ]);
   idfolder1->UpdateMetadata([indexdoc := testdoc1->id]);
   TestEq(testdoc1->id, idfolder1->indexdoc);
   idfolder1->UpdateMetadata([indexdoc := 0]);
@@ -657,7 +528,7 @@ MACRO IndexDocTest()
   TestEq(0, idfolder1->indexdoc);
   Testeq("http://www.webhare.net/xmlns/publisher/javascriptfile", testhtml->typens);
 
-  OBJECT testdoc2 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0]);
+  OBJECT testdoc2 := idfolder1->CreateFile([name := "fake.doc", type := 4 ]);
   TestEq(0, idfolder1->indexdoc);
 
   OBJECT idfolder2 := testfolderobj->CreateFolder([ name := "idfolder2" ]);
@@ -666,7 +537,7 @@ MACRO IndexDocTest()
   testhtml->RecycleSelf();
   testdoc2->RecycleSelf();
 
-  testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4, template := 0, profile := 0 ], [setindex := TRUE]);
+  testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4 ], [setindex := TRUE]);
   TestEq(testdoc1->id, idfolder1->indexdoc);
 
   testdoc1->MoveTo(idfolder2, "");
@@ -891,85 +762,6 @@ MACRO UniqueNameGenerationTest()
   testfw->CommitWork();
 }
 
-MACRO NeedsTemplateProfileTest()
-{
-  testfw->BeginWork();
-  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
-
-  OBJECT templfile := testfolderobj->CreateFile([name := "needstest.tpl",type:=28]);
-  OBJECT profilefile := testfolderobj->CreateFile([name := "needstest.prl",type:=29]);
-
-  OBJECT worddoc := testfolderobj->CreateFile([name := "needstest.doc",type:=4]);
-  TestEq(TRUE,worddoc->needstemplate);
-  TestEq(TRUE,worddoc->needsprofile);
-
-  OBJECT htmldoc := testfolderobj->CreateFile([name := "needstest.html",type:=7]);
-  TestEq(TRUE,htmldoc->needstemplate);
-  TestEq(FALSE,htmldoc->needsprofile);
-
-  OBJECT worddoc_intlink := testfolderobj->CreateFile([name := "needstest.doc.intlink",type:=19,filelink:=worddoc->id]);
-  TestEq(FALSE,worddoc_intlink->needstemplate);
-  TestEq(FALSE,worddoc_intlink->needsprofile);
-
-  OBJECT htmldoc_intlink := testfolderobj->CreateFile([name := "needstest.html.intlink",type:=19,filelink:=htmldoc->id]);
-  TestEq(FALSE,htmldoc_intlink->needstemplate);
-  TestEq(FALSE,htmldoc_intlink->needsprofile);
-
-  OBJECT worddoc_contentlink := testfolderobj->CreateFile([name := "needstest.doc.clink",type:=20,filelink:=worddoc->id]);
-  TestEq(TRUE,worddoc_contentlink->needstemplate);
-  TestEq(TRUE,worddoc_contentlink->needsprofile);
-
-  OBJECT htmldoc_contentlink := testfolderobj->CreateFile([name := "needstest.html.clink",type:=20,filelink:=htmldoc->id]);
-  TestEq(TRUE,htmldoc_contentlink->needstemplate);
-  TestEq(FALSE,htmldoc_contentlink->needsprofile);
-
-  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
-  TestEq(profilefile->id, worddoc_contentlink->profile);
-  TestEq(templfile->id, worddoc_contentlink->template);
-  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0]);
-  TestEq(0, worddoc_contentlink->profile);
-  TestEq(0, worddoc_contentlink->template);
-
-  htmldoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
-  TestEq(0, htmldoc_contentlink->profile);
-  TestEq(templfile->id, htmldoc_contentlink->template);
-  htmldoc_contentlink->UpdateMetadata([profile := 0, template := 0]);
-  TestEq(0, htmldoc_contentlink->profile);
-  TestEq(0, htmldoc_contentlink->template);
-
-  worddoc_intlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
-  TestEq(0, worddoc_intlink->profile);
-  TestEq(0, worddoc_intlink->template);
-  worddoc_intlink->UpdateMetadata([profile := 0, template := 0]);
-  TestEq(0, worddoc_intlink->profile);
-  TestEq(0, worddoc_intlink->template);
-
-  htmldoc_intlink->UpdateMetadata([profile := profilefile->id, template := templfile->id]);
-  TestEq(0, htmldoc_intlink->profile);
-  TestEq(0, htmldoc_intlink->template);
-  htmldoc_intlink->UpdateMetadata([profile := 0, template := 0]);
-  TestEq(0, htmldoc_intlink->profile);
-  TestEq(0, htmldoc_intlink->template);
-
-  //repoint worddoclink to a htmlfile while setting profile/template
-  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id, filelink := htmldoc->id]);
-  TestEq(0, worddoc_contentlink->profile);
-  TestEq(templfile->id, worddoc_contentlink->template);
-  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0 ]);
-  TestEq(0, worddoc_contentlink->profile);
-  TestEq(0, worddoc_contentlink->template);
-
-  //repoint worddoclink back to the worddoc while setting profile/template
-  worddoc_contentlink->UpdateMetadata([profile := profilefile->id, template := templfile->id, filelink := worddoc->id]);
-  TestEq(profilefile->id, worddoc_contentlink->profile);
-  TestEq(templfile->id, worddoc_contentlink->template);
-  worddoc_contentlink->UpdateMetadata([profile := 0, template := 0 ]);
-  TestEq(0, worddoc_contentlink->profile);
-  TestEq(0, worddoc_contentlink->template);
-
-  testfw->CommitWork();
-}
-
 MACRO TestWHFSResourceNameMapper()
 {
   OBJECT mapper := NEW WHFSResourceNameMapper;
@@ -1015,12 +807,10 @@ Runtestframework( [ PTR SimpleTest
                   , PTR MoveTest
                   , PTR TestRecyleMoveTrick
                   , PTR LinkTest
-                  , PTR TemplateProfileTest
                   , PTR SiteDeletionTest
                   , PTR IsActiveTest
                   , PTR IndexDocTest
                   , PTR InsertPropertiesTest
                   , PTR ExtendedZipTest
-                  , PTR NeedsTemplateProfileTest
                   , PTR TestWHFSResourceNameMapper
                   ]);

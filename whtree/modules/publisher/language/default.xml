@@ -121,7 +121,6 @@
       <text tid="requestcancelled">The publication request has been cancelled - the document is reverted to the latest draft version.</text>
       <text tid="siteprofileerrors">The following errors occured processing the site profiles:<br/><br/><param p="1"/></text>
       <text tid="submitversionedfiletoapplychanges">Your changes are not yet visible online: they need to be submitted (and approved) first.</text>
-      <text tid="takeownershipconfirm">If you take ownership of a template or semidynamic content file, the code will be run with your rights.<br/><br/>Are you sure you want to take ownership of this file?</text>
       <text tid="unpinconfirm">Are you sure you want to remove the object protection?</text>
     </textgroup>
     <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
@@ -132,9 +131,6 @@
       <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
       <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
       <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
-      <text tid="forcedbyparent">(Forced by parent folder)</text>
-      <text tid="forceprofile">Force profile</text>
-      <text tid="forcetemplate">Force template</text>
       <text tid="link">Link</text>
       <text tid="local">in this folder</text>
       <text tid="lockreason">Reason for locking:</text>
@@ -148,10 +144,6 @@
       <text tid="newsite-title">New site</text>
       <text tid="nobrokenlinks">No broken links found</text>
       <text tid="nolinks">No links found</text>
-      <text tid="noprofile">&lt;No profile&gt;</text>
-      <text tid="notasiteprofileinrepository">Only siteprofiles in the Repository site can be marked as trusted.</text>
-      <text tid="notemplate">&lt;No template&gt;</text>
-      <text tid="openbracket">(</text>
       <text tid="originallocation">Original location</text>
       <text tid="output">Output</text>
       <text tid="outputfolder">Subfolder in output URL</text>
@@ -160,37 +152,25 @@
       <text tid="path">Path</text>
       <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
       <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
-      <text tid="profile">Profile</text>
-      <text tid="propeditor">Propertyeditor</text>
-      <text tid="properties">Properties</text>
       <text tid="publicationsettings">Publication settings</text>
       <text tid="publish">Publish this file</text>
       <text tid="publishedurl">URL</text>
       <text tid="publishtab">Publication</text>
-      <text tid="recursive">in all subfolders</text>
       <text tid="requestapproval">Submit for approval</text>
       <text tid="restrictions">Restrictions</text>
       <text tid="rights">Rights</text>
-      <text tid="secondaryoutput">Secondary output</text>
       <text tid="showapplyrules">Show &lt;apply&gt; rules</text>
       <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
-      <text tid="siteprofile">Site profile</text>
-      <text tid="siteprofileerrors">The following property editors caused errors</text>
-      <text tid="siteprofiles">Site profiles</text>
-      <text tid="sitesettings">Site settings</text>
       <text tid="sitesettings-title">Settings for site '<param p="1"/>'</text>
       <text tid="sitetab">Site</text>
-      <text tid="takeownership">Take ownership</text>
       <text tid="tasksettings">Tasks</text>
       <text tid="taskstab">Tasks</text>
-      <text tid="template">Template</text>
       <text tid="trashnotpublished">Deleted files cannot be published</text>
       <text tid="trustedsiteprofilesbox">Trusted site profiles</text>
       <text tid="type">Type</text>
       <text tid="typenotpublished">Files of type '<param p="1"/>' cannot be published</text>
       <text tid="unknown">&lt;Unknown&gt;</text>
       <text tid="viewurl">View</text>
-      <text tid="webpackinfo">Linked webpacks</text>
       <text tid="whfspath">Site profile</text>
       <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
         <text tid="notasks">No tasks have been scheduled</text>
@@ -1286,9 +1266,6 @@
       <text tid="repubfile">Republish</text>
       <text tid="repubfolder">Selected Folder (excluding Subfolders)</text>
       <text tid="repubfolderrecurse">Selected Folder and Subfolders</text>
-      <text tid="repubmask">Using a wildcard mask</text>
-      <text tid="repubsite">Current Site</text>
-      <text tid="repubsiteall">Current Site including files without template</text>
       <text tid="restore">Restore</text>
       <text tid="showmodifications">Modifications</text>
       <text tid="unpinitems">Remove protection</text>
@@ -1725,20 +1702,13 @@
   </textgroup>
   <textgroup gid="sysmgmt" limitlanguages="en nl">   <!-- sysmgmt -->
     <textgroup gid="filesystem">   <!-- sysmgmt.filesystem -->
-      <text tid="applet">Publisher and filesystem</text>
-      <text tid="badtemplatepermission">'<param p="1"/>' is not a valid template permission. To enter multiple permissions, separate them using commas</text>
       <text tid="defaultcontentlisting">Default content listing</text>
-      <text tid="docmgmt">Document management</text>
-      <text tid="globalversionexpiry">Expire history items after</text>
       <text tid="loglevel-debug">Debugging</text>
       <text tid="loglevel-fatalerrors">Fatal errors only</text>
       <text tid="loglevel-statistics">Statistics</text>
       <text tid="maxpublishtime">Maximum publication time</text>
-      <text tid="processes">Number of processes</text>
-      <text tid="processes_suggest">(suggested: <param p="1"/>)</text>
       <text tid="publication">Publications</text>
       <text tid="queueloglevel">Queue logging level</text>
-      <text tid="templatehspermissions">Template HareScript permissions</text>
       <text tid="title">Publisher and filesystem configuration</text>
       <text tid="trashcan">Trashcan</text>
       <text tid="trashcanexpire">Keep items in trashcan for</text>

@@ -91,7 +91,6 @@ RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
         SELECT sourcefiletype     := file.type
               , filename           := file.name
               , publish            := file.publish
-              , filetemplate       := file.template
               , linkid             := file.filelink
               , folderfullpath     := folder.fullpath
               , folderindexdoc     := folder.indexdoc
@@ -265,11 +264,6 @@ STATIC OBJECTTYPE PublicationRun
         {
           found_template := TRUE;
           retval.templatescript := "mod::publisher/scripts/internal/publishwebdesign.whscr";
-        }
-        ELSE IF (this->filedata.filetemplate != 0)
-        {
-          found_template := TRUE;
-          retval.templateid := this->filedata.filetemplate;
         }
         RETURN retval;
       }

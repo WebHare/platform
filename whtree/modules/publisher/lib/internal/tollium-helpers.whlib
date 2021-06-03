@@ -494,7 +494,6 @@ PUBLIC STRING FUNCTION GetPublicationErrorMsg(INTEGER published, STRING errordat
     CASE 108 { RETURN GetTid("publisher:publicationstatus.errors.noparts"); }
     CASE 109 { RETURN GetTid("publisher:publicationstatus.errors.noprofile"); }
     CASE 112 { RETURN GetTid("publisher:publicationstatus.errors.sitelocked"); }
-    CASE 113 { RETURN GetTid("publisher:publicationstatus.errors.corruptedprofile"); }
     CASE 114 { RETURN GetTid("publisher:publicationstatus.errors.templatehasbeendeleted"); }
     CASE 115 { RETURN GetTid("publisher:publicationstatus.errors.conflictingfile", errordata); }
 

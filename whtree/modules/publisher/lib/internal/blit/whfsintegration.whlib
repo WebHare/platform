@@ -44,13 +44,7 @@ RECORD defaultbasedata :=
     , externallink := ""
     , filelink :=     ""
     , indexdoc :=     "" // Only folders
-    , template :=     ""
-    , profile :=      ""
     , ordering :=     "0"
-    , requiretemplate := "0"
-    , requireprofile := "0"
-    , requiretemplateinsubfolders := "0"
-    , requireprofileinsubfolders := "0"
     ];
 
 OBJECTTYPE BlitRecursiveException EXTEND Exception
@@ -396,13 +390,7 @@ STATIC OBJECTTYPE WHFSTreeDataIndexer
              , externallink
              , filelink
              , indexdoc
-             , template
-             , profile
              , ordering
-             , requiretemplate
-             , requireprofile
-             , requiretemplateinsubfolders
-             , requireprofileinsubfolders
              , modificationdate
              , parent
              , fscacherec :=    DEFAULT RECORD
@@ -801,8 +789,6 @@ STATIC OBJECTTYPE WHFSDescriptionTree EXTEND WHFSDescriptionTreeBase
 
     BOOLEAN want_filelink := no_filter OR "filelink" IN isetting.basefields;
     BOOLEAN want_indexdoc := no_filter OR "indexdoc" IN isetting.basefields;
-    BOOLEAN want_template := no_filter OR "template" IN isetting.basefields;
-    BOOLEAN want_profile := no_filter OR "profile" IN isetting.basefields;
 
     RECORD basedata :=
         [ type :=                           typens
@@ -813,13 +799,7 @@ STATIC OBJECTTYPE WHFSDescriptionTree EXTEND WHFSDescriptionTreeBase
         , externallink :=                   rec.externallink
         , filelink :=                       want_filelink ? this->MapBaseDataWHFSRef(rec, "FILELINK", mapper, path) : ""
         , indexdoc :=                       want_indexdoc ? this->MapBaseDataWHFSRef(rec, "INDEXDOC", mapper, path) : ""
-        , template :=                       want_template ? this->MapBaseDataWHFSRef(rec, "TEMPLATE", mapper, path) : ""
-        , profile :=                        want_profile ? this->MapBaseDataWHFSRef(rec, "PROFILE", mapper, path) : ""
         , ordering :=                       ToString(rec.ordering)
-        , requiretemplate :=                rec.requiretemplate ? "1" : "0"
-        , requireprofile :=                 rec.requireprofile ? "1" : "0"
-        , requiretemplateinsubfolders :=    rec.requiretemplateinsubfolders ? "1" : "0"
-        , requireprofileinsubfolders :=     rec.requireprofileinsubfolders ? "1" : "0"
         ];
 
     RETURN this->SetFilteredBaseDataToDefault(basedata, isetting);
@@ -1944,8 +1924,6 @@ STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
           , ispinned :=                     dtree.basedata.ispinned = "1"
           , title :=                        DecodeJava(dtree.basedata.title)
           , description :=                  DecodeJava(dtree.basedata.description)
-          , template :=                     mapper->UnmapWHFSRef(dtree.basedata.template)
-          , profile :=                      mapper->UnmapWHFSRef(dtree.basedata.profile)
           , ordering :=                     ToInteger(dtree.basedata.ordering, 0)
           ];
 
@@ -1962,11 +1940,7 @@ STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
       ELSE
       {
         metadata_updates := MakeMergedrecord(metadata_updates,
-          [ requiretemplate :=              dtree.basedata.requiretemplate = "1"
-          , requireprofile :=               dtree.basedata.requireprofile = "1"
-          , requiretemplateinsubfolders :=  dtree.basedata.requiretemplateinsubfolders = "1"
-          , requireprofileinsubfolders :=   dtree.basedata.requireprofileinsubfolders = "1"
-          , indexdoc :=                     mapper->UnmapWHFSRef(dtree.basedata.indexdoc)
+          [ indexdoc :=                     mapper->UnmapWHFSRef(dtree.basedata.indexdoc)
           ]);
       }
 
