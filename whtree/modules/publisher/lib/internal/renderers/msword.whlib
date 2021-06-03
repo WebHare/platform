@@ -159,7 +159,6 @@ PUBLIC OBJECTTYPE RenderMSWordFIle EXTEND StaticPageBase
     TRY
     {
       INTEGER doc := OpenMSWordDocument(this->contentobject->data);
-      //ReadConversionProfile(OpenWHFSObjectByPath("/repository/utwente/dottwente/ut.prl")->id);
       RECORD result := ScanMSWordDocument(doc, this->wordsettings.conversionprofile.emptydocobjects, this->wordsettings.conversionprofile.styles);
 
       this->rawtoclevels := SELECT toclevel, embedtype FROM this->wordsettings.conversionprofile.styles WHERE embedtype!="";
