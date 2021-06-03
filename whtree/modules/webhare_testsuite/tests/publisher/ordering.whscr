@@ -3,7 +3,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-OBJECT ASYNC FUNCTION FolderOrdering()
+ASYNC MACRO FolderOrdering()
 {
   testfw->SetTestUser("lisa");
 
@@ -18,7 +18,7 @@ OBJECT ASYNC FUNCTION FolderOrdering()
   testfw->CommitWork();
 
   //http://webhare.willie.sf.b-lex.com/?app=publisher(/webhare_testsuite.site/ordering)&openas=webhare_testsuite.lisa&language=debug
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[GetTestsuiteTempFolder()->whfspath], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[GetTestsuiteTempFolder()->whfspath ] ]));
 
   //Set the controller for modals to our new handler:
   TestEq("tmp", TT("foldertree")->selection.name);
@@ -86,9 +86,9 @@ OBJECT ASYNC FUNCTION FolderOrdering()
   TestEq("recycle1", TT("filelist")->selection[0].name, "Selection changed though no action was explicitly requested by the user");
   // Now let's move it up three positions:
   TestEq(TRUE, TT("moveupbutton")->enabled);
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TTClick("moveupbutton");
+  TTClick("moveupbutton");
+  TTClick("moveupbutton");
 
   //DumpValue((SELECT AS STRING ARRAY name FROM TT("filelist")->rows), 'tree');
   TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "recycle1", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after explicitly reordering");
@@ -113,9 +113,9 @@ OBJECT ASYNC FUNCTION FolderOrdering()
   TestEq("recycle2", TT("filelist")->selection[0].name, "Selection changed though no action was explicitly requested by the user");
   // Now let's move it up three positions:
   TestEq(TRUE, TT("moveupbutton")->enabled);
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
-  TestEq(TRUE, TT("moveupbutton")->TolliumClick());
+  TTClick("moveupbutton");
+  TTClick("moveupbutton");
+  TTClick("moveupbutton");
 
   TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "recycle2", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after explicitly reordering");
   TestEq("recycle2", TT("filelist")->selection[0].name, "Selection changed after the user moved the selected item with the ordering buttons");
@@ -132,12 +132,32 @@ OBJECT ASYNC FUNCTION FolderOrdering()
 //  TestEq(TRUE, topscreen->uploadbutton->TolliumClick());
 //  TestEq(TRUE, topscreen->replacebutton->TolliumClick());
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
-  RETURN TRUE;
+ASYNC MACRO FolderOrderingOfForeigns()
+{
+  testfw->BeginWork();
+  OBJECT folderholder := GetTestsuiteTempFolder()->CreateFolder([name := "showforeigns"]);
+  OBJECT normalsub := folderholder->CreateFolder([name := "normalsub", ordering := 1 ]);
+  OBJECT foreignsub := folderholder->CreateFolder([name := "foreignsub", ordering := 2, type := 1 ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[folderholder->whfspath ] ]));
+  TT("sortorderselect")->value := "ordering";
+
+  TestEq([ "normalsub", "foreignsub" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "foreignsub";
+  TTClick("moveupbutton");
+
+  TestEq([ "foreignsub", "normalsub" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR FolderOrdering
+                 , PTR FolderOrderingOfForeigns
                  ], [ testusers := [[ login := "lisa" ]
                                    ]
                     ]);

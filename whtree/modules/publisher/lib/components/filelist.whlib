@@ -103,6 +103,8 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
   /// Timer callbacks to correct 'shown as publishing' entries
   INTEGER pbtimercb;
+  /// Current folder settings
+  RECORD foldersettings;
 
   STRING pvt_selectmode;
   STRING pvt_rowlayout;
@@ -265,6 +267,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   {
     this->currentfilterresults := DEFAULT RECORD ARRAY;
     this->resultslimitedpanel->visible := FALSE;
+    this->foldersettings := foldersettings;
 
     STRING filterscreen := foldersettings.filterscreen;
     IF(filterscreen != "")
@@ -679,12 +682,13 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     //Print("refreshlist " || this->Curfolder || " " || (ObjecTExists(this->curextension) ? " have ext" : " no ext") || "\n");
 
     RECORD ARRAY files;
+    BOOLEAN showexternalfolders := (RecordExists(this->foldersettings) AND this->foldersettings.visibleforeignfolders) OR NOT this->hideexternal;
     IF(this->hasfilter)
     {
       IF(Length(this->currentfilterresults) > 0)
       {
         INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM this->currentfilterresults;
-        files := GetInnerObjectListing(this->owner->tolliumuser, 0, NOT this->hidefolders, NOT this->hideexternal, NOT this->hidefiles, TRUE, fileids, this->contentmode);
+        files := GetInnerObjectListing(this->owner->tolliumuser, 0, NOT this->hidefolders, showexternalfolders, NOT this->hidefiles, TRUE, fileids, this->contentmode);
 
         FOREVERY(RECORD file FROM files)
           IF(NOT RecordExists(SELECT FROM this->currentfilterresults WHERE currentfilterresults.id = file.id AND currentfilterresults.parent = file.parent))
@@ -702,7 +706,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     ELSE
     {
       IF(this->curfolder >= 0) //getobjectlisting includes extensionobjects
-        files := files CONCAT this->GetObjectListing(this->curfolder, NOT this->hidefolders, NOT this->hideexternal, NOT this->hidefiles, showhidden, this->contentmode,FALSE, DEFAULT INTEGER ARRAY);
+        files := files CONCAT this->GetObjectListing(this->curfolder, NOT this->hidefolders, showexternalfolders, NOT this->hidefiles, showhidden, this->contentmode,FALSE, DEFAULT INTEGER ARRAY);
       ELSE IF(Length(this->customcontents) > 0)
       {
         RECORD ARRAY fileslist := SELECT *

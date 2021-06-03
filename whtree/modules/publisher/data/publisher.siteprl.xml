@@ -136,7 +136,6 @@
               icon="tollium:folders/locked"
               indexfile="none"
               isdevelopertype="true"
-              ishidden="true"
               tid="publisher:foldertypes.foreign"
               webhare_builtintypeid="1" />
 
