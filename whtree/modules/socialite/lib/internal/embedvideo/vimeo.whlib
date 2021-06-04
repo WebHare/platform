@@ -1,16 +1,10 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/remoting/whservice.whlib";
 
 
 PUBLIC OBJECTTYPE VimeoProvider EXTEND EmbedVideoProviderBase
 <
-  MACRO NEW()
-  {
-    OpenPrimary();
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION Search(STRING searchfor, INTEGER maxresults)
   {
     IF(searchfor="")

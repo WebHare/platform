@@ -28,11 +28,6 @@
     <localservice name="services" library="internal/services.whlib" objectname="SocialiteServices" reuse="true" />
     <localservice name="recaptcha" library="internal/services.whlib" objectname="RecaptchaServices" reuse="true" withtransaction="false" />
 
-    <!-- services used as embedvideoproviders -->
-    <localservice name="youtubeprovider" library="internal/embedvideo/youtube.whlib" objectname="YoutubeProvider" reuse="true" withtransaction="false" />
-    <localservice name="vimeoprovider" library="internal/embedvideo/vimeo.whlib" objectname="VimeoProvider" reuse="true" withtransaction="false" />
-    <localservice name="youkuprovider" library="internal/embedvideo/youku.whlib" objectname="YoukuProvider" reuse="true" withtransaction="false" />
-
     <webservice name="recaptcha" transports="jsonrpc" library="internal/recaptcha-rpc.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
@@ -233,6 +228,11 @@
     <webdesignplugin name="analyticsexperiment" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/webdesignplugin.whlib#analyticsexperimentplugin"  />
     <webdesignplugin name="seotab" namespace="http://www.webhare.net/xmlns/socialite" objectname="lib/internal/plugins/seotab.whlib#seotabplugin" hooksfeatures="objectprops" />
     <formcomponents namespace="http://www.webhare.net/xmlns/socialite/forms" xmlschema="data/forms/formdef.xsd"/>
+
+    <embedvideodetector functionname="lib/internal/embedvideo/support.whlib#guessfromcode" />
+    <embedvideoprovider name="youtube" tid="embedvideo.network.youtube" objectname="lib/internal/embedvideo/youtube.whlib#YoutubeProvider" />
+    <embedvideoprovider name="vimeo" tid="embedvideo.network.vimeo" objectname="lib/internal/embedvideo/vimeo.whlib#VimeoProvider" />
+    <embedvideoprovider name="youku" tid="embedvideo.network.youku" objectname="lib/internal/embedvideo/youku.whlib#YoukuProvider" />
   </publisher>
 
   <moduleregistry>
@@ -245,12 +245,5 @@
       <string name="tagmanagers" />
     </node>
   </moduleregistry>
-
-  <embedvideoproviders xmlns="http://www.webhare.net/publisher/embedvideoproviders">
-    <detector library="internal/embedvideo/support.whlib" functionname="guessfromcode" />
-    <provider name="youtube" tid="embedvideo.network.youtube" localservice="youtubeprovider" />
-    <provider name="vimeo" tid="embedvideo.network.vimeo" localservice="vimeoprovider" />
-    <provider name="youku" tid="embedvideo.network.youku" localservice="youkuprovider" />
-  </embedvideoproviders>
 
 </module>

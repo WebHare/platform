@@ -732,6 +732,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , assetpacks           := DEFAULT RECORD ARRAY
       , addtoassetpacks      := RECORD[]
       , formcomponents       := DEFAULT RECORD ARRAY
+      , embedvideodetectors  := RECORD[]
+      , embedvideoproviders  := RECORD[]
       ];
 
     this->moduledef.name := this->modulename;
@@ -1528,6 +1530,18 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
               , xsd :=              xsd
               ];
           INSERT rec INTO this->moduledef.formcomponents AT END;
+        }
+        CASE "embedvideodetector"
+        {
+          INSERT [ functionname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("functionname"))
+                 ] INTO this->moduledef.embedvideodetectors AT END;
+        }
+        CASE "embedvideoprovider"
+        {
+          INSERT [ name       := subchild->GetAttribute("name")
+                 , title      := ParseXMLTidPtr(this->respath, childgid, subchild, "title")
+                 , objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname"))
+                 ] INTO this->moduledef.embedvideoproviders AT END;
         }
       }
     }
