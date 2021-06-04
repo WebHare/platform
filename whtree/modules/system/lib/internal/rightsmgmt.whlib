@@ -502,7 +502,8 @@ RECORD ARRAY FUNCTION GetSpecificGrantDataFor(INTEGER ARRAY grantees, INTEGER ri
       FROM rights_table
      WHERE (LENGTH(grantees) = 0 ? TRUE : COLUMN grantee IN grantees)
        AND COLUMN "right" = VAR right
-       AND ( ignore_object ? TRUE : COLUMN "object" = obj );
+       AND ( ignore_object ? TRUE : COLUMN "object" = obj )
+   ORDER BY withgrantoption; //ensure that if we have to drop superfluous rights, one with the grantoption persists
 }
 
 
@@ -1058,6 +1059,7 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   INTEGER __pvt_rightsobjecttype;
 
+  PUBLIC RECORD __userdataforlogging; //temporary workaround so we can reduce the amount of info passed to UpdateGrant
 
   INTEGER ARRAY cached_expandedauthobjects;
 
@@ -1141,10 +1143,9 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
   */
   PUBLIC RECORD FUNCTION GetUserDataForLogging()
   {
-    RETURN
-        [ authobjectid := this->__pvt_authobjectid
-        , when :=         GetCurrentDatetime()
-        ];
+    RETURN this->__userdataforlogging ?? CELL[ authobjectid := this->__pvt_authobjectid
+                                             , when :=         GetCurrentDatetime()
+                                             ];
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasRole(INTEGER roleid)
@@ -1362,34 +1363,95 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
         ];
   }
 
-
-
-  /** Grants a right to a user
-      Throws upon failures
-      are signalled by returning FALSE.
-      @param rightdata Right data
-      @param grantee Grantee
-      @param obj Object (only for object-rights)
-      @param withgrantoption
+  /** Grant, update or revoke the specified object right on the specified object to another user. Throws on failure.
+      @param action grant/update/revoke. update does not grant a nonexisting right
+      @param rightname Right to grant
+      @param objectid Object to grant the right on (0 for all objects. always set to 0 for global rights!)
+      @param(object #RightsUserObject) grantee User to grant the right to
+      @cell(boolean) options.allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @cell(boolean) options.withgrantoption If set, update 'withgrantoption'
+      @cell(string) options.comment If set, update the comment
   */
-  MACRO __PVT_GrantRightToOn(RECORD rightdata, OBJECT grantee, INTEGER obj, BOOLEAN withgrantoption, BOOLEAN allowselfassignment, STRING comment, RECORD grantoruserdata)
+  PUBLIC MACRO UpdateGrant(STRING action, STRING rightname, INTEGER objectid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-    trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
+    options := ValidateOptions([ allowselfassignment := FALSE
+                               , withgrantoption := FALSE
+                               , comment := ""
+                               ], options, [ optional := [ "withgrantoption", "comment" ]]);
 
-    RECORD granteedata := grantee->__PVT_GetExportdata();
-    RECORD grantordata := this->__PVT_GetExportdata();
+    IF(action NOT IN ["grant","update","revoke"])
+      THROW NEW Exception("The action must be one of 'grant', 'update' or 'revoke'");
 
-    trans->OpenService("system:rights")->WL_GrantRightToOn(rightdata.fullname, grantordata, granteedata, obj, withgrantoption, allowselfassignment, comment, grantoruserdata ?? this->GetUserDataForLogging());
+    IF (NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("This operation requires an explicitly opened transaction");
+
+    // Check if the user has enough rights to grant this right
+    RECORD rightdata := GetRightByNameInternal(rightname);
+    IF(NOT (options.allowselfassignment AND this->authobjectid = grantee->authobjectid))
+    {
+      IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ this->__pvt_authobjectid ], TRUE), FALSE, objectid, FALSE, FALSE, TRUE)))
+        THROW NEW Exception("The grantor does not have the right to grant this right");
+    }
+
+    // Integrity check (objectrights and object)
+    IF (NOT rightdata.allowobjref AND objectid != 0)
+      THROW NEW Exception("Right '"||rightdata.fullname||"' does not apply to specific objects");
+
+    // Get the grantee for this right
+    INTEGER grantee_id := grantee->__PVT_GetAllAuthObjects()[0];
+    IF (grantee_id = 0)
+      THROW NEW Exception("Invalid grantee");
+
+    // Lookup any existing rights assignment. Implies GetSpecificGrantDataFor
+    RECORD ARRAY grants := GetSpecificGrantDataFor([ grantee_id ], rightdata.rightid, rightdata.storagetable, FALSE, objectid);
+    IF(Length(grants) = 0 AND action != "grant") //anything to do?
+        RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
+
+    GetPrimary()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD); //we don't worry yet about the no-op update case
+
+    IF(Length(grants) = 0) //simply adding..
+    {
+      BOOLEAN withgrantoption := CellExists(options, 'withgrantoption') AND options.withgrantoption;
+      STRING comment := CellExists(options, 'comment') ? options.comment : "";
+      INSERT INTO rights_table(grantee, grantor, "object", "right", creationdate, withgrantoption, comment, grantordata)
+             VALUES(grantee_id, this->authobjectid, objectid, rightdata.rightid, GetCurrentDateTime(), withgrantoption, comment, EncodeHSON(this->GetUserDataForLogging()));
+      RETURN;
+    }
+
+    IF(action = "revoke") //we are removing a grant
+    {
+      DELETE FROM rights_table WHERE id IN (SELECT AS INTEGER ARRAY grants.id FROM grants);
+      RETURN;
+    }
+
+    //If we get here, we're either granting an existing right, or explicitly updating
+    IF(Length(grants) > 0) //delete superfluous grants
+      DELETE FROM rights_table WHERE id IN ArraySlice((SELECT AS INTEGER ARRAY grants.id FROM grants), 1);
+
+    //updating an existing grant.
+    RECORD grantupdate;
+    IF(CellExists(options,'comment') AND options.comment != grants[0].comment)
+      INSERT CELL comment := options.comment INTO grantupdate;
+
+    IF(CellExists(options,'withgrantoption') AND options.withgrantoption != grants[0].withgrantoption)
+    {
+      INSERT CELL withgrantoption := options.withgrantoption INTO grantupdate;
+
+      IF(options.withgrantoption) //setting grant option ? then you 'own' this right now!
+        INSERT CELL grantordata := EncodeHSON(this->GetUserDataForLogging()) INTO grantupdate;
+    }
+
+    IF(RecordExists(grantupdate))
+      UPDATE rights_table SET RECORD grantupdate WHERE id = grants[0].id;
   }
-
 
 
   /** Grants the specified global right to another user. Throws on failure.
       @param grantee User object to grant the right to.
       @param rightname Right to grant
       @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
-      @see GrantRightToOn, RevokeRightFrom, RevokeRightFromOn
+      @see UpdateGrant
+      @deprecated Switch to UpdateGrant in WH 4.32+
   */
   PUBLIC MACRO GrantRightTo(STRING rightname, OBJECT grantee, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "", RECORD grantoruserdata DEFAULTSTO DEFAULT RECORD)
   {
@@ -1397,9 +1459,14 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF (right.allowobjref)
       THROW NEW Exception("GrantRightTo can only be used for global rights");
 
-    this->__PVT_GrantRightToOn(right, grantee, 0, withgrantoption, allowselfassignment, comment, grantoruserdata);
-  }
+    IF(RecordExists(grantoruserdata))
+      THROW NEW Exception("GrantRightTo(On) no longer allows explicit grantoruserdata to be specified");
 
+    this->UpdateGrant("grant", rightname, 0, grantee, CELL[ withgrantoption
+                                                          , comment
+                                                          , allowselfassignment
+                                                          ]);
+  }
 
 
   /** Grants the specified object right on the specified object to another user. Throws on failure.
@@ -1407,7 +1474,8 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
       @param rightname Right to grant
       @param objectid Object to grant the right on (0 for all objects)
       @param allowselfassignment If TRUE, skip rights validation if this is a self assignment
-      @see GrantRightTo, RevokeRightFrom, RevokeRightFromOn
+      @see UpdateGrant
+      @deprecated Switch to UpdateGrant in WH 4.32+
   */
   PUBLIC MACRO GrantRightToOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "", RECORD grantoruserdata DEFAULTSTO DEFAULT RECORD)
   {
@@ -1415,28 +1483,21 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF (NOT right.allowobjref)
       THROW NEW Exception("GrantRightToOn can only be used for object rights");
 
-    this->__PVT_GrantRightToOn(right, grantee, objectid, withgrantoption, allowselfassignment, comment, grantoruserdata);
+    IF(RecordExists(grantoruserdata))
+      THROW NEW Exception("GrantRightTo(On) no longer allows explicit grantoruserdata to be specified");
+
+    this->UpdateGrant("grant", rightname, objectid, grantee, CELL[ withgrantoption
+                                                                 , comment
+                                                                 , allowselfassignment
+                                                                 ]);
   }
-
-
-
-  MACRO __PVT_RevokeRightFromOn(RECORD rightdata, OBJECT grantee, INTEGER obj, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment)
-  {
-    OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-    trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-
-    RECORD grantordata := this->__PVT_GetExportdata();
-    RECORD granteedata := grantee->__PVT_GetExportdata();
-
-    __OpenLocalService("system:rights")->WL_RevokeRightFromOn(rightdata.fullname, grantordata, granteedata, obj, onlyremovegrantoption, allowselfassignment);
-  }
-
 
 
   /** Revokes the specified global right from another user. Throws on failure.
       @param grantee User object to revoke the right from.
       @param rightname Right to revoke
-      @see GrantRightTo, GrantRightToOn, RevokeRightFromOn
+      @see UpdateGrant
+      @deprecated Switch to UpdateGrant in WH 4.32+
   */
   PUBLIC MACRO RevokeRightFrom(STRING rightname, OBJECT grantee, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
   {
@@ -1444,9 +1505,10 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF (right.allowobjref)
       THROW NEW Exception("RevokeRightFrom can only be used for global rights");
 
-    this->__PVT_RevokeRightFromOn(right, grantee, 0, onlyremovegrantoption, allowselfassignment);
+    this->UpdateGrant(onlyremovegrantoption ? "update" : "revoke", rightname, 0, grantee, CELL[ withgrantoption := FALSE
+                                                                                              , allowselfassignment
+                                                                                              ]);
   }
-
 
 
   /** Revokes the specified object right on the specified object from another user. Throws on failure.
@@ -1454,7 +1516,8 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
       @param rightname Right to revoke
       @param objectid Object to revoke the right on (0 for a grant on all objects). Revoking the right on objectid 0
           will only revoke a global grant, not grants on individual objects.
-      @see GrantRightTo, GrantRightToOn, RevokeRightFrom
+      @see UpdateGrant
+      @deprecated Switch to UpdateGrant in WH 4.32+
   */
   PUBLIC MACRO RevokeRightFromOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE)
   {
@@ -1462,7 +1525,9 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF (NOT right.allowobjref)
       THROW NEW Exception("RevokeRightFromOn can only be used for object rights");
 
-    this->__PVT_RevokeRightFromOn(right, grantee, objectid, onlyremovegrantoption, allowselfassignment);
+    this->UpdateGrant(onlyremovegrantoption ? "update" : "revoke", rightname, objectid, grantee, CELL[ withgrantoption := FALSE
+                                                                                                     , allowselfassignment
+                                                                                                     ]);
   }
 
   /** Grants a role to a user
@@ -2060,151 +2125,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   // Public API
   //
 
-  /** Grant a right on a specific object (from untrusted source)
-      @param rightname Name of the right to grant
-      @param grantordata Encoded grantor
-      @param granteedata Encoded grantee
-      @param obj Object to grant rights on (ignored for global rights)
-      @param withgrantoption If TRUE, add grant option
-  */
-  PUBLIC MACRO WL_GrantRightToOn(STRING rightname, RECORD grantordata, RECORD granteedata, INTEGER obj, BOOLEAN withgrantoption, BOOLEAN allowselfassignment, STRING comment, RECORD grantoruserdata)
-  {
-    //ADDME: lookup right record too, pass right by record
-
-    OBJECT grantor := RecreateGrantorObject(grantordata);
-    OBJECT grantee := RecreateGranteeObject(granteedata);
-
-    RECORD rightdata := GetRightByNameInternal(rightname);
-
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    // Get the grantor authobject id
-    INTEGER grantor_authobject := grantor->__PVT_GetGrantorAuthobject();
-
-    OBJECT current_user := GetEffectiveUser();
-
-    // Check if the user has enough rights to grant this right
-    IF (NOT (allowselfassignment AND grantor->authobjectid = grantee->authobjectid))
-    {
-      IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
-      {
-        THROW NEW Exception("The grantor does not have the right to grant this right");
-      }
-    }
-
-    // Integrity check (objectrights and object)
-    IF (NOT rightdata.allowobjref AND obj != 0)
-      THROW NEW Exception("Right '"||rightdata.fullname||"' does not apply to specific objects");
-
-    // Get the grantee for this right
-    INTEGER grantee_id := grantee->__PVT_GetGrantTarget(FALSE);
-    IF (grantee_id = 0)
-      THROW NEW Exception("Right '"||rightdata.fullname||"' cannot be granted to this grantee");
-
-    RECORD ARRAY grants := GetSpecificGrantDataFor([ grantee_id ], rightdata.rightid, rightdata.storagetable, FALSE, obj);
-    IF (LENGTH(grants) != 0)
-    {
-      IF (NOT withgrantoption OR grants[0].withgrantoption)
-        RETURN; // Right has already been granted
-    }
-
-    // Bind the storage table
-    BindStorageTable(rightdata.storagetable);
-
-    IF (withgrantoption AND LENGTH(grants) != 0)
-    {
-      UPDATE rights_table
-         SET grantor :=         grantor_authobject
-           , withgrantoption := TRUE
-           , creationdate :=    GetCurrentDateTime()
-       WHERE id = grants[0].id;
-    }
-    ELSE
-    {
-      INSERT INTO rights_table(grantee, grantor, "object", "right", creationdate, withgrantoption, comment, grantordata)
-             VALUES(grantee_id, grantor_authobject, obj, rightdata.rightid, GetCurrentDateTime(), withgrantoption, comment, RecordExists(grantoruserdata) ? EncodeHSON(grantoruserdata) : "");
-    }
-  }
-
-
-  /** Revoke a right on a specific object (from untrusted source)
-      @param rightname Name of the right to revoke
-      @param grantordata Encoded grantor
-      @param granteedata Encoded grantee
-      @param obj Object to revoke rights on (ignored for global rights)
-      @param onlyremovegrantoption If TRUE, only revoke the grant option, otherwse revoke the entire grant
-  */
-  PUBLIC MACRO WL_RevokeRightFromOn(STRING rightname, RECORD grantordata, RECORD granteedata, INTEGER obj, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment)
-  {
-    //ADDME: lookup right record too
-
-    OBJECT grantor := RecreateGrantorObject(grantordata);
-    OBJECT grantee := RecreateGranteeObject(granteedata);
-
-    this->RevokeRightFromOn(rightname, grantor, grantee, obj, onlyremovegrantoption, allowselfassignment);
-  }
-
-
-  /** Revoke a right on a specific object
-      @param rightname Name of the right to revoke
-      @param grantor Grantor
-      @param grantee Grantee
-      @param obj Object to revoke rights on (ignored for global rights)
-      @param onlyremovegrantoption If TRUE, only revoke the grant option, otherwse revoke the entire grant
-  */
-  PUBLIC MACRO RevokeRightFromOn(STRING rightname, OBJECT grantor, OBJECT grantee, INTEGER obj, BOOLEAN onlyremovegrantoption, BOOLEAN allowselfassignment)
-  {
-    RECORD rightdata := GetRightByNameInternal(rightname);
-
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    // Get the grantor authobject id
-    INTEGER grantor_authobject := grantor->__PVT_GetGrantorAuthobject();
-
-    OBJECT current_user := GetEffectiveUser();
-
-    // Check if the user has enough rights to grant this right
-    IF (NOT (allowselfassignment AND grantor->authobjectid = grantee->authobjectid))
-    {
-      IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
-      {
-        THROW NEW Exception("The grantor does not have the right to revoke this right");
-      }
-    }
-
-    // Integrity check (objectrights and object)
-    IF (NOT rightdata.allowobjref AND obj != 0)
-      THROW NEW Exception("Right '"||rightdata.fullname||"' does not apply to specific objects");
-
-    INTEGER grantee_id := grantee->__PVT_GetGrantTarget(FALSE);
-    IF (grantee_id = 0)
-      THROW NEW Exception("Right '"||rightdata.fullname||"' cannot be revoked from this grantee");
-
-    RECORD ARRAY grants := GetSpecificGrantDataFor([ grantee_id ] , rightdata.rightid, rightdata.storagetable, FALSE, obj);
-    IF (LENGTH(grants) = 0 OR (onlyremovegrantoption AND NOT grants[0].withgrantoption))
-      RETURN;
-
-    INTEGER ARRAY grantids :=
-        SELECT AS INTEGER ARRAY id FROM grants;
-
-    // Bind the storage table
-    BindStorageTable(rightdata.storagetable);
-
-    IF (onlyremovegrantoption)
-    {
-      UPDATE rights_table
-         SET withgrantoption := FALSE
-       WHERE id IN grantids;
-    }
-    ELSE
-    {
-      DELETE
-        FROM rights_table
-       WHERE id IN grantids;
-    }
-  }
 
 
   /** Create a new webhare role

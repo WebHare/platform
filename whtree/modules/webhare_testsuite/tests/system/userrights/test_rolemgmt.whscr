@@ -24,12 +24,16 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
+  TestEq(0, Length(TT("userrolerightslist->directpermissions")->rows));
+
   //Grant a right to the role
   AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers"));
   TT("objecttree->objectlist->thelist")->selection := SELECT * FROM TT("objecttree->objectlist->thelist")->rows WHERE title = "Miscellaneous";
   TT("rightslist")->value := "webhare_testsuite:globalright";
   TT("comment")->Value := "I have my reasons";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(1, Length(TT("userrolerightslist->directpermissions")->rows), "Newly granted right should be in the list");
 
   //caching in userobjects require us to reopen this
   TestEq(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRight("webhare_testsuite:globalright"));

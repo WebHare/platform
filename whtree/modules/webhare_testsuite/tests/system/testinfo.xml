@@ -5,7 +5,6 @@
   <test script="test_mailersmtp.whscr" />
   <test script="test_mailerrules.whscr" />
   <test script="asynctools.whscr" />
-  <test script="rights.whscr" />
   <test script="registry.whscr" />
   <test script="virtualfs.whscr" />
   <test script="adhoccache.whscr" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->

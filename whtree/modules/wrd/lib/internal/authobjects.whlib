@@ -140,6 +140,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
     OBJECT authobj := this->authobject;
     IF (NOT ObjectExists(authobj))
       THROW NEW Exception("Could not operate on WRD " || Detokenize(GetObjectExtendNames(this),"/") || " auth object #" || this->entity->id || " - it doesn't have a corresponding rights object");
+    //FIXME not ideal, consider merging both layers.
+    this->authobject->__userdataforlogging := this->GetUserDataForLogging();
     RETURN authobj;
   }
 
@@ -448,6 +450,20 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   // Public API
   //
 
+  /** Grants the specified object right on the specified object to another user. Throws on failure.
+      @param action grant/update/revoke. update does not grant a nonexisting right
+      @param rightname Right to grant
+      @param objectid Object to grant the right on (0 for all objects. always set to 0 for global rights!)
+      @param grantee User to grant the right to
+      @cell(boolean) options.allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @cell(boolean) options.withgrantoption If set, update 'withgrantoption'
+      @cell(string) options.comment IF set, update the comment
+  */
+  PUBLIC MACRO UpdateGrant(STRING action, STRING rightname, INTEGER objectid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->EnsureAuthObject()->UpdateGrant(action, rightname, objectid, grantee->EnsureAuthObject(), options);
+  }
+
   /** Grants the specified global right to another user. Throws on failure.
       @param rightname Right to grant
       @param grantee User object to grant the right to.
@@ -459,7 +475,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRightTo(STRING rightname, OBJECT grantee, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
   {
     OBJECT authobj := this->EnsureAuthObject();
-    authobj->GrantRightTo(rightname, grantee->EnsureAuthObject(), withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+    authobj->GrantRightTo(rightname, grantee->EnsureAuthObject(), withgrantoption, allowselfassignment, comment);
   }
 
   /** Grants the specified object right on the specified object to another user. Throws on failure
@@ -474,7 +490,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRightToOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
   {
     OBJECT authobj := this->EnsureAuthObject();
-    authobj->GrantRightToOn(rightname, grantee->EnsureAuthObject(), objectid, withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+    authobj->GrantRightToOn(rightname, grantee->EnsureAuthObject(), objectid, withgrantoption, allowselfassignment, comment);
   }
 
   /** Revokes the specified global right from another user. Throws on failure.
