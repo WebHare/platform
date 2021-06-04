@@ -308,6 +308,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD FUNCTION GetObjectsTree(STRING type)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN DEFAULT RECORD;
+
     RETURN GetPresentationRightObjectsTree(type, this->authobject);
   }
 
@@ -323,6 +326,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD ARRAY FUNCTION GetObjectsChildren(STRING type, INTEGER parentobjid, BOOLEAN describe DEFAULTSTO TRUE)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN RECORD[];
+
     RETURN GetPresentationRightObjectsChildren(type, this->authobject, parentobjid, describe);
   }
 
@@ -337,6 +343,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD FUNCTION GetObjectPath(STRING type, INTEGER objectid)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN DEFAULT RECORD;
+
     RETURN GetPresentationRightsObjectPath(type, objectid, this->authobject);
   }
 
