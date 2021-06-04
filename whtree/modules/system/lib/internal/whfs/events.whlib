@@ -7,6 +7,8 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -122,9 +124,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     FOREVERY (INTEGER id FROM this->emptyupdates)
       PerformEmptyWHFSMetadataUpdate(id, [ republish := TRUE ]);
     IF (LENGTH(this->linkcheckedremovedsettings) != 0)
-      __OpenLocalService("system:__systemservice")->ProcessRemovedLinkCheckedSettings(this->linkcheckedremovedsettings);
+      DeleteCheckedObjectLinks(INTEGER[], this->linkcheckedremovedsettings);
     IF (LENGTH(this->linkcheckedsettings) != 0)
-      __OpenLocalService("system:__systemservice")->ProcessLinkCheckedSettings(this->linkcheckedsettings);
+      ProcessLinkCheckedSettings(this->linkcheckedsettings);
 
     IF(this->scancompilables)
       ScanAllCompilables(FALSE);

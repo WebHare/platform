@@ -2332,9 +2332,6 @@ The full base URL on which this site will be published, calculated by combining 
 
     <localservice name="rights" library="internal/rightsmgmt.whlib" objectname="ElevatedRightsCalls" reuse="true" />
 
-    <!-- The __systemservice is a generic service, that will accept the local transaction -->
-    <localservice name="__systemservice" library="internal/systemservice.whlib" objectname="SystemService" reuse="true" />
-
     <internalservice tag="getconfig"
                      library="internal/webserver/getconfig.whscr"
                      tid="sysmgmt.webservers.scripts.getconfig"
