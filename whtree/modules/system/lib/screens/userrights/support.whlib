@@ -551,7 +551,7 @@ BOOLEAN FUNCTION UserHasDirectGrantFor(STRING rightname, OBJECT grantee, INTEGER
   RETURN (objectid IN grantobjids);
 }
 
-PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees, STRING comment)
+PUBLIC MACRO TolliumUpdateRoleGrant(OBJECT contexts, OBJECT work, STRING action, OBJECT roleobj, OBJECT ARRAY grantees, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
     THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
@@ -591,64 +591,16 @@ PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OB
 
   FOREVERY (OBJECT obj FROM grantees)
   {
-    LogAuditEvent("system:userrights", CELL[ action :=  "grant-role"
+    LogAuditEvent("system:userrights", CELL[ action :=  action || "-role"
                                            , grantee := obj->GetUserDataForLogging()
                                            , roleauthobjectid := roleobj->authobjectid
                                            , roleentityid := roleobj->entityid
                                            , rolename := roleobj->GetUserRightsName()
-                                           , comment
+                                           , options
                                            ]);
     TRY
     {
-      contexts->user->GrantRoleTo(roleobj, obj, [ comment := comment ]);
-    }
-    CATCH (OBJECT e)
-    {
-      work->AddError(e->what);
-    }
-  }
-}
-
-PUBLIC MACRO TolliumRevokeRoleFrom(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees)
-{
-  IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
-    THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
-
-  IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
-  {
-    work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", roleobj->GetUserRightsName()));
-    RETURN;
-  }
-
-  IF (NOT roleobj->ExistsInDatabase())
-  {
-    work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", roleobj->GetUserRightsName()));
-    RETURN;
-  }
-
-  FOREVERY (OBJECT obj FROM grantees)
-    IF (NOT obj->ExistsInDatabase())
-    {
-      IF (obj->type = 3)
-        work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
-      ELSE
-        work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
-    }
-
-  IF (work->HasFailed())
-    RETURN;
-
-  FOREVERY (OBJECT obj FROM grantees)
-  {
-    LogAuditEvent("system:userrights", CELL[ action :=  "revoke-role"
-                                           , grantee := obj->GetUserDataForLogging()
-                                           , roleauthobjectid := roleobj->authobjectid
-                                           , roleentityid := roleobj->entityid
-                                           , rolename := roleobj->GetUserRightsName()
-                                           ]);
-    TRY
-    {
-      contexts->user->RevokeRoleFrom(roleobj, obj);
+      contexts->user->UpdateRoleGrant(action, roleobj->authobjectid, obj, options);
     }
     CATCH (OBJECT e)
     {

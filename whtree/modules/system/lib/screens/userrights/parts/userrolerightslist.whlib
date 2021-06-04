@@ -177,7 +177,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
         this->rightstabs->selectedtab := this->userstab;
       }
 
-      this->addroletousers->enabled := FALSE;
+      ^addroletousers->enabled := FALSE;
       this->userlistdirty := TRUE;
       this->OnRightsTabChange(); //will reload if needed
 
@@ -189,7 +189,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
       this->rightstabs->type := "server";
       this->rightstabs->selectedtab := this->rightstab;
 
-      this->addroletousers->enabled := TRUE;
+      ^addroletousers->enabled := TRUE;
     }
 
     RECORD ARRAY prows := this->GetPermissionRows(this->pvt_wrdauthobject);
@@ -237,7 +237,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
 
   MACRO DoAddRoleToUsers()
   {
-    MakeAddGrantOfSelectableRoleToUserDialog(this->owner, [ OBJECT(this->pvt_wrdauthobject) ])->RunModal();
+    RunAddGrantOfSelectableRoleToUserDialog(this->owner, [ OBJECT(this->pvt_wrdauthobject) ]);
   }
 
   MACRO DoAddRightToUsers()

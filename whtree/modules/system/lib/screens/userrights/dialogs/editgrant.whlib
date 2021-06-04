@@ -318,4 +318,14 @@ PUBLIC STATIC OBJECTTYPE EditRoleGrant EXTEND TolliumScreenBase
   {
     this->pvt_readonly := newval;
   }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF (this->readonly)
+      RETURN TRUE;
+
+    OBJECT work := this->BeginWork();
+    TolliumUpdateRoleGrant(this->contexts, work, "update", this->pvt_roleobj, OBJECT[this->pvt_grantee], [ comment := ^comment->value ]);
+    RETURN work->Finish();
+  }
 >;

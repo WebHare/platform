@@ -192,9 +192,7 @@ STATIC OBJECTTYPE RevokeDialog
     FOREVERY (RECORD grant FROM this->pvt_rolegrants)
     {
       IF (grant.grantee->ExistsInDatabase() AND grant.roleobj->ExistsInDatabase())
-      {
-        TolliumRevokeRoleFrom(this->screen->contexts, work, grant.roleobj, OBJECT[grant.grantee]);
-      }
+        TolliumUpdateRoleGrant(this->screen->contexts, work, "revoke", grant.roleobj, OBJECT[grant.grantee]);
       ELSE
         found_deleted := TRUE;
     }
@@ -364,18 +362,11 @@ PUBLIC OBJECT FUNCTION MakeAddGrantOnObjectDialog(OBJECT parent, STRING objectty
 /** Makes a dialog to grant a selectable role to specific users.
     @param parent Parent screen
     @param grantees Users to grant the role to
-    @return Dialog, use RunModal to run it.
-    @cell return.RunModal Function to run the dialog (returns "ok" on success)
-    @cell return.grantees Grantees (readonly)
-    @cell return.roleid Selected role (settable)
+    @return wrd id of the added WHUSER_ROLE
 */
-PUBLIC OBJECT FUNCTION MakeAddGrantOfSelectableRoleToUserDialog(OBJECT parent, OBJECT ARRAY grantees)
+PUBLIC INTEGER FUNCTION RunAddGrantOfSelectableRoleToUserDialog(OBJECT parent, OBJECT ARRAY grantees)
 {
-  OBJECT scr := parent->LoadScreen("system:userrights/dialogs/addroletousers.addroletousers",
-      [ grantees := grantees
-      ]);
-
-  RETURN scr;
+  RETURN parent->RunScreen("mod::system/screens/userrights/dialogs/addroletousers.xml#addroletousers", [ grantees := grantees ]);
 }
 
 /** Makes a dialog to grant a specific role to selectable users.

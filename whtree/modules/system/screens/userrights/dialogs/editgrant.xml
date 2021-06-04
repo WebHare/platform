@@ -9,16 +9,13 @@
     </body>
   </screen>
 
-  <screen name="editrolegrant" title="" tid=".grant">
+  <screen name="editrolegrant" footerbuttons="ok cancel" tid=".grant">
     <body>
       <text name="grantdatetime" />
       <text name="grantor" />
       <text name="rolename" />
-      <textarea name="comment"  />
+      <textarea name="comment" tid="~comments" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
 </screens>

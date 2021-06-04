@@ -403,7 +403,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       {
         add_roles := this->contexts->userapi->EnrichRoles("ROLE", add_roles, [ celltype := "authobjectid" ]);
         FOREVERY (RECORD role FROM add_roles)
-          TolliumGrantRoleTo(this->contexts, work, this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], "Copied: " || role.comment);
+          TolliumUpdateRoleGrant(this->contexts, work, "grant", this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], [ comment := "Copied: " || role.comment ]);
       }
     }
 

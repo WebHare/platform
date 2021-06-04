@@ -40,7 +40,7 @@ ASYNC MACRO TestAddRoleToUsers()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
-  // Verify the rolegrant in the export
+  // Verify the right granted to the role in the export
   TestEq([[ login := "role1", rightname := "webhare_testsuite:globalright", comment := "I have my reasons" ]],
          SELECT login, rightname,comment FROM ListRightsAndRolesForExport(testfw->userapi) WHERE login="role1");
 
@@ -64,8 +64,10 @@ ASYNC MACRO TestAddRoleToUsers()
   AWAIT ExpectAndAnswerMessagebox("YES", PTR TTClick("userrolerightslist->removeusersfromrole"));
   TestEq(0, Length(TT("userrolerightslist->userlistbyrole")->rows));
 
-  // Grant to a single user (selecting user)
+  // Grant the role to a single user (selecting user)
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE email="user1@beta.webhare.net";
+  TestEq(0, Length(TT("userrolerightslist->directpermissions")->rows), "User has no grants yet");
+
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->addroletousers"));
 
   TT("selectuserrole->unittree->unitlist")->value := unit->entityid;
@@ -74,7 +76,17 @@ ASYNC MACRO TestAddRoleToUsers()
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEq([[ login := "user1@beta.webhare.net", rightname := "", comment := "WebHareTestSuite is testing this", objectpath := ["role1"] ]],
+  //Test editing the rolegrant
+  TestEq(2, Length(TT("userrolerightslist->directpermissions")->rows), "directpermissions shows rolegrant + the right granted to that role");
+  TT("userrolerightslist->directpermissions")->selection := SELECT * FROM TT("userrolerightslist->directpermissions")->rows WHERE name = "role1";
+  topscreen->frame->focused := TT("userrolerightslist->directpermissions");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  TestEq("WebHareTestSuite is testing this", TT(":Comments")->value);
+  TT(":Comments")->value := "WebHareTestSuite has altered this";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq([[ login := "user1@beta.webhare.net", rightname := "", comment := "WebHareTestSuite has altered this", objectpath := ["role1"] ]],
          SELECT login, rightname,comment,objectpath FROM ListRightsAndRolesForExport(testfw->userapi) WHERE type="ROLEGRANT");
 
   TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
@@ -85,7 +97,7 @@ ASYNC MACRO TestAddRoleToUsers()
   TT("userrolerightslist->directpermissions")->selection := SELECT * FROM TT("userrolerightslist->directpermissions")->rows WHERE name="role1";
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->edit"));
-  TestEq("WebHareTestSuite is testing this", TT("comment")->value);
+  TestEq("WebHareTestSuite has altered this", TT("comment")->value);
   TestEqLike("*sysop@beta.webhare.net*", TT("grantor")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
