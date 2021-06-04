@@ -6,10 +6,11 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/database.whlib"; // FIXME: do we want to use the system table?
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
+LOADLIB "mod::tollium/lib/internal/towl.whlib";
 
 BOOLEAN FUNCTION __HS_ABORTJOBBYGROUPID(STRING groupid) __ATTRIBUTES__(EXTERNAL);
 
@@ -349,7 +350,7 @@ PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
     ELSE
       targetusers := [ webhare_users := SELECT AS INTEGER ARRAY DISTINCT use.authobjectid FROM this->pthis->GetCurrentApps() ];
 
-    __OpenLocalService("tollium:towlservice")->BroadcastNotification(targetusers, event);
+    NEW TowlServiceObject->BroadcastNotification(targetusers, event);
 
     RETURN TRUE;
   }

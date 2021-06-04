@@ -423,7 +423,7 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
   {
     this->userobj := data.user;
     this->embedded := CellExists(data, "parentframe") AND ObjectExists(data.parentframe);
-    this->towlservice := __OpenLocalService("tollium:towlservice");
+    this->towlservice := NEW TowlServiceObject;
     this->lastpermissionstate := "unknown";
 
     this->listener->masks := [ "tollium:towl.notificationsettings." || this->tolliumuser->entityid ];
