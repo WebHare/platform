@@ -44,9 +44,6 @@ LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 // Global variables and such
 //
 
-// Whether this library runs in elevated mode
-//BOOLEAN is_elevated;
-
 /** Cache for rights records
     @cell 0 Full name of the right ('module:right')
     @cell right Id of the right
@@ -90,9 +87,6 @@ PUBLIC MACRO __ResetRightsCaches() //tests require this. but can we avoid the ne
 /** Type record for which a describer is being built
 */
 RECORD current_type_rec;
-
-/// Cached object for within elevated contexts
-OBJECT elevatedrightscalls_obj;
 
 RECORD ARRAY FUNCTION GetRightsWithTables()
 {
@@ -897,58 +891,6 @@ RECORD ARRAY FUNCTION LocateGrantsFor(RECORD rightdata, INTEGER ARRAY authobject
 
 // -----------------------------------------------------------------------------
 //
-// User/role mgmt helper functions
-//
-
-
-RECORD FUNCTION ValidateUnitOrRoleUpdates(RECORD updates, BOOLEAN with_defaults)
-{
-  RECORD ARRAY fields :=
-      [ [ field        := "DESCRIPTION"
-        , defaultvalue := ""
-        ]
-      , [ field        := "NAME"
-        , defaultvalue := ""
-        ]
-      , [ field        := "CREATIONDATE"
-        , defaultvalue := GetCurrentDateTime()
-        ]
-      , [ field        := "UNIT"
-        , defaultvalue := 0
-        ]
-      ];
-
-  STRING ARRAY found_fields;
-  RECORD final_updates;
-
-  FOREVERY (RECORD rec FROM UnpackRecord(updates))
-  {
-    RECORD field :=
-        SELECT *
-          FROM fields
-         WHERE COLUMN field = rec.name;
-
-    IF (NOT RecordExists(field))
-      THROW NEW Exception("Found unknown field '"||rec.name||"' in update");
-
-    IF (TypeId(rec.value) != TypeId(field.defaultvalue))
-      THROW NEW Exception("The value for the update of field '"||rec.name||"' has an illegal type");
-
-    final_updates := CellInsert(final_updates, rec.name, rec.value);
-  }
-
-  IF (with_defaults)
-  {
-    FOREVERY (RECORD rec FROM fields)
-      IF (NOT CellExists(final_updates, rec.field))
-        final_updates := CellInsert(final_updates, rec.field, rec.defaultvalue);
-  }
-
-  RETURN final_updates;
-}
-
-// -----------------------------------------------------------------------------
-//
 // Object definitions
 //
 
@@ -1644,15 +1586,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
 
     RETURN objectid IN FindObjectsWithRights(right, [ INTEGER(right.rightid) ], authobjects, FALSE, [ objectid ], TRUE);
   }
-
-  //FIXME If external authentication is set up, use it!
-  PUBLIC BOOLEAN FUNCTION VerifyUserPassword(STRING password)
-  {
-    OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-
-    RECORD userdata := this->__PVT_GetExportdata();
-    RETURN __OpenLocalService("system:rights")->WL_VerifyUserPassword(userdata, password);
-  }
 >;
 
 STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
@@ -1701,69 +1634,6 @@ STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
   }
 
 
-
-
-  /** Creates a new webhare role
-      @param rec Data describing the new role
-      @cell rec.name Name of the new role
-      @cell rec.unit Unit in which the new role is created
-      @cell rec.description Description of the role (optional)
-      @cell rec.creationdate Creation date of the role (optional)
-      @return Id of the newly created role. Throws on failure
-  */
-  PUBLIC INTEGER FUNCTION CreateRole(RECORD rec)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    RETURN __OpenLocalService("system:rights")->CreateRole(this->__pvt_authobjectid, rec);
-  }
-
-
-
-  PUBLIC MACRO UpdateRole(INTEGER roleid, RECORD updates)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->UpdateRole(this->__pvt_authobjectid, roleid, updates);
-  }
-
-  PUBLIC MACRO DeleteRole(INTEGER roleid)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->DeleteRole(this->__pvt_authobjectid, roleid);
-  }
-
-
-  /** Create a new webhare unit, throws on error.
-      @param name New of the new unit (mandatory)
-      @param description Description for the new unit (optional)
-      @param creationdate Creationdate (optional, defaults to current time)
-      @return If successful, returns the id of the newly created unit.
-  */
-  PUBLIC INTEGER FUNCTION CreateUnit(RECORD rec)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    DELETE CELL unit FROM rec;
-    RETURN __OpenLocalService("system:rights")->CreateWebhareUnit(this->__pvt_authobjectid, rec);
-  }
-
-
-  /** Update properties of a unit, throws on error
-      @param name New name of the unit (optional)
-      @param description New description for the unit (optional)
-      @param creationdate Creationdate (optional, defaults to current time)
-      @param unit New unit, must be the same as the id of this unit (optional)
-  */
-  PUBLIC MACRO UpdateUnit(INTEGER unitid, RECORD updates)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->UpdateWebhareUnit(this->__pvt_authobjectid, unitid, updates);
-  }
-
-  PUBLIC MACRO DeleteUnit(INTEGER unitid)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->DeleteWebhareUnit(this->__pvt_authobjectid, unitid);
-  }
-
   /** Returns whether this object still exists in the database
   */
   UPDATE PUBLIC BOOLEAN FUNCTION ExistsInDatabase()
@@ -1778,33 +1648,6 @@ STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
 //
 // RightsUserObject manipulators
 //
-
-//ADDME Move into ElevatedRightsCall
-OBJECT FUNCTION RecreateGrantorObject(RECORD grantordata)
-{
-  IF (grantordata.type != "user")
-    THROW NEW Exception("Only users may grant rights");
-
-  RECORD data :=
-      [ authobjectid    := grantordata.authobjectid
-      ];
-
-  RETURN NEW RightsUserObject(data);
-}
-
-
-
-OBJECT FUNCTION RecreateGranteeObject(RECORD exportdata)
-{
-  SWITCH (exportdata.type)
-  {
-  CASE "user"   { RETURN NEW RightsUserObject(exportdata); }
-  CASE "role"   { RETURN NEW RightsRoleObject(exportdata); }
-  DEFAULT       { THROW NEW Exception("Cannot recreate rights object, unknown type '"||exportdata.type||"'"); }
-  }
-}
-
-
 
 OBJECT FUNCTION RecreateUserObject(RECORD grantordata, BOOLEAN check)
 {
@@ -2140,174 +1983,7 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
 /** Elevated rights calls
 */
 PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-//  // Cached Id of the user of this transactions
-//  OBJECT pvt_current_user;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Properties
-  //
-
-//  PROPERTY current_user(GetEffectiveUser, -);
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Constructor
-  //
-
-  MACRO NEW()
-  {
-    elevatedrightscalls_obj := this;
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Getters/setters
-  //
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-
-
-  /** Create a new webhare role
-      @param unitid Unit to create the role in
-      @param userdata
-  */
-  PUBLIC INTEGER FUNCTION CreateRole(INTEGER unitid, RECORD rec)
-  {
-    OBJECT unit := GetWebhareUnitObject(unitid);
-
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    IF (unit->authobjectid = 0)
-      THROW NEW Exception("Cannot create a webhare role in the root unit");
-    IF (NOT CellExists(rec, "UNIT"))
-      INSERT CELL unit := unit->authobjectid INTO rec;
-    ELSE IF (rec.unit != unit->authobjectid)
-      THROW NEW Exception("The new webhare role may not created in another unit");
-
-    rec := ValidateUnitOrRoleUpdates(rec, TRUE);
-    IF (rec.name = "")
-      THROW NEW Exception("No name has been specified for the new webhare role");
-    ELSE IF (rec.unit = 0)
-      THROW NEW Exception("No unit has been specified for the new webhare role");
-    ELSE
-    {
-      IF (NOT RecordExists(SELECT FROM system_internal.authobjects WHERE id = rec.unit AND type = 2))
-        THROW NEW Exception("The parent unit for this role does not exist");
-      ELSE
-        IF (NOT GetEffectiveUser()->HasRightOn("system:manageroles", rec.unit))
-          THROW NEW Exception("You do not have enough rights to create this webhare role");
-    }
-
-    INTEGER roleid := MakeAutoNumber(system_internal.authobjects, "ID");
-
-    INSERT INTO system_internal.authobjects(id, name, type, parent)
-           VALUES (roleid, rec.name, 3, rec.unit);
-
-    DELETE CELL name FROM rec;
-    DELETE CELL unit FROM rec;
-
-    UPDATE system_internal.authobjects
-       SET RECORD rec
-     WHERE id = roleid;
-
-    RETURN roleid;
-  }
-
-
-  /** Updates a webhare role
-      @param unitid Unit of the role
-      @param roleid Id of the role
-      @param updates Updates
-  */
-  PUBLIC MACRO UpdateRole(INTEGER parentunitid, INTEGER roleid, RECORD updates)
-  {
-    OBJECT unit := GetWebhareUnitObject(parentunitid);
-
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    updates := ValidateUnitOrRoleUpdates(updates, FALSE);
-
-    RECORD rec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = roleid;
-
-    OBJECT current_user := GetEffectiveUser();
-
-    IF (NOT RecordExists(rec) OR rec.type != 3)
-      THROW NEW Exception("Cannot update that webhare role, it does not exist");
-    ELSE IF (NOT current_user->HasRightOn("system:manageroles", roleid))
-      THROW NEW Exception("You do not have enough rights to update that webhare role");
-    ELSE IF (CellExists(updates, "NAME") AND updates.name = "")
-      THROW NEW Exception("A webhare role may not have an empty name");
-    ELSE IF (CellExists(updates, "UNIT") AND updates.unit = 0)
-      THROW NEW Exception("A webhare role must have a valid unit as parent");
-    ELSE IF (rec.parent != parentunitid)
-      THROW NEW Exception("The webhare role isn't in the unit used to update the role " || rec.parent || " " ||  parentunitid);
-    ELSE
-    {
-      IF (CellExists(updates, "UNIT") AND updates.unit != rec.parent)
-      {
-        IF (NOT current_user->HasRightOn("system:manageroles", updates.unit))
-          THROW NEW Exception("You do not have enough rights to manage the new unit for the webhare role");
-        IF (NOT current_user->HasRightOn("system:manageroles", rec.parent))
-          THROW NEW Exception("You do not have enough rights to move this webhare role");
-      }
-    }
-
-    IF (CellExists(updates, "UNIT"))
-    {
-      INSERT CELL parent := updates.unit INTO updates;
-      DELETE CELL unit FROM updates;
-    }
-
-    UPDATE system_internal.authobjects
-       SET RECORD updates
-     WHERE id = roleid;
-  }
-
-  /** Deletes a webhare role
-      @param unitid Unit of the role
-      @param roleid Id of the role
-      @param updates Updates
-  */
-  PUBLIC MACRO DeleteRole(INTEGER unitid, INTEGER roleid)
-  {
-    OBJECT unit := GetWebhareUnitObject(unitid);
-
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    RECORD rec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = roleid;
-
-    OBJECT current_user := GetEffectiveUser();
-
-    IF (NOT RecordExists(rec) OR rec.type != 3)
-      THROW NEW Exception("Cannot delete that webhare role, it does not exist");
-    ELSE IF (NOT current_user->HasRightOn("system:manageroles", rec.parent))
-      THROW NEW Exception("You do not have enough rights to delete this webhare role");
-
-    DELETE
-      FROM system_internal.authobjects
-     WHERE id = roleid;
-  }
-
+<
   /** Get the parent object for a specific object.
       @param objecttypename Name of objecttype
       @param obj Object to get the parent from
@@ -2689,41 +2365,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   //  PRINT("RoFR: " || AnyToString(rights, "tree") || "Result: " || AnyToString(out_objectids, "tree"));
     RETURN out_objectids;
   }
-
-
-  /** Verify a user password (for untrusted source)
-      @param userdata
-      @param password
-      @return Whether the password was correct
-  PUBLIC BOOLEAN FUNCTION WL_VerifyUserPassword(RECORD userdata, STRING password)
-  {
-    OBJECT user := RecreateUserObject(userdata, TRUE);
-
-    RETURN this->VerifyUserPassword(user, password);
-  }
-
-  */
-
-
-  /** Verify a user password
-      @param userdata
-      @param password
-      @return Whether the password was correct
-  PUBLIC BOOLEAN FUNCTION VerifyUserPassword(OBJECT user, STRING password)
-  {
-    STRING cur_userpassword :=
-        SELECT AS STRING userpassword
-          FROM system_internal.auth_users
-         WHERE id = user->authobjectid AND disable = FALSE;
-
-    IF (cur_userpassword = "")
-      RETURN FALSE;
-
-    //FIXME support advanced/external authentication mechanisms
-    RETURN VerifyPasswordHash(password, cur_userpassword);
-  }
-  */
-
 >;
 
 

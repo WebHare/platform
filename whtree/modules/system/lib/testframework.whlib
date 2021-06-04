@@ -1148,7 +1148,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       OBJECT roletype := this->userapi->wrdschema->GetType("WHUSER_ROLE");
       FOREVERY(RECORD role FROM this->roles)
       {
-        //role.roleid := betatestunit->CreateRole( [ name := role.rolename ]);
         role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->testunit, wrd_title := role.rolename ]);
         role.roleobj := this->userapi->GetRole(role.wrdid);
         role.authobjectid := role.roleobj->authobjectid;
