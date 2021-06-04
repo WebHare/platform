@@ -521,6 +521,17 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
     authobj->RevokeRightFromOn(rightname, grantee->EnsureAuthObject(), objectid, onlyremovegrantoption, allowselfassignment);
   }
 
+  /** Grant, update or revoke the a role. Throws on failure.
+      @param action grant/update/revoke. update does not grant an ungranted role
+      @param roleid Authobjectid of the role to grant
+      @param grantee User to grant the right to
+      @cell(string) options.comment If set, update the comment
+  */
+  PUBLIC MACRO UpdateRoleGrant(STRING action, INTEGER roleid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->EnsureAuthObject()->UpdateRoleGrant(action, roleid, grantee->EnsureAuthObject(), options);
+  }
+
   /** Grants a role to a user
       @param roleobj Role to grant
       @param grantee User object to grant this role to
@@ -530,7 +541,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   {
     OBJECT authobj := this->EnsureAuthObject();
     //because we have two layers of objects and we pass the lower one, we need to forward our own getuserdataforlogging...
-    authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), CELL[...options, grantoruserdata := this->GetUserDataForLogging() ]);
+    authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), options);
   }
 
   /** Revokes a role to a user

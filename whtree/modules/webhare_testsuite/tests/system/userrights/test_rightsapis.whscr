@@ -60,7 +60,10 @@ MACRO InitDB()
   testfw->BeginWork();
   testfw->GetUserObject("sysop")->GrantRightTo("system:sysop", testfw->GetRoleObject("sysoprole"), TRUE);
   testfw->GetUserObject("sysop")->GrantRightTo("system:sysop", testfw->GetUserObject("mysysop"), TRUE);
-  testfw->GetUserObject("sysop")->GrantRoleTo(testfw->GetRoleObject("sysoprole"), testfw->GetUserObject("mysysopusingrole"));
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole"), [ comment := "Granted by your sysop"]);
+  TestEqMembers([ comment := "Granted by your sysop"], ExplainRoleGrantedTo(testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole")->EnsureAuthObject()), "*");
+  testfw->GetUserObject("sysop")->UpdateRoleGrant("update", testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole"), [ comment := "Updated by your sysop"]);
+  TestEqMembers([ comment := "Updated by your sysop"], ExplainRoleGrantedTo(testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole")->EnsureAuthObject()), "*");
 
   TestEq(0, LENGTH(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", testfw->GetUserObject("mysysop")->EnsureAuthObject(), FALSE)));
   TestEq(0, LENGTH(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", testfw->GetUserObject("limited")->EnsureAuthObject(), FALSE)));

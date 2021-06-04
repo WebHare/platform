@@ -1530,40 +1530,93 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
                                                                                                      ]);
   }
 
+  /** Grant, update or revoke the a role. Throws on failure.
+      @param action grant/update/revoke. update does not grant an ungranted role
+      @param roleid Authobjectid of the role to grant
+      @param(object #RightsUserObject) grantee User to grant the right to
+      @cell(string) options.comment If set, update the comment
+  */
+  PUBLIC MACRO UpdateRoleGrant(STRING action, INTEGER roleid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ comment := ""
+                               ], options, [ optional := [ "comment" ]]);
+
+    IF(action NOT IN ["grant","update","revoke"])
+      THROW NEW Exception("The action must be one of 'grant', 'update' or 'revoke'");
+
+    IF (NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("This operation requires an explicitly opened transaction");
+
+    IF (NOT this->HasRightOn("system:manageroles", roleid))
+      THROW NEW Exception("You do not have enough rights to grant this role");
+
+    INTEGER grantee_id := grantee->__PVT_GetAllAuthObjects()[0];
+    IF (grantee_id = 0)
+      THROW NEW Exception("Invalid grantee");
+
+    RECORD rolerec := SELECT * FROM system_internal.authobjects WHERE id = roleid AND type = 3;
+    IF (NOT RecordExists(rolerec))
+      THROW NEW Exception("The granted role does not exist");
+
+    // Lookup any existing grants
+    RECORD ARRAY grants := SELECT id, comment FROM system_internal.rolegrants WHERE COLUMN grantee = grantee_id AND role = roleid;
+    IF(Length(grants) = 0 AND action != "grant") //anything to do?
+        RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
+
+    GetPrimary()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD); //we don't worry yet about the no-op update case
+
+    IF(Length(grants) = 0) //simply adding..
+    {
+      STRING comment := CellExists(options, 'comment') ? options.comment : "";
+      INSERT INTO system_internal.rolegrants(role, grantee, creationdate, grantor, comment, grantordata)
+           VALUES (roleid, grantee_Id, GetCurrentDateTime(), this->authobjectid, comment, EncodeHSON(this->GetUserDataForLogging()));
+
+      grantee->__PVT_GetExpandedAuthObjects(TRUE);
+      RETURN;
+    }
+
+    IF(action = "revoke") //we are removing a role grant
+    {
+      DELETE FROM system_internal.rolegrants WHERE id IN (SELECT AS INTEGER ARRAY grants.id FROM grants);
+      grantee->__PVT_GetExpandedAuthObjects(TRUE);
+      RETURN;
+    }
+
+    //If we get here, we're either granting an already existing role, or explicitly updating
+    IF(Length(grants) > 0) //delete superfluous grants
+      DELETE FROM system_internal.rolegrants WHERE id IN ArraySlice((SELECT AS INTEGER ARRAY grants.id FROM grants), 1);
+
+    RECORD rolegrantupdate;
+    IF(CellExists(options,'comment') AND options.comment != grants[0].comment)
+      INSERT CELL comment := options.comment INTO rolegrantupdate;
+
+    IF(CellExists(options,'withgrantoption') AND options.withgrantoption != grants[0].withgrantoption)
+    {
+      INSERT CELL withgrantoption := options.withgrantoption INTO rolegrantupdate;
+
+      IF(options.withgrantoption) //setting grant option ? then you 'own' this right now!
+        INSERT CELL grantordata := EncodeHSON(this->GetUserDataForLogging()) INTO rolegrantupdate;
+    }
+
+    IF(RecordExists(rolegrantupdate))
+      UPDATE system_internal.rolegrants SET RECORD rolegrantupdate WHERE id = grants[0].id;
+  }
+
   /** Grants a role to a user
       @param roleid Id of the role to grant
       @param(object #RightsUserObject) grantee User object to grant this role to
       @cell options.grantoruserdata Userdata of the grantor for logging
       @cell options.comment Comment for this grant
+      @deprecated Switch to UpdateRoleGrant in WH 4.32+
   */
   PUBLIC MACRO GrantRoleTo(INTEGER roleid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ comment := ""
-                               , grantoruserdata := DEFAULT RECORD
-                               ], options);
-
-//    IF (grantee = DEFAULT OBJECT)
-//      grantee := current_user;
-    OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-    trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-
-    RECORD grantordata := this->__PVT_GetExportdata();
-    RECORD granteedata := grantee->__PVT_GetExportdata();
-
-    __OpenLocalService("system:rights")->WL_GrantRoleTo(grantordata, granteedata, roleid, options.comment, options.grantoruserdata ?? this->GetUserDataForLogging());
-    grantee->__PVT_GetExpandedAuthObjects(TRUE);
+    this->UpdateRoleGrant("grant", roleid, grantee, options);
   }
 
   PUBLIC MACRO RevokeRoleFrom(INTEGER roleid, OBJECT grantee)
   {
-    OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-    trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-
-    RECORD grantordata := this->__PVT_GetExportdata();
-    RECORD granteedata := grantee->__PVT_GetExportdata();
-
-    __OpenLocalService("system:rights")->WL_RevokeRoleFrom(grantordata, granteedata, roleid);
-    grantee->__PVT_GetExpandedAuthObjects(TRUE);
+    this->UpdateRoleGrant("revoke", roleid, grantee);
   }
 
 
@@ -2254,128 +2307,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
       FROM system_internal.authobjects
      WHERE id = roleid;
   }
-
-  /** Grant a webhare role (from untrusted source)
-      @param grantordata Encoded grantor data
-      @param granteedata Encoded grantee data
-      @param roleid Role to grant
-  */
-  PUBLIC MACRO WL_GrantRoleTo(RECORD grantordata, RECORD granteedata, INTEGER roleid, STRING comment, RECORD grantoruserdata)
-  {
-    OBJECT grantor := RecreateGrantorObject(grantordata);
-    OBJECT grantee := RecreateGranteeObject(granteedata);
-
-    IF (NOT GetPrimary()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    // Get the grantor authobject id
-    INTEGER grantor_authobject := grantor->__PVT_GetGrantorAuthobject();
-
-    INTEGER userid := grantee->__PVT_GetGrantTarget(TRUE);
-    IF (userid = 0)
-      THROW NEW Exception("Can't grant a webhare role to user with id 0"); // FIXME: should we?
-
-    RECORD userrec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = userid
-           AND type = 1;
-
-    RECORD rolerec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = roleid
-           AND type = 3;
-
-    IF (NOT RecordExists(userrec))
-      THROW NEW Exception("The user you are granting a role to does not exist");
-    ELSE IF (NOT RecordExists(rolerec))
-      THROW NEW Exception("The granted role does not exist");
-    ELSE IF (NOT grantor->HasRightOn("system:manageroles", roleid))
-      THROW NEW Exception("You do not have enough rights to grant this role");
-
-    RECORD grantrec :=
-        SELECT
-          FROM system_internal.rolegrants
-         WHERE COLUMN grantee = userid
-           AND role = roleid;
-
-    IF (RecordExists(grantrec))
-      RETURN; // Grant already exists
-
-    INSERT INTO system_internal.rolegrants(role, grantee, creationdate, grantor, comment, grantordata)
-         VALUES (roleid, userid, GetCurrentDateTime(), grantor_authobject, comment, RecordExists(grantoruserdata) ? EncodeHSON(grantoruserdata) : "");
-
-    grantee->__PVT_GetExpandedAuthObjects(TRUE);
-  }
-
-
-  /** Revoke a webhare role from a user (from untrusted source)
-      @param grantordata Encoded grantor
-      @param granteedata Encoded grantee
-      @param roleid Id of role to revoke
-  */
-  PUBLIC MACRO WL_RevokeRoleFrom(RECORD grantordata, RECORD granteedata, INTEGER roleid)
-  {
-    OBJECT grantee := RecreateGranteeObject(granteedata);
-    OBJECT grantor := RecreateGrantorObject(grantordata);
-
-    this->RevokeRoleFrom(grantor, grantee, roleid);
-  }
-
-
-  /** Revoke a webhare role from a user
-      @param grantordata Encoded grantor
-      @param granteedata Encoded grantee
-      @param roleid Id of role to revoke
-  */
-  PUBLIC MACRO RevokeRoleFrom(OBJECT grantor, OBJECT grantee, INTEGER roleid)
-  {
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    // Get the grantor authobject id
-    INTEGER grantor_authobject := grantor->__PVT_GetGrantorAuthobject();
-
-    INTEGER userid := grantee->__PVT_GetGrantTarget(TRUE);
-    IF (userid = 0)
-      THROW NEW Exception("Can only revoke roles from system users"); // FIXME: should we?
-
-    RECORD userrec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = userid
-           AND type = 1;
-
-    RECORD rolerec :=
-        SELECT *
-          FROM system_internal.authobjects
-         WHERE id = roleid
-           AND type = 3;
-
-    IF (NOT RecordExists(userrec))
-      THROW NEW Exception("The user you are revoking a role from does not exist");
-    ELSE IF (NOT RecordExists(rolerec))
-      THROW NEW Exception("The revoked role does not exist");
-    ELSE IF (NOT grantor->HasRightOn("system:manageroles", roleid))
-      THROW NEW Exception("You do not have enough rights to revoke this role");
-
-    INTEGER grant_id :=
-        SELECT AS INTEGER id
-          FROM system_internal.rolegrants
-         WHERE COLUMN grantee = userid
-           AND role = roleid;
-
-    IF (grant_id = 0)
-      RETURN; // Grant doesn't exist anymore
-
-    DELETE
-      FROM system_internal.rolegrants
-     WHERE id = grant_id;
-
-    grantee->__PVT_GetExpandedAuthObjects(TRUE);
-  }
-
 
   /** Get the parent object for a specific object.
       @param objecttypename Name of objecttype
