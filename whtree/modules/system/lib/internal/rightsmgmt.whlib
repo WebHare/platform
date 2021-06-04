@@ -1577,7 +1577,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
 
     RETURN 0 IN FindObjectsWithRights(right, [ INTEGER(right.rightid) ], authobjects, FALSE, [ 0 ], TRUE);
-//    RETURN RecordExists(LocateGrantsFor(right, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, 0, FALSE, FALSE, TRUE));
   }
 
 
@@ -1591,7 +1590,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
 
     RETURN objectid IN FindObjectsWithRights(right, [ INTEGER(right.rightid) ], authobjects, FALSE, [ objectid ], TRUE);
-//    RETURN RecordExists(LocateGrantsFor(right, [ grantor_authobject ], FALSE, objectid, FALSE, FALSE, TRUE));
   }
 
   //FIXME If external authentication is set up, use it!
@@ -2993,7 +2991,6 @@ PUBLIC RECORD FUNCTION ExplainRoleGrantedTo(INTEGER roleid, OBJECT grantee)
            , grantee :=         COLUMN grantee
            , creationdate :=    creationdate
            , grantor :=         grantor
-           , withadminoption := RecordExists(LocateGrantsFor(rightdata, grantee_authobjects, FALSE, roleid, TRUE, TRUE, TRUE))
            , comment
            , grantordata :=     grantordata != "" ? DecodeHSON(grantordata) : DEFAULT RECORD
         FROM system_internal.rolegrants

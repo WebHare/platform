@@ -2301,7 +2301,6 @@
         <text tid="search">Search</text>
         <text tid="selectuserrole">Select a user or a role</text>
         <text tid="singleright">Right</text>
-        <text tid="withadminoption">This user may grant this role to others.</text>
         <text tid="withgrantoption">This user or role may grant this right to others.</text>
       </textgroup>
       <textgroup gid="search">   <!-- userrights.commondialogs.search -->
@@ -2685,7 +2684,6 @@
     </textgroup>
     <textgroup gid="rights">   <!-- userrights.rights -->
       <text tid="additionaloptions">Options</text>
-      <text tid="withadminoption">This user or role may grant this right to others.</text>
       <text tid="withgrantoption">This user or role may grant this right to others.</text>
     </textgroup>
     <textgroup gid="screentitles">   <!-- userrights.screentitles -->
