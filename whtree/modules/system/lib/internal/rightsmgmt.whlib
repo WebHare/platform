@@ -187,10 +187,31 @@ PUBLIC OBJECTTYPE ObjectTypeDescriber
 
 
   /** Return the children objects of a object. For presentation purposes only.
+      @param obj Parent object
   */
-  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetObjectChildren(INTEGER id, OBJECT user)
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetObjectChildren(INTEGER obj, OBJECT user)
   {
-    RETURN GetChildrenObjects(this->pvt_typerec, id);
+    IF (this->pvt_typerec.parentfield = "" AND obj != 0)
+      RETURN DEFAULT INTEGER ARRAY;
+
+    STRING objecttypename := this->pvt_typerec.objecttypename;
+
+    RECORD typedata := GetObjectTypeDataByNameInternal(objecttypename);
+
+    IF (this->pvt_typerec.parentfield = "" AND obj != 0)
+      RETURN DEFAULT INTEGER ARRAY;
+
+    INTEGER trans := GetBindingFromSchema(system_internal).transaction;
+
+    OBJECT query := NEW DynamicQuery;
+    query->AddTable("query", trans, this->pvt_typerec.tablename, [ STRING(this->pvt_typerec.primarykey) ]);
+    IF (this->pvt_typerec.parentfield != "")
+      query->AddConstraint("query." || this->pvt_typerec.parentfield, "=", obj);
+    RECORD ARRAY result := query->Execute();
+
+    RETURN
+        SELECT AS INTEGER ARRAY GetCell(result.query, this->pvt_typerec.primarykey)
+          FROM result;
   }
 
 
@@ -521,29 +542,6 @@ PUBLIC INTEGER ARRAY FUNCTION GetAllSpecificGranteesFor(INTEGER right, STRING ta
 
 
 
-/** Given a right and an object, try to find the parent object. Must be run with full permissions.
-    @param objtypename Name of object type
-    @param obj Object to find the parent of
-    @return Id of parent object, 0 if none found
-*/
-PUBLIC INTEGER FUNCTION GetParentObject(STRING objtypename, INTEGER obj)
-{
-  RETURN __OpenLocalService("system:rights")->GetParentObject(objtypename, obj);
-}
-
-RECORD FUNCTION GetParentObjects(STRING objtypename, RECORD ARRAY objs)
-{
-  RETURN __OpenLocalService("system:rights")->GetParentObjects(objtypename, objs);
-}
-
-
-INTEGER ARRAY FUNCTION GetChildrenObjects(RECORD typedata, INTEGER obj)
-{
-  IF (typedata.parentfield = "" AND obj != 0)
-    RETURN DEFAULT INTEGER ARRAY;
-
-  RETURN __OpenLocalService("system:rights")->GetChildrenObjects(typedata.objecttypename, obj);
-}
 
 // -----------------------------------------------------------------------------
 //
@@ -1646,24 +1644,6 @@ STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
 
 // -----------------------------------------------------------------------------
 //
-// RightsUserObject manipulators
-//
-
-OBJECT FUNCTION RecreateUserObject(RECORD grantordata, BOOLEAN check)
-{
-  IF (grantordata.type != "user")
-    THROW NEW Exception("You may only use this function for users, not for roles");
-
-  RECORD data :=
-      [ authobjectid    := grantordata.authobjectid
-      ];
-
-  OBJECT current_user := check ? GetEffectiveUser() : DEFAULT OBJECT;
-  RETURN NEW RightsUserObject(data);
-}
-
-// -----------------------------------------------------------------------------
-//
 // Access to object type describers
 //
 
@@ -1732,30 +1712,6 @@ RECORD ARRAY FUNCTION GetTreeLevel(OBJECT describer, INTEGER objid, OBJECT user,
     RETURN result;
 }
 
-/** Returns the tree with all visible objects of a specific type
-    @param type Name of objecttype (fully qualified with module)
-    @return Root object
-    @cell return.id Id of root object (must be 0)
-    @cell return.name Local name of the object
-    @cell return.fullname Full name of the object (must be unique among all objects)
-    @cell return.icon Name of icon to display for this object
-    @cell return.sortkey Case-sensitive string the children are sorted on
-    @cell return.subnodes List of subnodes for this object type
-    @cell return.haschildren Whether the object has children
-*/
-PUBLIC RECORD FUNCTION GetPresentationRightObjectsTree(STRING type, OBJECT user)
-{
-  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-
-  IF (NOT ObjectExists(user))
-    RETURN DEFAULT RECORD;
-
-  IF(NOT user EXTENDSFROM RightsObject)
-    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
-
-  RECORD userdata := user->__PVT_GetExportdata();
-  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsTree(type, userdata);
-}
 
 
 /** Returns the children of an object (sorted on sortkey)
@@ -1768,42 +1724,19 @@ PUBLIC RECORD FUNCTION GetPresentationRightObjectsTree(STRING type, OBJECT user)
 */
 PUBLIC RECORD ARRAY FUNCTION GetPresentationRightObjectsChildren(STRING type, OBJECT user, INTEGER parentobjid, BOOLEAN describe DEFAULTSTO TRUE)
 {
-  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
   IF (NOT ObjectExists(user))
     RETURN DEFAULT RECORD ARRAY;
 
   IF(NOT user EXTENDSFROM RightsObject)
     THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
 
-  RECORD userdata := user->__PVT_GetExportdata();
-  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsChildren(type, userdata, parentobjid, describe);
-}
+  RECORD typerec := GetObjectTypeDataByNameInternal(type);
+  OBJECT describer := GetObjectTypeDescriber(typerec);
 
-
-/** Returns the path of an object to the root of the object tree for a specific user. Returns a partial
-    path if objects in the path have disappeared.
-    @param type Name of objecttype (fully qualified with module)
-    @param user User under whose rights the path must be calculated
-    @param objectid Object to calculate the path to
-    @return Path to object, and whether it is visible
-    @cell return.visible Whether the object is visible for this user
-    @cell return.path Path to object
-    @cell return.path.id
-    @cell return.path.name
-    @cell return.path.icon
-*/
-PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER objectid, OBJECT user)
-{
-  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-
-  IF (NOT ObjectExists(user))
+  IF (parentobjid != 0 AND NOT describer->IsObjectVisibleForUser(parentobjid, user))
     RETURN DEFAULT RECORD ARRAY;
 
-  IF(NOT user EXTENDSFROM RightsObject)
-    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
-
-  RECORD userdata := user->__PVT_GetExportdata();
-  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightsObjectPath(type, objectid, userdata);
+  RETURN GetTreeLevel(describer, parentobjid, user, FALSE, describe);
 }
 
 
@@ -1855,18 +1788,6 @@ PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForGrantableRights(STRING ARRAY righ
 }
 
 
-/** Return the list of objects on which the user has a (grantable) right from the list, but not
-    on the parent of the object.
-    Returns [ 0 ] if the user has rights on all objects.
-    Does not use object describers, so it returns the structure as seen in the database
-*/
-INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOLEAN onlygrantable, INTEGER ARRAY extra_roots)
-{
-  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-
-  RECORD userdata := user->__PVT_GetExportdata();
-  RETURN __OpenLocalService("system:rights")->WL_GetRootObjectsInDB(rights, userdata, onlygrantable, extra_roots);
-}
 
 
 PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, INTEGER ARRAY objectids, INTEGER ARRAY extra_roots)
@@ -1982,14 +1903,13 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
 
 /** Elevated rights calls
 */
-PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
-<
-  /** Get the parent object for a specific object.
-      @param objecttypename Name of objecttype
-      @param obj Object to get the parent from
-  */
-  PUBLIC INTEGER FUNCTION GetParentObject(STRING objecttypename, INTEGER obj)
-  {
+/** Given a right and an object, try to find the parent object. Must be run with full permissions.
+    @param objecttypename Name of object type
+    @param obj Object to find the parent of
+    @return Id of parent object, 0 if none found
+*/
+PUBLIC INTEGER FUNCTION GetParentObject(STRING objecttypename, INTEGER obj)
+{
     RECORD objtypedata := GetObjectTypeDataByNameInternal(objecttypename);
     IF (objtypedata.parentfield = "")
       RETURN 0;
@@ -2005,7 +1925,7 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
       RETURN GetCell(result.query, objtypedata.parentfield);
 
     RETURN 0;
-  }
+}
 
 
   /** Get the parent object for a specific object.
@@ -2019,7 +1939,7 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
       @cell(integer) return.objectid
       @cell(integer array) return.children
   */
-  PUBLIC RECORD FUNCTION GetParentObjects(STRING objecttypename, RECORD ARRAY elements)
+  RECORD FUNCTION GetParentObjects(STRING objecttypename, RECORD ARRAY elements)
   {
     // Get the object ids
     INTEGER ARRAY objs :=
@@ -2089,65 +2009,30 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   }
 
 
-  /** Get list of children objects
-      @param objecttypename Object type name
-      @param obj Parent object
-  */
-  PUBLIC INTEGER ARRAY FUNCTION GetChildrenObjects(STRING objecttypename, INTEGER obj)
-  {
-    RECORD typedata := GetObjectTypeDataByNameInternal(objecttypename);
-
-    IF (typedata.parentfield = "" AND obj != 0)
-      RETURN DEFAULT INTEGER ARRAY;
-
-    INTEGER trans := GetBindingFromSchema(system_internal).transaction;
-
-    OBJECT query := NEW DynamicQuery;
-    query->AddTable("query", trans, typedata.tablename, [ STRING(typedata.primarykey) ]);
-    IF (typedata.parentfield != "")
-      query->AddConstraint("query." || typedata.parentfield, "=", obj);
-    RECORD ARRAY result := query->Execute();
-
-    RETURN
-        SELECT AS INTEGER ARRAY GetCell(result.query, typedata.primarykey)
-          FROM result;
-  }
 
 
-  /** Get the entire objects tree for a specific object type & user (from untrusted source)
-      @param type
-      @param userdata Encoded user
-      @return
-      @cell(integer) return.id
-      @cell(string) return.name
-      @cell(string) return.icon
-      @cell(integer) return.wrdschemaid
-      @cell(string) return.sortkey
-      @cell(record array) return.subnodes Subnodes (same format as root)
-      @cell(boolean) return.haschildren
-  */
-  PUBLIC RECORD FUNCTION WL_GetPresentationRightObjectsTree(STRING type, RECORD userdata)
-  {
-    OBJECT user := RecreateUserObject(userdata, TRUE);
+/** Returns the tree with all visible objects of a specific type
+    @param type Name of objecttype (fully qualified with module)
+    @return Root object
+    @cell return.id Id of root object (must be 0)
+    @cell return.name Local name of the object
+    @cell return.fullname Full name of the object (must be unique among all objects)
+    @cell return.icon Name of icon to display for this object
+    @cell return.sortkey Case-sensitive string the children are sorted on
+    @cell return.subnodes List of subnodes for this object type
+    @cell return.haschildren Whether the object has children
+*/
+PUBLIC RECORD FUNCTION GetPresentationRightObjectsTree(STRING type, OBJECT user)
+{
+  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
 
-    RETURN GetPresentationRightObjectsTree(type, user);
-  }
+  IF (NOT ObjectExists(user))
+    RETURN DEFAULT RECORD;
+
+  IF(NOT user EXTENDSFROM RightsObject)
+    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
 
 
-  /** Get the entire objects tree for a specific object type & user
-      @param type
-      @param user
-      @return
-      @cell(integer) return.id
-      @cell(string) return.name
-      @cell(string) return.icon
-      @cell(integer) return.wrdschemaid
-      @cell(string) return.sortkey
-      @cell(record array) return.subnodes Subnodes (same format as root)
-      @cell(boolean) return.haschildren
-  */
-  PUBLIC RECORD FUNCTION GetPresentationRightObjectsTree(STRING type, OBJECT user)
-  {
     RECORD typerec := GetObjectTypeDataByNameInternal(type);
     OBJECT describer := GetObjectTypeDescriber(typerec);
 
@@ -2162,79 +2047,23 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
         , subnodes :=     subnodes
         , haschildren :=  LENGTH(subnodes) != 0
         ];
-  }
+}
 
 
-  /** Get the children of an objecttype (for untrusted source)
-      @param type
-      @param userdata
-      @param parentobjid
-      @param describe
-      @return children
-      @cell(integer) return.id
-      @cell(string) return.name
-      @cell(string) return.icon
-      @cell(integer) return.wrdschemaid
-      @cell(string) return.sortkey
-  */
-  PUBLIC RECORD ARRAY FUNCTION WL_GetPresentationRightObjectsChildren(STRING type, RECORD userdata, INTEGER parentobjid, BOOLEAN describe)
-  {
-    OBJECT user := RecreateUserObject(userdata, TRUE);
-
-    RETURN this->GetPresentationRightObjectsChildren(type, user, parentobjid, describe);
-  }
-
-
-  /** Get the children of an objecttype
-      @param type
-      @param user
-      @param parentobjid
-      @param describe
-      @return children
-      @cell(integer) return.id
-      @cell(string) return.name
-      @cell(string) return.icon
-      @cell(integer) return.wrdschemaid
-      @cell(string) return.sortkey
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetPresentationRightObjectsChildren(STRING type, OBJECT user, INTEGER parentobjid, BOOLEAN describe)
-  {
-    RECORD typerec := GetObjectTypeDataByNameInternal(type);
-    OBJECT describer := GetObjectTypeDescriber(typerec);
-
-    IF (parentobjid != 0 AND NOT describer->IsObjectVisibleForUser(parentobjid, user))
-      RETURN DEFAULT RECORD ARRAY;
-
-    RETURN GetTreeLevel(describer, parentobjid, user, FALSE, describe);
-  }
-
-
-  /** Get the path to an object (for untrusted source)
-      @param type
-      @param objectid
-      @param userdata
-      @return
-      @cell return.visible
-      @cell return.path
-  */
-  PUBLIC RECORD FUNCTION WL_GetPresentationRightsObjectPath(STRING type, INTEGER objectid, RECORD userdata)
-  {
-    OBJECT user := RecreateUserObject(userdata, TRUE);
-
-    RETURN this->GetPresentationRightsObjectPath(type, objectid, user);
-  }
-
-
-  /** Get the path to an object
-      @param type
-      @param objectid
-      @param userdata
-      @return
-      @cell return.visible
-      @cell return.path
-  */
-  PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER objectid, OBJECT user)
-  {
+/** Returns the path of an object to the root of the object tree for a specific user. Returns a partial
+    path if objects in the path have disappeared.
+    @param type Name of objecttype (fully qualified with module)
+    @param user User under whose rights the path must be calculated
+    @param objectid Object to calculate the path to
+    @return Path to object, and whether it is visible
+    @cell return.visible Whether the object is visible for this user
+    @cell return.path Path to object
+    @cell return.path.id
+    @cell return.path.name
+    @cell return.path.icon
+*/
+PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER objectid, OBJECT user)
+{
     RECORD typerec := GetObjectTypeDataByNameInternal(type);
     OBJECT describer := GetObjectTypeDescriber(typerec);
 
@@ -2283,29 +2112,12 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   }
 
 
-  /** Get root objects for a specific user and a list of rights (for untrusted source)
-      @param rights Names of rights to check
-      @param userdata Encoded user
-      @param onlygrantable
-      @param extra_roots
-      @return Root objects
-  */
-  PUBLIC INTEGER ARRAY FUNCTION WL_GetRootObjectsInDB(STRING ARRAY rights, RECORD userdata, BOOLEAN onlygrantable, INTEGER ARRAY extra_roots)
-  {
-    OBJECT user := RecreateUserObject(userdata, TRUE);
-
-    RETURN this->GetRootObjectsInDB(rights, user, onlygrantable, extra_roots);
-  }
-
-
-  /** Get root objects for a specific user and a list of rights
-      @param rights Names of rights to check
-      @param user
-      @param onlygrantable
-      @param extra_roots
-      @return Root objects
-  */
-  PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOLEAN onlygrantable, INTEGER ARRAY extra_roots)
+/** Return the list of objects on which the user has a (grantable) right from the list, but not
+    on the parent of the object.
+    Returns [ 0 ] if the user has rights on all objects.
+    Does not use object describers, so it returns the structure as seen in the database
+*/
+  INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOLEAN onlygrantable, INTEGER ARRAY extra_roots)
   {
     IF (LENGTH(rights) = 0)
       RETURN DEFAULT INTEGER ARRAY;
@@ -2365,7 +2177,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   //  PRINT("RoFR: " || AnyToString(rights, "tree") || "Result: " || AnyToString(out_objectids, "tree"));
     RETURN out_objectids;
   }
->;
 
 
 // -----------------------------------------------------------------------------
@@ -2465,7 +2276,7 @@ PUBLIC RECORD ARRAY FUNCTION GetDirectGrantsTo(OBJECT user)
     @param user
     @return All roles granted to that user (recursively)
 */
-PUBLIC INTEGER ARRAY FUNCTION GetIdsOfRolesGrantedTo(OBJECT user)
+INTEGER ARRAY FUNCTION GetIdsOfRolesGrantedTo(OBJECT user)
 {
   INTEGER ARRAY authobjects := user->__PVT_GetAllAuthObjects();
 

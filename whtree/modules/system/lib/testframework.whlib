@@ -964,7 +964,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     IF(this->usedatabase AND GetPrimary()->SchemaExists(testfw_testmodule))
     {
       GetPrimary()->BeginWork();
-      GetPrimary()->DropSchema(testfw_testmodule);
+      GetPrimary()->DropSchema(testfw_testmodule, [ cascade := TRUE ]);
       GetPrimary()->CommitWork();
     }
   }
