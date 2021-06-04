@@ -29,6 +29,9 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
   /// Original withgrantoption
   BOOLEAN org_withgrantoption;
 
+  /// Original comment
+  STRING org_comment;
+
   /// Is the grantee a user?
   BOOLEAN grantee_is_user;
 
@@ -112,6 +115,7 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
     }
 
     this->org_withgrantoption := rec.withgrantoption;
+    this->org_comment := rec.comment;
     this->selectright->withgrantoption := rec.withgrantoption;
     this->selectright->grantor := this->contexts->userapi->GetObjectByAuthObjectId(rec.grantor);
     this->selectright->creationdate := rec.creationdate;
@@ -135,7 +139,8 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
 
     // See if anything has changed. If not: everything is ok
     IF (this->org_rightname = new_rightname
-        AND this->org_withgrantoption = new_withgrantoption)
+        AND this->org_withgrantoption = new_withgrantoption
+        AND this->org_comment = ^comment->value)
       RETURN work->Finish();
 
     // Dangerous is when you had grant option, and you are choosing another right/object or removing new_withgrantoption.
@@ -183,17 +188,7 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
       RETURN work->Finish();
     }
 
-    IF (this->org_rightname = new_rightname)
-    {
-      // Only grant option changed.
-
-      // INV: new_withgrantoption != this->org_withgrantoption
-      IF (new_withgrantoption)
-        TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, [ this->pvt_objectid ], TRUE, ^comment->value);
-      ELSE
-        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, this->pvt_objectid, TRUE);
-    }
-    ELSE
+    IF (this->org_rightname != new_rightname)
     {
       // See if there are existing grants (take grantoption into account)
       RECORD ARRAY existing_grants :=
@@ -209,14 +204,16 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
           work->AddWarning(GetTid("system:userrights.errors.rolealreadyhasgrantforright", this->pvt_grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(new_rightname)));
         RETURN work->Finish();
       }
-
-      // The right changed. First grant, then revoke (the revoke might kill the right to grant)
-      TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, [ this->pvt_objectid ], new_withgrantoption, ^comment->value);
-
-      // If the grant has failed; don't revoke.
-      IF (NOT work->HasFailed())
-        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, this->org_rightname, this->pvt_objectid, FALSE);
     }
+
+    TolliumUpdateGrant(work, this->rightsinfo, this->tolliumuser, "grant", new_rightname, [ this->pvt_objectid ], this->pvt_grantee,
+                       [ withgrantoption := new_withgrantoption
+                       , comment := ^comment->value
+                       ]);
+
+
+    IF (this->org_rightname != new_rightname) //revoke the old one
+      TolliumUpdateGrant(work, this->rightsinfo, this->tolliumuser, "revoke", this->org_rightname, INTEGER[ this->pvt_objectid ], this->pvt_grantee);
 
     RETURN work->Finish();
   }

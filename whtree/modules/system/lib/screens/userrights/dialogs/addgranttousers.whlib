@@ -148,7 +148,7 @@ PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase
     FOREVERY (RECORD rec FROM valid_grantee_data)
     {
       IF (LENGTH(rec.objectids) != 0)
-        TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, rec.obj, right_name, rec.objectids, withgrantoption, ^comment->value);
+        TolliumUpdateGrant(work, this->rightsinfo, this->tolliumuser, "grant",  right_name, rec.objectids, rec.obj, CELL[ withgrantoption, comment := ^comment->value ]);
     }
     RETURN work->Finish();
   }

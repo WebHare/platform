@@ -187,9 +187,8 @@ PUBLIC OBJECTTYPE AddGrantOnObject EXTEND TolliumScreenBase
       RETURN work->Finish();
 
     FOREVERY (OBJECT grantee FROM valid_grantees)
-    {
-      TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, grantee, right_name, [ this->pvt_objectid ], withgrantoption, ^comment->value);
-    }
+      TolliumUpdateGrant(work, this->rightsinfo, this->tolliumuser, "grant",  right_name, [ this->pvt_objectid ], grantee, CELL[withgrantoption, comment := ^comment->value ]);
+
     RETURN work->Finish();
   }
 

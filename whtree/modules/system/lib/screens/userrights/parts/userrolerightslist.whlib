@@ -265,7 +265,7 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
       OBJECT work := this->owner->BeginWork();
       OBJECT newrole := this->contexts->userapi->GetRole(newroleid);
       FOREVERY(RECORD right FROM this->directpermissions->selection)
-        TolliumGrantRightTo(work, this->rightsinfo, this->owner->tolliumuser, newrole, right.rightname, [ INTEGER(right.objectid) ], FALSE, ""); //FIXME need to set a comment for these grants - ^comment->value);
+        TolliumUpdateGrant(work, this->rightsinfo, this->owner->tolliumuser, "grant", right.rightname, [ INTEGER(right.objectid) ], newrole); //FIXME need to set a comment for these grants - ^comment->value
 
       work->Finish();
     }

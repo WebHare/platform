@@ -182,7 +182,7 @@ MACRO GrantTest()
   OBJECT limited_user := testfw->GetUserObject("limited");
   OBJECT limited2_user := testfw->GetUserObject("limited2");
 
-  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite:globalright", limited_user, 0);
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "webhare_testsuite:globalright", 0, limited_user);
   TestEq(FALSE, limited_user->HasRight("system:sysop"));
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
   TestEqMembers([ [ grantedright    := "webhare_testsuite:globalright"
@@ -191,14 +191,14 @@ MACRO GrantTest()
                   ]
                 ], ExplainRightGrantedToOn("webhare_testsuite:objectright2", limited_user->EnsureAuthObject(), 0, FALSE), '*');
 
-  testfw->GetUserObject("sysop")->UpdateGrant("update", "webhare_testsuite:globalright", limited_user, 0, [ comment := "updated"]);
+  testfw->GetUserObject("sysop")->UpdateGrant("update", "webhare_testsuite:globalright", 0, limited_user, [ comment := "updated"]);
   TestEqMembers([ [ grantedright    := "webhare_testsuite:globalright"
                   , comment := "updated"
                   , withgrantoption := FALSE
                   ]
                 ], ExplainRightGrantedToOn("webhare_testsuite:objectright2", limited_user->EnsureAuthObject(), 0, FALSE), '*');
 
-  testfw->GetUserObject("sysop")->UpdateGrant("update", "webhare_testsuite:globalright", limited_user, 0, [ withgrantoption := TRUE]);
+  testfw->GetUserObject("sysop")->UpdateGrant("update", "webhare_testsuite:globalright", 0, limited_user, [ withgrantoption := TRUE]);
   TestEqMembers([ [ grantedright    := "webhare_testsuite:globalright"
                   , comment := "updated"
                   , withgrantoption := TRUE

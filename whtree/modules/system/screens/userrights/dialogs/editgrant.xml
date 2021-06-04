@@ -1,16 +1,12 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:system="http://www.webhare.net/xmlns/system/components"
-         lib="screens/userrights/dialogs/editgrant.whlib"
-         gid="userrights.commondialogs.rights" >
+         gid="userrights.commondialogs.rights"
+         lib="screens/userrights/dialogs/editgrant.whlib">
 
-  <screen name="editrightgrant">
+  <screen name="editrightgrant" footerbuttons="ok cancel">
     <body>
       <includefragment name="selectright" fragment="userrights/parts/selectright.selectright" />
-      <text name="comment" wordwrap="true" />
+      <textarea name="comment" tid="~comments" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
   <screen name="editrolegrant" title="" tid=".grant">
@@ -18,7 +14,7 @@
       <text name="grantdatetime" />
       <text name="grantor" />
       <text name="rolename" />
-      <text name="comment" wordwrap="true" />
+      <textarea name="comment"  />
     </body>
     <footer>
       <defaultformbuttons buttons="close"/>
