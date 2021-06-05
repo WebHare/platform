@@ -184,10 +184,6 @@
           <xs:selector xpath="./m:webservice" />
           <xs:field xpath="@name" />
         </xs:unique>
-        <xs:unique name="uniquelocalservices">
-          <xs:selector xpath="./m:localservice" />
-          <xs:field xpath="@name" />
-        </xs:unique>
       </xs:element>
       <xs:element name="registry" type="Registry" />
       <xs:element name="moduleregistry" type="RegistryNode" />
@@ -2477,21 +2473,6 @@
             </xs:simpleType>
           </xs:attribute>
           <xs:attributeGroup ref="ApplicabletoWebHare" />
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="localservice">
-        <xs:complexType>
-          <xs:attribute name="name" type="xs:string" use="required" />
-          <xs:attribute name="library" type="xs:string" use="required" />
-          <xs:attribute name="objectname" type="xs:string" use="required" />
-          <xs:attribute name="reuse" type="xs:boolean"  />
-          <xs:attribute name="withtransaction" type="xs:boolean" default="true">
-            <xs:annotation>
-              <xs:documentation>
-                If true, this service receives the caller's transaction. If false, the service will not receive or require a (primary) transaction
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
         </xs:complexType>
       </xs:element>
       <xs:element name="internalservice">

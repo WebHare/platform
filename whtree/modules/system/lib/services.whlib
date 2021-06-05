@@ -10,7 +10,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib" EXPORT EncryptForThisServer, DecryptForThisServer;
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;

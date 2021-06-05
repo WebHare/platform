@@ -110,12 +110,6 @@
       </accesscheck>
     </webservice>
 
-    <localservice name="test" library="system/localservice.whlib" objectname="TestLocalService"/>
-    <localservice name="testpersistent" library="system/localservice.whlib" objectname="TestLocalService" reuse="true"/>
-    <localservice name="testnodbservice" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="false" withtransaction="false"/>
-    <localservice name="testnodbservicepersistent" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="true" withtransaction="false"/>
-    <localservice name="testnodbservicepersistent2" library="system/localservice.whlib" objectname="TestNoDBservice" reuse="true" withtransaction="false"/>
-
     <apprunnerconfig configfunction="lib/internal/support.whlib#getapprunnerconfig" />
   </services>
 

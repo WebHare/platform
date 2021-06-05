@@ -25,9 +25,6 @@
   </servicemanager>
 
   <services>
-    <localservice name="services" library="internal/services.whlib" objectname="SocialiteServices" reuse="true" />
-    <localservice name="recaptcha" library="internal/services.whlib" objectname="RecaptchaServices" reuse="true" withtransaction="false" />
-
     <webservice name="recaptcha" transports="jsonrpc" library="internal/recaptcha-rpc.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>

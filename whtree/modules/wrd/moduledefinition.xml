@@ -34,7 +34,6 @@
   </tollium>
 
   <services>
-    <localservice name="authapi" library="auth/api.whlib" objectname="WRDAuthService" reuse="false" withtransaction="false" />
     <webservice name="auth" transports="jsonrpc" library="internal/auth/service.whlib" primarytrans="auto" prefix="rpc_">
       <accesscheck>
       </accesscheck>
