@@ -208,20 +208,7 @@ test.registerTests(
       test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
     }
 
-  , "Chrome initial cursor position between embedded blocks"
-  , async function()
-    {
-      // chrome (72) gave back a cursor at the beginning of the document, even if it visually was between the embedded blocks in the document 'embedded, emptypara, embedded'
-      // Pressing delete then deleted the first embedded object, which shouldn't happen
-
-      await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=twoembeds');
-      test.click(".wh-rtd__html", { x: 0, y: 0 });
-      await test.pressKey("Delete");
-      console.log(test.qSA(".wh-rtd-embeddedobject"));
-      test.eq(2, test.qSA(".wh-rtd-embeddedobject").length);
-    }
-
-  , "Expansion of previews when strated in disabled mode"
+  , "Expansion of previews when started in disabled mode"
   , async function()
     {
       await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
@@ -235,6 +222,5 @@ test.registerTests(
                 +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
                 +'<p class="normal">ondertekst</p>'
                 , test.getWin().rte.getValue());
-
     }
   ]);

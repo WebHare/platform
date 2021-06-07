@@ -2889,7 +2889,7 @@ export default class StructuredEditor extends EditorBase
 
     const has_inlinepreview = /wh-rtd__inlinepreview/.exec(data.htmltext);
 
-    var node = document.createElement(basenode);
+    var node = document.createElement(basenode); //the basenode is also used to show selection status
     node.className = "wh-rtd-embeddedobject"
       + (data.canedit ? " wh-rtd-embeddedobject--editable" : "")
       + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
@@ -2897,6 +2897,10 @@ export default class StructuredEditor extends EditorBase
       + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "");
     node.dataset.instanceref = data.instanceref;
     node.contentEditable = false;
+
+    var box = document.createElement(basenode); //the box is the 'gray' rounded border area for the widget
+    box.className = "wh-rtd-embeddedobject__box";
+    node.appendChild(box);
 
     let typebox = null;
 
@@ -2917,12 +2921,12 @@ export default class StructuredEditor extends EditorBase
     if(typebox)
       stickyheader.appendChild(typebox);
     stickyheader.appendChild(objectbuttons);
-    node.appendChild(stickyheader);
+    box.appendChild(stickyheader);
 
     const previewnode = document.createElement(basenode);
     previewnode.className = "wh-rtd-embeddedobject__preview";
     previewnode.innerHTML = data.htmltext;
-    node.appendChild(previewnode);
+    box.appendChild(previewnode);
 
     if(!isinline)
     {
