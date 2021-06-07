@@ -281,7 +281,7 @@ export class RTE
       if (dompack.debugflags.rte)
         console.log("[rte] Document got dirty, firing event");
 
-      dompack.dispatchCustomEvent(this.container, "wh:rtd-dirty", { bubbles: true, cancelable: false });
+      dompack.dispatchCustomEvent(this.container, "wh:richeditor-dirty", { bubbles: true, cancelable: false });
     }
   }
 
@@ -495,7 +495,7 @@ export class RTE
 
   _fireStateChange()
   {
-    dompack.dispatchCustomEvent(this.bodydiv, 'wh:rtd-statechange', { bubbles: true, cancelable: false});
+    dompack.dispatchCustomEvent(this.bodydiv, 'wh:richeditor-statechange', { bubbles: true, cancelable: false});
   }
 
   // ---------------------------------------------------------------------------

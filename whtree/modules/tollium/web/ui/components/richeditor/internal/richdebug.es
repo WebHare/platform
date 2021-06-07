@@ -317,7 +317,7 @@ class SourceDebugger
     this.el = el;
     this.boxel = boxel;
     this.editpr = null;
-    this.rte.getContainer().addEventListener("wh:rtd-statechange", () => this.onStateChange());
+    this.rte.getContainer().addEventListener("wh:richeditor-statechange", () => this.onStateChange());
   }
   refresh()
   {

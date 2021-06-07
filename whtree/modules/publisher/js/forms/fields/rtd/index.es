@@ -66,7 +66,7 @@ export default class RTDField
     node.addEventListener('wh:form-getvalue', evt => { evt.preventDefault(); evt.detail.deferred.resolve(this.rte.getValue()); });
     node.addEventListener('wh:form-setvalue', evt => { evt.preventDefault(); this.rte.setValue(evt.detail.value); });
     node.addEventListener('wh:richeditor-action', evt => this.executeAction(evt));
-    node.addEventListener('wh:rtd-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
+    node.addEventListener('wh:richeditor-dirty', evt => dompack.dispatchCustomEvent(this.node, 'input', { bubbles: true, cancelable: false }));
 
     if(this._fieldgroup)
     {

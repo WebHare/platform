@@ -484,7 +484,7 @@ export default class RTEToolbar
     this.el=element;
 
     this.buildButtonBar();
-    this.rte.getContainer().addEventListener("wh:rtd-statechange", evt => this.onStateChange());
+    this.rte.getContainer().addEventListener("wh:richeditor-statechange", evt => this.onStateChange());
   }
 
   createButtonObject(buttonname)
