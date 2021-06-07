@@ -1,7 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::tollium/lib/internal/towl.whlib" EXPORT TowlPriorityVeryLow
                                                    , TowlPriorityLow
@@ -150,7 +149,7 @@ PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECOR
                   , defaultenabled := notification.defaultenabled
                   ];
 
-  __OpenLocalService("tollium:towlservice")->BroadcastNotification(receivers, event);
+  NEW TowlServiceObject->BroadcastNotification(receivers, event);
 
   RETURN event.id;
 }
@@ -177,7 +176,7 @@ PUBLIC MACRO HideTowlNotification(STRING name, RECORD receivers, STRING tag)
 
   STRING id := EncodeJava(name) || "\t" || EncodeJava(tag);
 
-  __OpenLocalService("tollium:towlservice")->BroadcastNotification(receivers,
+  NEW TowlServiceObject->BroadcastNotification(receivers,
       [ id :=         EncodeJava(name) || "\t" || EncodeJava(tag)
       , type :=       "tollium:towl.hideevent"
       , persistent := TRUE

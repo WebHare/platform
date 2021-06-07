@@ -20,17 +20,10 @@ STRING regkeybase := "tollium.towl";
 // Hide notifications after 5 seconds by default
 INTEGER defaulttimeout := 5000;
 
-PUBLIC OBJECTTYPE TowlService
+OBJECT userapi;
+
+PUBLIC STATIC OBJECTTYPE TowlServiceObject
 <
-  OBJECT trans;
-  OBJECT userapi;
-
-  MACRO NEW()
-  {
-    this->trans := OpenPrimary();
-
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Helper functions
@@ -78,6 +71,9 @@ PUBLIC OBJECTTYPE TowlService
 
   PUBLIC MACRO BroadcastNotification(RECORD receivers, RECORD notification)
   {
+    IF(GetPrimary()->IsWorkOpen())
+      THROW NEW Exception(`Cannot BroadcastNotification with open work`); //as we're not using a separate primary anymore. looks like none of our callers had work ?
+
     BOOLEAN have_webhare_users := CellExists(receivers, "WEBHARE_USERS");
     BOOLEAN have_wrd_users := CellExists(receivers, "WRD_USERS");
     BOOLEAN have_users_with_rights := CellExists(receivers, "USERS_WITH_RIGHTS");
@@ -140,13 +136,11 @@ PUBLIC OBJECTTYPE TowlService
   */
   PUBLIC MACRO SetUserTimeout(OBJECT user, INTEGER timeout)
   {
-    this->trans->BeginWork();
     STRING regkey := regkeybase || ".timeout";
     IF (timeout <= 0)
       user->DeleteRegistryKey(regkey);
     ELSE
       user->SetRegistryKey(regkey, timeout);
-    this->trans->CommitWork();
   }
 
   /** @short Get the user priority preference for the given notification
@@ -170,7 +164,6 @@ PUBLIC OBJECTTYPE TowlService
   */
   PUBLIC MACRO SetNotificationPriority(OBJECT user, STRING name, INTEGER priority)
   {
-    this->trans->BeginWork();
     STRING regkey := name = "" ? regkeybase || ".showpriority" : regkeybase || ".notifications." || name || ".showpriority";
     IF (priority = -4)
       user->DeleteRegistryKey(regkey);
@@ -183,8 +176,7 @@ PUBLIC OBJECTTYPE TowlService
       user->SetRegistryKey(regkey, priority);
     }
 
-    this->trans->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
-    this->trans->CommitWork();
+    GetPrimary()->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
   }
 
   /** @short Get the timeout to show the notification for the given user
@@ -220,7 +212,7 @@ PUBLIC OBJECTTYPE TowlService
     IF (priority = -4)
     {
       OBJECT mutex := OpenLockManager()->LockMutex("tollium:towl.setpriority");
-      this->trans->BeginWork();
+      GetPrimary()->BeginWork();
 
       TRY
       {
@@ -233,14 +225,14 @@ PUBLIC OBJECTTYPE TowlService
           STRING regkey := regkeybase || ".notifications." || notification.tid || ".showpriority";
           user->SetRegistryKey(regkey, priority);
 
-          this->trans->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
+          GetPrimary()->BroadcastOnCommit("tollium:towl.notificationsettings." || user->entityid, DEFAULT RECORD);
         }
-        this->trans->CommitWork();
+        GetPrimary()->CommitWork();
       }
       CATCH (OBJECT e)
       {
         LogHarescriptException(e);
-        this->trans->RollbackWork();
+        GetPrimary()->RollbackWork();
         THROW e;
       }
       FINALLY
@@ -259,16 +251,16 @@ PUBLIC OBJECTTYPE TowlService
   OBJECT FUNCTION GetUserByGUID(STRING guid)
   {
     INTEGER user_type;
-    IF (NOT ObjectExists(this->userapi))
+    IF (NOT ObjectExists(userapi))
     {
       //FIXME get the proper userapi
-      this->userapi := GetPrimaryWebhareUserApi();
+      userapi := GetPrimaryWebhareUserApi();
     }
 
     IF(guid="<overrideuser>")
-      RETURN this->userapi->GetTolliumUserByIdAndImpersonation(-1,"").userobject;
+      RETURN userapi->GetTolliumUserByIdAndImpersonation(-1,"").userobject;
 
-    user_type := this->userapi->accounttype->id;
+    user_type := userapi->accounttype->id;
 
     guid := DecodeBase16(Substring(guid, 4));
     INTEGER entity :=
@@ -277,6 +269,6 @@ PUBLIC OBJECTTYPE TowlService
          WHERE COLUMN guid = VAR guid
            AND (user_type != 0 ? type = user_type : TRUE);
 
-    RETURN this->userapi->GetTolliumUserFromEntityId(entity);
+    RETURN userapi->GetTolliumUserFromEntityId(entity);
   }
 >;

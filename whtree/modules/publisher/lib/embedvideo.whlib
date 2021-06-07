@@ -6,9 +6,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::util/geo.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
-
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 RECORD FUNCTION FixupLocation(RECORD loc)
 {
@@ -71,35 +69,11 @@ RECORD FUNCTION GetCacheableVideoEmbedProviders()
 {
   RECORD ARRAY providers, detectors;
 
-  FOREVERY(STRING mod FROM GetInstalledModuleNames())
-  {
-    OBJECT xmldef;
-    TRY
-      xmldef := GetModuleDefinitionXML(mod);
-    CATCH
-      CONTINUE;
-    IF(NOT ObjectExists(xmldef))
-      CONTINUE;
-
-    OBJECT videoproviders := xmldef->GetElementsByTagNameNS("http://www.webhare.net/publisher/embedvideoproviders", "embedvideoproviders")->Item(0);
-    IF(ObjectExists(videoproviders))
-    {
-      FOREVERY(OBJECT detectornode FROM videoproviders->GetChildElementsByTagNameNS("http://www.webhare.net/publisher/embedvideoproviders", "detector")->GetCurrentElements())
-      {
-        INSERT [ library := "module::" || mod || "/" || detectornode->GetAttribute("library")
-               , functionname := detectornode->GetAttribute("functionname")
-               ] INTO detectors AT END;
-      }
-
-      FOREVERY(OBJECT providernode FROM videoproviders->GetChildElementsByTagNameNS("http://www.webhare.net/publisher/embedvideoproviders", "provider")->GetCurrentElements())
-      {
-        INSERT [ name := providernode->GetAttribute("name")
-               , tid := mod || ":" || providernode->GetAttribute("tid")
-               , localservice := mod || ":" || providernode->GetAttribute("localservice")
-               ] INTO providers AT END;
-      }
-    }
-  }
+ FOREVERY(RECORD mod FROM GetWebHareModules())
+ {
+   detectors := detectors CONCAT mod.embedvideodetectors;
+   providers := providers CONCAT mod.embedvideoproviders;
+ }
 
   RETURN [ ttl := 5 * 60 * 1000
          , value := [ providers := providers
@@ -116,11 +90,11 @@ PUBLIC RECORD ARRAY FUNCTION GetVideoEmbedProviders()
 
 PUBLIC OBJECT FUNCTION GetVideoEmbedProvider(STRING providername)
 {
-  STRING serv := SELECT AS STRING localservice FROM GetVideoEmbedProviders() WHERE name = providername;
+  STRING serv := SELECT AS STRING objectname FROM GetVideoEmbedProviders() WHERE name = providername;
   IF(serv="")
     THROW NEW Exception("No such video provider '" || providername || "'");
 
-  RETURN __OpenLocalService(serv);
+  RETURN MakeObject(serv);
 }
 PUBLIC RECORD FUNCTION GuessEmbeddedVideoFromCode(STRING code)
 {
@@ -133,7 +107,7 @@ PUBLIC RECORD FUNCTION GuessEmbeddedVideoFromCode(STRING code)
 
   FOREVERY(RECORD detector FROM GetAdhocCached ( [ type := "providers" ], PTR GetCacheableVideoEmbedProviders).detectors)
   {
-    FUNCTION PTR detectfunc := MakeFunctionPtr(detector.library, detector.functionname, TYPEID(RECORD), [TYPEID(STRING)]);
+    FUNCTION PTR detectfunc := MakeFunctionPtr(detector.functionname, TYPEID(RECORD), [TYPEID(STRING)]);
     RECORD result := detectfunc(code);
     IF(RecordExists(result))
       RETURN result;

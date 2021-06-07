@@ -2362,7 +2362,7 @@ PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
 PUBLIC MACRO SnoozeRateLimits()
 {
   GetPrimary()->BeginWork();
-  DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
+  DATETIME bumpuntil := AddTimeToDate(10 * 60 * 1000, GetCurrentDatetime());
   //TODO once we get a more generic mechanisme, deal with that. ideally we only disable limits for as long as the current test runs (Even if the test crashes)
   IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
     WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);

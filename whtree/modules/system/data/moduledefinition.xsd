@@ -1606,6 +1606,19 @@
         <xs:element name="indexfield" type="PublisherIndexField" />
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
+        <xs:element name="embedvideodetector">
+          <xs:complexType>
+            <xs:attribute name="functionname" use="required" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="embedvideoprovider">
+          <xs:complexType>
+            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="tid" />
+            <xs:attribute name="title" />
+            <xs:attribute name="objectname" use="required" />
+          </xs:complexType>
+        </xs:element>
         <xs:element name="feedbackscope">
           <xs:complexType>
             <xs:attribute name="tag" use="required" />

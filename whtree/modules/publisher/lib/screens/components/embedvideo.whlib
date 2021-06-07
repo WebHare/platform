@@ -246,7 +246,9 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     IF(Length(data.limitnetworks) > 0)
       providers := SELECT * FROM providers WHERE MatchCommonXMLWildcardMasks(name, data.limitnetworks);
 
-    this->network->options := SELECT rowkey := name, title := GetTid(tid) FROM providers;
+    this->network->options := SELECT rowkey := name
+                                   , title := GetTid(title)
+                                FROM providers;
 
     this->frame->flags.movieselected := FALSE;
 

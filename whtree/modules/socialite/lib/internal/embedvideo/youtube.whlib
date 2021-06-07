@@ -1,15 +1,10 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/remoting/whservice.whlib";
 
 
 PUBLIC OBJECTTYPE YoutubeProvider EXTEND EmbedVideoProviderBase
 <
-  MACRO NEW()
-  {
-    OpenPrimary();
-  }
   //ADDME implement describevideo using videolist - less api costs
 
   /** @short Returns YouTube movies found by a custom query
