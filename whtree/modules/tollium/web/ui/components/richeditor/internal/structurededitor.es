@@ -440,7 +440,7 @@ export default class StructuredEditor extends EditorBase
       this.selectRange(rawselection);
     }
 
-    super.OnSelectionChange(event);
+    super._gotSelectionChange(event);
   }
 
   // Create an paragraph above/below the sibling and send the cursor there

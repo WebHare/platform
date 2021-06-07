@@ -2177,7 +2177,7 @@ export default class EditorBase
     this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
   }
 
-  OnSelectionChange(event)
+  _gotSelectionChange(event)
   {
     if (this.selectingrange) // Currently within our own selection calls, ignore
       return;
@@ -2431,7 +2431,7 @@ export default class EditorBase
 
     // Firefox doesn't have anything like selectionchange, so we need to do that before keys arrive
     if (browser.getName() === "firefox")
-      this.OnSelectionChange(null);
+      this._gotSelectionChange(null);
 
     // User input is being handled, handle input events now!
     this._detectedInputEvent(event);
@@ -2441,7 +2441,7 @@ export default class EditorBase
     // Something might be done with this press, schedule a state update
     setTimeout(() =>
     {
-      this.OnSelectionChange(event);
+      this._gotSelectionChange(event);
       this.stateHasChanged();
     },1);
 
@@ -2454,7 +2454,7 @@ export default class EditorBase
     if (eventdata.ctrlKey)
       return;
 
-    this.OnSelectionChange(event);
+    this._gotSelectionChange(event);
 
     // enters keep delayed surrounds intact
     if (eventdata.key === "Enter")
@@ -2508,7 +2508,7 @@ export default class EditorBase
     if (eventdata.key !== "Enter")
       this.ClearDelayedSurrounds();
 
-    this.OnSelectionChange(event);
+    this._gotSelectionChange(event);
     this.stateHasChanged();
     return true;
   }
@@ -2521,13 +2521,13 @@ export default class EditorBase
     if (event.target.nodeName.toUpperCase() == "IMG")
       this.selectNodeOuter(event.target);
 
-    this.OnSelectionChange(event);
+    this._gotSelectionChange(event);
     this.stateHasChanged();
 
     // Delay 1 ms to pick up text selection changes for context menus. Also delay the context menu by 1ms and everything will be ok
     window.setTimeout( () =>
     {
-      this.OnSelectionChange(event);
+      this._gotSelectionChange(event);
       this.stateHasChanged();
     },1);
     return true;
@@ -2538,7 +2538,7 @@ export default class EditorBase
     this.ClearDelayedSurrounds();
     window.setTimeout( () =>
     {
-      this.OnSelectionChange(event);
+      this._gotSelectionChange(event);
       this.stateHasChanged();
     },1);
   }
