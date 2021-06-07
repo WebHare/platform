@@ -70,37 +70,37 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   RETURN mailroutes;
 }
 
-BOOLEAN FUNCTION IsAllowedEmail(STRING email, INTEGER checkruletype)
+INTEGER FUNCTION IsAllowedEmail(STRING email, INTEGER checkruletype)
 {
   RECORD mailroutes := GetMailroutes();
 
-  IF(checkruletype = 1 AND mailroutes.usemailfromfornonwhitelisted) //every sender is acceptable..
-    RETURN TRUE;
-
   RECORD ARRAY whitelist := SELECT mask FROM mailroutes.routes WHERE ruletype = VAR checkruletype;
   IF(Length(whitelist) = 0)
-    RETURN TRUE;
+    RETURN 1;
 
   IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
-    RETURN TRUE;
+    RETURN 1;
+
+  IF(checkruletype = 1 AND mailroutes.usemailfromfornonwhitelisted) //every sender is acceptable..
+    RETURN 2; //rewrite
 
   IF(email LIKE "*+*@*")
   {
     email := Tokenize(email,'+')[0] || '@' || Tokenize(email,'@')[1];
     IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
-      RETURN TRUE;
+      RETURN 1;
   }
-  RETURN FALSE;
+  RETURN 0;
 }
 
-PUBLIC BOOLEAN FUNCTION IsAllowedEmailSender(STRING email)
+PUBLIC INTEGER FUNCTION IsAllowedEmailSender(STRING email)
 {
   RETURN IsAllowedEmail(email, 1);
 }
 
 PUBLIC BOOLEAN FUNCTION IsAllowedEmailReceiver(STRING email)
 {
-  RETURN IsAllowedEmail(email, 2);
+  RETURN IsAllowedEmail(email, 2) = 1;
 }
 
 PUBLIC BOOLEAN FUNCTION HasMailroutes()

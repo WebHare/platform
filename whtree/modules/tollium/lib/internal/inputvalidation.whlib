@@ -44,7 +44,7 @@ PUBLIC STRING FUNCTION ValidateInput(STRING input, STRING fieldtitle, STRING ARR
         IF(check = "email-maysendfrom")
         {
           STRING mail := SplitEmailName(input).email;
-          IF(NOT IsAllowedEmailSender(mail))
+          IF(IsAllowedEmailSender(mail) = 0)
             RETURN GetTid("tollium:validation.errors.sender_not_whitelisted", fieldtitle, mail);
         }
 

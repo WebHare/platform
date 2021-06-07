@@ -120,24 +120,33 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
       RETURN;
     }
 
-    IF(NOT IsAllowedEmailSender(taskdata.senderemail) AND ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted"))
+    INTEGER sendstatus := IsAllowedEmailSender(taskdata.senderemail);
+    IF(sendstatus = 2) //usemailfromfornonwhitelisted
     {
       STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
-      IF(IsAllowedEmailSender(mailfrom))
+      IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is being whitelisted too, we're not allowe to send
       {
-        RECORD split_mailfrom := SplitEmailName(mailfrom);
-        RECORD split_origsender := SplitEmailName(taskdata.senderemail);
-        STRING use_name := (split_origsender.name != "" ? split_origsender.name || " " : "")
-                           || Substitute(split_origsender.name, '@', " at ");
-        taskdata.senderemail := split_mailfrom.email;
-        data.sender := MakeEmailAddress(use_name, split_mailfrom.email, FALSE);
-
-        UPDATE data.mimeheaders SET value := data.sender WHERE ToUppercase(field) = "FROM";
-        UPDATE data.mimeheaders SET value := "<" || taskdata.senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
+        this->ResolveByTemporaryFailure( [ serverip := ""
+                                         , route := ""
+                                         , response := "Fallback sender is not whitelisted"
+                                         , success := FALSE
+                                         , sender := taskdata.sender
+                                         , finalreceiver := taskdata.receiver
+                                         ], `Fallback sender '${mailfrom}' is not whitelisted`);
+        RETURN;
       }
-    }
 
-    IF(NOT IsAllowedEmailSender(taskdata.senderemail))
+      RECORD split_mailfrom := SplitEmailName(mailfrom);
+      RECORD split_origsender := SplitEmailName(taskdata.senderemail);
+      STRING use_name := (split_origsender.name != "" ? split_origsender.name || " " : "")
+                         || Substitute(split_origsender.name, '@', " at ");
+      taskdata.senderemail := split_mailfrom.email;
+      data.sender := MakeEmailAddress(use_name, split_mailfrom.email, FALSE);
+
+      UPDATE data.mimeheaders SET value := data.sender WHERE ToUppercase(field) = "FROM";
+      UPDATE data.mimeheaders SET value := "<" || taskdata.senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
+    }
+    ELSE IF(sendstatus = 0)
     {
       this->ResolveByTemporaryFailure( [ serverip := ""
                                        , route := ""
