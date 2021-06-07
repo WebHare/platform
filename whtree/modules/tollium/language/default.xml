@@ -720,6 +720,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
+      <text tid="inspect">Inspect</text>
       <text tid="normalcell">Default cell styling</text>
       <text tid="properties">Properties</text>
       <text tid="sureremovetable">Are you sure you want to remove this table?</text>

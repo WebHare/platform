@@ -189,6 +189,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   OBJECT cleaner;
   BOOLEAN pvt_isdirty;
   STRING __margins;
+  BOOLEAN allowinspect;
 
   PUBLIC PROPERTY dirty(pvt_isdirty, SetDirtyProp); // SetDirty is already defined in TolliumIsDirtyable
 
@@ -238,6 +239,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
     this->pvt_toplaintextmethod := "converthtmltoplaintext";
     this->pvt_countmethod := "plaintext:characters";
+    this->allowinspect := ObjectExists(this->contexts->user) AND this->contexts->user->HasRight("system:sysop");
 
     //ADDME generate hashes that allows RTDs to share their formatting
     this->cssinstance := ToLowercase("wh-rtd__stylescope_" || GenerateUFS128BitId());
@@ -479,6 +481,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
                          , bodyclass := this->bodyclass
                          , margins := this->__margins
                          , csscode := this->css
+                         , allowinspect := this->allowinspect
                          , readonly := this->readonly
                          , borders := this->borders
                          , showcounter := this->pvt_showcounter
@@ -724,7 +727,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     */
     IF(type = "properties2")
     {
-      RECORD settings := this->HandlePropertiesRequest2(CELL[...msgdata.affectednodeinfo, subaction := CellExists(msgdata,'subaction') ? msgdata.subaction : ""]);
+      RECORD settings := this->HandlePropertiesRequest2(CELL[...msgdata.affectednodeinfo
+                                                            , msgdata.action
+                                                            , subaction := CellExists(msgdata,'subaction') ? msgdata.subaction : ""
+                                                            ]);
       this->QueueOutboundMessage("UpdateProps2", [ actionid := msgdata.actionid, settings := settings ]);
       RETURN;
     }
@@ -931,15 +937,19 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   RECORD FUNCTION HandleEmbeddedObjectProperties(RECORD data)
   {
-    STRING subaction := CellExists(data,"subaction") ? data.subaction : "edit";
     RECORD instance := this->editable->GetWidget(data.instanceref);
     IF (NOT RecordExists(instance)) // instance gone, remove it
     {
       Print("Instance not found - requesting immediate removal\n");
       RETURN [ type := "remove" ];
     }
+    IF(data.action = "webhare-inspect")
+    {
+      Reflect(instance);
+      RETURN DEFAULT RECORD;
+    }
 
-    IF(subaction="delete")
+    IF(data.subaction = "delete")
     {
       IF(this->owner->RunMessageBox("tollium:commondialogs.confirmdeleteembeddedobject") != "yes")
         RETURN DEFAULT RECORD;

@@ -142,7 +142,7 @@ test.registerTests(
 
       let result = await propsevent;
       test.eq("action-properties", result.detail.action);
-      test.eq(body.childNodes[1], result.detail.actiontarget.__node);
+      test.eq(body.childNodes[1], result.detail.actiontargetinfo.__node);
     }
 
   , { name: 'embeddedobject-contentsignore'

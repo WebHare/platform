@@ -210,8 +210,11 @@ export class RTE
     if(!selectionstate)
       return;
 
-    let contextmenu = dompack.create('ul');
-    let menuitems = [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
+    let actiontarget = selectionstate.actiontargets.length ? this.getTargetInfo({__node: selectionstate.actiontargets[0] }) : null;
+
+    let menuitems = [];
+    for(let menuitem of
+                    [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
                     , { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") }
                     , null
                     , { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") }
@@ -227,34 +230,34 @@ export class RTE
                     , { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown")  }
                     , { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols")  }
                     , { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows")  }
-                    ];
-
-    if(this.options.propertiesaction)
-      menuitems.push(null, { action: "action-properties", title: getTid("tollium:components.rte.properties") });
-
-    for(let item of menuitems)
+                    , null
+                    , ...(this.options.propertiesaction ? [{ action: "action-properties", title: getTid("tollium:components.rte.properties") }] : [])
+                    ])
     {
-      if(!item)
-      {
-        contextmenu.appendChild(dompack.create('li', {className:'divider'}));
-        continue;
-      }
-
-      if(selectionstate.actionstate[item.action].available)
-      {
-        contextmenu.appendChild(dompack.create('li', { textContent: item.title
-                                                     , onClick: evt => this._activateRTDMenuItem(evt, item)
-                                                     }));
-      }
+      if(!menuitem || selectionstate.actionstate[menuitem.action].available)
+        menuitems.push(menuitem);
     }
+
+    if(!dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-contextmenu", { bubbles: true
+                                                                               , cancelable: true
+                                                                               , detail: { actiontarget, menuitems }
+                                                                               }))
+    {
+      return;
+    }
+
+    let contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
+                        { menuitems.map( item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />) }
+                      </ul>;
 
     menu.openAt(contextmenu, event, { eventnode: this.node });
   }
 
-  _activateRTDMenuItem(evt, item)
+  _activateRTDMenuItem(evt, actiontarget)
   {
     dompack.stop(evt);
-    this.executeAction(item.action);
+    let item = evt.target.closest('li');
+    this.executeAction(item.dataset.action, actiontarget);
   }
 
   //get the current dirty flag
@@ -516,6 +519,7 @@ export class RTE
       return { type: 'hyperlink'
              , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
              , target: node.target || ''
+             , __node: node
              };
     }
     else if(node.matches('td,th'))
@@ -528,12 +532,14 @@ export class RTE
              , datacell: editor.locateFirstDataCell()
              , numrows: editor.numrows
              , numcolumns: editor.numcolumns
+             , __node: node
              };
     }
     else if(node.matches('.wh-rtd-embeddedobject'))
     {
       return { type: 'embeddedobject'
              , instanceref:  node.dataset.instanceref
+             , __node: node
              };
     }
     else if(node.matches('img'))
@@ -553,6 +559,7 @@ export class RTE
              , alttext: node.alt
              , link: linkinfo
              , src: node.src
+             , __node: node
              };
     }
     return null;
@@ -808,11 +815,11 @@ export class RTE
     return this.editrte ? this.editrte.getAvailableBlockStyles(selstate) : [];
   }
 
-  executeAction(action)
+  executeAction(action, actiontarget)
   {
     //FIXME: RTE should handle the action and dispatch to the active editor, so it can handle global rte actions (like show
     //       formatting)
-    this.editrte && this.editrte.executeAction(action);
+    this.editrte && this.editrte.executeAction(action, actiontarget);
   }
 
   setSelectionBlockStyle(newblockstyle, forced)

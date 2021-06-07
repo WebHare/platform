@@ -2709,8 +2709,10 @@ export default class EditorBase
     this.executeDefaultPropertiesAction({target:node, detail:action});
   }
 
-  executeAction(action)
+  executeAction(action, actiontarget)
   {
+    //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
+
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
     if (typeof action == "string")
       action = { action: action };
@@ -2718,8 +2720,12 @@ export default class EditorBase
     if (!this._isActionAllowed(action.action))
       return;
 
-    let actionnode = this.options.eventnode; //FIXME legacy! should just fire to the closest event possible for all actions
-    if (action)
+    let actionnode = this.options.eventnode; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
+    if(actiontarget)
+    {
+      action.actiontargetinfo = actiontarget;
+    }
+    else if (action)
     {
       if(!action.action)
         throw new Error("Expected an 'action' value");
