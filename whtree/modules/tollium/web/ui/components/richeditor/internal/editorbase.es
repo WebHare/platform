@@ -309,7 +309,6 @@ export default class EditorBase
 
     this.ultypes = [ "", "disc", "circle", "square" ];
     this.oltypes = [ "", "decimal", "lower-roman", "upper-roman" ];
-    this.actiontargets = [];
 
     this.delayedsurrounds = [];
 
@@ -2657,27 +2656,6 @@ export default class EditorBase
     }
   }
 
-  /// Get an id for an action target (which can be used through RPC's and then used later using getActionTarget)
-  _registerActionTarget(targetnode)
-  {
-    // FIXME: allow only one target in flight, mix in local id (unique per rtebase in rte) / edittoken?
-    this.actiontargets.push(targetnode);
-    return this.actiontargets.length;
-  }
-
-  getActionTarget(targetid)
-  {
-    var target = targetid > 0 && targetid <= this.actiontargets.length ? this.actiontargets[targetid-1] : null;
-    if(target)
-    {
-      var findbody = this.getContentBodyNode();
-      for(var trynode = target; trynode; trynode = trynode.parentNode)
-        if(trynode == findbody)
-          return target; //good news, the target is still in the DOM. Enjoy!
-    }
-    return null;
-  }
-
   async newUploadInsertImage()
   {
     let lock = dompack.flagUIBusy();
@@ -2716,7 +2694,7 @@ export default class EditorBase
   launchActionPropertiesForNode(node, subaction)
   {
     let action = { action: 'action-properties'
-                 , targetid: this._registerActionTarget(node)
+                 , actiontarget: { __node: node }
                  , subaction: subaction
                  , rte: this.rte
                  };
@@ -2762,8 +2740,6 @@ export default class EditorBase
           return;
 
         actionnode = selstate.actiontargets[0];
-        action.targetid = this._registerActionTarget(actionnode);
-
         action.actiontarget = { __node: actionnode };
         //action.subaction = not needed yet on this route
       }

@@ -286,92 +286,21 @@ export default class ObjRTE extends ComponentBase
     this._counter.update({ count: count });
   }
 
-  getParentElement(element, gettag)
+  _gotPropertiesEvent(event, actiontype)
   {
-    gettag=gettag.toUpperCase();
-    for (var findparent=element;findparent;findparent=findparent.parentNode)
-      if(findparent.nodeName.toUpperCase()==gettag)
-        return findparent;
-    return null;
-  }
+    //FIXME we need to stop direct RTE manipulation and start using 'offical' APIs offered by the richeditor/index.es
+    let affectednodeinfo = event.detail.rte.getTargetInfo(event.detail.actiontarget);
 
-  _gotPropertiesEvent(event)
-  {
-    //FIXME we need to stop direct RTE manipulation and start using 'offiical' APIs offered by the richeditor/index.es
-    if(event.detail.actiontarget)
+    if(affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
     {
-      let affectednodeinfo = event.detail.rte.getTargetInfo(event.detail.actiontarget);
-      if(affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
-      {
-        //preserve the actiontarget - the RTE will need it when the response comes in
-        let actionid = ++this._pendingactiontargetseq;
-        this._pendingactiontargets.push( { id: actionid, target: event.detail.actiontarget });
+      //preserve the actiontarget - the RTE will need it when the response comes in
+      let actionid = ++this._pendingactiontargetseq;
+      this._pendingactiontargets.push( { id: actionid, target: event.detail.actiontarget });
 
-        //the rest of the data is built to be JSON-safe
-        this.queueMessage('properties2', { actionid, affectednodeinfo }, true);
-        event.preventDefault();
-        return;
-      }
-    }
-
-    var targetid = event.detail.targetid;
-    var target = event.target;
-    var subaction = event.detail.subaction;
-
-    //The image 'targetid' is being editted. gather its properties and inform our parent
-    if(target.nodeName.toUpperCase()=='IMG')
-    {
-      var props = { targetid: targetid
-                  , type: 'img'
-                  , align: ''
-                  , width:  parseInt(target.getAttribute("width")) || target.width
-                  , height: parseInt(target.getAttribute("height")) || target.height
-                  , alttext: target.alt
-                  , link: null
-                  , src: target.src
-                  };
-
-      if(target.classList.contains("wh-rtd__img--floatleft"))
-        props.align='left';
-      else if(target.classList.contains("wh-rtd__img--floatright"))
-        props.align='right';
-//      else if(target.align=='left' || target.align=='right')
-  //      props.align=target.align; //backwards compatibility
-
-      var link = this.getParentElement(target, 'A');
-      if(link && link.href)
-        props.link = { link: link.getAttribute("href")
-                     , target: link.getAttribute("target") || ''
-                     };
-
-      this.queueMessage('properties', props, true);
+      //the rest of the data is built to be JSON-safe
+      this.queueMessage('properties2', { actionid, affectednodeinfo, actiontype, subaction: event.detail.subaction }, true);
       event.preventDefault();
-    }
-    else if(target.classList.contains("wh-rtd-embeddedobject"))
-    {
-      let props = { targetid: targetid
-                  , type: 'embeddedobject'
-                  , instanceref: target.getAttribute('data-instanceref')
-                  , subaction: subaction
-                  };
-      this.queueMessage('properties', props, true);
-      event.preventDefault();
-    }
-    else if(target.nodeName.toUpperCase()=='TABLE')
-    {
-      var editor = TableEditor.getEditorForNode(target);
-      if (editor)
-      {
-        let props = { targetid: targetid
-                    , type: 'table'
-                    , datacell: editor.locateFirstDataCell()
-                    , numrows: editor.numrows
-                    , numcolumns: editor.numcolumns
-                    , styletag: editor.node.classList[0]
-                    };
-        this.queueMessage('properties', props, true);
-      }
-      event.preventDefault();
+      return;
     }
   }
 
@@ -396,96 +325,6 @@ export default class ObjRTE extends ComponentBase
       return;
 
     this.rte.updateTarget(actiontarget, data.settings);
-  }
-
-  onMsgUpdateProps(data)
-  {
-    //FIXME we need to stop direct RTE manipulation and start using 'offiical' APIs offered by the richeditor/index.es
-    var targetid = data.targetid;
-    var newdata = data.newdata;
-
-
-    var target = this.rte.getActionTarget(targetid);
-    if(!target)
-      return; //unable to match the target, too bad...
-
-    const undolock = this.rte.getEditor().getUndoLock();
-
-    switch (target.nodeName.toUpperCase())
-    {
-      case "IMG":
-      {
-        target.width = newdata.width;
-        target.height = newdata.height;
-        target.align = '';
-        target.alt = newdata.alttext;
-        target.className = "wh-rtd__img" + (newdata.align=='left' ? " wh-rtd__img--floatleft" : newdata.align=="right" ? " wh-rtd__img--floatright" : "");
-
-        var link = this.getParentElement(target, 'A');
-        if(link && !newdata.link) //remove the hyperlink
-        {
-          console.warn("ADDME: Calling low level APIs here, cleanup or approve - would prefer not to disturb selection");
-          this.rte.getEditor().selectNodeOuter(target);
-          this.rte.getEditor().removeHyperlink();
-        }
-        else if (newdata.link) //add a hyperlink
-        {
-          console.warn("ADDME: Calling low level APIs here, cleanup or approve - would prefer not to disturb selection");
-          if(!link)
-          {
-            this.rte.getEditor().selectNodeOuter(target);
-            this.rte.getEditor().insertHyperlink(newdata.link.link);
-            link = this.getParentElement(target, 'A');
-            if(!link)
-            {
-              undolock.close();
-              return console.error("Somehow <A> construction failed");
-            }
-          }
-
-          link.href = newdata.link.link;
-          link.target = newdata.link.target || '';
-        }
-      } break;
-      case "DIV":
-      case "SPAN":
-      {
-        if(target.classList.contains("wh-rtd-embeddedobject"))
-        {
-          //we'll simply reinsert
-          if (newdata)
-          {
-            if (newdata.type == 'replace')
-            {
-              this.rte.getEditor().updateEmbeddedObject(target, newdata.data);
-            }
-            else if (newdata.type == 'remove')
-            {
-              this.rte.getEditor().removeEmbeddedObject(target);
-            }
-          }
-        }
-      } break;
-      case "TABLE":
-      {
-        switch (newdata.type)
-        {
-          case "edittable":
-          {
-          } break;
-          case "remove":
-          {
-            this.rte.getEditor().removeTable(target);
-          } break;
-        }
-      } break;
-      default:
-      {
-        console.log('classes', target.className.split(' '));
-      }
-    }
-
-    undolock.close();
   }
 
   onMsgUpdateValue(data)

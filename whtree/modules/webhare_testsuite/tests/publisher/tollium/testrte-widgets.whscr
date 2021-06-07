@@ -77,18 +77,18 @@ ASYNC MACRO TestVideoWidget()
 
   RECORD insertdata := SimulateClientSideInsertWidget();
 
-  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.instanceref ], actionid:= "XX" ]));
   TestEq(0, TT("starttime")->value);
   TT("starttime")->value := 5000;
   TT("endtime")->value :=   10000;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps";
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the UpdateProps instruction in the outgoing instruction stream");
-  STRING instanceref := insertedobjectinstr.messages[0].data.newdata.data.instanceref;
+  STRING instanceref := insertedobjectinstr.messages[0].data.settings.data.instanceref;
   //Officially we should also update the RTD with the new instanceid
 
-  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := instanceref, targetid := "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := instanceref ], actionid:= "XX" ]));
   TestEq(5000, TT("starttime")->value);
   TestEq(10000, TT("endtime")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

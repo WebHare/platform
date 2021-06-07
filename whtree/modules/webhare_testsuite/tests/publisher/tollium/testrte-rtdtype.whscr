@@ -303,7 +303,7 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", insertedobj->documentelement->GetAttribute("data-rtdtype"));
   TestEq("/.publisher/sd/webhare_testsuite/basetest/img/", insertedobj->documentelement->GetAttribute("data-imgroot"));
 
-  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.instanceref ], actionid:= "XX" ]));
 
   rte := TT("instance")->GetComponent("richdoc");
   TestEQLIke('*This is the *text*', BlobToString(rte->value.htmltext));
@@ -405,7 +405,7 @@ OBJECT ASYNC FUNCTION ModifyLink()
   TestEQ(2,Length(links));
 
   GetTestController()->GrabInstructions(); //flush
-  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href")]]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href")]]));
   AWAIT ExpectScreenChange(-1, PTR TTClick("removehyperlinkbutton"));
 
   RECORD updateobjinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
@@ -418,7 +418,7 @@ OBJECT ASYNC FUNCTION ModifyLink()
   TestEQ(1,Length(links));
 
   GetTestController()->GrabInstructions(); //flush
-  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href") ]]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href") ]]));
   TT("link")->value := MakeIntExtExternalLink("http://example.org?abc#def");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 

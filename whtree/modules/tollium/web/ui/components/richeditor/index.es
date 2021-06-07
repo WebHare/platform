@@ -510,45 +510,115 @@ export class RTE
 
   getTargetInfo(actiontarget) //provide JSON-safe information about the action target
   {
-    if(!actiontarget)
-      return null; //not all our events support actiontargets yet, so expect undefined/null
-
     let node = actiontarget.__node;
-
-    switch (node.nodeName.toUpperCase())
+    if(node.matches('a'))
     {
-      case "A":
-      {
-        return { type: 'hyperlink'
-               , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
-               , target: node.target || ''
-               };
-      }
+      return { type: 'hyperlink'
+             , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
+             , target: node.target || ''
+             };
+    }
+    else if(node.matches('td,th'))
+    {
+      let tablenode = node.closest('table');
+      let editor = TableEditor.getEditorForNode(tablenode);
+      return { type: 'cell'
+             , tablestyletag: tablenode.classList[0]
+             , cellstyletag: node.classList[1] || ''
+             , datacell: editor.locateFirstDataCell()
+             , numrows: editor.numrows
+             , numcolumns: editor.numcolumns
+             };
+    }
+    else if(node.matches('.wh-rtd-embeddedobject'))
+    {
+      return { type: 'embeddedobject'
+             , instanceref:  node.dataset.instanceref
+             };
+    }
+    else if(node.matches('img'))
+    {
+      let align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
+      let linkinfo = null;
+      let link = node.closest('a');
+      if(link)
+        linkinfo = { link: link.href
+                   , target: link.target || ''
+                   };
 
-      case 'TD':
-      case 'TH':
-      {
-        let tablenode = node.closest('table');
-        var editor = TableEditor.getEditorForNode(tablenode);
-        return { type: 'cell'
-               , tablestyletag: tablenode.classList[0]
-               , cellstyletag: node.classList[1] || ''
-               , datacell: editor.locateFirstDataCell()
-               , numrows: editor.numrows
-               , numcolumns: editor.numcolumns
-               };
-      }
+      return { type: 'img'
+             , align: align
+             , width:  parseInt(node.getAttribute("width")) || node.width
+             , height: parseInt(node.getAttribute("height")) || node.height
+             , alttext: node.alt
+             , link: linkinfo
+             , src: node.src
+             };
     }
     return null;
   }
   updateTarget(actiontarget, settings)
   {
-    if(actiontarget.__node && actiontarget.__node.nodeName=='A')
-      return this._updateHyperlink(actiontarget.__node, settings);
-    if(actiontarget.__node && (actiontarget.__node.nodeName=='TH' || actiontarget.__node.nodeName=='TD'))
-      return this._updateCell(actiontarget.__node, settings);
+    const undolock = this.getEditor().getUndoLock();
 
-    throw new Error("Did not understand action target");
+    let node = actiontarget.__node;
+    if(node.matches('a'))
+      this._updateHyperlink(actiontarget.__node, settings);
+    else if(node.matches('td,th'))
+      this._updateCell(actiontarget.__node, settings);
+    else if(node.matches('.wh-rtd-embeddedobject'))
+    {
+      if(node.classList.contains("wh-rtd-embeddedobject"))
+      {
+        //we'll simply reinsert
+        if (settings)
+        {
+          if (settings.type == 'replace')
+          {
+            this.getEditor().updateEmbeddedObject(node, settings.data);
+          }
+          else if (settings.type == 'remove')
+          {
+            this.getEditor().removeEmbeddedObject(node);
+          }
+        }
+      }
+    }
+    else if(node.matches('img'))
+    {
+      node.width = settings.width;
+      node.height = settings.height;
+      node.align = '';
+      node.alt = settings.alttext;
+      node.className = "wh-rtd__img" + (settings.align=='left' ? " wh-rtd__img--floatleft" : settings.align=="right" ? " wh-rtd__img--floatright" : "");
+
+      var link = node.closest('A');
+      if(link && !settings.link) //remove the hyperlink
+      {
+        link.replaceWith(node);
+        this.editrte.selectNodeOuter(node);
+      }
+      else if (settings.link) //add or update a hyperlink
+      {
+        if(!link)
+        {
+          //replace the image with the link
+          link = document.createElement('a');
+          node.replaceWith(link);
+          link.appendChild(node);
+          this.editrte.selectNodeOuter(link);
+        }
+
+        link.href = settings.link.link;
+        link.target = settings.link.target || '';
+      }
+    }
+    else
+    {
+      console.error(node,settings);
+      throw new Error("Did not understand action target");
+    }
+    undolock.close();
   }
 
   _updateHyperlink(node, settings)
@@ -703,13 +773,6 @@ export class RTE
     this.dirty = false;
 
     this._checkDirty();
-  }
-
-  getActionTarget(actiontarget)
-  {
-    if (!this.getEditor())
-      return null;
-    return this.getEditor().getActionTarget(actiontarget); //ADDME this is probably unsafe if we switched editors in a PageEdit while processing the action, add tests
   }
 
   focus()

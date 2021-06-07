@@ -37,16 +37,14 @@ PUBLIC STATIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
     SetupHyperlinkOptions(this, this->rte, data.data.link, ^link, ^openinnewwindow);
   }
 
-  BOOLEAN FUNCTION Submit()
+  RECORD FUNCTION Submit()
   {
-    OBJECT work := this->BeginFeedback();
-    RETURN work->Finish();
-  }
-  PUBLIC RECORD FUNCTION GetValue()
-  {
-    RECORD res := ^settings->value;
-    INSERT CELL link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value) INTO res;
-    RETURN res;
+    IF(NOT this->BeginFeedback()->Finish())
+      RETURN DEFAULT RECORD;
+    ELSE
+      RETURN CELL[ ...^settings->value
+                 , link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value)
+                 ];
   }
 
   MACRO OnWidthChange()

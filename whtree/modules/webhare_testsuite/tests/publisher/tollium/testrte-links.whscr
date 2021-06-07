@@ -45,7 +45,7 @@ OBJECT ASYNC FUNCTION InsertLink()
   TestEq("x-webharetestsuite-customlink:15", insertedlinkinstr.messages[0].data.url);
 
   myrte := TT("doceditor")->contents->rte;
-  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := "x-webharetestsuite-customlink:15" ]]));
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", action := "action-properties", affectednodeinfo := [ type := "hyperlink", target := "", link := "x-webharetestsuite-customlink:15" ]]));
   TestEq("custom link handler", TT("link")->^linktype->selection.title);
   TestEq(15, TT("link")->^linktype->selection.enablecomponents[0]->value);
 
@@ -63,7 +63,7 @@ OBJECT ASYNC FUNCTION InsertLink()
   TestEq("_blank", updatelinkinstr.messages[0].data.settings.target);
   TestEqLike("x-richdoclink-e:*", updatelinkinstr.messages[0].data.settings.link);
 
-  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "_blank", link := updatelinkinstr.messages[0].data.settings.link ]]));
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", action := "action-properties", affectednodeinfo := [ type := "hyperlink", target := "_blank", link := updatelinkinstr.messages[0].data.settings.link ]]));
   TestEq(2, TT("link")->^linktype->value);
   TestEq(testrtd2->id, TT("link")->^internal->value);
   TestEq("#addme", TT("link")->^append->value);

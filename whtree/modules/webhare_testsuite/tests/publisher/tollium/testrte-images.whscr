@@ -57,7 +57,7 @@ OBJECT ASYNC FUNCTION CreateDoc()
   TEstEq(FALSE, fileinfo.mirrored);
 
   //ADDME What do we expect for the rotation? Extra debugging?
-  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties", [ type := "img", src := imginfo.link, alttext := "", align := "", width := imginfo.width, height := imginfo.height, targetid := "xx", link := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "img", src := imginfo.link, alttext := "", align := "", width := imginfo.width, height := imginfo.height, link := DEFAULT RECORD ], actionid:= "XX" ]));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
   Rte()->__debug_simulatedirty();
@@ -91,14 +91,14 @@ OBJECT ASYNC FUNCTION CreateDoc()
   TestEq("Test!", Rte()->value.instances[0].data.html);
 
   //Edit it
-  AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := instanceref, targetid := "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := instanceref ], actionid:= "XX" ]));
   TestEq('Test!', TT(":HTML code")->value);
   TT(":HTML code")->value := "<p>1</p><p>2</p>";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps";
+  insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the UpdateProps instruction in the outgoing instruction stream");
-  instanceref := insertedobjectinstr.messages[0].data.newdata.data.instanceref;
+  instanceref := insertedobjectinstr.messages[0].data.settings.data.instanceref;
 
   newvalue := corevalue || '<div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(instanceref) || '"></div>';
   Rte()->TolliumWeb_FormUpdate('<html><body>' || newvalue || '</body></html>');

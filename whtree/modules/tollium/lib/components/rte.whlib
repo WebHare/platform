@@ -718,21 +718,13 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
   {
-    IF(type = "properties")
-    {
-      RECORD answer := this->HandlePropertiesRequest(msgdata);
-      IF(RecordExists(answer))
-        this->QueueOutboundMessage("UpdateProps", [ targetid := msgdata.targetid, newdata := answer ]);
-
-      RETURN;
-    }
     /*  properties2 is an attempt to switch to a JSON protocol from the RichEditor straight into Tollium for setting properties
         and cutting out all the middleman translations... ie we get a opaque token to complete the action (msgdata.actionid)
         and update the settings in affectednodeinfo.
     */
     IF(type = "properties2")
     {
-      RECORD settings := this->HandlePropertiesRequest2(msgdata.affectednodeinfo);
+      RECORD settings := this->HandlePropertiesRequest2(CELL[...msgdata.affectednodeinfo, subaction := CellExists(msgdata,'subaction') ? msgdata.subaction : ""]);
       this->QueueOutboundMessage("UpdateProps2", [ actionid := msgdata.actionid, settings := settings ]);
       RETURN;
     }
@@ -781,6 +773,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
         IF(scr->RunModal()="ok")
           RETURN scr->GetData();
+        ELSE
+          RETURN DEFAULT RECORD;
       }
       CASE "cell"
       {
@@ -796,18 +790,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
           DEFAULT       { RETURN DEFAULT RECORD; }
         }
       }
-      DEFAULT
+      CASE "embeddedobject"
       {
-        Print("Not sure how to handle props request for '" || data.type || "'\n");
+        RETURN this->HandleEmbeddedObjectProperties(data);
       }
-    }
-    RETURN DEFAULT RECORD;
-  }
-
-  RECORD FUNCTION HandlePropertiesRequest(RECORD data)
-  {
-    SWITCH (data.type)
-    {
       CASE "img"
       {
         RECORD originalimg := this->editable->GetImage(data.src);
@@ -817,27 +803,21 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
           RETURN DEFAULT RECORD;
         }
 
-        OBJECT scr := this->owner->LoadScreen("mod::tollium/screens/components/rte.xml#imageproperties"
-                                              ,[ rte := this
-                                               , data := data
-                                               , originalimg := originalimg
-                                               , offercustomhyperlink := this->offercustomhyperlink
-                                               ]);
+        RETURN this->owner->RunScreen("mod::tollium/screens/components/rte.xml#imageproperties"
+                                      ,[ rte := this
+                                       , data := data
+                                       , originalimg := originalimg
+                                       , offercustomhyperlink := this->offercustomhyperlink
+                                       ]);
 
-        IF(scr->RunModal()="ok") //return the new settings
-          RETURN scr->GetValue();
-      }
-      CASE "embeddedobject"
-      {
-        RETURN this->HandleEmbeddedObjectProperties(data);
       }
       DEFAULT
       {
-        Print("Not sure how to handle props request for '" || data.type || "'\n");
+        THROW NEW Exception(`Not sure how to handle props request for '${data.type}'`);
       }
     }
-    RETURN DEFAULT RECORD;
   }
+
 
   // ---------------------------------------------------------------------------
   //
