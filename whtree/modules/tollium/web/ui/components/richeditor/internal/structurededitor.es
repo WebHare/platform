@@ -128,39 +128,6 @@ export default class StructuredEditor extends EditorBase
     super.reprocessAfterExternalSet();
   }
 
-/*
-  getUndoItem(selectionrange)
-  {
-    var item = super.getUndoItem(selectionrange);
-    if (item && this.undonode)
-    {
-      item.onfinish = function()
-      {
-        var orgrange = this.getSelectionRange();
-        this.undonode.focus();
-        this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
-
-        if (browser.getName() == "ie" || browser.getName() == "edge")
-        {
-          /* In IE11 and edge InsertHTML doesn't work. Using ms-beginUndoUnit / ms-endUndoUnit to record the modification
-             of the undonode into the undo buffer. Recording the body changes with undo unit crashed edge 16.16299, so this
-             is somewhat safer. Plus, it follows the rest of the browsers.
-          * /
-          this.undonode.ownerDocument.execCommand('ms-beginUndoUnit');
-          this.undonode.textContent = this.undopos + "";
-          this.undonode.ownerDocument.execCommand('ms-endUndoUnit');
-        }
-        else
-          this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
-
-        this.getContentBodyNode().focus();
-        this.selectRange(orgrange);
-      }.bind(this);
-    }
-    return item;
-  }
-*/
-
   getAvailableBlockStyles(selstate)
   {
     return this.structure.blockstyles.filter(style => !style.istable);
@@ -535,33 +502,7 @@ export default class StructuredEditor extends EditorBase
     }
     super.executeDefaultPropertiesAction(event);
   }
-/*
-  _gotInput(event)
-  {
-/ *    if (Browser.chrome)
-    {
-      console.log('input');
-      // when stitching 2 paragraphs together, chrome likes to copy the block style into a span
-      // remove it - other browsers just copy the code
-      var range = this.getSelectionRange();
-      console.log('input: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range));
-      if (range.isCollapsed())
-      {
-        var range_end = range.end.clone();
-        range_end.ascend(this.getContentBodyNode(), true, false);
-        var pointednode = range_end.getPointedNode();
-        // doesn't work - chrome also uses 'b'...
-        if (pointednode && pointednode.nodeType == 1 && pointednode.nodeName.toLowerCase() == 'span')
-        {
-          domlevel.replaceSingleNodeWithItsContents(pointednode, [ range ]);
-          this.selectRange(range);
-        }
-      }
-    }* /
-    super.OnInput(event);
-    return true;
-  }
-*/
+
   // ---------------------------------------------------------------------------
   //
   // Helper stuff
@@ -1299,7 +1240,7 @@ export default class StructuredEditor extends EditorBase
     //var startblocknode = range.start.element;
     //var endblocknode = range.end.element;
 
-    var elts = range.getElementsByTagName('*');
+    var elts = range.querySelectorAll('*');
     for (let i = 0; i < elts.length; ++i)
     {
       if (!elts[i].isContentEditable || !domlevel.isNodeBlockElement(elts[i]))
@@ -2368,7 +2309,7 @@ export default class StructuredEditor extends EditorBase
   setSelectionCellStyle(newstyle)
   {
     let range = this.getSelectionRange();
-    let tablecells = range.getElementsByTagName("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
+    let tablecells = range.querySelectorAll("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
     let parent = range.getAncestorElement().closest("tr,td");
 
     for(let applyto of [parent,...tablecells])

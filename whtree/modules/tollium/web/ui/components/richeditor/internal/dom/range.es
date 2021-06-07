@@ -283,7 +283,7 @@ export default class Range
     return [ this.start, this.end ];
   }
 
-  getElementsByTagName(tagname)
+  querySelectorAll(selector)
   {
     // console.log('Range gebtn', richdebug.getStructuredOuterHTML(this.getAncestorElement(), this));
 
@@ -304,17 +304,17 @@ export default class Range
       var child = itr.getPointedNode();
       if (child.nodeType == 1)
       {
-        if (tagname == '*' || child.nodeName.toLowerCase() == tagname.toLowerCase())
+        if (child.matches(selector))
           result.push(child);
 
         if (itr.offset == copy.start.offset || itr.offset == copy.end.offset - 1) // May be partial!
         {
           var subrange = this.clone().intersect(Range.fromNodeInner(child));
-          result = result.concat(subrange.getElementsByTagName(tagname));
+          result = result.concat(subrange.querySelectorAll(selector));
         }
         else
         {
-          var nodes = Array.from(child.getElementsByTagName(tagname));
+          var nodes = Array.from(child.querySelectorAll(selector));
           // console.log('  child ', child, nodes);
           result = result.concat(nodes);
         }

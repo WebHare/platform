@@ -36,7 +36,7 @@ test.registerTests(
       {
         var rte = rtetest.getRTE(win, 'editor');
         var selection = rte.getEditor().getSelectionRange();
-        test.eq(1, selection.getElementsByTagName("img").length);
+        test.eq(1, selection.querySelectorAll("img").length);
       }
     }
 

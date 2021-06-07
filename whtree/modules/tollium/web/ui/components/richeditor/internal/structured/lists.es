@@ -33,7 +33,7 @@ export function getLevelActionableListNodes(range, scope)
   range = range.clone();
 
   // Adjust the range, so all partially selected <li>'s fall within the range (otherwise they won't be returned by
-  // getElementsByTagName)
+  // querySelectorAll)
   var startliparent = domlevel.findParent(range.start.getNearestNode(), "li", scope);
   if (startliparent)
     range.start.assign(domlevel.Locator.newPointingTo(startliparent));
@@ -56,7 +56,7 @@ export function getLevelActionableListNodes(range, scope)
     }
   }
 
-  let linodes = Array.from(range.getElementsByTagName('li'));
+  let linodes = Array.from(range.querySelectorAll('li'));
 
   var addable = [], removeable = [];
 

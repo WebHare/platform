@@ -27,7 +27,7 @@ class PasteCleanup
 
     var todelete = [];
 
-    let imgs = this.data.getElementsByTagName('img');
+    let imgs = this.data.querySelectorAll('img');
     for (let i = 0; i < imgs.length; ++i)
     {
       // Used to see whether paste would be merged to next paragraph
@@ -75,7 +75,7 @@ class PasteCleanup
     }
 
     // remove empty block (P, LI, OL & UL) nodes
-    var pnodes = this.data.getElementsByTagName('*');
+    var pnodes = this.data.querySelectorAll('*');
     for (let i = pnodes.length - 1; i >= 0; --i)
       if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'li' ].includes(pnodes[i].nodeName.toLowerCase()))
       {
@@ -87,7 +87,7 @@ class PasteCleanup
       }
 
     // IE can copy LI nodes without their parent OL/UL. Create a UL, move them into it
-    var linodes = this.data.getElementsByTagName('li');
+    var linodes = this.data.querySelectorAll('li');
     for (let i = 0; i < linodes.length; ++i)
     {
       let parent = linodes[i].parentNode;

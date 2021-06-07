@@ -1973,7 +1973,7 @@ export default class EditorBase
        - second from ancestor to root
     */
 
-    var relevantnodes = range.getElementsByTagName('*');
+    var relevantnodes = range.querySelectorAll('*');
 
     // Filter out non-contenteditable nodes (allow embbeded objects within a contenteditable parent)
     relevantnodes = relevantnodes.filter(node => node.isContentEditable || (domlevel.isEmbeddedObject(node) && node.parentNode.isContentEditable));

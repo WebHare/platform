@@ -75,7 +75,7 @@ export default class FreeEditor extends EditorBase
   getAvailableListActions(range)
   {
     let insidelist = range.getAncestorClosest("ul,ol", this.getContentBodyNode());
-    let havelist = range.getElementsByTagName("ul,ol,li").length;
+    let havelist = range.querySelectorAll("ul,ol,li").length;
 
     return { canincrease: insidelist || havelist
            , candecrease: insidelist || havelist
