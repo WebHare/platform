@@ -121,8 +121,28 @@ test.registerTests(
         test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>',body.childNodes[0].outerHTML);
         test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>',body.childNodes[2].outerHTML);
 
+        test.true(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
         test.true(rte.getSelectionState().properties);
       }
+    }
+
+  , "Test block object selection"
+  , async function()
+    {
+      const rte = test.getWin().rte.getEditor();
+      const body = rte.getContentBodyNode();
+
+      rte.selectNodeOuter(body.childNodes[0]);
+      test.false(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
+
+      //open context menu
+      test.click(body.childNodes[1], { button: 2 });
+      let propsevent = rtetest.getNextAction();
+      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Properties")[0]);
+
+      let result = await propsevent;
+      test.eq("action-properties", result.detail.action);
+      test.eq(body.childNodes[1], result.detail.actiontarget.__node);
     }
 
   , { name: 'embeddedobject-contentsignore'

@@ -406,8 +406,22 @@ export default class StructuredEditor extends EditorBase
 
       this.selectRange(rawselection);
     }
+    else //we're leaving the selection alone, we just need to inform ourselve sof it (selectRange would otherwise invoke selectionHasChanged)
+    {
+      //TODO our base version probably needs to invoke this one as well, but if we just put it there it'll double-execute if the above selectRange runs
+      this.selectionHasChanged(rawselection);
+    }
 
     super._gotSelectionChange(event);
+  }
+
+  //apply wh-rtd-embeddedobject--selected in all the right places
+  selectionHasChanged(selection)
+  {
+    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject"));
+    let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
+    embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
+    currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
   }
 
   // Create an paragraph above/below the sibling and send the cursor there
