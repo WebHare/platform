@@ -313,7 +313,7 @@ test.registerTests(
         // Image should be selected
         var rte = rtetest.getRTE(win, 'structured');
         var selection = rte.getEditor().getSelectionRange();
-        test.eq(1, selection.getElementsByTagName("img").length);
+        test.eq(1, selection.querySelectorAll("img").length);
       }
     }
 
@@ -473,7 +473,7 @@ test.registerTests(
 
       let rte = rtetest.getRTE(test.getWin(),'structured');
       let selection = rte.getEditor().getSelectionRange();
-      let img = selection.getElementsByTagName("img")[0];
+      let img = selection.querySelectorAll("img")[0];
       test.true(img);
       test.eq('428', img.getAttribute("width"));
       test.eq('284', img.getAttribute("height"));

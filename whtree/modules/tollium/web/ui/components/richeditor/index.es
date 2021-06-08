@@ -204,9 +204,11 @@ export class RTE
 
     // Contextmenu event changes selection, but the select event will fire later, so force update when getting the state.
     if(this.editrte)
-      this.editrte.OnSelectionChange(null); //Fixes Chrome's weird cross-td-boundary selection right click
+      this.editrte._gotSelectionChange(null); //Fixes Chrome's weird cross-td-boundary selection right click
 
-    let actionstate = this.getSelectionState(true).actionstate;
+    let selectionstate = this.getSelectionState(true);
+    if(!selectionstate)
+      return;
 
     let contextmenu = dompack.create('ul');
     let menuitems = [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
@@ -238,7 +240,7 @@ export class RTE
         continue;
       }
 
-      if(actionstate[item.action].available)
+      if(selectionstate.actionstate[item.action].available)
       {
         contextmenu.appendChild(dompack.create('li', { textContent: item.title
                                                      , onClick: evt => this._activateRTDMenuItem(evt, item)

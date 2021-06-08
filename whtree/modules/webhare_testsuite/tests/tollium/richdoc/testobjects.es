@@ -39,8 +39,8 @@ test.registerTests(
         var rte = rtetest.getRTE(win, 'structured');
         var selection = rte.getEditor().getSelectionRange();
 
-        test.eq(testblock ? 1 : 0, selection.getElementsByTagName("div").filter(el => el.matches(".wh-rtd__preview__htmlcode")).length);
-        test.eq(testblock ? 0 : 1, selection.getElementsByTagName("span").filter(el => el.matches(".wh-rtd__preview__htmlcode")).length);
+        test.eq(testblock ? 1 : 0, selection.querySelectorAll("div").filter(el => el.matches(".wh-rtd__preview__htmlcode")).length);
+        test.eq(testblock ? 0 : 1, selection.querySelectorAll("span").filter(el => el.matches(".wh-rtd__preview__htmlcode")).length);
         if(testblock)
         {
           test.eq(2, rte.getBody().querySelectorAll("div.wh-rtd-embeddedobject").length, "Must have two block embedded objects now");
@@ -76,10 +76,10 @@ test.registerTests(
         var rte = rtetest.getRTE(win, 'structured');
         var selection = rte.getEditor().getSelectionRange();
 
-        let htmlcode = selection.getElementsByTagName(testblock ? "div" : "span").filter(el => el.matches(".wh-rtd__preview__htmlcode"))[0];
+        let htmlcode = selection.querySelectorAll(testblock ? "div" : "span").filter(el => el.matches(".wh-rtd__preview__htmlcode"))[0];
         test.true(htmlcode);
         test.eq("<b>bolded object</b>", htmlcode.textContent);
-        test.eq(1, selection.getElementsByTagName("*").filter(n => n.classList.contains('wh-rtd-embeddedobject')).length);
+        test.eq(1, selection.querySelectorAll("*").filter(n => n.classList.contains('wh-rtd-embeddedobject')).length);
 
         // Store instanceids
         var body = rte.getBody();

@@ -121,8 +121,28 @@ test.registerTests(
         test.eqHTML('<p class=normal>Dit is een paragraaf tekst waar </p>',body.childNodes[0].outerHTML);
         test.eqHTML('<p class="normal"> een object ingevoegd gaat worden</p>',body.childNodes[2].outerHTML);
 
+        test.true(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
         test.true(rte.getSelectionState().properties);
       }
+    }
+
+  , "Test block object selection"
+  , async function()
+    {
+      const rte = test.getWin().rte.getEditor();
+      const body = rte.getContentBodyNode();
+
+      rte.selectNodeOuter(body.childNodes[0]);
+      test.false(body.childNodes[1].classList.contains("wh-rtd-embeddedobject--selected"));
+
+      //open context menu
+      test.click(body.childNodes[1], { button: 2 });
+      let propsevent = rtetest.getNextAction();
+      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Properties")[0]);
+
+      let result = await propsevent;
+      test.eq("action-properties", result.detail.action);
+      test.eq(body.childNodes[1], result.detail.actiontarget.__node);
     }
 
   , { name: 'embeddedobject-contentsignore'
@@ -188,20 +208,7 @@ test.registerTests(
       test.eq('" HIER een object ingevoegd gaat worden"', rtetest.getHTML(body.childNodes[0].childNodes[2]));
     }
 
-  , "Chrome initial cursor position between embedded blocks"
-  , async function()
-    {
-      // chrome (72) gave back a cursor at the beginning of the document, even if it visually was between the embedded blocks in the document 'embedded, emptypara, embedded'
-      // Pressing delete then deleted the first embedded object, which shouldn't happen
-
-      await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=twoembeds');
-      test.click(".wh-rtd__html", { x: 0, y: 0 });
-      await test.pressKey("Delete");
-      console.log(test.qSA(".wh-rtd-embeddedobject"));
-      test.eq(2, test.qSA(".wh-rtd-embeddedobject").length);
-    }
-
-  , "Expansion of previews when strated in disabled mode"
+  , "Expansion of previews when started in disabled mode"
   , async function()
     {
       await test.loadPage('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
@@ -215,6 +222,5 @@ test.registerTests(
                 +generateEmbeddedObjectHTML('inst1', 'title', 'c<b>d</b>')
                 +'<p class="normal">ondertekst</p>'
                 , test.getWin().rte.getValue());
-
     }
   ]);

@@ -11,12 +11,14 @@
 
   clear:both;
   position:relative;
-  background: #f9f9f9;
-  color: #111111;
-  font-size:12px;
 
   z-index:0; //make sure our button control doesn't escape
   cursor:pointer;
+}
+
+.wh-rtd-embeddedobject--block
+{
+  padding: $widget-vmargin 0;
 }
 
 // firefox won't copy content with user-select: none
@@ -26,29 +28,56 @@
   user-select: all;
 }
 
-.wh-rtd-embeddedobject--block
+.wh-rtd-embeddedobject__box
+{
+  position: relative; //to lift us above the --selected background
+  background: #f9f9f9;
+  color: #111111;
+  font-size:12px;
+  pointer-events: none;
+}
+
+div.wh-rtd-embeddedobject__box
 {
   border: 1px dashed #aaaaaa;
   border-radius: 3px;
 
   //pad/margin settings for margin-none mode, but these will ALSO apply to embobjs-inside-embobjs
-  margin: $widget-vmargin $widget-hinset;
+  margin: 0;
   line-height:100%;
   min-height:38px;
 }
 
-.wh-rtd-embeddedobject--inline
+span.wh-rtd-embeddedobject__box
 {
   //not sure if we really want this, but at least it prevents edit/delete button from sticking on previous line when we wrapped to the next
   white-space: nowrap;
 }
 
+.wh-rtd-embeddedobject--selected:before
+{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  border-radius: 3px;
+  left:-$widget-vmargin;
+  right:-$widget-vmargin;
+  background-color: #ddd;
+}
+
+.wh-rtd-editor:focus-within .wh-rtd-embeddedobject--selected:before
+{
+  background-color: highlight;
+}
+
+
 div.wh-rtd--margins-compact
 {
   //our specific margin/paddings may only apply to embeddedobjects that are toplevel objects, embedded, tabled or inline stuff would break!
-  .wh-rtd > .wh-rtd-embeddedobject--block
+  & > .wh-rtd > .wh-rtd-embeddedobject--block
   {
-    margin: $widget-vmargin ($widget-hinset - $body-standardmargin);
+    margin: 0 ($widget-hinset - $body-standardmargin);
 
     .wh-rtd-embeddedobject__preview
     {
@@ -60,9 +89,9 @@ div.wh-rtd--margins-compact
 div.wh-rtd--margins-wide
 {
   //our specific margin/paddings may only apply to embeddedobjects that are toplevel objects, embedded, tabled or inline stuff would break!
-  .wh-rtd > .wh-rtd-embeddedobject--block
+  & > .wh-rtd > .wh-rtd-embeddedobject--block
   {
-    margin: $widget-vmargin ($widget-hinset - $body-widemargin);
+    margin: 0 ($widget-hinset - $body-widemargin);
 
     &:not(.wh-rtd-embeddedobject--wide) .wh-rtd-embeddedobject__preview
     {
@@ -146,11 +175,11 @@ div.wh-rtd--margins-wide
   transition: opacity $transition-duration;
   z-index:1;
 }
-.wh-rtd-embeddedobject:hover > .wh-rtd-embeddedobject__stickyheader
+.wh-rtd-embeddedobject:hover > * > .wh-rtd-embeddedobject__stickyheader
 {
   opacity: 1;
 }
-.wh-rtd-embeddedobject--block > .wh-rtd-embeddedobject__stickyheader
+.wh-rtd-embeddedobject--block > * > .wh-rtd-embeddedobject__stickyheader
 {
   position: absolute;
   position: -webkit-sticky; //Safari 12
@@ -159,7 +188,7 @@ div.wh-rtd--margins-wide
   left: 0px;
   width: 100%;
 }
-.wh-rtd-embeddedobject--inline > .wh-rtd-embeddedobject__stickyheader
+.wh-rtd-embeddedobject--inline > * > .wh-rtd-embeddedobject__stickyheader
 {
   display:inline;
   left: 0;

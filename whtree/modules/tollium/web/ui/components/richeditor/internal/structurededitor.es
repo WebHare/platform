@@ -128,39 +128,6 @@ export default class StructuredEditor extends EditorBase
     super.reprocessAfterExternalSet();
   }
 
-/*
-  getUndoItem(selectionrange)
-  {
-    var item = super.getUndoItem(selectionrange);
-    if (item && this.undonode)
-    {
-      item.onfinish = function()
-      {
-        var orgrange = this.getSelectionRange();
-        this.undonode.focus();
-        this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
-
-        if (browser.getName() == "ie" || browser.getName() == "edge")
-        {
-          /* In IE11 and edge InsertHTML doesn't work. Using ms-beginUndoUnit / ms-endUndoUnit to record the modification
-             of the undonode into the undo buffer. Recording the body changes with undo unit crashed edge 16.16299, so this
-             is somewhat safer. Plus, it follows the rest of the browsers.
-          * /
-          this.undonode.ownerDocument.execCommand('ms-beginUndoUnit');
-          this.undonode.textContent = this.undopos + "";
-          this.undonode.ownerDocument.execCommand('ms-endUndoUnit');
-        }
-        else
-          this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
-
-        this.getContentBodyNode().focus();
-        this.selectRange(orgrange);
-      }.bind(this);
-    }
-    return item;
-  }
-*/
-
   getAvailableBlockStyles(selstate)
   {
     return this.structure.blockstyles.filter(style => !style.istable);
@@ -439,8 +406,22 @@ export default class StructuredEditor extends EditorBase
 
       this.selectRange(rawselection);
     }
+    else //we're leaving the selection alone, we just need to inform ourselves of it (selectRange would otherwise invoke selectionHasChanged)
+    {
+      //TODO our base version probably needs to invoke this one as well, but if we just put it there it'll double-execute if the above selectRange runs
+      this.selectionHasChanged(rawselection);
+    }
 
-    super.OnSelectionChange(event);
+    super._gotSelectionChange(event);
+  }
+
+  //apply wh-rtd-embeddedobject--selected in all the right places
+  selectionHasChanged(selection)
+  {
+    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject"));
+    let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
+    embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
+    currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
   }
 
   // Create an paragraph above/below the sibling and send the cursor there
@@ -535,33 +516,7 @@ export default class StructuredEditor extends EditorBase
     }
     super.executeDefaultPropertiesAction(event);
   }
-/*
-  _gotInput(event)
-  {
-/ *    if (Browser.chrome)
-    {
-      console.log('input');
-      // when stitching 2 paragraphs together, chrome likes to copy the block style into a span
-      // remove it - other browsers just copy the code
-      var range = this.getSelectionRange();
-      console.log('input: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range));
-      if (range.isCollapsed())
-      {
-        var range_end = range.end.clone();
-        range_end.ascend(this.getContentBodyNode(), true, false);
-        var pointednode = range_end.getPointedNode();
-        // doesn't work - chrome also uses 'b'...
-        if (pointednode && pointednode.nodeType == 1 && pointednode.nodeName.toLowerCase() == 'span')
-        {
-          domlevel.replaceSingleNodeWithItsContents(pointednode, [ range ]);
-          this.selectRange(range);
-        }
-      }
-    }* /
-    super.OnInput(event);
-    return true;
-  }
-*/
+
   // ---------------------------------------------------------------------------
   //
   // Helper stuff
@@ -1299,7 +1254,7 @@ export default class StructuredEditor extends EditorBase
     //var startblocknode = range.start.element;
     //var endblocknode = range.end.element;
 
-    var elts = range.getElementsByTagName('*');
+    var elts = range.querySelectorAll('*');
     for (let i = 0; i < elts.length; ++i)
     {
       if (!elts[i].isContentEditable || !domlevel.isNodeBlockElement(elts[i]))
@@ -2368,7 +2323,7 @@ export default class StructuredEditor extends EditorBase
   setSelectionCellStyle(newstyle)
   {
     let range = this.getSelectionRange();
-    let tablecells = range.getElementsByTagName("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
+    let tablecells = range.querySelectorAll("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
     let parent = range.getAncestorElement().closest("tr,td");
 
     for(let applyto of [parent,...tablecells])
@@ -2934,7 +2889,7 @@ export default class StructuredEditor extends EditorBase
 
     const has_inlinepreview = /wh-rtd__inlinepreview/.exec(data.htmltext);
 
-    var node = document.createElement(basenode);
+    var node = document.createElement(basenode); //the basenode is also used to show selection status
     node.className = "wh-rtd-embeddedobject"
       + (data.canedit ? " wh-rtd-embeddedobject--editable" : "")
       + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
@@ -2942,6 +2897,10 @@ export default class StructuredEditor extends EditorBase
       + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "");
     node.dataset.instanceref = data.instanceref;
     node.contentEditable = false;
+
+    var box = document.createElement(basenode); //the box is the 'gray' rounded border area for the widget
+    box.className = "wh-rtd-embeddedobject__box";
+    node.appendChild(box);
 
     let typebox = null;
 
@@ -2962,12 +2921,12 @@ export default class StructuredEditor extends EditorBase
     if(typebox)
       stickyheader.appendChild(typebox);
     stickyheader.appendChild(objectbuttons);
-    node.appendChild(stickyheader);
+    box.appendChild(stickyheader);
 
     const previewnode = document.createElement(basenode);
     previewnode.className = "wh-rtd-embeddedobject__preview";
     previewnode.innerHTML = data.htmltext;
-    node.appendChild(previewnode);
+    box.appendChild(previewnode);
 
     if(!isinline)
     {
