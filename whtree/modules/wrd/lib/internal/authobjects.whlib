@@ -549,7 +549,6 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRoleTo(OBJECT roleobj, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     OBJECT authobj := this->EnsureAuthObject();
-    //because we have two layers of objects and we pass the lower one, we need to forward our own getuserdataforlogging...
     authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), options);
   }
 
