@@ -271,7 +271,11 @@ export default class Pulldown extends SelectList
       return true;
 
     key = key.toUpperCase();
-    this._loopToItem(+1, node => node.textContent.trim()[0].toUpperCase() == key);
+    this._loopToItem(+1, node =>
+      {
+        let tc = node.textContent.trim();
+        return tc[0] && tc[0].toUpperCase() == key;
+      });
     dompack.stop(event);
   }
 
