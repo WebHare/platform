@@ -140,6 +140,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
     OBJECT authobj := this->authobject;
     IF (NOT ObjectExists(authobj))
       THROW NEW Exception("Could not operate on WRD " || Detokenize(GetObjectExtendNames(this),"/") || " auth object #" || this->entity->id || " - it doesn't have a corresponding rights object");
+    //FIXME not ideal, consider merging both layers.
+    this->authobject->__userdataforlogging := this->GetUserDataForLogging();
     RETURN authobj;
   }
 
@@ -306,6 +308,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD FUNCTION GetObjectsTree(STRING type)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN DEFAULT RECORD;
+
     RETURN GetPresentationRightObjectsTree(type, this->authobject);
   }
 
@@ -321,6 +326,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD ARRAY FUNCTION GetObjectsChildren(STRING type, INTEGER parentobjid, BOOLEAN describe DEFAULTSTO TRUE)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN RECORD[];
+
     RETURN GetPresentationRightObjectsChildren(type, this->authobject, parentobjid, describe);
   }
 
@@ -335,6 +343,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD FUNCTION GetObjectPath(STRING type, INTEGER objectid)
   {
+    IF(NOT ObjectExists(this->authobject)) //anonymous user, has no visibility into userrights
+      RETURN DEFAULT RECORD;
+
     RETURN GetPresentationRightsObjectPath(type, objectid, this->authobject);
   }
 
@@ -448,6 +459,20 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   // Public API
   //
 
+  /** Grants the specified object right on the specified object to another user. Throws on failure.
+      @param action grant/update/revoke. update does not grant a nonexisting right
+      @param rightname Right to grant
+      @param objectid Object to grant the right on (0 for all objects. always set to 0 for global rights!)
+      @param grantee User to grant the right to
+      @cell(boolean) options.allowselfassignment If TRUE, skip rights validation if this is a self assignment
+      @cell(boolean) options.withgrantoption If set, update 'withgrantoption'
+      @cell(string) options.comment IF set, update the comment
+  */
+  PUBLIC MACRO UpdateGrant(STRING action, STRING rightname, INTEGER objectid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->EnsureAuthObject()->UpdateGrant(action, rightname, objectid, grantee->EnsureAuthObject(), options);
+  }
+
   /** Grants the specified global right to another user. Throws on failure.
       @param rightname Right to grant
       @param grantee User object to grant the right to.
@@ -459,7 +484,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRightTo(STRING rightname, OBJECT grantee, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
   {
     OBJECT authobj := this->EnsureAuthObject();
-    authobj->GrantRightTo(rightname, grantee->EnsureAuthObject(), withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+    authobj->GrantRightTo(rightname, grantee->EnsureAuthObject(), withgrantoption, allowselfassignment, comment);
   }
 
   /** Grants the specified object right on the specified object to another user. Throws on failure
@@ -474,7 +499,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRightToOn(STRING rightname, OBJECT grantee, INTEGER objectid, BOOLEAN withgrantoption, BOOLEAN allowselfassignment DEFAULTSTO FALSE, STRING comment DEFAULTSTO "")
   {
     OBJECT authobj := this->EnsureAuthObject();
-    authobj->GrantRightToOn(rightname, grantee->EnsureAuthObject(), objectid, withgrantoption, allowselfassignment, comment, this->GetUserDataForLogging());
+    authobj->GrantRightToOn(rightname, grantee->EnsureAuthObject(), objectid, withgrantoption, allowselfassignment, comment);
   }
 
   /** Revokes the specified global right from another user. Throws on failure.
@@ -505,6 +530,17 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
     authobj->RevokeRightFromOn(rightname, grantee->EnsureAuthObject(), objectid, onlyremovegrantoption, allowselfassignment);
   }
 
+  /** Grant, update or revoke the a role. Throws on failure.
+      @param action grant/update/revoke. update does not grant an ungranted role
+      @param roleid Authobjectid of the role to grant
+      @param grantee User to grant the right to
+      @cell(string) options.comment If set, update the comment
+  */
+  PUBLIC MACRO UpdateRoleGrant(STRING action, INTEGER roleid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->EnsureAuthObject()->UpdateRoleGrant(action, roleid, grantee->EnsureAuthObject(), options);
+  }
+
   /** Grants a role to a user
       @param roleobj Role to grant
       @param grantee User object to grant this role to
@@ -513,8 +549,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO GrantRoleTo(OBJECT roleobj, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     OBJECT authobj := this->EnsureAuthObject();
-    //because we have two layers of objects and we pass the lower one, we need to forward our own getuserdataforlogging...
-    authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), CELL[...options, grantoruserdata := this->GetUserDataForLogging() ]);
+    authobj->GrantRoleTo(roleobj->authobjectid, grantee->EnsureAuthObject(), options);
   }
 
   /** Revokes a role to a user

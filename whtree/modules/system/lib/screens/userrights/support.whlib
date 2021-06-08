@@ -551,7 +551,7 @@ BOOLEAN FUNCTION UserHasDirectGrantFor(STRING rightname, OBJECT grantee, INTEGER
   RETURN (objectid IN grantobjids);
 }
 
-PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees, STRING comment)
+PUBLIC MACRO TolliumUpdateRoleGrant(OBJECT contexts, OBJECT work, STRING action, OBJECT roleobj, OBJECT ARRAY grantees, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
     THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
@@ -591,129 +591,21 @@ PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OB
 
   FOREVERY (OBJECT obj FROM grantees)
   {
-    LogAuditEvent("system:userrights", CELL[ action :=  "grant-role"
+    LogAuditEvent("system:userrights", CELL[ action :=  action || "-role"
                                            , grantee := obj->GetUserDataForLogging()
                                            , roleauthobjectid := roleobj->authobjectid
                                            , roleentityid := roleobj->entityid
                                            , rolename := roleobj->GetUserRightsName()
-                                           , comment
+                                           , options
                                            ]);
     TRY
     {
-      contexts->user->GrantRoleTo(roleobj, obj, [ comment := comment ]);
+      contexts->user->UpdateRoleGrant(action, roleobj->authobjectid, obj, options);
     }
     CATCH (OBJECT e)
     {
       work->AddError(e->what);
     }
-  }
-}
-
-PUBLIC MACRO TolliumRevokeRoleFrom(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees)
-{
-  IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
-    THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
-
-  IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
-  {
-    work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", roleobj->GetUserRightsName()));
-    RETURN;
-  }
-
-  IF (NOT roleobj->ExistsInDatabase())
-  {
-    work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", roleobj->GetUserRightsName()));
-    RETURN;
-  }
-
-  FOREVERY (OBJECT obj FROM grantees)
-    IF (NOT obj->ExistsInDatabase())
-    {
-      IF (obj->type = 3)
-        work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
-      ELSE
-        work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
-    }
-
-  IF (work->HasFailed())
-    RETURN;
-
-  FOREVERY (OBJECT obj FROM grantees)
-  {
-    LogAuditEvent("system:userrights", CELL[ action :=  "revoke-role"
-                                           , grantee := obj->GetUserDataForLogging()
-                                           , roleauthobjectid := roleobj->authobjectid
-                                           , roleentityid := roleobj->entityid
-                                           , rolename := roleobj->GetUserRightsName()
-                                           ]);
-    TRY
-    {
-      contexts->user->RevokeRoleFrom(roleobj, obj);
-    }
-    CATCH (OBJECT e)
-    {
-      work->AddError(e->what);
-    }
-  }
-}
-
-PUBLIC MACRO TolliumGrantRightTo(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER ARRAY objectids, BOOLEAN withgrantoption, STRING comment)
-{
-  IF(NOT MemberExists(grantee,"EnsureAuthObject"))
-    THROW NEW Exception(`Expecting a WRDAuthObject derived grantee`);
-
-  BOOLEAN right_is_global := IsRightGlobal(right_name);
-
-  IF (right_is_global)
-  {
-    IF (NOT grantor->CanManageRight(right_name))
-    {
-      work->AddError(GetTid('system:userrights.errors.notallowedtomanageright', rightsinfo->GetRightTitle(right_name)));
-      RETURN;
-    }
-
-    IF (UserHasDirectGrantFor(right_name, grantee, 0, withgrantoption))
-      RETURN;
-
-  }
-  ELSE
-  {
-    objectids :=
-        SELECT AS INTEGER ARRAY id
-          FROM ToRecordArray(objectids, "ID")
-         WHERE NOT UserHasDirectGrantFor(right_name, grantee, id, withgrantoption);
-
-    IF (LENGTH(objectids) = 0)
-      RETURN;
-
-    FOREVERY (INTEGER objectid FROM objectids)
-    {
-      IF (NOT grantor->CanManageRightOn(right_name, objectid))
-        work->AddError(GetTid('system:userrights.errors.notallowedtomanageright', rightsinfo->GetRightTitle(right_name)));
-    }
-
-    IF (work->HasFailed())
-      RETURN;
-  }
-
-  TRY
-  {
-    LogAuditEvent("system:userrights", CELL[ action :=  "grant-right"
-                                           , grantee := grantee->GetUserDataForLogging()
-                                           , right := right_name
-                                           , objectids
-                                           , withgrantoption
-                                           , comment
-                                           ]);
-
-    IF (right_is_global)
-      grantor->GrantRightTo(right_name, grantee, withgrantoption, FALSE, comment);
-    ELSE FOREVERY (INTEGER objectid FROM objectids)
-      grantor->GrantRightToOn(right_name, grantee, objectid, withgrantoption, FALSE, comment);
-  }
-  CATCH (OBJECT e)
-  {
-    work->AddError(e->what);
   }
 }
 
@@ -730,47 +622,42 @@ PUBLIC BOOLEAN FUNCTION IsRevokeDangerous(OBJECT grantor, OBJECT grantee, STRING
   RETURN LENGTH(other_grantor_grants) = 0;
 }
 
-PUBLIC MACRO TolliumRevokeRightFrom(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER objectid, BOOLEAN onlyremovegrantoption)
+PUBLIC MACRO TolliumUpdateGrant(OBJECT work, OBJECT rightsinfo, OBJECT grantor, STRING action, STRING right_name, INTEGER ARRAY objectids, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT MemberExists(grantee,"EnsureAuthObject"))
     THROW NEW Exception(`Expecting a WRDAuthObject derived grantee`);
 
+  //TODO The Grant/Revoke APIs should give us properly metadata-d exceptions which we can then translate for the user again, instead of us re-litigating the same checks..
   BOOLEAN right_is_global := IsRightGlobal(right_name);
-
-  IF (NOT UserHasDirectGrantFor(right_name, grantee, objectid, onlyremovegrantoption))
-    RETURN;
-
   IF (right_is_global)
   {
     IF (NOT grantor->CanManageRight(right_name))
-    {
       work->AddError(GetTid('system:userrights.errors.notallowedtomanageright', rightsinfo->GetRightTitle(right_name)));
-      RETURN;
-    }
   }
   ELSE
   {
-    IF (NOT grantor->CanManageRightOn(right_name, objectid))
-    {
-      work->AddError(GetTid('system:userrights.errors.notallowedtomanageright', rightsinfo->GetRightTitle(right_name)));
-      RETURN;
-    }
+    FOREVERY (INTEGER objectid FROM objectids)
+      IF (NOT grantor->CanManageRightOn(right_name, objectid))
+        work->AddError(GetTid('system:userrights.errors.notallowedtomanageright', rightsinfo->GetRightTitle(right_name)));
   }
+
+  IF (work->HasFailed())
+    RETURN;
+
+  //FIXME move this deeper into the userrights API!
+  LogAuditEvent("system:userrights", CELL[ action :=  action || "-right"
+                                         , grantee := grantee->GetUserDataForLogging()
+                                         , right := right_name
+                                         , objectids
+                                         , options
+                                         ]);
 
   TRY
   {
-    LogAuditEvent("system:userrights", CELL[ action :=  "revoke-right"
-                                           , grantee := grantee->GetUserDataForLogging()
-                                           , right := right_name
-                                           , objectids := right_is_global ? INTEGER[] : INTEGER[objectid]
-                                           ]);
-
-    IF (right_is_global)
-      grantor->RevokeRightFrom(right_name, grantee, onlyremovegrantoption);
-    ELSE
-      grantor->RevokeRightFromOn(right_name, grantee, objectid, onlyremovegrantoption);
+    FOREVERY(INTEGER objectid FROM objectids)
+      grantor->UpdateGrant(action, right_name, objectid, grantee, options);
   }
-  CATCH (OBJECT e)
+  CATCH(OBJECT e)
   {
     work->AddError(e->what);
   }

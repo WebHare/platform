@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_rightsapis.whscr" />
   <test script="test_rolemgmt.whscr" />
   <test script="testuserrightsapp.whscr" />
   <test script="test_problemrights.whscr" />

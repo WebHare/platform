@@ -76,7 +76,7 @@ PUBLIC STATIC OBJECTTYPE GiveUsersRoleGrant EXTEND TolliumScreenBase
       RETURN work->Finish();
     }
 
-    TolliumGrantRoleTo(this->contexts, work, this->pvt_roleobj, this->grantees, ^comment->value);
+    TolliumUpdateRoleGrant(this->contexts, work, "grant", this->pvt_roleobj, this->grantees, [ comment := ^comment->value ]);
     RETURN work->Finish();
   }
 

@@ -438,7 +438,7 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
 
   MACRO DoAddRoleToUsers()
   {
-    MakeAddGrantOfSelectableRoleToUserDialog(this->owner, this->GetSelectedWRDAuthobjects())->RunModal();
+    RunAddGrantOfSelectableRoleToUserDialog(this->owner, this->GetSelectedWRDAuthobjects());
   }
 
   MACRO DoAddRightToUsers()

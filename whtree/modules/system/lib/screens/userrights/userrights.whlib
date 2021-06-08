@@ -403,7 +403,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       {
         add_roles := this->contexts->userapi->EnrichRoles("ROLE", add_roles, [ celltype := "authobjectid" ]);
         FOREVERY (RECORD role FROM add_roles)
-          TolliumGrantRoleTo(this->contexts, work, this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], "Copied: " || role.comment);
+          TolliumUpdateRoleGrant(this->contexts, work, "grant", this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], [ comment := "Copied: " || role.comment ]);
       }
     }
 
@@ -412,7 +412,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     OBJECT rightsinfo := GetRightsInfoObject(this->tolliumuser);
     FOREVERY (RECORD grant FROM add_grants)
       IF (NOT RecordLowerBound(existing_grants, grant, grant_columns).found)
-        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
+        TolliumUpdateGrant(work, rightsinfo, this->contexts->user, "grant", grant.rightname, INTEGER[grant.objectid], copy_to, CELL[ grant.withgrantoption, comment := "Copied: " || grant.comment ]);
 
     work->Finish();
   }

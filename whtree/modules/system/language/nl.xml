@@ -2110,7 +2110,6 @@
         <text tid="search">Zoeken</text>
         <text tid="selectuserrole">Kies een gebruiker of een rol</text>
         <text tid="singleright">Recht</text>
-        <text tid="withadminoption">De gebruiker mag deze rol aan anderen toekennen.</text>
         <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
       </textgroup>
       <textgroup gid="search">   <!-- userrights.commondialogs.search -->
@@ -2494,7 +2493,6 @@
     </textgroup>
     <textgroup gid="rights">   <!-- userrights.rights -->
       <text tid="additionaloptions">Opties</text>
-      <text tid="withadminoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
       <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
     </textgroup>
     <textgroup gid="screentitles">   <!-- userrights.screentitles -->

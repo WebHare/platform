@@ -1234,7 +1234,6 @@ PUBLIC RECORD FUNCTION GetMessageBoxFromNode(STRING resourcename, OBJECT node, S
          , dontshowagaintext := ""
          , defaultbuttons    := defaultbuttons
          // Add default buttons (ok, cancel, etc.)
-//                 , buttondefs        := node->HasAttribute("buttons") ? GetDefaultFormButtons(node->GetAttribute("buttons"), node->linenum, node->GetAttribute("default"), TRUE) : DEFAULT RECORD ARRAY
          , defaultbutton     := defaultbutton
          , buttons           := buttons
          ];

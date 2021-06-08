@@ -65,24 +65,19 @@ PUBLIC STATIC OBJECTTYPE AddRoleToUsers EXTEND TolliumScreenBase
 
   MACRO UserRoleClicked()
   {
-    IF (this->Submit())
+    IF (this->Submit() != 0)
       this->tolliumresult := "ok";
   }
 
-  BOOLEAN FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-    IF (work->HasFailed())
-      RETURN work->Finish();
+    IF(NOT ObjectExists(^selectuserrole->value))
+      work->AddErrorFor(^selectuserrole, GetTid("system:userrights.commondialogs.errors.needselectrole"));
+    IF(NOT work->HasFailed())
+      TolliumUpdateRoleGrant(this->contexts, work, "grant", ^selectuserrole->value, this->pvt_grantees, [ comment := ^comment->value ]);
 
-    IF (NOT ObjectExists(^selectuserrole->value))
-    {
-      work->AddError(GetTid("system:userrights.commondialogs.errors.needselectrole"));
-      RETURN work->Finish();
-    }
-
-    TolliumGrantRoleTo(this->contexts, work, ^selectuserrole->value, this->pvt_grantees, ^comment->value);
-    RETURN work->Finish();
+    RETURN work->Finish() ? ^selectuserrole->value->entityid : 0;
   }
 
   // ---------------------------------------------------------------------------
