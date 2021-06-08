@@ -1345,7 +1345,7 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     // Lookup any existing rights assignment. Implies GetSpecificGrantDataFor
     RECORD ARRAY grants := GetSpecificGrantDataFor([ grantee_id ], rightdata.rightid, rightdata.storagetable, FALSE, objectid);
     IF(Length(grants) = 0 AND action != "grant") //anything to do?
-        RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
+      RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
 
     GetPrimary()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD); //we don't worry yet about the no-op update case
 
@@ -1501,7 +1501,7 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     // Lookup any existing grants
     RECORD ARRAY grants := SELECT id, comment FROM system_internal.rolegrants WHERE COLUMN grantee = grantee_id AND role = roleid;
     IF(Length(grants) = 0 AND action != "grant") //anything to do?
-        RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
+      RETURN; //note that we don't throw on a non-existing update as we originally wouldn't on a non-existing revoke either)
 
     GetPrimary()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD); //we don't worry yet about the no-op update case
 
