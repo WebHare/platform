@@ -406,7 +406,7 @@ export default class StructuredEditor extends EditorBase
 
       this.selectRange(rawselection);
     }
-    else //we're leaving the selection alone, we just need to inform ourselve sof it (selectRange would otherwise invoke selectionHasChanged)
+    else //we're leaving the selection alone, we just need to inform ourselves of it (selectRange would otherwise invoke selectionHasChanged)
     {
       //TODO our base version probably needs to invoke this one as well, but if we just put it there it'll double-execute if the above selectRange runs
       this.selectionHasChanged(rawselection);
