@@ -124,7 +124,7 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
     IF(sendstatus = 2) //usemailfromfornonwhitelisted
     {
       STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
-      IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is being whitelisted too, we're not allowe to send
+      IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is not whitelisted, we're not allowed to send
       {
         this->ResolveByTemporaryFailure( [ serverip := ""
                                          , route := ""
