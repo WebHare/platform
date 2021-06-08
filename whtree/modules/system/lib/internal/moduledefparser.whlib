@@ -1295,6 +1295,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                  , designroot := designroot
                  , alwaysincludepolyfill := ParseXSBoolean(assetpacknode->GetAttribute("alwaysincludepolyfill"))
                  , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
+                 , compatibility := assetpacknode->GetAttribute("compatibility")
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
                  , babeltranspile := babeltranspile

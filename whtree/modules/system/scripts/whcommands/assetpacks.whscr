@@ -32,7 +32,6 @@ MACRO Syntax(STRING errormsg DEFAULTSTO "")
   Print("  dumpstats              Dump JSON stats for assetpack\n");
   Print("  wait [assetpack]       Wait for the assetpacks to be compiled. Omit or use '*' to wait for all\n");
   Print("  autocompile            Configure autocompilation of production packages\n");
-  Print(`  devbrowsertargets      Set the browser targets for dev packages (use the 'browserslist' format, use 'default' for production settings)\n`);
 
   TerminateScriptWithError("Invalid syntax");
 }
@@ -93,7 +92,7 @@ BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
   }
 }
 
-IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "delete", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile", "devbrowsertargets","__getassetpacksbaseconfig" ])
+IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "delete", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile","__getassetpacksbaseconfig" ])
   Syntax();
 
 IF (args.color OR IsConsoleATerminal())
@@ -433,28 +432,6 @@ SWITCH (args.command)
 
       GetPrimary()->BeginWork();
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", newsuspend);
-      GetPrimary()->CommitWork();
-    }
-  }
-  CASE "devbrowsertargets"
-  {
-    RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "browsertargets", type := "param" ]
-                                  ]);
-    IF (NOT RecordExists(subargs))
-      Syntax();
-
-    IF (subargs.browsertargets = "")
-    {
-      PRINT(`Current browser targets for dev assetpacks: ${ReadRegistryKey("publisher.bundledassets.devbrowsertargets") ?? "same as production assetpacks"}\n`);
-    }
-    ELSE
-    {
-      IF (subargs.browsertargets = "default")
-        subargs.browsertargets := "";
-
-      GetPrimary()->BeginWork();
-      WriteRegistryKey("publisher.bundledassets.devbrowsertargets", subargs.browsertargets);
       GetPrimary()->CommitWork();
     }
   }

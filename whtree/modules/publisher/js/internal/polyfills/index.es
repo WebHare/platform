@@ -654,16 +654,6 @@ if(!Element.prototype.before)
   }
 }
 
-//replaceChildren polyfill (separate, because it's newer)
-if(!Element.prototype.replaceChildren)
-{
-  Element.prototype.replaceChildren = function()
-  {
-    this.innerHTML = "";
-    this.append.apply(this, arguments);
-  }
-}
-
 //
 // end of ParentNode, Childnode
 //
@@ -1400,3 +1390,5 @@ if(!window.CSS.escape)
     return result;
   };
 }
+
+window.__whCompatibility = 'legacy'; //at least for now to debug whether we are loaded

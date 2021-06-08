@@ -1895,6 +1895,26 @@
               <xs:documentation>Add the WebHare polyfills, mostly for IE11/Edge gaps. Defauls to true</xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="compatibility">
+            <xs:annotation>
+              <xs:documentation>
+                The compatibility settings for generated code
+              </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:list>
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="modern">
+                      <xs:annotation>
+                        <xs:documentation>Last few versions of Chrome, Edge, Safari, Firefox. No support for IE11 or 'old' MS Edge</xs:documentation>
+                      </xs:annotation>
+                    </xs:enumeration>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:list>
+            </xs:simpleType>
+          </xs:attribute>
           <xs:attribute name="environment" default="window">
             <xs:annotation>
               <xs:documentation>
