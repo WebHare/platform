@@ -319,7 +319,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoSamlAuth()
   {
-    this->LoadScreen("wrd:samlauth.openauthdomain", [ wrdschema := this->contexts->wrdschema ])->RunModal();
+    this->RunScreen("mod::wrd/screens/samlauth.xml#main");
   }
 
   MACRO DoAuditLog()
