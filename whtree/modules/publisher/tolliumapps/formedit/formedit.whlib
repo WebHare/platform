@@ -276,6 +276,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     this->frame->flags.isdirty := TRUE;
     this->contexts->editdocumentapi->MarkDocumentAsDirty();
+    this->contexts->mergefields->Invalidate();
   }
 
   RECORD FUNCTION GetInstanceData(STRING type)
