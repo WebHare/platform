@@ -1,8 +1,13 @@
 <?wh
+
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/components/internallinks.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwindow)
 {
@@ -199,5 +204,24 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
   {
     IF (this->RunSimpleScreen("confirm", GetTid("tollium:components.rte.sureremovetable")) = "yes")
       this->tolliumresult := "remove";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE InspectWidget EXTEND TolliumScreenBase
+<
+  RECORD instance;
+  OBJECT rtd;
+
+  MACRO Init(RECORD data)
+  {
+    this->instance := data.instance;
+    ^value->value := data.instance;
+    this->rtd := data.rte;
+
+    //FIXME run through async job so we can handle HS errors
+    OBJECT context := NEW PreviewContext(DEFAULT OBJECT, this->contexts->applytester, this->rtd->rtdtypeinfo, FALSE);
+    RECORD widgetinfo := GetEmbeddedObjectRenderer(DEFAULT OBJECT, this->contexts->applytester, this->rtd->rtdtypeinfo.namespace, data.instance, context);
+    OBJECT renderer := widgetinfo.widget; //GetEmbeddedObjectRenderer never returns a default object
+    ^searchpreview->value := `<html><body>${BlobToString(GetPrintedAsBlob(PTR renderer->RenderSearchPreview()))}</body><html>`;
   }
 >;

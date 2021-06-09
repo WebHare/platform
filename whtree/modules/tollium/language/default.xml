@@ -764,6 +764,11 @@
         <text tid="properties">Properties</text>
         <text tid="width">Width</text>
       </textgroup>
+      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
+        <text tid="inspectwidget">Inspect widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Value</text>
+      </textgroup>
       <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
         <text tid="cellproperties">Cell properties</text>
         <text tid="cellstyle">Cell style</text>

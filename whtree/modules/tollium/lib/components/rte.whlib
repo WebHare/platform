@@ -945,7 +945,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     }
     IF(data.action = "webhare-inspect")
     {
-      Reflect(instance);
+      this->owner->RunScreen("mod::tollium/screens/components/rte.xml#inspectwidget", CELL[ rte := this, instance ]);
       RETURN DEFAULT RECORD;
     }
 

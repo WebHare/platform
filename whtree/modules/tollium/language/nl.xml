@@ -764,6 +764,11 @@
         <text tid="properties">Eigenschappen</text>
         <text tid="width">Breedte</text>
       </textgroup>
+      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
+        <text tid="inspectwidget">Inspecteer widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Waarde</text>
+      </textgroup>
       <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
         <text tid="cellproperties">Celeigenschappen</text>
         <text tid="cellstyle">Celstijl</text>
