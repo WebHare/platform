@@ -1,6 +1,7 @@
 /* globals $shell $wh */
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
+import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 const $todd = require("./support");
 const dombusy = require('dompack/src/busy');
@@ -454,8 +455,7 @@ export class ApplicationBase
   }
   createNewScreenObject(windowname, framename, messages)
   {
-    var screen = new $todd.Screen(this,
-                                  { window: windowname
+    var screen = new Frame(this,  { window: windowname
                                   , target: framename
                                   , specials:[]
                                   }, null);

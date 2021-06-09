@@ -552,6 +552,89 @@ $todd.fixupColor = function(color)
   return color;
 };
 
+
+/** @short
+    @param flags The flags which must be checked against (useually gathered from selected options/rows)
+                 For example:
+                 [{ selectable := true,  hasurl := false }
+                 ,{ selectable := false, hasurl := false }
+                 ]
+    @param checkflags Array of string's with the name of flags which must match to enable
+                      A flag starting with '!' means that to match the flag must NOT TRUE (meaning FALSE) in each object in the 'flags' array.
+                      Otherwise it's a match if the flag is TRUE in all objects in the flags array.
+    @param min minimum amount of items in the flags list
+    @param max maximum amount of items in the flags list
+    @param selectionmatch ("all", "any")
+    @return whether the action should be enabled (all checkflags match each item in flags)
+*/
+$todd.checkEnabledFlags = function(flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
+{
+  // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
+  $todd.DebugTypedLog("actionenabler", "- - Checking checkflags ["+checkflags.join(", ")+"], "+flags.length+" in ["+min+","+(max >= 0 ? max+"]" : "->")+" ("+selectionmatch+")");
+
+  // Check correct number of selected items
+  if (flags.length < min || (max >= 0 && flags.length > max))
+  {
+    $todd.DebugTypedLog("actionenabler", "- - Wrong number of selected items ("+flags.length+"), action should be disabled");
+    return false;
+  }
+
+  // This action is enabled if the flags are enabled for each selected item
+  // If the checkflags for this action are empty, the action is always enabled
+  // (the right number of items is already selected) and the selected flags
+  // don't have to be checked, so i is initialized with the length of the
+  // selected flags.
+  if (checkflags.length == 0 || (checkflags.length == 1 && checkflags[0] == ''))
+  {
+    $todd.DebugTypedLog("actionenabler", "- - No checkflags, action should be enabled");
+    return true;
+  }
+  var i = 0;
+  var any = false;
+  for (; i < flags.length; ++i)
+  {
+    if (!flags[i])
+    {
+      $todd.DebugTypedLog("actionenabler", "- - Flag "+i+" undefined, continue to next flag");
+      break;
+    }
+    var j = 0;
+    for (; j < checkflags.length; ++j)
+    {
+      var checkflag = checkflags[j];
+      var checkvalue = true;
+      if (checkflag.charAt(0) == '!')
+      {
+        checkflag = checkflag.slice(1);
+        checkvalue = false;
+      }
+      $todd.DebugTypedLog("actionenabler", "- - Checkflag '"+checkflag+"': "+flags[i][checkflag]+"="+checkvalue+"?");
+      if (flags[i][checkflag] != checkvalue)
+      {
+        $todd.DebugTypedLog("actionenabler", "- - Checkflag '"+checkflag+"' not enabled for selected item "+i);
+        break;
+      }
+    }
+    if (j < checkflags.length)
+    {
+      // This item does not match, so if all must match, the action should be disabled
+      if (selectionmatch == "all")
+        break;
+    }
+    else if (selectionmatch == "any")
+    {
+      // This item does match, so if any must match, the action should be enabled
+      any = true;
+      break;
+    }
+  }
+  // If selectionmatch = "all", i should point beyond the end of the flags list (all items are checked and all passed)
+  // If selectionmatch = "any", any should be true
+  var enabled = (selectionmatch == "all" && i >= flags.length) || (selectionmatch == "any" && any);
+  $todd.DebugTypedLog("actionenabler", "- - Action should be "+(enabled ? "enabled" : "disabled"));
+  return enabled;
+};
+
 module.exports = $todd;
 window.__todd = $todd; //test framework currently requires it. FIX THAT
 

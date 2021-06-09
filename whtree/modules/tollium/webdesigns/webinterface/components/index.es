@@ -5,7 +5,9 @@ import checkbox from './checkbox/checkbox.es';
 import codeedit from './codeedit/codeedit.es';
 import customhtml from './customhtml/customhtml.es';
 import datetime from './datetime/datetime.es';
+import dirtylistener from './frame/dirtylistener.es';
 import forward from './action/forward.es';
+import frame from './frame/frame.es';
 import hr from './hr/hr.es';
 import iframe from './iframe/iframe.es';
 import image from './image/image.es';
@@ -14,6 +16,7 @@ import list from './list/list.es';
 import menuitem from './menuitem/menuitem.es';
 import panel from './panel/panel.es';
 import progress from './progress/progress.es';
+import proxy from './frame/proxy.es';
 import pulldown from './pulldown/pulldown.es';
 import radiobutton from './radiobutton/radiobutton.es';
 import rte from './rte/rte.es';
@@ -37,6 +40,8 @@ export function getComponents()
          , codeedit
          , customhtml
          , datetime
+         , dirtylistener
+         , frame
          , forward
          , hr
          , iframe
@@ -46,6 +51,7 @@ export function getComponents()
          , menuitem
          , panel
          , progress
+         , proxy
          , pulldown
          , radiobutton
          , rte

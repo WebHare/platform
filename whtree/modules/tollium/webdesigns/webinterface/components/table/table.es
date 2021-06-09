@@ -765,7 +765,7 @@ export default class ObjTable extends ComponentBase
       $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
 
       //toddDebugLog(toddEncodeJSON(flags));
-      if ($todd.Screen.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
+      if ($todd.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
       {
         $todd.DebugTypedLog("actionenabler","- accepted");
         return true;

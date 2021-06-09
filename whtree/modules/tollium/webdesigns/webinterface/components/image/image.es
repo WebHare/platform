@@ -91,7 +91,7 @@ export default class ObjImage extends ActionableBase
     for(let overlay of selectedoverlays)
       itemstocheck.push(overlay[this.overlaystorage].overlay.flags);
 
-    return $todd.Screen.checkEnabledFlags(itemstocheck, checkflags, min, max, selectionmatch);
+    return $todd.checkEnabledFlags(itemstocheck, checkflags, min, max, selectionmatch);
   }
 
 

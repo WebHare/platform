@@ -1,4 +1,4 @@
-import * as components from './componentbase';
+//import * as components from './componentbase';
 /* globals $shell */
 
 import * as dompack from 'dompack';
@@ -7,11 +7,11 @@ import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import KeyboardHandler from 'dompack/extra/keyboard';
 import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-var $todd = require("./support");
-require("../common.lang.json");
-require("../components/imageeditor/imageeditor.lang.json");
+var $todd = require('@mod-tollium/web/ui/js/support');
+//require("../common.lang.json");
+//require("../components/imageeditor/imageeditor.lang.json");
 import * as domfocus from 'dompack/browserfix/focus';
-var focuszones = require('../components/focuszones');
+var focuszones = require('@mod-tollium/web/ui/components/focuszones');
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 
@@ -27,6 +27,16 @@ function getToddOwner(node)
 }
 
 /****************************************************************************************************************************
+ * Global frame settings
+ */
+
+// Minimal frame width
+const screen_minwidth = 100;
+
+// Minimal frame height
+const screen_minheight = 20;
+
+/****************************************************************************************************************************
  *                                                                                                                          *
  *  FRAME                                                                                                                   *
  *                                                                                                                          *
@@ -35,7 +45,7 @@ function getToddOwner(node)
 // FIXME: remove all click handlers from menuitems
 // FIXME: remove all scroll handling for menu's (let DF menu do that)
 
-class Screen extends ComponentBase
+export default class Frame extends ComponentBase
 {
   constructor(hostapp, data)
   {
@@ -442,7 +452,7 @@ class Screen extends ComponentBase
   enabledOn(checkflags, min, max, selectionmatch)
   {
     $todd.DebugTypedLog("actionenabler", "- Checking action enabled for windowroot "+this.name+".'"+checkflags+"' ("+selectionmatch+")");
-    return $todd.Screen.checkEnabledFlags(this.flags, checkflags, min, max, selectionmatch);
+    return $todd.checkEnabledFlags(this.flags, checkflags, min, max, selectionmatch);
   }
 
   checkDropTarget(event, droptypes, activeflags, noloopscheck, droplocation)
@@ -586,13 +596,13 @@ class Screen extends ComponentBase
         }
 
         $todd.DebugTypedLog("actionenabler",`  droptype #${r} type ${type.type}, check flags`, item);
-        if (activeflags && target_flaglist && !$todd.Screen.checkEnabledFlags([ activeflags ], target_flaglist, 1, 1, "all"))
+        if (activeflags && target_flaglist && !$todd.checkEnabledFlags([ activeflags ], target_flaglist, 1, 1, "all"))
         {
           $todd.DebugTypedLog("actionenabler",'  droptype #' + r + ' target flags fail:', target_flaglist.join('&'), activeflags);
           continue;
         }
 
-        if (have_access_to_items && item.type != 'file' && !$todd.Screen.checkEnabledFlags([ item.data ], type.sourceflags, 1, 1, "all"))
+        if (have_access_to_items && item.type != 'file' && !$todd.checkEnabledFlags([ item.data ], type.sourceflags, 1, 1, "all"))
         {
           $todd.DebugTypedLog("actionenabler",'  droptype #' + r + ' source flags fail', type.sourceflags.join('&'), item.data);
           continue;
@@ -662,7 +672,7 @@ class Screen extends ComponentBase
         $todd.DebugTypedLog("actionenabler", `Ignoring rule #${j}, source '${enableons[j].source}' not found but must be visible`);
         continue;
       }
-      if (sourceobj && sourceobj instanceof $todd.Screen)
+      if (sourceobj && sourceobj instanceof Frame)
       {
         $todd.DebugTypedLog("actionenabler", `Ignoring rule #${j}, source '${enableons[j].source}' is a screen??`);
         continue;
@@ -685,7 +695,7 @@ class Screen extends ComponentBase
       }
 
       // and check if it's the frame or if it's focused if there is more than one relevant source
-      if(enableon.requirefocus && !(sourceobj instanceof $todd.Screen) && !sourceobj.hasfocus())
+      if(enableon.requirefocus && !(sourceobj instanceof Frame) && !sourceobj.hasfocus())
       {
         $todd.DebugTypedLog("actionenabler", '- - Source "+enableon.source+" is not focused - skipping rule');
         continue;
@@ -1116,7 +1126,7 @@ class Screen extends ComponentBase
     this.debugLog("dimensions", "Recalculating width");
 
     this.setSizeToMaxOf('width', [this.toolbar, this.bodynode]);
-    this.width.min = Math.max($todd.Screen.minwidth, this.width.min);
+    this.width.min = Math.max(screen_minwidth, this.width.min);
   }
   fixupCalculatedWidths()
   {
@@ -1156,7 +1166,7 @@ class Screen extends ComponentBase
   {
     var overhead = this.getHeightOverhead();
     this.setSizeToSumOf('height', this.getVisibleChildren(), overhead);
-    this.height.min = Math.max($todd.Screen.minheight, this.height.min);
+    this.height.min = Math.max(screen_minheight, this.height.min);
   }
   fixupCalculatedHeights()
   {
@@ -1599,326 +1609,4 @@ class Screen extends ComponentBase
   {
     return this.hostapp.isBusy();
   }
-};
-
-
-/****************************************************************************************************************************
- * Global frame settings
- */
-
-// Minimal frame width
-Screen.minwidth = 100;
-
-// Minimal frame height
-Screen.minheight = 20;
-
-// Duration of window alert background color
-Screen.flashduration = 200;
-
-
-/** @short
-    @param flags The flags which must be checked against (useually gathered from selected options/rows)
-                 For example:
-                 [{ selectable := true,  hasurl := false }
-                 ,{ selectable := false, hasurl := false }
-                 ]
-    @param checkflags Array of string's with the name of flags which must match to enable
-                      A flag starting with '!' means that to match the flag must NOT TRUE (meaning FALSE) in each object in the 'flags' array.
-                      Otherwise it's a match if the flag is TRUE in all objects in the flags array.
-    @param min minimum amount of items in the flags list
-    @param max maximum amount of items in the flags list
-    @param selectionmatch ("all", "any")
-    @return whether the action should be enabled (all checkflags match each item in flags)
-*/
-Screen.checkEnabledFlags = function(flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
-{
-  // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
-  $todd.DebugTypedLog("actionenabler", "- - Checking checkflags ["+checkflags.join(", ")+"], "+flags.length+" in ["+min+","+(max >= 0 ? max+"]" : "->")+" ("+selectionmatch+")");
-
-  // Check correct number of selected items
-  if (flags.length < min || (max >= 0 && flags.length > max))
-  {
-    $todd.DebugTypedLog("actionenabler", "- - Wrong number of selected items ("+flags.length+"), action should be disabled");
-    return false;
-  }
-
-  // This action is enabled if the flags are enabled for each selected item
-  // If the checkflags for this action are empty, the action is always enabled
-  // (the right number of items is already selected) and the selected flags
-  // don't have to be checked, so i is initialized with the length of the
-  // selected flags.
-  if (checkflags.length == 0 || (checkflags.length == 1 && checkflags[0] == ''))
-  {
-    $todd.DebugTypedLog("actionenabler", "- - No checkflags, action should be enabled");
-    return true;
-  }
-  var i = 0;
-  var any = false;
-  for (; i < flags.length; ++i)
-  {
-    if (!flags[i])
-    {
-      $todd.DebugTypedLog("actionenabler", "- - Flag "+i+" undefined, continue to next flag");
-      break;
-    }
-    var j = 0;
-    for (; j < checkflags.length; ++j)
-    {
-      var checkflag = checkflags[j];
-      var checkvalue = true;
-      if (checkflag.charAt(0) == '!')
-      {
-        checkflag = checkflag.slice(1);
-        checkvalue = false;
-      }
-      $todd.DebugTypedLog("actionenabler", "- - Checkflag '"+checkflag+"': "+flags[i][checkflag]+"="+checkvalue+"?");
-      if (flags[i][checkflag] != checkvalue)
-      {
-        $todd.DebugTypedLog("actionenabler", "- - Checkflag '"+checkflag+"' not enabled for selected item "+i);
-        break;
-      }
-    }
-    if (j < checkflags.length)
-    {
-      // This item does not match, so if all must match, the action should be disabled
-      if (selectionmatch == "all")
-        break;
-    }
-    else if (selectionmatch == "any")
-    {
-      // This item does match, so if any must match, the action should be enabled
-      any = true;
-      break;
-    }
-  }
-  // If selectionmatch = "all", i should point beyond the end of the flags list (all items are checked and all passed)
-  // If selectionmatch = "any", any should be true
-  var enabled = (selectionmatch == "all" && i >= flags.length) || (selectionmatch == "any" && any);
-  $todd.DebugTypedLog("actionenabler", "- - Action should be "+(enabled ? "enabled" : "disabled"));
-  return enabled;
-};
-
-
-
-/****************************************************************************************************************************
- *                                                                                                                          *
- *  PROXY                                                                                                                   *
- *                                                                                                                          *
- ****************************************************************************************************************************/
-
-
-$todd.ObjProxy = class extends components.ToddCompBase
-{
-
-/****************************************************************************************************************************
- * Initialization
- */
-
-  constructor(parentcomp, data, replacingcomp)
-  {
-    super(parentcomp, data, replacingcomp);
-
-    this.componenttype = "proxy";
-
-    this.checkcomponents = [];
-    this.passthrough = "";
-    this.usecheckcomponents = true;
-    this.rows = [];
-
-    this.checkcomponents = data.checkcomponents;
-    this.passthrough = data.passthrough;
-    this.rows = data.rows;
-    this.usecheckcomponents = data.usecheckcomponents;
-  }
-
-/****************************************************************************************************************************
-* Component management
-*/
-
-  hasfocus()
-  {
-    if (!this.passthrough)
-      return false;
-
-    var comp = this.owner.getComponent(this.passthrough);
-    if(!comp)
-      return false;
-
-    return comp.hasfocus();
-  }
-
-/****************************************************************************************************************************
- * Property getters & setters
- */
-
-
-/****************************************************************************************************************************
-* Communications
-*/
-
-  // Check enableon rules
-  enabledOn(checkflags, min, max, selectionmatch)
-  {
-    if (this.passthrough)
-    {
-      var comp = this.owner.getComponent(this.passthrough);
-      $todd.DebugTypedLog("actionenabler", "- proxy passthrough to " + this.passthrough + ": " + (comp?comp.componenttype:"n/a"));
-      return comp && comp.enabledOn(checkflags, min, max, selectionmatch);
-    }
-
-    var flags = [];
-
-    if (this.usecheckcomponents)
-    {
-      this.checkcomponents.forEach(name =>
-      {
-        var comp = this.owner.getComponent(name);
-        if (comp && comp.flags)
-        {
-          let val = comp.getValue();
-          /* We USED to check whether the value is truthy. That broke with checkbox getValue() returning an object
-             Now we check for explicitly true (will work for radio) or for .value === true (will work with new checkbox)
-             This should be cleaner but then we need to add a isTrueForEnableOn() or something to all components? this needs
-             to be through through more and i wonder if, rather than going that way, we shouldn't just eliminate the Proxy
-             all together and move this problem back to Tollium <select> (have it rewrite visibleons/enableons) */
-          if(val === true || (val.value && val.value === true))
-            flags.push(comp.flags);
-        }
-      });
-    }
-    else
-      flags = this.rows;
-
-    $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
-
-    if (Screen.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
-    {
-      $todd.DebugTypedLog("actionenabler","- accepted");
-      return true;
-    }
-    return false;
-  }
-
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
-      case "config":
-        this.checkcomponents = data.checkcomponents;
-        this.passthrough = data.passthrough;
-        this.rows = data.rows;
-        return;
-    }
-    super.applyUpdate(data);
-  }
-};
-
-
-/****************************************************************************************************************************
- *                                                                                                                          *
- *  DIRTY LISTENER                                                                                                          *
- *                                                                                                                          *
- ****************************************************************************************************************************/
-
-
-$todd.ObjDirtyListener = class extends components.ToddCompBase
-{
-
-/****************************************************************************************************************************
- * Initialization
- */
-
-  constructor(parentcomp, data, replacingcomp)
-  {
-    super(parentcomp, data, replacingcomp);
-
-    this.componenttype = "dirtylistener";
-
-    this.checkcomponents = new Map();
-    this.setComponents(data.checkcomponents);
-    this.owner.node.addEventListener("tollium:updatedcomponents", () => this.refreshComponents());
-  }
-
-/****************************************************************************************************************************
-* Component management
-*/
-
-  setComponents(components)
-  {
-    let keepcomponents = [];
-    for (let key of this.checkcomponents.keys())
-    {
-      if (!(components.includes(key)))
-      {
-        var comp = this.owner.getComponent(key);
-        if (comp)
-          comp.applyDirtyListener(null);
-        this.checkcomponents.delete(key);
-      }
-      else
-        keepcomponents.push(key);
-    }
-    for (let key of components)
-    {
-      if (!(keepcomponents.includes(key)))
-      {
-        var comp = this.owner.getComponent(key);
-        if (comp)
-          comp.applyDirtyListener(this);
-        this.checkcomponents.set(key, false);
-      }
-    }
-  }
-
-  refreshComponents()
-  {
-    for (let key of this.checkcomponents.keys())
-    {
-      var comp = this.owner.getComponent(key);
-      if (comp && comp.dirtylistener !== this)
-        comp.applyDirtyListener(this);
-    }
-  }
-
-  setDirtyComponent(comp)
-  {
-    if (this.checkcomponents.get(comp.name) !== true)
-    {
-      this.checkcomponents.set(comp.name, true);
-      this.queueMessage("dirtycomponent", { component: comp.name });
-    }
-  }
-
-/****************************************************************************************************************************
- * Property getters & setters
- */
-
-/****************************************************************************************************************************
-* Communications
-*/
-
-  applyUpdate(data)
-  {
-    switch(data.type)
-    {
-      case "checkcomponents":
-        this.setComponents(data.checkcomponents);
-        return;
-      case "dirtycomponents":
-        for (let key of this.checkcomponents.keys())
-          this.checkcomponents.set(key, data.dirtycomponents.includes(key));
-        return;
-    }
-    super.applyUpdate(data);
-  }
-};
-
-
-/****************************************************************************************************************************
- * Export the components
- */
-exports.components = { frame: Screen
-                     , proxy: $todd.ObjProxy
-                     , dirtylistener: $todd.ObjDirtyListener
-                     };
-$todd.Screen = Screen;
+}

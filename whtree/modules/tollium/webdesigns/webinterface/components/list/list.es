@@ -303,7 +303,7 @@ export default class ObjList extends ComponentBase
             if (row[0].rowkey === newrow[0].rowkey)
             {
               row[0].flags = newrow[0].flags;
-              row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.Screen.checkEnabledFlags([ row[0].flags ], this.selectableflags.split(" "), 1, 1, "all");
+              row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.checkEnabledFlags([ row[0].flags ], this.selectableflags.split(" "), 1, 1, "all");
               row[0].highlight = newrow[0].highlight;
               row[0].stylebold = newrow[0].stylebold;
               row[0].styleitalic = newrow[0].styleitalic;
@@ -531,7 +531,7 @@ export default class ObjList extends ComponentBase
     for (var idx = 0; idx < rows.length; idx++)
     {
       var row = rows[idx];
-      row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.Screen.checkEnabledFlags([ row[0].flags ], this.selectableflags.split(" "), 1, 1, "all");
+      row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.checkEnabledFlags([ row[0].flags ], this.selectableflags.split(" "), 1, 1, "all");
       row[0].ordering = idx;
     }
 
@@ -1234,7 +1234,7 @@ export default class ObjList extends ComponentBase
     let flags = collectFlags(this.getSelectedRows(colidx));
     $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
 
-    if ($todd.Screen.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
+    if ($todd.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
     {
       $todd.DebugTypedLog("actionenabler","- accepted");
       return true;
