@@ -22,7 +22,6 @@
       <value>
         <field tag="WRD_TAG">WEBHAREBACKEND</field>
         <field tag="WRD_TITLE">Default WebHare backend login</field>
-        <field tag="WRDAUTH_LANGUAGE">en</field>
         <field tag="WRDAUTH_LASTLOGINFIELD">WHUSER_LASTLOGIN</field>
         <field tag="WRDAUTH_LASTIPFIELD">WHUSER_LASTIP</field>
       </value>

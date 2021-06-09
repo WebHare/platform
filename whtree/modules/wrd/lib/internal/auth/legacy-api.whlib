@@ -49,9 +49,6 @@ STATIC OBJECTTYPE WRDAuth
   PUBLIC PROPERTY passwordfieldtag(this->passwordfield.tag,-);
   PUBLIC PROPERTY emailfieldtag(this->emailfield.tag,-);
   PUBLIC PROPERTY lastloginfieldtag(this->domainrec.wrdauth_lastloginfield,-);
-  PUBLIC PROPERTY title(this->domainrec.wrd_title,-);
-  PUBLIC PROPERTY language(this->domainrec.wrdauth_language,-);
-  PUBLIC PROPERTY domainguid(this->domainrec.wrd_guid,-);
 
   // ---------------------------------------------------------------------------
   //
@@ -77,7 +74,7 @@ STATIC OBJECTTYPE WRDAuth
     IF(this->domainid != 0)
       configfields := this->domaintype->GetEntityFields(this->domainid,
                             [ "WRDAUTH_LASTLOGINFIELD", "WRD_GUID"
-                            , "WRD_TITLE", "WRDAUTH_LANGUAGE", "WRDAUTH_LASTIPFIELD"
+                            , "WRD_TITLE", "WRDAUTH_LASTIPFIELD"
                             , "WRDAUTH_DOMAINSECRET"
                             ]);
     ELSE
@@ -910,7 +907,6 @@ STATIC OBJECTTYPE WRDAuth
            , entityguid :=  the_entity->guid
            , domain := this->id
            , login := the_entity->GetField(this->loginfieldtag)
-           , domaintitle := this->title
            , sessioncookie := cookies.session
            , persistentcookie := cookies.persistent
            , isimpersonation := isimpersonation
@@ -1468,7 +1464,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
     RECORD data := [ session_version := session_version
                    , entityid := trylogin.entityid
                    , domain := trylogin.domain
-                   , domaintitle := trylogin.domaintitle
                    , login := trylogin.login
                    , blockedmultisession := FALSE
                    , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
@@ -1488,7 +1483,9 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
       IF(this->debug)
         this->AddDebugMessage("Authenticating the websession");
-      AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login || " (" || trylogin.domaintitle || ")", TRUE, 0,0, this->authenticatewebsession);
+      //FIXME does this even work/show up anywhere at all? we seem to only show sessions with non-zero UIDs ?
+      //TODO should probably also associate hostname with the session (we formerly used domaintitle but that wasn't necessarily set)
+      AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login, TRUE, 0,0, this->authenticatewebsession);
 
       IF(setlogincookie)
       {
