@@ -2134,6 +2134,25 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
     }
     NormalizeNamespacesInternal(this, DEFAULT RECORD ARRAY, defaultnamespace, 0);
   }
+
+  /** Returns TRUE if the current node matches a CSS selector
+      @param selector Comma-separated selectors to match
+      @return TRUE if the node matches
+  */
+  PUBLIC BOOLEAN FUNCTION Matches(STRING selector)
+  {
+    RETURN IsValueSet(EvaluateSelectors(this->ownerdocument, this, selector, "match"));
+  }
+
+  /** Traverses the element and its parents until the document root, and returns the first
+      element that matches the specified selectors.
+      @param selector Comma-separated selectors to match
+      @return The first matching node (or DEFAULT OBJECT if none was found)
+  */
+  PUBLIC OBJECT FUNCTION Closest(STRING selector)
+  {
+    RETURN PickFirst(EvaluateSelectors(this->ownerdocument, this, selector, "closest"));
+  }
 >;
 
 
