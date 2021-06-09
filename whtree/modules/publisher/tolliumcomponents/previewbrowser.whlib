@@ -773,7 +773,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoCancelRequest()
   {
-    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
+    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
     {
       OBJECT work := this->owner->BeginUnvalidatedWork();
       OBJECT source := OpenWHFSObject(this->previewfileid);
