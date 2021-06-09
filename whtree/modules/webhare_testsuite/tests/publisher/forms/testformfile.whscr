@@ -464,8 +464,20 @@ ASYNC MACRO TestFormApp()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  TestEq(TRUE, TT("saveasdraftbutton")->TolliumClick());
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //Add a mail handler so we can get to the /formmergeifeld
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
+  TT("builtincomponents")->value := "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TestEq("Page 1 \u2013 Checkboxes \u2013 CheckboxOpt3", SELECT AS STRING title FROM TT(":Field")->options WHERE title LIKE "*CheckboxOpt3", "Ensure the textedit is prefixed with the option's name");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //cancel widget insert
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //cancel add form handler
+
+  TestEq(TRUE, TTClick("saveasdraftbutton"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //cancel form editor
 }
 
 MACRO TestContentLink()
