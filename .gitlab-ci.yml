@@ -151,6 +151,19 @@ testdatabase:
     expire_in: 1 week
   interruptible: true
 
+testdatabase_postgresql:
+  stage: test
+  except:
+    - /^docs\/.*$/
+  script:
+    - whtree/bin/wh testdocker --postgresql --tag=-external wh.database
+  artifacts:
+    paths:
+      - artifacts
+    when: on_failure
+    expire_in: 1 week
+  interruptible: true
+
 testtollium:
   stage: test
   except:
