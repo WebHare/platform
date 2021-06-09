@@ -464,7 +464,7 @@ ASYNC MACRO TestFormApp()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  //Add a mail handler so we can get to the /formmergeifeld
+  //Add a mail handler so we can get to the /formmergefield
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
   TT("builtincomponents")->value := "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler";
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));

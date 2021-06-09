@@ -234,7 +234,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT("title")->value := "Renamed email field";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  //See of the merge field list updated
+  //See if the merge field list updated
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
   AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));

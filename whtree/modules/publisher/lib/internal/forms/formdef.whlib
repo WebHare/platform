@@ -352,7 +352,7 @@ STATIC OBJECTTYPE FormDefinition
 
   PUBLIC RECORD FUNCTION DescribeField(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    CONSTANT STRING pathseparator := " – "; //Note: separating by \u2013 not a dash!
+    CONSTANT STRING pathseparator := " \u2013 "; // EN DASH ( – )
 
     options := ValidateOptions(
         [ field_fallback_title := TRUE // Fall back to field tag (name) or guid if title is empty
