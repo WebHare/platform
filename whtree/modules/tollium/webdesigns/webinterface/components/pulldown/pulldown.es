@@ -102,6 +102,6 @@ export default class ObjPulldown extends HTMLComponentBase
   {
 //    console.log(this.obj.getSelectedIndex());
     var flags = this.options[this.node.selectedIndex].flags;
-    return $todd.Screen.checkEnabledFlags([flags], checkflags, min, max, selectionmatch);
+    return $todd.checkEnabledFlags([flags], checkflags, min, max, selectionmatch);
   }
 }

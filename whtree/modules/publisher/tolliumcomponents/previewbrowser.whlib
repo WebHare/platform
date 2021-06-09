@@ -30,7 +30,7 @@ BOOLEAN FUNCTION IsPreviewableWidget(INTEGER widgetid)
   RETURN settings.namespace != "";
 }
 
-PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
+PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -82,7 +82,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   UPDATE MACRO PreInitComponent()
   {
-    this->browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, previewpdf := FALSE, dontnavigate := FALSE ];
+    ^browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, previewpdf := FALSE, dontnavigate := FALSE ];
   }
 
   UPDATE MACRO PostInitComponent()
@@ -136,15 +136,15 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
              , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.customsize") || " (" || Tokenize(selected, "-")[1] || ")"
              ] INTO devices AT END;
 
-    this->deviceselect->options := devices;
-    this->deviceselect->value := selected;
+    ^deviceselect->options := devices;
+    ^deviceselect->value := selected;
 
-    this->previewmessage->linkactions :=
+    ^previewmessage->linkactions :=
         [ [ url := "preview:showsite"
-          , action := this->viewsite
+          , action := ^viewsite
           ]
         , [ url := "preview:showexternallink"
-          , action := this->showexternallink
+          , action := ^showexternallink
           ]
         ];
 
@@ -424,32 +424,32 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           have_messages := TRUE;
           IF (data.draftlocked)
           {
-            this->withdrawrequest->visible := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
-            this->revertdraft->visible := FALSE;
-            this->submitdraft->visible := FALSE;
-            this->versioningmessage->value := GetTid("publisher:versioning.preview.haspendingrequestforapproval");
+            ^withdrawrequest->visible := data.draftlockedby_authobjectid = this->tolliumuser->authobjectid;
+            ^revertdraft->visible := FALSE;
+            ^submitdraft->visible := FALSE;
+            ^versioningmessage->value := GetTid("publisher:versioning.preview.haspendingrequestforapproval");
           }
           ELSE
           {
             STRING warntype := GetVersioningDraftWarning(sourceitem);
             SWITCH (warntype)
             {
-              CASE "normal"     { this->versioningmessage->value := GetTid("publisher:versioning.preview.hasversioneddraft"); }
-              CASE "justdenied" { this->versioningmessage->value := GetTid("publisher:versioning.preview.hasjustdeniedversioneddraft"); }
+              CASE "normal"     { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasversioneddraft"); }
+              CASE "justdenied" { ^versioningmessage->value := GetTid("publisher:versioning.preview.hasjustdeniedversioneddraft"); }
               DEFAULT           { THROW NEW Exception(`Unhandled draft warn type '${warntype}'`); }
             }
-            this->withdrawrequest->visible := FALSE;
-            this->revertdraft->visible := warntype = "justdenied";
-            this->submitdraft->visible := warntype != "justdenied";
+            ^withdrawrequest->visible := FALSE;
+            ^revertdraft->visible := warntype = "justdenied";
+            ^submitdraft->visible := warntype != "justdenied";
           }
 
-          this->versioneventslistener->masks := [ "system:versionevent." || sourceitem->parentsite || "." || sourceitem->id ];
+          ^versioneventslistener->masks := [ "system:versionevent." || sourceitem->parentsite || "." || sourceitem->id ];
         }
       }
     }
-    this->versioninginfo->visible := have_messages;
+    ^versioninginfo->visible := have_messages;
     IF (NOT have_messages)
-      this->versioneventslistener->masks := DEFAULT STRING ARRAY;
+      ^versioneventslistener->masks := DEFAULT STRING ARRAY;
   }
 
   // Load browser frame if needed
@@ -462,21 +462,21 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       src := UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.webhare/direct/publisher/browserframe.html"), [ "__whpub_commit_" := this->commit ]);
 
     // (Re)load the browserframe if the src changed
-    IF (src != this->browserframe->src)
-      this->browserframe->src := src;
+    IF (src != ^browserframe->src)
+      ^browserframe->src := src;
   }
 
   // Refresh browser frame contents, only if changed or forced
   MACRO RefreshBrowserFrame(BOOLEAN force, BOOLEAN was_iframe_interaction)
   {
     this->LoadBrowserFrame();
-    this->previewurl->value := this->currenturl;
+    ^previewurl->value := this->currenturl;
 
     this->lastsethtmlvalue := Detokenize((SELECT AS STRING ARRAY message FROM this->previewmessages), '<br />');
-    this->previewmessage->htmlvalue := this->lastsethtmlvalue;
-    this->info->visible := Length(this->previewmessages) > 0;
+    ^previewmessage->htmlvalue := this->lastsethtmlvalue;
+    ^info->visible := Length(this->previewmessages) > 0;
 
-    IF (NOT force AND Tokenize(this->browserframe->data.src, "?")[0] = this->currenturl)
+    IF (NOT force AND Tokenize(^browserframe->data.src, "?")[0] = this->currenturl)
       RETURN;
 
     STRING src := this->suppressrendering ? ""
@@ -487,7 +487,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     //ADDME cache this
     BOOLEAN previewpdf := this->owner->tolliumuser->GetRegistryKey("system.prefs.showpdfpreview", FALSE);
-    this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, CELL[ src, previewpdf, dontnavigate := was_iframe_interaction ]);
+    ^browserframe->data := MakeUpdatedRecord(^browserframe->data, CELL[ src, previewpdf, dontnavigate := was_iframe_interaction ]);
   }
 
   MACRO ReloadCurrent(BOOLEAN reloadmessages, BOOLEAN reloadsource)
@@ -547,7 +547,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       //STRING previewicon := [ "messageboxes/information", "status/warning", "status/serious_error"][warninglevel];
       //this->previewicon->SetImageSrc("tollium:" || previewicon, "");
 
-      this->previewlistener->masks := [ "system:whfs.folder." || previewfile.parent, "publisher:publish.folder." || previewfile.parent ];
+      ^previewlistener->masks := [ "system:whfs.folder." || previewfile.parent, "publisher:publish.folder." || previewfile.parent ];
     }
     ELSE
     {
@@ -558,7 +558,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                ] INTO this->previewmessages AT END;
       }
       this->previewfileid := 0;
-      this->previewlistener->masks := DEFAULT STRING ARRAY;
+      ^previewlistener->masks := DEFAULT STRING ARRAY;
       this->suppressrendering := TRUE;
     }
 
@@ -577,7 +577,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       CASE "urlloaded"
       {
-        this->browserframe->data.src := data.src;
+        ^browserframe->data.src := data.src;
         // Strip hash and query
         this->currenturl := Tokenize(Tokenize(data.src, "#")[0], "?")[0];
         IF(this->onurlchange != DEFAULT MACRO PTR)
@@ -595,27 +595,27 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO OnDeviceChange()
   {
-    STRING selected := this->deviceselect->value;
+    STRING selected := ^deviceselect->value;
     IF (selected LIKE "d-*")
     {
-      RECORD selection := this->deviceselect->selection;
-      DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+      RECORD selection := ^deviceselect->selection;
+      DELETE FROM ^deviceselect->options WHERE rowkey LIKE "c-*";
 
       this->devicewidth := selection.width;
       this->deviceheight := selection.height;
-      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
     }
     ELSE IF (selected LIKE "c*")
     {
       IF (selected LIKE "c-*")
       {
-        RECORD selection := this->deviceselect->selection;
+        RECORD selection := ^deviceselect->selection;
         this->devicewidth := selection.width;
         this->deviceheight := selection.height;
       }
       ELSE
       {
-        DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+        DELETE FROM ^deviceselect->options WHERE rowkey LIKE "c-*";
 
         OBJECT dlg := this->owner->LoadScreen(Resolve("previewbrowser.xml#previewbrowsercustom"));
         dlg->width->value := this->devicewidth;
@@ -629,24 +629,24 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                  , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.customsize") || " (" || this->devicewidth || "x" || this->deviceheight || ")"
                  , width := this->devicewidth
                  , height := this->deviceheight
-                 ] INTO this->deviceselect->options AT END;
-          this->deviceselect->value := selected;
+                 ] INTO ^deviceselect->options AT END;
+          ^deviceselect->value := selected;
         }
         ELSE
         {
-          this->deviceselect->value := this->tolliumuser->GetRegistryKey("publisher.previewbrowser.device", "f");
+          ^deviceselect->value := this->tolliumuser->GetRegistryKey("publisher.previewbrowser.device", "f");
           RETURN;
         }
       }
 
-      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
     }
     ELSE IF (selected = "f")
     {
-      DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
+      DELETE FROM ^deviceselect->options WHERE rowkey LIKE "c-*";
       this->devicewidth := 0;
       this->deviceheight := 0;
-      this->browserframe->data := MakeUpdatedRecord(this->browserframe->data, [ width := -1, height := -1, fill := TRUE ]);
+      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := -1, height := -1, fill := TRUE ]);
     }
     ELSE
     {
@@ -773,7 +773,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoCancelRequest()
   {
-    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
+    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
     {
       OBJECT work := this->owner->BeginUnvalidatedWork();
       OBJECT source := OpenWHFSObject(this->previewfileid);
@@ -803,12 +803,12 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   PUBLIC RECORD FUNCTION GetPreviewState() //introspection needed for testing
   {
-    RETURN [ displayurl := this->previewurl->value
-           , browserurl := this->browserframe->data.src
-           , showingmessages := this->info->visible
-           , messages := this->info->visible ? this->lastsethtmlvalue : ""
-           , messagecomp := this->previewmessage
-           , previewrefresh := this->previewrefresh
+    RETURN [ displayurl := ^previewurl->value
+           , browserurl := ^browserframe->data.src
+           , showingmessages := ^info->visible
+           , messages := ^info->visible ? this->lastsethtmlvalue : ""
+           , messagecomp := ^previewmessage
+           , previewrefresh := ^previewrefresh
            ];
   }
 >;

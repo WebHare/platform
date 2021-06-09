@@ -1555,26 +1555,6 @@
         <text tid="urlnosubpath">The URL of a hosted webserver may not contain a subpath, it must be of the form 'http(s)://hostname/'.</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="webservertweaks">   <!-- system.webservertweaks -->
-      <text tid="accesslogcheckpoint">Current access.log checkpoint</text>
-      <text tid="basefolderforoutput">Base folder for output webservers</text>
-      <text tid="days">days</text>
-      <text tid="diversion">Diversion</text>
-      <text tid="divertcachedays">Diversion cache</text>
-      <text tid="divertdsstore">Divert Apple's DS Store folders</text>
-      <text tid="divertmacfileforks">Divert Apple's file forks</text>
-      <text tid="divertthumbsdb">Divert Windows' Thumbs.db folders</text>
-      <text tid="general">General</text>
-      <text tid="loggingtab">Logging</text>
-      <text tid="measure">Measure</text>
-      <text tid="nginx">NGinx</text>
-      <text tid="nginxfrontend">Expect NGINX to provide the frontend webserver</text>
-      <text tid="proxy">Proxy</text>
-      <text tid="seconds">seconds</text>
-      <text tid="security">Security</text>
-      <text tid="simulatesharepoint">Try to mimick Sharepoint headers</text>
-      <text tid="webdav">WebDav</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->

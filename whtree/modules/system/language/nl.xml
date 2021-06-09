@@ -1364,26 +1364,6 @@
         <text tid="urlnosubpath">De URL van een gehoste webserver mag geen subpad bevatten maar moet de vorm 'http(s)://hostname/' hebben.</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="webservertweaks">   <!-- system.webservertweaks -->
-      <text tid="accesslogcheckpoint">Huidig access.log checkpoint</text>
-      <text tid="basefolderforoutput">Basismap voor uitvoer webservers</text>
-      <text tid="days">dagen</text>
-      <text tid="diversion">Omleiding</text>
-      <text tid="divertcachedays">Omleidingscache</text>
-      <text tid="divertdsstore">Apple 'DS Store folders' omleiden</text>
-      <text tid="divertmacfileforks">Apple 'file forks'  omleiden</text>
-      <text tid="divertthumbsdb">Windows Thumbs.db mappen omleiden</text>
-      <text tid="general">Algemeen</text>
-      <text tid="loggingtab">Logs</text>
-      <text tid="measure">Meten</text>
-      <text tid="nginx">NGinx</text>
-      <text tid="nginxfrontend">NGINX verstrekt de frontend webserver</text>
-      <text tid="proxy">Proxy</text>
-      <text tid="seconds">seconden</text>
-      <text tid="security">Beveiliging</text>
-      <text tid="simulatesharepoint">Probeer Sharepoint headers na te bootsen</text>
-      <text tid="webdav">WebDav</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->

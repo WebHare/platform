@@ -78,6 +78,6 @@ export default class ObjCustomHTML extends ComponentBase
 
   enabledOn(checkflags, min, max, selectionmatch)
   {
-    return $todd.Screen.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
+    return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
   }
 }
