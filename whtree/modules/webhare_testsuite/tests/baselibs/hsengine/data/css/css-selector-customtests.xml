@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<css:csstests xmlns:css="http://www.webhare.net/xmlns/webhare_testsuite/css-selector-tests">
+  <css:test>
+    <css:title>Internal resolver test</css:title>
+    <css:description>Tests if rules aren't activated multiple times for the same node</css:description>
+    <css:selectors>
+      <css:selector>div span ~ strong</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <span />
+      <span />
+      <span />
+      <span />
+      <span />
+      <strong match-selector-0="1"/>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>scoping test</css:title>
+    <css:description>Test if scoped queries don't return nodes outside the scope</css:description>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div selector-scope="1">
+      <span match-selector-0="1"/>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>scoping test</css:title>
+    <css:description>Test scope path implementation also works for ~ and + combinators</css:description>
+    <css:selectors>
+      <css:selector>.out1 ~ .out2 + div > span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div class="out1" />
+    <div class="out2" />
+    <div selector-scope="1">
+      <span match-selector-0="1"/>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:scope</css:title>
+    <css:description>Test if :scope works</css:description>
+    <css:selectors>
+      <css:selector>:scope > span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div selector-scope="1">
+      <span match-selector-0="1">
+        <span />
+      </span>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>match</css:title>
+    <css:description>Test if match works #1</css:description>
+    <css:mode>match</css:mode>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span>
+      <span selector-scope="1" match-selector-0="1" />
+      <span />
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>match</css:title>
+    <css:description>Test if match works #2</css:description>
+    <css:mode>match</css:mode>
+    <css:selectors>
+      <css:selector>span.match-outside</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="match-outside">
+      <span selector-scope="1">
+        <span class="match-outside" />
+      </span>
+      <span />
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #1</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span>
+      <span>
+        <span selector-scope="1" match-selector-0="1"/>
+        <span />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #2</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span.closest-outside</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="closest-outside">
+      <span class="closest-outside" match-selector-0="1">
+        <span selector-scope="1">
+          <span class="closest-outside" />
+        <span />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #2</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span.fail</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="closest-outside">
+      <span class="closest-outside">
+        <span selector-scope="1" />
+        <span />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+</css:csstests>

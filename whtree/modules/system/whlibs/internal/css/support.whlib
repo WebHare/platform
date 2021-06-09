@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/css/tokenizer.whlib";
 
 
@@ -308,6 +309,9 @@ PUBLIC STRING FUNCTION GetXpathForPrelude(RECORD ARRAY prelude)
       }
       ELSE
       {
+        IF (token.value[1].type != "delim" AND token.value[1].type NOT LIKE "*-match")
+          THROW NEW Exception(`Expected an attribute operator`);
+
         SWITCH(token.value[1].value)// Correctly transliterate the match operators from CSS to XPath:
         {
           CASE "="
@@ -316,7 +320,7 @@ PUBLIC STRING FUNCTION GetXpathForPrelude(RECORD ARRAY prelude)
           }
           CASE "~="
           {
-            INSERT "[contains(concat(' ',@" || token.value[0].value || ",' '),'" || token.value[2].value || "')]" INTO query AT END;
+            INSERT "[contains(concat(' ',@" || token.value[0].value || ",' '),' " || token.value[2].value || " ')]" INTO query AT END;
           }
           CASE "$="
           {
@@ -543,6 +547,7 @@ PUBLIC STRING FUNCTION GetXpathForPrelude(RECORD ARRAY prelude)
   RETURN Detokenize(queries, "|");
 }
 
+
 PUBLIC OBJECTTYPE CSSException EXTEND Exception
 < STRING pvt_code;
   PUBLIC PROPERTY code(pvt_code, -);
@@ -602,4 +607,1037 @@ PUBLIC RECORD ARRAY FUNCTION RewriteURLsInTokens(RECORD ARRAY tokens, FUNCTION P
   }
 
   RETURN tokens;
+}
+
+STATIC OBJECTTYPE CSSSelectorParser
+< /** @cell root Root node
+      @cell scope Scope node
+  */
+  RECORD config;
+
+  /** List of CSS tokens to parse @includecelldef #CSSTokenizer::GetToken
+  */
+  RECORD ARRAY tokens;
+
+  /// Current token within the token array
+  INTEGER pos;
+
+  /// Current token (= this->tokens[this->pos])
+  RECORD token;
+
+  MACRO NEW(RECORD ARRAY tokens, RECORD config)
+  {
+    this->tokens := RECORD[ ...tokens, [ type := "eof", value := "", csstext := "" ] ];
+    this->pos := 0;
+    this->token := tokens[0];
+    this->config := config;
+  }
+
+  /** Advance to the next token
+  */
+  MACRO Next()
+  {
+    this->pos := this->pos + 1;
+    this->token := this->tokens[this->pos];
+  }
+
+  /** Eat whitespace, and return whether EOF has been reached
+      @return TRUE if EOF has been reached
+  */
+  PUBLIC BOOLEAN FUNCTION AtEOF()
+  {
+    WHILE (this->TryParseWS())
+      {}
+    RETURN this->token.type = "eof";
+  }
+
+  /** Parses all whitespaces, returns if any was encountered
+      @return TRUE if whitespace was found
+  */
+  BOOLEAN FUNCTION TryParseWS()
+  {
+    BOOLEAN retval;
+    WHILE (this->token.type = "ws")
+    {
+      retval := TRUE;
+      this->Next();
+    }
+    RETURN retval;
+  }
+
+  /** Parses a token by value
+      @return TRUE if the requested token was found and consimed
+  */
+  BOOLEAN FUNCTION TryParse(STRING token)
+  {
+    // Strings can have arbitrary values, don't match them
+    IF (this->token.value != token OR this->token.type = "string")
+      RETURN FALSE;
+    this->Next();
+    RETURN TRUE;
+  }
+
+  /** Parses a token by type
+      @return (consumed) token if the current token was of the requested type @includecelldef #token
+  */
+  RECORD FUNCTION TryParseType(STRING type)
+  {
+    IF (this->token.type != type)
+      RETURN DEFAULT RECORD;
+    RECORD token := this->token;
+    this->Next();
+    RETURN token;
+  }
+
+  /** Parses a complex selector list
+      @return @includecelldef #ParseComplexSelector.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION ParseComplexSelectorList()
+  {
+    RECORD ARRAY selectors;
+    WHILE (TRUE)
+    {
+      INSERT this->ParseComplexSelector() INTO selectors AT END;
+
+      IF (NOT this->TryParse(","))
+        BREAK;
+
+      this->TryParseWS();
+    }
+    RETURN selectors;
+  }
+
+  /** Parses a complex selector list
+      @return Single selector split into compoiund selectors and the combinators
+      @cell(record array) parts Compound selectors and their combinators
+      @cell(record array) parts.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
+      @cell(record array) parts.combinator Combinator AFTER the compound selector
+        - "": return if matches
+        - " ": any descendent matches
+        - ">": direct descendent matches
+        - "~": any following sibling matches
+        - "+": next sibling matches
+  */
+  RECORD FUNCTION ParseComplexSelector()
+  {
+    RECORD ARRAY parts;
+    WHILE (TRUE)
+    {
+      RECORD compoundselector := this->ParseCompoundSelector();
+      STRING combinator := this->ParseCombinator();
+      INSERT CELL[ combinator, compoundselector ] INTO parts AT END;
+
+      IF (combinator = "")
+        BREAK;
+    }
+    RETURN CELL[ parts ];
+  }
+
+  /** Parses a combinator
+      @return Combinator
+        - "": return if matches
+        - " ": any descendent matches
+        - ">": direct descendent matches
+        - "~": any following sibling matches
+        - "+": next sibling matches
+  */
+  STRING FUNCTION ParseCombinator()
+  {
+    BOOLEAN have_ws;
+    WHILE (this->TryParseWS())
+      have_ws := TRUE;
+
+    IF (this->token.type != "delim" OR this->token.value NOT IN [ ">", "+", "~" ])
+      RETURN have_ws ? " " : "";
+
+    STRING retval := this->token.value;
+    this->Next();
+
+    WHILE (this->TryParseWS())
+    {}
+
+    RETURN retval;
+  }
+
+  /** Parses a compound selector
+      @return Compound selector
+      @cell(string) return.tagname Expected tag name ('*' if all match)
+      @cell(record array) return.subclasses Subclass tests. Pseudo-class tests can have custom fields, returned
+        by ParseFunction and ParsePseudoClass
+      @cell(record array) return.subclasses.type Type of test
+        - "#": ID test
+        - ".": class tests
+        - "[": attribute test
+        - "(": function test
+        - ":": pseudo-class test
+      @cell(record array) return.subclasses.value Match value
+        - ID (for id test)
+        - class (for class test)
+        - attribute value (for attribute test). Lowercased for case insensitive matches.
+      @cell(record array) return.subclasses.name Name of function / pseudo class
+      @cell(record array) return.subclasses.attr Attribute name (for attribute test)
+      @cell(record array) return.subclasses.casesensitive Whether attribute test is case sensitive
+      @cell(record array) return.subclasses.matcher Attribute matching function (for attribute test)
+        - "": only existence check
+        - "=": equality check
+        - "~=": value exists in space-separated list
+        - "|=": valus is first value in hyphen-separated list
+        - "^=": attribute value starts with value
+        - "$=": attribute value ends with value
+        - "*=": attribute value contains with value
+        - "nomatch": used for attributepart matches with an empty string - they don't match any element
+      @cell(record array) return.subclasses.tokens Function tokens (for function test) @includecelldef #token
+  */
+  PUBLIC RECORD FUNCTION ParseCompoundSelector()
+  {
+    BOOLEAN have_item;
+
+    STRING tagname := "*";
+    RECORD ident := this->TryParseType("ident");
+    IF (RecordExists(ident))
+    {
+      have_item := TRUE;
+      tagname := ToLowercase(ident.value);
+    }
+    ELSE IF (this->TryParse("*"))
+      have_item := TRUE;
+
+    RECORD ARRAY subclasses;
+
+    BOOLEAN have_colon;
+
+    WHILE (TRUE)
+    {
+      RECORD hashid := this->TryParseType("#");
+      IF (RecordExists(hashid))
+      {
+        have_item := TRUE;
+        INSERT CELL[ type := "#", hashid.value ] INTO subclasses AT END;
+      }
+      ELSE IF (this->TryParse("."))
+      {
+        have_item := TRUE;
+        this->TryParseWS();
+        ident := this->TryParseType("ident");
+        IF (NOT RecordExists(ident))
+          THROW NEW Exception(`Expected an identifier after '.'`);
+        INSERT CELL[ type := ".", value := ToLowercase(ident.value) ] INTO subclasses AT END;
+      }
+      ELSE IF (this->TryParse("["))
+      {
+        have_item := TRUE;
+        this->TryParseWS();
+        ident := this->TryParseType("ident");
+        IF (NOT RecordExists(ident))
+          THROW NEW Exception(`Expected an attribute name`);
+        this->TryParseWS();
+        STRING matcher := "has";
+        STRING value;
+        BOOLEAN casesensitive;
+        IF (this->token.value IN [ "=", "~=", "|=", "^=", "$=", "*=" ])
+        {
+          matcher := this->token.value;
+          this->Next();
+          this->TryParseWS();
+
+          IF (this->token.type IN [ "ident", "string" ])
+            value := this->token.value;
+          ELSE
+            THROW NEW Exception(`Expected attribute value`);
+
+          this->Next();
+          this->TryParseWS();
+
+          casesensitive := NOT this->TryParse("i");
+          IF (casesensitive)
+            this->TryParseWS();
+
+          IF (value = "" AND matcher IN [ "^=", "$=", "*=" ])
+            matcher := "nomatch";
+
+          // [ <string-token> | <ident-token> ] <attr-modifier>? ']'
+
+          IF (NOT this->TryParse("]"))
+            THROW NEW Exception(`Expected "]"`);
+        }
+
+        INSERT CELL
+            [ type :=   "["
+            , attr :=   ident.value
+            , matcher
+            , value :=  casesensitive ? value : ToLowercase(value)
+            , casesensitive
+            ] INTO subclasses AT END;
+      }
+      ELSE IF (this->TryParse(":"))
+      {
+        have_item := TRUE;
+        IF (this->token.value = ":")
+        {
+          have_colon := TRUE;
+          BREAK;
+        }
+        ELSE
+        {
+          ident := this->TryParseType("ident") ?? this->TryParseType("function");
+          IF (NOT RecordExists(ident))
+            THROW NEW Exception(`Expected an identifier or a function`);
+          IF (ident.type = "function" OR this->TryParse("(")) // no whitespace
+          {
+            STRING ARRAY delims := [ "(" ];
+
+            RECORD ARRAY functokens;
+
+            WHILE (LENGTH(delims) > 0)
+            {
+              IF (this->token.type = "eof")
+                THROW NEW Exception(`Unexpected end of selector`);
+              IF (this->token.value IN [ "(", "[", "{" ])
+                INSERT this->token.value INTO delims AT END;
+              ELSE IF (this->token.type = "function")
+                INSERT "(" INTO delims AT END;
+              ELSE IF (this->token.value IN [ ")", "]", "}" ])
+              {
+                IF (delims[END-1] != [ "(", "[", "{" ][SearchElement([ ")", "]", "}" ], this->token.value)])
+                  THROW NEW Exception(`Unmatched closing token ${EncodeJSON(this->token.value)}`);
+                DELETE FROM delims AT END - 1;
+                IF (IsDefaultValue(delims))
+                {
+                  this->Next();
+                  BREAK;
+                }
+              }
+              ELSE IF (this->token.type = "bad-string" OR this->token.type = "bad-url")
+                THROW NEW Exception(`Found a improperly encoded string or url`);
+              INSERT this->token INTO functokens AT END;
+              this->Next();
+            }
+
+            INSERT
+                [ type :=     "("
+                , name :=     ident.value
+                , tokens :=   functokens
+                , ...this->ParseFunction(ident.value, functokens)
+                ] INTO subclasses AT END;
+          }
+          ELSE
+          {
+            INSERT
+                [ type :=     ":"
+                , name :=     ident.value
+                , ...this->ParsePseudoClass(ident.value)
+                ] INTO subclasses AT END;
+          }
+        }
+      }
+      ELSE
+        BREAK;
+    }
+
+    IF (have_colon)
+    {
+      this->Next();
+      THROW NEW Exception(`Pseudo element selectors are not supported`);
+    }
+
+    IF (NOT have_item)
+      THROW NEW Exception(`Expected a compond selector`);
+
+    RETURN CELL
+        [ tagname
+        , subclasses
+        ];
+  }
+
+  /// Parses An+B syntax for nth-child ea.
+  RECORD FUNCTION ParseANPlusB(STRING name, RECORD ARRAY functokens, BOOLEAN allowselector)
+  {
+    // Compound selector is CSS4, but useful in implementing nth-of-type
+    RECORD compoundselector;
+
+    // Collect tokens into a string (doesn't handle escaping very will, though)
+    // ADDME: rewrite folling CSS4 selector spec
+    STRING str;
+    BOOLEAN have_of;
+    FOREVERY (RECORD token FROM functokens)
+    {
+      IF (token.type NOT IN [ "number", "ident", "dimension" ])
+        THROW NEW Exception(`Syntax error in An+B expression`);
+
+      IF (token.type = "ident" AND token.value = "of" AND allowselector)
+      {
+        OBJECT p := NEW CSSSelectorParser(ArraySlice(functokens, #token + 1), this->config);
+        compoundselector := p->ParseCompoundSelector();
+        IF (NOT p->AtEOF())
+          THROW NEW Exception(`Could not parse selector after "of"`);
+        BREAK;
+      }
+      IF (token.type = "eof")
+        BREAK;
+
+      str := str || token.csstext;
+    }
+
+    STRING toparse := TrimWhitespace(ToLowercase(str));
+
+    // CSS3 selector spec
+    OBJECT p := NEW StringParser(TrimWhitespace(ToLowercase(str)));
+
+    // S* [ ['-'|'+']? INTEGER? {N} [ S* ['-'|'+'] S* INTEGER ]? |
+    //      ['-'|'+']? INTEGER | {O}{D}{D} | {E}{V}{E}{N} ] S*
+
+    p->ParseWhileInset(" \n\t");
+
+    INTEGER factor, ofs;
+    IF (p->TryParse("even"))
+    {
+      factor := 2;
+    }
+    ELSE IF (p->TryParse("odd"))
+    {
+      factor := 2;
+      ofs := 1;
+    }
+    ELSE
+    {
+      BOOLEAN negative := NOT p->TryParse("+") AND p->TryParse("-");
+      STRING first_digits := p->ParseWhileInset(p->set_digit);
+      BOOLEAN have_n := p->TryParse("n");
+
+      IF (first_digits = "" AND NOT have_n)
+        THROW NEW Exception(`Expected a number or "n" in function ${EncodeJSON(name)}`);
+
+      p->ParseWhileInset(" \n\t");
+      IF (have_n)
+      {
+        BOOLEAN second_positive :=p->TryParse("+");
+        BOOLEAN second_negative := NOT second_positive AND p->TryParse("-");
+        p->ParseWhileInset(" \n\t");
+        STRING second_digits := p->ParseWhileInset(p->set_digit);
+        IF (second_digits = "" AND (second_positive OR second_negative))
+          THROW NEW Exception(`Expected a second number in function ${EncodeJSON(name)}`);
+
+        factor := ToInteger(first_digits ?? "1", 0) * (negative ? -1 : 1);
+        ofs := ToInteger(second_digits, 0) * (second_negative ? -1 : 1);
+      }
+      ELSE
+      {
+        ofs := ToInteger(first_digits, 0) * (negative ? -1 : 1);
+      }
+    }
+
+    RETURN CELL
+        [ factor
+        , ofs
+        , compoundselector
+        ];
+  }
+
+  /** Parses functions
+      @param name Function name
+      @param functokens Arguments @includecelldef #token
+      @return
+      @cell return.compoundselector Compound selector for :not function @includecelldef @ParseCompondSelector.return
+      @cell return.factor A from the An+B in nth-child-alike tests
+      @cell return.ofs B from the An+B in nth-child-alike tests
+  */
+  RECORD FUNCTION ParseFunction(STRING name, RECORD ARRAY functokens)
+  {
+    SWITCH (name)
+    {
+      CASE "not"
+      {
+        OBJECT p := NEW CSSSelectorParser(functokens, this->config);
+        RETURN
+            [ compoundselector := p->ParseCompoundSelector()
+            ];
+      }
+      CASE "nth-child", "nth-last-child"
+      {
+        RETURN this->ParseANPlusB(name, functokens, TRUE);
+      }
+      CASE "nth-of-type", "nth-last-of-type"
+      {
+        RETURN this->ParseANPlusB(name, functokens, FALSE);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Function ${EncodeJSON(name)} is not supported`);
+      }
+    }
+  }
+
+  /** Parses functions
+      @param name Function name
+      @param functokens Arguments @includecelldef #token
+      @return
+      @cell return.compoundselector Compound selector for :not function @includecelldef @ParseCompondSelector.return
+      @cell(integer) return.factor A from the An+B in nth-child-alike tests
+      @cell(integer) return.ofs B from the An+B in nth-child-alike tests
+      @cell(object) return.node Exact node match (for :scope and :root)
+  */
+  RECORD FUNCTION ParsePseudoClass(STRING name)
+  {
+    // We rewrite the ...-child and ...-of-type to the nth-... forms
+    // need to overwrite type and name too to make it functions
+    SWITCH (name)
+    {
+      CASE "first-child"
+      {
+        RETURN
+            [ type :=             "("
+            , name :=             "nth-child"
+            , factor :=           0
+            , ofs :=              1
+            , compoundselector := DEFAULT RECORD
+            ];
+      }
+      CASE "last-child"
+      {
+        RETURN
+            [ type :=             "("
+            , name :=             "nth-last-child"
+            , factor :=           0
+            , ofs :=              1
+            , compoundselector := DEFAULT RECORD
+            ];
+      }
+      CASE "only-child"
+      {
+        RETURN DEFAULT RECORD;
+      }
+      CASE "first-of-type"
+      {
+        RETURN
+            [ type :=               "("
+            , name :=               "nth-of-type"
+            , factor :=             0
+            , ofs :=                1
+            ];
+      }
+      CASE "last-of-type"
+      {
+        RETURN
+            [ type :=             "("
+            , name :=               "nth-last-of-type"
+            , factor :=             0
+            , ofs :=                1
+            ];
+      }
+      CASE "only-of-type"
+      {
+        RETURN DEFAULT RECORD;
+      }
+      CASE "empty"
+      {
+        RETURN DEFAULT RECORD;
+      }
+      CASE "root"
+      {
+        RETURN
+            [ node :=   this->config.root
+            ];
+      }
+      CASE "scope"
+      {
+        RETURN
+            [ node :=   this->config.scope
+            ];
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Pseudo-class ${EncodeJSON(name)} is not supported`);
+      }
+    }
+  }
+>;
+
+/** Returns the 1-based index of a node (filtered with compoundselector)
+    @param node Node
+    @param fromstart If TRUE, get the index from the start, else from the end
+    @param compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+*/
+INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselector)
+{
+  INTEGER idx := 1;
+  WHILE (TRUE)
+  {
+    node := fromstart ? node->previouselementsibling : node->nextelementsibling;
+    IF (NOT ObjectExists(node))
+      RETURN idx;
+
+    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node))
+      idx := idx + 1;
+  }
+
+  RETURN idx;
+}
+
+/** Test an index-based function (nth-child of)
+    @param node Node
+    @param fromstart If TRUE, get the index from the start, else from the end
+    @param sc Test data
+    @param sc.factor A from An+B expression
+    @param sc.ofs B from An+B expression
+    @param sc.compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+*/
+BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
+{
+  INTEGER idx := GetIndex(node, fromstart, sc.compoundselector);
+  INTEGER todiv := idx - sc.ofs;
+  BOOLEAN ismatch := sc.factor = 0
+        ? todiv = 0
+        : todiv / sc.factor >= 0 AND todiv % sc.factor = 0;
+
+  //DumpValue(CELL[ sc, fromstart, idx, ismatch, todiv ]);
+  RETURN ismatch;
+}
+
+/** Tests is a node matches a compound selector
+    @param compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+    @param node Node to test
+    @return TRUE if the node matches
+*/
+PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
+{
+  // tag name test
+  IF (selector.tagname != "*" AND ToLowercase(node->localname ?? node->nodename) != selector.tagname)
+    RETURN FALSE;
+
+  STRING ARRAY classes := Tokenize(ToLowercase(node->GetAttribute("class")), " ");
+
+  FOREVERY (RECORD sc FROM selector.subclasses)
+  {
+    SWITCH (sc.type)
+    {
+      CASE "#"
+      {
+        // ID matches case-sensitively
+        IF (node->GetAttribute("id") != sc.value)
+          RETURN FALSE;
+      }
+      CASE "."
+      {
+        // class matches case-insensitive, classes list is lowercased in this function and value during parsing
+        IF (sc.value NOT IN classes)
+          RETURN FALSE;
+      }
+      CASE "["
+      {
+        // Attribute MUST exist, for all comparisons
+        IF (NOT node->HasAttribute(sc.attr))
+          RETURN FALSE;
+
+        STRING value := node->GetAttribute(sc.attr);
+        STRING comp := sc.value;
+        IF (NOT sc.casesensitive)
+        {
+          // sc.value was already lowercased during parsing
+          value := ToLowercase(value);
+        }
+        SWITCH (sc.matcher)
+        {
+          CASE "="      { IF (comp != value) RETURN FALSE; }
+          CASE "~="     { IF (comp NOT IN Tokenize(value, " ")) RETURN FALSE; }
+          CASE "^="     { IF (Left(value, LENGTH(comp)) != comp) RETURN FALSE; }
+          CASE "$="     { IF (Right(value, LENGTH(comp)) != comp) RETURN FALSE; }
+          CASE "*="     { IF (SearchSubString(value, comp) = -1) RETURN FALSE; }
+          CASE "|="     { IF (Left(value, LENGTH(comp)) != comp OR SubString(value, LENGTH(comp), 1) NOT IN [ "", "-" ]) RETURN FALSE; }
+          CASE "nomatch" { RETURN FALSE; } // needed for $= with an empty value
+        }
+      }
+      CASE "("
+      {
+        // Evaluate functions
+        SWITCH (sc.name)
+        {
+          CASE "not"
+          {
+            IF (TestCompoundSelector(sc.compoundselector, node))
+              RETURN FALSE;
+          }
+          CASE "nth-child"
+          {
+            IF (NOT TestIndex(node, TRUE, sc))
+              RETURN FALSE;
+          }
+          CASE "nth-last-child"
+          {
+            IF (NOT TestIndex(node, FALSE, sc))
+              RETURN FALSE;
+          }
+          CASE "nth-of-type"
+          {
+            // Construct a compound selector for the type of this node
+            RECORD compoundselector :=
+                [ tagname :=      node->nodename
+                , subclasses :=   RECORD[]
+                ];
+
+            IF (NOT TestIndex(node, TRUE, CELL[ ...sc, compoundselector ]))
+              RETURN FALSE;
+          }
+          CASE "nth-last-of-type"
+          {
+            // Construct a compound selector for the type of this node
+            RECORD compoundselector :=
+                [ tagname :=      node->nodename
+                , subclasses :=   RECORD[]
+                ];
+
+            IF (NOT TestIndex(node, FALSE, CELL[ ...sc, compoundselector ]))
+              RETURN FALSE;
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Testing function ${sc.name} is not supported yet`);
+          }
+        }
+
+
+      }
+      CASE ":"
+      {
+        SWITCH (sc.name)
+        {
+          CASE "root"
+          {
+            IF (NOT sc.node->IsSameNode(node))
+              RETURN FALSE;
+          }
+          CASE "scope"
+          {
+            IF (NOT sc.node->IsSameNode(node))
+              RETURN FALSE;
+          }
+          CASE "empty"
+          {
+            /* CSS level 4 specs that only whitespace is also allowed, but currently
+                no browser does that (caniuse.com checked at 2021-06-08)
+            */
+            OBJECT child := node->firstchild;
+            WHILE (ObjectExists(child))
+            {
+              IF (child->nodetype IN [ 1, 3, 4 ]) // element, text or cdata
+                RETURN FALSE;
+              child := child->nextsibling;
+
+            }
+          }
+          CASE "only-child"
+          {
+            // use nth-first-child and nth-last-child evaluations
+            RECORD test := [ factor := 0, ofs := 1, compoundselector := DEFAULT RECORD ];
+            IF (NOT TestIndex(node, TRUE, test))
+              RETURN FALSE;
+            IF (NOT TestIndex(node, FALSE, test))
+              RETURN FALSE;
+          }
+          CASE "only-of-type"
+          {
+            // use nth-first-of-type and nth-last-of-type evaluations
+            RECORD compoundselector :=
+                [ tagname :=      node->nodename
+                , subclasses :=   RECORD[]
+                ];
+
+            RECORD test := CELL[ factor := 0, ofs := 1, compoundselector ];
+            IF (NOT TestIndex(node, TRUE, test))
+              RETURN FALSE;
+            IF (NOT TestIndex(node, FALSE, test))
+              RETURN FALSE;
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Testing pseudo-class ${EncodeJSON(sc.name)} is not supported yet`);
+          }
+        }
+      }
+    }
+  }
+
+  RETURN TRUE;
+}
+
+/// Returns a node path, node names with child index (like html[1] body[1] div[2])
+STRING FUNCTION Debug_GetNodePath(OBJECT node)
+{
+  STRING name := node->nodename;
+  INTEGER pos := 1;
+  WHILE (ObjectExists(node->previouselementsibling))
+  {
+    pos := pos + 1;
+    node := node->previouselementsibling;
+  }
+  name := `${name}[${pos}]`;
+  IF (node->parentnode->nodetype = 1)
+    name := `${Debug_GetNodePath(node->parentnode)} ${name}`;
+
+  RETURN name;
+}
+
+/** Returns the path to and including a node
+    @param node Node
+    @return
+    @cell(object array) return.path Node path, starting at root node
+    @cell(integer) return.pathlen Length of the path
+*/
+RECORD FUNCTION GetNodePathList(OBJECT node)
+{
+  OBJECT ARRAY path;
+  IF (ObjectExists(node))
+  {
+    path := [ node ];
+    WHILE (TRUE)
+    {
+      OBJECT parent := node->parentnode;
+      IF (NOT ObjectExists(parent) OR parent->nodetype != 1)
+        BREAK;
+      INSERT parent INTO path AT 0;
+      node := parent;
+    }
+  }
+  RETURN CELL[ path, pathlen := LENGTH(path) ];
+}
+
+/** Evaluate CSS selectors
+    @param doc Document
+    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
+    @param selectors CSS selectors
+    @param mode @includecelldef #EvaluateSelectorRecursive.mode
+    @return List of matching nodes
+*/
+PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING selectors, STRING mode)
+{
+  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
+    THROW NEW Exception(`Illegal engine mode ${mode}`);
+
+  OBJECT t := NEW CSSTokenizer(selectors);
+
+  RECORD ARRAY tokens;
+  WHILE (TRUE)
+  {
+    t->ConsumeToken();
+    RECORD token := t->GetToken();
+    IF (token.type = "eof")
+      BREAK;
+    INSERT token INTO tokens AT END;
+  }
+
+  RECORD config :=
+      [ root :=       doc->documentelement
+      , scope :=      scope ?? doc->documentelement
+      ];
+
+  OBJECT p := NEW CSSSelectorParser(tokens, config);
+  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+
+  /* Concatenate the selector parts into a big selector array
+    A single selector ends at combinator "" (match). Keep the indices
+    of the first part of the rules.
+  */
+  INTEGER ARRAY alwaysactive;
+  RECORD ARRAY selectorparts;
+  FOREVERY (RECORD rec FROM parsed)
+  {
+    INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
+    FOREVERY (RECORD part FROM rec.parts)
+      INSERT part INTO selectorparts AT END;
+  }
+
+  RECORD scopepath := GetNodePathList(scope);
+
+  RETURN EvaluateSelectorRecursive(doc->documentelement, selectorparts, alwaysactive, scopepath, mode);
+}
+
+/** Iterate depth-first through the DOM, keeping lists of which compound selector parts of selectors are active
+    When an active rule part matches, schedule checks for the next part at the relevant nodes. Return the
+    nodes that match the last rule part of a selector - when they also match the query mode
+    @param rootnode Node to start
+    @param selectorparts Selector parts @includecelldef #SelectorParser::SelectorParser.return.parts
+    @param startrules Positions of the first part of all selectors
+    @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
+    @param mode Selection mode
+      - 'qS': querySelector mode, return the first match (within the scope subtree, if passed)
+      - 'qSA': querySelector mode, return the first match (within the scope subtree, if passed)
+      - 'match': match mode, return the scope node if it matches
+      - 'closest': closest mode, return the closest node that matches
+    @return List of matching nodes
+*/
+OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
+{
+  OBJECT ARRAY retval;
+
+  // Current depth in nodes, :root is depth 0
+  INTEGER depth := 0;
+
+  // When mode is 'closest' or 'match', don't allow recursing outside of scope path
+  INTEGER maxdepth;
+  INTEGER min_return_depth;
+
+  IF (mode IN [ "qS", "qSA" ])
+  {
+    // qS(A) may not return stuff in the scope path, needs to recurse into children of the scope
+    maxdepth := 2147483647;
+    min_return_depth := scopepath.pathlen;
+  }
+  ELSE
+  {
+    // match may only return the scope element, closest all items in the scope path (and we'll return the last)
+    maxdepth := scopepath.pathlen - 1;
+    min_return_depth := mode = "closest" ? 0 : scopepath.pathlen - 1;
+  }
+
+  /* Evaluation stack
+     Contains a record for every node in the path to the current node
+     @cell node Node to test next (is set to nextsibling before recursing into children)
+     @cell alwaysactive List of selector parts positions that are always active in the tree
+     @cell levelactive List of selector parts positions that are active at this level (children of the current parent). Also
+       includes all positions in the alwaysactive list.
+     @cell nodeactive List of selectors that are active for the current node (in #node)
+  */
+  RECORD ARRAY stack :=
+      [ CELL
+        [ node :=           rootnode
+        , alwaysactive :=   startrules
+        , levelactive :=    startrules
+        , nodeactive :=     INTEGER[]
+        ]
+      ];
+
+  WHILE (TRUE)
+  {
+    RECORD elt := stack[depth];
+
+    OBJECT testnode := elt.node;
+
+    // for children, all items that are always active at this point are active, active at its level is filled by '>' combinators.
+    INTEGER ARRAY childalwaysactive := elt.alwaysactive, childlevelactive;
+
+    // Is this node a match?
+    BOOLEAN ismatch;
+
+    // List of rules active at the next node, filled by "+" combinators
+    INTEGER ARRAY newnodeactive;
+
+    // Is the current node in the path to the current :scope element?
+    BOOLEAN inscopepath := depth < scopepath.pathlen AND testnode->IsSameNode(scopepath.path[depth]);
+
+/* debugging code
+    PRINT("Process "|| Debug_GetNodePath(testnode) || `, depth ${depth}, inscopepath: ${inscopepath?1:0}, maxdepth ${maxdepth}\n`);
+    PRINT("  " || Tokenize(testnode->outerHTML, ">")[0] || ">\n");
+
+    PRINT(`    alwaysactive ${Substitute(AnyToString(elt.alwaysactive, "tree"), "\n", "")}` ||
+        ` levelactive ${Substitute(AnyToString(elt.levelactive, "tree"), "\n", "")}` ||
+        ` nodeactive ${Substitute(AnyToString(elt.nodeactive, "tree"), "\n", "")}\n`);
+//*/
+    FOREVERY (INTEGER i FROM elt.levelactive CONCAT elt.nodeactive)
+    {
+      RECORD rec := selectorparts[i];
+
+      // Skip final rule parts when the current node may not be given back
+      IF (rec.combinator = "" AND (depth < min_return_depth OR (depth < scopepath.pathlen AND NOT inscopepath)))
+        CONTINUE;
+
+      // skip rule parts that need to descend the tree when that part of the tree lies outside of the scope
+      IF ((rec.combinator = " " OR rec.combinator = ">") AND NOT inscopepath AND depth < scopepath.pathlen)
+        CONTINUE;
+
+      // Test the rule part
+      BOOLEAN test := TestCompoundSelector(rec.compoundselector, testnode);
+      IF (NOT test)
+        CONTINUE;
+
+      SWITCH (rec.combinator)
+      {
+        CASE ">"
+        {
+          // '>' combinator means that the next rule part is active at the level of the children elements
+          INSERT i + 1 INTO childlevelactive AT END;
+        }
+        CASE " "
+        {
+          // ' ' combinator means that the next rule part is always active in the children tree
+          INSERT i + 1 INTO childalwaysactive AT END;
+
+          // if this was an alwaysactive rule, no need to test for this rule at the children anymore
+          INTEGER pos := SearchElement(childalwaysactive, i);
+          IF (pos != -1)
+            DELETE FROM childalwaysactive AT pos;
+        }
+        CASE "+"
+        {
+          // '+' combinator means the next rule part needs to be checked for the next sibling
+          INSERT i + 1 INTO newnodeactive AT END;
+        }
+        CASE "~"
+        {
+          // '~' combinator means the next rule part needs to be checked for the rest of this
+          // level. No need to test for this rule anymore at this level.
+          INSERT i + 1 INTO stack[depth].levelactive AT END;
+          INTEGER pos := SearchElement(stack[depth].levelactive, i);
+          IF (pos != -1)
+            DELETE FROM stack[depth].levelactive AT pos;
+        }
+        CASE ""
+        {
+          // last part of a selector, it's a match
+          ismatch := TRUE;
+        }
+      }
+    }
+
+    IF (ismatch)
+    {
+      INSERT testnode INTO retval AT END;
+
+      // mode 'qS' needs to return only 1 match
+      IF (mode = "qS")
+        RETURN retval;
+    }
+
+    // prepare for processing the next node at this level
+    stack[depth].nodeactive := newnodeactive;
+    stack[depth].node := testnode->nextelementsibling;
+
+    // Any rules are active at the children, we can try to recurse into them
+    // We need to be in the scope path, or if we're allowed to recurse into childen of the scope
+    IF ((IsValueSet(childalwaysactive) OR IsValueSet(childlevelactive)) AND depth < maxdepth AND (depth >= scopepath.pathlen OR inscopepath))
+    {
+      OBJECT firstelementchild := testnode->firstelementchild;
+      IF (IsValueSet(firstelementchild))
+      {
+        // fill the levelactive with the childalwaysactive and childlevelactive, so less need to concatenate in the next level
+        INSERT
+            [ node :=             firstelementchild
+            , alwaysactive :=     childalwaysactive
+            , levelactive :=      childalwaysactive CONCAT childlevelactive
+            , nodeactive :=       INTEGER[]
+            ] INTO stack AT END;
+        depth := depth + 1;
+        CONTINUE;
+      }
+    }
+
+    // Pop stack levels where the end has been reached
+    IF (IsDefaultValue(stack[depth].node))
+    {
+      DELETE FROM stack AT depth;
+      depth := depth - 1;
+
+      WHILE (depth >= 0 AND IsDefaultValue(stack[depth].node))
+      {
+        DELETE FROM stack AT depth;
+        depth := depth - 1;
+      }
+      IF (depth < 0)
+        BREAK;
+    }
+  }
+
+  // In mode closest, return the last match
+  IF (mode = "closest" AND IsValueSet(retval))
+    retval := ArraySlice(retval, LENGTH(retval) - 1);
+
+  RETURN retval;
 }

@@ -1,0 +1,3741 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<css:csstests xmlns:css="http://www.webhare.net/xmlns/webhare_testsuite/css-selector-tests">
+  <css:test>
+    <css:title>Groups of selectors</css:title>
+    <css:selectors>
+      <css:selector>li,p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li match-selector-0="1">The background of this list item should be green</li>
+  <li match-selector-0="1">The background of this second list item should be also green</li>
+</ul>
+<p match-selector-0="1">The background of this paragraph should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Type element selectors</css:title>
+    <css:selectors>
+      <css:selector>address</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<address match-selector-0="1">This address element should have a green background.</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Universal selector (no namespaces)</css:title>
+    <css:selectors>
+      <css:selector>*</css:selector>
+      <css:selector>ul, p</css:selector>
+      <css:selector>*.t1</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html match-selector-0="1">
+        <head match-selector-0="1"/>
+        <body match-selector-0="1">
+<p match-selector-0="1" match-selector-1="1">
+<span class="t1" match-selector-0="1" match-selector-2="1">This paragraph, and all textual contents in the document, 
+      should be green.</span>
+</p>
+<ul match-selector-0="1" match-selector-1="1">
+  <li class="t1" match-selector-0="1" match-selector-2="1">This item should be green.</li>
+</ul>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Omitted universal selector</css:title>
+    <css:selectors>
+      <css:selector>#foo</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p id="foo" match-selector-0="1" match-selector-1="1">This paragraph should have a green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Attribute existence selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[title]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p title="title" match-selector-0="1" match-selector-1="1">This paragraph should have a green background because its TITLE
+      attribute is set.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Attribute value selector</css:title>
+    <css:selectors>
+      <css:selector>address</css:selector>
+      <css:selector>address[title="foo"]</css:selector>
+      <css:selector>span[title="a"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<address title="foo" match-selector-0="1" match-selector-1="1">
+<span title="b">This line should </span>
+  <span title="aa">have a green background.
+</span>
+</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Attribute multivalue selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[class~="b"]</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address[title~="foo"]</css:selector>
+      <css:selector>span[class~="b"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="a b c" match-selector-0="1" match-selector-1="1">This paragraph should have green background because CLASS
+  contains "b"</p>
+<address title="tot foo bar" match-selector-2="1" match-selector-3="1">
+<span class="a c">This address should also</span>
+  <span class="a bb c">have green background because the selector in the last
+    rule does not apply to the inner SPANs.</span>
+</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Attribute multivalue selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>[title~="hello world"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p title="hello world" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Attribute value selectors (hyphen-separated attributes)</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[lang|="en"]</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address[lang="fi"]</css:selector>
+      <css:selector>span[lang|="fr"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p lang="en-gb" match-selector-0="1" match-selector-1="1">This paragraph should have green background because its language is "en-gb"</p>
+<address lang="fi" match-selector-2="1" match-selector-3="1">
+<span lang="en-us">This address should also</span>
+  <span lang="en-fr">have green background because the language of the inner SPANs
+     is not French.</span>
+</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Substring matching attribute selector (beginning)</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[title^="foo"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p title="foobar" match-selector-0="1" match-selector-1="1">This paragraph should have a green background<br>
+because its title attribute begins with "foo"
+</br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Substring matching attribute selector (end)</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[title$="bar"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p title="foobar" match-selector-0="1" match-selector-1="1">This paragraph should have a green background because
+its title attribute ends with "bar"</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Substring matching attribute selector (contains)</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[title*="bar"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p title="foobarufoo" match-selector-0="1" match-selector-1="1">This paragraph should have a green background because
+its title attribute contains "bar"</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Class selectors</css:title>
+    <css:selectors>
+      <css:selector>li</css:selector>
+      <css:selector>.t1</css:selector>
+      <css:selector>li.t2</css:selector>
+      <css:selector>.t3</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li class="t1" match-selector-0="1" match-selector-1="1">This list item should have green background because its class is "t1"</li>
+  <li class="t2" match-selector-0="1" match-selector-2="1">This list item should have green background because its class is "t2"</li>
+  <li class="t2" match-selector-0="1" match-selector-2="1">
+<span class="t33">This list item should have green background because 
+        the inner SPAN does not match SPAN.t3</span>
+</li>
+</ul>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>More than one class selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p.t1</css:selector>
+      <css:selector>p.t2</css:selector>
+      <css:selector>div</css:selector>
+      <css:selector>div.teST</css:selector>
+      <css:selector>div.te</css:selector>
+      <css:selector>div.st</css:selector>
+      <css:selector>div.te.st</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+
+<p class="t1 t2" match-selector-0="1" match-selector-1="1" match-selector-2="1">This paragraph
+should have a green background and a green thick solid border because
+it carries both classes t1 and t2.</p>
+
+<div class="test" match-selector-3="1" match-selector-4="1">This line
+should be green.</div>
+
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>More than one class selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.t1.fail</css:selector>
+      <css:selector>.fail.t1</css:selector>
+      <css:selector>.t2.fail</css:selector>
+      <css:selector>.fail.t2</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p class="t1" match-selector-0="1">This line should be green.</p>
+  <p class="t1 t2" match-selector-0="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>More than one class selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p.t1.t2</css:selector>
+      <css:selector>div</css:selector>
+      <css:selector>div.t1</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address.t5.t5</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p class="t1 t2" match-selector-0="1" match-selector-1="1">This line should be green.</p>
+  <div class="t3" match-selector-2="1">This line should be green.</div>
+  <address class="t4 t5 t6" match-selector-4="1" match-selector-5="1">This line should be green.</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED More than one class selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.t1:not(.t2)</css:selector>
+      <css:selector>:not(.t2).t1</css:selector>
+      <css:selector>.t2:not(.t1)</css:selector>
+      <css:selector>:not(.t1).t2</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p class="t1 t2" match-selector-0="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED More than one class selector</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not(.t1):not(.t2)</css:selector>
+      <css:selector>div</css:selector>
+      <css:selector>div:not(.t1)</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address:not(.t5):not(.t5)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p class="t1 t2" match-selector-0="1">This line should be green.</p>
+  <div class="t3" match-selector-2="1" match-selector-3="1">This line should be green.</div>
+  <address class="t4 t5 t6" match-selector-4="1">This line should be green.</address>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>ID selectors</css:title>
+    <css:selectors>
+      <css:selector>li</css:selector>
+      <css:selector>#t1</css:selector>
+      <css:selector>li#t2</css:selector>
+      <css:selector>li#t3</css:selector>
+      <css:selector>#t4</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li id="t1" match-selector-0="1" match-selector-1="1">This list item should have a green background. because its ID is "t1"</li>
+  <li id="t2" match-selector-0="1" match-selector-2="1">This list item should have a green background. because its ID is "t2"</li>
+  <li id="t3" match-selector-0="1" match-selector-3="1"><span id="t44">This list item should have a green background. because the inner SPAN does not match "#t4"</span></li>
+</ul>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Multiple ID selectors</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>#test#fail</css:selector>
+      <css:selector>#fail#test</css:selector>
+      <css:selector>#fail</css:selector>
+      <css:selector>div</css:selector>
+      <css:selector>#pass#pass</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p id="test" match-selector-0="1">This line should be green.</p>
+  <div id="pass" match-selector-4="1" match-selector-5="1">This line should be green.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:link pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>p.test a</css:selector>
+      <css:selector>p.test *:link</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="test">
+<a href="http://unvisited.example.org/css3-modsel-16/" match-selector-0="1" match-selector-1="1">This link should have green background.</a>
+(Don't follow this link.)
+</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:visited pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>p.test a</css:selector>
+      <css:selector>p.test *:visited</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="test">
+<a href="http://www.w3.org/" match-selector-0="1">You should see a green background assigned by the anchor.</a>
+(Note: You must have visited http://www.w3.org/ for this test to be valid.)
+</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:target pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:target</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-0="1">This paragraph should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:target pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>:root</css:selector>
+      <css:selector>:target</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html match-selector-0="1">
+        <head/>
+        <body>
+ <p>This page should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:lang() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>ul &gt; li</css:selector>
+      <css:selector>li:lang(en-GB)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li lang="en-GB" match-selector-0="1" match-selector-1="1">This list item should be green because its language is
+        British English</li>
+  <li lang="en-GB-wa" match-selector-0="1" match-selector-1="1">This list item should be green because its language
+        is British English (Wales)</li>
+</ul>
+<ol>
+  <li lang="en-US">This list item should NOT be green because its language
+       is US English</li>
+  <li lang="fr">This list item should NOT be green because its language is
+       French</li>
+</ol>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:enabled pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>button</css:selector>
+      <css:selector>input</css:selector>
+      <css:selector>button:enabled</css:selector>
+      <css:selector>input:enabled</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+ <button match-selector-0="1" match-selector-2="1">A button (enabled) with green background</button>
+ <br>
+ <input type="text" size="36" value="a text area (enabled) with green background" match-selector-1="1" match-selector-3="1">
+
+</input></br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:disabled pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>button</css:selector>
+      <css:selector>input</css:selector>
+      <css:selector>button:disabled</css:selector>
+      <css:selector>input:disabled</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+ <button disabled="disabled" match-selector-0="1" match-selector-2="1">A button (disabled) with green background</button>
+ <br>
+ <input disabled="disabled" type="text" size="36" value="a text area (disabled) with green background" match-selector-1="1" match-selector-3="1">
+
+</input></br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:checked pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>input, span</css:selector>
+      <css:selector>input:checked, input:checked + span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+<input type="checkbox" checked="checked" match-selector-0="1" match-selector-1="1"> <span match-selector-0="1" match-selector-1="1">Everything in this paragraph should have a green background</span>
+</input></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:root pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>html</css:selector>
+      <css:selector>*:root</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html match-selector-0="1" match-selector-1="1">
+        <head/>
+        <body>
+<p>The background of the document should be green</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Impossible rules (:root:first-child, etc)</css:title>
+    <css:selectors>
+      <css:selector>:root:first-child</css:selector>
+      <css:selector>:root:last-child</css:selector>
+      <css:selector>:root:only-child</css:selector>
+      <css:selector>:root:nth-child(1)</css:selector>
+      <css:selector>:root:nth-child(n)</css:selector>
+      <css:selector>:root:nth-last-child(1)</css:selector>
+      <css:selector>:root:nth-last-child(n)</css:selector>
+      <css:selector>:root:first-of-type</css:selector>
+      <css:selector>:root:last-of-type</css:selector>
+      <css:selector>:root:only-of-type</css:selector>
+      <css:selector>:root:nth-of-type(1)</css:selector>
+      <css:selector>:root:nth-of-type(n)</css:selector>
+      <css:selector>:root:nth-last-of-type(1)</css:selector>
+      <css:selector>:root:nth-last-of-type(n)</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html match-selector-0="1" match-selector-1="1" match-selector-2="1" match-selector-3="1" match-selector-4="1" match-selector-5="1" match-selector-6="1" match-selector-7="1" match-selector-8="1" match-selector-9="1" match-selector-10="1" match-selector-11="1" match-selector-12="1" match-selector-13="1">
+        <head/>
+        <body>
+<p match-selector-14="1">This line should be green (there should be no red on this page).</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Impossible rules (* html, * :root)</css:title>
+    <css:selectors>
+      <css:selector>* html</css:selector>
+      <css:selector>* :root</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p match-selector-2="1">This line should be green (there should be no red on this page).</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>ul &gt; li:nth-child(odd)</css:selector>
+      <css:selector>ol &gt; li:nth-child(even)</css:selector>
+      <css:selector>table.t1 tr:nth-child(-n+4)</css:selector>
+      <css:selector>table.t2 td:nth-child(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li class="red" match-selector-0="1" match-selector-1="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ul>
+<ol>
+  <li>First list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This sixth list item should have a green background</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 1.1</td>
+<td>1.2</td>
+     <td>1.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 2.1</td>
+<td>2.2</td>
+     <td>2.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 3.1</td>
+<td>3.2</td>
+     <td>3.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 4.1</td>
+<td>4.2</td>
+      <td>4.3</td>
+</tr>
+  <tr>
+<td>5.1</td>
+<td>5.2</td>
+<td>5.3</td>
+</tr>
+  <tr>
+<td>6.1</td>
+<td>6.2</td>
+<td>6.3</td>
+</tr>
+</tbody></table>
+
+<table class="t2" border="1">
+  <tbody><tr>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.2</td>
+<td>1.3</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.5</td>
+<td>1.6</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.8</td>
+</tr>
+  <tr>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.2</td>
+<td>2.3</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.5</td>
+<td>2.6</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.8</td>
+</tr>
+  <tr>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.2</td>
+<td>3.3</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.5</td>
+<td>3.6</td>
+      <td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.8</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>ul &gt; li:nth-child(odd)</css:selector>
+      <css:selector>ol &gt; li:nth-child(even)</css:selector>
+      <css:selector>table.t1 tr:nth-child(-n+4)</css:selector>
+      <css:selector>table.t2 td:nth-child(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li class="green" match-selector-0="1" match-selector-1="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ul>
+<ol>
+  <li>First list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This sixth list item should have a green background</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 1.1</td>
+<td>1.2</td>
+     <td>1.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 2.1</td>
+<td>2.2</td>
+     <td>2.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 3.1</td>
+<td>3.2</td>
+     <td>3.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 4.1</td>
+<td>4.2</td>
+      <td>4.3</td>
+</tr>
+  <tr>
+<td>5.1</td>
+<td>5.2</td>
+<td>5.3</td>
+</tr>
+  <tr>
+<td>6.1</td>
+<td>6.2</td>
+<td>6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.2</td>
+<td>1.3</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.5</td>
+<td>1.6</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.8</td>
+</tr>
+  <tr>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.2</td>
+<td>2.3</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.5</td>
+<td>2.6</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.8</td>
+</tr>
+  <tr>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.2</td>
+<td>3.3</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.5</td>
+<td>3.6</td>
+      <td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.8</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-last-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>ul &gt; li:nth-last-child(odd)</css:selector>
+      <css:selector>ol &gt; li:nth-last-child(even)</css:selector>
+      <css:selector>table.t1 tr:nth-last-child(-n+4)</css:selector>
+      <css:selector>table.t2 td:nth-last-child(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li>First list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This sixth list item should have a green background</li>
+</ul>
+<ol>
+  <li class="red" match-selector-0="1" match-selector-2="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr>
+<td>1.1</td>
+<td>1.2</td>
+     <td>1.3</td>
+</tr>
+  <tr>
+<td>2.1</td>
+<td>2.2</td>
+     <td>2.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 3.1</td>
+<td>3.2</td>
+     <td>3.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 4.1</td>
+<td>4.2</td>
+      <td>4.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 5.1</td>
+<td>5.2</td>
+      <td>5.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td>Green row : 6.1</td>
+<td>6.2</td>
+      <td>6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td>1.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.3</td>
+      <td>1.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.6</td>
+      <td>1.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+  <tr>
+<td>2.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.3</td>
+      <td>2.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.6</td>
+      <td>2.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+  <tr>
+<td>3.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.3</td>
+      <td>3.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.6</td>
+      <td>3.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-last-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>ul &gt; li:nth-last-child(odd)</css:selector>
+      <css:selector>ol &gt; li:nth-last-child(even)</css:selector>
+      <css:selector>table.t1 tr:nth-last-child(-n+4)</css:selector>
+      <css:selector>table.t2 td:nth-last-child(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li>First list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This sixth list item should have a green background</li>
+</ul>
+<ol>
+  <li class="green" match-selector-0="1" match-selector-2="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr>
+<td>1.1</td>
+<td>1.2</td>
+     <td>1.3</td>
+</tr>
+  <tr>
+<td>2.1</td>
+<td>2.2</td>
+     <td>2.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 3.1</td>
+<td>3.2</td>
+     <td>3.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 4.1</td>
+<td>4.2</td>
+      <td>4.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 5.1</td>
+<td>5.2</td>
+      <td>5.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td>Green row : 6.1</td>
+<td>6.2</td>
+      <td>6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td>1.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.3</td>
+      <td>1.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>1.6</td>
+      <td>1.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+  <tr>
+<td>2.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.3</td>
+      <td>2.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>2.6</td>
+      <td>2.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+  <tr>
+<td>3.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.3</td>
+      <td>3.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+<td>3.6</td>
+      <td>3.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1">green cell</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:nth-of-type(3)</css:selector>
+      <css:selector>dl &gt; :nth-of-type(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>This paragraph is here only to fill space in the DOM</p>
+<address>And this address too..</address>
+<p>So does this paragraph !</p>
+<p class="red" match-selector-0="1" match-selector-1="1">But this one should have green background</p>
+<dl>
+  <dt class="red" match-selector-0="1" match-selector-2="1">First definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">First definition that should have green background</dd>
+  <dt>Second definition term</dt>
+    <dd>Second definition</dd>
+  <dt>Third definition term</dt>
+    <dd>Third definition</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Fourth definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Fourth definition that should have green background</dd>
+  <dt>Fifth definition term</dt>
+    <dd>Fifth definition</dd>
+  <dt>Sixth definition term</dt>
+    <dd>Sixth definition</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:nth-last-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:nth-last-of-type(3)</css:selector>
+      <css:selector>dl &gt; :nth-last-of-type(3n+1)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background</p>
+<address>But this address is here only to fill space in the dom..</address>
+<p>So does this paragraph !</p>
+<p>And so does this one too.</p>
+<dl>
+  <dt>First definition term</dt>
+    <dd>First definition</dd>
+  <dt>Second definition term</dt>
+    <dd>Second definition</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Third definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Third definition that should have green background</dd>
+  <dt>Fourth definition term</dt>
+    <dd>Fourth definition</dd>
+  <dt>Fifth definition term</dt>
+    <dd>Fifth definition</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Sixth definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Sixth definition that should have green background</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 td:first-child</css:selector>
+      <css:selector>p &gt; *:first-child</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>
+<table class="t1" border="1">
+  <tbody><tr>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+    <td>1.2</td>
+    <td>1.3</td>
+  </tr>
+  <tr>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+    <td>2.2</td>
+    <td>2.3</td>
+  </tr>
+  <tr>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+    <td>3.2</td>
+    <td>3.3</td>
+  </tr>
+</tbody></table>
+</div>
+<p>This paragraph contains some text
+          <span match-selector-2="1">and a span that should have a green background</span>
+</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:last-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 td:last-child</css:selector>
+      <css:selector>p &gt; *:last-child</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>
+<table class="t1" border="1">
+  <tbody><tr>
+    <td>1.1</td>
+    <td>1.2</td>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+  </tr>
+  <tr>
+    <td>2.1</td>
+    <td>2.2</td>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+  </tr>
+  <tr>
+    <td>3.1</td>
+    <td>3.2</td>
+    <td class="red" match-selector-0="1" match-selector-1="1">green cell</td>
+  </tr>
+</tbody></table>
+</div>
+<p>
+<span match-selector-2="1">This paragraph contains a span that should
+     have a green background</span> and some text after it.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address:first-of-type</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>This div contains 3 addresses:
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A first address that should have a green background</address>
+<address match-selector-1="1">A second address with normal background</address>
+<address match-selector-1="1">A third address with normal background</address>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:last-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address:last-of-type</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>
+<address match-selector-1="1">A first address with normal background</address>
+<address match-selector-1="1">A second address with normal background</address>
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A third address that should have a green background</address>
+This div contains 3 addresses above this sentence.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:only-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:only-child</css:selector>
+      <css:selector>div.testText &gt; div &gt; p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>This paragraph should have normal background</p>
+<div>This div contains only one paragraph
+    <p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:only-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 :only-of-type</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="t1">
+<p>This paragraph should have normal background</p>
+<address class="red" match-selector-0="1" match-selector-1="1">But this address should have green background</address>
+<p>This paragraph should have normal background</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-line pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p:first-line</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>This very long paragraph should have a
+      first line with green background. This very long paragraph should have a first
+      line with green background.  This very long paragraph should have a first line
+      with green background. This very long paragraph should have a first line with
+      green background. This very long paragraph should have a first line with green
+      background. This very long paragraph should have a first line with green background.
+      This very long paragraph should have a first line with green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-letter pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p:first-letter</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+
+<p>This very long paragraph
+should have a big first letter T with a green background. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text.</p>
+
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-letter pseudo-element with ::before pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p:first-letter</css:selector>
+      <css:selector>p:before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+
+<p>his very long paragraph should
+have a big green first letter T.  Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text.</p>
+
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-letter pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p::first-letter</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+
+<p>This very long paragraph
+should have a big first letter T with a green background.  Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text.</p>
+
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-letter pseudo-element with ::before pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p::first-letter</css:selector>
+      <css:selector>p::before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+
+<p>his very long paragraph should
+have a big green first letter T. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text. Dummy text. Dummy
+text. Dummy text. Dummy text. Dummy text.</p>
+
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::before pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p::before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>You should see before this paragraph the words GENERATED CONTENT over green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:before pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p:before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>You should see before this paragraph the words GENERATED CONTENT over green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::after pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p::after</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>You should see after this paragraph the words GENERATED CONTENT over green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:after pseudo-element</css:title>
+    <css:selectors>
+      <css:selector>p:after</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>You should see after this paragraph the words GENERATED CONTENT over green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Descendant combinator</css:title>
+    <css:selectors>
+      <css:selector>.white</css:selector>
+      <css:selector>.red</css:selector>
+      <css:selector>div.t1 p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="t1">
+  <p class="red" match-selector-1="1" match-selector-2="1">This paragraph should have a green background</p>
+  <table>
+   <tbody>
+    <tr>
+     <td>
+      <p class="red" match-selector-1="1" match-selector-2="1">This paragraph should have a green background</p>
+     </td>
+    </tr>
+   </tbody>
+  </table>
+ </div>
+ <table>
+  <tbody>
+   <tr>
+    <td>
+     <p class="white" match-selector-0="1">This paragraph should be unstyled.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Descendant combinator</css:title>
+    <css:selectors>
+      <css:selector>.white</css:selector>
+      <css:selector>.green</css:selector>
+      <css:selector>div.t1 p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="t1">
+  <p class="white" match-selector-0="1" match-selector-2="1">This paragraph should be unstyled</p>
+  <table>
+   <tbody>
+    <tr>
+     <td>
+      <p class="white" match-selector-0="1" match-selector-2="1">This paragraph should be unstyled</p>
+     </td>
+    </tr>
+   </tbody>
+  </table>
+ </div>
+ <table>
+  <tbody>
+   <tr>
+    <td>
+     <p class="green" match-selector-1="1">This paragraph should have a green background</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Child combinator</css:title>
+    <css:selectors>
+      <css:selector>.white</css:selector>
+      <css:selector>.red</css:selector>
+      <css:selector>div &gt; p.test</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <p class="red test" match-selector-1="1" match-selector-2="1">This paragraph should have a green background</p>
+  <div>
+   <p class="red test" match-selector-1="1" match-selector-2="1">This paragraph should have a green background</p>
+  </div>
+ </div>
+ <table>
+  <tbody>
+   <tr>
+    <td>
+     <p class="white test" match-selector-0="1">This paragraph should be unstyled.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Child combinator</css:title>
+    <css:selectors>
+      <css:selector>.white</css:selector>
+      <css:selector>.green</css:selector>
+      <css:selector>div &gt; p.test</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <p class="white test" match-selector-0="1" match-selector-2="1">This paragraph should be unstyled.</p>
+  <div>
+   <p class="white test" match-selector-0="1" match-selector-2="1">This paragraph should be unstyled.</p>
+  </div>
+ </div>
+ <table>
+  <tbody>
+   <tr>
+    <td>
+     <p class="green test" match-selector-1="1">This paragraph should have a green background.</p>
+    </td>
+   </tr>
+  </tbody>
+ </table>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Child combinator and classes</css:title>
+    <css:selectors>
+      <css:selector>.fail &gt; div</css:selector>
+      <css:selector>.control</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <div> This should be unstyled. </div>
+  <div class="control" match-selector-1="1"> This should have a green background. </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Child combinatior and IDs</css:title>
+    <css:selectors>
+      <css:selector>#fail &gt; div</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <div> This should be unstyled. </div>
+  <p match-selector-1="1"> This should have a green background. </p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Direct adjacent combinator</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>div.stub &gt; p + p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="stub">
+  <p>This paragraph should be unstyled.</p>
+  <p class="red" match-selector-0="1" match-selector-1="1">But this one should have a green background.</p>
+  <p class="red" match-selector-0="1" match-selector-1="1">And this one should also have a green background.</p>
+  <address>This address is only here to fill some space between two paragraphs.</address>
+  <p>This paragraph should be unstyled.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Direct adjacent combinator</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>.white</css:selector>
+      <css:selector>div.stub &gt; p + p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="stub">
+  <p class="green" match-selector-0="1">This paragraph should have a green background.</p>
+  <p class="white" match-selector-1="1" match-selector-2="1">But this one should be unstyled.</p>
+  <p class="white" match-selector-1="1" match-selector-2="1">And this one should also be unstyled.</p>
+  <address class="green" match-selector-0="1">This address is only here to fill some space between two paragraphs and should have a green background.</address>
+  <p class="green" match-selector-0="1">This paragraph should have a green background too.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Direct adjacent combinator and classes</css:title>
+    <css:selectors>
+      <css:selector>.fail + div</css:selector>
+      <css:selector>.control</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <div> This should be unstyled. </div>
+  <div class="control" match-selector-1="1"> This should have a green background. </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Indirect adjacent combinator</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>div.stub &gt; p ~ p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="stub">
+  <p>This paragraph should be unstyled.</p>
+  <p class="red" match-selector-0="1" match-selector-1="1">But this one should have a green background</p>
+  <p class="red" match-selector-0="1" match-selector-1="1">And this one should also have a green background</p>
+  <address>This address is only here to fill some space between two paragraphs</address>
+ <p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have a green background</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Indirect adjacent combinator</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>div.stub &gt; p ~ p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div class="stub">
+  <p>This paragraph should be unstyled.</p>
+  <p class="green" match-selector-0="1" match-selector-1="1">But this one should have a green background</p>
+  <p class="green" match-selector-0="1" match-selector-1="1">And this one should also have a green background</p>
+  <address>This address is only here to fill some space between two paragraphs</address>
+  <p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have a green background</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED substring matching attribute selector on beginning</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not([title^="si on"])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="on chante?" match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="si on chantait" match-selector-0="1">
+     <span title="si il chantait" match-selector-1="1">This paragraph should be in green characters.</span>
+</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED substring matching attribute selector on end</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not([title$="tait"])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="on chante?" match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="si on chantait" match-selector-0="1">
+     <span title="si il chante" match-selector-1="1">This paragraph should be in green characters.</span>
+</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED substring matching attribute selector on middle</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not([title*=" on"])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="on chante?" match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p title="si on chantait" match-selector-0="1">
+     <span title="si il chante" match-selector-1="1">This paragraph should be in green characters.</span>
+</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED class selector</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not(.foo)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p class="bar foofoo tut" match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p class="bar foo tut" match-selector-0="1">
+     <span class="tut foo2" match-selector-1="1">This paragraph should be in green characters.</span>
+</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED ID selector</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not(#foo)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p id="foo2" match-selector-0="1" match-selector-1="1">This paragraph should be in green characters.</p>
+<p id="foo" match-selector-0="1">
+     <span match-selector-1="1">This paragraph should be in green characters.</span>
+</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :link pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not(:link)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<a href="http://www.w3.org/" match-selector-0="1">This anchor should have a green background</a>
+(Note: You must have visited http://www.w3.org/ for this test to be valid.)
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :visited pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>div.stub &gt; *</css:selector>
+      <css:selector>div.stub *:not(:visited)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="stub">
+<a href="http://unvisited.example.org/css3-modsel-62/" match-selector-0="1" match-selector-1="1">This anchor should have a green background</a>
+(Don't follow this link.)
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :target pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not(:target)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p match-selector-0="1" match-selector-1="1">This paragraph should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :lang() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>div.stub *</css:selector>
+      <css:selector>div.stub *:not(:lang(fr))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div lang="en" class="stub">
+<p match-selector-0="1" match-selector-1="1">This paragraph should have a green background because the
+   enclosing div is in english.</p>
+<p lang="en" match-selector-0="1" match-selector-1="1">This paragraph should have a green background because
+   it is in english.</p>
+<div lang="fr" match-selector-0="1">
+  <p lang="en" match-selector-0="1" match-selector-1="1">This paragraph should have a green background
+     because it is in english.</p>
+</div>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :enabled pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>button</css:selector>
+      <css:selector>input</css:selector>
+      <css:selector>button:not(:enabled)</css:selector>
+      <css:selector>input:not(:enabled)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+ <button disabled="disabled" match-selector-0="1" match-selector-2="1">A button (disabled) with green background</button>
+ <br>
+ <input disabled="disabled" type="text" size="36" value="a text area (disabled) with green background" match-selector-1="1" match-selector-3="1">
+
+</input></br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :disabled pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>button</css:selector>
+      <css:selector>input</css:selector>
+      <css:selector>button:not(:disabled)</css:selector>
+      <css:selector>input:not(:disabled)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+ <button match-selector-0="1" match-selector-2="1">A button (enabled) with green background</button>
+ <br>
+ <input type="text" size="36" value="a text area (enabled) with green background" match-selector-1="1" match-selector-3="1">
+
+</input></br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :checked pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>input, span</css:selector>
+      <css:selector>input:not(:checked), input:not(:checked) + span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>
+<input type="checkbox" match-selector-0="1" match-selector-1="1"> <span match-selector-0="1" match-selector-1="1">Everything in this paragraph should have a green background</span>
+</input></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :root pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>p:not(:root)</css:selector>
+      <css:selector>div *</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <p match-selector-0="1" match-selector-1="1">This paragraph should have a green background and there should be no red anywhere.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :root pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>html:not(:root), test:not(:root)</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <p match-selector-1="1">This paragraph should have a green background and there should be no red anywhere.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>ul &gt; li:not(:nth-child(odd))</css:selector>
+      <css:selector>ol &gt; li:not(:nth-child(even))</css:selector>
+      <css:selector>table.t1 tr:not(:nth-child(-n+4))</css:selector>
+      <css:selector>table.t2 td:not(:nth-child(3n+1))</css:selector>
+      <css:selector>table.t1 td, table.t2 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li>First list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This second list item should have a green background</li>
+  <li>Third list</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This sixth list item should have a green background</li>
+</ul>
+<ol>
+  <li class="red" match-selector-0="1" match-selector-2="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr>
+<td match-selector-5="1">1.1</td>
+<td match-selector-5="1">1.2</td>
+     <td match-selector-5="1">1.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">2.1</td>
+<td match-selector-5="1">2.2</td>
+     <td match-selector-5="1">2.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td match-selector-5="1">3.2</td>
+     <td match-selector-5="1">3.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">4.1</td>
+<td match-selector-5="1">4.2</td>
+      <td match-selector-5="1">4.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 5.1</td>
+<td match-selector-5="1">5.2</td>
+<td match-selector-5="1">5.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 6.1</td>
+<td match-selector-5="1">6.2</td>
+<td match-selector-5="1">6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td match-selector-5="1">1.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">1.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">1.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+  <tr>
+<td match-selector-5="1">2.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">2.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">2.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">3.4</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">3.7</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>ul &gt; li:not(:nth-child(odd))</css:selector>
+      <css:selector>ol &gt; li:not(:nth-child(even))</css:selector>
+      <css:selector>table.t1 tr:not(:nth-child(-n+4))</css:selector>
+      <css:selector>table.t2 td:not(:nth-child(3n+1))</css:selector>
+      <css:selector>table.t1 td, table.t2 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li>First list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This second list item should have a green background</li>
+  <li>Third list</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This sixth list item should have a green background</li>
+</ul>
+<ol>
+  <li class="green" match-selector-0="1" match-selector-2="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr>
+<td match-selector-5="1">1.1</td>
+<td match-selector-5="1">1.2</td>
+     <td match-selector-5="1">1.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">2.1</td>
+<td match-selector-5="1">2.2</td>
+     <td match-selector-5="1">2.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td match-selector-5="1">3.2</td>
+     <td match-selector-5="1">3.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">4.1</td>
+<td match-selector-5="1">4.2</td>
+      <td match-selector-5="1">4.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 5.1</td>
+<td match-selector-5="1">5.2</td>
+<td match-selector-5="1">5.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 6.1</td>
+<td match-selector-5="1">6.2</td>
+<td match-selector-5="1">6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td match-selector-5="1">1.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">1.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">1.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+  <tr>
+<td match-selector-5="1">2.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">2.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">2.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">3.4</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td match-selector-5="1">3.7</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-last-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>ul &gt; li:not(:nth-last-child(odd))</css:selector>
+      <css:selector>ol &gt; li:not(:nth-last-child(even))</css:selector>
+      <css:selector>table.t1 tr:not(:nth-last-child(-n+4))</css:selector>
+      <css:selector>table.t2 td:not(:nth-last-child(3n+1))</css:selector>
+      <css:selector>table.t1 td, table.t2 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li class="red" match-selector-0="1" match-selector-1="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="red" match-selector-0="1" match-selector-1="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ul>
+<ol>
+  <li>First list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="red" match-selector-0="1" match-selector-2="1">This sixth list item should have a green background</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr class="red" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 1.1</td>
+<td match-selector-5="1">1.2</td>
+     <td match-selector-5="1">1.3</td>
+</tr>
+  <tr class="red" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 2.1</td>
+<td match-selector-5="1">2.2</td>
+     <td match-selector-5="1">2.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td match-selector-5="1">3.2</td>
+     <td match-selector-5="1">3.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">4.1</td>
+<td match-selector-5="1">4.2</td>
+      <td match-selector-5="1">4.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">5.1</td>
+<td match-selector-5="1">5.2</td>
+      <td match-selector-5="1">5.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">6.1</td>
+<td match-selector-5="1">6.2</td>
+      <td match-selector-5="1">6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.2</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.5</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.8</td>
+</tr>
+  <tr>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.2</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.5</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.8</td>
+</tr>
+  <tr>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.2</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.5</td>
+<td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="red" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.8</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-last-child() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>ul &gt; li:not(:nth-last-child(odd))</css:selector>
+      <css:selector>ol &gt; li:not(:nth-last-child(even))</css:selector>
+      <css:selector>table.t1 tr:not(:nth-last-child(-n+4))</css:selector>
+      <css:selector>table.t2 td:not(:nth-last-child(3n+1))</css:selector>
+      <css:selector>table.t1 td, table.t2 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<ul>
+  <li class="green" match-selector-0="1" match-selector-1="1">This first list item should have a green background</li>
+  <li>Second list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This third list item should have a green background</li>
+  <li>Fourth list item</li>
+  <li class="green" match-selector-0="1" match-selector-1="1">This fifth list item should have a green background</li>
+  <li>Sixth list item</li>
+</ul>
+<ol>
+  <li>First list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This second list item should have a green background</li>
+  <li>Third list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This fourth list item should have a green background</li>
+  <li>Fifth list item</li>
+  <li class="green" match-selector-0="1" match-selector-2="1">This sixth list item should have a green background</li>
+</ol>
+<div>
+<table border="1" class="t1">
+  <tbody><tr class="green" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 1.1</td>
+<td match-selector-5="1">1.2</td>
+     <td match-selector-5="1">1.3</td>
+</tr>
+  <tr class="green" match-selector-0="1" match-selector-3="1">
+<td match-selector-5="1">Green row : 2.1</td>
+<td match-selector-5="1">2.2</td>
+     <td match-selector-5="1">2.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">3.1</td>
+<td match-selector-5="1">3.2</td>
+     <td match-selector-5="1">3.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">4.1</td>
+<td match-selector-5="1">4.2</td>
+      <td match-selector-5="1">4.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">5.1</td>
+<td match-selector-5="1">5.2</td>
+      <td match-selector-5="1">5.3</td>
+</tr>
+  <tr>
+<td match-selector-5="1">6.1</td>
+<td match-selector-5="1">6.2</td>
+      <td match-selector-5="1">6.3</td>
+</tr>
+</tbody></table>
+<p/>
+<table class="t2" border="1">
+  <tbody><tr>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.2</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.5</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">1.8</td>
+</tr>
+  <tr>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.2</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.5</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">2.8</td>
+</tr>
+  <tr>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.2</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.5</td>
+<td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+      <td class="green" match-selector-0="1" match-selector-4="1" match-selector-5="1">green cell</td>
+<td match-selector-5="1">3.8</td>
+</tr>
+</tbody></table>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:not(:nth-of-type(3))</css:selector>
+      <css:selector>dl &gt; *:not(:nth-of-type(3n+1))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background</p>
+<address>And this address should be unstyled.</address>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should also have green background!</p>
+<p>But this one should be unstyled again.</p>
+<dl>
+  <dt>First definition term</dt>
+    <dd>First definition</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Second definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Second definition that should have green background</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Third definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Third definition that should have green background</dd>
+  <dt>Fourth definition term</dt>
+    <dd>Fourth definition</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Fifth definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Fifth definition that should have green background</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Sixth definition term that should have green background</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Sixth definition that should have green background</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>p:not(:nth-of-type(3))</css:selector>
+      <css:selector>dl &gt; *:not(:nth-of-type(3n+1))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have green background</p>
+<address>And this address should be unstyled.</address>
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should also have green background!</p>
+<p>But this one should be unstyled again.</p>
+<dl>
+  <dt>First definition term</dt>
+    <dd>First definition</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Second definition term that should have green background</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Second definition that should have green background</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Third definition term that should have green background</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Third definition that should have green background</dd>
+  <dt>Fourth definition term</dt>
+    <dd>Fourth definition</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Fifth definition term that should have green background</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Fifth definition that should have green background</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Sixth definition term that should have green background</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Sixth definition that should have green background</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-last-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:not(:nth-last-of-type(3))</css:selector>
+      <css:selector>dl &gt; *:not(:nth-last-of-type(3n+1))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>This paragraph should be unstyled.</p>
+<address>This address should be unstyled.</address>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<dl>
+  <dt class="red" match-selector-0="1" match-selector-2="1">First definition term that should have green background.</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">First definition that should also have a green background.</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Second definition term that should have green background.</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Second definition that should have green background.</dd>
+  <dt>Third definition term.</dt>
+    <dd>Third definition.</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Fourth definition term that should have green background.</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Fourth definition that should have green background.</dd>
+  <dt class="red" match-selector-0="1" match-selector-2="1">Fifth definition term that should have green background.</dt>
+    <dd class="red" match-selector-0="1" match-selector-2="1">Fifth definition that should have green background.</dd>
+  <dt>Sixth definition term.</dt>
+    <dd>Sixth definition.</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :nth-last-of-type() pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>p:not(:nth-last-of-type(3))</css:selector>
+      <css:selector>dl &gt; *:not(:nth-last-of-type(3n+1))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p>This paragraph should be unstyled.</p>
+<address>This address should be unstyled.</address>
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<dl>
+  <dt class="green" match-selector-0="1" match-selector-2="1">First definition term that should have green background.</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">First definition that should also have a green background.</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Second definition term that should have green background.</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Second definition that should have green background.</dd>
+  <dt>Third definition term.</dt>
+    <dd>Third definition.</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Fourth definition term that should have green background.</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Fourth definition that should have green background.</dd>
+  <dt class="green" match-selector-0="1" match-selector-2="1">Fifth definition term that should have green background.</dt>
+    <dd class="green" match-selector-0="1" match-selector-2="1">Fifth definition that should have green background.</dd>
+  <dt>Sixth definition term.</dt>
+    <dd>Sixth definition.</dd>
+</dl>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :first-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 td:not(:first-child)</css:selector>
+      <css:selector>p &gt; *:not(:first-child)</css:selector>
+      <css:selector>table.t1 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <table class="t1" border="1">
+   <tbody><tr>
+    <td match-selector-3="1">1.1</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+   <tr>
+    <td match-selector-3="1">2.1</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+   <tr>
+    <td match-selector-3="1">3.1</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+ </tbody></table>
+ </div>
+ <p>This paragraph <span>should be</span> unstyled.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :first-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>.t1 td:not(:first-child)</css:selector>
+      <css:selector>p &gt; *:not(:first-child)</css:selector>
+      <css:selector>table.t1 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <table class="t1" border="1">
+   <tbody><tr>
+    <td match-selector-3="1">1.1</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+   <tr>
+    <td match-selector-3="1">2.1</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+   <tr>
+    <td match-selector-3="1">3.1</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+   </tr>
+ </tbody></table>
+ </div>
+ <p>This paragraph <span>should be</span> unstyled.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :last-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 td:not(:last-child)</css:selector>
+      <css:selector>p &gt; *:not(:last-child)</css:selector>
+      <css:selector>table.t1 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <table class="t1" border="1">
+   <tbody><tr>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">1.3</td>
+   </tr>
+   <tr>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">2.3</td>
+   </tr>
+   <tr>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="red" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">3.3</td>
+   </tr>
+  </tbody></table>
+ </div>
+ <p>This <span>paragraph should</span> be unstyled.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :last-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>.t1 td:not(:last-child)</css:selector>
+      <css:selector>p &gt; *:not(:last-child)</css:selector>
+      <css:selector>table.t1 td</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <table class="t1" border="1">
+   <tbody><tr>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">1.3</td>
+   </tr>
+   <tr>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">2.3</td>
+   </tr>
+   <tr>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td class="green" match-selector-0="1" match-selector-1="1" match-selector-3="1">green cell</td>
+    <td match-selector-3="1">3.3</td>
+   </tr>
+  </tbody></table>
+ </div>
+ <p>This <span>paragraph should</span> be unstyled.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :first-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address:not(:first-of-type)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>This div contains 3 addresses :
+<address match-selector-1="1">A first address with normal background</address>
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A second address that should have a green background</address>
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A third address that should have a green background</address>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :last-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>address:not(:last-of-type)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A first address that should have a green background</address>
+<address class="red" match-selector-0="1" match-selector-1="1" match-selector-2="1">A second address that should have a green background</address>
+<address match-selector-1="1">A third address with normal background</address>
+This div should have three addresses above it.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :only-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>p:not(:only-child)</css:selector>
+      <css:selector>div.testText &gt; div &gt; p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have a green background.</p>
+ <div>This div contains only one paragraph.
+  <p>This paragraph should be unstyled.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :only-child pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>p:not(:only-child)</css:selector>
+      <css:selector>div.testText &gt; div &gt; p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have a green background.</p>
+ <div>This div contains only one paragraph.
+  <p>This paragraph should be unstyled.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :only-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.red</css:selector>
+      <css:selector>.t1 *:not(:only-of-type)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="t1">
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<address>But this address should be unstyled.</address>
+<p class="red" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :only-of-type pseudo-class</css:title>
+    <css:selectors>
+      <css:selector>.green</css:selector>
+      <css:selector>.t1 *:not(:only-of-type)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div class="t1">
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+<address>But this address should be unstyled.</address>
+<p class="green" match-selector-0="1" match-selector-1="1">This paragraph should have green background.</p>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Negation pseudo-class cannot be an argument of itself</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not(:not(p))</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p match-selector-0="1" match-selector-1="1">This paragraph should have a green background</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Nondeterministic matching of descendant and child combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote &gt; div p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote>
+<div>
+<div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</div>
+</div>
+</blockquote>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Nondeterministic matching of direct and indirect adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote + div ~ p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>This text should be unstyled.</div>
+<div>This text should be unstyled.</div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Nondeterministic matching of direct and indirect adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote + div ~ p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>This text should be unstyled.</div>
+<div>This text should be unstyled.</div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Nondeterministic matching of descendant and direct adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote + div p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>
+<div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</div>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Nondeterministic matching of descendant and direct adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote + div p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>
+<div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</div>
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Simple combination of descendant and child combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote div &gt; p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote>
+<div>
+<div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</div>
+</div>
+</blockquote>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Simple combination of direct and indirect adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote ~ div + p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>This text should be unstyled.</div>
+<div>This text should be unstyled.</div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Simple combination of direct and indirect adjacent combinators</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>blockquote ~ div + p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<blockquote><div>This text should be unstyled.</div></blockquote>
+<div>This text should be unstyled.</div>
+<div>This text should be unstyled.</div>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED :enabled:disabled pseudo-classes</css:title>
+    <css:selectors>
+      <css:selector>div :not(:enabled):not(:disabled)</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div>
+  <p match-selector-0="1" match-selector-1="1">This paragraph should have a green background.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and text</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:empty</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and empty elements</css:title>
+    <css:selectors>
+      <css:selector>address:empty</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>.text</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <address match-selector-0="1" match-selector-1="1"/>
+ <div class="text" match-selector-2="1">This line should have a green background.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and empty elements</css:title>
+    <css:selectors>
+      <css:selector>address:empty</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>.text</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <address match-selector-0="1" match-selector-1="1"/>
+ <div class="text" match-selector-2="1">This line should have a green background.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and XML/SGML constructs</css:title>
+    <css:selectors>
+      <css:selector>address:empty</css:selector>
+      <css:selector>address</css:selector>
+      <css:selector>.text</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <address match-selector-0="1" match-selector-1="1"><!-- --><!--?test random PI--></address>
+ <div class="text" match-selector-2="1">This line should have a green background.</div>
+ <p>(Note: This test is based on unpublished errata.)</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and whitespace</css:title>
+    <css:selectors>
+      <css:selector>address</css:selector>
+      <css:selector>address:empty</css:selector>
+      <css:selector>.text</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <address match-selector-0="1"> </address>
+ <div class="text" match-selector-2="1">This line should have a green background.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:empty pseudo-class and elements</css:title>
+    <css:selectors>
+      <css:selector>address</css:selector>
+      <css:selector>address:empty</css:selector>
+      <css:selector>.text</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <address match-selector-0="1"><span/></address>
+ <div class="text" match-selector-2="1">This line should have a green background.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">p,</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">.5cm</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="5cm" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.\5cm</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="5cm" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.two\ words</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="two words" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.one.word</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="one.word" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>.one\.word</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="one.word" match-selector-0="1" match-selector-1="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">foo &amp; address, p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector class="invalid">foo &amp; address, p</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-1="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector class="invalid">foo &amp; address, p</css:selector>
+      <css:selector>p</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-1="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">[*=test]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="test" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">[*|*=test]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p class="test" match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing of unknown pseudo-classes</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">p:subject</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <p match-selector-0="1">This line should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-letter with ::first-letter</css:title>
+    <css:selectors>
+      <css:selector>p:first-letter</css:selector>
+      <css:selector>p::first-letter</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>The first letter of this paragraph should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-letter with ::first-letter</css:title>
+    <css:selectors>
+      <css:selector>p::first-letter</css:selector>
+      <css:selector>p:first-letter</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>The first letter of this paragraph should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-line with ::first-line</css:title>
+    <css:selectors>
+      <css:selector>p:first-line</css:selector>
+      <css:selector>p::first-line</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>The first line of this paragraph should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:first-line with ::first-line</css:title>
+    <css:selectors>
+      <css:selector>p::first-line</css:selector>
+      <css:selector>p:first-line</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>The first line of this paragraph should have a green background.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:before with ::before</css:title>
+    <css:selectors>
+      <css:selector>span:before</css:selector>
+      <css:selector>span::before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>This test has <span/>.</p>
+   <p>(If the previous line just reads "This test has ." then this test has failed.)</p>  
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:before with ::before</css:title>
+    <css:selectors>
+      <css:selector>span::before</css:selector>
+      <css:selector>span:before</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>This test has <span/>.</p>
+   <p>(If the previous line just reads "This test has ." then this test has failed.)</p>  
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:after with ::after</css:title>
+    <css:selectors>
+      <css:selector>span:after</css:selector>
+      <css:selector>span::after</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>This test has <span/>.</p>
+   <p>(If the previous line just reads "This test has ." then this test has failed.)</p>  
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:after with ::after</css:title>
+    <css:selectors>
+      <css:selector>span::after</css:selector>
+      <css:selector>span:after</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p>This test has <span/>.</p>
+   <p>(If the previous line just reads "This test has ." then this test has failed.)</p>  
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Long chains of selectors</css:title>
+    <css:selectors>
+      <css:selector>span</css:selector>
+      <css:selector>span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span, span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p><span match-selector-0="1" match-selector-1="1">This line should be green.</span></p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Long chains of selectors</css:title>
+    <css:selectors>
+      <css:selector>.span</css:selector>
+      <css:selector>.span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span, .span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p class="span" match-selector-0="1" match-selector-1="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Long chains of selectors</css:title>
+    <css:selectors>
+      <css:selector>.span</css:selector>
+      <css:selector>.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span.span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p class="span" match-selector-0="1" match-selector-1="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Long chains of selectors</css:title>
+    <css:selectors>
+      <css:selector>p.span</css:selector>
+      <css:selector>p:not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span):not(.span)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p match-selector-1="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Long chains of selectors</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child:first-child</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p match-selector-0="1" match-selector-1="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Parsing: Numbers in classes</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">.13</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p class="13" match-selector-0="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Parsing: Numbers in classes</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.\13</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p class="13" match-selector-0="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Parsing: Numbers in classes</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>.\31 \33</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p class="13" match-selector-0="1" match-selector-1="1">This line should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Combinations: classes and IDs</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not(#other).class:not(.fail).test#id#id</css:selector>
+      <css:selector>div</css:selector>
+      <css:selector>div:not(#theid).class:not(.fail).test#theid#theid</css:selector>
+      <css:selector>div:not(#other).notclass:not(.fail).test#theid#theid</css:selector>
+      <css:selector>div:not(#other).class:not(.test).test#theid#theid</css:selector>
+      <css:selector>div:not(#other).class:not(.fail).nottest#theid#theid</css:selector>
+      <css:selector>div:not(#other).class:not(.fail).nottest#theid#other</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+  <p id="id" class="class test" match-selector-0="1" match-selector-1="1">This line should be green.</p>
+  <div id="theid" class="class test" match-selector-2="1">This line should be green.</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Parsing : vs ::</css:title>
+    <css:selectors>
+      <css:selector>div</css:selector>
+      <css:selector class="invalid">p::first-child</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div match-selector-0="1">
+  <p>This line should be green.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Parsing: :not and pseudo-elements</css:title>
+    <css:selectors>
+      <css:selector>div</css:selector>
+      <css:selector class="invalid">p:not(:first-line)</css:selector>
+      <css:selector class="invalid">p:not(:after)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+ <div match-selector-0="1">
+  <p>This line should be green.</p>
+ </div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-line on inlines</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>span:first-line</css:selector>
+      <css:selector>span::first-line</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p match-selector-0="1"><span>This line should be green.</span></p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-line after &lt;br&gt;</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:first-line</css:selector>
+      <css:selector>p::first-line</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p match-selector-0="1"><br>This line should be green.
+</br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>::first-letter after &lt;br&gt;</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:first-letter</css:selector>
+      <css:selector>p::first-letter</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+   <p match-selector-0="1"><br>This line should be green.
+</br></p></body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Case sensitivity</css:title>
+    <css:selectors>
+      <css:selector>.cs</css:selector>
+      <css:selector>.cs P</css:selector>
+      <css:selector>.cs .a</css:selector>
+      <css:selector>.cs .span1 span</css:selector>
+      <css:selector>.cs .span2</css:selector>
+      <css:selector>.cs .span2 SPAN</css:selector>
+      <css:selector>.cs .span2 span</css:selector>
+      <css:selector>.ci</css:selector>
+      <css:selector>.ci P</css:selector>
+      <css:selector>.ci .a</css:selector>
+      <css:selector>.ci .span1 span</css:selector>
+      <css:selector>.ci .span2 SPAN</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<div>
+
+
+ <div class="ci" match-selector-7="1">
+   <p match-selector-8="1">This line should be green.</p>
+   <p class="A" match-selector-8="1" match-selector-9="1">This line should be green.</p>
+   <p match-selector-8="1"><span>This line should be green.</span></p>
+ </div>
+
+</div>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Syntax and parsing of class selectors</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector class="invalid">..test</css:selector>
+      <css:selector class="invalid">.foo..quux</css:selector>
+      <css:selector class="invalid">.bar.</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="test" match-selector-0="1">This text should be green.</p>
+<p class=".test" match-selector-0="1">This text should be green.</p>
+<p class="foo" match-selector-0="1">This text should be green.</p>
+<p class="foo quux" match-selector-0="1">This text should be green.</p>
+<p class="foo  quux" match-selector-0="1">This text should be green.</p>
+<p class=" bar " match-selector-0="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Ends-with attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[class$=""]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1">This text should be green.</p>
+<p match-selector-0="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Starts-with attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[class^=""]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1">This text should be green.</p>
+<p match-selector-0="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Contains attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p[class*=""]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1">This text should be green.</p>
+<p match-selector-0="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED ends-with attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not([class$=""])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1" match-selector-1="1">This text should be green.</p>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED starts-with attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not([class^=""])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1" match-selector-1="1">This text should be green.</p>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>NEGATED contains attribute selector with empty value</css:title>
+    <css:selectors>
+      <css:selector>p</css:selector>
+      <css:selector>p:not([class*=""])</css:selector>
+    </css:selectors>
+    <css:testcontent>
+      <html>
+        <head/>
+        <body>
+<p class="" match-selector-0="1" match-selector-1="1">This text should be green.</p>
+<p match-selector-0="1" match-selector-1="1">This text should be green.</p>
+</body>
+      </html>
+    </css:testcontent>
+  </css:test>
+</css:csstests>

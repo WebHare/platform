@@ -3,6 +3,7 @@
 */
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/xml.whlib" EXPORT XmlNodeList, XMLAttr, XmlDOMException;
+LOADLIB "wh::internal/css/support.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::money.whlib";
@@ -696,40 +697,24 @@ PUBLIC STATIC OBJECTTYPE XmlNode
     RETURN "";
   }
 
-  OBJECT FUNCTION __DoQuerySelector(STRING selectors)
-  {
-    OBJECT xpath := (this->ownerdocument ?? this)->CreateXPathQuery();
-    STRING query := RewriteCSSSelectorToXpath(selectors);
-    IF(ObjectExists(this->ownerdocument)) //we're a child query
-      query := "." || query;
-
-    TRY
-    {
-      RETURN xpath->ExecuteQuery(query, this);
-    }
-    CATCH(OBJECT e)
-    {
-      THROW NEW Exception(`Failed to execute CSS selector '${selectors}' translated to XPath '${query}': ${e->what}`);
-    }
-  }
   PUBLIC OBJECT FUNCTION QuerySelector(STRING selectors)
   {
-    RETURN this->__DoQuerySelector(selectors)->Item(0);
+    RETURN this->GetElement(selectors);
   }
 
   PUBLIC OBJECT FUNCTION QuerySelectorAll(STRING selectors)
   {
-    RETURN NEW StaticXmlNodeList(this->__DoQuerySelector(selectors), OBJECT[]);
+    RETURN NEW StaticXmlNodeList(DEFAULT OBJECT, this->GetElements(selectors));
   }
 
   PUBLIC OBJECT FUNCTION GetElement(STRING selectors)
   {
-    RETURN this->QuerySelector(selectors);
+    RETURN PickFirst(EvaluateSelectors(this->ownerdocument ?? this, this->nodetype = 1 ? this : DEFAULT OBJECT, selectors, "qS"));
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GetElements(STRING selectors)
   {
-    RETURN this->__DoQuerySelector(selectors)->GetCurrentElements();
+    RETURN EvaluateSelectors(this->ownerdocument ?? this, this->nodetype = 1 ? this : DEFAULT OBJECT, selectors, "qSA");
   }
 
   /** Inject this node */
