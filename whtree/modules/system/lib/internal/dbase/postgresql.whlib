@@ -719,7 +719,10 @@ STRING FUNCTION GetIndexColumnExpression(RECORD colrec, RECORD ind)
   ELSE IF (ind.null_partial AND colrec.references_table != "")
   {
     IF (colrec.dbtype IN [ "int4", "int8" ])
-      expr := `COALESCE(${expr}, 0)`;
+    {
+      STRING zerovalue := colrec.dbtype = "int4" ? `0` : `(0)::bigint`;
+      expr := `COALESCE(${expr}, ${zerovalue})`;
+    }
     ELSE
       THROW NEW Exception(`Cannot write out the default value for type ${colrec.dbtype} yet`); // just encode
   }
@@ -1462,6 +1465,13 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
         {
           STRING expr := ParsePostgreSQLExpressionList(ind.indexprs)[exprpos];
           exprpos := exprpos + 1;
+
+          IF (expr LIKE `COALESCE(*, 0)`)
+          {
+            STRING name := SubString(expr, 9, LENGTH(expr) - 13);
+            INSERT CELL[ name, len := 0 ] INTO indexdef.cols AT END;
+            CONTINUE;
+          }
 
           // Assumed that the first )::text is after the column name, see GetIndexColumnExpression
           IF (expr NOT LIKE `*(*)::text*`)

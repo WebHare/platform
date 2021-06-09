@@ -332,7 +332,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   PUBLIC BOOLEAN pvt_tolliumframeinitrun;
 
   PUBLIC PROPERTY tolliummodule(GetFrameModule,-);
-  PUBLIC PROPERTY tolliumpagefile(GetFramePageFile,-);
+  PUBLIC PROPERTY tolliumscreenname(GetFrameScreenName,-);
 
   /// Screen ID - different for each screen, never changes after allocation
   PUBLIC PROPERTY tolliumscreenid(pvt_tolliumscreenid, -);
@@ -1000,9 +1000,9 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   {
     RETURN ObjectExists(this->frame) ? this->frame->module : "";
   }
-  STRING FUNCTION GetFramePageFile()
+  STRING FUNCTION GetFrameScreenName()
   {
-    RETURN ObjectExists(this->frame) ? this->frame->pagefile : "";
+    RETURN ObjectExists(this->frame) ? this->frame->screenname : "";
   }
 
   PUBLIC MACRO TolliumInitializeScreen(RECORD params)

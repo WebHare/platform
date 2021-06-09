@@ -765,6 +765,20 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     this->SetRows(opts, FALSE);
   }
 
+  RECORD FUNCTION GetRowByToddRowkey(STRING encoded_rowkey)
+  {
+    INTEGER current_rowkeytype := RecordExists(this->storage->rows) ? TypeId(this->storage->rows[0].rowkey) : 0;
+    IF (current_rowkeytype = 0) // Rowkey type not known, so no rows available anyway
+      RETURN DEFAULT RECORD;
+
+    VARIANT myrowkey := StringToType(encoded_rowkey, current_rowkeytype);
+    INTEGER rowid := this->storage->GetPositionByRowkey(myrowkey);
+    IF(rowid<0)
+      RETURN DEFAULT RECORD;
+
+    RETURN this->storage->rows[rowid];
+  }
+
   PUBLIC OBJECT FUNCTION GetButtonComponent(VARIANT rowkey)
   {
     this->PreShowComponent(); //make sure the components are there

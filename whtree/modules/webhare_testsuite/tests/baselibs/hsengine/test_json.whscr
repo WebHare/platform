@@ -135,10 +135,25 @@ MACRO TestWrappedJSONEncodeDecode()
 {
   VARIANT v := FALSE;
 
+  // normal case
   v := DecodeJSON(`{"a":"b"}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
   TestEQ(TypeID(OBJECT), TypeID(v));
   TestEQ([ a := "b" ], v->GetValue());
   TestEQ(`{"a":"b"}`, EncodeJSON(v));
+
+  // empty record
+  v := DecodeJSON(`{}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  TestEQ(TypeID(OBJECT), TypeID(v));
+  TestEQ(`{}`, EncodeJSON(v));
+
+  // empty property name
+  v := DecodeJSON(`{"packages":{"":{"dependencies":1}}}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  TestEQ(TypeID(OBJECT), TypeID(v));
+  TestEQ(1, v->GetProp("packages")->GetProp("")->GetProp("dependencies"));
+  TestEQ(`{"packages":{"":{"dependencies":1}}}`, EncodeJSON(v));
+
+  v := DecodeJSONBlob(StringToBlob(`{"packages":{"":{"dependencies":1}}}`), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  TestEQ(`{"packages":{"":{"dependencies":1}}}`, EncodeJSON(v));
 
   v := DecodeJSON(`{"a":[{"B":1},2]}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
   TestEQ(TypeID(OBJECT), TypeID(v));

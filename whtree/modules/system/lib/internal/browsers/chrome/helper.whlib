@@ -20,8 +20,13 @@ PUBLIC ASYNC FUNCTION SerializeRemoteObject(OBJECT client, RECORD remoteobject)
 {
   IF (CellExists(remoteObject, "unserializableValue"))
     ABORT("implement me - unserializableValue");
+
   IF (NOT CellExists(remoteObject, "objectid"))
-    RETURN remoteobject.value; //FIXME: If type is 'undefined', there is no value...
+  {
+    IF (remoteObject.type = "undefined")
+      RETURN DEFAULT RECORD;
+    RETURN remoteobject.value;
+  }
   IF (CellExists(remoteobject, "SUBTYPE") AND remoteobject.subtype = "promise")
     RETURN remoteobject.description;
   TRY

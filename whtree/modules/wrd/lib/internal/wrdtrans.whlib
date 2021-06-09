@@ -313,7 +313,7 @@ STATIC OBJECTTYPE WRDTransaction EXTEND LoopbackTransaction
 
   UPDATE STRING FUNCTION GetType()
   {
-    RETURN "WRD";
+    RETURN "wrd";
   }
 
   // WRD specific functions
