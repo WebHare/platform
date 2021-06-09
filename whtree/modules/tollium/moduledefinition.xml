@@ -58,8 +58,6 @@
       </accesscheck>
     </webservice>
 
-    <localservice name="rteservice" library="internal/rteservice_internal.whlib" objectname="RTEService" reuse="true" withtransaction="false"/>
-
     <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" environment="WEBHARE" where="webserver" />
   </services>
 

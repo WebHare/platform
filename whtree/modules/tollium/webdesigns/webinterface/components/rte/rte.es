@@ -163,7 +163,7 @@ export default class ObjRTE extends ComponentBase
     if(this.rteoptions.structure)
       this.node.classList.add("structured");
 
-    this.rte.getBody().addEventListener("wh:rtd-statechange", () => this._onRTEStateChange());
+    this.rte.getBody().addEventListener("wh:richeditor-statechange", () => this._onRTEStateChange());
 
     if (this._showcounter)
     {
@@ -180,7 +180,7 @@ export default class ObjRTE extends ComponentBase
 
     this.node.propTodd = this;
     this.node.addEventListener("wh:richeditor-action", evt => this._doExecuteAction(evt));
-    this.node.addEventListener("wh:rtd-dirty", evt => this._gotDirty());
+    this.node.addEventListener("wh:richeditor-dirty", evt => this._gotDirty());
   }
 
 /****************************************************************************************************************************

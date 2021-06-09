@@ -2330,8 +2330,6 @@ The full base URL on which this site will be published, calculated by combining 
       </accesscheck>
     </webservice>
 
-    <localservice name="rights" library="internal/rightsmgmt.whlib" objectname="ElevatedRightsCalls" reuse="true" />
-
     <internalservice tag="getconfig"
                      library="internal/webserver/getconfig.whscr"
                      tid="sysmgmt.webservers.scripts.getconfig"

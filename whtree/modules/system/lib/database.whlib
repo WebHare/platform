@@ -23,8 +23,6 @@ LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
 
-OBJECT bareservicecontext;
-
 /** System database schema
     @schemadef system
 */
@@ -457,40 +455,17 @@ OBJECTTYPE WebHareTransactionExtension
 
   PUBLIC RECORD ARRAY __scheduledephemeraltasks;
 
-  OBJECT pvt_servicecontext;
-
   // ---------------------------------------------------------------------------
   //
   // Properties
   //
 
-  /** Whether this transaction is running in elevated mode
-  */
-  //PUBLIC PROPERTY is_elevated(pvt_is_elevated, -);
 
-  PUBLIC PROPERTY servicecontext(GetServiceContext,- );
 
   // ---------------------------------------------------------------------------
   //
   // Constructor
   //
-  MACRO NEW()
-  {
-  }
-
-  OBJECT FUNCTION GetServiceContext()
-  {
-    IF (NOT ObjectExists(this->pvt_servicecontext))
-      this->pvt_servicecontext := MakeObject("mod::system/lib/internal/dbase/localservice.whlib", "LocalServiceContext", this);
-    RETURN this->pvt_servicecontext;
-  }
-
-  ///@private Deprecated
-  PUBLIC OBJECT FUNCTION OpenService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
-  {
-    RETURN this->servicecontext->OpenService(servicename, arguments);
-  }
-
   UPDATE OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
   {
     RETURN OpenLockManager()->TryLockMutex(mutexname, max_wait);
@@ -597,34 +572,6 @@ PUBLIC OBJECT FUNCTION __INTERNAL_GetSystemSchemaBinding()
   RETURN __system_binding_trans;
 }
 
-///@private
-PUBLIC OBJECT FUNCTION OpenLocalService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG, DEPRECATED "Switch to direct access or RunInSeparatePrimary")
-{
-  RETURN __OpenLocalService(servicename, arguments);
-}
-
-PUBLIC OBJECT FUNCTION __OpenLocalService(STRING servicename, VARIANT ARRAY arguments DEFAULTSTO DEFAULT VARIANT ARRAY)
-{
-  IF(NOT ObjectExists(bareservicecontext))
-    bareservicecontext := MakeObject("mod::system/lib/internal/dbase/localservice.whlib", "LocalServiceContext", DEFAULT OBJECT);
-
-  RECORD serviceinfo := bareservicecontext->GetServiceInfo(servicename);
-  IF(NOT serviceinfo.success)
-    THROW NEW Exception(serviceinfo.msg);
-
-  OBJECT context;
-  IF(serviceinfo.withtransaction)
-  {
-    IF(NOT HavePrimaryTransaction())
-      THROW NEW Exception("OpenLocalService requires a primary WebHare transaction");
-    context := GetPrimary()->servicecontext;
-  }
-  ELSE
-  {
-    context := bareservicecontext;
-  }
-  RETURN context->OpenService(servicename, arguments);
-}
 
 /** Opens the primary database connection
     @long The primary database connection (or transaction) is used to bind all global database schemas to
