@@ -833,7 +833,8 @@ OBJECT ASYNC FUNCTION PublisherIndexActions()
   AWAIT rec.expectcallreturn();
 
   TT("filelist")->value := [ INTEGER(testfile2->id) ];
-  AWAIT ExpectApprovalRequest(TRUE, PTR TT("previewbrowser")->submitdraft->TolliumClick());
+  //FIXME If I try to replace this with TT("previewbrowser->submitdraft") ... i get a "is not visible" - and can confirm that in the backend. but I presume this is already broken and not triggered by STATIC-izing the previewbrowser...
+  AWAIT ExpectApprovalRequest(TRUE, PTR TT("previewbrowser")->^submitdraft->TolliumClick());
 
   // Accept the draft
   testfw->BeginWork();
