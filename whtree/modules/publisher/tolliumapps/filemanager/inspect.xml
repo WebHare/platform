@@ -69,7 +69,7 @@
                     onselect="gotselectdraft"
                     borders="top bottom left"
                     sortascending="false">
-                <column name="when" type="datetime" width="18x" precision="minutes" />
+                <column name="when" type="datetime" width="18x" precision="minutes" storeutc="true" />
                 <column name="user" type="text" width="1pr" />
                 <column name="type" type="text" width="1pr" />
               </list>
