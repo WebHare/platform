@@ -274,4 +274,21 @@
     </css:testcontent>
   </css:test>
 
+  <css:test>
+    <css:title>A possible selector types on the same element</css:title>
+    <css:description>Test if parsing them leaves a good state for the next one</css:description>
+    <css:selectors>
+      <css:selector>div#id1.a.b[c][d~=en]:nth-of-type(1):empty:not(.d)</css:selector>
+      <css:selector>div#id2.a.b[c][d~=en]:nth-of-type(1):empty:not(.d)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div id="id1" class="a b d" c="1" d="nl-en" />
+    <div id="id2" class="a b" c="1" d="nl-en" match-selector-2="1" />
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
 </css:csstests>

@@ -869,10 +869,12 @@ STATIC OBJECTTYPE CSSSelectorParser
             matcher := "nomatch";
 
           // [ <string-token> | <ident-token> ] <attr-modifier>? ']'
-
-          IF (NOT this->TryParse("]"))
-            THROW NEW Exception(`Expected "]"`);
         }
+        ELSE
+          this->TryParseWS();
+
+        IF (NOT this->TryParse("]"))
+          THROW NEW Exception(`Expected "]"`);
 
         INSERT CELL
             [ type :=   "["
