@@ -182,7 +182,8 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
   IF(NOT CellExists(newmetadata,'title') AND NOT RecordExists(oldversion)) //autodetect title? (we do it here because we needed the scandata for this)
   {
     RECORD meta := GetDocumentMetadata(CELL[...setwrapped, data]);
-    INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
+    IF(IsValidUTF8(meta.title)) //PDF titles are not always UTF-8
+      INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
   }
 
   //figure out the type
