@@ -176,6 +176,8 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
   RECORD xml_metadata := [ subversion := 1
                          , data := folderdata
                          , type := typenamespace
+                         , templatepath := "" //WH4.31- compatibility
+                         , profilepath := "" //WH4.31- compatibility
                          , indexpath := folderindex
                          , contentinstances := (SELECT namespace, instance FROM expinstances)
                          ];
@@ -196,6 +198,8 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                                 , ispinned         := file.ispinned
                                 , externallink     := file.externallink
                                 ]
+                      , templatepath := "" //WH4.31- compatibility
+                      , profilepath := "" //WH4.31- compatibility
                       , linkpath := MyGetFileStoreName(file.filelink, file.fullpath)
                       , contentinstances := (SELECT namespace, instance FROM file.contentinstances)
                       , type := GetNamespaceForType(file.type, FALSE)
