@@ -1145,8 +1145,10 @@ PUBLIC OBJECTTYPE XmlDocument EXTEND XmlNode //can't make this static, as we can
 >;
 
 /// http://www.w3.org/TR/DOM-Level-2-HTML/html.html#ID-26809268
-PUBLIC OBJECTTYPE HTMLDocument //can't be static, we're manually extended onto a XMLDocument
-<
+PUBLIC STATIC OBJECTTYPE HTMLDocument EXTEND XMLDocument
+< /// To identify HTML documents in CSS selector engine
+  RECORD __is_html_document;
+
   UPDATE PUBLIC OBJECT FUNCTION GetElementById(STRING elementid)
   {
     RETURN PickFirst(ExecuteSimpleXpathQuery(this, `//*[@id='${EncodeJava(elementid)}']`));
@@ -2322,8 +2324,7 @@ PUBLIC OBJECT FUNCTION __CreateXmlDocumentObject()
 }
 PUBLIC OBJECT FUNCTION __CREATEHTMLDOCUMENTOBJECT()
 {
-  OBJECT doc := NEW XmlDocument;
-  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(doc) BY HTMLDocument;
+  OBJECT doc := NEW HTMLDocument;
   RETURN doc;
 }
 
@@ -2456,6 +2457,5 @@ PUBLIC OBJECT FUNCTION MakeXMLDocumentFromHTML(BLOB xmlfile, STRING encoding DEF
   OBJECT doc := __MakeXMLDocumentFromHTML(xmlfile, encoding, readonly, noimplied);
   IF(NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement)) //work around cornercases in html parser..
     doc := __MakeXMLDocumentFromHTML(StringToBlob(" "), encoding, readonly, noimplied);
-  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(doc) BY HTMLDocument;
   RETURN doc;
 }

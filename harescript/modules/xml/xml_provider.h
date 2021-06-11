@@ -165,6 +165,7 @@ struct XMLContextReadData
 
         XMLDocRef doc;
 
+        bool from_html;
         XpathNamespaces xpath_namespaces;
         Blex::XML::ErrorCatcher errorcatcher;
 };

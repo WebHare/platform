@@ -201,6 +201,8 @@ XMLContextReadData::XMLContextReadData()
         TC_PRINT("Create XMLContextReadData " << this);
 //        readonly = false;
 
+        from_html = false;
+
         // Add the default xml: namespace to the context (we're adding it here, so
         // it can be overridden by using AddXPathNamespace)
         xpath_namespaces["http://www.w3.org/XML/1998/namespace"] = "xml";
@@ -394,7 +396,10 @@ bool XMLContextReadData::ParseHTMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_Va
         xmlSetStructuredErrorFunc(NULL, NULL);
 
         if(GetDocPtr())
-            return true;
+        {
+                from_html = true;
+                return true;
+        }
         return false;
 }
 

@@ -426,7 +426,19 @@ bool XML_CreateObject(HSVM *hsvm, ObjectType type, HSVM_VariableId var, XMLConte
                 case EntityReferenceObject:  createfunction = "__CREATEXMLNODEOBJECT"; fptr = &nccontext.fptr_entityreferenceobject; break;
                 case ProcessingInstructionObject: createfunction = "__CREATEXMLPROCESSINGINSTRUCTIONOBJECT"; fptr = &nccontext.fptr_processinginstructionobject; break;
                 case CommentObject:          createfunction = "__CREATEXMLCOMMENTOBJECT"; fptr = &nccontext.fptr_commentobject; break;
-                case DocumentObject:         createfunction = "__CREATEXMLDOCUMENTOBJECT"; fptr = &nccontext.fptr_documentobject; break;
+                case DocumentObject:
+                    {
+                        if (doc->from_html)
+                        {
+                                createfunction = "__CREATEHTMLDOCUMENTOBJECT";
+                                fptr = &nccontext.fptr_htmldocumentobject;
+                        }
+                        else
+                        {
+                                createfunction = "__CREATEXMLDOCUMENTOBJECT";
+                                fptr = &nccontext.fptr_documentobject;
+                        }
+                    } break;
                 case DocumentFragmentObject: createfunction = "__CREATEXMLDOCUMENTFRAGMENTOBJECT"; fptr = &nccontext.fptr_documentfragmentobject; break;
                 case DTDNodeObject:          createfunction = "__CREATEXMLDOCUMENTTYPEOBJECT"; fptr = &nccontext.fptr_dtdnodeobject; break;
                 case ElementDeclObject:      createfunction = "__CREATEXMLNODEOBJECT"; fptr = &nccontext.fptr_elementdeclobject; break;
