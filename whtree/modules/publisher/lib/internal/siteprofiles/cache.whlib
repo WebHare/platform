@@ -135,9 +135,9 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , needstemplate := RecordExists(type.fstype) AND type.fstype.needstemplate
          , needsprofile := RecordExists(type.fstype) AND type.fstype.needsprofile
          , title := ismissing ? ":"||ns : RecordExists(type.filetype) ? type.filetype.title : RecordExists(type.foldertype) ? type.foldertype.title : ":"||ns
-         , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? "tollium:files/application_x-webhare-unknown"
+         , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? whconstant_publisher_fileiconfallback
                          : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? "tollium:folders/normal"
-                         : "tollium:files/application_x-webhare-unknown"
+                         : whconstant_publisher_fileiconfallback
          , dynamicexecution := RecordExists(type.filetype) ? type.filetype.dynamicexecution : RecordExists(type.foldertype) ? type.foldertype.dynamicexecution : DEFAULT RECORD
          , isacceptableindex := RecordExists(type.fstype) AND type.fstype.isacceptableindex
          , extensions := RecordExists(type.filetype) ? type.filetype.extensions : STRING[]

@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -87,7 +88,7 @@ MACRO TestWHFSType()
 
   RECORD appportaltype := DescribeContentTypeById(LookupContentTypeByName("http://www.webhare.net/xmlns/tollium/applicationportal").id);
   TestEQ(TRUE, RecordExists(appportaltype.dynamicexecution));
-  TestEq("tollium:files/application_x-webhare-unknown", appportaltype.tolliumicon); //no icon is (yet?) set
+  TestEq(whconstant_publisher_fileiconfallback, appportaltype.tolliumicon); //no icon is (yet?) set
   //ADDME test title being set to namespace with orphan type
 
   RECORD photoalbum := DescribeContentTypeById(3);
