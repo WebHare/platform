@@ -334,7 +334,7 @@ RECORD FUNCTION ParseFunctionSignature(OBJECT node, OBJECT errorkeeper)
 STRING FUNCTION ParseDescriptionNode(OBJECT node)
 {
   STRING ARRAY references;
-  OBJECT refs := node->QuerySelectorAll("/reference");
+  OBJECT refs := node->QuerySelectorAll(":scope > reference");
   IF(ObjectExists(refs) AND refs->Length > 0)
   {
     STRING doctext;

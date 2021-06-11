@@ -104,8 +104,11 @@ RECORD FUNCTION RunInternalSVGValidator(BLOB doc_blob, BOOLEAN fixup)
     }
   }
 
-  FOREVERY(OBJECT tocheck FROM svgdoc->GetElements("*[xlink:href]"))
+  FOREVERY(OBJECT tocheck FROM svgdoc->GetElements("*[*|href]"))
   {
+    IF (NOT tocheck->HasAttributeNS("http://www.w3.org/1999/xlink","href"))
+      CONTINUE;
+
     STRING pointsto := tocheck->GetAttributeNS("http://www.w3.org/1999/xlink","href");
     IF(pointsto LIKE "*:*") //Chrome 62 hates us for this
       INSERT [ message := `Invalid xlink:href references '${pointsto}'`, line := tocheck->linenum ] INTO retval.errors AT END;
