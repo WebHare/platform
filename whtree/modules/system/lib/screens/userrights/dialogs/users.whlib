@@ -10,6 +10,7 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
@@ -115,6 +116,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       ^wrd_guid->enabled := FALSE;
 
       ^enableguidedit->visible := this->tolliumuser->HasRight("system:sysop");
+      ^password->visible := FALSE;
     }
 
     RECORD unitinfo;
@@ -206,6 +208,9 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     RECORD extrafields :=
         [ whuser_unit := this->pvt_parent->entityid
         ];
+
+    IF(NOT ObjectExists(this->pvt_user))
+      extrafields := CellInsert(extrafields, this->contexts->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(^password->value));
 
     INTEGER id := ^userobj->StoreEntity(work, extrafields);
     IF (id != 0)
