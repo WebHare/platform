@@ -352,6 +352,8 @@ STATIC OBJECTTYPE FormDefinition
 
   PUBLIC RECORD FUNCTION DescribeField(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    CONSTANT STRING pathseparator := " \u2013 "; // EN DASH ( – )
+
     options := ValidateOptions(
         [ field_fallback_title := TRUE // Fall back to field tag (name) or guid if title is empty
         , languagecode := "en"
@@ -368,6 +370,18 @@ STATIC OBJECTTYPE FormDefinition
     //TODO DescribeField is repeatedly invoked by GetConditionSources (for every field) so now we're triggering a form reparse for every field.. O^2!
     RECORD ARRAY listedfields := options.__listfields ?? this->ListFields();
     STRING fieldtitle := DecodeHTML(SELECT AS STRING GetHTMLTidForLanguage(options.languagecode, title) FROM listedfields WHERE COLUMN guid = VAR guid);
+    IF(fieldtitle != "" AND field->parentnode->localname = "option") //handle <select> <option> <textedit> when deriving from a title. our title is generally not unique enough (eg ", Other: ")
+    {
+      OBJECT selectfield := field->parentnode->parentnode;
+      IF(selectfield->HasAttribute("guid"))
+      {
+        //recursive invocation to describe the parent, but make sure it won't reselect ListFields
+        RECORD descr := this->DescribeField(selectfield->GetAttribute("guid"), CELL[ ...options, __listfields := listedfields ]);
+        descr.fieldtitle := descr.fieldtitle || pathseparator || fieldtitle;
+        descr.pathtitle := descr.pathtitle || pathseparator || fieldtitle;
+        RETURN descr;
+      }
+    }
     IF (options.field_fallback_title AND fieldtitle = "")
       fieldtitle := field->GetAttribute("name") ?? field->GetAttribute("guid");
 
@@ -400,7 +414,7 @@ STATIC OBJECTTYPE FormDefinition
         CELL[ pagetitle
             , grouptitle
             , fieldtitle
-            , pathtitle := Detokenize(titles, " – ")
+            , pathtitle := Detokenize(titles, pathseparator)
             ];
   }
 >;

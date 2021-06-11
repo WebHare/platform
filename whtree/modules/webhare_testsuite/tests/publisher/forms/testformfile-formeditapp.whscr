@@ -161,7 +161,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Text", [menuitem := TRUE]));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   //Add the custom form field
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
@@ -227,10 +227,26 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Doc should now be dirty");
 
-  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  //Modify one of the questions
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Ëmail pretty plz";
+  topscreen->frame->focused := TT("doceditor->questions");
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
+  TT("title")->value := "Renamed email field";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  //AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
-  //testfw->WaitForPublishCompletion(webtoolsfolder->id);
+  //See if the merge field list updated
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit", [menuitem := TRUE]));
+  AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
+  TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  TestEq(3, Length(TT(":Field")->options));
+  TestEq("Page 2 \u2013 Renamed email field", TT(":Field")->options[0].title);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+ AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close form editor
 }

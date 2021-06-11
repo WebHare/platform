@@ -27,6 +27,12 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
     this->language := language;
   }
 
+  PUBLIC MACRO Invalidate()
+  {
+    this->mergefieldsinitialized := FALSE;
+    this->pvt_mergefields := RECORD[];
+  }
+
   RECORD ARRAY FUNCTION GetMergeFields()
   {
     IF (this->mergefieldsinitialized)
