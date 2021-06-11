@@ -1045,6 +1045,10 @@ PUBLIC MACRO TestRegressions()
 
   container2->AppendChild(dummy);
 
+  // appendchild on the only child in container broke because it assumed there was already a child to append next to
+  container2->AppendChild(dummy);
+  TestEQ(TRUE, container2->IsSameNode(dummy->parentnode));
+
   // Test IsSameNode
   TestEq(FALSE, surveydoc->documentelement->IsSameNode(DEFAULT OBJECT));
   TestEq(TRUE, surveydoc->documentelement->IsSameNode(surveydoc->documentelement));
