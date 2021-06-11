@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <css:csstests xmlns:css="http://www.webhare.net/xmlns/webhare_testsuite/css-selector-tests">
   <css:test>
-    <css:title>Internal resolver test</css:title>
-    <css:description>Tests if rules aren't activated multiple times for the same node</css:description>
+    <css:title>Internal resolver test #1</css:title>
+    <css:description>Rules can be activated multiple times for the same node</css:description>
     <css:selectors>
-      <css:selector>div span ~ strong</css:selector>
+      <css:selector>div span + span + span ~ strong</css:selector>
     </css:selectors>
     <css:testcontent>
 <html>
@@ -15,7 +15,33 @@
       <span />
       <span />
       <span />
+      <span />
+      <span />
       <strong match-selector-0="1"/>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Internal resolver test #2</css:title>
+    <css:description>Rules can be activated multiple times for the same level</css:description>
+    <css:selectors>
+      <css:selector>div > div > div span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <div>
+        <div>
+          <div>
+            <div>
+              <span match-selector-0="1" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>

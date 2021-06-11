@@ -1610,9 +1610,12 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         CASE " "
         {
           // ' ' combinator means that the next rule part is always active in the children tree
-          INSERT i + 1 INTO childalwaysactive AT END;
-
           // if this was an alwaysactive rule, no need to test for this rule at the children anymore
+          // But: in 'a > b c' the 'a' rule is still active, this can reactivate 'b', so we need
+          // to deduplicate (or deactive 'a' too in this level).
+          IF (i + 1 NOT IN childalwaysactive)
+            INSERT i + 1 INTO childalwaysactive AT END;
+
           INTEGER pos := SearchElement(childalwaysactive, i);
           IF (pos != -1)
             DELETE FROM childalwaysactive AT pos;
@@ -1626,7 +1629,10 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         {
           // '~' combinator means the next rule part needs to be checked for the rest of this
           // level. No need to test for this rule anymore at this level.
-          INSERT i + 1 INTO stack[depth].levelactive AT END;
+          // But: in 'a + b ~ c' the 'a' rule is still active, this can reactivate 'b', so we need
+          // to deduplicate (or deactive 'a' too in this level).
+          IF (i + 1 NOT IN stack[depth].levelactive)
+            INSERT i + 1 INTO stack[depth].levelactive AT END;
           INTEGER pos := SearchElement(stack[depth].levelactive, i);
           IF (pos != -1)
             DELETE FROM stack[depth].levelactive AT pos;
