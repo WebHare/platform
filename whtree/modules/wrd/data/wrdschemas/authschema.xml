@@ -5,7 +5,7 @@
       <free tag="WRD_TITLE" title="Descriptive domain title" />
       <obsolete tag="WRDAUTH_EMAILBCC" title="BCC address for emails" />
       <obsolete tag="WRDAUTH_EXTENSIONLIBRARY" title="Library to load for WRDAuth extensions" />
-      <obsolete tag="WRDAUTH_LANGUAGE" title="Default language" />
+      <free tag="WRDAUTH_LANGUAGE" /> <!-- ignored but we'll leave it in the wrdschema at least until we complete AUTHDOMAIN phaseout -->
       <free tag="WRDAUTH_LASTIPFIELD" title="Last login from IP" />
       <free tag="WRDAUTH_LASTLOGINFIELD" title="Last login field" />
       <obsolete tag="WRDAUTH_MASTERPASSWORD" />
