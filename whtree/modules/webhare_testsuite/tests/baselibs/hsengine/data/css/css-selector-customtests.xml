@@ -154,7 +154,8 @@
       <span class="closest-outside" match-selector-0="1">
         <span selector-scope="1">
           <span class="closest-outside" />
-        <span />
+        </span>
+        <span class="closest-outside" />
       </span>
     </span>
   </body>
@@ -181,4 +182,70 @@
 </html>
     </css:testcontent>
   </css:test>
+
+  <css:test>
+    <css:title>HTML document case insensitive attribute name matches</css:title>
+    <css:description>In HTML attribute name matching is case insensitive</css:description>
+    <css:selectors>
+      <css:selector>a[link]</css:selector>
+      <css:selector>a[Link]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <a link="1" match-selector-0="1" match-selector-1="1" />
+    <a Link="1" match-selector-0="1" match-selector-1="1" />
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document case sensitive tag name matches</css:title>
+    <css:description>In XML tag name matching is case sensitive</css:description>
+    <css:selectors>
+      <css:selector>a</css:selector>
+      <css:selector>A</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <a match-selector-0="1" />
+  <A match-selector-1="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document case sensitive attribute name matches</css:title>
+    <css:description>In XML attribute name matching is case sensitive</css:description>
+    <css:selectors>
+      <css:selector>a[link]</css:selector>
+      <css:selector>a[Link]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <a link="1" match-selector-0="1" />
+  <a Link="1" match-selector-1="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document attribute wildcard namespace</css:title>
+    <css:description>Test if the attribute matching wildcard matches</css:description>
+    <css:selectors>
+      <css:selector>[link]</css:selector>
+      <css:selector>[*|link]</css:selector>
+      <css:selector>[*|data="a"]</css:selector>
+      <css:selector>[*|data="b"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <b link="A" match-selector-0="1" match-selector-1="1" />
+  <b ns:link="a" match-selector-1="1" />
+  <b data="a" ns:data="b" match-selector-2="1" match-selector-3="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
 </css:csstests>

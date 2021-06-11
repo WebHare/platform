@@ -797,7 +797,7 @@ STATIC OBJECTTYPE CSSSelectorParser
     IF (RecordExists(ident))
     {
       have_item := TRUE;
-      tagname := ToLowercase(ident.value);
+      tagname := ident.value;
     }
     ELSE IF (this->TryParse("*"))
       have_item := TRUE;
@@ -827,7 +827,20 @@ STATIC OBJECTTYPE CSSSelectorParser
       {
         have_item := TRUE;
         this->TryParseWS();
-        ident := this->TryParseType("ident");
+        STRING attrns := "";
+        IF (this->TryParse("*"))
+        {
+          attrns := "*";
+          IF (NOT this->TryParse("|"))
+            THROW NEW Exception(`Expected "|" after "*" in attribute test`);
+          ident := this->TryParseType("ident");
+        }
+        ELSE
+        {
+          ident := this->TryParseType("ident");
+          IF (this->TryParse("|"))
+            THROW NEW Exception(`Namespace prefixes in CSS selectors not supported`);
+        }
         IF (NOT RecordExists(ident))
           THROW NEW Exception(`Expected an attribute name`);
         this->TryParseWS();
@@ -864,6 +877,7 @@ STATIC OBJECTTYPE CSSSelectorParser
         INSERT CELL
             [ type :=   "["
             , attr :=   ident.value
+            , attrns
             , matcher
             , value :=  casesensitive ? value : ToLowercase(value)
             , casesensitive
@@ -941,7 +955,7 @@ STATIC OBJECTTYPE CSSSelectorParser
     }
 
     IF (NOT have_item)
-      THROW NEW Exception(`Expected a compond selector`);
+      THROW NEW Exception(`Expected a compound selector${this->token.csstext = "" ? "" : `, got token ${EncodeJSON(this->token.csstext)}`}`);
 
     RETURN CELL
         [ tagname
@@ -1201,7 +1215,10 @@ BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
 PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
 {
   // tag name test
-  IF (selector.tagname != "*" AND ToLowercase(node->localname ?? node->nodename) != selector.tagname)
+  IF (selector.tagname != "*" AND
+      (MemberExists(node->ownerdocument, "__IS_HTML_DOCUMENT")
+          ? ToUppercase(node->localname ?? node->nodename) != ToUppercase(selector.tagname)
+          : (node->localname ?? node->nodename) != selector.tagname))
     RETURN FALSE;
 
   STRING ARRAY classes := Tokenize(ToLowercase(node->GetAttribute("class")), " ");
@@ -1218,33 +1235,68 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
       }
       CASE "."
       {
-        // class matches case-insensitive, classes list is lowercased in this function and value during parsing
+        // class matches case-insensitive, classes list is lowercased in this function and value already during parsing
         IF (sc.value NOT IN classes)
           RETURN FALSE;
       }
       CASE "["
       {
-        // Attribute MUST exist, for all comparisons
-        IF (NOT node->HasAttribute(sc.attr))
+        STRING ARRAY attrvals;
+        IF (sc.attrns = "" AND node->HasAttribute(sc.attr))
+          attrvals := STRING[ node->GetAttribute(sc.attr) ];
+        ELSE IF (sc.attrns != "*" AND node->HasAttributeNS(sc.attrns, sc.attr))
+          attrvals := STRING[ node->GetAttributeNS(sc.attrns, sc.attr) ];
+        ELSE
+        {
+          BOOLEAN ishtml := MemberExists(node->ownerdocument, "__IS_HTML_DOCUMENT");
+
+          // XML documents must have exact matches for the ns and the name, so no need to search if no ns wildcard is present
+          // HTML has case-insensitive matching for the attribute name
+          IF (NOT ishtml AND sc.attrns != "*")
+            RETURN FALSE;
+
+          /* HTML parsers convert attributes to lowercase, but new attributes with uppercase names
+             could be have been inserted. Check all attributes if a match is present
+          */
+          attrvals :=
+              SELECT AS STRING ARRAY nodevalue
+                FROM node->ListAttributes()
+               WHERE (ishtml
+                        ? ToUppercase(localname ?? nodename) = ToUppercase(sc.attr)
+                        : (localname ?? nodename) = sc.attr)
+                 AND (sc.attrns = "*"
+                        ? TRUE
+                        : namespaceuri = sc.attrns);
+        }
+
+        // A matching attribute MUST exist, for all comparisons
+        IF (IsDefaultValue(attrvals))
           RETURN FALSE;
 
-        STRING value := node->GetAttribute(sc.attr);
+        BOOLEAN ismatch;
         STRING comp := sc.value;
-        IF (NOT sc.casesensitive)
-        {
-          // sc.value was already lowercased during parsing
-          value := ToLowercase(value);
+        FOREVERY (STRING value FROM attrvals)
+          {
+          IF (NOT sc.casesensitive)
+          {
+            // sc.value was already lowercased during parsing
+            value := ToLowercase(value);
+          }
+          SWITCH (sc.matcher)
+          {
+            CASE "has"    { ismatch := TRUE; }
+            CASE "="      { IF (comp = value) ismatch := TRUE; }
+            CASE "~="     { IF (comp IN Tokenize(value, " ")) ismatch := TRUE; }
+            CASE "^="     { IF (Left(value, LENGTH(comp)) = comp) ismatch := TRUE; }
+            CASE "$="     { IF (Right(value, LENGTH(comp)) = comp) ismatch := TRUE; }
+            CASE "*="     { IF (SearchSubString(value, comp) != -1) ismatch := TRUE; }
+            CASE "|="     { IF (Left(value, LENGTH(comp)) = comp AND SubString(value, LENGTH(comp), 1) IN [ "", "-" ]) ismatch := TRUE; }
+            CASE "nomatch" { } // needed for $= with an empty value
+          }
         }
-        SWITCH (sc.matcher)
-        {
-          CASE "="      { IF (comp != value) RETURN FALSE; }
-          CASE "~="     { IF (comp NOT IN Tokenize(value, " ")) RETURN FALSE; }
-          CASE "^="     { IF (Left(value, LENGTH(comp)) != comp) RETURN FALSE; }
-          CASE "$="     { IF (Right(value, LENGTH(comp)) != comp) RETURN FALSE; }
-          CASE "*="     { IF (SearchSubString(value, comp) = -1) RETURN FALSE; }
-          CASE "|="     { IF (Left(value, LENGTH(comp)) != comp OR SubString(value, LENGTH(comp), 1) NOT IN [ "", "-" ]) RETURN FALSE; }
-          CASE "nomatch" { RETURN FALSE; } // needed for $= with an empty value
-        }
+
+        IF (NOT ismatch)
+          RETURN FALSE;
       }
       CASE "("
       {

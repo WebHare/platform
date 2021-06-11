@@ -255,6 +255,8 @@ STRING ARRAY FUNCTION GetNodeTexts(OBJECT ARRAY nodes)
 RECORD ARRAY FUNCTION ParseTestXML(STRING resource)
 {
   OBJECT testdoc := MakeXMLDocument(OpenTestFile(resource));
+  IF (RecordExists(testdoc->GetParseErrors()))
+    ABORT(testdoc->GetParseErrors());
 
   RECORD ARRAY data;
   FOREVERY (OBJECT test FROM testdoc->GetElements("test"))
@@ -301,8 +303,21 @@ MACRO RunSelectorTests(RECORD ARRAY data)
   FOREVERY (RECORD rec FROM data)
   {
     OBJECT doc := MakeXMLDocument(StringToBlob(rec.content));
+    IF (RecordExists(doc->GetParseErrors()))
+    {
+      DumpValue(doc->GetParseErrors());
+      ABORT(`Parse errors for content of test ${rec.title}`);
+    }
     IF (NOT ObjectExists(doc))
       ABORT(rec);
+
+    // open HTML documents as HTML
+    IF (doc->documentelement->nodename = "html")
+    {
+      OBJECT rewriter := NEW HtmlRewriterContext;
+      BLOB htmlblob := rewriter->GenerateHTML(doc);
+      doc := MakeXMLDocumentFromHTML(htmlblob);
+    }
 
     IF (rec.title IN STRING
           [ ""
