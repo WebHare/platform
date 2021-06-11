@@ -226,9 +226,6 @@ STATIC OBJECTTYPE AssetPackController
   /// Suspend autocompile of production packages?
   BOOLEAN suspendautocompile;
 
-  /// Browser targets for dev assetpacks
-  STRING devbrowsertargets;
-
   /// Full check needed (after config reload)
   BOOLEAN needfullrecheck;
 
@@ -573,9 +570,6 @@ STATIC OBJECTTYPE AssetPackController
   // Returns the bundle data to send to the compiler
   RECORD FUNCTION GetBundleData(RECORD bundle)
   {
-    // See https://github.com/browserslist/browserslist
-    STRING defaultbrowsertargets := "defaults, ie 11"; // Ensure Internet Explorer 11 is also present, even when defaults changes
-
     RETURN
         [ bundleconfig :=   bundle.bundleconfig
         , entrypoint :=     bundle.entrypoint
@@ -585,7 +579,6 @@ STATIC OBJECTTYPE AssetPackController
         , outputpath :=     bundle.outputpath
         , isdev :=          bundle.isdev
         , outputtag :=      bundle.outputtag
-        , browsertargets := (bundle.isdev ? this->devbrowsertargets : "") ?? defaultbrowsertargets
         ];
   }
 
@@ -766,7 +759,6 @@ STATIC OBJECTTYPE AssetPackController
   MACRO LoadConfig()
   {
     this->suspendautocompile := ReadRegistryKey("publisher.bundledassets.suspendautocompile");
-    this->devbrowsertargets := ReadRegistryKey("publisher.bundledassets.devbrowsertargets");
     this->needfullrecheck := TRUE;
   }
 
@@ -801,6 +793,7 @@ STATIC OBJECTTYPE AssetPackController
                                  , modulepack.babeltranspile
                                  , modulepack.aftercompiletask
                                  , modulepack.assetbaseurl
+                                 , modulepack.compatibility
                                  ];
 
       STRING encodedconfig := EncodeHSON(bundleconfig);

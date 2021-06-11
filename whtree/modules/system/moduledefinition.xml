@@ -2058,7 +2058,7 @@ The full base URL on which this site will be published, calculated by combining 
       <node name="bundledassets">
         <obsoletekey name="expireafterdays" />
         <boolean name="suspendautocompile" description="Suspend auto-compilation of production assets" />
-        <string name="devbrowsertargets" description="Browser targets for dev assetpacks" initialval="" />
+        <obsoletekey name="devbrowsertargets" />
       </node>
       <node name="filemgr">
         <boolean name="showwhfsprivate" description="Show the WebHare private folder (/whfs-private/)" />

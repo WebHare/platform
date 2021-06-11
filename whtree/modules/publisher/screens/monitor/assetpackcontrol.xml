@@ -33,7 +33,6 @@
     <compositions>
       <eventlistener name="listener" masks="publisher:assetpackcontrol.change.* publisher:assetpackcontrol.watch.* system:webhareservice.publisher:assetpackcontrol.start" onevents="onassetevent" />
       <eventlistener name="configlistener" masks="system:registry.publisher.bundledassets" onevents="onconfigevent" />
-      <radiogroup name="devbrowsertargetselect" onchange="GotDevBrowserTargetChange" />
     </compositions>
     <body>
       <split type="vertical">
@@ -69,11 +68,6 @@
                 <button action="rebuildall" width="1pr" />
                 <spacer height="1gr" />
                 <checkbox name="suspendautocompile" title="" labeltid=".suspendautocompile" onchange="onautocompilechange" />
-                <heading tid=".devassetpacks" />
-                <radiobutton group="devbrowsertargetselect" rowkey="production" labeltid=".devassetpacks-production" />
-                <radiobutton group="devbrowsertargetselect" rowkey="current" labeltid=".devassetpacks-current" />
-                <radiobutton group="devbrowsertargetselect" rowkey="other" labeltid=".devassetpacks-other" />
-                <textedit name="otherdevbrowsertarget" enabled="false" width="1pr" title="" />
               </cell>
             </row>
           </grid>

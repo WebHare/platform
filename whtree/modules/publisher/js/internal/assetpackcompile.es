@@ -396,7 +396,7 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
       { resolvealias:       { dompack: path.join(modsystemroot,"js/dompack") }
       , entrypoint:         bundle.entrypoint
                             //never polyfill for eg. sharedworker environments
-      , extrapolyfills:     bundle.bundleconfig.webharepolyfills ? ["@mod-publisher/js/internal/polyfills/index.es"] : []
+      , extrapolyfills:     []
       , extrarequires:      extrarequires
       , diskpath:           bundle.diskpath
       , omitpolyfills:      bundle.bundleconfig.omitpolyfills
@@ -427,10 +427,17 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
                             ]
       , nodemodulepaths:    baseconfig.nodemodulepaths
       , babeltranspile:     [ "\\.es$" ].concat(bundle.bundleconfig.babeltranspile)
-      , babelenvtarget:     { "targets": bundle.browsertargets
+      , babelenvtarget:     { "targets": bundle.bundleconfig.compatibility == "modern" ? "last 3 chrome versions, last 3 firefox versions, last 3 safari versions" : "defaults, ie 11"
                             }
       , babelextraplugins:  [ "@babel/plugin-transform-modules-commonjs" ]
       };
+
+  if(bundle.bundleconfig.webharepolyfills)
+  {
+    if(bundle.bundleconfig.compatibility != "modern")
+      builderconfig.extrapolyfills.push("@mod-publisher/js/internal/polyfills/index.es");
+    builderconfig.extrapolyfills.push("@mod-publisher/js/internal/polyfills/modern.es");
+  }
 
   if(directcompile) //we're debugging..
     console.log("BUILDERCONFIG:", builderconfig);

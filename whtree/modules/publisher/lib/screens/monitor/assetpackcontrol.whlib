@@ -66,16 +66,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   MACRO LoadConfig()
   {
     ^suspendautocompile->value := ReadRegistryKey("publisher.bundledassets.suspendautocompile");
-    STRING devbrowsertargets := ReadRegistryKey("publisher.bundledassets.devbrowsertargets");
-    IF (devbrowsertargets = "")
-      ^devbrowsertargetselect->value := "production";
-    ELSE IF (devbrowsertargets = browsertargets_current)
-      ^devbrowsertargetselect->value := "current";
-    ELSE
-    {
-      ^devbrowsertargetselect->value := "other";
-      ^otherdevbrowsertarget->value := devbrowsertargets;
-    }
   }
 
   MACRO OnAutocompileChange()
@@ -84,24 +74,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
     {
       GetPrimary()->BeginWork();
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", ^suspendautocompile->value);
-      GetPrimary()->CommitWork();
-    }
-  }
-
-  MACRO GotDevBrowserTargetChange()
-  {
-    STRING newdevbrowsertarget;
-    SWITCH (^devbrowsertargetselect->value)
-    {
-      CASE ""         { newdevbrowsertarget := ""; }
-      CASE "current"  { newdevbrowsertarget := browsertargets_current; }
-      CASE "other"    { newdevbrowsertarget := ^otherdevbrowsertarget->value; }
-    }
-
-    IF(ReadRegistryKey("publisher.bundledassets.devbrowsertargets") != newdevbrowsertarget)
-    {
-      GetPrimary()->BeginWork();
-      WriteRegistryKey("publisher.bundledassets.devbrowsertargets", newdevbrowsertarget);
       GetPrimary()->CommitWork();
     }
   }
