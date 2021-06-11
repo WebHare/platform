@@ -615,14 +615,14 @@ STATIC OBJECTTYPE CSSSelectorParser
   */
   RECORD config;
 
-  /** List of CSS tokens to parse @includecelldef #CSSTokenizer::GetToken
+  /** List of CSS tokens to parse @includecelldef #CSSTokenizer::GetToken.return
   */
   RECORD ARRAY tokens;
 
   /// Current token within the token array
   INTEGER pos;
 
-  /// Current token (= this->tokens[this->pos])
+  /// Current token (= this->tokens[this->pos]) @includecelldef #CSSTokenizer::GetToken.return
   RECORD token;
 
   MACRO NEW(RECORD ARRAY tokens, RECORD config)
@@ -665,7 +665,8 @@ STATIC OBJECTTYPE CSSSelectorParser
     RETURN retval;
   }
 
-  /** Parses a token by value
+  /** Parses a token by value. Does not match strings
+      @param token Token value to match
       @return TRUE if the requested token was found and consimed
   */
   BOOLEAN FUNCTION TryParse(STRING token)
@@ -678,7 +679,8 @@ STATIC OBJECTTYPE CSSSelectorParser
   }
 
   /** Parses a token by type
-      @return (consumed) token if the current token was of the requested type @includecelldef #token
+      @param type Type of token that needs to be matched
+      @return Consumed token if the current token was of the requested type @includecelldef #CSSTokenizer::GetToken.return
   */
   RECORD FUNCTION TryParseType(STRING type)
   {
@@ -709,9 +711,9 @@ STATIC OBJECTTYPE CSSSelectorParser
 
   /** Parses a complex selector list
       @return Single selector split into compoiund selectors and the combinators
-      @cell(record array) parts Compound selectors and their combinators
-      @cell(record array) parts.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
-      @cell(record array) parts.combinator Combinator AFTER the compound selector
+      @cell(record array) return.parts Compound selectors and their combinators
+      @cell(record array) return.parts.compoundselector Compound selector @includecelldef #ParseComplexSelector.return
+      @cell(record array) return.parts.combinator Combinator AFTER the compound selector
         - "": return if matches
         - " ": any descendent matches
         - ">": direct descendent matches
@@ -786,7 +788,7 @@ STATIC OBJECTTYPE CSSSelectorParser
         - "$=": attribute value ends with value
         - "*=": attribute value contains with value
         - "nomatch": used for attributepart matches with an empty string - they don't match any element
-      @cell(record array) return.subclasses.tokens Function tokens (for function test) @includecelldef #token
+      @cell(record array) return.subclasses.tokens Function tokens (for function test) @includecelldef #CSSTokenizer::GetToken.return
   */
   PUBLIC RECORD FUNCTION ParseCompoundSelector()
   {
@@ -965,7 +967,15 @@ STATIC OBJECTTYPE CSSSelectorParser
         ];
   }
 
-  /// Parses An+B syntax for nth-child ea.
+  /** Parses An+B syntax for nth-child ea.
+      @param name Name of function
+      @param functokens Token list with the parameters CSSTokenizer::GetToken.return
+      @param allowselector Whether to a allow a compound selector
+      @return Parsed parameters
+      @cell return.compoundselector Compound selector for :not function @includecelldef #ParseCompoundSelector.return
+      @cell return.factor A from the An+B in nth-child-alike tests
+      @cell return.ofs B from the An+B in nth-child-alike tests
+  */
   RECORD FUNCTION ParseANPlusB(STRING name, RECORD ARRAY functokens, BOOLEAN allowselector)
   {
     // Compound selector is CSS4, but useful in implementing nth-of-type
@@ -1051,9 +1061,9 @@ STATIC OBJECTTYPE CSSSelectorParser
 
   /** Parses functions
       @param name Function name
-      @param functokens Arguments @includecelldef #token
-      @return
-      @cell return.compoundselector Compound selector for :not function @includecelldef @ParseCompondSelector.return
+      @param functokens Arguments @includecelldef #CSSTokenizer::GetToken.return
+      @return Parsed function parameters for evaluation
+      @cell return.compoundselector Compound selector for :not function @includecelldef #ParseCompoundSelector.return
       @cell return.factor A from the An+B in nth-child-alike tests
       @cell return.ofs B from the An+B in nth-child-alike tests
   */
@@ -1085,9 +1095,10 @@ STATIC OBJECTTYPE CSSSelectorParser
 
   /** Parses functions
       @param name Function name
-      @param functokens Arguments @includecelldef #token
-      @return
-      @cell return.compoundselector Compound selector for :not function @includecelldef @ParseCompondSelector.return
+      @return Parsed pseudo class / function parameters for evaluation
+      @cell return.type Type override (used to expand a pseudo-class into a function)
+      @cell return.name Name override (used to expand a pseudo-class into a function)
+      @cell return.compoundselector Compound selector for :not function @includecelldef #ParseCompoundSelector.return
       @cell(integer) return.factor A from the An+B in nth-child-alike tests
       @cell(integer) return.ofs B from the An+B in nth-child-alike tests
       @cell(object) return.node Exact node match (for :scope and :root)
@@ -1171,7 +1182,8 @@ STATIC OBJECTTYPE CSSSelectorParser
 /** Returns the 1-based index of a node (filtered with compoundselector)
     @param node Node
     @param fromstart If TRUE, get the index from the start, else from the end
-    @param compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+    @param compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
+    @return 1-based index of this node within its matching siblings list
 */
 INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselector)
 {
@@ -1193,9 +1205,10 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselecto
     @param node Node
     @param fromstart If TRUE, get the index from the start, else from the end
     @param sc Test data
-    @param sc.factor A from An+B expression
-    @param sc.ofs B from An+B expression
-    @param sc.compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+    @cell(integer) sc.factor A from An+B expression
+    @cell(integer) sc.ofs B from An+B expression
+    @cell sc.compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
+    @return Whether the node matches the index-based functions
 */
 BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
 {
@@ -1209,8 +1222,8 @@ BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
   RETURN ismatch;
 }
 
-/** Tests is a node matches a compound selector
-    @param compoundselector Compound selector @includecelldef CSSSelectorParser::ParseCompoundSelector
+/** Tests if a node matches a compound selector
+    @param selector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
     @param node Node to test
     @return TRUE if the node matches
 */
@@ -1263,12 +1276,12 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
           attrvals :=
               SELECT AS STRING ARRAY nodevalue
                 FROM node->ListAttributes()
-               WHERE (ishtml
-                        ? ToUppercase(localname ?? nodename) = ToUppercase(sc.attr)
-                        : (localname ?? nodename) = sc.attr)
-                 AND (sc.attrns = "*"
+               WHERE (sc.attrns = "*"
                         ? TRUE
-                        : namespaceuri = sc.attrns);
+                        : namespaceuri = sc.attrns)
+                 AND (ishtml
+                        ? ToUppercase(localname ?? nodename) = ToUppercase(sc.attr)
+                        : (localname ?? nodename) = sc.attr);
         }
 
         // A matching attribute MUST exist, for all comparisons
@@ -1413,7 +1426,10 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
   RETURN TRUE;
 }
 
-/// Returns a node path, node names with child index (like html[1] body[1] div[2])
+/** Returns a node path, node names with child index (like html[1] body[1] div[2])
+    @param node Return the path to this node
+    @return Text describing the path to a node
+*/
 STRING FUNCTION Debug_GetNodePath(OBJECT node)
 {
   STRING name := node->nodename;
@@ -1432,8 +1448,8 @@ STRING FUNCTION Debug_GetNodePath(OBJECT node)
 
 /** Returns the path to and including a node
     @param node Node
-    @return
-    @cell(object array) return.path Node path, starting at root node
+    @return Record describing the path to a node
+    @cell(object array) return.path Nodes on the path, starting at root node
     @cell(integer) return.pathlen Length of the path
 */
 RECORD FUNCTION GetNodePathList(OBJECT node)
@@ -1508,7 +1524,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     When an active rule part matches, schedule checks for the next part at the relevant nodes. Return the
     nodes that match the last rule part of a selector - when they also match the query mode
     @param rootnode Node to start
-    @param selectorparts Selector parts @includecelldef #SelectorParser::SelectorParser.return.parts
+    @param selectorparts Selector parts @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return.parts
     @param startrules Positions of the first part of all selectors
     @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
     @param mode Selection mode

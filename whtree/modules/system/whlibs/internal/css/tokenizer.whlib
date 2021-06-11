@@ -458,6 +458,21 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
 //    this->inAtRule := FALSE;
   }
 
+  /** Get current token
+      @return Current token
+      @cell(string) return.type Token type. One of
+        "#", ",", "at-rule", "bad-url", "dash-match", "delim", "dimension", "function", "ident",
+        "include-match", "number", "parsed-function", "parsed-simpleblock", "percentage",
+        "prefix-match", "string", "substring-match", "suffix-match", "url", "ws", "ws-comment",
+      @cell(string) return.value Token value
+      @cell(string) return.valuetype Type of token value
+      @cell(integer) return.numbervalue Numeric value
+      @cell(string array) return.arguments List of arguments
+      @cell return.unit Unit
+      @cell(integer) return.startpos Start position of token
+      @cell(integer) return.length Length of token
+      @cell(string) return.csstext Parsed token text
+  */
   PUBLIC RECORD FUNCTION GetToken()
   {
     RETURN [ type :=        this->type
