@@ -188,7 +188,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
     //Add the types
     RECORD ARRAY rows := SELECT rowkey := "type:" || id
                               , title := GetTid(title)
-                              , icon := ^types->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+                              , icon := ^types->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
                               , contenttype := namespace
                               , type := id
                               , template := 0
@@ -198,7 +198,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
     //And add any templates. Don't show templates for any type for which the base folder type isblocked
     rows := rows CONCAT SELECT rowkey := "template:" || id
                              , title
-                             , icon := ^types->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+                             , icon := ^types->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
                              , contenttype := namespace
                              , type
                              , template := id

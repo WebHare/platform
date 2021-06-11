@@ -672,7 +672,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
     RECORD ARRAY rows :=
         SELECT rowkey := id
              , title := GetTid(title)
-             , icon := ^typeslist->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
+             , icon := ^typeslist->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
              , namespace
           FROM this->contexts->^__publisher_searchfilters->whfstypes
          WHERE ^showall->value OR (NOT ishidden AND NOT isdevelopertype);
