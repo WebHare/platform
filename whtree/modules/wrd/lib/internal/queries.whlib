@@ -3965,9 +3965,12 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
 */
 PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
 {
+  IF(CellExists(querydata, 'OUTPUTCOLUMNS') OR CellExists(querydata, 'FILTER')) //This is obviosuly a forgotten type...
+      THROW NEW Exception(`Trying to execute a query on a WRD schemae without specifying the type (use wrdschema->^type->RunQuery)`);
+
   FOREVERY(RECORD cellrec FROM UnpackRecord(querydata))
     IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER"])
-      THROW NEW Exception("Unsupported query parameter '" || cellrec.name || "'");
+      THROW NEW Exception(`Unsupported query parameter '${cellrec.name}'`);
 
   RECORD ARRAY sources := querydata.sources;
   RECORD ARRAY links := CellExists(querydata, "LINKS") ? querydata.links : DEFAULT RECORD ARRAY;
