@@ -84,15 +84,6 @@ window.showrendered = function()
     cd.body.innerHTML = html;
 };
 
-/*
-function doaprops(targetid, target)
-{
-  if(window.apropshandler)
-    return window.apropshandler(targetid,target);
-
-  console.log('doaprops',targetid,target);
-}*/
-
 function getStructure(type)
 {
   var alltextstyles=["i","u","b","sub","sup","a-href","strike","img"];
@@ -190,37 +181,29 @@ function gotPropertiesEvent(event)
   if(event.detail.actiontarget)
   {
     let affectednodeinfo = event.detail.rte.getTargetInfo(event.detail.actiontarget);
-    if(affectednodeinfo && affectednodeinfo.type == 'hyperlink' && !window.apropshandler)
+    if(affectednodeinfo && affectednodeinfo.type == 'hyperlink')
     {
       event.preventDefault();
+      if(window.apropshandler)
+        return window.apropshandler(event.detail.targetid, event.target);
+
       let newurl = prompt("Update the url", affectednodeinfo.link);
       if(newurl !== null)
         event.detail.rte.updateTarget(event.detail.actiontarget, { link: newurl});
       return;
     }
-  }
+    if(affectednodeinfo && affectednodeinfo.type == 'img')
+    {
+      event.preventDefault();
+      if(window.imgpropshandler)
+        return window.imgpropshandler(event.detail.targetid, event.target);
 
-  var nodename = event.target.nodeName.toLowerCase();
-  if(nodename == 'img')
-  {
-    event.preventDefault();
-    if(window.imgpropshandler)
-      return window.imgpropshandler(event.detail.targetid, event.target);
-
-    console.log('doimgprops',event.detail.targetid, event.target);
-    let newurl = prompt("Specify the new image url", event.target.src);
-    if(newurl)
-      window.rtecomp.getActionTarget(event.detail.targetid).src = newurl;
-    return;
-  }
-  if(nodename == 'a')
-  {
-    event.preventDefault();
-    if(window.apropshandler)
-      return window.apropshandler(event.detail.targetid, event.target);
-
-    console.log('doaprops', event.detail.targetid, event.target);
-    return;
+      console.log('doimgprops',event.detail.targetid, event.target);
+      let newurl = prompt("Specify the new image url", event.target.src);
+      if(newurl)
+        window.rtecomp.getActionTarget(event.detail.targetid).src = newurl;
+      return;
+    }
   }
 }
 

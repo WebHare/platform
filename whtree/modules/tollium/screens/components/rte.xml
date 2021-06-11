@@ -145,5 +145,25 @@
 
   </screen>
 
+  <screen name="inspectwidget"
+          width="60x"
+          height="10gr"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".inspectwidget"
+          savestate="size">
+    <actions />
+
+    <body spacers="none">
+      <tabs height="1pr" minwidth="40x" minheight="7gr">
+        <tab tid=".value">
+          <hsvalue name="value" height="1pr" />
+        </tab>
+        <tab tid=".searchpreview">
+          <iframe name="searchpreview" width="1pr" height="1pr" />
+        </tab>
+      </tabs>
+    </body>
+  </screen>
 
 </screens>

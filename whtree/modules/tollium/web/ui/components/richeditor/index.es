@@ -210,8 +210,11 @@ export class RTE
     if(!selectionstate)
       return;
 
-    let contextmenu = dompack.create('ul');
-    let menuitems = [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
+    let actiontarget = selectionstate.actiontargets.length ? this.getTargetInfo({__node: selectionstate.actiontargets[0] }) : null;
+
+    let menuitems = [];
+    for(let menuitem of
+                    [ { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") }
                     , { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") }
                     , null
                     , { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") }
@@ -227,34 +230,34 @@ export class RTE
                     , { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown")  }
                     , { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols")  }
                     , { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows")  }
-                    ];
-
-    if(this.options.propertiesaction)
-      menuitems.push(null, { action: "action-properties", title: getTid("tollium:components.rte.properties") });
-
-    for(let item of menuitems)
+                    , null
+                    , ...(this.options.propertiesaction ? [{ action: "action-properties", title: getTid("tollium:components.rte.properties") }] : [])
+                    ])
     {
-      if(!item)
-      {
-        contextmenu.appendChild(dompack.create('li', {className:'divider'}));
-        continue;
-      }
-
-      if(selectionstate.actionstate[item.action].available)
-      {
-        contextmenu.appendChild(dompack.create('li', { textContent: item.title
-                                                     , onClick: evt => this._activateRTDMenuItem(evt, item)
-                                                     }));
-      }
+      if(!menuitem || selectionstate.actionstate[menuitem.action].available)
+        menuitems.push(menuitem);
     }
+
+    if(!dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-contextmenu", { bubbles: true
+                                                                               , cancelable: true
+                                                                               , detail: { actiontarget, menuitems }
+                                                                               }))
+    {
+      return;
+    }
+
+    let contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
+                        { menuitems.map( item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />) }
+                      </ul>;
 
     menu.openAt(contextmenu, event, { eventnode: this.node });
   }
 
-  _activateRTDMenuItem(evt, item)
+  _activateRTDMenuItem(evt, actiontarget)
   {
     dompack.stop(evt);
-    this.executeAction(item.action);
+    let item = evt.target.closest('li');
+    this.executeAction(item.dataset.action, actiontarget);
   }
 
   //get the current dirty flag
@@ -510,45 +513,119 @@ export class RTE
 
   getTargetInfo(actiontarget) //provide JSON-safe information about the action target
   {
-    if(!actiontarget)
-      return null; //not all our events support actiontargets yet, so expect undefined/null
-
     let node = actiontarget.__node;
-
-    switch (node.nodeName.toUpperCase())
+    if(node.matches('a'))
     {
-      case "A":
-      {
-        return { type: 'hyperlink'
-               , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
-               , target: node.target || ''
-               };
-      }
+      return { type: 'hyperlink'
+             , link: node.getAttribute("href") //note that getAttribute gives the 'true' link but 'href' may give a resolved link
+             , target: node.target || ''
+             , __node: node
+             };
+    }
+    else if(node.matches('td,th'))
+    {
+      let tablenode = node.closest('table');
+      let editor = TableEditor.getEditorForNode(tablenode);
+      return { type: 'cell'
+             , tablestyletag: tablenode.classList[0]
+             , cellstyletag: node.classList[1] || ''
+             , datacell: editor.locateFirstDataCell()
+             , numrows: editor.numrows
+             , numcolumns: editor.numcolumns
+             , __node: node
+             };
+    }
+    else if(node.matches('.wh-rtd-embeddedobject'))
+    {
+      return { type: 'embeddedobject'
+             , instanceref:  node.dataset.instanceref
+             , __node: node
+             };
+    }
+    else if(node.matches('img'))
+    {
+      let align = node.classList.contains("wh-rtd__img--floatleft") ? 'left' : node.classList.contains("wh-rtd__img--floatright") ? 'right' : '';
+      let linkinfo = null;
+      let link = node.closest('a');
+      if(link)
+        linkinfo = { link: link.href
+                   , target: link.target || ''
+                   };
 
-      case 'TD':
-      case 'TH':
-      {
-        let tablenode = node.closest('table');
-        var editor = TableEditor.getEditorForNode(tablenode);
-        return { type: 'cell'
-               , tablestyletag: tablenode.classList[0]
-               , cellstyletag: node.classList[1] || ''
-               , datacell: editor.locateFirstDataCell()
-               , numrows: editor.numrows
-               , numcolumns: editor.numcolumns
-               };
-      }
+      return { type: 'img'
+             , align: align
+             , width:  parseInt(node.getAttribute("width")) || node.width
+             , height: parseInt(node.getAttribute("height")) || node.height
+             , alttext: node.alt
+             , link: linkinfo
+             , src: node.src
+             , __node: node
+             };
     }
     return null;
   }
   updateTarget(actiontarget, settings)
   {
-    if(actiontarget.__node && actiontarget.__node.nodeName=='A')
-      return this._updateHyperlink(actiontarget.__node, settings);
-    if(actiontarget.__node && (actiontarget.__node.nodeName=='TH' || actiontarget.__node.nodeName=='TD'))
-      return this._updateCell(actiontarget.__node, settings);
+    const undolock = this.getEditor().getUndoLock();
 
-    throw new Error("Did not understand action target");
+    let node = actiontarget.__node;
+    if(node.matches('a'))
+      this._updateHyperlink(actiontarget.__node, settings);
+    else if(node.matches('td,th'))
+      this._updateCell(actiontarget.__node, settings);
+    else if(node.matches('.wh-rtd-embeddedobject'))
+    {
+      if(node.classList.contains("wh-rtd-embeddedobject"))
+      {
+        //we'll simply reinsert
+        if (settings)
+        {
+          if (settings.type == 'replace')
+          {
+            this.getEditor().updateEmbeddedObject(node, settings.data);
+          }
+          else if (settings.type == 'remove')
+          {
+            this.getEditor().removeEmbeddedObject(node);
+          }
+        }
+      }
+    }
+    else if(node.matches('img'))
+    {
+      node.width = settings.width;
+      node.height = settings.height;
+      node.align = '';
+      node.alt = settings.alttext;
+      node.className = "wh-rtd__img" + (settings.align=='left' ? " wh-rtd__img--floatleft" : settings.align=="right" ? " wh-rtd__img--floatright" : "");
+
+      var link = node.closest('A');
+      if(link && !settings.link) //remove the hyperlink
+      {
+        link.replaceWith(node);
+        this.editrte.selectNodeOuter(node);
+      }
+      else if (settings.link) //add or update a hyperlink
+      {
+        if(!link)
+        {
+          //replace the image with the link
+          link = document.createElement('a');
+          node.replaceWith(link);
+          link.appendChild(node);
+          this.editrte.selectNodeOuter(link);
+        }
+
+        link.href = settings.link.link;
+        link.target = settings.link.target || '';
+      }
+    }
+    else
+    {
+      console.error(node,settings);
+      throw new Error("Did not understand action target");
+    }
+    undolock.close();
   }
 
   _updateHyperlink(node, settings)
@@ -705,13 +782,6 @@ export class RTE
     this._checkDirty();
   }
 
-  getActionTarget(actiontarget)
-  {
-    if (!this.getEditor())
-      return null;
-    return this.getEditor().getActionTarget(actiontarget); //ADDME this is probably unsafe if we switched editors in a PageEdit while processing the action, add tests
-  }
-
   focus()
   {
     if(this.editrte)
@@ -745,11 +815,11 @@ export class RTE
     return this.editrte ? this.editrte.getAvailableBlockStyles(selstate) : [];
   }
 
-  executeAction(action)
+  executeAction(action, actiontarget)
   {
     //FIXME: RTE should handle the action and dispatch to the active editor, so it can handle global rte actions (like show
     //       formatting)
-    this.editrte && this.editrte.executeAction(action);
+    this.editrte && this.editrte.executeAction(action, actiontarget);
   }
 
   setSelectionBlockStyle(newblockstyle, forced)

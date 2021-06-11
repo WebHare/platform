@@ -720,6 +720,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
+      <text tid="inspect">Inspecteer</text>
       <text tid="normalcell">Standaard celopmaak</text>
       <text tid="properties">Eigenschappen</text>
       <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
@@ -762,6 +763,11 @@
         <text tid="position">Plaatsing</text>
         <text tid="properties">Eigenschappen</text>
         <text tid="width">Breedte</text>
+      </textgroup>
+      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
+        <text tid="inspectwidget">Inspecteer widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
         <text tid="cellproperties">Celeigenschappen</text>

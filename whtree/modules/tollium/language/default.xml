@@ -720,6 +720,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
+      <text tid="inspect">Inspect</text>
       <text tid="normalcell">Default cell styling</text>
       <text tid="properties">Properties</text>
       <text tid="sureremovetable">Are you sure you want to remove this table?</text>
@@ -762,6 +763,11 @@
         <text tid="position">Positioning</text>
         <text tid="properties">Properties</text>
         <text tid="width">Width</text>
+      </textgroup>
+      <textgroup gid="inspectwidget">   <!-- components.rte.inspectwidget -->
+        <text tid="inspectwidget">Inspect widget</text>
+        <text tid="searchpreview">Search preview</text>
+        <text tid="value">Value</text>
       </textgroup>
       <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
         <text tid="cellproperties">Cell properties</text>
