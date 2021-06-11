@@ -165,13 +165,15 @@ xmlNodePtr addPrevSibling(xmlNodePtr cur, xmlNodePtr elem)
 // works for elements/text nodes like xmlAddChild, but no merging/freeing of nodes
 xmlNodePtr appendChild(xmlNodePtr parent, xmlNodePtr elem)
 {
+        // remove the child before determinging whether the parent is empty,
+        // it might be the parent's only child that is being appended.
+        if (elem->parent)
+            xmlUnlinkNode(elem);
+
         if (parent->last)
             return addNextSibling(parent->last, elem);
 
         // Add the first child
-        if (elem->parent)
-            xmlUnlinkNode(elem);
-
         elem->parent = parent;
         elem->next = nullptr;
         elem->prev = nullptr;
