@@ -1231,7 +1231,6 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
   wrdschema2->^wrd_authdomain->CreateEntity(
       [ wrd_tag :=                "MYBACKEND2"
       , wrd_title :=              "Our custom 2nd WebHare backend login"
-      , wrdauth_language :=       "en"
       , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
       , wrdauth_lastipfield :=    "WHUSER_LASTIP"
       ]);
@@ -1395,7 +1394,6 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
   //OBJECT dom_idp := wrdschema_idp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
   //    [ wrd_tag :=                "BACKEND-IDP"
   //    , wrd_title :=              "Backend form SAML test, IDP side"
-  //    , wrdauth_language :=       "en"
   //    , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
@@ -1414,7 +1412,6 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
   //OBJECT dom_sp := wrdschema_sp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
   //    [ wrd_tag :=                "BACKEND-SP"
   //    , wrd_title :=              "Backend form SAML test, SP side"
-  //    , wrdauth_language :=       "en"
   //    , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);

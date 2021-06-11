@@ -364,26 +364,5 @@
     </footer>
   </screen>
 
-  <screen name="openauthdomain" gid=".openauthdomain" width="80x" height="16x" allowresize="true" savestate="size">
-    <actions>
-      <action name="openaction" onexecute="opensamlsettings" tid="tollium:common.actions.open">
-        <enableon source="domains" min="1" />
-      </action>
-    </actions>
-    <body>
-      <wrd:entitylist name="domains"
-                      openaction="openaction">
-        <column name="wrd_tag" type="text" />
-        <column name="wrd_title" type="text" width="2pr" />
-      </wrd:entitylist>
-    </body>
-    <footer layout="right">
-      <line>
-        <button action="openaction" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
-      </line>
-    </footer>
-  </screen>
-
 </screens>
 

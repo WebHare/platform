@@ -779,11 +779,6 @@
       <text tid="type">Type</text>
       <text tid="wrd_tag">Tag</text>
     </textgroup>
-    <textgroup gid="openauthdomain">   <!-- samlauth.openauthdomain -->
-      <text tid="openauthdomain">Open authentication domain</text>
-      <text tid="wrd_tag">Tag</text>
-      <text tid="wrd_title">Title</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="schema" limitlanguages="en nl">   <!-- schema -->
     <textgroup gid="managetypes">   <!-- schema.managetypes -->

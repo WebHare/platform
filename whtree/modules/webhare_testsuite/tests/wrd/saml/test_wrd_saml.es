@@ -14,7 +14,7 @@ test.registerTests(
     }
 
   , { name: "Configure IDP - open SAMLauth for domain"
-    , loadpage: function() { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/domains=[0]/domains=[open]&language=en"; }
+    , loadpage: function() { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth&language=en"; }
     , waits: [ "ui" ]
     }
   , { name: "Configure IDP - open SAMLauth for domain"
@@ -46,7 +46,7 @@ test.registerTests(
     }
 
   , { name: "Configure SP - open SAMLauth for domain"
-    , loadpage: function() { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth/domains=[0]/domains=[open]&language=en"; }
+    , loadpage: function() { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth&language=en"; }
     , waits: [ "ui" ]
     }
   , { name: "Configure SP - open SAMLauth for domain"
@@ -173,7 +173,7 @@ test.registerTests(
   , "IdP initiated login"
   , async function()
     {
-      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/domains=[0]/domains=[open]/samlproviders=[0]/connectedproviders=[0]&language=en`);
+      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/samlproviders=[0]/connectedproviders=[0]&language=en`);
       await test.wait('ui');
       let newwin = await test.expectWindowOpen(() => test.clickToddButton('Login'));
       test.eq("submitinstruction", newwin.type);

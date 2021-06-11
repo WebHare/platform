@@ -19,52 +19,11 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE OpenAuthDomain EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
-  //
-  // Public properties & variables
-  //
-
-  OBJECT wrdschema;
-  PUBLIC PROPERTY sitetag(GetSiteTag, -);
-
-  // ---------------------------------------------------------------------------
-  //
-  // Init
-  //
-
-  MACRO Init(RECORD data)
-  {
-    this->wrdschema := data.wrdschema;
-    this->domains->wrdtype := data.wrdschema->GetType("WRD_AUTHDOMAIN");
-
-    IF (CellExists(data, "SITETAG"))
-      this->LoadScreen(".main", [ wrdschema := this->wrdschema, sitetag := data.sitetag ])->RunModal();
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Getters and setters
-  //
-
-  STRING FUNCTION GetSiteTag()
-  {
-    RETURN this->domains->wrdtype->GetEntity(this->domains->value)->GetField("WRD_TAG");
-  }
-
-  MACRO OpenSamlSettings()
-  {
-    this->RunScreen("#main", [ wrdschema := this->wrdschema, sitetag := this->sitetag ]);
-  }
->;
-
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
-
-  OBJECT wrdschema;
 
   OBJECT wrd_providerbase;
   OBJECT wrd_sp;
@@ -82,12 +41,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     RECORD connectparams;
-    this->wrdschema := data.wrdschema;
-    this->wrd_idp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_IDP");
-    this->wrd_sp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
-    this->wrd_providerbase := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE");
-    this->wrd_connectedproviders := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
-    OBJECT wrd_authdomain := this->wrdschema->GetType("wrd_authdomain");
+    this->wrd_idp := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_IDP");
+    this->wrd_sp := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+    this->wrd_providerbase := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE");
+    this->wrd_connectedproviders := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
+    OBJECT wrd_authdomain := this->contexts->wrdschema->GetType("wrd_authdomain");
 
     IF (NOT ObjectExists(wrd_authdomain))
     {
