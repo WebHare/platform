@@ -558,6 +558,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
     ELSE
     {
       STRING filename := GetStackTrace()[1].filename;
+      IF(NOT IsDtapLive())
+        THROW NEW Exception(filename || " invoked old dual-parameter version of LoadTabsExtension, please switch to absolute resource names");
+
       LogWarning("tollium", filename || " invoked old dual-parameter version of LoadTabsExtension, please switch to absolute resource names", [ filename := filename, call := "LoadTabsExtension" ]);
 
       resourcename := extension;
