@@ -1212,3 +1212,7 @@ body.singlecolumnmode div.remindercontent h2
     padding-right:0;
   }
 }
+
+@media (max-width: 628px) { #ut_cookie_warning_bar { padding : 0 0 70px 0}
+.wh-rtd-hash-lb9e33av4sk-8mu_l8v8jw .wh-rtd-editor-htmlnode.scheme1 .bg-cta-c70 { background-color: #91c8ed !important;}
+

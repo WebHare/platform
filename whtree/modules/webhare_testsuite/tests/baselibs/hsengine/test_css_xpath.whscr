@@ -62,6 +62,9 @@ MACRO TestQuerySelector()
   nodelist := dom->querySelectorAll(".glark");
   TestEq(0, nodeList->length);
 
+  OBJECT ARRAY bodychildren := dom->QuerySelectorAll("body > *")->GetCurrentElements();
+  TestEq(Length(bodychildren), Length(dom->body->ListChildren("*","*")));
+
   CloseTest("TestQuerySelector");
 }
 
