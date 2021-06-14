@@ -453,6 +453,11 @@ MACRO TestParserErrorHandling()
     "@media (max-width: 700px) { } @media handheld { .test2 { top: 0; } }",
     MakeCSSStyleSheet(StringToBlob(
       "@media (max-width: 700px) { }\n}\n@media handheld { .test2 { top: 0; }}"))->FormatCSS());
+
+  OBJECT badatrule := MakeCSSStyleSheet(StringToBlob("@unknown {} html { color: black; }"));
+  TestEq("@unknown { } html { color: black; }", badatrule->FormatCSS());
+  TestEq("", badatrule->FormatCSS([ include := "head" ]));
+  TestEq("@unknown { } html { color: black; }", badatrule->FormatCSS([ include := "body" ]));
 }
 
 MACRO TestAttributeSelectors()

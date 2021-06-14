@@ -479,6 +479,7 @@ PUBLIC STATIC OBJECTTYPE CSSRule
   //
 
   INTEGER FUNCTION GetThrow() { THROW NEW Exception("Getting the type of an abstract class"); }
+  INTEGER FUNCTION Get0() { RETURN 1; }
   INTEGER FUNCTION Get1() { RETURN 1; }
   INTEGER FUNCTION Get2() { RETURN 2; }
   INTEGER FUNCTION Get3() { RETURN 3; }
@@ -499,6 +500,8 @@ PUBLIC STATIC OBJECTTYPE CSSRule
   // Public properties
   //
 
+  // const unsigned short UNKNOWN_RULE = 0;
+  PUBLIC PROPERTY UNKNOWN_RULE(Get0, -);
   // const unsigned short STYLE_RULE = 1;
   PUBLIC PROPERTY STYLE_RULE(Get1, -);
   // const unsigned short CHARSET_RULE = 2;
@@ -617,6 +620,14 @@ PUBLIC STATIC OBJECTTYPE CSSUnknownAtRule EXTEND CSSRule
   //
 
   RECORD pvt_block;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties (spec)
+  //
+
+  /// Type: 0 (UNKNOWN_RULE)
+  UPDATE PUBLIC PROPERTY type(Get0,-);
 
   // ---------------------------------------------------------------------------
   //
