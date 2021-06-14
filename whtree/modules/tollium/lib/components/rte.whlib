@@ -105,7 +105,9 @@ RECORD FUNCTION GetCacheableCSSFile(STRING path, BLOB data)
   }
 
   RETURN [ ttl := 60 * 60 * 1000
-         , value := BlobToString(css->GetDocumentBlob(FALSE))
+         , value := [ head := css->FormatCSS([ include := "head" ])
+                    , body := css->FormatCSS([ include := "body" ])
+                    ]
          ];
 }
 
@@ -137,6 +139,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   RECORD ARRAY loadcss;
   STRING _usercss; //user/component added CSS code
+  RECORD _parsedusercss;
 
   // ---------------------------------------------------------------------------
   //
@@ -279,29 +282,36 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   MACRO SetUserCSS(STRING usercss)
   {
-    this->_usercss := GetCacheableCSSFile("", StringToBlob(usercss)).value;
+    this->_usercss := usercss;
+    this->_parsedusercss := usercss != "" ? GetCacheableCSSFile("", StringToBlob(usercss)).value : DEFAULT RECORD;
     this->RefreshCSS();
   }
 
   MACRO RefreshCSS()
   {
-    STRING finalcss;
-
     //TODO Ideally we would generate a consistent hash per CSS file, and learn Tollium to share this CSS file in a client over multiple RTD instances
     //TODO delay us to preshowcomponent in case user CSS gets added
+    STRING head;
+    STRING body;
+
     FOREVERY(RECORD file FROM this->loadcss)
     {
       RECORD fileinfo := RetrieveWebHareResource(file.path);
-      STRING barecss := GetAdhocCached( [ path := fileinfo.path, modified := fileinfo.modified ]
+      RECORD barecss := GetAdhocCached( [ path := fileinfo.path, modified := fileinfo.modified ]
                                       , PTR GetCacheableCSSFile(fileinfo.path, fileinfo.data)
                                       );
-      finalcss := finalcss || Substitute(barecss, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
+
+      head := head || barecss.head;
+      body := body || Substitute(barecss.body, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
     }
 
-    IF(this->_usercss != "")
-     finalcss := finalcss || Substitute(this->_usercss, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
+    IF(RecordExists(this->_parsedusercss))
+    {
+      head := head || this->_parsedusercss.head;
+      body := body || Substitute(this->_parsedusercss.body, "wh-rtd__stylescope_REWRITEME", this->cssinstance);
+    }
 
-    this->finalcssblob := StringToBlob(finalcss);
+    this->finalcssblob := StringToBlob(head || body);
   }
 
   UPDATE MACRO PreShowComponent()

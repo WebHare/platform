@@ -80,8 +80,7 @@ MACRO TestBaseRTDCSS(OBJECT cssom)
   TestEq("@unknown-rule url(\"../path/to/image7.png\");", cssom->cssrules->item(15)->csstext, "Should keep unknown rules as-is.");
   TestEq("@unknown-rule2 url(\"../path/to/image8.png\") { test: url(\"../path/to/image9.png\"); }", cssom->cssrules->item(16)->csstext, "Should keep unknown rules as-is.");
 
-  //FIXME
-  //TestEq(".widget-docblock ul li { padding-left: .7em; text-indent: -.7em;}", cssom->cssrules->item(14)->csstext);
+  TestEq(".widget-docblock ul li { padding-left: .7em; text-indent: -.7em; }", cssom->cssrules->item(14)->csstext);
 }
 
 MACRO TestCSSParser()
@@ -93,7 +92,7 @@ MACRO TestCSSParser()
   TestBaseRTDCSS(cssom);
 
   //serialize and retest
-  BLOB final := cssom->GetDocumentBlob(FALSE);
+  BLOB final := cssom->GetDocumentBlob(TRUE);
   OBJECT reparsed_cssom := MakeCSSStylesheet(final);
   TestBaseRTDCSS(reparsed_cssom);
 
@@ -142,11 +141,8 @@ MACRO TestCSSRTDRewrite()
   TestEq(".wh-rtd-HASH .someOtherElement", cssom->cssrules->item(9)->selectortext);
   TestEq("@import url(\"path/to/file4.css\");", cssom->cssrules->item(11)->csstext);
 
-  // FIXME: the last space before the } is eaten...
   TestEq(".wh-rtd-HASH .wh-rtd-editor-htmlnode p { font-size: 10pt; background-image: url(\"some/path/to/image1.png\"); }", cssom->cssrules->item(6)->cssrules->item(0)->csstext);
-
-  //FIXME
-  //TestEq(".wh-rtd-HASH .widget-docblock ul li { padding-left: .7em; text-indent: -.7em;}", cssom->cssrules->item(14)->csstext);
+  TestEq(".wh-rtd-HASH .widget-docblock ul li { padding-left: .7em; text-indent: -.7em; }", cssom->cssrules->item(14)->csstext);
 
   CloseTest("TestCSSRTDRewrite");
 }
@@ -224,7 +220,9 @@ MACRO TestLabMictaCSS()
   cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
   TestEq("@import url(\"//fast.fonts.net/cssapi/9b81d2a5-9c93-4c62-886f-6f5dd24d1fb1.css\");", cssom->cssrules->item(0)->csstext);
 
-  css := cssom->GetDocumentBlob(TRUE);
+  TestEq("@import url(\"//fast.fonts.net/cssapi/9b81d2a5-9c93-4c62-886f-6f5dd24d1fb1.css\");", cssom->FormatCSS([ include := "head" ]));
+  //sendblobto(0,cssom->GetDocumentBlob([ formatted := TRUE, include := "body" ]));
+  TestEqLike("/? Global page, HTML5 setup, style reset ?/.wh-rtd-HASH*", cssom->FormatCSS([ include := "body" ]));
 
   CloseTest("TestLabMictaCSS");
 }
@@ -253,14 +251,8 @@ MACRO TestCSSPrettyPrint()
   OpenTest("TestCSSPrettyPrint");
 
   TestEq("html\n{\n  margin: 0;\n}\n", BlobToString(RewriteCSS(StringToBlob("html{margin:0}"))));
-
   TestEqTextBlob(OpenTestFile("touchformattedout.css"), RewriteCSS(OpenTestFile("touch.css")));
-/* FOR OLFERT
-  TestEqTextBlob(StringToBlob("FIXME")
-                ,RewriteCSS(StringToBlob("@media (max-width: 628px) { #ut_cookie_warning_bar { padding : 0 0 70px 0}\n"
-                                         || ".wh-rtd-hash-lb9e33av4sk-8mu_l8v8jw .wh-rtd-editor-htmlnode.scheme1 .bg-cta-c70 { background-color: #91c8ed !important;}\n"))
-                );
-*/
+
   CloseTest("TestCSSPrettyPrint");
 }
 
@@ -411,7 +403,7 @@ MACRO TestIncompleteAtRule()
   OBJECT cssom := MakeCSSStyleSheet(StringToBlob(csstext));
 
   cssom->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
-  STRING out := BlobToString(cssom->GetDocumentBlob(TRUE));
+  STRING out := cssom->FormatCSS([ formatted := TRUE ]);
   TestEq(1, cssom->cssrules->length);// Should be one rule, if there are more some really important behaviour fell over bigtime...
   TestEq("}\n}\n", Substring(out, Length(out) - 4, 4), "The parser failed to fix an incomplete at-rule block\n" || out);
 
@@ -459,8 +451,8 @@ MACRO TestParserErrorHandling()
   // Extra '}' between parser rules, completely messed up parsing of second at-rule
   TestEQ(
     "@media (max-width: 700px) { } @media handheld { .test2 { top: 0; } }",
-    BlobToString(MakeCSSStyleSheet(StringToBlob(
-      "@media (max-width: 700px) { }\n}\n@media handheld { .test2 { top: 0; }}"))->GetDocumentBlob(FALSE)));
+    MakeCSSStyleSheet(StringToBlob(
+      "@media (max-width: 700px) { }\n}\n@media handheld { .test2 { top: 0; }}"))->FormatCSS());
 }
 
 MACRO TestAttributeSelectors()
