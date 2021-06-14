@@ -3966,7 +3966,7 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
 PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
 {
   IF(CellExists(querydata, 'OUTPUTCOLUMNS') OR CellExists(querydata, 'FILTER')) //This is obviosuly a forgotten type...
-      THROW NEW Exception(`Trying to execute a query on a WRD schemae without specifying the type (use wrdschema->^type->RunQuery)`);
+    THROW NEW Exception(`Trying to execute a query on a WRD schema without specifying the type (use wrdschema->^type->RunQuery)`);
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(querydata))
     IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER"])
