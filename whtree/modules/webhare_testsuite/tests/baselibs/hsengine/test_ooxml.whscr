@@ -56,7 +56,7 @@ MACRO TestXLSX_columnfiles()
   OBJECT sheet1xml2 := GetSheet1(output2.data);
 
   //Verify the \n was written as \r
-  OBJECT nodewithlinefeed := sheet1xml2->QuerySelector("//c[r=A3]");
+  OBJECT nodewithlinefeed := sheet1xml2->QuerySelector("c[r=A3]");
   TestEq("Tit&le 2\rnext line!",nodewithlinefeed->textcontent);
 
   OBJECT xlsxin := OpenOOXMLSpreadSheetFile(output2.data);

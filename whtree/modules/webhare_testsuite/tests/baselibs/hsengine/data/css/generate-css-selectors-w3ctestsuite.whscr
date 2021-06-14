@@ -1,0 +1,200 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::internal/css/tokenizer.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+
+RECORD ARRAY FUNCTION DownLoadTestPages()
+{
+  OBJECT browser := NEW WebBrowser;
+
+  STRING indexpage := "https://www.w3.org/Style/CSS/Test/CSS3/Selectors/current/html/static/flat/index.html";
+  IF (NOT browser->GotoWebPage(indexpage))
+    THROW NEW Exception(`Expected a list of test pages at ${indexpage}`);
+
+  OBJECT ARRAY links := browser->document->documentelement->GetElements("li > a");
+
+  RECORD ARRAY tests;
+
+  FOREVERY (OBJECT link FROM links)
+  {
+    PRINT(`Get page ${#link}/${LENGTH(links)}\r`);
+
+    STRING href := ResolveToAbsoluteURL(indexpage, link->GetAttribute("href"));
+    STRING title := link->textcontent;
+
+    IF (NOT browser->GotoWebpage(href))
+      THROW NEW Exception(`Could not retrieve test ${href}`);
+
+    //SendBlobTo(0, browser->content);
+
+    browser->document->QuerySelector("table.testDescription")->Remove();
+    STRING style := browser->document->QuerySelector("pre.rules")->textcontent;
+    browser->document->QuerySelector("pre.rules")->Remove();
+    STRING content := browser->document->QuerySelector("pre.rules")->textcontent;
+    browser->document->QuerySelector("pre.rules")->Remove();
+
+    //STRING body := TrimWhitespace(browser->document->QuerySelector("html > body")->innerHTML);
+
+    INSERT CELL[ content, style, title ] INTO tests AT END;
+  }
+  PRINT(`All pages retrieved\n`);
+
+  RETURN tests;
+}
+
+
+ASYNC FUNCTION EvaluateSelectorsByChrome(RECORD ARRAY data)
+{
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  RECORD session := AWAIT runner->CreateSession();
+  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := FALSE ]);
+  OBJECT conn := AWAIT connector->ConnectToSession(session);
+  OBJECT pageobj := NEW Page(conn);
+  OBJECT navwatcher := NEW NavigationWatcher(conn);
+  AWAIT pageobj->Init();
+
+  RECORD ARRAY newdata;
+
+  FOREVERY (RECORD rec FROM data)
+  {
+    PRINT(`Eval ${#rec}/${LENGTH(data)}\r`);
+
+    STRING ARRAY selectors := Tokenize(Trimwhitespace(rec.style), "\n");
+//    DumpValue(selectors);
+
+    STRING ARRAY finalselectors;
+
+    BOOLEAN inblockcomment;
+    FOREVERY (STRING sel FROM selectors)
+    {
+      IF (inblockcomment)
+      {
+        INTEGER pos := SearchSubString(sel, "*/");
+        IF (pos = -1)
+          CONTINUE;
+        sel := TrimWhitespace(SubString(sel, pos + 2));
+        inblockcomment := FALSE;
+      }
+
+      sel := Trimwhitespace(sel);
+      INTEGER bc := SearchSubString(sel, "/*");
+      IF (bc != -1)
+      {
+        sel := TrimWhitespace(left(sel, bc));
+        inblockcomment := TRUE;
+      }
+
+      IF (sel = "")
+        CONTINUE;
+
+      IF (sel NOT LIKE "*{*}")
+        ABORT(sel);
+
+      INSERT TrimWhitespace(Left(sel, SearchLastSubString(sel, "{"))) INTO finalselectors AT END;
+    }
+
+    AWAIT pageobj->Navigate("about:blank");
+    AWAIT pageobj->Evaluate(`document.body.innerHTML = ${EncodeJSON(rec.content)}`);
+
+//    DumpValue(finalselectors);
+    STRING ARRAY invalidselectors;
+    FOREVERY (STRING selector FROM finalselectors)
+    {
+      //PRINT("Run selector " || selector || "\n");
+      TRY
+      {
+        AWAIT pageobj->Evaluate(`() => Array.from(document.querySelectorAll(${EncodeJSON(selector)})).forEach(i => i.setAttribute("match-selector-${#selector}", "1"))`);
+      }
+      CATCH (OBJECT e)
+      {
+        PRINT("Invalid: " || selector || "\n");
+        INSERT selector INTO invalidselectors AT END;
+      }
+    }
+
+    //PRINT("Getting final document\n");
+    STRING selected := AWAIT pageobj->Evaluate(`document.documentElement.outerHTML`);
+    //PRINT("Selected:\n" || selected || "\n");
+
+    //PRINT("Parsed document\n");
+    OBJECT doc := MakeXMLDocument(StringToBlob(selected));
+
+    INSERT CELL
+        [ rec.title
+        , selectors :=    finalselectors
+        , invalidselectors
+        , content :=      BlobToString(doc->GetDocumentBlob(FALSE))
+        ] INTO newdata AT END;
+//    SendBlobTo(0, doc->GetDocumentBlob(FALSE));
+  }
+
+  PRINT(`All selectors evaluated by chrome\n`);
+  RETURN newdata;
+}
+
+OBJECT FUNCTION BuiltTestXML(RECORD ARRAY tests)
+{
+  RECORD ARRAY data := DecodeJSONBlob(GetDiskResource("/tmp/_1/css-selector-tests-2.json"));
+
+  STRING ns_cssselectortests := "http://www.webhare.net/xmlns/webhare_testsuite/css-selector-tests";
+
+  OBJECT doc := (NEW XMLDomImplementation)->CreateDocument(ns_cssselectortests, "css:csstests", DEFAULT OBJECT);
+  doc->documentelement->SetAttribute("xmlns:css", ns_cssselectortests);
+  FOREVERY (RECORD rec FROM data)
+  {
+    OBJECT test := doc->CreateElementNS(ns_cssselectortests, "css:test");
+    doc->documentelement->AppendChild(test);
+
+    OBJECT title := doc->CreateElementNS(ns_cssselectortests, "css:title");
+    title->textcontent := rec.title;
+    test->AppendChild(title);
+    OBJECT selectors := doc->CreateElementNS(ns_cssselectortests, "css:selectors");
+    test->AppendChild(selectors);
+    FOREVERY (STRING selector FROM rec.selectors)
+    {
+      OBJECT sel := doc->CreateElementNS(ns_cssselectortests, "css:selector");
+      sel->textcontent := selector;
+      IF (selector IN rec.invalidselectors)
+        sel->setAttribute("class", "invalid");
+      selectors->AppendChild(sel);
+    }
+    OBJECT content := doc->CreateElementNS(ns_cssselectortests, "css:testcontent");
+    test->AppendChild(content);
+
+    OBJECT cdoc := MakeXMLDocument(StringToBlob(rec.content));
+    content->AppendChild(doc->ImportNode(cdoc->documentelement, TRUE));
+  }
+
+  doc->NormalizeDocument();
+  RETURN doc;
+}
+
+GetWebHareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/css/css-selectors-w3ctestsuite.xml");
+
+RECORD ARRAY testpages := DownloadTestPages();
+RECORD ARRAY tests := WaitForPromise(EvaluateSelectorsByChrome(testpages));
+OBJECT doc := BuiltTestXML(tests);
+
+STRING diskpath := GetWebHareResourceDiskPath("mod::webhare_testsuite/tests/baselibs/hsengine/data/css/css-selectors-w3ctestsuite.xml");
+
+StoreDiskFile(diskpath, doc->GetDocumentBlob(TRUE), [ overwrite := TRUE ]);
+PRINT("Updated W3C CSS3 Selector testsuite tests\n");
+

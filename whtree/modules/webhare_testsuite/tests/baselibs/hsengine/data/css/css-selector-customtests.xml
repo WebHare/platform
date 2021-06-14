@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<css:csstests xmlns:css="http://www.webhare.net/xmlns/webhare_testsuite/css-selector-tests">
+  <css:test>
+    <css:title>Internal resolver test #1</css:title>
+    <css:description>Rules can be activated multiple times for the same node</css:description>
+    <css:selectors>
+      <css:selector>div span + span + span ~ strong</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <span />
+      <span />
+      <span />
+      <span />
+      <span />
+      <span />
+      <span />
+      <strong match-selector-0="1"/>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>Internal resolver test #2</css:title>
+    <css:description>Rules can be activated multiple times for the same level</css:description>
+    <css:selectors>
+      <css:selector>div > div > div span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <div>
+        <div>
+          <div>
+            <div>
+              <span match-selector-0="1" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>scoping test</css:title>
+    <css:description>Test if scoped queries don't return nodes outside the scope</css:description>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div selector-scope="1">
+      <span match-selector-0="1"/>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>scoping test</css:title>
+    <css:description>Test scope path implementation also works for ~ and + combinators</css:description>
+    <css:selectors>
+      <css:selector>.out1 ~ .out2 + div > span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div class="out1" />
+    <div class="out2" />
+    <div selector-scope="1">
+      <span match-selector-0="1"/>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>:scope</css:title>
+    <css:description>Test if :scope works</css:description>
+    <css:selectors>
+      <css:selector>:scope > span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div selector-scope="1">
+      <span match-selector-0="1">
+        <span />
+      </span>
+    </div>
+    <div>
+      <span />
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>match</css:title>
+    <css:description>Test if match works #1</css:description>
+    <css:mode>match</css:mode>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span>
+      <span selector-scope="1" match-selector-0="1" />
+      <span />
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>match</css:title>
+    <css:description>Test if match works #2</css:description>
+    <css:mode>match</css:mode>
+    <css:selectors>
+      <css:selector>span.match-outside</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="match-outside">
+      <span selector-scope="1">
+        <span class="match-outside" />
+      </span>
+      <span />
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #1</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span>
+      <span>
+        <span selector-scope="1" match-selector-0="1"/>
+        <span />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #2</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span.closest-outside</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="closest-outside">
+      <span class="closest-outside" match-selector-0="1">
+        <span selector-scope="1">
+          <span class="closest-outside" />
+        </span>
+        <span class="closest-outside" />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+  <css:test>
+    <css:title>closest</css:title>
+    <css:description>Test if closest works #2</css:description>
+    <css:mode>closest</css:mode>
+    <css:selectors>
+      <css:selector>span.fail</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <span class="closest-outside">
+      <span class="closest-outside">
+        <span selector-scope="1" />
+        <span />
+      </span>
+    </span>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>HTML document case insensitive attribute name matches</css:title>
+    <css:description>In HTML attribute name matching is case insensitive</css:description>
+    <css:selectors>
+      <css:selector>a[link]</css:selector>
+      <css:selector>a[Link]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <a link="1" match-selector-0="1" match-selector-1="1" />
+    <a Link="1" match-selector-0="1" match-selector-1="1" />
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document case sensitive tag name matches</css:title>
+    <css:description>In XML tag name matching is case sensitive</css:description>
+    <css:selectors>
+      <css:selector>a</css:selector>
+      <css:selector>A</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <a match-selector-0="1" />
+  <A match-selector-1="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document case sensitive attribute name matches</css:title>
+    <css:description>In XML attribute name matching is case sensitive</css:description>
+    <css:selectors>
+      <css:selector>a[link]</css:selector>
+      <css:selector>a[Link]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <a link="1" match-selector-0="1" />
+  <a Link="1" match-selector-1="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>XML document attribute wildcard namespace</css:title>
+    <css:description>Test if the attribute matching wildcard matches</css:description>
+    <css:selectors>
+      <css:selector>[link]</css:selector>
+      <css:selector>[*|link]</css:selector>
+      <css:selector>[*|data="a"]</css:selector>
+      <css:selector>[*|data="b"]</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<xmltest xmlns:ns="http://example.com">
+  <b link="A" match-selector-0="1" match-selector-1="1" />
+  <b ns:link="a" match-selector-1="1" />
+  <b data="a" ns:data="b" match-selector-2="1" match-selector-3="1" />
+</xmltest>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>A possible selector types on the same element</css:title>
+    <css:description>Test if parsing them leaves a good state for the next one</css:description>
+    <css:selectors>
+      <css:selector>div#id1.a.b[c][d~=en]:nth-of-type(1):empty:not(.d)</css:selector>
+      <css:selector>div#id2.a.b[c][d~=en]:nth-of-type(1):empty:not(.d)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div id="id1" class="a b d" c="1" d="nl-en" />
+    <div id="id2" class="a b" c="1" d="nl-en" match-selector-2="1" />
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+</css:csstests>

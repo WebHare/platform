@@ -458,6 +458,21 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
 //    this->inAtRule := FALSE;
   }
 
+  /** Get current token
+      @return Current token
+      @cell(string) return.type Token type. One of
+        "#", ",", "at-rule", "bad-url", "dash-match", "delim", "dimension", "function", "ident",
+        "include-match", "number", "parsed-function", "parsed-simpleblock", "percentage",
+        "prefix-match", "string", "substring-match", "suffix-match", "url", "ws", "ws-comment",
+      @cell(string) return.value Token value
+      @cell(string) return.valuetype Type of token value
+      @cell(integer) return.numbervalue Numeric value
+      @cell(string array) return.arguments List of arguments
+      @cell return.unit Unit
+      @cell(integer) return.startpos Start position of token
+      @cell(integer) return.length Length of token
+      @cell(string) return.csstext Parsed token text
+  */
   PUBLIC RECORD FUNCTION GetToken()
   {
     RETURN [ type :=        this->type
@@ -570,6 +585,7 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
             PRINT("[TOKENIZER] Ended an @import rule;\n");
         }*/
         this->type := this->strp->current;
+        this->value := this->strp->current;
         this->strp->Next();
       }
       CASE '(', '[', '{'
@@ -578,6 +594,7 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
 //        IF(this->verbose)
 //          PRINT("[TOKENIZER] Encountered token '" || this->strp->current || " on line " || this->line || " (at " || (this->startpos - this->linestart) || "), increased block depth to " || this->blockdepth || ";\n");
         this->type := this->strp->current;
+        this->value := this->strp->current;
 /*        IF(this->inAtRule AND this->token = "{" AND NOT this->inRuleGroup)
         {
           this->ruleBlockStartDepth := this->blockdepth - 1;
@@ -593,6 +610,7 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
 //        IF(this->verbose)
 //          PRINT("[TOKENIZER] Encountered token '" || this->strp->current || "' on line " || this->line || " (at " || (this->startpos - this->linestart) || "), decreased block depth to " || this->blockdepth || ";\n");
         this->type := this->strp->current;
+        this->value := this->strp->current;
 /*        IF(this->inRuleGroup AND this->token = "}" AND this->blockdepth = this->ruleBlockStartDepth)
         {
           this->inRuleGroup := FALSE;
@@ -620,11 +638,9 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
         ELSE IF(this->strp->PeekN(1) != "\n")
         {
           //Handle an escape;
-          this->type := this->strp->current;
-          this->ReconsumeToken();
           this->type := "ident";
           this->strp->Next(); // consume the '\'
-          this->value := this->ConsumeEscapedCodePoint();
+          this->GetIdentLikeToken(this->ConsumeEscapedCodePoint());
         }
       }
       CASE '/'
@@ -828,7 +844,6 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
         IF(ToInteger(this->strp->PeekN(1), -1) IN [1,2,3,4,5,6,7,8,9,0])//Numeric?
         {
           //Parse a numeric token:
-          this->ReConsumeToken();
           this->GetNumericToken();
         }
         ELSE
@@ -889,10 +904,10 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
     }
   }
 
-  MACRO GetIdentLikeToken() // Reconsume the current input code point, consume a numeric token, and return it.
+  MACRO GetIdentLikeToken(STRING reconsume DEFAULTSTO "") // Reconsume the current input code point, consume a numeric token, and return it.
   {
 //    PRINT("GetIdentLikeToken " || this->strp->remaining_data || "\n");
-    STRING name := this->ConsumeName();
+    STRING name := this->ConsumeName(reconsume);
     IF(this->strp->current = "(")
     {
       //If the returned string’s value is an ASCII case-insensitive match for "url", and the next input code point is U+0028 LEFT PARENTHESIS ((), consume it. Consume a url token, and return it.
@@ -1249,9 +1264,9 @@ Append the current input code point to the <string-token>’s value.
            ];
   }
 
-  STRING FUNCTION ConsumeName()
+  STRING FUNCTION ConsumeName(STRING reconsume DEFAULTSTO "")
   {
-    STRING result;
+    STRING result := reconsume;
     WHILE(TRUE)
     {
       IF(this->IsNameCodePoint(this->strp->current))
@@ -1269,6 +1284,7 @@ Append the current input code point to the <string-token>’s value.
         ELSE
         {
           // Consume an escaped code point. Append the returned code point to result.
+          this->strp->Next(); // eat the \
           result := result || this->ConsumeEscapedCodePoint();
           CONTINUE;
         }

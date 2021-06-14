@@ -1585,6 +1585,16 @@ MACRO TestQuerySelectors()
   OBJECT firstlink := footernav->QuerySelector("a");
   Testeq("Terms & conditions", firstlink->textcontent);
 
+  TestEQ(TRUE, dom->QuerySelector("#road")->Matches("#road"));
+  TestEQ(FALSE, dom->QuerySelector("#road")->Matches("#roadviewarea"));
+  TestEQ(FALSE, dom->QuerySelector("#road")->Matches("#background"));
+  TestEQ(TRUE, dom->QuerySelector("body")->Matches("html head + body"));
+
+  TestEQ(TRUE, dom->QuerySelector("#road")->IsSameNode(dom->QuerySelector("#road")->Closest("#road")));
+  TestEQ(TRUE, dom->QuerySelector("#background")->IsSameNode(dom->QuerySelector("#road")->Closest("#background")));
+  TestEQ(TRUE, dom->QuerySelector("body")->IsSameNode(dom->QuerySelector("#road")->Closest("html head + body")));
+  TestEQ(DEFAULT OBJECT, dom->QuerySelector("#road")->Closest("#roadviewarea"));
+
   CloseTest("TestQuerySelectors");
 }
 

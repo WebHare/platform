@@ -3,6 +3,7 @@
 */
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/xml.whlib" EXPORT XmlNodeList, XMLAttr, XmlDOMException;
+LOADLIB "wh::internal/css/support.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::money.whlib";
@@ -696,40 +697,24 @@ PUBLIC STATIC OBJECTTYPE XmlNode
     RETURN "";
   }
 
-  OBJECT FUNCTION __DoQuerySelector(STRING selectors)
-  {
-    OBJECT xpath := (this->ownerdocument ?? this)->CreateXPathQuery();
-    STRING query := RewriteCSSSelectorToXpath(selectors);
-    IF(ObjectExists(this->ownerdocument)) //we're a child query
-      query := "." || query;
-
-    TRY
-    {
-      RETURN xpath->ExecuteQuery(query, this);
-    }
-    CATCH(OBJECT e)
-    {
-      THROW NEW Exception(`Failed to execute CSS selector '${selectors}' translated to XPath '${query}': ${e->what}`);
-    }
-  }
   PUBLIC OBJECT FUNCTION QuerySelector(STRING selectors)
   {
-    RETURN this->__DoQuerySelector(selectors)->Item(0);
+    RETURN this->GetElement(selectors);
   }
 
   PUBLIC OBJECT FUNCTION QuerySelectorAll(STRING selectors)
   {
-    RETURN NEW StaticXmlNodeList(this->__DoQuerySelector(selectors), OBJECT[]);
+    RETURN NEW StaticXmlNodeList(DEFAULT OBJECT, this->GetElements(selectors));
   }
 
   PUBLIC OBJECT FUNCTION GetElement(STRING selectors)
   {
-    RETURN this->QuerySelector(selectors);
+    RETURN PickFirst(EvaluateSelectors(this->ownerdocument ?? this, this->nodetype = 1 ? this : DEFAULT OBJECT, selectors, "qS"));
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GetElements(STRING selectors)
   {
-    RETURN this->__DoQuerySelector(selectors)->GetCurrentElements();
+    RETURN EvaluateSelectors(this->ownerdocument ?? this, this->nodetype = 1 ? this : DEFAULT OBJECT, selectors, "qSA");
   }
 
   /** Inject this node */
@@ -1160,8 +1145,10 @@ PUBLIC OBJECTTYPE XmlDocument EXTEND XmlNode //can't make this static, as we can
 >;
 
 /// http://www.w3.org/TR/DOM-Level-2-HTML/html.html#ID-26809268
-PUBLIC OBJECTTYPE HTMLDocument //can't be static, we're manually extended onto a XMLDocument
-<
+PUBLIC STATIC OBJECTTYPE HTMLDocument EXTEND XMLDocument
+< /// To identify HTML documents in CSS selector engine
+  RECORD __is_html_document;
+
   UPDATE PUBLIC OBJECT FUNCTION GetElementById(STRING elementid)
   {
     RETURN PickFirst(ExecuteSimpleXpathQuery(this, `//*[@id='${EncodeJava(elementid)}']`));
@@ -2149,6 +2136,25 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
     }
     NormalizeNamespacesInternal(this, DEFAULT RECORD ARRAY, defaultnamespace, 0);
   }
+
+  /** Returns TRUE if the current node matches a CSS selector
+      @param selector Comma-separated selectors to match
+      @return TRUE if the node matches
+  */
+  PUBLIC BOOLEAN FUNCTION Matches(STRING selector)
+  {
+    RETURN IsValueSet(EvaluateSelectors(this->ownerdocument, this, selector, "match"));
+  }
+
+  /** Traverses the element and its parents until the document root, and returns the first
+      element that matches the specified selectors.
+      @param selector Comma-separated selectors to match
+      @return The first matching node (or DEFAULT OBJECT if none was found)
+  */
+  PUBLIC OBJECT FUNCTION Closest(STRING selector)
+  {
+    RETURN PickFirst(EvaluateSelectors(this->ownerdocument, this, selector, "closest"));
+  }
 >;
 
 
@@ -2318,8 +2324,7 @@ PUBLIC OBJECT FUNCTION __CreateXmlDocumentObject()
 }
 PUBLIC OBJECT FUNCTION __CREATEHTMLDOCUMENTOBJECT()
 {
-  OBJECT doc := NEW XmlDocument;
-  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(doc) BY HTMLDocument;
+  OBJECT doc := NEW HTMLDocument;
   RETURN doc;
 }
 
@@ -2452,6 +2457,5 @@ PUBLIC OBJECT FUNCTION MakeXMLDocumentFromHTML(BLOB xmlfile, STRING encoding DEF
   OBJECT doc := __MakeXMLDocumentFromHTML(xmlfile, encoding, readonly, noimplied);
   IF(NOT ObjectExists(doc) OR NOT ObjectExists(doc->documentelement)) //work around cornercases in html parser..
     doc := __MakeXMLDocumentFromHTML(StringToBlob(" "), encoding, readonly, noimplied);
-  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(doc) BY HTMLDocument;
   RETURN doc;
 }

@@ -1,40 +1,15 @@
 ﻿<?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/css/support.whlib";
+LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-MACRO TestCSSRuleXPath()
-{
-  OpenTest("TestCSSRuleXPath");
-
-  TestEq("//*[local-name()='FOO']", RewriteCSSSelectorToXpath("FOO"));
-  TestEq("//*[@id='test']", RewriteCSSSelectorToXpath("#test"));
-
-  // FIXME fails:  TestEq("//*[@id='test']", RewriteSelectorToXpath("#test:not(FOO)"));
-  // FIXME fails:  TestEq("//*[@a='1']", RewriteCSSSelectorToXpath("[a=1]"));
-
-  BLOB htmlfile := OpenTestFile("corporate.html");
-  OBJECT dom := MakeXMLDocumentFromHTML(htmlfile);
-  BLOB css := StringToBlob(dom->GetElementsByTagName('style')->textcontent);
-  OBJECT cssom := MakeCSSStyleSheet(css);
-
-  TestEq("//*[local-name()='body']|//*[local-name()='p']|//*[local-name()='span']|//*[local-name()='a']", cssom->cssrules->item(0)->__XPathQuery);
-  TestEq("//*[local-name()='td']|//*[local-name()='th']", cssom->cssrules->item(23)->__XPathQuery);
-  TestEq("//*[contains(concat(' ',@class,' '),' maintable ')]", cssom->cssrules->item(31)->__XPathQuery);
-  TestEq("//*[contains(concat(' ',@class,' '),' agenda ')]", cssom->cssrules->item(33)->__XPathQuery);
-  //*[contains(concat(\' \',@class,\' \'),\' footertable \')]//a[contains(concat(\' \',@class,\' \'),\' u \')]nsubscribelink
-  TestEq("//*[contains(concat(' ',@class,' '),' footertable ')]//*[local-name()='a'][contains(concat(' ',@class,' '),' unsubscribelink ')]", cssom->cssrules->item(40)->__XPathQuery);
-  TestEq("//*[contains(concat(' ',@class,' '),' introtext ')]", cssom->cssrules->item(43)->__XPathQuery);
-
-  TestEq("//*[local-name()='td'][not(@class)]", cssom->cssrules->item(53)->__XPathQuery);
-  TestEq("//*[local-name()='td'][not(@align='left')]", cssom->cssrules->item(54)->__XPathQuery);
-
-  CloseTest("TestCSSRuleXPath");
-}
 
 MACRO TestDomStyleRewriter()
 {
@@ -61,7 +36,6 @@ MACRO TestDomStyleRewriter()
   htmlblob := rewriter->GenerateHTML(dom);
 
   TestEqTextBlob(htmlblob, newhtmlblob);
-  //PRINT(cssom->cssrules->item(8)->__XPathQuery || "\n");
   OBJECT node := dom->QuerySelector("body.scheme1 .schemecolor");
   TestEQ("testlink", node->GetAttribute("id"));
 
@@ -115,9 +89,9 @@ MACRO TestRewriterPrecedence()
   CloseTest("TestRewriterPrecedence");
 }
 
-MACRO TestComplexCSSRuleXPath()
+MACRO TestComplexCSSRule()
 {
-  OpenTest("TestComplexCSSRuleXPath");
+  OpenTest("TestComplexCSSRule");
 
   BLOB cssfile := StringToBlob(
     "html, body { margin: 0; padding: 0; }\n"
@@ -147,102 +121,28 @@ MACRO TestComplexCSSRuleXPath()
   OBJECT dom;
   dom := MakeXMLDocumentFromHTML(htmlfile);
 
-  TestEq("/*[local-name()='html']|//*[local-name()='body']", cssom->cssrules->item(0)->__XPathQuery);
   TestEq("margin: 0; padding: 0;", cssom->cssrules->item(0)->__DeclarationString);
-
-  TestEq("//*[contains(concat(' ',@class,' '),' logoarea ')][1]", cssom->cssrules->item(1)->__XPathQuery);
   TestEq("border: 1px solid #FF0000;", cssom->cssrules->item(1)->__DeclarationString);
-
-  TestEq("//*[0][contains(concat(' ',@class,' '),' pathbar ')][@border='0']", cssom->cssrules->item(2)->__XPathQuery);
   TestEq("margin: 5px;", cssom->cssrules->item(2)->__DeclarationString);
-
-  TestEq("", cssom->cssrules->item(3)->__XPathQuery);
   TestEq("border: 1px solid red;", cssom->cssrules->item(3)->__DeclarationString);
-
-  TestEq("//*[local-name()='div']/*[local-name()='a'][contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(4)->__XPathQuery);
   TestEq("display: none;", cssom->cssrules->item(4)->__DeclarationString);
-
-  TestEq("//*"||"/a[contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(5)->__XPathQuery);
   TestEq("display: none;", cssom->cssrules->item(5)->__DeclarationString);
-
-  TestEq("//*"||"/a[contains(concat(' ',@class,' '),' whatever ')]", cssom->cssrules->item(6)->__XPathQuery);
   TestEq("display: none;", cssom->cssrules->item(6)->__DeclarationString);
-
-  TestEq("//*[@id='someid']//*[local-name()='ul']/*[local-name()='li'][last()-2]", cssom->cssrules->item(7)->__XPathQuery);
   TestEq("text-decoration: none;", cssom->cssrules->item(7)->__DeclarationString);
-
-  TestEq("//*[local-name()='span']/following-sibling::img[@src='image.jpg']", cssom->cssrules->item(8)->__XPathQuery);
   TestEq("background-color: #000;", cssom->cssrules->item(8)->__DeclarationString);
-
-  TestEq("//*[local-name()='span']/following-sibling::*[1][local-name()='img'][count(*)=0]", cssom->cssrules->item(9)->__XPathQuery);
   TestEq("border: 1px solid fuchsia;", cssom->cssrules->item(9)->__DeclarationString);
-
-  TestEq("//*[local-name()='th']/following-sibling::td/*[local-name()='span'][contains(concat(' ',@class,' '),' iconContainer ')][1][count(*)=0]", cssom->cssrules->item(10)->__XPathQuery);
   TestEq("display: none !important;", cssom->cssrules->item(10)->__DeclarationString);
-
-  TestEq("//*[local-name()='div'][contains(concat(' ',@class,' '),' window ')]", cssom->cssrules->item(11)->__XPathQuery);
   TestEq("background-image: url(\"path/to/image.png\");", cssom->cssrules->item(11)->__DeclarationString);
-
-  TestEq("//*[local-name()='div']", cssom->cssrules->item(12)->__XPathQuery);
   TestEq("border: none;", cssom->cssrules->item(12)->__DeclarationString);
-
-  TestEq("//*[local-name()='body']//*[local-name()='div']", cssom->cssrules->item(13)->__XPathQuery);
   TestEq("border: none;", cssom->cssrules->item(13)->__DeclarationString);
-
-  TestEq("//*[local-name()='body']:div", cssom->cssrules->item(14)->__XPathQuery);
   TestEq("border: none;", cssom->cssrules->item(14)->__DeclarationString);
-
-  TestEq("//*[@src]|//*[@href]", cssom->cssrules->item(15)->__XPathQuery);
   TestEq("display: block;", cssom->cssrules->item(15)->__DeclarationString);
-
-  TestEq("//*[contains(concat(' ',@class,' '),' type-cta ')]/*[local-name()='tr']/*[local-name()='td']", cssom->cssrules->item(16)->__XPathQuery);
   TestEq("color: ugly;", cssom->cssrules->item(16)->__DeclarationString);
-
-  TestEq("//*[contains(concat(' ',@class,' '),' type-cta ')]//*[local-name()='tr'][1]//*[local-name()='td'][1]", cssom->cssrules->item(17)->__XPathQuery);
   TestEq("display: none;", cssom->cssrules->item(17)->__DeclarationString);
-
-  TestEq("//*[@data-whatever]", cssom->cssrules->item(18)->__XPathQuery);
   TestEq("font-size: 1pt;", cssom->cssrules->item(18)->__DeclarationString);
-
-  /* Issue #433  TestEq("//*[local-name()='html']//*", cssom->cssrules->item(19)->__XPathQuery);*/
   TestEq("font-size: 2pt;", cssom->cssrules->item(19)->__DeclarationString);
 
-  CloseTest("TestComplexCSSRuleXPath");
-}
-
-MACRO TestCommaBehaviour()
-{
-  OpenTest("TestCommaBehaviour");
-
-  BLOB css := StringToBlob("  .type-news\n"
-                           || ", .type-news-noimages\n"
-                           || "{\n"
-                           || "  background-color: #f5faff;\n"
-                           || "}\n"
-                           || "  .wh-rtd ul\n"
-                           || ", .wh-rtd li\n"
-                           || "{\n"
-                           || " color: #ffffff;\n"
-                           || "}\n"
-                           || "  .type-news,\n"
-                           || "  .type-news-noimages\n"
-                           || "{\n"
-                           || "  background-color: #f5faff;\n"
-                           || "}\n"
-                           || "  .wh-rtd ul,\n"
-                           || "  .wh-rtd li\n"
-                           || "{\n"
-                           || " color: #ffffff;\n"
-                           || "}\n"                          );
-  OBJECT cssom := MakeCSSStylesheet(css);
-
-  TestEq("//*[contains(concat(' ',@class,' '),' type-news ')]|//*[contains(concat(' ',@class,' '),' type-news-noimages ')]", cssom->cssrules->item(0)->__XPathQuery);
-  TestEq("//*[contains(concat(' ',@class,' '),' type-news ')]|//*[contains(concat(' ',@class,' '),' type-news-noimages ')]", cssom->cssrules->item(2)->__XPathQuery);
-
-  TestEq("//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='ul']|//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='li']", cssom->cssrules->item(1)->__XPathQuery);
-  TestEq("//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='ul']|//*[contains(concat(' ',@class,' '),' wh-rtd ')]//*[local-name()='li']", cssom->cssrules->item(3)->__XPathQuery);
-
-  CloseTest("TestCommaBehaviour");
+  CloseTest("TestComplexCSSRule");
 }
 
 INTEGER FUNCTION GetFirstSelectorSpecificity(OBJECT rule)
@@ -346,23 +246,163 @@ MACRO TestRewriteDomStyles()
   TestEqLike("*font:*font-weight:*", shouldbebold->GetAttribute("style"));
 }
 
-MACRO TestXPATHComparators()
+
+STRING ARRAY FUNCTION GetNodeTexts(OBJECT ARRAY nodes)
 {
-  TestEq("//*[local-name()='a'][@href='http://example.org/']", RewriteCSSSelectorToXpath("a[href='http://example.org/']"));
-  TestEq("//*[local-name()='a'][contains(concat(' ',@href,' '),'http://example.org/')]", RewriteCSSSelectorToXpath("a[href~='http://example.org/']"));
-  TestEq("//*[local-name()='a'][ends-with(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href$='http://example.org/']"));
-  TestEq("//*[local-name()='a'][starts-with(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href^='http://example.org/']"));
-  TestEq("//*[local-name()='a'][contains(@href,'http://example.org/')]", RewriteCSSSelectorToXpath("a[href*='http://example.org/']"));
+  RETURN SELECT AS STRING ARRAY node->textcontent FROM ToRecordArray(nodes, "node");
+}
+
+RECORD ARRAY FUNCTION ParseTestXML(STRING resource)
+{
+  OBJECT testdoc := MakeXMLDocument(OpenTestFile(resource));
+  IF (RecordExists(testdoc->GetParseErrors()))
+    ABORT(testdoc->GetParseErrors());
+
+  RECORD ARRAY data;
+  FOREVERY (OBJECT test FROM testdoc->GetElements("test"))
+  {
+    RECORD rec :=
+        [ title :=            test->GetElement("title")->textcontent
+        , selectors :=        GetNodeTexts(test->GetElements("selectors > selector"))
+        , invalidselectors := GetNodeTexts(test->GetElements("selectors > selector.invalid"))
+        , content :=          test->GetElement("testcontent")->innerXML
+        , mode :=             (ObjectExists(test->GetElement("mode")) ? test->GetElement("mode")->textcontent : "") ?? "qSA"
+        ];
+
+    INSERT rec INTO data AT END;
+  }
+
+  IF (LENGTH(data) = 0)
+    THROW NEW Exception(`Could not parse css test xml`);
+
+  RETURN data;
+}
+
+MACRO DumpXMLTree(OBJECT node, OBJECT ARRAY expect, OBJECT ARRAY got, INTEGER indent DEFAULTSTO 0)
+{
+  WHILE (ObjectExists(node))
+  {
+    BOOLEAN isexpected, isgotten;
+    FOREVERY (OBJECT o FROM expect)
+      IF (node->IsSameNode(o))
+        isexpected := TRUE;
+    FOREVERY (OBJECT o FROM got)
+      IF (node->IsSameNode(o))
+        isgotten := TRUE;
+
+    PRINT(`${RepeatText("  ", indent)}<${node->nodename}${node->HasAttribute("class") ? ` class="${EncodeValue(node->GetAttribute("class"))}"` : ""}>${isexpected = isgotten ? "" : isgotten ? " <!-- returned unexpectedly -->" : " <!-- not returned while expected -->"}\n`);
+    IF (ObjectExists(node->firstelementchild))
+      DumpXMLTree(node->firstelementchild, expect, got, indent + 2);
+    PRINT(`${RepeatText("  ", indent)}<${node->nodename}/>\n`);
+    node := node->nextelementsibling;
+  }
+}
+
+MACRO RunSelectorTests(RECORD ARRAY data)
+{
+  FOREVERY (RECORD rec FROM data)
+  {
+    OBJECT doc := MakeXMLDocument(StringToBlob(rec.content));
+    IF (RecordExists(doc->GetParseErrors()))
+    {
+      DumpValue(doc->GetParseErrors());
+      ABORT(`Parse errors for content of test ${rec.title}`);
+    }
+    IF (NOT ObjectExists(doc))
+      ABORT(rec);
+
+    // open HTML documents as HTML
+    IF (doc->documentelement->nodename = "html")
+    {
+      OBJECT rewriter := NEW HtmlRewriterContext;
+      BLOB htmlblob := rewriter->GenerateHTML(doc);
+      doc := MakeXMLDocumentFromHTML(htmlblob);
+    }
+
+    IF (rec.title IN STRING
+          [ ""
+//          , ":empty pseudo-class and XML/SGML constructs"
+          ])
+    {
+      CONTINUE;
+    }
+
+    FOREVERY (STRING sel FROM rec.selectors)
+    {
+      //PRINT(`Test selector: ${sel}\n`);
+      IF (__MatchesAnyMask(sel,
+          [ "*:link*"
+          , "*:visited*"
+          , "*:lang*"
+          , "*:target*"
+          , "*:enabled*"
+          , "*:disabled*"
+          , "*:checked*"
+          , "*:first-line*"
+          , "*:first-letter*"
+          , "*:before*"
+          , "*:after*"
+          ]))
+      {
+        //PRINT(` ignoring unsupported selector: ${sel}\n`);
+        CONTINUE;
+      }
+
+      OBJECT ARRAY expect := doc->GetElements(`[match-selector-${#sel}]`);
+      OBJECT scope := doc->GetElement(`[selector-scope]`);
+
+      OBJECT ARRAY got;
+      BOOLEAN ismatch := TRUE;
+      STRING err;
+      TRY
+         got := EvaluateSelectors(doc, scope, sel, rec.mode);
+      CATCH (OBJECT e)
+      {
+        ismatch := FALSE;
+        err := e->what;
+      }
+      ismatch := ismatch = (sel NOT IN rec.invalidselectors);
+
+      ismatch := ismatch AND LENGTH(expect) = LENGTH(got);
+      IF (ismatch)
+      {
+        FOREVERY (OBJECT o FROM expect)
+          IF (NOT got[#o]->IsSameNode(o))
+            ismatch := FALSE;
+      }
+      IF (NOT ismatch)
+      {
+        PRINT(`Failed selector: ${sel}\n`);
+
+        IF (err != "")
+          PRINT(`  Error: ${err}\n`);
+        PRINT(`Selectors in test:\n`);
+        DumpValue(rec.selectors);
+        PRINT("Document:\n");
+        SendBlobTo(0, doc->GetDocumentBlob(TRUE));
+        PRINT("Selection tree:\n");
+        DumpXMLTree(doc->documentelement, expect, got);
+        ABORT("X");
+      }
+    }
+  }
+}
+
+MACRO TestCSSSelectorEngine()
+{
+  RECORD ARRAY w3c_testsuite := ParseTestXML("css/css-selectors-w3ctestsuite.xml");
+  RunSelectorTests(w3c_testsuite);
+
+  RECORD ARRAY customtests := ParseTestXML("css/css-selector-customtests.xml");
+  RunSelectorTests(customtests);
 }
 
 PRINT("\n === Running TestCSS_XPath\n");
-TestCSSRuleXPath();
-TestCommaBehaviour();
-TestComplexCSSRuleXPath();
+TestCSSSelectorEngine();
+TestComplexCSSRule();
 TestCSSRuleXpathNamespaced();
 TestQuerySelector();
 TestDomStyleRewriter();
 TestRewriterPrecedence();
 TestCSSSpecificity();
 TestRewriteDomStyles();
-TestXPATHComparators();

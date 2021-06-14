@@ -79,6 +79,7 @@ MACRO TestOpenHTML()
   doc := MakeXMLDocumentFromHTML(xmlblob,"UTF-8",FALSE,TRUE);
   TestEq(1,doc->firstchild->nodetype);
   TestEq("<i>test</i>", doc->outerhtml);
+  TestEQ(TRUE, MemberExists(doc->documentelement->ownerdocument, "GetElementById"));
 
   CloseTest("TestOpenHTML");
 }

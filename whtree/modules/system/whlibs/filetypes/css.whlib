@@ -775,16 +775,6 @@ PUBLIC STATIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/
   }
 */
 
-  /**
-  *  Harescript extension: Parses the CSS prelude (the selector text) into an XPath query which can then be run on a DOM object.
-  *  Note: This parser is completely self-contained, but it DOES rely on the existence of a prelude (which is CSSTokenizer output);
-  *        keep that in mind if you plan to port it to another library: IT WILL BREAK!
-  */
-  STRING FUNCTION GetXPathQuery()
-  {
-    RETURN GetXpathForPrelude(this->pvt_prelude);
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Helper functions
@@ -849,8 +839,6 @@ PUBLIC STATIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/
     RETURN [ selector, block_start ] CONCAT decls CONCAT [ block_end ];
   }
 
-  /// Returns an XPath query that matches the same nodes as the selector of this rule
-  PUBLIC PROPERTY __XPathQuery(GetXPathQuery, -);
   PUBLIC PROPERTY __DeclarationString(this->pvt_style->csstext, -);
 
   PUBLIC RECORD ARRAY FUNCTION __GetSelectors()
@@ -1787,7 +1775,6 @@ PUBLIC STATIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
     MACRO PTR onrewrite := CellExists(options,'onrewrite') AND options.onrewrite != DEFAULT MACRO PTR ? options.onrewrite : DEFAULT MACRO PTR;
     //our own rewriter expects the ordering to be reversed
     BOOLEAN mostspecificfirst := onrewrite = DEFAULT MACRO PTR OR (CellExists(options,'mostspecificfirst') AND options.mostspecificfirst);
-    OBJECT query := dom->CreateXPathQuery();
     INTEGER ARRAY removeafter;
 
     //Figure out the rules to apply. We'll need to split them by selector and determine each's selectivity
@@ -1816,26 +1803,24 @@ PUBLIC STATIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
 
     FOREVERY(RECORD rule FROM splitapplyrules)
     {
-      STRING XPath := GetXpathForPrelude(rule.selector.prelude);
-      OBJECT nodelist;
+      OBJECT ARRAY nodelist;
       TRY
       {
-        nodelist := query->ExecuteQuery(Xpath);
+        nodelist := dom->GetElements(SerializeTokenOrValue(rule.selector.prelude, FALSE));
       }
       CATCH(OBJECT e)
       {
         //THROW NEW Exception(`Failed to execute selector '${SerializeTokenOrValue(rule.selector.prelude, FALSE)}' translated to '${xpath}': ${e->what}`);\
         CONTINUE; //ignore rules we can't parse
       }
-      //Print(xpath || " " || nodelist->length || "\n");
       INTEGER highest;
 
-      FOR(INTEGER i := 0; i < nodelist->Length; i := i + 1)
+      FOREVERY (OBJECT node FROM nodelist)
       {
         IF(onrewrite != DEFAULT MACRO PTR)
-          onrewrite(rule.rule, nodelist->item(i));
+          onrewrite(rule.rule, node);
         ELSE
-          RewriteAsStyleAttribute(rule.rule, nodelist->item(i));
+          RewriteAsStyleAttribute(rule.rule, node);
 
         //PRINT(nodelist->item(0)->getAttribute('style') || "\n");
         IF(#rule NOT IN removeafter)
@@ -1912,12 +1897,6 @@ PUBLIC OBJECT FUNCTION MakeCSSStyleSheet(BLOB stylesheet, RECORD options DEFAULT
 
   outsheet->cssrules->__setrules(outrules);
   RETURN outsheet;
-}
-
-PUBLIC STRING FUNCTION RewriteCSSSelectorToXpath(STRING inselector)
-{
-  OBJECT cssom := MakeCSSStyleSheet(StringToBlob(inselector || " { test:1; }"));
-  RETURN cssom->cssrules->item(0)->__XPathQuery;
 }
 
 PUBLIC OBJECT FUNCTION ParseInlineStyleAttribute(STRING style)
