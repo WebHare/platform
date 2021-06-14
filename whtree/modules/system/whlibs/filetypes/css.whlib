@@ -1853,29 +1853,48 @@ PUBLIC STATIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
     RETURN url;
   }
 
-  PUBLIC BLOB FUNCTION GetDocumentBlob(BOOLEAN formatted)
+  /** @cell(boolean) options.formatted Indented output
+      @cell(string) options.include What to include in the output. 'all' for everything (default), 'head' for charset/import only, 'body' for everything but charset/import. */
+  PUBLIC STRING FUNCTION FormatCSS(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ formatted := FALSE
+                                , include := "all"
+                                ], options, [ enums := [ include := [ "all", "head", "body" ] ] ]);
+
     RECORD formatting :=
         [ with_comments :=          TRUE
-        , indent :=                 formatted
-        , block_begin_prespacer :=  formatted ? "" : " "
-        , block_begin_postspacer := formatted ? "\n" : " "
-        , block_end_prespacer :=    formatted ? "" : " "
-        , block_end_postspacer :=   formatted ? "\n" : ""
-        , after_colon :=            formatted ? " " : " "
-        , after_semicolon :=        formatted ? "\n" : ""
+        , indent :=                 options.formatted
+        , block_begin_prespacer :=  options.formatted ? "" : " "
+        , block_begin_postspacer := options.formatted ? "\n" : " "
+        , block_end_prespacer :=    options.formatted ? "" : " "
+        , block_end_postspacer :=   options.formatted ? "\n" : ""
+        , after_colon :=            options.formatted ? " " : " "
+        , after_semicolon :=        options.formatted ? "\n" : ""
         , declaration_separator :=  ""
-        , rule_separator :=         formatted ? "\n" : " "
-        , selector_lineend :=       formatted ? "\n" : ""
+        , rule_separator :=         options.formatted ? "\n" : " "
+        , selector_lineend :=       options.formatted ? "\n" : ""
         ];
 
-    INTEGER stream := CreateStream();
+    STRING ARRAY output;
+    FOREVERY(OBJECT rule FROM this->pvt_cssrules->GetCurrentRules())
+    {
+      IF(options.include = "head" AND rule->type NOT IN [2,3]) //skip anything that is not CHARSET_RULE or MEDIA_RULE
+        CONTINUE;
+      IF(options.include = "body" AND rule->type IN [2,3]) //skip anything that is CHARSET_RULE or MEDIA_RULE
+        CONTINUE;
 
-    STRING ARRAY parts := this->pvt_cssrules->__PrettyPrint(formatting, 0);
-    FOREVERY (STRING str FROM parts)
-      PrintTo(stream, str);
+      IF(Length(output) > 0 AND formatting.rule_separator != "")
+        INSERT formatting.rule_separator INTO output AT END;
 
-    RETURN MakeBlobFromStream(stream);
+      output := output CONCAT rule->__PrettyPrint(formatting, 0);
+    }
+
+    RETURN Detokenize(output,"");
+  }
+
+  PUBLIC BLOB FUNCTION GetDocumentBlob(BOOLEAN formatted)
+  {
+    RETURN StringToBlob(this->FormatCSS(CELL[formatted]));
   }
 >;
 

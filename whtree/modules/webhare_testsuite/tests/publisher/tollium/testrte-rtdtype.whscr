@@ -134,8 +134,8 @@ OBJECT ASYNC FUNCTION InsertEmbObj()
   RECORD cssstate := RTE()->__Debug_GetCSSState();
   TestEq(TRUE, cssstate.instance != "");
 
-  RTE()->usercss := "* { font-size: red !important; }";
-  TestEqLike("*red !important*", BlobToString(RTE()->__Debug_GetCSSState().cssdata));
+  RTE()->usercss := `@import url("//example.net/test.css"); * { font-size: red !important; }`;
+  TestEqLike(`@import url("//fast.fonts.net/cssapi/accde30c-be09-41b3-9719-22771c54c341.css");@import url("//example.net/test.css");.wh-rtd__stylescope*h1 { color: blue*.wh-rtd__stylescope*red !important*`, BlobToString(RTE()->__Debug_GetCSSState().cssdata));
 
   OBJECT cssom := MakeCSSStyleSheet(cssstate.cssdata);
   //sendblobto(0,cssom->GetDocumentBlob(true));
