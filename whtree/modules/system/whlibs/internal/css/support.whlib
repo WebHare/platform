@@ -627,9 +627,11 @@ STATIC OBJECTTYPE CSSSelectorParser
 
   MACRO NEW(RECORD ARRAY tokens, RECORD config)
   {
+    IF(Length(tokens) = 0)
+      THROW NEW Exception("Received an empty selector");
     this->tokens := RECORD[ ...tokens, [ type := "eof", value := "", csstext := "" ] ];
     this->pos := 0;
-    this->token := tokens[0];
+    this->token := this->tokens[0];
     this->config := config;
   }
 

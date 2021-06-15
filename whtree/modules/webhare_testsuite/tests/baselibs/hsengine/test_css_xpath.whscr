@@ -65,6 +65,8 @@ MACRO TestQuerySelector()
   OBJECT ARRAY bodychildren := dom->QuerySelectorAll("body > *")->GetCurrentElements();
   TestEq(Length(bodychildren), Length(dom->body->ListChildren("*","*")));
 
+  TestThrowsLike("*empty selector*", PTR dom->querySelectorAll(""));
+
   CloseTest("TestQuerySelector");
 }
 

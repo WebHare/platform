@@ -744,7 +744,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     FOREVERY(RECORD typ FROM this->contexts->wrdschema->ListTypes())
     {
       OBJECT typeobj := this->contexts->wrdschema->GetTypeById(typ.id);
-      FOREVERY(RECORD attr FROM typeobj->ListAttributes(0))
+      FOREVERY(RECORD attr FROM typeobj->ListAttributes(-1))
       {
         BOOLEAN link_to_us := attr.domain IN current_types AND attr.attributetypename IN ["DOMAIN","DOMAINARRAY"];
         BOOLEAN link_from_us := typ.id IN current_types AND attr.domain != 0 AND attr.tag IN ["WRD_LEFTENTITY","WRD_RIGHTENTITY"];
@@ -762,7 +762,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           IF(NOT RecordExists(x))
           {
             // Current entity has been deleted.
-            this->links->rows := DEFAULT RECORD ARRAY;
+            ^links->rows := DEFAULT RECORD ARRAY;
             RETURN;
           }
           linked_object_id := GetCell(x, attr.tag);
@@ -771,11 +771,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         }
 
         RECORD lq := this->GetListAttributesAsQuery(destobj, [ /*"WRD_LEFTENTITY", "WRD_RIGHTENTITY", */ "WRD_TITLE", "WRD_FULLNAME", "WRD_ORGNAME" ], [STRING(attr.tag)]);
-        lq.query.sources[0].outputcolumns := MakeMergedRecord(lq.query.sources[0].outputcolumns
-                                                             ,[linkid := "WRD_ID"]);
+        lq.query.sources[0].outputcolumns := CELL[ ...lq.query.sources[0].outputcolumns
+                                                 , linkid := "WRD_ID"
+                                                 , creationdate := "WRD_CREATIONDATE"
+                                                 , limitdate    := "WRD_LIMITDATE"
+                                                 ];
         IF(link_to_us)
         {
-          INSERT [ field := attr.tag, value := this->current_entity ]
+          INSERT [ field := attr.tag, matchtype := attr.attributetypename = "DOMAINARRAY" ? "CONTAINS" : attr.parent = 0 ? "=" : "MENTIONS", value := this->current_entity ]
                  INTO lq.query.sources[0].filters AT END;
         }
         ELSE
@@ -784,8 +787,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                  INTO lq.query.sources[0].filters AT END;
         }
 
-        INSERT CELL creationdate := "WRD_CREATIONDATE" INTO lq.query.sources[0].outputcolumns;
-        INSERT CELL limitdate    := "WRD_LIMITDATE" INTO lq.query.sources[0].outputcolumns;
         INSERT CELL historymode  := "all" INTO lq.query.sources[0];
 
         IF(followable_link)
