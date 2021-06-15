@@ -654,7 +654,7 @@ STATIC OBJECTTYPE CSSSelectorParser
   /** Parses all whitespaces, returns if any was encountered
       @return TRUE if whitespace was found
   */
-  BOOLEAN FUNCTION TryParseWS()
+  PUBLIC BOOLEAN FUNCTION TryParseWS()
   {
     BOOLEAN retval;
     WHILE (this->token.type = "ws")
@@ -678,6 +678,15 @@ STATIC OBJECTTYPE CSSSelectorParser
     RETURN TRUE;
   }
 
+  /** Expects end of token stream (allows trailing whitespace), throws
+      if a non-whitespace token was found.
+  */
+  PUBLIC MACRO ExpectEOF()
+  {
+    IF (NOT this->AtEOF())
+      THROW NEW Exception(`Found unexpected token ${EncodeJSON(this->token.csstext)}`);
+  }
+
   /** Parses a token by type
       @param type Type of token that needs to be matched
       @return Consumed token if the current token was of the requested type @includecelldef #CSSTokenizer::GetToken.return
@@ -696,16 +705,20 @@ STATIC OBJECTTYPE CSSSelectorParser
   */
   PUBLIC RECORD ARRAY FUNCTION ParseComplexSelectorList()
   {
+    this->TryParseWS();
     RECORD ARRAY selectors;
     WHILE (TRUE)
     {
       INSERT this->ParseComplexSelector() INTO selectors AT END;
 
+      this->TryParseWS();
       IF (NOT this->TryParse(","))
         BREAK;
 
       this->TryParseWS();
     }
+    this->ExpectEOF();
+
     RETURN selectors;
   }
 
@@ -723,14 +736,24 @@ STATIC OBJECTTYPE CSSSelectorParser
   RECORD FUNCTION ParseComplexSelector()
   {
     RECORD ARRAY parts;
+    BOOLEAN requireselector := TRUE;
     WHILE (TRUE)
     {
-      RECORD compoundselector := this->ParseCompoundSelector();
+      RECORD compoundselector := this->ParseCompoundSelector(requireselector);
+      IF (NOT RecordExists(compoundselector))
+      {
+        // last combinator must be " ", fix to ""
+        parts[END-1].combinator := "";
+        BREAK;
+      }
+
       STRING combinator := this->ParseCombinator();
       INSERT CELL[ combinator, compoundselector ] INTO parts AT END;
 
       IF (combinator = "")
         BREAK;
+
+      requireselector := combinator != " ";
     }
     RETURN CELL[ parts ];
   }
@@ -790,7 +813,7 @@ STATIC OBJECTTYPE CSSSelectorParser
         - "nomatch": used for attributepart matches with an empty string - they don't match any element
       @cell(record array) return.subclasses.tokens Function tokens (for function test) @includecelldef #CSSTokenizer::GetToken.return
   */
-  PUBLIC RECORD FUNCTION ParseCompoundSelector()
+  PUBLIC RECORD FUNCTION ParseCompoundSelector(BOOLEAN required)
   {
     BOOLEAN have_item;
 
@@ -959,7 +982,11 @@ STATIC OBJECTTYPE CSSSelectorParser
     }
 
     IF (NOT have_item)
-      THROW NEW Exception(`Expected a compound selector${this->token.csstext = "" ? "" : `, got token ${EncodeJSON(this->token.csstext)}`}`);
+    {
+      IF (required)
+        THROW NEW Exception(`Expected a compound selector${this->token.csstext = "" ? "" : `, got token ${EncodeJSON(this->token.csstext)}`}`);
+      RETURN DEFAULT RECORD;
+    }
 
     RETURN CELL
         [ tagname
@@ -987,15 +1014,15 @@ STATIC OBJECTTYPE CSSSelectorParser
     BOOLEAN have_of;
     FOREVERY (RECORD token FROM functokens)
     {
-      IF (token.type NOT IN [ "number", "ident", "dimension" ])
-        THROW NEW Exception(`Syntax error in An+B expression`);
+      IF (token.type NOT IN [ "number", "ident", "dimension", "ws" ])
+        THROW NEW Exception(`Syntax error in An+B expression, unexpected token ${EncodeJSON(token.csstext)}`);
 
       IF (token.type = "ident" AND token.value = "of" AND allowselector)
       {
         OBJECT p := NEW CSSSelectorParser(ArraySlice(functokens, #token + 1), this->config);
-        compoundselector := p->ParseCompoundSelector();
-        IF (NOT p->AtEOF())
-          THROW NEW Exception(`Could not parse selector after "of"`);
+        p->TryParseWS();
+        compoundselector := p->ParseCompoundSelector(TRUE);
+        p->ExpectEOF();
         BREAK;
       }
       IF (token.type = "eof")
@@ -1074,8 +1101,12 @@ STATIC OBJECTTYPE CSSSelectorParser
       CASE "not"
       {
         OBJECT p := NEW CSSSelectorParser(functokens, this->config);
-        RETURN
-            [ compoundselector := p->ParseCompoundSelector()
+        p->TryParseWS();
+        RECORD compoundselector := p->ParseCompoundSelector(TRUE);
+        p->ExpectEOF();
+
+        RETURN CELL
+            [ compoundselector
             ];
       }
       CASE "nth-child", "nth-last-child"
@@ -1440,7 +1471,7 @@ STRING FUNCTION Debug_GetNodePath(OBJECT node)
     node := node->previouselementsibling;
   }
   name := `${name}[${pos}]`;
-  IF (node->parentnode->nodetype = 1)
+  IF (ObjectExists(node->parentnode) AND node->parentnode->nodetype = 1)
     name := `${Debug_GetNodePath(node->parentnode)} ${name}`;
 
   RETURN name;
@@ -1484,6 +1515,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
 
   OBJECT t := NEW CSSTokenizer(selectors);
 
+  // Get all tokens, ignoring comments
   RECORD ARRAY tokens;
   WHILE (TRUE)
   {
@@ -1491,12 +1523,18 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     RECORD token := t->GetToken();
     IF (token.type = "eof")
       BREAK;
-    INSERT token INTO tokens AT END;
+    IF (token.type != "ws-comment")
+      INSERT token INTO tokens AT END;
   }
 
+  // If the scope is set, use the first element in the scope path as root
+  // because we might be searching in a detached tree.
+  RECORD scopepath := GetNodePathList(scope);
+  OBJECT root := IsValueSet(scope) ? scopepath.path[0] : doc->documentelement;
+
   RECORD config :=
-      [ root :=       doc->documentelement
-      , scope :=      scope ?? doc->documentelement
+      [ root :=       root
+      , scope :=      scope ?? root
       ];
 
   OBJECT p := NEW CSSSelectorParser(tokens, config);
@@ -1515,9 +1553,8 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       INSERT part INTO selectorparts AT END;
   }
 
-  RECORD scopepath := GetNodePathList(scope);
 
-  RETURN EvaluateSelectorRecursive(doc->documentelement, selectorparts, alwaysactive, scopepath, mode);
+  RETURN EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
 }
 
 /** Iterate depth-first through the DOM, keeping lists of which compound selector parts of selectors are active

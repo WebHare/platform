@@ -291,4 +291,105 @@
     </css:testcontent>
   </css:test>
 
+  <css:test>
+    <css:title>Multiple selectors and comments</css:title>
+    <css:description>Test if multiple selectors and comments work together</css:description>
+    <css:selectors>
+      <css:selector> .agendaitem__title span /* some comment */, .agendaitem__title a
+      </css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div class="agendaitem__title">
+      <span match-selector-0="1"></span>
+      <a match-selector-0="1"></a>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>Selector in detached node</css:title>
+    <css:description>Test if selections in detached selectors work</css:description>
+    <css:selectors>
+      <css:selector>a</css:selector>
+      <css:selector>div span a</css:selector>
+      <css:selector>body div span a</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div detach-node="1">
+      <span selector-scope="1">
+        <a match-selector-0="1" match-selector-1="1"></a>
+      </span>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>nth-child(an+b of x) (CSS4)</css:title>
+    <css:description>Test nth-child expressions with compound selector</css:description>
+    <css:selectors>
+      <css:selector>a:nth-child(2n of .include )</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <a></a>
+      <a></a>
+      <a></a>
+      <a class="include" ></a>
+      <a class="include" match-selector-0="1"></a>
+      <a class="include" ></a>
+      <a class="include" match-selector-0="1"></a>
+      <a></a>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>Space after selector</css:title>
+    <css:description>Space after compund selector must not be kept as combinator</css:description>
+    <css:selectors>
+      <css:selector> a , span </css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+    <div>
+      <a match-selector-0="1"></a>
+      <span match-selector-0="1"></span>
+    </div>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
+  <css:test>
+    <css:title>Parser error handling</css:title>
+    <css:description>Test parser errors</css:description>
+    <css:selectors>
+      <css:selector>a:not(a)</css:selector>
+      <css:selector>a:not( a )</css:selector>
+      <css:selector errormask="Found unexpected token &quot;b&quot;">a:not(a b)</css:selector>
+      <css:selector>a:nth-child(n of a)</css:selector>
+      <css:selector>a:nth-child(n of a )</css:selector>
+      <css:selector errormask="Found unexpected token &quot;b&quot;">a:nth-child(n of a b)</css:selector>
+    </css:selectors>
+    <css:testcontent>
+<html>
+  <body>
+  </body>
+</html>
+    </css:testcontent>
+  </css:test>
+
 </css:csstests>

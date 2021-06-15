@@ -266,8 +266,10 @@ RECORD ARRAY FUNCTION ParseTestXML(STRING resource)
   {
     RECORD rec :=
         [ title :=            test->GetElement("title")->textcontent
-        , selectors :=        GetNodeTexts(test->GetElements("selectors > selector"))
-        , invalidselectors := GetNodeTexts(test->GetElements("selectors > selector.invalid"))
+        , selectors :=        (SELECT location :=     `${resource}#${node->linenum}#1`
+                                    , selector :=     node->childrentext
+                                    , errormask :=    node->GetAttribute("errormask") ?? ("invalid" IN Tokenize(node->GetAttribute("class"), " ") ? "*" : "")
+                                 FROM ToRecordArray(test->GetElements("selector"), "node"))
         , content :=          test->GetElement("testcontent")->innerXML
         , mode :=             (ObjectExists(test->GetElement("mode")) ? test->GetElement("mode")->textcontent : "") ?? "qSA"
         ];
@@ -330,10 +332,12 @@ MACRO RunSelectorTests(RECORD ARRAY data)
       CONTINUE;
     }
 
-    FOREVERY (STRING sel FROM rec.selectors)
+    RECORD ARRAY tests;
+
+    FOREVERY (RECORD sel FROM rec.selectors)
     {
       //PRINT(`Test selector: ${sel}\n`);
-      IF (__MatchesAnyMask(sel,
+      IF (__MatchesAnyMask(sel.selector,
           [ "*:link*"
           , "*:visited*"
           , "*:lang*"
@@ -351,40 +355,62 @@ MACRO RunSelectorTests(RECORD ARRAY data)
         CONTINUE;
       }
 
-      OBJECT ARRAY expect := doc->GetElements(`[match-selector-${#sel}]`);
-      OBJECT scope := doc->GetElement(`[selector-scope]`);
+      INSERT CELL
+          [ sel.selector
+          , sel.errormask
+          , sel.location
+          , expect := doc->GetElements(`[match-selector-${#sel}]`)
+          , scope := doc->GetElement(`[selector-scope]`)
+          ] INTO tests AT END;
+    }
 
+    OBJECT detach := doc->GetElement(`[detach-node]`);
+    IF (ObjectExists(detach))
+      detach->parentnode->RemoveChild(detach);
+
+    FOREVERY (RECORD test FROM tests)
+    {
       OBJECT ARRAY got;
-      BOOLEAN ismatch := TRUE;
-      STRING err;
       TRY
-         got := EvaluateSelectors(doc, scope, sel, rec.mode);
+      {
+        got := EvaluateSelectors(doc, test.scope, test.selector, rec.mode);
+        IF (test.errormask != "")
+        {
+          PRINT(`Error in test ${rec.title} at ${test.location}\n`);
+          THROW NEW Exception(`Expected a parse error with mask ${EncodeJSON(test.errormask)} for selector ${EncodeJSON(test.selector)}, got no error`);
+        }
+      }
       CATCH (OBJECT e)
       {
-        ismatch := FALSE;
-        err := e->what;
+        IF (e->what NOT LIKE test.errormask)
+        {
+          PRINT(`Error in test ${rec.title} at ${test.location}\n`);
+          THROW NEW Exception(`Expected a parse error with mask ${EncodeJSON(test.errormask)} for selector ${EncodeJSON(test.selector)}, got error ${e->what}`);
+        }
       }
-      ismatch := ismatch = (sel NOT IN rec.invalidselectors);
 
-      ismatch := ismatch AND LENGTH(expect) = LENGTH(got);
+      BOOLEAN ismatch := LENGTH(test.expect) = LENGTH(got);
       IF (ismatch)
       {
-        FOREVERY (OBJECT o FROM expect)
+        FOREVERY (OBJECT o FROM test.expect)
           IF (NOT got[#o]->IsSameNode(o))
             ismatch := FALSE;
       }
       IF (NOT ismatch)
       {
-        PRINT(`Failed selector: ${sel}\n`);
+        PRINT(`Error in test ${rec.title} at ${test.location}\n`);
+        PRINT(`Failed selector: ${test.selector}\n`);
 
-        IF (err != "")
-          PRINT(`  Error: ${err}\n`);
+        OBJECT p := test.scope ?? doc->documentelement;
+        WHILE (ObjectExists(p->parentnode) AND p->parentnode->nodetype = 1)
+          p := p->parentnode;
+
         PRINT(`Selectors in test:\n`);
         DumpValue(rec.selectors);
         PRINT("Document:\n");
         SendBlobTo(0, doc->GetDocumentBlob(TRUE));
         PRINT("Selection tree:\n");
-        DumpXMLTree(doc->documentelement, expect, got);
+        DumpXMLTree(p, test.expect, got);
         ABORT("X");
       }
     }
