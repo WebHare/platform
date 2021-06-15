@@ -275,12 +275,6 @@ PUBLIC RECORD ARRAY FUNCTION ParseCSVRows(BLOB data, RECORD options DEFAULTSTO D
   RETURN getter->Finalize();
 }
 
-PUBLIC RECORD ARRAY FUNCTION ExcelTextParser(STRING data, STRING separator, STRING encoding, BOOLEAN adaptive_utf8 DEFAULTSTO FALSE) __ATTRIBUTES__(DEPRECATED "Switch to ParseCSVRows in WebHare 4.23+")
-{
-  RETURN ParseCSVRows(StringToBlob(data), CELL[separator, encoding, acceptutf8 := adaptive_utf8, astokenarray := TRUE]);
-}
-
-
 /** @short Creates a record array out of a record array with just tokens
     @param cellnames A string array containing the cell names for all tokens
     @param recarray The record array with tokens
