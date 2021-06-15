@@ -3061,7 +3061,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">p,</css:selector>
+      <css:selector errormask="*">p,</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3076,7 +3076,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">.5cm</css:selector>
+      <css:selector errormask="*">.5cm</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3151,7 +3151,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">foo &amp; address, p</css:selector>
+      <css:selector errormask="*">foo &amp; address, p</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3165,7 +3165,7 @@ This div should have three addresses above it.</div>
   <css:test>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
-      <css:selector class="invalid">foo &amp; address, p</css:selector>
+      <css:selector errormask="*">foo &amp; address, p</css:selector>
       <css:selector>p</css:selector>
     </css:selectors>
     <css:testcontent>
@@ -3180,7 +3180,7 @@ This div should have three addresses above it.</div>
   <css:test>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
-      <css:selector class="invalid">foo &amp; address, p</css:selector>
+      <css:selector errormask="*">foo &amp; address, p</css:selector>
       <css:selector>p</css:selector>
     </css:selectors>
     <css:testcontent>
@@ -3196,7 +3196,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">[*=test]</css:selector>
+      <css:selector errormask="*">[*=test]</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3211,7 +3211,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">[*|*=test]</css:selector>
+      <css:selector errormask="*">[*|*=test]</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3226,7 +3226,7 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing of unknown pseudo-classes</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">p:subject</css:selector>
+      <css:selector errormask="*">p:subject</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3440,7 +3440,7 @@ This div should have three addresses above it.</div>
     <css:title>Parsing: Numbers in classes</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">.13</css:selector>
+      <css:selector errormask="*">.13</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3507,7 +3507,7 @@ This div should have three addresses above it.</div>
     <css:title>Parsing : vs ::</css:title>
     <css:selectors>
       <css:selector>div</css:selector>
-      <css:selector class="invalid">p::first-child</css:selector>
+      <css:selector errormask="*">p::first-child</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3524,8 +3524,8 @@ This div should have three addresses above it.</div>
     <css:title>Parsing: :not and pseudo-elements</css:title>
     <css:selectors>
       <css:selector>div</css:selector>
-      <css:selector class="invalid">p:not(:first-line)</css:selector>
-      <css:selector class="invalid">p:not(:after)</css:selector>
+      <css:selector errormask="*">p:not(:first-line)</css:selector>
+      <css:selector errormask="*">p:not(:after)</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>
@@ -3624,9 +3624,9 @@ This div should have three addresses above it.</div>
     <css:title>Syntax and parsing of class selectors</css:title>
     <css:selectors>
       <css:selector>p</css:selector>
-      <css:selector class="invalid">..test</css:selector>
-      <css:selector class="invalid">.foo..quux</css:selector>
-      <css:selector class="invalid">.bar.</css:selector>
+      <css:selector errormask="*">..test</css:selector>
+      <css:selector errormask="*">.foo..quux</css:selector>
+      <css:selector errormask="*">.bar.</css:selector>
     </css:selectors>
     <css:testcontent>
       <html>

@@ -173,7 +173,7 @@ OBJECT FUNCTION BuiltTestXML(RECORD ARRAY tests)
       OBJECT sel := doc->CreateElementNS(ns_cssselectortests, "css:selector");
       sel->textcontent := selector;
       IF (selector IN rec.invalidselectors)
-        sel->setAttribute("class", "invalid");
+        sel->setAttribute("errormask", "*"); // don't know what error our parser will give
       selectors->AppendChild(sel);
     }
     OBJECT content := doc->CreateElementNS(ns_cssselectortests, "css:testcontent");
