@@ -23,7 +23,7 @@ MACRO CSVTest()
           , [ tokens := ['H','I\n','J'] ]
           , [ tokens := ['K','L\nM','N'] ]
           ]
-        , ExcelTextParser(input, "", "ISO-8859-1", TRUE));
+        , ParseCSVRows(StringToBlob(input), [ astokenarray := TRUE ]));
 
   //Test whether various quote behaviours match excel exactly (to verify, save content below as 1.csv and open in excel)
   STRING testdata:=`A;B;C
@@ -52,13 +52,13 @@ A""B"";C
         , ParseCSVRows(StringToBlob(testdata), [ astokenarray := TRUE ]));
 
   //UTF-8 inside suspected ISO-8859-1 but adaptive UTF-8 enabled: should work
-  TestEq( [ [ tokens := ["ABC\u20ACDEF"] ] ] , ExcelTextParser("ABC\u20ACDEF", "", "ISO-8859-1", TRUE));
+  TestEq( [ [ tokens := ["ABC\u20ACDEF"] ] ] , ParseCSVRows(StringToBlob("ABC\u20ACDEF"), [ encoding := "ISO-8859-1", acceptutf8 := TRUE, astokenarray := TRUE ]));
   //UTF-8 inside suspected ISO-8859-1 but adaptive UTF-8 disabld: individual UTF-8 bytes are translated, giving 2 chars + 1 gibberish
-  TestEq( [ [ tokens := ["ABC\u00E2?\u00ACCDEF"] ] ] , ExcelTextParser("ABC\u20ACCDEF", "", "ISO-8859-1", FALSE));
+  TestEq( [ [ tokens := ["ABC\u00E2?\u00ACCDEF"] ] ] , ParseCSVRows(StringToBlob("ABC\u20ACCDEF"), [ encoding := "ISO-8859-1", acceptutf8 := FALSE, astokenarray := TRUE ]));
   //ISO-88591 inside suspected ISO-8859-1 and adaptive UTF-8 enabled: should work
-  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ExcelTextParser("ABC\xF6DEF", "", "ISO-8859-1", TRUE));
+  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ParseCSVRows(StringToBlob("ABC\xF6DEF"), [ encoding := "ISO-8859-1", acceptutf8 := TRUE, astokenarray := TRUE ]));
   //ISO-88591 inside suspected ISO-8859-1 and adaptive UTF-8 disabled: should work
-  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ExcelTextParser("ABC\xF6DEF", "", "ISO-8859-1", FALSE));
+  TestEq( [ [ tokens := ["ABC\u00F6DEF"] ] ] , ParseCSVRows(StringToBlob("ABC\xF6DEF"), [ encoding := "ISO-8859-1", acceptutf8 := FALSE, astokenarray := TRUE ]));
 
   STRING testdatawithheaders := `name;email
 Pietje;pietje@example.com;really

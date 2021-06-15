@@ -18,7 +18,7 @@ MACRO TestGenerateName()
 MACRO TestSplit()
 {
   BLOB indata := GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/namelist.csv");
-  RECORD ARRAY inlines := ExcelTextParser(BlobToSTring(indata,-1), "","ISO-8859-1",TRUE);
+  RECORD ARRAY inlines := ParseCSVRows(indata, [encoding := "ISO-8859-1", astokenarray := TRUE]);
 
   STRING ARRAY headers := inlines[0].tokens;
   DELETE FROM inlines AT 0;
