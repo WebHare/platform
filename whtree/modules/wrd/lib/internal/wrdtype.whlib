@@ -2370,6 +2370,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD ARRAY filters;
     IF(Length(options.entitykey) = 0)
       THROW NEW Exception(`EnsureEntity requires an explicit entitykey`);
+    IF(NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception(`EnsureEntity requires open work`); //prevent users from 'getting away' with EnsureEntity outside work if it didn't make any material change
 
     FOREVERY(STRING keyname FROM options.entitykey)
     {
