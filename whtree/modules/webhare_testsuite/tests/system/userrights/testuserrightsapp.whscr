@@ -90,6 +90,153 @@ ASYNC MACRO Setup()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestRightRoleGrants()
+{
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD, message := DEFAULT RECORD ]));
+
+  TTFillByTitle("unittree->unitlist", "Lisa's unit");
+  TTFillByTitle("unitcontents->userandrolelist", "bart@example.net");
+
+  // Grant right (global right)
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers", [ menuitem := TRUE ]));
+  {
+    TTFillByTitle("objecttree!objectlist->thelist", "Miscellaneous");
+    TTFillByTitle("rightslist", "Supervisor");
+    TT("comment")->value := "Testsuite test";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Adjust admin option on grant
+  TTFillByTitle("userrolerightslist!directpermissions", "Supervisor");
+  TestEQMembers([ [ withgrantoption := "No" ] ], TT("userrolerightslist!directpermissions")->selection, "*");
+
+  TT("frame")->focused := TT("userrolerightslist!directpermissions");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist!rightstab->:Properties"));
+  {
+    TestEQ("Testsuite test", TT("comment")->value);
+    TestEQ(FALSE, TT("selectright!grantwithgrantoption")->value);
+    TT("selectright!grantwithgrantoption")->value := TRUE;
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Delete grant
+  TestEQMembers([ [ withgrantoption := "Yes" ] ], TT("userrolerightslist!directpermissions")->selection, "*");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("userrolerightslist!rightstab->:Delete"));
+  TestEQ(RECORD[], TT("userrolerightslist!directpermissions")->rows);
+
+  // Grant right (object right)
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers", [ menuitem := TRUE ]));
+  {
+    TTFillByTitle("objecttree!objectlist->thelist", "WebHare testsuite site", [ expandtreelevels := 2 ]);
+    TTFillByTitle("rightslist", "Browse");
+    TT("comment")->value := "Testsuite test 2";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Adjust admin option on grant
+  TTFillByTitle("userrolerightslist!directpermissions", "Browse");
+  TestEQMembers([ [ withgrantoption := "No" ] ], TT("userrolerightslist!directpermissions")->selection, "*");
+
+  TT("frame")->focused := TT("userrolerightslist!directpermissions");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist!rightstab->:Properties"));
+  {
+    TestEQ("Testsuite test 2", TT("comment")->value);
+    TestEQ(FALSE, TT("selectright!grantwithgrantoption")->value);
+    TT("selectright!grantwithgrantoption")->value := TRUE;
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Delete grant
+  TestEQMembers([ [ withgrantoption := "Yes" ] ], TT("userrolerightslist!directpermissions")->selection, "*");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("userrolerightslist!rightstab->:Delete"));
+  TestEQ(RECORD[], TT("userrolerightslist!directpermissions")->rows);
+
+  // Create new role
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->newrole", [ menuitem := TRUE ]));
+  {
+    TT(":Name")->value := "New role";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Add user to role
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist!adduserstorole", [ menuitem := TRUE ]));
+  {
+    TTFillByTitle("selectuserrole!unitcontents!userandrolelist", "bart@example.net");
+    TT(":Comments")->value := "Testsuite test 3";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Get properties via users tab
+  TTFillByTitle("userrolerightslist!rightstabs", "Users");
+  TT("frame")->focused := TT("userrolerightslist!userlistbyrole");
+  TTFillByTitle("userrolerightslist!userlistbyrole", "bart@example.net");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist!userstab->:Properties"));
+  {
+    TestEQ("Testsuite test 3", TT("comment")->value);
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Delete user from role via users tab
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("userrolerightslist!userstab->:Delete"));
+  TestEQ(RECORD[], TT("userrolerightslist!userlistbyrole")->rows);
+
+  // Add role to user via user
+  TTFillByTitle("unitcontents->userandrolelist", "bart@example.net");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addroletousers", [ menuitem := TRUE ]));
+  {
+    TTFillByTitle("selectuserrole!unitcontents!userandrolelist", "New role");
+    TT(":Comments")->value := "Testsuite test 4";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Get role grant properties via rights tab
+  TTFillByTitle("userrolerightslist!directpermissions", "New role");
+  TT("frame")->focused := TT("userrolerightslist!directpermissions");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist!rightstab->:Properties"));
+  {
+    TestEQ("Testsuite test 4", TT("comment")->value);
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Delete role grant via rights tab
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("userrolerightslist!rightstab->:Delete"));
+  TestEQ(RECORD[], TT("userrolerightslist!directpermissions")->rows);
+
+  // Add grant via objects list
+  TTFillByTitle("viewmode", "Module and object rights");
+  TTFillByTitle("objecttree!objectlist->thelist", "WebHare testsuite site", [ expandtreelevels := 2 ]);
+  TT("frame")->focused := TT("objecttree!objectlist->thelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("grant"));
+  {
+    TTFillByTitle("selectuserrole!unittree->unitlist", "Lisa's unit");
+    TTFillByTitle("selectuserrole!unitcontents->userandrolelist", "bart@example.net");
+    TTFillByTitle("{select}:Right", "Browse (Viewing rights on this filesystem object and all underlying objects)");
+    TT("comment")->value := "Testsuite test 5";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Adjust admin option on grant
+  TTFillByTitle("objectrightslist!authobjectlistbyobject", "bart@example.net");
+  TestEQMembers([ [ grantable := "No" ] ], TT("objectrightslist!authobjectlistbyobject")->selection, "*");
+  TT("frame")->focused := TT("objectrightslist!authobjectlistbyobject");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties[1/2]"));
+  {
+    TestEQ("Testsuite test 5", TT("comment")->value);
+    TestEQ(FALSE, TT("selectright!grantwithgrantoption")->value);
+    TT("selectright!grantwithgrantoption")->value := TRUE;
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  }
+
+  // Delete grant
+  TestEQMembers([ [ grantable := "Yes" ] ], TT("objectrightslist!authobjectlistbyobject")->selection, "*");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Delete[1/3]"));
+  TestEQ(RECORD[], SELECT * FROM TT("objectrightslist!authobjectlistbyobject")->rows WHERE name = "bart@example.net");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO ManageAuthenticationSettings()
 {
   STRING ARRAY allowsecondfactormasks := Tokenize(ReadRegistryKey("system.userrights.allowsecondfactorloginmasks"), " ");
@@ -371,6 +518,7 @@ ASYNC MACRO TestAuditLog()
 
 
 RunTestframework( [ PTR Setup
+                  , PTR TestRightRoleGrants
                   , PTR ManageAuthenticationSettings
                   , PTR TestExport
                   , PTR TestExportSysop

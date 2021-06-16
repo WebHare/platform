@@ -184,7 +184,7 @@ STATIC OBJECTTYPE RevokeDialog
     {
       IF (grant.grantee->ExistsInDatabase())
       {
-        TolliumUpdateGrant(work, rightsinfo, grantor, "revoke", grant.rightname, grant.objectid, grant.grantee);
+        TolliumUpdateGrant(work, rightsinfo, grantor, "revoke", grant.rightname, INTEGER[ grant.objectid ], grant.grantee);
       }
       ELSE
         found_deleted := TRUE;
