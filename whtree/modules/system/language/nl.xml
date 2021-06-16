@@ -769,6 +769,7 @@
           <text tid="manualcall">Handmatige aanroep</text>
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Volgende poging op</text>
+          <text tid="notbefore">(niet voor <param p="1"/>)</text>
           <text tid="returnvaluetab">Teruggeven waarde</text>
           <text tid="tasktype">Taaktype</text>
           <text tid="timeout">Tijdslimiet</text>
@@ -779,6 +780,7 @@
           <text tid="nextattempt">Volgende poging</text>
           <text tid="reschedule">Dupliceer en plan taak opnieuw in</text>
           <text tid="showcompletedtasks">Toon voltooide taken</text>
+          <text tid="showscheduledtasks">Toon ingeplande taken</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Taaktype</text>
         </textgroup>

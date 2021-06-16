@@ -181,7 +181,9 @@ PUBLIC MACRO RetryPendingManagedTasksByIds(INTEGER ARRAY taskids)
   IF(Length(flushtasks)>0)
   {
     STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM flushtasks;
-    UPDATE system.managedtasks SET nextattempt := now WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
+    UPDATE system.managedtasks
+       SET nextattempt := MAX[]([ now, notbefore ])
+     WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
     GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
     FOREVERY(STRING tasktype FROM seentasktypes)
       GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
@@ -201,7 +203,9 @@ PUBLIC MACRO RetryPendingManagedTasks(STRING mask)
   IF(Length(flushtasks)>0)
   {
     STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM flushtasks;
-    UPDATE system.managedtasks SET nextattempt := now WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
+    UPDATE system.managedtasks
+       SET nextattempt := MAX[]([ now, notbefore ])
+     WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
     GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
     FOREVERY(STRING tasktype FROM seentasktypes)
       GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
@@ -221,6 +225,7 @@ PUBLIC MACRO RetryPendingManagedTasks(STRING mask)
     @cell(record) return.data Task data
     @cell(record) return.metadata Metadata of this task
     @cell(integer) return.failures Number of failures
+    @cell(datetime) return.notbefore Scheduled date after which the tasks can be executed
 */
 PUBLIC RECORD FUNCTION DescribeManagedTask(INTEGER taskid)
 {
@@ -246,6 +251,7 @@ PUBLIC RECORD FUNCTION DescribeManagedTask(INTEGER taskid)
                                       FROM system.managedtasksmeta
                                      WHERE managedtasksmeta.task = taskid)
          , timeout := taskinfo.timeout
+         , notbefore := taskinfo.notbefore
          ];
 }
 
@@ -378,6 +384,7 @@ MACRO ScheduleBroadcastUpdatedTaskIds(STRING tasktype, INTEGER ARRAY taskids)
     @cell(integer array) options.taskids Pre-set task ids
     @cell(string) options.priority Override the default task priority for this task type. Allowed values: '', 'background', 'normal', 'interactive', 'update', 'updateinteractive'.
     @cell(integer) options.timeout Time limit for the task, 0 for no limit. If provided, overrides the limit set with the task type.
+    @cell(datetime) options.notbefore Scheduled date after which the tasks can be executed
     @return ID of the scheduled tasks, in the taskdatas order */
 PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY taskdatas, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -385,6 +392,7 @@ PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY
       [ auxdata := DEFAULT RECORD
       , taskids := INTEGER[]
       , priority := ""
+      , notbefore := DEFAULT DATETIME
       , timeout := 0
       ], options,
       [ enums := [ priority := [ "", "background", "normal", "interactive", "update", "updateinteractive" ] ]
@@ -404,13 +412,14 @@ PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY
     INTEGER taskid := #taskdata < Length(options.taskids) ? options.taskids[#taskdata] : MakeAutonumber(system.managedtasks,"id");
     INSERT [ id := taskid
            , creationdate := now
-           , nextattempt := now
+           , nextattempt := MAX[]([ now, options.notbefore ])
            , tasktype := tasktype
            , taskdata := EncodeHSON(taskdata)
            , auxdata := auxdata
            , workertype := taskinfo.workertype
            , priority := options.priority = "" ? taskinfo.priority : ParseManagedTaskPriority(options.priority)
            , timeout := CellExists(options, "timeout") ? options.timeout : taskinfo.timeout
+           , notbefore := options.notbefore
            ] INTO system.managedtasks;
     INSERT taskid INTO taskids AT END;
   }
@@ -431,7 +440,7 @@ PUBLIC INTEGER ARRAY FUNCTION RescheduleManagedTasks(INTEGER ARRAY taskids)
   DATETIME now := GetCurrentDatetime();
 
   INTEGER ARRAY newtaskids;
-  RECORD ARRAY torequeue := SELECT id, tasktype, taskdata, finished, auxdata FROM system.managedtasks WHERE id IN taskids;
+  RECORD ARRAY torequeue := SELECT id, tasktype, taskdata, finished, auxdata, notbefore FROM system.managedtasks WHERE id IN taskids;
   FOREVERY(RECORD toreq FROM torequeue)
   {
     IF(toreq.finished = DEFAULT DATETIME)
@@ -441,7 +450,7 @@ PUBLIC INTEGER ARRAY FUNCTION RescheduleManagedTasks(INTEGER ARRAY taskids)
     INSERT CELL [ ...toreq
                 , id := taskid
                 , creationdate := now
-                , nextattempt := now
+                , nextattempt := MAX[]([ now, toreq.notbefore ])
                 , finished := DEFAULT DATETIME
                 ] INTO system.managedtasks;
     INSERT taskid INTO newtaskids AT END;
@@ -531,11 +540,12 @@ PUBLIC OBJECT FUNCTION DeleteManagedTasks(INTEGER ARRAY taskids)
     @cell(record) options.auxdata Auxilliary data cells. This will be merged with the task data when passed to the task, but stored separately to avoid the 4K limit
     @cell(integer) options.taskid Pre-allocated id of the task to create (must be generated by `MakeAutoNumber(system.managedtasks, "ID")`)
     @cell(integer) options.timeout Time limit for the task, 0 for no limit. If provided, overrides the limit set with the task type.
+    @cell(datetime) options.notbefore Scheduled date after which the tasks can be executed
     @return id of this task. This id is a database id and can be used by later scripts
 */
 PUBLIC INTEGER FUNCTION ScheduleManagedTask(STRING tasktype, RECORD taskdata, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ auxdata := DEFAULT RECORD, taskid := 0, priority := "", timeout := 0 ], options, [ optional := [ "timeout" ] ] );
+  options := ValidateOptions([ auxdata := DEFAULT RECORD, taskid := 0, priority := "", timeout := 0, notbefore := DEFAULT DATETIME ], options, [ optional := [ "timeout" ] ] );
   options := CELL[...options, taskids := options.taskid != 0 ? INTEGER[options.taskid] : INTEGER[], DELETE taskid ];
   RETURN ScheduleManagedTasks(tasktype, [taskdata], options)[0];
 }

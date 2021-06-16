@@ -950,6 +950,7 @@
           <text tid="manualcall">Manual call</text>
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Next attempt at</text>
+          <text tid="notbefore">(not before <param p="1"/>)</text>
           <text tid="returnvaluetab">Return value</text>
           <text tid="tasktype">Task type</text>
           <text tid="timeout">Time limit</text>
@@ -960,6 +961,7 @@
           <text tid="nextattempt">Next attempt</text>
           <text tid="reschedule">Duplicate and reschedule task</text>
           <text tid="showcompletedtasks">Show completed tasks</text>
+          <text tid="showscheduledtasks">Show scheduled tasks</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Task type</text>
         </textgroup>

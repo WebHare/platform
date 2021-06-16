@@ -837,6 +837,7 @@ STATIC OBJECTTYPE QueueMgr
              , found :=       TRUE
              , timeout
              , ephemeral := FALSE
+             , notbefore
           FROM system_internal.managedtasks
          WHERE finished = DEFAULT DATETIME
                AND NOT iscancelled
@@ -882,7 +883,7 @@ STATIC OBJECTTYPE QueueMgr
     RECORD taskinfo := CELL
         [ queuename :=      rec.cluster || ":" || rec.workertype
         , rec.priority
-        , scheduledate :=   rec.nextattempt
+        , scheduledate :=   MAX[](DATETIME[ rec.nextattempt, rec.notbefore ])
         , rec.tasktype
         , isephemeral :=    FALSE
         , id :=             rec.id
@@ -943,7 +944,7 @@ STATIC OBJECTTYPE QueueMgr
           rec.item->priority := rec.priority;
 
           BOOLEAN scheduledatechange := rec.item->scheduledate != rec.nextattempt;
-          rec.item->scheduledate := rec.nextattempt;
+          rec.item->scheduledate := MAX[](DATETIME[ rec.nextattempt, rec.notbefore ]);
 
           IF (rec.item->stage = "finished")
           {

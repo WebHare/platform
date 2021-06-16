@@ -21,8 +21,8 @@ ASYNC MACRO TestWaitableAction()
   OBJECT ephtask;
   DATETIME teststart := GetCurrentDatetime();
 
-  TestThrows(PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
-  TestThrows(PTR ScheduleEphemeralTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
+  TestThrowsLike("No such managed task type *webhare_testsuite:nosuchtask*", PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
+  TestThrowsLike("No such ephemeral task type *webhare_testsuite:nosuchtask*", PTR ScheduleEphemeralTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
 
   TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart ])));
 
@@ -99,6 +99,7 @@ ASYNC MACRO TestWaitableAction()
   }
   TestEqLike("*Throw-Now*", info.lasterrors);
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), info.nextattempt).msecs < 5000, "Next attempt should be within 5 seconds");
+  INTEGER ARRAY todelete := [ taskid ];
 
   testfw->BeginWork();
   WriteRegistryKey("webhare_testsuite.tests.taskthrownow", FALSE);
@@ -109,6 +110,7 @@ ASYNC MACRO TestWaitableAction()
   TestEq([nodepong := 42],val);
 
   OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport");
+
 
   testfw->BeginWork();
   taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD);
@@ -163,6 +165,12 @@ ASYNC MACRO TestWaitableAction()
       THROW;
     }
   }
+
+  testfw->BeginWork();
+  OBJECT deletepromise := DeleteManagedTasks(INTEGER[ taskid, taskid3, taskid4, ...todelete ]);
+  testfw->CommitWork();
+
+  AWAIT deletepromise;
 }
 
 RECORD FUNCTION WaitForError(INTEGER taskid)
@@ -241,6 +249,41 @@ MACRO TestMarkAsTemporaryFailure()
   }
 }
 
+ASYNC MACRO TestNotBeforeTasks()
+{
+  DATETIME now := GetCurrentDateTime();
+
+  testfw->BeginWork();
+  INTEGER taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
+  INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
+  WriteRegistryKey("webhare_testsuite.tests.tempfailretryat", DEFAULT DATETIME);
+  INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD, [ notbefore := AddTimeToDate(60000, now) ]);
+  testfw->CommitWork();
+
+  TestEQMembers([ notbefore := AddTimeToDate(2000, now), nextattempt := AddTimeToDate(2000, now) ], DescribeManagedTask(taskid), "*");
+
+  testfw->BeginWork();
+  RetryPendingManagedTasksByIds([ taskid2 ]);
+  RetryPendingManagedTasks("webhare_testsuite:temporaryfailure");
+  testfw->CommitWork();
+
+  TestEQMembers([ notbefore := AddTimeToDate(2000, now), nextattempt := AddTimeToDate(2000, now) ], DescribeManagedTask(taskid2), "*");
+  TestEQMembers([ notbefore := AddTimeToDate(60000, now), nextattempt := AddTimeToDate(60000, now) ], DescribeManagedTask(taskid3), "*");
+
+  // should not resolve within the first 1.5 second
+  TestEQ(DEFAULT RECORD, RetrieveManagedTaskResult(taskid, AddTimeToDate(1500, now), [ accepttimeout := TRUE ]));
+
+  // but it should resolve when waiting for it (10 secs should be enough for CI, all other tasks are deleted)
+  TestEQ([ managedtaskid := taskid, pong := 42 ], RetrieveManagedTaskResult(taskid, AddTimeToDate(10000, now)));
+
+  testfw->BeginWork();
+  OBJECT cancelpromise := CancelManagedTasks([ taskid, taskid2, taskid3 ]);
+  testfw->CommitWork();
+
+  AWAIT cancelpromise;
+}
+
 RunTestframework([ PTR TestWaitableAction
                  , PTR TestMarkAsTemporaryFailure
+                 , PTR TestNotBeforeTasks
                  ]);

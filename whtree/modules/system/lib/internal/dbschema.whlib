@@ -133,6 +133,7 @@ PUBLIC SCHEMA
     , INTEGER failures
     , INTEGER priority
     , INTEGER timeout
+    , DATETIME notbefore
     ; KEY id
     > managedtasks
   , TABLE

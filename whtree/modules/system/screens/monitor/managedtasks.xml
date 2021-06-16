@@ -46,7 +46,7 @@
           <cell>
             <panel height="1pr">
               <list name="managedtasks"
-                    icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available tollium:status/checked tollium:status/neutral"
+                    icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available tollium:status/checked tollium:status/neutral tollium:status/schedule"
                     selectmode="multiple"
                     selectcontextmenu="selectionmenu"
                     newcontextmenu="queuemenu"
@@ -68,8 +68,9 @@
           </cell>
           <cell spacers="left right" layout="left">
             <checkbox name="showcompletedtasks" onchange="RefreshDashboardPanel" title="" labeltid=".showcompletedtasks" />
-            <button width="1pr" action="view"          />
-            <button width="1pr" action="flush"                />
+            <checkbox name="showscheduledtasks" onchange="RefreshDashboardPanel" title="" labeltid=".showscheduledtasks" />
+            <button width="1pr" action="view" />
+            <button width="1pr" action="flush" />
             <button width="1pr" action="delete" />
           </cell>
         </row>
@@ -86,7 +87,10 @@
         <text name="id" />
         <text name="tasktype" />
         <datetime name="creationdate" readonly="true" storeutc="true" type="datetime" precision="seconds" />
-        <datetime name="nextattempt" readonly="true" storeutc="true" type="datetime" precision="seconds" />
+        <line>
+          <datetime name="nextattempt" readonly="true" storeutc="true" type="datetime" precision="seconds" />
+          <text name="notbefore" title="" />
+        </line>
         <datetime name="finished" readonly="true" storeutc="true" type="datetime" precision="seconds" />
         <text name="timeout" />
         <textedit name="manualcall" enabled="false" width="1pr" />
