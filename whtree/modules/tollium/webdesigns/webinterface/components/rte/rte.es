@@ -243,8 +243,8 @@ export default class ObjRTE extends ComponentBase
         let actionid = ++this._pendingactiontargetseq;
         this._pendingactiontargets.push( { id: actionid, target: affectednodeinfo });
 
-        //the rest of the data is built to be JSON-safe
-        this.queueMessage('properties2', { actionid, affectednodeinfo, action, subaction: event.detail.subaction }, true);
+        //removing the __node makes the rest of the data JSON-safe
+        this.queueMessage('properties2', { actionid, affectednodeinfo: {...affectednodeinfo, __node:null } , action, subaction: event.detail.subaction }, true);
         event.preventDefault();
         return;
       }
