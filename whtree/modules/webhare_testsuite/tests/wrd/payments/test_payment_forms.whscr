@@ -20,7 +20,9 @@ PUBLIC MACRO BuildForm()
   OBJECT paymentapi := GetWRDTestPaymentAPI();
   BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
   BuildWebtoolForm([filename := "custompaymentfield", addpaymentmethod := TRUE, addpaymenthandler := TRUE, addtslinecomp := TRUE]);
-  BuildCustomWebtoolForm([addpaymentmethod:=TRUE]);
+
+  BuildCustomWebtoolForm([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE]);
+  BuildCustomWebtoolForm([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE, filename := "paymenthandlerform"]);
 
   pm2 := testfw->wrdschema->^payprov->GetEntity(testfw->wrdschema->^payprov->Search("wrd_title", "TestMethod"));
 }
@@ -114,9 +116,23 @@ MACRO CustomForm()
     Print('Form URL: ' || formfile->url||'\n');
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
-  OBJECT ARRAY labels := testfw->browser->document->GetElements('label.wh-form__optionlabel');
+  OBJECT ARRAY labels := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm.paymentmethod"]');
   TestEq(2, Length(labels), "should be two labels");
-  TEsteq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
+  TestEq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
+
+  OBJECT ARRAY labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  TestEq(0,Length(labels_pm_noschema));
+
+  formfile := OpenTestsuiteSite()->OpenByPath("webtools/paymenthandlerform");
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  TestEq(0,Length(labels_pm_noschema));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url || "?in_pm_noschema=NOISSUER"));
+  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  TestEq(1, Length(labels_pm_noschema), "should be one labels");
+  TestEq("TestNoIssuer (test mode)", labels_pm_noschema[0]->innerhtml);
 }
 
 ASYNC MACRO TestEditPaymentHandler()

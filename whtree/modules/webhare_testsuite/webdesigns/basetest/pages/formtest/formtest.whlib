@@ -671,6 +671,19 @@ PUBLIC STATIC OBJECTTYPE PaymentFormHandler EXTEND FormHandlerBase
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE PaymentNoiseHandler EXTEND FormHandlerBase
+<
+  MACRO NEW()
+  {
+    IF(GetWebVariable("in_pm_noschema") != "")
+    {
+      OBJECT payments := GetWRDTestPaymentAPI();
+      RECORD ARRAY methods := SELECT * FROM payments->ListAllPaymentOptions() WHERE paymentoptiontag IN Tokenize(GetWebVariable("in_pm_noschema"),',');
+      this->form->^pm_noschema->SetupPaymentOptions(payments, methods);
+    }
+  }
+>;
+
 PUBLIC OBJECTTYPE AddressForm EXTEND FormBase
 <
   STRING filename;
