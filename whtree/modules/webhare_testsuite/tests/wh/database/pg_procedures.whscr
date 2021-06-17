@@ -162,7 +162,16 @@ MACRO TestWebroot()
   testfw->CommitWork();
 }
 
+MACRO TestAutoNumbers()
+{
+  // Autonumber outside of transaction left a lingering advisory lock
+  TestEQ(RECORD[], GetPrimary()->__ExecSQL(`SELECT * FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'`));
+  TestThrowsLike("*not*outside*work*", PTR MakeAutonumber(system.fs_objects, "ID"));
+  TestEQ(RECORD[], GetPrimary()->__ExecSQL(`SELECT * FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'`), "MakeAutoNumber left lock when giving an error");
+}
+
 RunTestframework([ PTR TestProcedures
                  , PTR TestURL
                  , PTR TestWebroot
+                 , PTR TestAutoNumbers
                  ]);

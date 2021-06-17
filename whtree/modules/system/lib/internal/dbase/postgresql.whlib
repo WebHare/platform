@@ -15,7 +15,7 @@ LOADLIB "wh::dbase/postgresql.whlib";
 */
 CONSTANT INTEGER max_varchar_indexcolsize := 264;
 
-CONSTANT STRING autonumberfunc_procid := `autonrs:1`;
+CONSTANT STRING autonumberfunc_procid := `autonrs:2`;
 
 STATIC OBJECTTYPE ChangeContext
 < /// Transaction
@@ -850,6 +850,10 @@ DECLARE
   currbatchsize int;
   largebatchsize int;
 BEGIN
+  IF ((SELECT current_setting('transaction_read_only')::bool) = 'on') THEN
+    RAISE EXCEPTION 'Cannot generate autonumbers outside of work';
+  END IF;
+
   PERFORM pg_advisory_lock(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass::int8);
   currid := nextval(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass);
   orgnextid := currid;
