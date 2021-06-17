@@ -553,13 +553,16 @@ git_update_all()
   fi
 
   # Check sublime package
-  if [ -d "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare/.git" ]; then
-    echo
-    echo "Updating Sublime WebHare package"
-    if ! ( cd "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare" && git pull --rebase ) ; then
-      UPDATEERRORS="$UPDATEERRORS sublime-webhare-package"
+  for PACKAGEDIR in "$HOME/Library/Application Support/Sublime Text/Packages/WebHare"\
+                    "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare"; do
+    if [ -d "$PACKAGEDIR/.git" ]; then
+      echo
+      echo "Updating Sublime WebHare package"
+      if ! ( cd "$PACKAGEDIR" && git pull --rebase ) ; then
+        UPDATEERRORS="$UPDATEERRORS sublime-webhare-package"
+      fi
     fi
-  fi
+  done
 
   # Check webhare-connect-helper
   if [ -d "$HOME/projects/connect-helper/.git" ]; then
