@@ -3,6 +3,7 @@
   <!-- Anchor -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
               editextension="widgets.xml#anchorwidget"
+              renderobjectname="widgets.whlib#AnchorWidgetBase"
               tid="widgets.anchorwidget.title"
               wittycomponent="widgets.witty:anchor">
     <members>

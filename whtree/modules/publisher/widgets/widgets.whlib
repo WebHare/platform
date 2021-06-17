@@ -2,8 +2,10 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::publisher/lib/widgets.whlib";
 
-PUBLIC OBJECTTYPE AnchorWidget EXTEND TolliumTabsExtensionBase
+
+PUBLIC STATIC OBJECTTYPE AnchorWidget EXTEND TolliumTabsExtensionBase
 <
   BOOLEAN FUNCTION CheckAnchorName(STRING name)
   {
@@ -24,5 +26,13 @@ PUBLIC OBJECTTYPE AnchorWidget EXTEND TolliumTabsExtensionBase
     TolliumTabsExtensionBase::ValidateValue(feedback);
     IF (NOT this->CheckAnchorName(^anchorname->value))
       feedback->AddErrorFor(^anchorname, GetTid("publisher:widgets.anchorwidget.invalidname", ^anchorname->value));
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AnchorWidgetBase EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO RenderSearchPreview()
+  {
+    // Don't render the anchor in search results
   }
 >;
