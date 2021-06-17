@@ -37,6 +37,7 @@
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (deleted)</text>
       <text tid="filetitle">File title</text>
+      <text tid="widgetname">Widget name</text>
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
@@ -1730,10 +1731,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="terminology" limitlanguages="en nl">   <!-- terminology -->
-    <text tid="filename">File Name</text>
-    <text tid="filetitle">File Title</text>
-    <text tid="folder">Folder</text>
-    <text tid="rootfolder">Root Folder</text>
     <text tid="search">Search</text>
     <text tid="trash">Trash</text>
     <text tid="worklists">Work lists</text>
@@ -2312,8 +2309,6 @@
       <text tid="filelistmultihint">Multiple row layout</text>
       <text tid="filelistsinglehint">Single-row layout</text>
       <text tid="filename">File name</text>
-      <text tid="filetitle">File title</text>
-      <text tid="filetypeicon">Filetype</text>
       <text tid="filter">Filter</text>
       <text tid="filterfrom">Last changed between</text>
       <text tid="filterto">and</text>

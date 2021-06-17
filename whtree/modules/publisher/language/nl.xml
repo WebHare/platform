@@ -37,6 +37,7 @@
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
       <text tid="deleted"><param p="1"/> (verwijderd)</text>
       <text tid="filetitle">Bestandstitel</text>
+      <text tid="widgetname">Widgetnaam</text>
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
@@ -1730,10 +1731,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="terminology">   <!-- terminology -->
-    <text tid="filename">Bestandsnaam</text>
-    <text tid="filetitle">Titel</text>
-    <text tid="folder">Map</text>
-    <text tid="rootfolder">Basismap</text>
     <text tid="search">Zoeken</text>
     <text tid="trash">Prullenbak</text>
     <text tid="worklists">Werklijsten</text>
@@ -2312,8 +2309,6 @@
       <text tid="filelistmultihint">Meerdere-rijen-indeling</text>
       <text tid="filelistsinglehint">Enkele-rij-indeling</text>
       <text tid="filename">Bestandsnaam</text>
-      <text tid="filetitle">Bestandstitel</text>
-      <text tid="filetypeicon">Bestandstype</text>
       <text tid="filter">Filter</text>
       <text tid="filterfrom">Laatste wijziging tussen</text>
       <text tid="filterto">en</text>
