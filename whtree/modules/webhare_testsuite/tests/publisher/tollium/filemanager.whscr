@@ -246,7 +246,7 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq("", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This external link does not seem to be linked to an existing file.<br />Warnings have occurred while publishing this file. <a href="preview:showwarnings">Click here to show the warnings.</a>`, pvs.messages);
+  TestEqLike(`This external link does not seem to be linked to an existing file.<br />Errors have occurred during publication. <a href="preview:showerrors">Click here to view the errors.</a>`, pvs.messages);
 
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-published.shtml";
   pvs := TT("previewbrowser")->GetPreviewState();

@@ -15,6 +15,9 @@ IF (file.type=19) //internal link
 
 RenamePage(1,'index.shtml');
 STRING url := MakeRelativeLinkFromURL(GetCurrentPageUrl(), file.url);
+IF(url = "")
+  __PUBLISHER_EXCEPTION(3003, "Cannot find linked file");
+
 STRING header := '<!-- <?wh LOADLIB "mod::system/lib/webserver.whlib"; Redirect("' || EncodeJava(url) || '"); ?> -->';
 OpenFile(1);
 
