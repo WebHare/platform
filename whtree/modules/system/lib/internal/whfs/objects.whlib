@@ -1358,6 +1358,9 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @return The folder */
   PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
   {
+    IF(NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception(`EnsureFolder requires open work`); //prevent users from 'getting away' with EnsureFolder outside work if it didn't make any material change
+
     OBJECT existing := this->OpenByName(requiredmetadata.name);
     IF(ObjectExists(existing))
     {
@@ -1381,6 +1384,9 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @return The file */
   PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
   {
+    IF(NOT GetPrimary()->IsWorkOpen())
+      THROW NEW Exception(`EnsureFile requires open work`); //prevent users from 'getting away' with EnsureFile outside work if it didn't make any material change
+
     OBJECT existing := this->OpenByName(requiredmetadata.name);
     IF(ObjectExists(existing))
     {

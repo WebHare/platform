@@ -6,8 +6,6 @@ As an example, we're creating a (disabled) textedit field that will generate a u
 Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the module's moduledefinition.xml file (assuming the module is called 'mymodule'), create a form definition file, mymodule/data/formdef.xsd, and fill it with:
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-
 <xs:schema
   xmlns="http://www.mysite.net/xmlns/forms"
   xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
@@ -32,8 +30,6 @@ Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the modu
             descriptiontid="module.forms.myhandlerdesc"
             editdefaults="title placeholder"
             fieldobject="mod::mymodule/formcomponents/formcomponents.whlib#GenerateID"
-            parserfunc="mod::mymodule/formcomponents/formcomponents.whlib#ParseGenerateID"
-            editextension="mod::mymodule/formcomponents/formcomponents.xml#generateidformfield"
             />
         </xs:appinfo>
       </xs:annotation>
@@ -44,9 +40,6 @@ Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the modu
 </xs:schema>
 ```
 
-Optional fields
-`parserfunc` and `editextension` are only needed when adding your own fields
-
 Refer to this form definition in your moduledefinition.xml by adding the following tags (if you have an existing <publisher> section, just add the <formcomponents> there):
 
 ```xml
@@ -55,44 +48,10 @@ Refer to this form definition in your moduledefinition.xml by adding the followi
   </publisher>
 ```
 
-Let's define the screen first. We're creating a field that generates a code, but we also want this code to be based on a certain 'tag' that can be chosen by the content manager.
-
-Create a mymodule/formcomponents/formcomponents.xml file containing the following:
-
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
-  <tabsextension name="generateidformfield"
-                 implementation="lib"
-                 lib="mod::mymodule/formcomponents/formcomponents.whlib">
-    <insert position="answers" where="after">
-      <textedit name="code" tid="module.forms.code" width="16x" required="true" />
-    </insert>
-  </tabsextension>
-</screens>
-```
-
-Acceptable insert positions are: titles, answers, presentation, validation, dependencies, advanced
-
-Now it's time to add some logic, by creating a mymodule/formcomponents/formcomponents.whlib file:
+And set up the field handler on the backend. This example creates a sub-textedit prefilled with a random value
 
 ```harescript
-<?wh
 LOADLIB "mod::publisher/lib/forms/components.whlib";
-LOADLIB "mod::publisher/lib/forms/editor.whlib";
-
-PUBLIC OBJECTTYPE GenerateIdFormField EXTEND FormComponentExtensionBase
-<
-  UPDATE PUBLIC MACRO PostInitExtension()
-  {
-    this->code->value := this->node->GetAttribute("code");
-  }
-
-  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
-  {
-    this->node->SetAttribute("code", this->code->value);
-  }
->;
 
 PUBLIC STATIC OBJECTTYPE GenerateID EXTEND ComposedFormFieldBase
 < PUBLIC PROPERTY value(GetValue, SetValue);
@@ -122,7 +81,25 @@ PUBLIC STATIC OBJECTTYPE GenerateID EXTEND ComposedFormFieldBase
     this->idfield->value := value;
   }
 >;
+```
 
+To enable the custom fields in the form editor, tell your site profile about it. This can be done by adding this piece of code to your main site profile:
+
+```xml
+<apply>
+  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
+  <allowformquestion type="http://www.mysite.net/xmlns/forms#*" />
+</apply>
+```
+
+## Custom attributes
+Your form can accept custom attributes by
+- adding these to the xs:complexType (xs:attribute...)
+- setting up a parser for these attributes by adding a `parserfunc` to the forms:formcomponent node, eg `parserfunc="mod::mymodule/formcomponents/formcomponents.whlib#ParseGenerateID"`
+
+Example of such a parser:
+
+```
 PUBLIC RECORD FUNCTION ParseGenerateId(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {
   INSERT CELL code := node->GetAttribute("code") INTO fielddef;
@@ -130,11 +107,48 @@ PUBLIC RECORD FUNCTION ParseGenerateId(RECORD fielddef, OBJECT node, RECORD pars
 }
 ```
 
-To enable the custom fields, tell your site profile about it. This can be done by adding this piece of code to your main site profile:
+You cannot define `on` attributes such as Tollium's `onchange` that callback into your Form code. It's not possible to set
+up these kind of attributes as forms and components don't have the separate `Init` and `StaticInit` steps that Tollium adds
+to allow references to the containing screen.
+
+## Configuring custom attributes
+To allow custom attributes to be managed in the form editor, add an `editextension` to the forms:formcomponent node
+
+For example, create a mymodule/formcomponents/formcomponents.xml file containing the following:
 
 ```xml
-<apply>
-  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
-  <allowformquestion type="http://www.mysite.net/xmlns/forms#*" />
-</apply>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+  <tabsextension name="generateidformfield"
+                 implementation="lib"
+                 lib="mod::mymodule/formcomponents/formcomponents.whlib">
+    <insert position="answers" where="after">
+      <textedit name="code" tid="module.forms.code" width="16x" required="true" />
+    </insert>
+  </tabsextension>
+</screens>
+```
+
+and add this to the form:formcomponent: `editextension="mod::mymodule/formcomponents/formcomponents.xml#generateidformfield"`
+
+Acceptable insert positions are: titles, answers, presentation, validation, dependencies, advanced
+
+Add the necessary logic:
+
+```harescript
+<?wh
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+
+PUBLIC OBJECTTYPE GenerateIdFormField EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->code->value := this->node->GetAttribute("code");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    this->node->SetAttribute("code", this->code->value);
+  }
+>;
+
 ```

@@ -175,7 +175,7 @@ ASYNC MACRO TestManageSnippets()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT(":File title")->value := "New Snippet";
+  TT(":Widget name")->value := "New Snippet";
   TT("component")->GetComponent("snippettext")->value :=
                         [ htmltext := StringToBlob(`
                            <html><body>

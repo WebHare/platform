@@ -157,7 +157,7 @@ ASYNC MACRO TestAdaptiveContentSlots()
   TestEq(2, Length(TT("types")->rows));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "ContentOption1";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
-  TT(":File title")->value := "Contents option 1 alpha";
+  TT(":Widget name")->value := "Contents option 1 alpha";
   TT(":Text")->value := [ htmltext := StringToBlob("My text") ];
 
   TestEq("Content", TT("extensiontabs")->pages[0]->title);
