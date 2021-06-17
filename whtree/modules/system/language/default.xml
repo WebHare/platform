@@ -923,6 +923,7 @@
           <text tid="requeue">Resend mail</text>
           <text tid="result">View send result</text>
           <text tid="sender">Sender</text>
+          <text tid="showscheduledmail">Show scheduled mail</text>
           <text tid="showsentmail">Show sent mail</text>
           <text tid="subject">Subject</text>
           <text tid="testmailsubject">Test mail from '<param p="1"/>'</text>
@@ -950,6 +951,7 @@
           <text tid="manualcall">Manual call</text>
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Next attempt at</text>
+          <text tid="notbefore">(not before <param p="1"/>)</text>
           <text tid="returnvaluetab">Return value</text>
           <text tid="tasktype">Task type</text>
           <text tid="timeout">Time limit</text>
@@ -960,6 +962,7 @@
           <text tid="nextattempt">Next attempt</text>
           <text tid="reschedule">Duplicate and reschedule task</text>
           <text tid="showcompletedtasks">Show completed tasks</text>
+          <text tid="showscheduledtasks">Show scheduled tasks</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Task type</text>
         </textgroup>

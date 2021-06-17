@@ -13,7 +13,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC INTEGER FUNCTION GetTaskStatusIcon(RECORD task)
 {
-  RETURN task.isrunning ? 6 : task.iscancelled ? 4 : task.lasterrors != "" ? 2 : task.finished != DEFAULT DATETIME ? 3 : 1;
+  RETURN task.isscheduled ? 7 : task.isrunning ? 6 : task.iscancelled ? 4 : task.lasterrors != "" ? 2 : task.finished != DEFAULT DATETIME ? 3 : 1;
 }
 
 PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
@@ -91,6 +91,8 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
+    DATETIME now := GetCurrentDateTime();
+
     RECORD ARRAY rows := SELECT rowkey := managedtasks.id
                               , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
                               , creationdate
@@ -99,14 +101,19 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
                               , finished
                               , iscancelled
                               , isrunning := id IN this->runningtasks
+                              , isscheduled := notbefore > now
                               , canreschedule := finished != DEFAULT DATETIME OR nextattempt != DEFAULT DATETIME
                            FROM system.managedtasks
-                          WHERE (this->showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME);
+                          WHERE (this->showcompletedtasks->value ? TRUE : managedtasks.finished = DEFAULT DATETIME)
+                            AND (this->showscheduledtasks->value ? TRUE : managedtasks.notbefore < now);
 
     rows := SELECT *
                  , status := GetTaskStatusIcon(rows)
                  , hasfailed := finished != DEFAULT DATETIME AND lasterrors != ""
               FROM rows;
+
+    // ADDME: refresh when next scheduled item becomes runnable (refresh won't be triggered
+    // when executing a long-running task)
 
     this->managedtasks->rows := rows;
   }
@@ -200,6 +207,7 @@ PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
     ^creationdate->value := task.creationdate;
     ^nextattempt->value := task.nextattempt;
     ^finished->value := task.finished;
+    ^notbefore->value := task.notbefore = DEFAULT DATETIME ? "" : this->GetTid(".notbefore", this->contexts->user->FormatDateTime(task.notbefore, "seconds", TRUE, TRUE));
     ^lasterrors->value := task.lasterrors;
     ^data->value := showdata;
     ^retval->value := task.retval;

@@ -742,6 +742,7 @@
           <text tid="requeue">Mail opnieuw versturen</text>
           <text tid="result">Verzendresultaat</text>
           <text tid="sender">Afzender</text>
+          <text tid="showscheduledmail">Toon ingeplande mail</text>
           <text tid="showsentmail">Toon verzonden mail</text>
           <text tid="subject">Onderwerp</text>
           <text tid="testmailsubject">Test mail van '<param p="1"/>'</text>
@@ -769,6 +770,7 @@
           <text tid="manualcall">Handmatige aanroep</text>
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Volgende poging op</text>
+          <text tid="notbefore">(niet voor <param p="1"/>)</text>
           <text tid="returnvaluetab">Teruggeven waarde</text>
           <text tid="tasktype">Taaktype</text>
           <text tid="timeout">Tijdslimiet</text>
@@ -779,6 +781,7 @@
           <text tid="nextattempt">Volgende poging</text>
           <text tid="reschedule">Dupliceer en plan taak opnieuw in</text>
           <text tid="showcompletedtasks">Toon voltooide taken</text>
+          <text tid="showscheduledtasks">Toon ingeplande taken</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Taaktype</text>
         </textgroup>

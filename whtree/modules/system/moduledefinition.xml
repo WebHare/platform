@@ -826,6 +826,11 @@ True if this port should support virtual hosting.
           Maximum duration of the task in milliseconds
         </d:documentation>
       </d:integer>
+      <d:datetime name="notbefore">
+        <d:documentation>
+          Date after which the task is allowed to run
+        </d:documentation>
+      </d:datetime>
     </d:table>
 
     <d:table name="managedtasksmeta" primarykey="id">
