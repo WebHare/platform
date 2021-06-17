@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/mime.whlib";
 
@@ -56,6 +57,8 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
 
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
+    DATETIME now := GetCurrentDateTime();
+
     RECORD ARRAY rows := SELECT rowkey := managedtasks.id
                               , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
                               , creationdate
@@ -65,9 +68,12 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
                               , finished
                               , iscancelled
                               , isrunning := FALSE
+                              , isscheduled := notbefore > now
                           FROM system.managedtasks
                          WHERE tasktype="system:outgoingmail"
-                               AND (this->showsentmail->value ? TRUE : managedtasks.finished = DEFAULT DATETIME);
+                               AND (this->showsentmail->value ? TRUE : managedtasks.finished = DEFAULT DATETIME)
+                               AND (this->showscheduledmail->value ? TRUE : managedtasks.notbefore < now);
+
     /// Apply pre-user filtering if needed:
     IF(this->filterorigin != "")
       DELETE FROM rows WHERE ToUpperCase(taskdata.origin) NOT LIKE ToUpperCase(this->filterorigin);

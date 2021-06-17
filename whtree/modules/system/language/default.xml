@@ -923,6 +923,7 @@
           <text tid="requeue">Resend mail</text>
           <text tid="result">View send result</text>
           <text tid="sender">Sender</text>
+          <text tid="showscheduledmail">Show scheduled mail</text>
           <text tid="showsentmail">Show sent mail</text>
           <text tid="subject">Subject</text>
           <text tid="testmailsubject">Test mail from '<param p="1"/>'</text>

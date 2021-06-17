@@ -82,6 +82,7 @@
           <cell spacers="left right" layout="left">
             <textedit name="filter" onchange="RefreshDashboardPanel" width="1pr" />
             <checkbox name="showsentmail" onchange="RefreshDashboardPanel" title="" labeltid=".showsentmail" />
+            <checkbox name="showscheduledmail" onchange="RefreshDashboardPanel" title="" labeltid=".showscheduledmail" />
             <button width="1pr" name="newbutton" action="new" tid="~new" />
             <button width="1pr" name="flushbutton" action="flush" tid=".flush" />
             <button width="1pr" action="forward"             />

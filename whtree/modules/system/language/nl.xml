@@ -742,6 +742,7 @@
           <text tid="requeue">Mail opnieuw versturen</text>
           <text tid="result">Verzendresultaat</text>
           <text tid="sender">Afzender</text>
+          <text tid="showscheduledmail">Toon ingeplande mail</text>
           <text tid="showsentmail">Toon verzonden mail</text>
           <text tid="subject">Onderwerp</text>
           <text tid="testmailsubject">Test mail van '<param p="1"/>'</text>
