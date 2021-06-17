@@ -83,14 +83,14 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
   }
 
   /** Explicitly set payment options
-      @long Explicit option configuration. If used. we recommend explicitly setting wrdschema="" on the paymentmethod to prevent duplicate initialization
+      @long Explicit option configuration. If used, we recommend explicitly setting wrdschema="" on the paymentmethod to prevent duplicate initialization
       @param paymentapi Payment API to use
       @param paymentoptions Payment options, in the format returned by %PaymentAPI::ListAllPaymentOptions */
   PUBLIC MACRO SetupPaymentOptions(OBJECT paymentapi, RECORD ARRAY paymentoptions)
   {
     this->manualpaymentoptions := TRUE;
     this->paymentoptions := this->ConstructPaymentOptions(paymentoptions);
-    this->paymentapi := paymentapi; //imples Reconstruct()
+    this->paymentapi := paymentapi; //implies Reconstruct()
   }
 
   MACRO SetPaymentAPI(OBJECT newpaymentapi)
