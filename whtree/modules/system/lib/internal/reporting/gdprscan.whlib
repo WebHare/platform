@@ -46,7 +46,7 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
       IF (personstats.testpersons != personstats.numactive + personstats.inactive)
         Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
       ELSE
-        PRINT(`- only test persons: ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+        PRINT(`- only test persons: ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive)\n`);
     }
     Print("\n");
   }
@@ -149,25 +149,39 @@ PUBLIC RECORD FUNCTION GetGDPRScanReport()
            WHERE attributetypename = "EMAIL"
                  OR (tag LIKE "*EMAIL" AND attributetypename = "FREE");
 
-      IF (IsValueSet(emailattrs))
+      RECORD ARRAY persons := schemaobj->^wrd_person->RunQuery(
+          [ outputcolumns := STRING[ ...emailattrs, "wrd_fullname", "wrd_creationdate", "wrd_limitdate" ]
+          , historymode := "__getfields"
+          ]);
+
+      RECORD ARRAY nontestpersons;
+      FOREVERY (RECORD rec FROM persons)
       {
-        RECORD ARRAY persons := schemaobj->^wrd_person->RunQuery(
-            [ outputcolumns := STRING[ ...emailattrs, "wrd_fullname" ]
-            , historymode := "__getfields"
-            ]);
+        BOOLEAN istestperson := __MatchesAnyMask(rec.wrd_fullname, allowfullnamemasks);
+        FOREVERY (STRING tag FROM emailattrs)
+          istestperson := istestperson OR __MatchesAnyMask(GetCell(rec, tag), allowemailmasks);
 
-        FOREVERY (RECORD rec FROM persons)
-        {
-          BOOLEAN istestperson := __MatchesAnyMask(rec.wrd_fullname, allowfullnamemasks);
-          FOREVERY (STRING tag FROM emailattrs)
-            istestperson := istestperson OR __MatchesAnyMask(GetCell(rec, tag), allowemailmasks);
-
-          IF (istestperson)
-            testpersons := testpersons + 1;
-        }
+        IF (istestperson)
+          testpersons := testpersons + 1;
+        ELSE
+          INSERT rec INTO nontestpersons AT END;
       }
 
-      INSERT CELL testpersons := testpersons INTO personstats;
+      RECORD newstats :=
+         RECORD(SELECT oldest := MIN(wrd_creationdate)
+                     , newest := MAX(wrd_creationdate)
+                     , oldestinactive := MIN(wrd_limitdate)
+                  FROM nontestpersons) ??
+                          [ oldest:=          DEFAULT DATETIME
+                          , newest:=          DEFAULT DATETIME
+                          , oldestinactive:=  DEFAULT DATETIME
+                          ];
+
+      personstats := CELL
+          [ ...personstats
+          , ...newstats
+          , testpersons
+          ];
     }
 
     wrdschema := CELL[ ...wrdschema
