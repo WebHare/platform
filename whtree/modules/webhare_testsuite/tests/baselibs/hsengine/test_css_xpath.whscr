@@ -67,6 +67,9 @@ MACRO TestQuerySelector()
 
   TestThrowsLike("*empty selector*", PTR dom->querySelectorAll(""));
 
+  TestEq(DEFAULT OBJECT, MakeXMLDocument(DEFAULT BLOB)->QuerySelector(".classy"));
+  TestEq(DEFAULT OBJECT, MakeXMLDocument(StringToBlob(`{"error":null}`))->QuerySelector(".classy"));
+
   CloseTest("TestQuerySelector");
 }
 

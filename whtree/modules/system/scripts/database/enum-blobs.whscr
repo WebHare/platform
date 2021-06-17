@@ -193,7 +193,7 @@ RECORD ARRAY entity_settings :=
 
 PRINT("Enriching setting stats:\n");
 entity_settings := EnrichWithTable(entity_settings, "attribute", wrd.attrs, [ type := "type" ]);
-entity_settings := EnrichWithTable(entity_settings, "type", wrd.types, [ wrd_schema := "wrd_schema" ]);
+entity_settings := EnrichWithTable(entity_settings, "type", wrd.types, [ wrd_schema := "wrd_schema", tag := "tag" ]);
 entity_settings := EnrichWithTable(entity_settings, "wrd_schema", wrd.schemas, [ name := "name" ]);
 
 INTEGER64 total_wrd := SELECT AS INTEGER64(SUM(size)) FROM entity_settings;
@@ -207,3 +207,15 @@ PRINT(AnyToString((
       FROM entity_settings
   GROUP BY name
   ORDER BY name), "boxed"));
+
+PRINT("Per type (only types with > 1% of WRD total):\n");
+RECORD ARRAY pertype :=
+    SELECT name :=          `${name} - ${tag}`
+         , size_mb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024), 0.01m, "half-up")
+         , size_gb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024 / 1024), 0.01m, "half-up")
+         , perc :=          RoundToMultiple(total_wrd = 0 ? 0m : MONEY(SUM(size)) / (MONEY(total_wrd) / 100m), 0.01m, "half-up")
+      FROM entity_settings
+  GROUP BY name, tag
+  ORDER BY name, tag;
+
+PRINT(AnyToString((SELECT * FROM pertype WHERE perc >= 1m), "boxed"));
