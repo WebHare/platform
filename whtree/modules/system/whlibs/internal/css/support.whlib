@@ -1534,6 +1534,9 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   RECORD scopepath := GetNodePathList(scope);
   OBJECT root := IsValueSet(scope) ? scopepath.path[0] : doc->documentelement;
 
+  IF (NOT ObjectExists(root))
+    RETURN OBJECT[];
+
   RECORD config :=
       [ root :=       root
       , scope :=      scope ?? root
