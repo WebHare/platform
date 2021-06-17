@@ -83,6 +83,14 @@ Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it de
 
 ## Debugging/selftests
 
+### WEBHARE_DEBUG
+Set debug flags:
+- `wrq`: Show webrequests (formerly `__webbrowser_debugall := TRUE`)
+
+See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
+
+You can also set custom debug flags and check them using %IsDebugTagEnabled.
+
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
 
