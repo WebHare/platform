@@ -516,7 +516,7 @@ MACRO NTLMTests()
   TestEq("D9D77D9926DDEB881942ED25097AC704", EncodeBase16(GetLMHash("longerthanfourteen")));
   TestEq("919016F64EC7B00BA235028CA50C7A03", EncodeBase16(GetLMHash("Beeblebrox")));
 
-//  TestEq("TlRMTVNTUAABAAAAA7IAAAoACgApAAAACQAJACAAAABMSUdIVENJVFlVUlNBLU1JTk9S", EncodeBase64(EncodeNTLMType1("LightCity","Ursa-Minor"))); //we disabledpassing these parmas until we can find a proper referential case. it looks like our offsets were actually wrong!
+//  TestEq("TlRMTVNTUAABAAAAA7IAAAoACgApAAAACQAJACAAAABMSUdIVENJVFlVUlNBLU1JTk9S", EncodeBase64(EncodeNTLMType1("LightCity","Ursa-Minor"))); //we disabled passing these params until we can find a proper referential case. it looks like our offsets were actually wrong!
   TestEq("TlRMTVNTUAABAAAAAwIAAAAAAAAoAAAAAAAAACgAAAAAAAAAAAAAAA==", EncodeBase64(EncodeNTLMType1("","")));
   TestEq( [ header := "NTLMSSP", type := 0, nonce := "SrvNonce" ], DecodeNTLMTYpe2(DecodeBase64("TlRMTVNTUAACAAAAAAAAACgAAAABggAAU3J2Tm9uY2UAAAAAAAAAAA==")));
 
