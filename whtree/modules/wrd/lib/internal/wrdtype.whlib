@@ -2947,7 +2947,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           // When setting the limitdate to now or past, delete the materialized unique data
           UPDATE wrd.entity_settings
             SET unique_rawdata := ""
-          WHERE entity = entityid;
+          WHERE entity = entityid
+            AND unique_rawdata != "";
         }
 
         INTEGER ARRAY relevant_attrids;
