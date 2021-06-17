@@ -102,14 +102,23 @@ PUBLIC STRING FUNCTION GetLMHash(STRING inpass)
 
 PUBLIC STRING FUNCTION EncodeNTLMType1(STRING hostname, STRING ntdomain)
 {
-  RETURN EncodePacket("header:r*,domainlen:S,domainlen:S,domainoff:S,:x2,hostnamelen:S,hostnamelen:S,hostoffset:s,:x2,hostname:r*,ntdomain:r*",
-                      [ header := "NTLMSSP\x00\x01\x00\x00\x00\x03\xB2\x00\x00"
-                      , domainlen := Length(ntdomain)
-                      , domainoff := 32 + Length(hostname)
-                      , hostnamelen := Length(hostname)
-                      , hostoffset := 32
-                      , hostname := ToUppercase(hostname)
-                      , ntdomain := ToUppercase(ntdomain)
+  //MS-NLMP - NEGOTIATE_MESSAGE
+  //Header 16 + domain 8 + hostname 8 + version 8 = 40
+  RETURN EncodePacket("header:r16,domainlen:S,domainlen:S,domainoff:L,hostnamelen:S,hostnamelen:S,hostoffset:L,version:r8,hostname:r*,ntdomain:r*",
+                      [ header := "NTLMSSP\x00\x01\x00\x00\x00\x03\x02\x00\x00" //'NTLMSSP\x00' = signature
+                                                                                //'\0x1\0\0\0" = MessageType  (must be 1)
+                                                                                /* '\x03\xB2\x00\x00 ' = NegotiateFlags
+                                                                                  - NTLMSSP_NEGOTIATE_56 (0001)
+                                                                                  - NTLMSSP_NEGOTIATE_KEY_EXCH (0002)
+                                                                                  - NTLMSSP_REQUEST_NON_NT_SESSION_KEY (0020) */
+                      //TODO readd supoprt for sending hostname and ntdomain? BUT if we do that we need to set proper flags such as NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
+                      , domainlen := 0//Length(ntdomain)
+                      , domainoff := 40 // + Length(hostname)
+                      , hostnamelen := 0//Length(hostname)
+                      , hostoffset := 40
+                      , version := "\x00\x00\x00\x00\x00\x00\x00\x00"
+                      , hostname := ""//ToUppercase(hostname)
+                      , ntdomain := ""//ToUppercase(ntdomain)
                       ]);
 }
 
