@@ -9,7 +9,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
-LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 
 
 RECORD ARRAY buckets;
@@ -56,28 +55,6 @@ IF (args.until != "")
     THROW NEW Exception("Could not read datetime '" || args.until);
 }
 
-BOOLEAN FUNCTION IsBlameableClientError(STRING ARRAY localnames, RECORD rec)
-{
-  IF(rec.httpcode IN [401,403,407,410]) //permission errors or 410 GONE
-    RETURN FALSE;
-  IF(rec.httpcode = 404 AND rec.referrer = "") //we don't count clientfails caused by direct lands on a 404. those are generally from linkchecks or search robots
-    RETURN FALSE;
-
-  //URLs clients love to request this without being explictly referred
-  IF(IsRobotURLPath(Substring(rec.url,1))) //IsRobotURLPath expects .urlpath, so strip initial /
-    RETURN FALSE;
-
-  //If it looks like you're linking an image...
-  IF(rec.url LIKE "*.png" OR rec.url LIKE "*.jpg" OR rec.url LIKE "*.gif")
-  {
-    STRING referrerhost := ToUppercase(UnpackURL(rec.referrer).host);
-    IF(BinaryFind(localnames, referrerhost) = -1)
-      RETURN FALSE; //non local referrer hotlinking local images - not our problem!
-  }
-
-  RETURN TRUE; //okay, this might be ani ssue
-}
-
 INTEGER FUNCTION GetBucketFor(RECORD hostedsites, STRING host, INTEGER port, DATETIME time)
 {
   RECORD lws := LookupWebserver(hostedsites, host, port);
@@ -92,7 +69,6 @@ INTEGER FUNCTION GetBucketFor(RECORD hostedsites, STRING host, INTEGER port, DAT
            , time := timebucket
            , hits := 0
            , serverfails := 0
-           , clientfails := 0
            , download := 0i64
            , upload := 0i64
            , sumpagetime := 0i64
@@ -253,11 +229,6 @@ MACRO Main()
       buckets[bucket].serverfails := buckets[bucket].serverfails + 1;
       isfail := TRUE;
     }
-    ELSE IF(rec.httpcode >= 400 AND IsBlameableClientError(localnames, rec))
-    {
-      buckets[bucket].clientfails := buckets[bucket].clientfails + 1;
-      isfail := TRUE;
-    }
 
     IF(isfail AND rec.remoteip NOT IN buckets[bucket].failips)
       INSERT rec.remoteip INTO buckets[bucket].failips AT END;
@@ -296,8 +267,8 @@ MACRO Main()
 
   DELETE FROM system.webservers_usage WHERE time >= mintime;
   FOREVERY(RECORD bucket FROM buckets)
-    INSERT INTO system.webservers_usage(webserver,time,hits,serverfails,clientfails,highpagetime,failips,download,upload,sumpagetime)
-           VALUES(bucket.webserver, bucket.time, bucket.hits, bucket.serverfails, bucket.clientfails, bucket.highpagetime, Length(bucket.failips), bucket.download, bucket.upload, bucket.sumpagetime);
+    INSERT INTO system.webservers_usage(webserver,time,hits,serverfails,highpagetime,failips,download,upload,sumpagetime)
+           VALUES(bucket.webserver, bucket.time, bucket.hits, bucket.serverfails, bucket.highpagetime, Length(bucket.failips), bucket.download, bucket.upload, bucket.sumpagetime);
 
   STRING checkpoint := "v2:" || EncodeHSON(
         [ reader := save_reader_checkpoint ? reader->checkpoint : ""
