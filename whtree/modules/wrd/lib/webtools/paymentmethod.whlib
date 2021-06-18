@@ -16,6 +16,7 @@ LOADLIB "mod::wrd/lib/payments.whlib";
 PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {
   INSERT CELL wrdschema := node->GetAttribute("wrdschema")
+            , has_wrdschema := node->HasAttribute("wrdschema")
             , providerfield := node->GetAttribute("providerfield")
             , paymentfield := node->GetAttribute("paymentfield")
         INTO fielddef;
@@ -26,6 +27,7 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 <
   OBJECT pvt_paymentapi;
   RECORD ARRAY paymentoptions;
+  BOOLEAN manualpaymentoptions;
   OBJECT paymentmethodselect;
   RECORD ARRAY pvt_filters;
   RECORD ARRAY savedissuerfields;
@@ -56,8 +58,16 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     STRING providerfield := field.providerfield;
     STRING paymentfield := field.paymentfield;
 
+    //Always create the payment method. If it's empty, we want to see that for easier figuring out what's going on! And it still needs to be able to enforce 'required' then. Plus our props refer to it.
+    this->paymentmethodselect := this->CreateSubField("select", "paymentmethod");
+    this->paymentmethodselect->type := "radio";
+    this->paymentmethodselect->htmltitle := this->htmltitle;
+    this->paymentmethodselect->required := this->required;
+    this->paymentmethodselect->requiredcondition := this->requiredcondition;
+    this->SetupComposition( [ this->paymentmethodselect ]);
+
     RECORD formpaymentsplugin;
-    IF(ObjectExists(this->form->formapplytester))
+    IF(ObjectExists(this->form->formapplytester) AND NOT (field.has_wrdschema AND wrdschema="")) //do not use formpayments if the wrdschema is already set to empty
     {
       formpaymentsplugin := this->form->formapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "formpayments");
       IF(RecordExists(formpaymentsplugin))
@@ -70,6 +80,17 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 
     IF(wrdschema != "")
       this->paymentapi := GetPaymentAPI(OpenWRDSchema(wrdschema), [ providerfield := providerfield, paymentfield := paymentfield ]);
+  }
+
+  /** Explicitly set payment options
+      @long Explicit option configuration. If used, we recommend explicitly setting wrdschema="" on the paymentmethod to prevent duplicate initialization
+      @param paymentapi Payment API to use
+      @param paymentoptions Payment options, in the format returned by %PaymentAPI::ListAllPaymentOptions */
+  PUBLIC MACRO SetupPaymentOptions(OBJECT paymentapi, RECORD ARRAY paymentoptions)
+  {
+    this->manualpaymentoptions := TRUE;
+    this->paymentoptions := this->ConstructPaymentOptions(paymentoptions);
+    this->paymentapi := paymentapi; //implies Reconstruct()
   }
 
   MACRO SetPaymentAPI(OBJECT newpaymentapi)
@@ -89,25 +110,30 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     this->Reconstruct();
   }
 
+  RECORD ARRAY FUNCTION ConstructPaymentOptions(RECORD ARRAY options)
+  {
+    RETURN SELECT paymentoptiontag
+                , title
+                , issuers
+                , requirements
+                , htmlagreeterms
+                , islive
+                , paymentprovider
+                , paymentproviderguid
+                , extra
+                , paymentmethodtag
+                , subfields := this->ConstructSubfields(this->paymentmethodselect, options, #options)
+                , paymentoption := options
+            FROM options;
+  }
+
   MACRO Reconstruct()
   {
     IF(NOT ObjectExists(this->pvt_paymentapi))
       RETURN;
 
-    IF(NOT ObjectExists(this->paymentmethodselect))
-    {
-      this->paymentmethodselect := this->CreateSubField("select", "paymentmethod");
-      this->paymentmethodselect->type := "radio";
-      this->paymentmethodselect->htmltitle := this->htmltitle;
-      this->paymentmethodselect->required := this->required;
-      this->paymentmethodselect->requiredcondition := this->requiredcondition;
-      this->SetupComposition( [ this->paymentmethodselect ]);
-    }
-
-    this->paymentoptions := SELECT *
-                                 , subfields := this->ConstructSubfields(this->paymentmethodselect, opt, #opt)
-                                 , paymentoption := opt
-                             FROM this->pvt_paymentapi->ListAllPaymentOptions([ filters := this->filters ]) AS opt;
+    IF(NOT this->manualpaymentoptions)
+      this->paymentoptions := this->ConstructPaymentOptions(this->pvt_paymentapi->ListAllPaymentOptions([ filters := this->filters ]));
 
     BOOLEAN warnlive := GetDtapStage() != "production";
     RECORD ARRAY opts := SELECT subfields

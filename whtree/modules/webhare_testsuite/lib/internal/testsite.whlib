@@ -37,6 +37,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 RECORD testformfileoptions := [ addpaymentmethod := FALSE
+                              , addpaymentmethodnoise := FALSE
                               , addcustompaymenthandler := FALSE
                               , addpaymenthandler := FALSE
                               , addintegerfield := FALSE
@@ -584,6 +585,20 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
       paymentmethodfield->SetAttribute("paymentfield","paydata.data");
     }
   }
+
+  IF(options.addpaymentmethodnoise) //additional fields to test some payment properties
+  {
+    OBJECT pm_noschema := formpage->AppendComponent("http://www.webhare.net/xmlns/wrd/forms#paymentmethod");
+    pm_noschema->SetAttribute("name","pm_noschema");
+    pm_noschema->SetAttribute("title","pm_noschema");
+    pm_noschema->SetAttribute("wrdschema","");
+
+    OBJECT noisehandler := formdef->AddHandler("customhandler"); //hooks to support in_pm_noschema= variable
+    noisehandler->SetAttribute("title","Payment Noise Handler");
+    noisehandler->SetAttribute("handlerobject", "mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.whlib#PaymentNoiseHandler");
+    noisehandler->SetAttribute("pins","existence");
+  }
+
   IF(options.wrdprefill)
   {
     OBJECT prefillhandler := formdef->AddHandler("http://www.webhare.net/xmlns/wrd/forms#wrdauthprefillhandler");
@@ -1097,14 +1112,15 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
 
   GetPrimary()->PushWork();
 
+  STRING filename := options.filename ?? "customform";
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
-  OBJECT customformfile := webtoolsfolder->OpenByName("customform");
+  OBJECT customformfile := webtoolsfolder->OpenByName(filename);
   IF(ObjectExists(customformfile))
     customformfile->RecycleSelf();
 
   OBJECT customformtype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/customform");
   TestEq(TRUE, ObjectExists(customformtype), "My customtype http://www.webhare.net/xmlns/webhare_testsuite/customform is not registered");
-  customformfile := webtoolsfolder->CreateFile( [ name := "customform", type := customformtype->id, publish := options.publish ]);
+  customformfile := webtoolsfolder->CreateFile( [ name := filename, type := customformtype->id, publish := options.publish ]);
 
   FillTestFormFile(customformfile, options);
 
