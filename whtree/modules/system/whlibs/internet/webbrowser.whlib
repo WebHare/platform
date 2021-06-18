@@ -19,7 +19,7 @@ LOADLIB "wh::ipc.whlib";
 INTEGER maxredirects := 15;
 INTEGER maxauths := 3;
 INTEGER keepalive := 60000; //time to keep connections alive
-PUBLIC BOOLEAN __webbrowser_debugall; //ADDME integrate a nice debugger into webbrowser
+PUBLIC BOOLEAN __webbrowser_debugall := IsDebugTagEnabled("wrq"); //"wrq" as in Web ReQuests
 PUBLIC BOOLEAN __webbrowser_formatresponse;//Formats XML nicely in output
 
 // Parse an array of form and input elements in an HTML document

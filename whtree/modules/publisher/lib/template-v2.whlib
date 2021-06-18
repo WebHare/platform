@@ -45,7 +45,7 @@ PUBLIC STRING __webpack_buttonpath;
 PUBLIC INTEGER ARRAY __webpackloadlibs;
 MACRO PTR ARRAY postprochtmlfuncs;
 
-MACRO PUBLISHER_EXCEPTION(INTEGER exceptioncode, STRING exceptiondata)
+PUBLIC MACRO __PUBLISHER_EXCEPTION(INTEGER exceptioncode, STRING exceptiondata)
 {
   // Won't return anymore
   RECORD rec := publishingbackendlink->DoRequest(
@@ -1553,15 +1553,15 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
   {
     //NOTE worddocs are the only 'needsprofile' type...
     //TODO if there's still a (limited?) need for profiles, hardcode or registrykey an ID for ReadConversionProfile?
-    PUBLISHER_Exception(109,""); //No associated profile
+    __PUBLISHER_Exception(109,""); //No associated profile
 
     worddocid := OpenMSWordDocument(contentfile.data);
     IF(worddocid=0)
-      PUBLISHER_EXCEPTION(3003,"Unable to open source document"); //FIXME: Proper I/O error code?!
+      __PUBLISHER_EXCEPTION(3003,"Unable to open source document"); //FIXME: Proper I/O error code?!
 
     RECORD result := ScanMSWordDocument(worddocid, profile.emptydocobjects, profile.styles);
     IF (result.errorcode != 0)
-      PUBLISHER_EXCEPTION(result.errorcode, result.errormsg);
+      __PUBLISHER_EXCEPTION(result.errorcode, result.errormsg);
 
     __publisher_docobjects := EnrichParserObjectsToDocobjects(result.parserobjects);
   }
@@ -1570,7 +1570,7 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
     __publisher_docobjects := __PUBLISHER_OpenHarescriptFile();
     __publisher_initial_html_stylesheets := FALSE;
     IF (Length(__publisher_docobjects)=0)
-      PUBLISHER_EXCEPTION(108,""); //No harescript part
+      __PUBLISHER_EXCEPTION(108,""); //No harescript part
 
     //translate indexobjects to compatible docobjects
     __publisher_docobjects := SELECT id, toclevel := 0, hidden := false, filtersplit := false, splitbefore := newpage FROM __publisher_docobjects;
