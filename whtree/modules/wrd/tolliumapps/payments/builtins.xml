@@ -28,6 +28,7 @@
     </compositions>
     <insert position="providertab" where="atend">
       <textedit composition="methodsettings" cellname="methodtitle" required="true" name="methodtitle" tid="~title" />
+      <textedit composition="methodsettings" cellname="expiredays" valuetype="integer" minvalue="1" maxvalue="99999" emptyvalue="0" suffixtid="~units.days" maxlength="4"/>
     </insert>
   </tabsextension>
 

@@ -88,7 +88,7 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
         }
         ELSE
         {
-          IF(paymentrecord.creationdate <= AddDaysToDate(-14, GetCurrentDatetime()))
+          IF(paymentrecord.creationdate <= AddDaysToDate(-paymentobject->expiredays, GetCurrentDatetime()))
           {
             //cancel payment after two weeks
             api->CancelPendingPayment(paymentrecord.paymententity);

@@ -962,6 +962,7 @@
       <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
         <text tid="disablenoissuer">Bied de "no issuer" optie niet aan</text>
         <text tid="disablewithissuer">Bied de "with issuer" optie niet aan</text>
+        <text tid="expiredays">Open betalingen verlopen na</text>
         <text tid="interactiontype">Interactie type</text>
         <text tid="interactiontype-form">Form-based</text>
         <text tid="interactiontype-redirect">Redirect-based</text>
