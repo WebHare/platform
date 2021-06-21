@@ -962,6 +962,7 @@
       <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
         <text tid="disablenoissuer">Don't offer the "no issuer" option</text>
         <text tid="disablewithissuer">Don't offer the "with issuer" option</text>
+        <text tid="expiredays">Expire pending payments after</text>
         <text tid="interactiontype">Interaction type</text>
         <text tid="interactiontype-form">Form-based</text>
         <text tid="interactiontype-redirect">Redirect-based</text>

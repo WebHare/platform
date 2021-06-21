@@ -88,6 +88,9 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
 
   PUBLIC PROPERTY interactiontype(pvt_interactiontype, -);
 
+  ///After how many days should we expire the payment? Defaults to 14
+  PUBLIC INTEGER expiredays;
+
   PUBLIC RECORD userdata;
 
   /** @param contexttag
@@ -97,6 +100,8 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   {
     IF(interactiontype NOT IN ["redirect","form","external","execute"])
       THROW NEW Exception(`Unexpected interactiontype '${interactiontype}'`);
+
+    this->expiredays := 14;
     this->settings := settings;
     this->pvt_psptype := type;
     this->pvt_interactiontype := interactiontype;
