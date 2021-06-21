@@ -43,7 +43,7 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       this->edittabs->extendcomponents := [[ name := "objectdata", component := this->objectdata ]
                                           ,[ name := "contentdata", component := instance ]
                                           ];
-      RECORD ext := this->edittabs->LoadTabsExtension(toembed.siteprofile->name, findname);
+      RECORD ext := this->edittabs->LoadTabsExtension(toembed.siteprofile->name || "#" || findname);
 
       // Disable all cells connecting to the composition when user has no write access
       IF (NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", fileobj->id))

@@ -36,8 +36,6 @@ STRING ARRAY FUNCTION GatherIssues(RECORD rec)
   STRING ARRAY issues;
   IF(rec.failips >= requiredfailips AND rec.hits > requiredhits)
   {
-    IF(FLOAT(rec.clientfails) / rec.hits > threshold)
-      INSERT "clientfails" INTO issues AT END;
     IF(FLOAT(rec.serverfails) / rec.hits > threshold)
       INSERT "serverfails" INTO issues AT END;
     IF(FLOAT(rec.highpagetime) / rec.hits > threshold)
@@ -82,11 +80,6 @@ PUBLIC RECORD ARRAY FUNCTION RunWebserverChecks()
 
       STRING hostname := (SELECT AS STRING baseurl FROM hostnames WHERE hostnames.id = failinghost.webserver) ?? "webserver #" || failinghost.webserver;
 
-      IF("clientfails" IN issues)
-        INSERT
-            [ msg := ":Host " || hostname || " is generating excessive client-side failures"
-            , messagetag := [ type := "system:webserver.clientfails", hostname := hostname ]
-            ] INTO messages AT END;
       IF("serverfails" IN issues)
         INSERT
             [ msg := ":Host " || hostname || " is generating excessive server-side failures"

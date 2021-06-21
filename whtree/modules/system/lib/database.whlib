@@ -381,7 +381,6 @@ PUBLIC SCHEMA
     , DATETIME "time"
     , INTEGER "hits"
     , INTEGER "serverfails"
-    , INTEGER "clientfails"
     , INTEGER "highpagetime"
     , INTEGER "failips"
     , INTEGER64 "download"

@@ -1129,7 +1129,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       <d:datetime name="time" nullable="0" />
       <d:integer name="hits" nullable="0" />
       <d:integer name="serverfails" />
-      <d:integer name="clientfails" />
+      <d:obsoletecolumn name="clientfails" />
       <d:integer name="highpagetime" />
       <d:integer name="failips" />
       <d:integer64 name="download" />
