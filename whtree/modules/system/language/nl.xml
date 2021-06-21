@@ -2181,12 +2181,6 @@
       <text tid="veryhigh">Zeer hoog</text>
       <text tid="verylow">Zeer laag</text>
     </textgroup>
-    <textgroup gid="editpassword">   <!-- userrights.editpassword -->
-      <text tid="accountconfirm">Bevestig wachtwoord</text>
-      <text tid="accountpassword">Nieuw wachtwoord</text>
-      <text tid="curpassword">Huidige wachtwoord</text>
-      <text tid="windowtitle">Wijzig wachtwoord</text>
-    </textgroup>
     <textgroup gid="editrole">   <!-- userrights.editrole -->
       <text tid="editrole">Rol aanpassen</text>
     </textgroup>
@@ -2198,124 +2192,52 @@
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
       <text tid="advanced">Geavanceerd</text>
-      <text tid="alwaysdisabled">Altijd uitgeschakeld</text>
-      <text tid="ampm">12-uurs weergave (AM/PM)</text>
       <text tid="apostrophe">Apostrof (')</text>
       <text tid="app">Applicatie</text>
       <text tid="appaccountstab">Wachtwoorden voor apps en apparaten</text>
       <text tid="authenticationsettings">Authenticatie-instellingen</text>
-      <text tid="autodetect">automatisch in te vullen</text>
-      <text tid="autodetectexplain">op basis van je locatie en browsertaal</text>
-      <text tid="autodetectpre">Probeer</text>
-      <text tid="background">Achtergrond</text>
       <text tid="browsertitleprefix">Toon tekst in browser</text>
       <text tid="changeownsettings">Persoonlijke instellingen</text>
       <text tid="colon">Dubbele punt (:)</text>
       <text tid="comma">Komma (,)</text>
-      <text tid="confirm">Bevestig wachtwoord</text>
       <text tid="confirmresetsavedstates">Weet je zeker dat je alle opgeslagen instellingen wilt herstellen, zoals windowgroottes en laatste keuzes ?</text>
       <text tid="confirmresetwarnings">Weet je zeker dat je alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
-      <text tid="creationdate">Aanmaakdatum</text>
       <text tid="decimalsep">Decimaalteken</text>
-      <text tid="device">Apparaat</text>
       <text tid="dot">Punt (.)</text>
-      <text tid="editmapping">Bewerken</text>
       <text tid="edituser">Bewerk gebruiker</text>
       <text tid="enableguidedit">Sta het wijzigen van de GUID toe</text>
-      <text tid="entities">Identiteit</text>
       <text tid="explainguid">De GUID is een unieke identificatie van deze gebruiker tussen verschillende WebHare installaties en gebruikersschema's. U kunt meestal de standaardwaarde laten staan.</text>
       <text tid="favorites">Favorieten</text>
-      <text tid="fillout">Gebruikersgegevens invullen</text>
       <text tid="fullname">Volledige naam</text>
-      <text tid="invalid">Vul A.U.B. een gebruikersnaam in.</text>
-      <text tid="invalidemail">De ingevulde gebruikersnaam is geen geldig e-mailadres.</text>
       <text tid="lastip">Laatste IP-adres</text>
       <text tid="lastlogin">Laatste aanmelddatum</text>
-      <text tid="logoff">Afsluiten</text>
-      <text tid="messagebox">Verstuur het volgende bevestigingsbericht</text>
-      <text tid="messageboxinvite">Het volgende bericht zal worden verstuurd</text>
-      <text tid="militarytime">24-uurs weergave gebruiken</text>
       <text tid="none">Geen</text>
       <text tid="notificationsandwarnings">Meldingen</text>
-      <text tid="notificationstab">Meldingen</text>
-      <text tid="passconfirmerror">De wachtwoord bevestiging is niet gelijk aan het wachtwoord.</text>
       <text tid="password">Wachtwoord</text>
       <text tid="passwordabouttoexpire">Je wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>
-      <text tid="passwordlink">Wachtwoord</text>
-      <text tid="passwordlinktext">Klik hier om uw wachtwoord te wijzigen</text>
       <text tid="preferences">Voorkeuren</text>
-      <text tid="prefs">Voorkeuren</text>
-      <text tid="prefsdate">Datumformaat</text>
-      <text tid="prefsdate_100">dd-mm-jjjj (<param p="1"/>)</text>
-      <text tid="prefsdate_200">dd/mm/jjjj (<param p="1"/>)</text>
-      <text tid="prefsdate_300">mm-dd-jjjj (<param p="1"/>)</text>
-      <text tid="prefsdate_400">mm/dd/jjjj (<param p="1"/>)</text>
-      <text tid="prefsdate_500">jjjj-mm-dd (<param p="1"/>)</text>
-      <text tid="prefsdate_600">jjjj/mm/dd (<param p="1"/>)</text>
       <text tid="prefslang">Taal</text>
-      <text tid="prefslang_de">Deutsch (Duits)</text>
-      <text tid="prefslang_en">Engels (English)</text>
-      <text tid="prefslang_jp">??? (Japans)</text>
-      <text tid="prefslang_nl">Nederlands</text>
-      <text tid="prefslongdateformat">Lange datumweergave</text>
-      <text tid="prefsshortdateformat">Korte datumweergave</text>
-      <text tid="prefstime">Tijdsformaat</text>
-      <text tid="prefstime_100">24-uurs formaat (<param p="1"/>)</text>
-      <text tid="prefstime_200">12-uurs formaat (<param p="1"/>)</text>
       <text tid="resetsavedstates">Herstel opgeslagen instellingen</text>
       <text tid="resetsavedstates-labelend">(bv venstergroottes en laatste keuzes)</text>
       <text tid="resetwarnings">Alle waarschuwingen opnieuw instellen</text>
-      <text tid="resetwarnings-label">Waarschuwingen</text>
       <text tid="resetwarnings-labelend">(Zoals "Laat deze melding niet meer zien")</text>
       <text tid="savedstate">Opgeslagen instellingen</text>
-      <text tid="schemaname">Schema</text>
-      <text tid="scope">Scope</text>
-      <text tid="selectmethod">Geef aan hoe je de gebruiker wilt toevoegen</text>
       <text tid="settingswerereset">De standaardinstellingen zijn teruggezet</text>
       <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
-      <text tid="showiedownloadwarning">Omzeil IE's download blokkering via download dialoog</text>
       <text tid="showpdfpreview">Toon PDF voorvertoningen</text>
       <text tid="space">Spatie ( )</text>
-      <text tid="startmenu">Startmenu</text>
-      <text tid="status">Status</text>
       <text tid="thousandsep">Cijfergroeperingssymbool</text>
-      <text tid="timeformat">Tijdsweergave</text>
-      <text tid="timemilitary">24-uurs weergave</text>
       <text tid="timezone">Tijdzone</text>
-      <text tid="timezone-africa">Afrika</text>
-      <text tid="timezone-america">Amerika</text>
-      <text tid="timezone-antarctica">Antarctica</text>
-      <text tid="timezone-arctic">Arctisch gebied</text>
-      <text tid="timezone-asia">Azië</text>
-      <text tid="timezone-atlantic">Atlantische Oceaan</text>
-      <text tid="timezone-australia">Australië</text>
-      <text tid="timezone-europe">Europa</text>
-      <text tid="timezone-general">Algemeen</text>
-      <text tid="timezone-indian">Indische Oceaan</text>
-      <text tid="timezone-pacific">Grote Oceaan</text>
-      <text tid="timezone-unknown">Onbekend</text>
       <text tid="title">Titel</text>
-      <text tid="userinfo">Gebruikersinformatie</text>
       <text tid="username">Gebruikersnaam</text>
-      <text tid="usernamenew">Inlognaam</text>
       <text tid="userpreferences">Persoonlijke voorkeuren</text>
-      <text tid="utc">UTC</text>
       <text tid="warning_passwordexpired">Je wachtwoord is verlopen, verander deze a.u.b.</text>
-      <text tid="warning_passwordfailschecks">Je wachtwoord voldoet niet meer aan de eisen en moet veranderd worden.</text>
       <text tid="warning_passwordrequire2fa">Je moet twee-factor-authenticatie inschakelen om in te kunnen loggen.</text>
-      <text tid="warning_passwordtooold">Je wachtwoord is te oud en moet gewijzigd worden.</text>
       <text tid="warnings">Waarschuwingen</text>
       <text tid="whuser_disabled">Blokkeer dit account</text>
       <text tid="whuser_disablereason">Reden</text>
-      <text tid="whuser_password">Wachtwoord</text>
-      <text tid="windowtitle">Wijzig persoonlijke voorkeuren</text>
-      <text tid="wizardfinishmessage">De wizard is voltooid</text>
-      <text tid="wizardwelcome">Gebruiker toevoegen</text>
       <text tid="wrd_creationdate">Aanmaakdatum</text>
       <text tid="wrd_firstname">Voornaam</text>
-      <text tid="wrd_fullname">Volledige naam</text>
-      <text tid="wrd_gender">Geslacht</text>
-      <text tid="wrd_guid">GUID</text>
       <text tid="wrd_infix">Tussenvoegsels</text>
       <text tid="wrd_lastname">Achternaam</text>
     </textgroup>

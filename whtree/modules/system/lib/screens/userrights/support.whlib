@@ -684,14 +684,8 @@ PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)
 {
   // Fill language options
   RECORD ARRAY languages;
-  FOREVERY (STRING lang FROM ["en", "nl"]) //FIXME: Use the proper langfile option to detect de/jp if available
-  {
-    // Make the language editor understand the following lines
-    IF (lang = "en")
-      INSERT [ rowkey := lang, title := GetTid("system:userrights.edituser.prefslang_en") ] INTO languages AT END;
-    ELSE IF (lang = "nl")
-      INSERT [ rowkey := lang, title := GetTid("system:userrights.edituser.prefslang_nl") ] INTO languages AT END;
-  }
+  FOREVERY (STRING lang FROM ["en", "nl"])
+    INSERT [ rowkey := lang, title := GetTid(`tollium:common.languages.${lang}`) ] INTO languages AT END;
 
   // Decimal separators
   RECORD ARRAY decimalseps := [[ rowkey := ".", title := GetTid("system:userrights.edituser.dot") ]

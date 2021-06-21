@@ -2372,12 +2372,6 @@
       <text tid="veryhigh">Very high</text>
       <text tid="verylow">Very low</text>
     </textgroup>
-    <textgroup gid="editpassword">   <!-- userrights.editpassword -->
-      <text tid="accountconfirm">Confirm password</text>
-      <text tid="accountpassword">New password</text>
-      <text tid="curpassword">Current password</text>
-      <text tid="windowtitle">Change password</text>
-    </textgroup>
     <textgroup gid="editrole">   <!-- userrights.editrole -->
       <text tid="editrole">Edit role</text>
     </textgroup>
@@ -2389,124 +2383,52 @@
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
       <text tid="advanced">Advanced</text>
-      <text tid="alwaysdisabled">Always disabled</text>
-      <text tid="ampm">12-hour clock (AM/PM)</text>
       <text tid="apostrophe">Apostrophe (')</text>
       <text tid="app">Application</text>
       <text tid="appaccountstab">Create passwords for apps and devices</text>
       <text tid="authenticationsettings">Authentication settings</text>
-      <text tid="autodetect">autodetect</text>
-      <text tid="autodetectexplain">your timezone and browser language</text>
-      <text tid="autodetectpre">You can try to</text>
-      <text tid="background">Background</text>
       <text tid="browsertitleprefix">Browser tab text</text>
       <text tid="changeownsettings">Personal settings</text>
       <text tid="colon">Colon (:)</text>
       <text tid="comma">Comma (,)</text>
-      <text tid="confirm">Confirm password</text>
       <text tid="confirmresetsavedstates">Are you sure you want to reset all saved state, such as window sizes and last selections ?</text>
       <text tid="confirmresetwarnings">Are you sure you want to reset all warnings, including all "Don't show again" checkboxes?</text>
-      <text tid="creationdate">Creation date</text>
       <text tid="decimalsep">Decimal separator</text>
-      <text tid="device">Device</text>
       <text tid="dot">Dot (.)</text>
-      <text tid="editmapping">Edit</text>
       <text tid="edituser">Edit user</text>
       <text tid="enableguidedit">Enable editing the GUID</text>
-      <text tid="entities">Identity</text>
       <text tid="explainguid">The GUID uniquely identifies this user between different WebHare installations and user schemas. Usually you can leave the default generated value alone.</text>
       <text tid="favorites">Favorites</text>
-      <text tid="fillout">Fill out the user's information</text>
       <text tid="fullname">Full name</text>
-      <text tid="invalid">Please enter a user name.</text>
-      <text tid="invalidemail">The entered username is not a valid email address.</text>
       <text tid="lastip">Last IP-address</text>
       <text tid="lastlogin">Last login</text>
-      <text tid="logoff">Close</text>
-      <text tid="messagebox">Send the following confirmation message</text>
-      <text tid="messageboxinvite">The following message will be sent</text>
-      <text tid="militarytime">Use 24 hours clock</text>
       <text tid="none">None</text>
       <text tid="notificationsandwarnings">Notifications</text>
-      <text tid="notificationstab">Notifications</text>
-      <text tid="passconfirmerror">The password confirmation is different from the password.</text>
       <text tid="password">Password</text>
       <text tid="passwordabouttoexpire">Your password will expire <ifparam p="1" value="0">today<else/><ifparam p="1" value="1">in 1 day<else/>in <param p="1"/> days</ifparam></ifparam>, please change it.</text>
-      <text tid="passwordlink">Password</text>
-      <text tid="passwordlinktext">Click here to change your password</text>
       <text tid="preferences">Preferences</text>
-      <text tid="prefs">Preferences</text>
-      <text tid="prefsdate">Date format</text>
-      <text tid="prefsdate_100">dd-mm-yyyy (<param p="1"/>)</text>
-      <text tid="prefsdate_200">dd/mm/yyyy (<param p="1"/>)</text>
-      <text tid="prefsdate_300">mm-dd-yyyy (<param p="1"/>)</text>
-      <text tid="prefsdate_400">mm/dd/yyyy (<param p="1"/>)</text>
-      <text tid="prefsdate_500">yyyy-mm-dd (<param p="1"/>)</text>
-      <text tid="prefsdate_600">yyyy/mm/dd (<param p="1"/>)</text>
       <text tid="prefslang">Language</text>
-      <text tid="prefslang_de">Deutsch (German)</text>
-      <text tid="prefslang_en">English</text>
-      <text tid="prefslang_jp">??? (Japanese)</text>
-      <text tid="prefslang_nl">Nederlands (Dutch)</text>
-      <text tid="prefslongdateformat">Long date display</text>
-      <text tid="prefsshortdateformat">Short date display</text>
-      <text tid="prefstime">Time format</text>
-      <text tid="prefstime_100">24 hours format (<param p="1"/>)</text>
-      <text tid="prefstime_200">12 hours format (<param p="1"/>)</text>
       <text tid="resetsavedstates">Reset saved state</text>
       <text tid="resetsavedstates-labelend">(eg window sizes and last selection)</text>
       <text tid="resetwarnings">Reset all warnings</text>
-      <text tid="resetwarnings-label">Warning messages</text>
       <text tid="resetwarnings-labelend">(EG "Don't show again", "Remember this answer")</text>
       <text tid="savedstate">Saved state</text>
-      <text tid="schemaname">Schema</text>
-      <text tid="scope">Scope</text>
-      <text tid="selectmethod">Please select how you want to add the user</text>
       <text tid="settingswerereset">The default settings have been restored</text>
       <text tid="showdeveloperapps">Show developer applications</text>
-      <text tid="showiedownloadwarning">Avoid IE's download blocker using the dowload dialog</text>
       <text tid="showpdfpreview">Show PDF previews</text>
       <text tid="space">Space ( )</text>
-      <text tid="startmenu">Start menu</text>
-      <text tid="status">Status</text>
       <text tid="thousandsep">Thousand separator</text>
-      <text tid="timeformat">Time format</text>
-      <text tid="timemilitary">24-hour clock</text>
       <text tid="timezone">Timezone</text>
-      <text tid="timezone-africa">Africa</text>
-      <text tid="timezone-america">America</text>
-      <text tid="timezone-antarctica">Antarctica</text>
-      <text tid="timezone-arctic">Arctic</text>
-      <text tid="timezone-asia">Asia</text>
-      <text tid="timezone-atlantic">Atlantic Ocean</text>
-      <text tid="timezone-australia">Australia</text>
-      <text tid="timezone-europe">Europe</text>
-      <text tid="timezone-general">General</text>
-      <text tid="timezone-indian">Indian Ocean</text>
-      <text tid="timezone-pacific">Pacific Ocean</text>
-      <text tid="timezone-unknown">Unknown</text>
       <text tid="title">Title</text>
-      <text tid="userinfo">User information</text>
       <text tid="username">Username</text>
-      <text tid="usernamenew">Login name</text>
       <text tid="userpreferences">Personal preferences</text>
-      <text tid="utc">UTC</text>
       <text tid="warning_passwordexpired">Your password has expired, please change it.</text>
-      <text tid="warning_passwordfailschecks">Your password does not meet the requirements anymore, please change it.</text>
       <text tid="warning_passwordrequire2fa">You need to enable two-factor authentication to be able to log in.</text>
-      <text tid="warning_passwordtooold">Your password is too old and must be changed.</text>
       <text tid="warnings">Warnings</text>
       <text tid="whuser_disabled">Block this account</text>
       <text tid="whuser_disablereason">Reason</text>
-      <text tid="whuser_password">Password</text>
-      <text tid="windowtitle">Edit personal preferences</text>
-      <text tid="wizardfinishmessage">You have finished this wizard</text>
-      <text tid="wizardwelcome">Add a user</text>
       <text tid="wrd_creationdate">Creation date</text>
       <text tid="wrd_firstname">First name</text>
-      <text tid="wrd_fullname">Full name</text>
-      <text tid="wrd_gender">Gender</text>
-      <text tid="wrd_guid">GUID</text>
       <text tid="wrd_infix">Infix</text>
       <text tid="wrd_lastname">Last name</text>
     </textgroup>
