@@ -9,6 +9,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
           , payinfoscreen := ""
           , metadataoptions := [ methodtitle := ""
                                , title := "" //backwards compatibility, ignored if methodtitle is set
+                               , expiredays := 14
                                ]
           ]
          ,[ tag := "wrd:ingenico"
