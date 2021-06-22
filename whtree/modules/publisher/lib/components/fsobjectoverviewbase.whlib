@@ -321,11 +321,12 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
         ];
 
     RECORD ARRAY objects := contentshandler->OnGetChildren(parentid, options);
+    INTEGER ARRAY hideids := GetWHFSObjectsToHide(this->owner->tolliumuser);
     INTEGER ARRAY fsobjectids :=
         SELECT AS INTEGER ARRAY id
           FROM objects
          WHERE id > 0
-               AND id NOT IN GetWHFSObjectsToHide(this->owner->tolliumuser);
+               AND id NOT IN hideids;
     objects :=
         (SELECT id
               , name

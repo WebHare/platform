@@ -160,9 +160,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     OBJECT work := this->BeginUnvalidatedWork();
     ^userinfopage->ValidateValue(work);
 
-    IF(^username->value = "")
-      work->AddError(GetTid("system:userrights.edituser.invalid"));
-
     this->contexts->userapi->__CheckName(this->pvt_parent, ^username->value, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0, TRUE, work);
 
     IF (NOT ValidateWRDGUID(^wrd_guid->value))
