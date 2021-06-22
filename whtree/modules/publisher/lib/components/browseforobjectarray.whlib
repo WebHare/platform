@@ -453,8 +453,8 @@ check filetype
 
       this->currentview->files := newfiles;
 
-    IF(this->onchange != DEFAULT FUNCTION PTR)
-      this->onchange();
+      IF(this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
   }
 
   MACRO DeleteValue()
