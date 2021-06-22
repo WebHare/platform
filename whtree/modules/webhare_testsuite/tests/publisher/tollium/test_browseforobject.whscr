@@ -150,6 +150,8 @@ ASYNC MACRO TestBrowseForObjectArray()
   scr->comp->fullpath := "/testpages/";
   scr->comp->accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
 
+// onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter"
+
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
@@ -160,6 +162,8 @@ ASYNC MACRO TestBrowseForObjectArray()
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEq(SortArray([INTEGER(imgeditfile->id), INTEGER(staticpage->id)]), SortArray(scr->comp->value));
+
+  TestEq(1, scr->onchangecount->value, 'Expecting 1 change');
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
