@@ -20,6 +20,9 @@ PUBLIC OBJECTTYPE PublisherBrowseForObjectArray EXTEND TolliumComponentBase
   PUBLIC RECORD attrinfo;
   PUBLIC RECORD ARRAY cols;
 
+  // Callback to call if another file/folder has been chosen
+  PUBLIC FUNCTION PTR onchange;
+
   /** return all files/rows (not the selection like in <list>)
   */
   PUBLIC PROPERTY value(GetFileIds, SetFileIds); // selected items
@@ -119,6 +122,7 @@ PUBLIC OBJECTTYPE PublisherBrowseForObjectArray EXTEND TolliumComponentBase
     this->accepttypes := def.accepttypes;
     this->acceptunpublished := def.acceptunpublished;
     this->empty := def.empty;
+    this->onchange := def.onchange;
 
     this->site := def.site;
     this->fullpath := def.fullpath;
@@ -416,6 +420,9 @@ check filetype
       ORDER BY #newfile;
 
     this->currentview->files := newfiles;
+
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
   }
 
   // Selected items will be replaced with the new selection from the dialog
@@ -445,6 +452,9 @@ check filetype
       newfiles := newfiles CONCAT newfiles;
 
       this->currentview->files := newfiles;
+
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
   }
 
   MACRO DeleteValue()
@@ -453,6 +463,9 @@ check filetype
       RETURN;
 
     this->value := SELECT AS INTEGER ARRAY id FROM this->currentview->rows WHERE NOT tolliumselected;
+
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
   }
 
   MACRO MoveUpValue()
@@ -472,6 +485,9 @@ check filetype
     }
 
     this->value := SELECT AS INTEGER ARRAY id FROM rows ORDER BY #rows;
+
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
   }
 
   MACRO MoveDownValue()
@@ -491,6 +507,9 @@ check filetype
     }
 
     this->value := SELECT AS INTEGER ARRAY id FROM rows ORDER BY #rows;
+
+    IF(this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
   }
 
   MACRO DropValue(OBJECT src, RECORD target, STRING action, STRING type)
@@ -516,6 +535,9 @@ check filetype
         targetpos := Length(this->currows);
       }
       this->RefreshList(targetpos);
+
+      IF(this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
     }
   }
 
