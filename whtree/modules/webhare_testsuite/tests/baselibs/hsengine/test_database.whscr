@@ -971,6 +971,11 @@ MACRO GroupByTest()
   errors := TestCompile('<?wh RECORD ARRAY aap, wim; SELECT a := (SELECT * FROM aap WHERE zus IN GroupedValues(aap.mies)) FROM wim;');
   MustContainError(35, errors, 12);
 
+  /* MIN[] used in an inner select was incorrectly detected as aggregate function (resulted in fixupper error) */
+  result := TestCompileAndRun('<?wh PRINT(EncodeJSON(SELECT i := (SELECT a, m := MIN[](INTEGER[ a, b ]) FROM Any(row).data) FROM [ [ x := 1, data := [ [ a := 1, b := 2 ], [ a := 2, b := 1 ] ] ] ] AS row GROUP BY x));');
+  TestCleanResult(0, result.errors);
+  TestEqualString(0, `[{"i":[{"a":1,"m":1},{"a":2,"m":1}]}]`, result.output);
+
   CloseTest("TestDatabase: GroupByTest");
 }
 

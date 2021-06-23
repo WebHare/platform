@@ -813,7 +813,7 @@ void GroupExprRewriter::V_RecordColumnConst(AST::RecordColumnConst *obj, Empty)
 
 void GroupExprRewriter::V_FunctionCall(AST::FunctionCall *obj, Empty)
 {
-        if ((!(obj->symbol->functiondef->flags & FunctionFlags::Aggregate) && !obj->inhibit_aggregate) || obj->as_aggregate)
+        if ((!(obj->symbol->functiondef->flags & FunctionFlags::Aggregate) || obj->inhibit_aggregate) || obj->as_aggregate)
         {
                 // Delegate to code of allnodevisitor.
                 AST::AllNodeVisitor::V_FunctionCall(obj, Empty());
