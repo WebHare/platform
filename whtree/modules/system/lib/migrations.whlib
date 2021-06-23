@@ -58,7 +58,7 @@ RECORD ARRAY FUNCTION SortByDepth(RECORD ARRAY todolist)
 /** Convert contenttypes
     @long Rewrite content types (and widgets) to the specified type. Instances (eg widgets in RTDs) of the source type will be changed to the destination type
     @param srctype Source instance type
-    @cell(function ptr) options.mapcallback Callback to invoke on instance records for conversion
+    @cell(function ptr) options.mapcallback Callback to invoke on instance records for conversion. If it returns a DEFAULT RECORD, this instance will not be converted
     @cell(string) options.desttype Destination type. If empty, assumed to equal the source type
     @cell(boolean) options.sourceorphans Open source type and data as an oprhan (access deleted types and members)
     @return Conversion information (suitable for passing into %RepublishWHFSObjectReferences)
@@ -98,6 +98,8 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
     {
       data := options.mapcallback(data, CELL[ fsobject := instance.fsobject
                                             ]);
+      IF(NOT RecordExists(data))
+        CONTINUE;
     }
 
     IF(CellExists(data, 'whfstype'))
