@@ -703,8 +703,15 @@ STATIC OBJECTTYPE PaymentAPI
   }
 
   /** Explain a payment status
+      @param paymentdata The payment to explain (the value of an attribute of type PAYMENT)
+      @return Payment information
       @cell(money) return.amountpayable The total amount that had to be paid
       @cell(string) return.status Current status (approved, pending, failed)
+      @cell(string) return.paymentmethodtag
+      @cell(string) return.paymentref
+      @cell(string) return.paymentmethodtitle Title for the selected payment method
+      @cell(datetime) return.paymentdate
+      @cell(string) return.cardnumber Card or account number
       @cell(string) return.htmlstatusforuser Rich additional description as passed by the payment provider */
   PUBLIC RECORD FUNCTION ExplainPayment(RECORD paymentdata)
   {
@@ -738,7 +745,8 @@ STATIC OBJECTTYPE PaymentAPI
       @param payments List contanining payments
       @cell(string) options.cellname Cell containing the payment information (defaults to the payment attribute)
       @cell(string) options.explaincell Cell in which to store explained cells. If not set, explanation will be merged into the records.
-      @return Array with the payment information
+      @return @includecelldef #ExplainPayment.return
+
   */
   PUBLIC RECORD ARRAY FUNCTION EnrichWithExplainedPayments(RECORD ARRAY payments, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
