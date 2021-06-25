@@ -205,7 +205,10 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     IF(RecordExists(exportfile))
       downloadhandler->SendFile(exportfile.data, exportfile.mimetype, exportfile.filename);
     ELSE
+    {
+      downloadhandler->Cancel();
       this->RunSimpleScreen("error", this->GetTid(".noresults"));
+    }
   }
 
   MACRO DoImportResultsFromMigration(RECORD ARRAY files)
