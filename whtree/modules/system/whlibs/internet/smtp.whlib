@@ -461,11 +461,13 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
     RECORD response := this->SendCommand(`MAIL FROM:<${sender_split.email}>`);
     IF (response.code != 250)
     {
+      //An error during MAIL FROM is not blamed on the receiver. It's most likely a misconfiguration
       this->pvt_lasterror := response;
       retval.message := response.message;
       RETURN retval;
     }
 
+    STRING ARRAY acceptedreceivers;
     FOREVERY(STRING receiver FROM receivers)
     {
       RECORD receiver_split := SplitEmailName(receiver);
@@ -478,6 +480,7 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
       ELSE
       {
         retval.success := TRUE;
+        INSERT receiver INTO acceptedreceivers AT END;
       }
     }
 
@@ -510,6 +513,11 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
     retval.message := response.message;
     IF (response.code != 250)
     {
+      //If we get an error at DATA, blame the error on all the receivers anyway. It might have been a content filter so it makes most sense to treat this as a bounce
+      FOREVERY(STRING receiver FROM acceptedreceivers)
+        INSERT INTO retval.failures(receiver, code, text)
+               VALUES(receiver, response.code, response.message) AT END;
+
       retval.success := FALSE; //didn't work anyway
       this->pvt_lasterror := response;
       RETURN retval;

@@ -977,7 +977,7 @@ INTEGER FUNCTION GetCronToAdd(STRING crontokpart, INTEGER current, INTEGER min, 
           | `0 14 * * 1`    | runs every monday at 14:00            |
           | `17 8,20 * * *` | runs at 08:17 and 20:17               |
 
-          If both day-of-week and day-of-month fields are unrestricted, the mask
+          If both day-of-week and day-of-month fields are restricted (ie not `*`), the mask
           will match the first date/time that matches either of these fields
 
     @param now Current time

@@ -214,6 +214,8 @@ MACRO TestSchema()
   TestEq(DEFAULT RECORD, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "range", when_start := DEFAULT DATETIME, when_limit := MakeDate(2000, 1, 1) ]));
   TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "range", when_start := MakeDate(2000, 1, 1), when_limit := GetCurrentDatetime() ]).test_datetime);
 
+  TestThrowsLike('Trying to update non-existing entity*', PTR schemaobj->^personattachment->UpdateEntity(0, [ wrd_orgname := "X" ]));
+
   //test remapping getentityfields
   testpersonrec := persontype->GetEntityFields(testpersonid, [ title := "WRD_TITLE" ]);
   TestEq("John Doe", testpersonrec.title);

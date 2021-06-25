@@ -2405,6 +2405,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   */
   PUBLIC MACRO UpdateEntity(INTEGER entityid, RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(entityid <= 0)
+      THROW NEW Exception(`Trying to update non-existing entity #${entityid}`);
+
     this->__internal_updentity(entitydata, entityid, TRUE, options);
   }
 

@@ -10,11 +10,23 @@ LOADLIB "mod::system/lib/webserver.whlib";
 /** Redirect if a history URL is available. This function is intended for custom 404 pages
     @cell(function ptr) options.oninactivetarget Invoked if the target of the urlhistory is not active (eg in recyclebon
                 or /webhare-private/). Receives the ID and should return the URL if found.
+    @cell(string) options.append Text to append after redirected URL if a match is found
+    @cell(string array) options.lookupurls URLs to try to look up. Defaults to %GetRequestURL and %GetClientRequestURL
 */
 PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ oninactivetarget := DEFAULT FUNCTION PTR
+                              , append := ""
+                              , lookupurls := STRING[]
                               ], options);
+
+  IF(Length(options.lookupurls) = 0)
+  {
+    STRING requrl := GetRequestURL(), clientrequrl := GetClientRequestURL();
+    INSERT requrl INTO options.lookupurls AT END;
+    IF(requrl != clientrequrl) //If normal url failed, see if its worthwhile to use the client's URL. This may happen for non-virtualhosted requests
+      INSERT clientrequrl INTO options.lookupurls AT END;
+  }
 
   OBJECT trans;
   TRY
@@ -22,29 +34,23 @@ PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD
     IF(NOT HavePrimaryTransaction())
       trans := OpenPrimary();
 
-    STRING requrl := GetRequestURL();
-    RECORD dest := GetURLHistoryRedirect(requrl, FALSE, TRUE);
-
-    IF(NOT RecordExists(dest))
+    FOREVERY(STRING url FROM options.lookupurls)
     {
-      //If normal url failed, see if its worthwhile to use the client's URL. This may happen for non-virtualhosted requests
-      STRING clientrequrl := GetClientRequestURL();
-      IF(clientrequrl != requrl)
+      RECORD dest := GetURLHistoryRedirect(url, FALSE, TRUE);
+      IF(RecordExists(dest))
       {
-        //TODO normalize host/server part ourselves instead of relying on client
-        dest := GetURLHistoryRedirect(clientrequrl, FALSE, TRUE);
+        STRING gotourl := dest.desturl;
+        IF(gotourl = "" AND NOT dest.isactive AND options.oninactivetarget != DEFAULT MACRO PTR)
+          gotourl := options.oninactivetarget(dest.destid);
+
+        IF(gotourl != "")
+        {
+          gotourl := gotourl || options.append;
+          IF(gotourl NOT IN options.lookupurls) //prevent trivial loops if oninactivetarget returns ourself
+            Redirect(gotourl, 301);
+        }
       }
     }
-
-    STRING gotourl;
-    IF(RecordExists(dest) AND dest.desturl != "")
-      gotourl := dest.desturl;
-
-    IF(RecordExists(dest) AND gotourl = "" AND NOT dest.isactive AND options.oninactivetarget != DEFAULT MACRO PTR)
-      gotourl := options.oninactivetarget(dest.destid);
-
-    IF(gotourl != "" AND gotourl != requrl) //prevent trivial loops if oninactivetarget returns ourself
-      Redirect(gotourl, 301);
   }
   FINALLY
   {

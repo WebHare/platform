@@ -202,7 +202,13 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
   MACRO DoExportResultsForMigration(OBJECT downloadhandler)
   {
     RECORD exportfile := ExportFormResults(this->fsobjid);
-    downloadhandler->SendFile(exportfile.data, exportfile.mimetype, exportfile.filename);
+    IF(RecordExists(exportfile))
+      downloadhandler->SendFile(exportfile.data, exportfile.mimetype, exportfile.filename);
+    ELSE
+    {
+      downloadhandler->Cancel();
+      this->RunSimpleScreen("error", this->GetTid(".noresults"));
+    }
   }
 
   MACRO DoImportResultsFromMigration(RECORD ARRAY files)
