@@ -272,8 +272,9 @@ RECORD ARRAY FUNCTION ListActualV2Packages(STRING packagedir, STRING path)
 
 BOOLEAN FUNCTION NPMPackageVersionSatisfiesRange(STRING version, STRING semverrange)
 {
-  IF(semverrange LIKE "*#*")
-    RETURN TRUE; //if we're matching against a hash, just accept any version
+  //https://docs.npmjs.com/cli/v7/configuring-npm/package-json#dependencies - lots of non semvers can go in here..
+  IF(semverrange LIKE "*#*" OR semverrange LIKE "*/*")
+    RETURN TRUE; //if we're matching against a hash or github url, just accept any version
 
   BOOLEAN satisfied := VersionSatisfiesRange(version, semverrange, [ comparemode := "npm" ]);
   //IF(NOT satisfied)
@@ -365,7 +366,7 @@ RECORD ARRAY FUNCTION CheckV2Requests(RECORD ARRAY lockpackages, RECORD ARRAY ro
 
           IF (pkg.name = "" AND NOT NPMPackageVersionSatisfiesRange(lockpackages[pos.position].version, dep.range))
           {
-            RETURN [ [ error := `Installed module '${lockpackages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${lockpackages[pos.position].version}', wanted range '${dep.range})` ] ];
+            RETURN [ [ error := `Installed module '${lockpackages[pos.position].name}' not in sync with package.json, please run 'wh fixmodules' (has version '${lockpackages[pos.position].version}', wanted range '${dep.range}')` ] ];
           }
         }
         INTEGER nmpos := SearchLastSubstring(basepath, "node_modules/");

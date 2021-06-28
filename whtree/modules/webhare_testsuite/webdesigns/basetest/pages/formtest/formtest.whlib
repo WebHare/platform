@@ -673,6 +673,13 @@ PUBLIC STATIC OBJECTTYPE PaymentFormHandler EXTEND FormHandlerBase
 
 PUBLIC STATIC OBJECTTYPE PaymentNoiseHandler EXTEND FormHandlerBase
 <
+  OBJECT ARRAY FUNCTION GenerateExtraInfo(OBJECT paymentmethod, STRING extrainfo, INTEGER idx)
+  {
+    OBJECT rte := this->form->AppendFormField(paymentmethod, "richtext", `${paymentmethod->name}[${idx}].extrainfo`);
+    rte->richvalue := [ htmltext := StringToBlob(`<html><body><p class="normal">${extrainfo}</p></body><html>`)];
+    RETURN [rte];
+  }
+
   MACRO NEW()
   {
     IF(GetWebVariable("in_pm_noschema") != "")
@@ -680,6 +687,12 @@ PUBLIC STATIC OBJECTTYPE PaymentNoiseHandler EXTEND FormHandlerBase
       OBJECT payments := GetWRDTestPaymentAPI();
       RECORD ARRAY methods := SELECT * FROM payments->ListAllPaymentOptions() WHERE paymentoptiontag IN Tokenize(GetWebVariable("in_pm_noschema"),',');
       this->form->^pm_noschema->SetupPaymentOptions(payments, methods);
+
+      OBJECT paymentmethodselect := this->form->^pm_noschema->GetChildComponents()[0]; //FIXME from webhshop module - a hack to get to this, but not sure yet how to define paymentoption extensions
+      this->form->^pm_noschema->options :=
+          SELECT *
+               , subfields := subfields CONCAT this->GenerateExtraInfo(paymentmethodselect, `Method <b>${#options}</b>`, #options)
+            FROM this->form->^pm_noschema->options;
     }
   }
 >;
