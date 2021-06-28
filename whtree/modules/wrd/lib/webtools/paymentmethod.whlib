@@ -112,7 +112,8 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 
   RECORD ARRAY FUNCTION ConstructPaymentOptions(RECORD ARRAY options)
   {
-    RETURN SELECT paymentoptiontag
+    RETURN SELECT TEMPORARY __pmsubfields := this->ConstructSubfields(this->paymentmethodselect, options, #options)
+                , paymentoptiontag
                 , title
                 , issuers
                 , requirements
@@ -122,7 +123,9 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
                 , paymentproviderguid
                 , extra
                 , paymentmethodtag
-                , subfields := this->ConstructSubfields(this->paymentmethodselect, options, #options)
+                , __pmsubfields := __pmsubfields //for safe keeping
+                , subfields := __pmsubfields //caller may modify subfields
+                , enablecomponents := __pmsubfields //caller may modify enablecomponents too..
                 , paymentoption := options
             FROM options;
   }
@@ -137,12 +140,13 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 
     BOOLEAN warnlive := GetDtapStage() != "production";
     RECORD ARRAY opts := SELECT subfields
-                              , enablecomponents := subfields
+                              , enablecomponents
                               , rowkey := paymentmethodtag
                               , title := title || (islive ? warnlive ? " (LIVE!)" : "" : " (test mode)")
                               , paymentprovider
                               , paymentoption
                               , islive
+                              , __pmsubfields
                            FROM this->paymentoptions;
 
     this->paymentmethodselect->options := opts;
@@ -189,8 +193,8 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
       RETURN DEFAULT RECORD;
 
     STRING issuer;
-    IF(Length(selected.issuers)>0)
-      issuer := selected.subfields[0]->value;
+    IF(Length(selected.issuers) > 0)
+      issuer := selected.__pmsubfields[0]->value;
 
     RETURN [ paymentprovider := selected.paymentprovider
            , paymentoptiontag := selected.paymentoptiontag
@@ -212,7 +216,7 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
 
     this->paymentmethodselect->value := toselect.paymentmethodtag;
     IF(Length(toselect.issuers) > 0)
-      toselect.subfields[0]->value := value.issuer;
+      toselect.__pmsubfields[0]->value := value.issuer;
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
@@ -227,12 +231,12 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
         work->AddErrorFor(this->paymentmethodselect, GetTid("publisher:site.forms.commonerrors.required"));
       RETURN;
     }
-    IF(RecordExists(selectedopt) AND Length(selectedopt.subfields) > 0) //subfields currently always implies issuers
+    IF(RecordExists(selectedopt) AND Length(selectedopt.__pmsubfields) > 0) //__pmsubfields currently always implies issuers
     {
-      RECORD selected := selectedopt.subfields[0]->selection;
+      RECORD selected := selectedopt.__pmsubfields[0]->selection;
       IF(NOT RecordExists(selected) OR selected.rowkey="")
       {
-        work->AddErrorFor(selectedopt.subfields[0], GetTid("publisher:site.forms.commonerrors.required"));
+        work->AddErrorFor(selectedopt.__pmsubfields[0], GetTid("publisher:site.forms.commonerrors.required"));
         RETURN;
       }
     }
