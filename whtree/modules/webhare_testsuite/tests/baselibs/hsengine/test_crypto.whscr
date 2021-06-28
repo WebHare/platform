@@ -55,6 +55,9 @@ MACRO HashTest()
   TestEq(FALSE, VerifyWebharePasswordHash("test", newhash));
   TestEq(TRUE, IsWebHarePasswordHashStillSecure(newhash));
 
+  TestThrowsLike("*too long*", PTR CreateWebharePasswordHash(RepeatText("S",4096)));
+  TestThrowsLike("*too long*", PTR VerifyWebharePasswordHash(RepeatText("S",4096), newhash));
+
   //Legacy password hashes
 
   // SSHA1
