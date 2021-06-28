@@ -9,7 +9,7 @@ LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
 
 
 
-/* Base classes and APIs to implement custom components (questions and hadlers) */
+/* Base classes and APIs to implement custom components (questions and handlers) */
 
 PUBLIC RECORD __pvt_formhandlerinit;
 

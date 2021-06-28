@@ -133,7 +133,7 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
                , type := "richtext"
                , hidetitle := TRUE
                  //ADDME: Maybe check if there are actually embedded components present which 'requiremergefieldscontext'
-               , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND this->field.mayhavemergefields
+               , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND CellExists(this->field,'mayhavemergefields') AND this->field.mayhavemergefields
                , renderedmergefields := this->__renderedmergefields
                , this->richvalue
                ];
