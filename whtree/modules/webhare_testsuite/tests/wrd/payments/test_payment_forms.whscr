@@ -133,6 +133,18 @@ MACRO CustomForm()
   labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
   TestEq(1, Length(labels_pm_noschema), "should be one labels");
   TestEq("TestNoIssuer (test mode)", labels_pm_noschema[0]->innerhtml);
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  OBJECT ARRAY radios_pm := testfw->browser->document->GetElements('input[name="pm.paymentmethod"]');
+  RECORD submitrec := [ firstname := "Pietje"
+                      , "pm.paymentmethod" := STRING[radios_pm[0]->GetAttribute("value")]
+                      ];
+
+  //Submit to trigger a bug when fields are added to non-issuer payment methods
+  STRING emailfieldname := testfw->browser->QS(`input[type=email]`)->GetAttribute("name");
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
 }
 
 ASYNC MACRO TestEditPaymentHandler()
