@@ -1,0 +1,142 @@
+body
+{
+  font-family: Tahoma,"Lucida Grande",arial,helvetica,sans-serif;
+  font-size: 0.7em;
+  margin: 10px;
+  color: 000000;
+}
+
+a
+{
+  color: #000088;
+}
+
+body > ul:first-child { padding: 0; }
+
+h1 { margin: 0 0 10px 0; }
+
+ul
+{
+  margin: 0;
+  padding: 0;
+}
+
+ul ul
+{
+  padding-left: 15px;
+}
+
+li.isarray { margin-top: 8px; }
+li.isarray + li { margin-top: 8px; }
+
+li.isarray.open > ul { border-top: 1px solid transparent; }
+li.isarray.open > ul { border-top: 1px solid #777777; }
+
+li.isarray ul { background-color: #F0F0F0; }
+li.isarray ul ul { background-color: #E8E8E8; }
+li.isarray ul ul ul { background-color: #E0E0E0; }
+li.isarray ul ul ul ul { background-color: #D8D8D8; }
+li.isarray ul ul ul ul ul { background-color: #D0D0D0; }
+
+li.isarray > ul > li { padding-left: 10px; }
+
+li.isarray .header  {  font-weight: bold; }
+li.isarray > ul > li > .header { padding-left: 24px; }
+
+.header { margin-left: -18px; padding-left: 18px; margin-right: 18px; }
+.private { color: #a33; }
+
+  .closed ul
+, .closed .interpreted
+, .closed .content
+{ display: none; }
+
+.vtype /* variable type */
+{
+  display: inline-block;
+  min-width: 65px;
+
+  color: #AA0000;
+}
+
+.objtypes
+{
+  color: #9999CC;
+  font-weight: normal;
+}
+
+.dt_irrelevant /* part of the date which seems to be empty/rounded */
+{
+  color: #BBBBBB;
+}
+
+li { list-type: none; list-style-position: inside; padding-left: 5px; }
+
+li.closed
+{
+  list-style: none; padding-left: 18px;
+
+  /*
+  width: 16px;
+  height: 16px;
+  */
+  background-repeat: no-repeat;
+  background-image: url(data:image/gif;base64,R0lGODlhEAAQAIcAAAAAAHyNxH2NxH2OxP8A/4aWyIeWyIeXyYiXyaq34LvG6cLN7MrV78rW7MzX7dXa69Xb69Xa7Nbb7NLd8trl9uDk8eLt+er0/PH6/vf8//z+//7+/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAMAAAQALAAAAAAQABAAAAhiAAkIHEiwoMGDCBMqXCjQQICHDw0gRFCBA4cMGC4wkGgwgMUMAC5YoBDgoEeLACxOKNmRA4CXLxmwLBggowUAExgsmEkwgEgKAHQq4DkQAQMKORcoSMDRoEOIAZoynEp1YUAAOw==);
+}
+li.open
+{
+  list-style: none; padding-left: 18px;
+
+  /*
+  width: 16px;
+  height: 16px;
+  */
+  background-repeat: no-repeat;
+  background-image: url(data:image/gif;base64,R0lGODlhEAAQAIcAAAAAAHyNxH2NxH2OxP8A/4aWyIeWyIeXyYiXyaq34LvG6cLN7MrV78rW7MzX7dXa69Xb69Xa7Nbb7NLd8trl9uDk8eLt+er0/PH6/vf8//z+//7+/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAMAAAQALAAAAAAQABAAAAheAAkIHEiwoMGDCBMqXCjQQICHDw0gNJBAwQIGEygwQHAwgEWMFCxcCNDxYkaRGEgaDMAAgEuXHFQWDDCBg82bMgkGCHkBQwabOQcaYNDzJ4cKHA86hBhAIsOnUJ8GBAA7);
+}
+
+
+.interpreted
+{
+  margin-left: -15px;
+  padding: 6px 6px 6px 15px;
+  background-color: #FFFFAA;
+  color: #FF8822;
+  margin-bottom: 10px;
+}
+.humandescription
+{
+  font-size: 120%;
+}
+
+
+/*  li:hover { outline: 1px solid #ddd; background-color: #eee; color: #00a; }*/
+.error { color: #f00; font-weight: bold; }
+
+
+.buttonbar
+{
+  position: fixed;
+  top: 10px;
+  right: 10px;
+}
+.buttonbar span
+{
+  display: block;
+  padding: 5px 10px;
+  white-space: nowrap;
+
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #FFFFFF;
+
+  cursor: pointer;
+}
+.buttonbar span:hover
+{
+  background-color: #707070;
+  color: #FFFFFF;
+}
+.buttonbar span + span
+{
+  margin-top: 20px;
+}
