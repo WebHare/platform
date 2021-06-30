@@ -129,9 +129,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
   {
     options := ValidateOptions( [ delimiter := "", prefix := "", marker := "", maxkeys := 1000 ], options);
 
-    //http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
-//    STRING path := UpdateURLVariables("/", );
-//    this->S3Request("GET", path, [[ field := "Host", value := bucket ]], DEFAULT BLOB);
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html
 
     STRING url := this->endpoint || bucket;
 
@@ -231,7 +229,6 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       @param bucket Bucket name
       @param path Path of the object
       @return Body of object, DEFAULT RECORD if the object does not exist
-      @cell return.body Object contents
   */
   PUBLIC RECORD FUNCTION HeadObject(STRING bucket, STRING path)
   {
@@ -241,6 +238,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 
     RETURN [ contentlength := ToInteger64(this->browser->GetResponseHeader("Content-Length"),-1)
            , contenttype := this->browser->GetResponseHeader("Content-Type")
+           , cachecontrol := this->browser->GetResponseHeader("Cache-Control")
            ];
   }
 
@@ -255,7 +253,11 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
     IF(this->browser->GetHTTPStatusCode()=404)
       RETURN DEFAULT RECORD;
-    RETURN [ body := this->browser->content ];
+
+    RETURN [ body := this->browser->content
+           , contenttype := this->browser->GetResponseHeader("Content-Type")
+           , cachecontrol := this->browser->GetResponseHeader("Cache-Control")
+           ];
   }
 
   STRING FUNCTION PathToURL(STRING bucket, STRING path)
@@ -302,28 +304,44 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
   }
 
   /** Copies an object
-      @param bucket Bucket name
+      @param sourcebucket Name of the source bucket
       @param sourcepath Path of the object to copy
+      @param targetbucket Name of the new bucket
       @param targetpath Path for the new copy
-      @cell options.sourcebucket Copy the object from this bucket
+      @cell(string) options.contenttype Set new contenttype. Resets other metadata on the copy (such as cache-control) unless explicitly specified too
+      @cell(string) options.cachecontrol Set new cachecontrol. Requires contenttype to be set too
       @return
       @cell(string) return.etag Etag
   */
-  PUBLIC RECORD FUNCTION CopyObject(STRING bucket, STRING sourcepath, STRING targetpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION CopyObject(STRING sourcebucket, STRING sourcepath, STRING targetbucket, STRING targetpath, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[ sourcebucket := ""
-                                   , contenttype := ""
+    options := ValidateOptions(CELL[ contenttype := ""
                                    , cachecontrol := ""
-                                   ], options, [ Optional := ["contenttype", "cachecontrol" ]]);
+                                   ], options);
 
-    RECORD ARRAY headers := [[ field := "x-amz-copy-source", value := `${options.sourcebucket ?? bucket}/${sourcepath}` ]
+    IF(Left(sourcepath,1) = '/') //fix initial slash (for targetpath, PathToURL fixes this)
+      sourcepath := Substring(sourcepath,1);
+
+    RECORD ARRAY headers := [[ field := "x-amz-copy-source", value := `${sourcebucket}/${sourcepath}` ]
                             ];
-    IF(CellExists(options, "contenttype"))
-      INSERT [ field := "Content-Type", value := options.contenttype ] INTO headers AT END;
-    IF(CellExists(options, "cachecontrol"))
-      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
 
-    this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket, targetpath), CELL[ headers, body := DEFAULT BLOB ]);
+    IF(options.contenttype != "")
+    {
+      headers := RECORD[ ...headers
+                       , [ field := "x-amz-metadata-directive", value := "REPLACE" ]
+                       , [ field := "Content-Type", value := options.contenttype ]
+                       ];
+
+      IF(options.cachecontrol != "")
+        INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+    }
+    ELSE
+    {
+      IF(options.cachecontrol != "")
+        THROW NEW Exception(`Cannot set Cache-Control on the copy without also setting a new Content-Type`);
+
+    }
+    this->RawAWS4Request("s3", "PUT", this->PathToUrl(targetbucket, targetpath), CELL[ headers, body := DEFAULT BLOB ]);
 
     RETURN [ etag := this->browser->GetResponseHeader("ETag")
            ];

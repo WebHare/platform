@@ -58,16 +58,19 @@ MACRO Test_S3()
   //DumpValue(s3->listBuckets());
 
   STRING testcontent := "This is a test - " || GenerateUFS128BitId();
-  s3->PutObject(bucket, "/testfile", StringToBlob(testcontent));
+  s3->PutObject(bucket, "/testfile", StringToBlob(testcontent), [ contenttype := "text/x-plainer", cachecontrol := "max-age=1" ]);
   s3->PutObject(bucket, "testfile2", StringToBlob(testcontent));
   s3->PutObject(bucket, "/testdir/testfile", StringToBlob(testcontent));
   s3->PutObject(bucket, "testdir/testfile2", StringToBlob(testcontent));
-  s3->PutObject(bucket, "testdir/testfile2", StringToBlob(testcontent));
-  s3->PutObject(bucket, "/testdir/testdeeper/testfile", StringToBlob(testcontent));
+
+  //a better test would be with two different buckets. but oh well..
+  s3->CopyObject(bucket, "/testfile", bucket, "/testdir/testfile2");
+  s3->CopyObject(bucket, "testdir/testfile2", bucket, "/testdir/testdeeper/testfile", [contenttype := "text/x-extra-plain" ]);
+  TestThrowsLike('*without*setting*Content-Type*',PTR s3->CopyObject(bucket, "testdir/testfile2", bucket, "/testdir/testdeeper/testfile", [ cachecontrol := "max-age=2" ]));
 
   RECORD ARRAY dir := s3->GetDirectory(bucket,"/");
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile" AND isfolder = FALSE AND size=Length(testcontent)));
-  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile2" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT size FROM dir WHERE name="testfile2" AND isfolder = FALSE AND size=Length(testcontent)));
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir" AND isfolder AND size=0));
   TestEq(3, Length(SELECT FROM dir WHERE name != "testmultipart")); //delete might not be visible due to eventual consistency..
   TestEq((SELECT * FROM dir ORDER BY name), (SELECT * FROM s3->GetDirectory(bucket,"") ORDER BY name), "The slash was implicit, so these should return the same");
@@ -114,6 +117,20 @@ MACRO Test_S3()
 
   RECORD obj := s3->GetObject(bucket, "/testfile");
   TestEq(testcontent, BlobToString(obj.body));
+  TestEq("text/x-plainer", obj.contenttype);
+  TestEq("max-age=1", obj.cachecontrol);
+
+  obj := s3->GetObject(bucket, "/testdir/testfile2");
+  TestEq(testcontent, BlobToString(obj.body));
+  TestEq("text/x-plainer", obj.contenttype);
+  TestEq("max-age=1", obj.cachecontrol);
+
+  obj := s3->GetObject(bucket, "testdir/testdeeper/testfile");
+  TestEq("text/x-extra-plain", obj.contenttype);
+  TestEq("", obj.cachecontrol, "Cachecontrol is lost in the copy when setting content-type, this is an AWS restriction, x-amz-metadata-directive lacks granularity");
+
+  obj := s3->GetObject(bucket, "/testfile2");
+  TestEq("text/plain", obj.contenttype);
 
   RECORD objhead := s3->HeadObject(bucket, "/testfile");
   TestEQ(39i64, objhead.contentlength);
