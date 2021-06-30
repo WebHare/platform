@@ -697,13 +697,16 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
         RECORD rhs_version := SELECT * FROM actual_cells WHERE actual_cells.name = curcell.name;
         IF (NOT RecordExists(rhs_version) )
         {
+          STRING ARRAY allexpected := SELECT AS STRING ARRAY name FROM expected_cells;
+          STRING bestmatch := GetBestMatch(curcell.name, SELECT AS STRING ARRAY name FROM UnpackRecord(actual) WHERE name NOT IN allexpected);
+
           IF(expecttestexception)
             THROW NEW TestFailException(annotation);
 
           dumpcells(expected,actual);
           IF(annotation != "")
             Print("\nAnnotation: " || annotation || "\n");
-          ReportError("Expected: existing cell " || curcell.name || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+          ReportError("Expected: existing cell " || curcell.name || (bestmatch = "" ? "" : `(found ${bestmatch} as best match) `)|| (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
           CONTINUE;
         }
 
