@@ -10,7 +10,7 @@ export { setFieldError, setupValidator } from './internal/customvalidation.es';
 
 let handlers = { "publisher:form": form => new FormBase(form)
                , "publisher:rpc":  form => new RPCFormBase(form)
-             };
+               };
 let didregister;
 let formoptions = null;
 let defaultsettings = { triggerevents: ['focusout']
