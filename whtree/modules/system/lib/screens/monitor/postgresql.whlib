@@ -172,7 +172,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
              , nexttime
              , enabled
           FROM system_internal.tasks
-         WHERE tag = "system.cleanpostgresqlblobs";
+         WHERE tag = "system.cleanpgsqlblobs";
 
     ^cleanupstatus->value := RecordExists(cleanuptask)
         ? cleanuptask.currentstart = DEFAULT DATETIME
@@ -187,8 +187,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
   MACRO DoScheduleCleanup()
   {
     OBJECT work := this->BeginWork();
-    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE tag = "system.cleanpostgresqlblobs";
-    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    GetPrimary()->ScheduleTask("system.cleanpgsqlblobs", GetCurrentDatetime());
     work->Finish();
     this->RefreshDashboardPanel();
   }
