@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
 
 
@@ -35,6 +36,10 @@ Options:
 
 IF (args.dryrun)
   args.debug := TRUE;
+
+OBJECT lock := OpenLockManager()->TryLockMutex("sytem:cleanpostgresqlblobs", DEFAULT DATETIME);
+IF (IsDefaultValue(lock))
+  TerminateScriptWithError("Another blob cleanup process is still running");
 
 OBJECT trans := OpenPrimary();
 OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(trans);
