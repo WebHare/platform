@@ -193,20 +193,29 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       @return @includecelldef #GetBucket.return.objects
       @cell(boolean) return.isfolder True if this object is a subdirectory (a common prefix as S3 does not have real subdirectories)
   */
-  PUBLIC RECORD ARRAY FUNCTION GetDirectory(STRING bucket, STRING path)
+  PUBLIC RECORD ARRAY FUNCTION GetDirectory(STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(path LIKE "/*")
-      path := Substring(path,1);
-    IF(path != "" AND path NOT LIKE "*/") //without a slash terminator you're not getting the directory contentes and might even trigger accessdenieds
-      path := path || "/";
+    options := CELL[ delimiter := "/", prefix := path, ...options ];
+
+    IF(options.delimiter = "/")
+    {
+      IF(Left(path,1) = "/")
+        path := Substring(path,1);
+      IF(path != "" AND Right(path,1) != "/") //without a slash terminator you're not getting the directory contents and might even trigger accessdenieds
+        path := path || "/";
+    }
 
     RECORD ARRAY results;
     STRING marker;
     WHILE (TRUE)
     {
-      RECORD res := this->GetBucket(bucket, CELL[ delimiter := "/", prefix := path, marker ]);
+      RECORD res := this->GetBucket(bucket, CELL[...options,prefix := path, marker]);
+
+      /* Seen AWS return the prefix as an object, and then nothing inside the prefix? Not sure how we can find a prefix without objects, but just ignore any name matching our path
+         happened for eg: webharetv-prod-meta:log/adhoccdn/LC-RdxRyVRtcJ-MUhSecGA_XQ-cf/AWSLogs/164204408054/
+      */
       results := results
-                 CONCAT (SELECT *, isfolder := FALSE FROM res.objects)
+                 CONCAT (SELECT *, isfolder := FALSE FROM res.objects WHERE name != path)
                  CONCAT (SELECT name := Left(name,Length(name)-1), lastmodified := DEFAULT DATETIME, size := 0, size64 := 0i64, etag := "", isfolder := TRUE FROM ToRecordArray(res.commonprefixes,'name'));
       IF (NOT res.truncated)
         BREAK;
