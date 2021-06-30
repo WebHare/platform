@@ -403,7 +403,7 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
 
   STRING sessid := GetWebVariable("state");
   IF(sessid = "")
-    THROW NEW Exception(`Missing 'state' variable`);
+    AbortWithHTTPError(400, "Missing state variable", [ htmlbody := `<html><head><title>OAuth endpoint</title><body>This page is the landing page for OAuth requests, and not intended to be accessed directly (missing 'state' variable)</body></html>` ]);
 
   RECORD sessdata;
   OBJECT connection;
