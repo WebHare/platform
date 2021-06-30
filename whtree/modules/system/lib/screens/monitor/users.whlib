@@ -207,6 +207,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
     OBJECT screen := this->LoadScreen(".sendmessage",
         [ userid :=     this->onlineusers->selection.wh_userid // this is the session.userid
         , name :=       this->onlineusers->selection.username
+        , pthis := PRIVATE THIS //ugly way to get the dialog access to GetCurrentApps()
         ]);
     IF (ObjectExists(screen))
       screen->RunModal();
