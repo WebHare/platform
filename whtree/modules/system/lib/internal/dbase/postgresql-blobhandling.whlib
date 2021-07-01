@@ -383,7 +383,7 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
     {
       IF (this->settings.keepdeleteddays > 0)
       {
-        this->awsapi->CopyObject(this->settings.bucket_name, this->GetObjectName(blobpartid), archivebase || blobpartid);
+        this->awsapi->CopyObject(this->settings.bucket_name, this->GetObjectName(blobpartid), this->settings.bucket_name, archivebase || blobpartid);
       }
       this->awsapi->DeleteObject(this->settings.bucket_name, this->GetObjectName(blobpartid));
     }
