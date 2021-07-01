@@ -614,7 +614,7 @@
         <row>
           <cell name="testalign2_cell">
             <textedit name="line2_1a" title="Line 2.1A" />
-            <textedit name="line2_2a" title="Line 2.2A" />
+            <textedit name="line2_2a" title="Line 2.2A" prefix="P" suffix="S"/>
           </cell>
           <cell name="inlineblock_select1_cell">
             <inlineblock name="inlineblock_select1" height="1pr" width="1pr" title="Select1">
