@@ -11,8 +11,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 
-STRING debugdump_witty_path := "module::tollium/internal/hsvalue_debugdump.witty";
-
 /*
 2008 - HTML dump of Harescript variables originally written by Mark
 2014 - Harescript variable describing in a format which can be serialized by Mark (for private app logmanager)
@@ -947,7 +945,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
   PUBLIC STRING FUNCTION StyledAnyToHTML(VARIANT data, OBJECT iframe DEFAULTSTO DEFAULT OBJECT)
   {
-    OBJECT witty := LoadWittyLibrary(debugdump_witty_path,"HTML");
+    OBJECT witty := LoadWittyLibrary(Resolve("hsvalue_debugdump.witty"),"HTML");
     RETURN witty->RunToString([ body := this->AnyToHTML(data)
                               //, supportjs := ObjectExists(iframe) ? iframe->GetToddIframeUrl() : ""
                               ]);
@@ -955,7 +953,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
   PUBLIC BLOB FUNCTION StyledAnyToHTMLBlob(VARIANT data, OBJECT iframe DEFAULTSTO DEFAULT OBJECT)
   {
-    OBJECT witty := LoadWittyLibrary(debugdump_witty_path,"HTML");
+    OBJECT witty := LoadWittyLibrary(Resolve("hsvalue_debugdump.witty"),"HTML");
     RETURN witty->RunToBlob([ body := this->AnyToHTML(data)
                             //, supportjs := ObjectExists(iframe) ? iframe->GetToddIframeUrl() : ""
                             ]);
@@ -1272,8 +1270,8 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
       ELSE
       {
         RETURN '<li class="isarray ' || (expanded ? 'open' : 'closed')
-            || '"><div class="header' || (isprivate ? ' private' : '')
-            || '" onclick="toggleMe(this);" '|| jscommand ||'>' || infohdr || '\
+            || '"><div class="toggleme header' || (isprivate ? ' private' : '')
+            || '" '|| jscommand ||'>' || infohdr || '\
                    </div>\
                  <ul>' || varcontent || "</ul>\
                 </li>\n";

@@ -47,7 +47,11 @@ The FormHandler/RPCFormBase offer the following api:
 ```javascript
 import { setupValidator } from "@mod-publisher/js/forms";
 
-dompack.register("[id='myform-username']", node => setupValidator(node, () => node.value == "admin" ? "Nice try" : null));
+function myValidator(eltocheck)
+{
+  return eltocheck.value == "admin" ? "Nice try" : null;
+}
+dompack.register("[id='myform-username']", node => setupValidator(node, myValidator));
 ```
 
 ## RPC Calls

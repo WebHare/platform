@@ -2511,6 +2511,12 @@ void HS_SQL_WHDB_CreatePasswordHash(VarId id_set, VirtualMachine *vm)
         Blex::StringPair toencode;
 
         HSVM_StringGet(*vm, HSVM_Arg(0), &toencode.begin, &toencode.end);
+        if(toencode.size() >= 4096)
+        {
+                HSVM_ThrowException(*vm, "The supplied password is too long");
+                return;
+        }
+
         Blex::GenerateWebHareBlowfishPassword(hash, toencode.begin, toencode.size(), Blex::BlowfishIterations);
         HSVM_StringSet(*vm, id_set, reinterpret_cast<char*>(&hash[0]), reinterpret_cast<char*>(&hash[sizeof(hash)]));
 }
@@ -2530,6 +2536,12 @@ void HS_SQL_WHDB_VerifyPasswordHash(VarId id_set, VirtualMachine *vm)
 
         HSVM_StringGet(*vm, HSVM_Arg(0), &plaintext.begin, &plaintext.end);
         HSVM_StringGet(*vm, HSVM_Arg(1), &encoded.begin, &encoded.end);
+
+        if(plaintext.size() >= 4096)
+        {
+                HSVM_ThrowException(*vm, "The supplied password is too long");
+                return;
+        }
 
         bool correct = Blex::CheckWebHarePassword(encoded.size(), encoded.begin, plaintext.size(), plaintext.begin);
         HSVM_BooleanSet(*vm, id_set, correct);
