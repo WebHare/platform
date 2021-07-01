@@ -373,6 +373,9 @@
       <xs:attribute name="bcc" type="xs:string" />
       <xs:attribute name="sendoncanceltoo" type="xs:boolean" /> <!-- LEGACY no longer supported -->
       <xs:attribute name="attachmentsid" type="xs:string" />
+      <xs:attribute name="mailwaitdays" type="xs:positiveInteger" />
+      <xs:attribute name="mailwaittimezone" />
+      <xs:attribute name="mailwaitat" type="sc:Time24H" />
     </xs:complexType>
   </xs:element>
 
