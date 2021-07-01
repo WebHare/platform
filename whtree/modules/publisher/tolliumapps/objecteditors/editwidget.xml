@@ -9,7 +9,7 @@
       <record name="widgetsettings" />
     </compositions>
     <body name="body">
-      <textedit name="filetitle" visible="false" width="1pr" tid="common.fsobjects.widgetname" />
+      <textedit name="filetitle" visible="false" width="1pr" tid="common.fsobjects.widgetname" suffixtid=".widgetname-notpublished"/>
       <panel name="positioningpanel" visible="false" />
       <tabs name="extensiontabs" visible="false" height="1pr" />
     </body>

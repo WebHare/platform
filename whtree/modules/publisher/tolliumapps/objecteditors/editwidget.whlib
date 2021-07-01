@@ -67,7 +67,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       {
         //TODO this is a hack, and theoretically the first tab might not even be visible due to visibleon... should we offer a <insert> alternative for widgets? or even do title insertion ONLY for widgts working that way?
         ^filetitle->visible := TRUE;
-        ^filetitle->required := TRUE; //TODO this might be too harsh for existing widgets... let's see....
+        ^filetitle->required := ^filetitle->value != "" OR NOT REcordExists(data.value); //Require if set *or* new widget (don't require setting a title just to edit an existing widget)
         ^filetitle->RemoveFromParent();
         ^extensiontabs->pages[0]->InsertComponentBefore(^filetitle, DEFAULT OBJECT, TRUE);
 
