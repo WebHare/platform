@@ -277,7 +277,12 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
         IF(mailtemplateid != 0 AND OpenWHFSObject(mailtemplateid)->isactive)
         {
           IF(NOT this->contexts->formcomponentapi->showadvanced)
+          {
             DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
+            //make sure we don't still require the moduletempalte, now that its enablecomponents controller is gone
+            ^emailcontents->moduletemplate->required := FALSE;
+          }
+
           ^emailcontents->fsobject->value := mailtemplateid;
           RETURN;
         }
@@ -306,6 +311,9 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
           ^emailcontents->templatetype->visible := FALSE;
         ELSE
           DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
+
+        //make sure we don't still require the moduletempalte, now that its enablecomponents controller is gone
+        ^emailcontents->moduletemplate->required := FALSE;
       }
     }
 
