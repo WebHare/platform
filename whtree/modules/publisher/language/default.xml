@@ -2144,12 +2144,16 @@
           <text tid="bcc-desc">Multiple addresses are separated by commas</text>
           <text tid="checkduplicates">Check for duplicate email addresses</text>
           <text tid="condition">Condition</text>
+          <text tid="delaymailsending">Delay sending this mail</text>
           <text tid="editmailto">Edit mail to</text>
           <text tid="emailcontents">Email message</text>
           <text tid="file">File</text>
           <text tid="files">These files will be sent along the email as attachments</text>
           <text tid="fsobject">Choose an email template:</text>
           <text tid="mailto">Mail to</text>
+          <text tid="mailwaitat">at</text>
+          <text tid="mailwaitdays">Send mail after</text>
+          <text tid="mailwaittimezone">using timezone</text>
           <text tid="moduletemplate">Template in module:</text>
           <text tid="none">Please choose:</text>
           <text tid="receiverfield">Send to</text>

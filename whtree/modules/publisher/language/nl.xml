@@ -2144,12 +2144,16 @@
           <text tid="bcc-desc">Meerdere adressen worden gescheiden door komma's</text>
           <text tid="checkduplicates">Controleer op dubbele e-mailadressen</text>
           <text tid="condition">Voorwaarde</text>
+          <text tid="delaymailsending">Verstuur deze mail pas later</text>
           <text tid="editmailto">Wijzig mail naar</text>
           <text tid="emailcontents">E-mailbericht</text>
           <text tid="file">Bestand</text>
           <text tid="files">Deze bestanden worden als bijlagen bij de e-mail meegezonden</text>
           <text tid="fsobject">Kies een sjabloon:</text>
           <text tid="mailto">Mail naar</text>
+          <text tid="mailwaitat">om</text>
+          <text tid="mailwaitdays">Stuur een mail na</text>
+          <text tid="mailwaittimezone">volgens tijdzone</text>
           <text tid="moduletemplate">Sjabloon in module:</text>
           <text tid="none">Maak een keuze:</text>
           <text tid="receiverfield">Verstuur naar</text>

@@ -1,5 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
          gid="tolliumapps.formedit.handlers">
 
   <tabsextension
@@ -61,6 +62,14 @@
       <textedit name="subject" width="1pr" />
       <textedit name="bcc" validationchecks="emails-maysendto" width="1pr" />
       <text title="" valuetid=".bcc-desc" />
+    </insert>
+    <insert position="advanced" where="after">
+      <heading name="delaymailsending" checkbox="true" onchange="ondelaymailsendingchange"/> <!-- FIXME  enablecomponents="mailwaitdays mailwaitat mailwaittimezone"  but both <time> and <webapis:timezoneedit> won't respond to it (Won't enable). oh well, it's 'advanced' anyway -->
+      <line>
+        <textedit name="mailwaitdays" valuetype="integer" minvalue="1" maxvalue="99" maxlength="3" suffixtid="~units.days" required="true" emptyvalue="0"/>
+        <time name="mailwaitat" required="true" />
+        <webapis:timezoneedit name="mailwaittimezone" />
+      </line>
     </insert>
     <newtab tid=".emailcontents">
       <includefragment name="emailcontents" fragment="#emailcontents" />
