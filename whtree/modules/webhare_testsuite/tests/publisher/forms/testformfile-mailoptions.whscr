@@ -1,17 +1,42 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/mime.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/webtools/formhandlers/mailhandler.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 
 STRING emailfieldname;
+
+MACRO TestMailAtParsingAndCalculation()
+{
+  //test the lower level secheduling/calculation APIs
+  TestEq( 23 * (60*60*1000) + 29 * (60*1000) + 59 * 1000, ParseXMLTime24H("23:29:59"));
+  TestEq( 3 * (60*60*1000) + 9 * (60*1000) + 5 * 1000, ParseXMLTime24H("03:09:05"));
+
+  // If it's 2021-03-01 15:15 (14:15 UTC), 17:00 2 days later is at 2021-03-03 at 17:00 (16:00 UTC)
+  TestEq(MakeDatetime(2021,3,3,16,0,0), GetMailtaskScheduleDate(MakeDatetime(2021,3,1,14,15,0), 2, "Europe/Amsterdam", ParseXMLTime24H("17:00:00")));
+
+  // If it's 2021-03-01 23:15 (22:15 UTC), 17:00 2 days later is at 2021-03-03 at 17:00 (16:00 UTC)
+  TestEq(MakeDatetime(2021,3,3,16,0,0), GetMailtaskScheduleDate(MakeDatetime(2021,3,1,22,15,0), 2, "Europe/Amsterdam", ParseXMLTime24H("17:00:00")));
+
+  // If it's 2021-03-02 00:15 (23:15 UTC, so UTC and local dates have different daycounters), 17:00 2 days later is at 2021-03-04 at 17:00 (16:00 UTC)
+  TestEq(MakeDatetime(2021,3,4,16,0,0), GetMailtaskScheduleDate(MakeDatetime(2021,3,1,23,15,0), 2, "Europe/Amsterdam", ParseXMLTime24H("17:00:00")));
+  // But at that exact point in time if we think in UTC, 2 days later is at 2021-03-03 at 16:00 UTC
+  TestEq(MakeDatetime(2021,3,3,16,0,0), GetMailtaskScheduleDate(MakeDatetime(2021,3,1,23,15,0), 2, "UTC", ParseXMLTime24H("16:00:00")));
+
+  // Summertime started at 28 March 2021 02:00 in Europe.
+  // If it's 2021-03-27 12:30 (11:30 UTC), 17:00 2 days later is at 2021-03-29 at 17:00 (15:00 UTC)
+  TestEq(MakeDatetime(2021,3,29,15,0,0), GetMailtaskScheduleDate(MakeDatetime(2021,3,27,12,30,0), 2, "Europe/Amsterdam", ParseXMLTime24H("17:00:00")));
+}
 
 MACRO AddExtraHandlers(RECORD forminfo)
 {
@@ -22,11 +47,30 @@ MACRO AddExtraHandlers(RECORD forminfo)
   mailhandler->SetAttribute("addresults", "true");
   mailhandler->SetAttribute("sender", "mailfrom@beta.webhare.net");
   mailhandler->SetAttribute("sendername", "Mail From");
+
+  OBJECT delayedhandler := forminfo.formdef->AddHandler("mailfeedbackhandler");
+  delayedhandler->SetAttribute("sendername","Pietje");
+  delayedhandler->SetAttribute("sender","delayedhandler@beta.webhare.net");
+  delayedhandler->SetAttribute("receiverfield", forminfo.emailfieldguid);
+  delayedhandler->SetAttribute("subject", "Delayed mail");
+
+  //Create a simple RTD response with an image
+  STRING rtdtext := forminfo.formdefs->CreateInstance(
+    [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , data := [ htmltext := StringToBlob('<html><body><p class="normal">This is the delayed mail</p></body></html>')
+              ]
+    ]);
+  delayedhandler->SetAttribute("textid", rtdtext);
+  delayedhandler->SetAttribute("mailwaitdays", "5");
+  delayedhandler->SetAttribute("mailwaittimezone", "Europe/Amsterdam");
+  delayedhandler->SetAttribute("mailwaitat", "23:29:59");
 }
 
 PUBLIC MACRO BuildForm()
 {
-  BuildWebtoolForm([ customformedits := PTR AddExtraHandlers, addfeedbackattachments := TRUE ]);
+  BuildWebtoolForm([ customformedits := PTR AddExtraHandlers
+                   , addfeedbackattachments := TRUE
+                   ]);
 }
 
 PUBLIC ASYNC MACRO TestMailOptions()
@@ -53,13 +97,20 @@ PUBLIC ASYNC MACRO TestMailOptions()
   TestEq(`Mail From <mailfrom@beta.webhare.net>`, (SELECT AS STRING value FROM result1mail.headers WHERE field="From"));
   TestEq(`<mailfrom@beta.webhare.net>`, result1mail.envelope_sender);
 
-  RECORD feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 60000, count := 1 ]);
-  TestEq(TRUE, RecordExists(feedbackmail));
-  RECORD part := GetEmailPrimaryMIMEPart(feedbackmail.toppart, "multipart/mixed");
+  testfw->FlushTasks(["publisher:mailfeedback"]); //this should make both mails appear in the queue
+
+  RECORD ARRAY feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  TestEq(1, Length(feedbackmail));
+  RECORD part := GetEmailPrimaryMIMEPart(feedbackmail[0].toppart, "multipart/mixed");
   TestEq(TRUE, RecordExists(SELECT FROM part.subparts WHERE mimetype = 'image/jpeg; name="bob.jpg"'));
+
+  feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 0, count := 1, scanaheaduntil := AddDaysToDate(7, GetCurrentDatetime() )]);
+  TestEq(1, Length(feedbackmail));
+  TestEq("Delayed mail", feedbackmail[0].subject);
 }
 
-RunTestframework([ PTR BuildForm
+RunTestframework([ PTR TestMailAtParsingAndCalculation
+                 , PTR BuildForm
                  , PTR TestMailOptions
                  ], [ testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
                     ]);

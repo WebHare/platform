@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/testfw/runtest.whlib";
 PUBLIC RECORD ARRAY FUNCTION RPC_RetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count)
 {
   OBJECT trans := OpenPrimary();
-  RETURN DoRetrieveEmails(emailaddress, timeout, count, FALSE);
+  RETURN DoRetrieveEmails(emailaddress, timeout, count, FALSE, DEFAULT DATETIME);
 }
 
 PUBLIC RECORD FUNCTION RPC_SubmitReport(STRING reportid, RECORD data)

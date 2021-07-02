@@ -17,6 +17,13 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- A 24 hour time (like xs:time without timezone and no 23:59:60 shenanigans) -->
+  <xs:simpleType name="Time24H">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(([0-1][0-9])|2[0-3]):[0-5][0-9]:[0-5][0-9]"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
   <xs:simpleType name="ImageSrc">
     <xs:restriction base="xs:string">

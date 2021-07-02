@@ -1079,8 +1079,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     BroadcastEvent("system:internal/mailroutechange", DEFAULT RECORD);
 
     //Remove outgoing mail
-    __TryGetEmails("*@beta.webhare.net", FALSE);
-    __TryGetEmails("*@*.beta.webhare.net", FALSE);
+    __TryGetEmails("*@beta.webhare.net", FALSE, DEFAULT DATETIME);
+    __TryGetEmails("*@*.beta.webhare.net", FALSE, DEFAULT DATETIME);
 
     IF(Length(ourwebservers)>0) //make sure the settings are flushed
       this->RefreshWebserverConfig();
@@ -1452,8 +1452,10 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /** Returns all emails that match a receiver mask
       @param recipient Receiver mask, must end with @beta.webhare.net
       @param options
-      @cell options.peekonly If TRUE, don't remove emails from queue
-      @cell options.timeout Timeout in milliseconds, max 60000
+      @cell(boolean) options.peekonly If TRUE, don't remove emails from queue
+      @cell(integer) options.timeout Timeout in milliseconds, max 60000
+      @cell(integer) options.count Minimum number of mails expected within the timeout. All mails are returned, so you may receive more than expected. Defaults to 1
+      @cell(datetime) options.scanaheaduntil If set, also look at future tasks until this date
       @return
       @cell return.messageid Message ID (useful for %SendBounceToSNSEndpoint)
       @cell return.mimeheaders MIME headers
@@ -1466,8 +1468,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     options := ValidateOptions([ peekonly := FALSE
                                , timeout := 0
                                , count := 1
+                               , scanaheaduntil := DEFAULT DATETIME
                                ], options);
-    RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly);
+    RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil);
   }
 
   MACRO DoWHFSCleanUP()

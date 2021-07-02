@@ -3,6 +3,7 @@
     @topic forms/standardhandlers
 */
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/smtp.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -28,6 +29,22 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 //
 // Helpers
 //
+
+PUBLIC INTEGER FUNCTION ParseXMLTime24H(STRING intime)
+{
+  IF(intime LIKE "??:??:??")
+    RETURN GetMsecondCount(MakeDateFromText(`2021-01-01T${intime}Z`));
+  ELSE
+    RETURN -1;
+}
+
+
+PUBLIC DATETIME FUNCTION GetMailtaskScheduleDate(DATETIME now, INTEGER mailwaitdays, STRING mailwaittimezone, INTEGER mailwaitat)
+{
+  INTEGER date := GetDaycount(UTCToLocal(now, mailwaittimezone)) + mailwaitdays;
+  RETURN LocalToUTC(MakeDateFromParts(date, mailwaitat), mailwaittimezone);
+}
+
 
 PUBLIC STRING FUNCTION ResolveMailTemplate(RECORD settings, OBJECT formdefinitions)
 {
@@ -409,7 +426,7 @@ PUBLIC STATIC OBJECTTYPE Attachments EXTEND TolliumFragmentBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
+PUBLIC STATIC OBJECTTYPE MailConfirmFeedbackEditorBase EXTEND MailHandlerEditor
 <
   MACRO NEW()
   {
@@ -457,7 +474,50 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailFeedbackEditor
+PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailConfirmFeedbackEditorBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    MailConfirmFeedbackEditorBase::PostInitExtension();
+
+    ^mailwaitdays->value := ParseXSInt(this->node->GetAttribute("mailwaitdays"));
+    ^delaymailsending->value := ^mailwaitdays->value > 0;
+    ^mailwaitat->value := ParseXMLTime24H(this->node->GetAttribute("mailwaitat"));
+    ^mailwaittimezone->value := this->node->GetAttribute("mailwaittimezone") ?? this->contexts->user->timezone;
+
+    this->OnDelayMailSendingChange();
+  }
+
+  MACRO OnDelayMailSendingChange()
+  {
+    ^mailwaitdays->enabled := ^delaymailsending->value;
+    ^mailwaitat->enabled := ^delaymailsending->value;
+    ^mailwaittimezone->enabled := ^delaymailsending->value;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    MailConfirmFeedbackEditorBase::SubmitExtension(work);
+
+    IF (NOT work->HasFailed())
+    {
+      IF(^delaymailsending->value)
+      {
+        this->node->SetAttribute("mailwaitdays", ToString(^mailwaitdays->value));
+        this->node->SetAttribute("mailwaitat", FormatTimestamp("%H:%M%:%S",^mailwaitat->value));
+        this->node->SetAttribute("mailwaittimezone", ^mailwaittimezone->value);
+      }
+      ELSE
+      {
+        this->node->RemoveAttribute("mailwaitdays");
+        this->node->RemoveAttribute("mailwaitat");
+        this->node->RemoveAttribute("mailwaittimezone");
+      }
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailConfirmFeedbackEditorBase
 <
   MACRO NEW()
   {
@@ -466,14 +526,14 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailFeedbackEditor
 
   UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
   {
-    MailFeedbackEditor::InitExtension(extendablelinescontainer);
+    MailConfirmFeedbackEditorBase::InitExtension(extendablelinescontainer);
 
     ^emailcontents->addresults->visible := FALSE;
   }
 
   UPDATE PUBLIC MACRO PostInitExtension()
   {
-    MailFeedbackEditor::PostInitExtension();
+    MailConfirmFeedbackEditorBase::PostInitExtension();
 
     ^checkduplicates->value := this->node->GetAttribute("onduplicate") = "reject";
 
@@ -503,7 +563,7 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailFeedbackEditor
       }
     }
 
-    MailFeedbackEditor::SubmitExtension(work);
+    MailConfirmFeedbackEditorBase::SubmitExtension(work);
 
     IF (^checkduplicates->value)
       this->node->SetAttribute("onduplicate", "reject");
@@ -703,8 +763,12 @@ STATIC OBJECTTYPE MailHandlerTask EXTEND FormHandlerTaskBase
       RETURN;
     }
 
-    INTEGER ARRAY tasks := mail->QueueMailInWork();
-    this->ResolveByCompletion( CELL[ receivers := mail->mailto, tasks ]);
+    DATETIME notbefore;
+    IF(CellExists(this->settings, 'mailwaitdays') AND this->settings.mailwaitdays > 0)
+      notbefore := GetMailtaskScheduleDate(results.when, this->settings.mailwaitdays, this->settings.mailwaittimezone, this->settings.mailwaitat);
+
+    INTEGER ARRAY tasks := mail->QueueMailInWork(CELL[notbefore]);
+    this->ResolveByCompletion( CELL[ receivers := mail->mailto, tasks, notbefore ]);
   }
 
   STRING ARRAY FUNCTION GetReceivers(RECORD results)
@@ -777,6 +841,9 @@ RECORD FUNCTION ParseMailHandler(RECORD fielddef, OBJECT node, RECORD parseconte
 PUBLIC RECORD FUNCTION ParseMailFeedbackHandler(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {
   fielddef := CELL[ ...ParseMailHandler(fielddef, node, parsecontext)
+                  , mailwaitdays := ParseXSInt(node->GetAttribute("mailwaitdays"))
+                  , mailwaittimezone := node->GetAttribute("mailwaittimezone")
+                  , mailwaitat := ParseXMLTime24H(node->GetAttribute("mailwaitat"))
                   ];
   RETURN fielddef;
 }

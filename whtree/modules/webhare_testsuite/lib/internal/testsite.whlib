@@ -1057,6 +1057,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   IF(options.customformedits != DEFAULT MACRO PTR)
     options.customformedits(CELL[ formdef
                                 , formdefs
+                                , emailfieldguid := emailfield->GetAttribute("guid")
                                 ]);
 
   //Validate it - if we can't even pass our own validation...

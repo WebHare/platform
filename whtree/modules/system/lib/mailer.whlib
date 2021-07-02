@@ -563,6 +563,7 @@ PUBLIC BOOLEAN FUNCTION QueueMail(STRING origin, STRING ARRAY receivers, STRING 
     @cell(string) options.priority Mail task priority. Defaults to 'interactive'. Set to 'normal' or 'background' for mass/bulk mails (which shouldn't block eg. password resets)
     @cell(boolean) options.ignorerecipientwhitelist Don't honor the recipient whitelist. This should only be used for user-triggered emails (eg password reset)
     @cell(boolean) options.sensitive Mark this mail as sensitive, hide it to non-sysops
+    @cell(datetime) options.notbefore Scheduled date after which the mail can be sent
     @return IDs of the generated task, one per receiver
 */
 PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -573,6 +574,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                              , priority := "interactive"
                              , ignorerecipientwhitelist := FALSE
                              , sensitive := FALSE
+                             , notbefore := DEFAULT DATETIME
                              ], options);
 
   IF (NOT GetPrimary()->IsWorkOpen())
@@ -626,7 +628,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                     , rawheaders := options.rawheaders
                     ];
 
-  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, CELL [ auxdata, taskids, options.priority ]);
+  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, CELL [ auxdata, taskids, options.priority, options.notbefore ]);
 }
 
 
