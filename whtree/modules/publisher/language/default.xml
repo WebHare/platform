@@ -2262,6 +2262,7 @@
     <textgroup gid="objecteditors">   <!-- tolliumapps.objecteditors -->
       <textgroup gid="editwidget">   <!-- tolliumapps.objecteditors.editwidget -->
         <text tid="content">Content</text>
+        <text tid="widgetname-notpublished">(not published)</text>
       </textgroup>
     </textgroup>
     <textgroup gid="objectprops">   <!-- tolliumapps.objectprops -->
