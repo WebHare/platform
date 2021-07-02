@@ -211,7 +211,34 @@ ASYNC MACRO TestFragmentsBreakingArrayeditList()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestMinMax()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:anycomponent", [ params := [ "arrayedit", EncodeJSON([minrows := 1,maxrows := 3, errorlabel := "ErrLabel" ])]]));
+  TT("comp")->value := RECORD[];
+  AWAIT ExpectAndAnswerMessageBox("Ok", PTR TTCLick(":Validate"), [ messagemask := "Field 'ErrLabel' must contain at least 1 item." ]); //error must appear only once
+  TT("comp")->value := RECORD[ [ checkbox := TRUE, text := "Row 1" ]
+                             , [ checkbox := FALSE, text := "Row 2" ]
+                             , [ checkbox := TRUE, text := "Row 3" ]
+                             , [ checkbox := FALSe, text := "Row 4" ]
+                             ];
+  TestEq(FALSE, TTClick(":Add", [ allowfailure := TRUE ]));
+
+  AWAIT ExpectAndAnswerMessageBox("Ok", PTR TTCLick(":Validate"), [ messagemask := "Field 'ErrLabel' may not contain more than 3 items." ]); //error must appear only once
+  TT("comp")->SetSelectedRows([2,3]);
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTCLick(":Delete"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq(FALSE, TTClick(":Add", [ allowfailure := TRUE ]));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
 RunTestframework([ PTR TestArrayEdit
                  , PTR TestXMLAttributes
                  , PTR TestFragmentsBreakingArrayeditList
-                 ]);
+                 , PTR TestMinMax
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]
+                                   ]
+                    ]);

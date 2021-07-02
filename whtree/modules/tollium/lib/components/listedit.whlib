@@ -1155,24 +1155,10 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     INTEGER amountofrows := Length(this->list->rows);
 
     IF (amountofrows < this->minrows)
-    {
-      work->AddError( GetTid("tollium:components.arrayedit.notenoughrows"
-                            , this->errorlabel
-                            , ToString(this->minrows)
-                            , ToString(amountofrows)
-                            )
-                    );
-    }
+      work->AddErrorFor(this, GetTid("tollium:components.arrayedit.notenoughrows", this->errorlabel, ToString(this->minrows), ToString(amountofrows)));
 
     IF (this->maxrows > 0 AND amountofrows > this->maxrows)
-    {
-      work->AddError( GetTid( "tollium:components.arrayedit.toomanyrows"
-                            , this->errorlabel
-                            , ToString(this->maxrows)
-                            , ToString(amountofrows)
-                            )
-                    );
-    }
+      work->AddErrorFor(this, GetTid( "tollium:components.arrayedit.toomanyrows", this->errorlabel, ToString(this->maxrows), ToString(amountofrows)));
   }
 
 
@@ -1254,6 +1240,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   MACRO RefreshList(BOOLEAN isvaluechange)
   {
     this->list->ReloadList();
+    this->RefreshActions();
 
     //ADDME: Only call when rows have actually changed?
     IF (isvaluechange AND this->onchange != DEFAULT MACRO PTR)
