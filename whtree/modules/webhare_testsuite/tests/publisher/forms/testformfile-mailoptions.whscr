@@ -16,12 +16,6 @@ LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 STRING emailfieldname;
 
-DATETIME FUNCTION GetMailtaskScheduleDate(DATETIME now, INTEGER mailwaitdays, STRING mailwaittimezone, INTEGER mailwaitat)
-{
-  INTEGER date := GetDaycount(UTCToLocal(now, mailwaittimezone)) + mailwaitdays;
-  RETURN LocalToUTC(MakeDateFromParts(date, mailwaitat), mailwaittimezone);
-}
-
 MACRO TestMailAtParsingAndCalculation()
 {
   //test the lower level secheduling/calculation APIs

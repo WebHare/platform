@@ -765,10 +765,7 @@ STATIC OBJECTTYPE MailHandlerTask EXTEND FormHandlerTaskBase
 
     DATETIME notbefore;
     IF(CellExists(this->settings, 'mailwaitdays') AND this->settings.mailwaitdays > 0)
-    {
-      //TODO should take originally scheduled date, not 'now'
       notbefore := GetMailtaskScheduleDate(results.when, this->settings.mailwaitdays, this->settings.mailwaittimezone, this->settings.mailwaitat);
-    }
 
     INTEGER ARRAY tasks := mail->QueueMailInWork(CELL[notbefore]);
     this->ResolveByCompletion( CELL[ receivers := mail->mailto, tasks, notbefore ]);
