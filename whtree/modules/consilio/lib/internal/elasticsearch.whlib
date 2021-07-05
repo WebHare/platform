@@ -857,7 +857,7 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
 {
   // Check if a record subfield was requested
   STRING subfld;
-  IF (fld LIKE "*.*")
+  IF (NOT CellExists(hit, fld) AND fld LIKE "*.*") //FIXME this is a hack to support the pre-dec-2020 record situation. should we be studying 'mapping' to figure out the real format ?
   {
     subfld := Substring(fld, SearchSubstring(fld, ".") + 1);
     fld := Left(fld, SearchSubstring(fld, "."));
