@@ -771,11 +771,11 @@ MACRO PrintSyntax()
   Print("  -p               Use processes instead of jobs\n");
   Print("  --installroot    WebHare installation root (overrides automatically\n");
   Print("                   determined installation root)\n");
-  Print("  --moduledir=..   Directory for HSM files (eg R:\\whbuild\\bin");
+  Print("  --moduledir=..   Dynamic modules dir (default: <webhare>/lib)\n");
   Print("  --type=break     Break on first failing test\n");
   Print("  --type=continue  Continue with next test after failing test\n");
   Print("  --loop           After all test are finished, start again with first test\n");
-  Print("  --tag=..         Specify tags to require or exclude (eg: --tags=forms,-external)\n");
+  Print("  --tag=..         Specify tags to require or exclude (eg: --tag=forms,-external)\n");
   Print("  --skip=mask      Skip test that match the mask (can be used multiple times)\n");
   Print("  --outputdir      Save output files to this directory\n");
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
