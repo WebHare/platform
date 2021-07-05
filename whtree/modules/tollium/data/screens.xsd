@@ -3412,6 +3412,17 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="valuetype" default="integer">
+      <xs:annotation>
+        <xs:documentation>HareScript type for the time value: "integer" (default) or "integer64"</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="integer"/>
+          <xs:enumeration value="integer64"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="BrowseServerPath">
