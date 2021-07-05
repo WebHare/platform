@@ -67,6 +67,11 @@ test.registerTests(
       test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2b').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2B should align");
       test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2b').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2B should align");
 
+      //verify prefix and suffix are aligned with the label. 'bottom' is tricky due to labels receiving height:, but top seems safe ATM
+      let line2_2a_label = test.compByName('line2_2a').closest('.line').querySelector('.label');
+      test.eq(line2_2a_label.getBoundingClientRect().top, test.compByName('line2_2a').querySelector('.t-textedit__prefix').getBoundingClientRect().top);
+      test.eq(line2_2a_label.getBoundingClientRect().top, test.compByName('line2_2a').querySelector('.t-textedit__suffix').getBoundingClientRect().top);
+
       let firstinlineblockholder = test.compByName('inlineblock_select1_cell');
       test.eq(firstinlineblockholder.querySelector("t-text").getBoundingClientRect().top, firstinlineblockholder.querySelector("t-inlineblock t-text").getBoundingClientRect().top, "Top line of label 'Select1' and 'SE1' should align");
       test.eq(firstinlineblockholder.querySelector("t-text").getBoundingClientRect().bottom, firstinlineblockholder.querySelector("t-inlineblock t-text").getBoundingClientRect().bottom, "Bottom line of label 'Select1' and 'SE1' should align");

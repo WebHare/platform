@@ -23,6 +23,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   IF(ObjectExists(customformfile))
     customformfile->RecycleSelf();
 
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), webtoolsfolder->id, FALSE, TRUE);
   testfw->CommitWork();
 
   //Build a form using the UI
@@ -182,7 +183,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
   TT("builtincomponents")->value := "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler";
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
-  TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "email";
+  TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "Ëmail pretty plz";
   AWAIT ExpectScreenChange(+1, PTR (TT(":Email contents")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ])));
   TestEq(2, Length(TT("contenttypes")->rows)); //expecting the merge field and the custom form widget
   TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE namespace = "http://www.webhare.net/xmlns/publisher/formmergefield";
@@ -244,15 +245,48 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TestEq(3, Length(TT(":Field")->options));
   TestEq("Page 2 \u2013 Renamed email field", TT(":Field")->options[0].title);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
- AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close form editor
 }
 
+ASYNC MACRO TestEditAsLisa()
+{
+  testfw->SetTestUser("lisa");
+
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //rename the customform to disable any mailtemplate, this triggered an error earlier because the radio was removed and a required field then triggered
+  testfw->BeginWork();
+  IF(ObjectExists(webtoolsfolder->OpenByName("customform-nomailtemplates")))
+    webtoolsfolder->OpenByName("customform-nomailtemplates")->RecycleSelf();
+
+  webtoolsfolder->OpenByName("customform")->UpdateMetadata([name := "customform-nomailtemplates" ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform-nomailtemplates" ], target := DEFAULT RECORD ]));
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR TestBuildCustomForm
+                 , PTR TestEditAsLisa
                  ]
                 ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ,[ login := "lisa" ]
                                 ]
                  ]);
