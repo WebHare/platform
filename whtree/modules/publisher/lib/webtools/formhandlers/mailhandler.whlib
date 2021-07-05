@@ -279,7 +279,7 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
           IF(NOT this->contexts->formcomponentapi->showadvanced)
           {
             DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
-            //make sure we don't still require the moduletempalte, now that its enablecomponents controller is gone
+            //make sure we don't still require the moduletemplate, now that its enablecomponents controller is gone
             ^emailcontents->moduletemplate->required := FALSE;
           }
 
@@ -312,7 +312,7 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
         ELSE
           DELETE FROM ^emailcontents->templatetype->options WHERE rowkey = "moduletemplate";
 
-        //make sure we don't still require the moduletempalte, now that its enablecomponents controller is gone
+        //make sure we don't still require the moduletemplate, now that its enablecomponents controller is gone
         ^emailcontents->moduletemplate->required := FALSE;
       }
     }
