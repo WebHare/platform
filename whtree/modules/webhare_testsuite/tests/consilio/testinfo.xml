@@ -7,6 +7,9 @@
 
   <test script="test_queryparser.whscr" />
 
+  <!-- test ES parsers (and other internal stuff later?) - does not actually require an ES to communicate with, so we can always run this test -->
+  <test script="test_elasticsearch_internal.whscr" />
+
   <test script="test_indexmanager.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH">
     <arg param="consilio_binary"/>
     <arg param="listenport"/>
