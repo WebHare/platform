@@ -24,9 +24,9 @@ INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
 {
   IF(coltype IN ["date","datetime"])
     RETURN TYPEID(DATETIME);
-  ELSE IF(coltype IN ["integer","icon","time"])
+  ELSE IF(coltype IN ["integer","icon"])
     RETURN TYPEID(INTEGER);
-  ELSE IF(coltype IN ["integer64"])
+  ELSE IF(coltype IN ["integer64","time"])
     RETURN TYPEID(INTEGER64);
   ELSE IF(coltype IN ["icons"])
     RETURN TYPEID(INTEGER ARRAY);
@@ -1917,8 +1917,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       }
       CASE "time"
       {
-        INTEGER time := displayval;
-        RETURN this->owner->tolliumuser->FormatTimestamp(time, coldef.precision);
+        RETURN this->owner->tolliumuser->FormatTimestamp(displayval, coldef.precision);
       }
       CASE "date", "datetime"
       {
