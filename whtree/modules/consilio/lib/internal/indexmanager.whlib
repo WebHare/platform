@@ -2313,7 +2313,7 @@ STRING FUNCTION ConfigureConsilioIndexManager(INTEGER indexmgrid, STRING param)
 }
 
 // Create a (flattened) list of requested fields
-STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
+PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
 {
   STRING ARRAY fields;
   FOREVERY (RECORD field FROM UnpackRecord(mapping))

@@ -1,0 +1,66 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestElasticsearchParser()
+{
+  RECORD result := DecodeJSON(
+  `{
+    "took": 133,
+    "timed_out": false,
+    "_shards": {
+      "total": 9,
+      "successful": 9,
+      "skipped": 0,
+      "failed": 0
+    },
+    "hits": {
+      "total": {
+        "value": 1601,
+        "relation": "eq"
+      },
+      "max_score": 1.0,
+      "hits": [
+        {
+          "_index": "minfin_wig__toolslog-2019",
+          "_type": "_doc",
+          "_id": "mL-9F2QJPWZ-Ah4mlcMnug",
+          "_score": 1.0,
+          "_source": {
+            "forms.measurevariants": 1117,
+            "@timestamp": "2019-07-01T00:00:00.000Z",
+            "forms.started": 409,
+            "minfin.versionnr": "5",
+            "forms.completed": 395
+          }
+        },
+        {
+          "_index": "minfin_wig__toolslog-2019",
+          "_type": "_doc",
+          "_id": "ckKzIPy7gD-BqAoMzYQicg",
+          "_score": 1.0,
+          "_source": {
+            "forms.measurevariants": 1434,
+            "@timestamp": "2019-07-02T00:00:00.000Z",
+            "forms.started": 553,
+            "minfin.versionnr": "5",
+            "forms.completed": 513
+          }
+        }
+      ]
+    }
+  }
+  `);
+
+  //DEC 2020 a commit broke parsing results as above because they are now recognized as a record.
+  RECORD mapping := [ "@timestamp" := "", "forms.completed" := 0, "forms.measurevariants" := 0, "forms.started" := 0, "minfin.versionnr" := 0, _summary := "" ];
+  RECORD ARRAY results := ReadElasticsearchResults(result.hits.hits, GetRequestedFields(mapping), mapping);
+  TestEq(1117, results[0]."forms.measurevariants");
+  TestEq(1434, results[1]."forms.measurevariants");
+  TestEq("2019-07-02T00:00:00.000Z", results[1]."@timestamp");
+}
+
+RunTestframework( [ PTR TestElasticsearchParser ]);
