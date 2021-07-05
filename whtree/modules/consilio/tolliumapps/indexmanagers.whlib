@@ -66,7 +66,14 @@ PUBLIC STATIC OBJECTTYPE EditIndexManager EXTEND TolliumScreenBase
       IF (^indexmgr->value.type = 2)
       {
         // Read Elasticsearch configuration
-        this->cursettings := GetElasticsearchSettings(data.id, FALSE);
+        TRY
+        {
+          this->cursettings := GetElasticsearchSettings(data.id, FALSE, [ timeout := 3000 ]);
+        }
+        CATCH(OBJECT e)
+        {
+          this->RunSimpleScreen("error", this->GetTid(".cannotretrievesettings", e->what));
+        }
         ^threshold_enabled->value := NOT CellExists(this->cursettings, "cluster.routing.allocation.disk.threshold_enabled") OR this->cursettings."cluster.routing.allocation.disk.threshold_enabled" != "false";
         ^watermark_low->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.low") ? this->cursettings."cluster.routing.allocation.disk.watermark.low" : "";
         ^watermark_high->value := CellExists(this->cursettings, "cluster.routing.allocation.disk.watermark.high") ? this->cursettings."cluster.routing.allocation.disk.watermark.high" : "";

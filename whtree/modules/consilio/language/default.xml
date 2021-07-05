@@ -367,6 +367,7 @@
     <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
       <text tid="address">Address</text>
       <text tid="address-builtin">Internal WebHare connection</text>
+      <text tid="cannotretrievesettings">Cannot retrieve current settings:<br/><param p="1"/></text>
       <text tid="confirmdeleteindexmanager">Are you sure you want to delete the selected index manager?</text>
       <text tid="editindexmanager">Index manager</text>
       <text tid="elasticsearch">Elasticsearch</text>
