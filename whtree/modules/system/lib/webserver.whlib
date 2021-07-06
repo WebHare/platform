@@ -614,13 +614,24 @@ PUBLIC RECORD ARRAY FUNCTION GetWebAcceptLanguage()
 */
 PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
 {
+  ResetWebResponse();
   AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
   AddHTTPHeader("Pragma", "no-cache", FALSE);
+  AddHTTPHeader("Content-Type", "text/html; charset=utf-8", FALSE);
 
-  SWITCH (instr.type)
+  STRING nonce := EncodeBase64(DecodeUFS(GenerateUFS128BitId()));
+  AddHTTPHeader("Content-Security-Policy", `default-src 'unsafe-inline' 'nonce-${nonce}'`, FALSE); //nonce- causes modern browsers to ignore unsafe-inline
+
+  SWITCH (instr.type) //NOTE: All paths are terminating
   {
-    CASE "reload"     { Redirect(GetRequestURL()); }
-    CASE "redirect"   { Redirect(instr.url); }
+    CASE "reload"
+    {
+      Redirect(GetRequestURL());
+    }
+    CASE "redirect"
+    {
+      Redirect(instr.url);
+    }
     CASE "form"
     {
       OBJECT witty := NEW WittyTemplate("HTML");
@@ -628,10 +639,10 @@ PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
           '<html><body><form id="repostform" action="[action]" method="[method]">' ||
           '[forevery vars]<input name="[name]" type="hidden" value="[value]"></input>[/forevery]' ||
           '<input id="submitbutton" type="submit" value="Submit"></input></form>' ||
-          '<script type="text/javascript">document.getElementById("submitbutton").style.display="none";document.getElementById("repostform").submit()</script>' ||
+          '<script nonce="[nonce]">document.getElementById("submitbutton").style.display="none";document.getElementById("repostform").submit()</script>' ||
           '</body></html>');
 
-      BLOB data := witty->RunToBlob([ action := instr.form.action, method := instr.form.method, vars := instr.form.vars ]);
+      BLOB data := witty->RunToBlob(CELL[ instr.form.action, instr.form.method, instr.form.vars, nonce ]);
       SendWebFile(data);
     }
     CASE "postmessage"
@@ -656,14 +667,13 @@ PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
     }
     CASE "close"
     {
-      PRINT(
-          '<html><body>' ||
-          '<script type="text/javascript">window.close();</script>' ||
-          '</body></html>');
-      TerminateScript();
+      SendWebFile(StringToBlob(`<html><body><script nonce="${nonce}">window.close();</script></body></html>`));
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown submit instruction type '${instr.type}`);
     }
   }
-  ABORT("Unknown form instruction " || instr.type);
 }
 
 /** @short Log the current request to the RPC log

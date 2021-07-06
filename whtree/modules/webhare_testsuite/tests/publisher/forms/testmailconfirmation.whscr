@@ -103,7 +103,24 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   // The confirmation handler is now available again
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Form handler", [menuitem := TRUE]));
   TestEq(TRUE, RecordExists(SELECT FROM TT("builtincomponents")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler"));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  TT("builtincomponents")->selection := SELECT * FROM TT("builtincomponents")->rows WHERE rowkey = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler";
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+
+  //Fill the required fields to be able to test Submission
+  TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "email";
+  TT(":Sender name")->value := "testformfile-mailconfirmation";
+  TT(":Sender address")->value := "testformfile-mailconfirmation@beta.webhare.net";
+  TT(":Email contents")->value := [ htmltext := StringToBlob('<html><body>'
+                                                || '<p class="normal"><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_confirm"></span> to confirm</p>'
+                                                || '</body></html>')
+                                  , instances := [[ instanceid := "embedobj_confirm"
+                                                  , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formconfirmfield"
+                                                            , linktext := "click here"
+                                                            ]
+                                                  ]
+                                                 ]
+                                 ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //close form editor
