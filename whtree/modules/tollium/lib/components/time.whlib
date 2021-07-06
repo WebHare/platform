@@ -7,8 +7,11 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 // Time field
 PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
 <
+  STRING _valuetype;
+
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY invalidtime(^dt->invalidtime, -);
+  PUBLIC PROPERTY valuetype(_valuetype, SetValueType);
   PUBLIC PROPERTY precision(^dt->precision, ^dt->precision);     ///< Allowed values: 'minutes'/'seconds'/'milliseconds'
   UPDATE PUBLIC PROPERTY readonly(^dt->readonly, ^dt->readonly);
   UPDATE PUBLIC PROPERTY required(^dt->required, ^dt->required);
@@ -21,6 +24,7 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
     EXTEND this BY TolliumIsDirtyable;
 
     this->invisibletitle := TRUE;
+    this->_valuetype := "integer";
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -30,6 +34,7 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
     this->title := this->pvt_title;
     this->required := def.required;
     this->readonly := def.readonly;
+    this->_valuetype := def.valuetype;
   }
 
   UPDATE MACRO PreInitComponent()
@@ -37,24 +42,34 @@ PUBLIC OBJECTTYPE TolliumTime EXTEND TolliumFragmentBase
     this->dt->dirtylistener := this->dirtylistener;
   }
 
-  INTEGER FUNCTION GetValue()
+  VARIANT FUNCTION GetValue()
   {
-    RETURN this->dt->value = DEFAULT DATETIME ? - 1 : GetMsecondCount(this->dt->value);
+    INTEGER retval := ^dt->value = DEFAULT DATETIME ? - 1 : GetMsecondCount(this->dt->value);
+    IF(this->_valuetype = "integer64")
+      RETURN INTEGER64(retval);
+    RETURN retval;
   }
-  MACRO SetValue(INTEGER newtime)
+  MACRO SetValue(INTEGER64 newtime)
   {
     IF(newtime<0)
       this->dt->value := DEFAULT DATETIME;
     ELSE
-      this->dt->value := MakeDateFromParts(1, newtime);
+      this->dt->value := MakeDateFromParts(1, INTEGER(newtime));
   }
   UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
   {
-    RETURN TypeID(value) = TypeID(INTEGER);
+    RETURN TYPEID(value) IN [ TYPEID(INTEGER), TYPEID(INTEGER64) ] AND value >= -1;
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
     this->dt->ValidateValue(work);
+  }
+  MACRO SetValueType(STRING newvaluetype)
+  {
+    IF(newvaluetype NOT IN ["integer","integer64"])
+      THROW NEW TolliumException(this, `Invalid valuetype '${newvaluetype}'`);
+
+    this->_valuetype := newvaluetype;
   }
 >;

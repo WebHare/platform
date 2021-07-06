@@ -82,7 +82,7 @@ ASYNC MACRO TestList_XML()
       </body>
     </screen>`)));
 
-  TT("list")->rows := [[ rowkey := 1, title := "One", timestamp := 25*3600000 + 12*60000 + 18*1000 ]
+  TT("list")->rows := [[ rowkey := 1, title := "One", timestamp := 25*3600000i64 + 12*60000 + 18*1000 ]
                       ,[ rowkey := 2, title := "Two", timestamp := 13*60000]
                       ];
 

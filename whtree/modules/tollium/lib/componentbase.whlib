@@ -2083,12 +2083,13 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
         //  THROW NEW TolliumException(this, err);
         CONTINUE;
       }
+      /* Some IsValidValues are more lenient in their accepted types, but a composition generally isn't that flexible and will
+         have fixed types (eg WHFSType and WRD members all have that). So we additionally check whether we expect to be able
+         to 'set back' the expected value. eg <time> supports 32 and 64 bit values when setting, but will be sent into a
+         INTEGER or INTEGER64 field so you still need to match that type */
       IF (TypeID(subcell->value) != TypeID(GetCell(contents, subcell->cellname)))
-        THROW NEW TolliumException(this, "Cell '" || subcell->cellname || "' for composite member '"
-                                   || this->name || "' is of type '"
-                                   || GetTypeName(TypeID(GetCell(contents, subcell->cellname)))
-                                   || "' but the component expected type '"
-                                   || GetTypeName(TypeID(subcell->value)) || "'" );
+        THROW NEW TolliumException(subcell, `Composite member is of type '${GetTypeName(TypeID(GetCell(contents, subcell->cellname)))}' but expects '${GetTypeName(TypeID(subcell->value))}'`);
+
       subcell->value := GetCell(contents, subcell->cellname);
     }
 
