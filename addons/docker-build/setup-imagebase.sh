@@ -63,6 +63,12 @@ adduser elasticsearch whdata
 # postgres has 20003
 adduser postgres whdata
 
+# Verify recent CVEs are fixed
+if ! ( apt-get changelog openssl | grep -q CVE-2021-3449 ) ; then
+  echo CVE fixes not applied
+  exit 1
+fi
+
 PACKAGES="ccache
     certbot
     cmake
