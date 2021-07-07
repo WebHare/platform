@@ -92,7 +92,7 @@ PUBLIC RECORD FUNCTION RPC_Search(RECORD source, STRING query, RECORD options)
   }
 }
 
-RECORD FUNCTION GetCachableSuggestSettings()
+RECORD FUNCTION GetCacheableSuggestSettings()
 {
   RECORD settings :=
       [ maxconcurrent :=  ReadRegistryKey("consilio.suggest.maxconcurrent")
@@ -130,7 +130,7 @@ STRING FUNCTION GetSuggestSearchWord(STRING query)
 */
 PUBLIC RECORD FUNCTION RPC_Suggest(RECORD source, STRING query, RECORD options)
 {
-  RECORD settings := GetAdhocCached([ type := "suggestsettings" ], PTR GetCachableSuggestSettings);
+  RECORD settings := GetAdhocCached([ type := "suggestsettings" ], PTR GetCacheableSuggestSettings);
 
   IF (NOT RecordExists(source) OR NOT CellExists(source, "type"))
     THROW NEW RPCInvalidArgsException("No valid source specified");

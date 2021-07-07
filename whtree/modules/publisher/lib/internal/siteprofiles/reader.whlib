@@ -890,7 +890,7 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN recs;
   }
 
-  RECORD FUNCTION GetCachableCSPSubset(INTEGER siteid)
+  RECORD FUNCTION GetCacheableCSPSubset(INTEGER siteid)
   {
     RECORD value := MakeReplacedRecord(
           [ prebuilttag_memberid :=   0
@@ -911,7 +911,7 @@ STATIC OBJECTTYPE ApplyRuleTester
   {
     INTEGER siteid := RecordExists(this->objinfo.site) ? this->objinfo.site.id : 0;
 
-    this->csp := GetAdhocCached([ type := "filteredcsp", siteid := siteid ], PTR this->GetCachableCSPSubset(siteid));
+    this->csp := GetAdhocCached([ type := "filteredcsp", siteid := siteid ], PTR this->GetCacheableCSPSubset(siteid));
     this->matchinfo := RepeatElement(
         [ tested :=   FALSE
         , matches :=  FALSE

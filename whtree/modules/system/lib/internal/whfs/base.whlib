@@ -257,7 +257,7 @@ PUBLIC STRING FUNCTION GetWebserverDefaultPage(INTEGER webserverid)
   RETURN whconstant_webserver_indexbasename || ((SELECT AS STRING outputextension FROM system.webservers WHERE webservers.id = webserverid) ?? ".html");
 }
 
-RECORD FUNCTION GetCachablePublisherConfiguration()
+RECORD FUNCTION GetCacheablePublisherConfiguration()
 {
   RECORD config := [ stripextensions := Tokenize(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions"))," ")
                    , subdirfiletypes := (SELECT AS INTEGER ARRAY id FROM system_internal.fs_types WHERE ispublishedassubdir)
@@ -273,6 +273,6 @@ RECORD FUNCTION GetCachablePublisherConfiguration()
 */
 PUBLIC RECORD FUNCTION GetPublisherConfiguration()
 {
-  RETURN GetAdhocCached([ type := "publisherconfiguration" ], PTR GetCachablePublisherConfiguration );
+  RETURN GetAdhocCached([ type := "publisherconfiguration" ], PTR GetCacheablePublisherConfiguration );
 }
 

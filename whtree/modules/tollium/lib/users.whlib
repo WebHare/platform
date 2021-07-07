@@ -476,7 +476,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), newsettings));
   }
 
-  RECORD FUNCTION GetCachableUserSettings()
+  RECORD FUNCTION GetCacheableUserSettings()
   {
     RETURN
         [ ttl := 5 * 60 * 1000
@@ -791,7 +791,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     RECORD rec := GetAdhocCached(
           [ type := "userprefs"
           , id := this->entityid
-          ], PTR this->GetCachableUserSettings());
+          ], PTR this->GetCacheableUserSettings());
 
     this->pvt_language :=          rec.language;
     //this->pvt_longdateformat :=    "N B Y";

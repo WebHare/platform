@@ -662,7 +662,7 @@ PUBLIC STATIC OBJECTTYPE RestAPIDefinitionFile EXTEND XMLValidatorBase
   }
 >;
 
-RECORD FUNCTION GetCachableRestConfig(STRING resource)
+RECORD FUNCTION GetCacheableRestConfig(STRING resource)
 {
   STRING ARRAY masks := GetResourceEventMasks([resource]);
   BLOB data := GetWebhareResource(resource);
@@ -674,7 +674,7 @@ RECORD FUNCTION GetCachableRestConfig(STRING resource)
 
 PUBLIC RECORD FUNCTION GetRestConfig(STRING resource)
 {
-  RETURN GetAdhocCached([ type := "apiconfig", resource := resource ], PTR GetCachableRestConfig(resource));
+  RETURN GetAdhocCached([ type := "apiconfig", resource := resource ], PTR GetCacheableRestConfig(resource));
 }
 
 PUBLIC RECORD FUNCTION GetEndpointFromRelativeURL(RECORD config, STRING method, STRING relurl)

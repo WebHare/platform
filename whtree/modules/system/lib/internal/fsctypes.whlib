@@ -35,11 +35,11 @@ PUBLIC MACRO FlushContentTypeCache()
 PUBLIC RECORD ARRAY FUNCTION GetMembers(INTEGER typedefid)
 {
   RETURN uncommitted_fstypes_changes
-      ? GetCachableMembers(typedefid).value
-      : GetAdhocCached([ type := "members", typedefid := typedefid ], PTR GetCachableMembers(typedefid));
+      ? GetCacheableMembers(typedefid).value
+      : GetAdhocCached([ type := "members", typedefid := typedefid ], PTR GetCacheableMembers(typedefid));
 }
 
-RECORD FUNCTION GetCachableMembers(INTEGER typedefid)
+RECORD FUNCTION GetCacheableMembers(INTEGER typedefid)
 {
   // Lowercase the name, we want to do quick case-insensitive lookups
   RECORD ARRAY rawmembers :=

@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-RECORD FUNCTION GetCachablePreviewableTypes()
+RECORD FUNCTION GetCacheablePreviewableTypes()
 {
   INTEGER ARRAY types :=
       SELECT AS INTEGER ARRAY id
@@ -23,7 +23,7 @@ RECORD FUNCTION GetCachablePreviewableTypes()
 
 PUBLIC RECORD FUNCTION DefaultAfterMetadataUpdate(RECORD indata)
 {
-  INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCachablePreviewableTypes);
+  INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCacheablePreviewableTypes);
 
   IF (LowerBound(preview_types, indata.newtype).found)
     ScheduleManagedTask("publisher:generatewidgetpreview", [ id := indata.id ], DEFAULT RECORD);

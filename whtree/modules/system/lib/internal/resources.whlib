@@ -34,7 +34,7 @@ RECORD ARRAY FUNCTION GetSchemaDefs(STRING module, STRING resname, OBJECT xmldoc
   RETURN schemadefs;
 }
 
-RECORD FUNCTION GetCachableComponentSourceList()
+RECORD FUNCTION GetCacheableComponentSourceList()
 {
   RECORD ARRAY sources;
   STRING ARRAY eventmasks := [ "system:modulesupdate" ];
@@ -70,7 +70,7 @@ RECORD FUNCTION GetCachableComponentSourceList()
 */
 PUBLIC RECORD ARRAY FUNCTION GetComponentSources(STRING gettype)
 {
-  RECORD ARRAY sourcelist := GetAdhocCached([ type := "componentsourcelist" ], PTR GetCachableComponentSourceList);
+  RECORD ARRAY sourcelist := GetAdhocCached([ type := "componentsourcelist" ], PTR GetCacheableComponentSourceList);
   RETURN SELECT * FROM sourcelist WHERE gettype="" OR type = gettype;
 }
 

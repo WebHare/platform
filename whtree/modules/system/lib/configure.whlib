@@ -174,7 +174,7 @@ PUBLIC STRING FUNCTION GetPrimaryWebhareInterfaceURL()
   RETURN GetcachedWebHareConfig().primaryinterfaceurl;
 }
 
-RECORD FUNCTION GetCachableDebuggerConfig()
+RECORD FUNCTION GetCacheableDebuggerConfig()
 {
   RECORD config :=
       [ dtapstage :=                    GetDTAPStage()
@@ -213,7 +213,7 @@ RECORD FUNCTION GetCachableDebuggerConfig()
 */
 PUBLIC RECORD FUNCTION GetDebuggerConfig()
 {
-  RETURN GetAdhocCached([ type := "debugconfig" ], PTR GetCachableDebuggerConfig);
+  RETURN GetAdhocCached([ type := "debugconfig" ], PTR GetCacheableDebuggerConfig);
 }
 
 /** Returns the current system configuration

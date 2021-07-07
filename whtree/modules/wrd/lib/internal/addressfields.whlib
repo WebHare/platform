@@ -84,7 +84,7 @@ PUBLIC STRING FUNCTION ParseAddressForList (STRING data, STRING language, INTEGE
   RETURN GetDisplayValueForParsedAddress(rawaddress, language, TRUE);
 }
 
-RECORD FUNCTION GetCachableCountryNameList(STRING language)
+RECORD FUNCTION GetCacheableCountryNameList(STRING language)
 {
   RETURN
       [ value :=      (SELECT code, title := GetCell(row, language) FROM GetCountryList(language) AS row ORDER BY code)
@@ -107,7 +107,7 @@ PUBLIC RECORD FUNCTION GenerateAddress(STRING rawvalue, STRING currentlanguage, 
 
   IF (with_country_full AND address.country != "")
   {
-    RECORD ARRAY countries := GetAdhocCached([ lang := currentlanguage ], PTR GetCachableCountryNameList(currentlanguage));
+    RECORD ARRAY countries := GetAdhocCached([ lang := currentlanguage ], PTR GetCacheableCountryNameList(currentlanguage));
     STRING code := ToUppercase(address.country);
     RECORD pos := RecordLowerBound(countries, [ code := code ], [ "CODE" ]);
     IF (pos.found)

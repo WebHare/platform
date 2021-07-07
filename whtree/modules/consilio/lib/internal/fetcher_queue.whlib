@@ -26,7 +26,7 @@ CONSTANT INTEGER priority_settings        := 103
              , priority_checkobject     := 1  // +10*index prio
              ;
 
-RECORD FUNCTION GetCachablePriorityLookupTables()
+RECORD FUNCTION GetCacheablePriorityLookupTables()
 {
   RETURN
       [ ttl :=    60 * 1000
@@ -54,7 +54,7 @@ RECORD FUNCTION GetCachablePriorityLookupTables()
 
 PUBLIC INTEGER FUNCTION CalculateQueueItemPriority(RECORD data)
 {
-  RECORD lookup := GetAdhocCached([ type := "lookup" ], PTR GetCachablePriorityLookupTables);
+  RECORD lookup := GetAdhocCached([ type := "lookup" ], PTR GetCacheablePriorityLookupTables);
 
   INTEGER indexprio := 9;
   IF (CellExists(data, "INDEXID") AND data.indexid != 0)

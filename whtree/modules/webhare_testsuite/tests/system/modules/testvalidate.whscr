@@ -984,7 +984,7 @@ ASYNC MACRO TestLoadScreen()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  // this validation might become obsolete or at least less thorough if we can sucessfully move the checks to parse-time validation (which are cachable)
+  // this validation might become obsolete or at least less thorough if we can sucessfully move the checks to parse-time validation (which are cacheable)
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(BlobToString(badglobalhandler))}#testbadglobalhandler`));
   TestEq(2, Length(tt("errors")->rows));
   TesteqLIke("*NoSuchFunction*was not found*", tt("errors")->rows[0].message);
