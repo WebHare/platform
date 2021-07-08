@@ -899,8 +899,6 @@
     <xs:choice>
       <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
       <xs:element name="republish" type="Republish" />
-      <xs:element name="allowtemplate" type="AllowTemplateProfile" />
-      <xs:element name="allowprofile" type="AllowTemplateProfile" />
       <xs:element name="folderindex" type="FolderIndex" />
       <xs:element name="contentlisting" type="ContentListing" />
       <xs:element ref="extendproperties" />
@@ -1246,11 +1244,6 @@
   </xs:simpleType>
 
   <xs:complexType name="ContentListing">
-    <xs:attribute name="fullpath" type="xs:string" use="required" />
-    <xs:attribute name="site" type="xs:string" />
-  </xs:complexType>
-
-  <xs:complexType name="AllowTemplateProfile">
     <xs:attribute name="fullpath" type="xs:string" use="required" />
     <xs:attribute name="site" type="xs:string" />
   </xs:complexType>

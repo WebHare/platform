@@ -1096,6 +1096,8 @@ PUBLIC OBJECTTYPE FormBase
 
 >;
 
+/** Base class for hooking into a webtoolform. Invoked in frontend and in tollium contexts to allow forms to add extra
+    cells to results */
 PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
 <
   OBJECT __form;

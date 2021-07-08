@@ -838,8 +838,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , line := applyblock->linenum
                     , col := 0
 
-                    , allowprofiles := DEFAULT RECORD ARRAY
-                    , allowtemplates := DEFAULT RECORD ARRAY
                     , baseproperties := DEFAULT RECORD
                     , bodyrenderer := DEFAULT RECORD
                     , contentlisting := DEFAULT RECORD
@@ -927,20 +925,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                   , mask := node->GetAttribute("mask")
                                   ];
               INSERT applynode INTO apply.extendproperties AT END;
-              CONTINUE;
-            }
-            CASE "allowtemplate"
-            {
-              INSERT [ fullpath := node->GetAttribute("fullpath")
-                     , site := node->GetAttribute("site")
-                     ] INTO apply.allowtemplates AT END;
-              CONTINUE;
-            }
-            CASE "allowprofile"
-            {
-              INSERT [ fullpath := node->GetAttribute("fullpath")
-                     , site := node->GetAttribute("site")
-                     ] INTO apply.allowprofiles AT END;
               CONTINUE;
             }
             CASE "formdefinitions"
