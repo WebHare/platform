@@ -161,12 +161,14 @@ PUBLIC MACRO CustomForm()
   TestEq(TRUE, res.success);
 
   submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+
   TestEQ("change", submitted.submittype);
   TestEq("Klaasje", submitted.response.firstname);
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("DE", submitted.response.address.country);
   TestEq("Hengelosestraat", submitted.response.address.street);
   TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
+  TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", submitted.response.upload.hash);
 
   //And there should still be only one result
   TestEq(1, webtoolresults->GetResultsCount());
@@ -193,6 +195,21 @@ PUBLIC MACRO CustomForm()
   TestEq(2, Length(mails));
   TestEq(2, Length(testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ])));
 
+  // Edit again, but this time we'll resubmit the edit file just like an edit would do where the fileedit is handled by its JS equivalent
+  //
+  TestEq(TRUE, testfw->browser->GotoWebPage(witty.pagedata.editlink), witty.pagedata.editlink);
+  tester := OpenFormsapiFormTester(testfw->browser);
+  submitrec.firstname := "Koosje";
+  submitrec.upload := [ filename := testfw->browser->QS("#webtoolform-upload")->GetAttribute("data-wh-filename")
+                      , link := testfw->browser->QS("#webtoolform-upload")->GetAttribute("data-wh-fileurl")
+                      ];
+
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", submitted.response.upload.hash);
+
   //Test cancellation
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(witty.pagedata.editlink, [ cancel := "1" ])), testfw->browser->href);
   TestEq(0, webtoolresults->GetResultsCount());
@@ -202,9 +219,9 @@ PUBLIC MACRO CustomForm()
   TestEq(1,Length(cancelmail));
 
   OBJECT cancelmaildoc := MakeXMLDocumentFromHTML(StringToBlob(cancelmail[0].html));
-  TestEq("Too bad you've cancelled Klaasje!", TrimWhitespace(cancelmaildoc->body->textcontent));
+  TestEq("Too bad you've cancelled Koosje!", TrimWhitespace(cancelmaildoc->body->textcontent));
 
-  TestEq(1, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ])));
+  TestEq(2, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 2 ])));
 
   submitrec := [ firstname := "Pietje"
                , upload := [ filename := "allstar.txt"
