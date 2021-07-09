@@ -91,7 +91,7 @@ RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER sourceid)
                         AND formattachments.formresult = formresults.id;
 
       IF(NOT RecordExists(objinfo))
-        THROW NEW Exception("Invalid wrd setting id #" || sourceid);
+        THROW NEW Exception("Invalid form attachment id #" || sourceid);
       INSERT CELL fsobjectfolder := 0 INTO objinfo;
       RETURN objinfo;
     }
