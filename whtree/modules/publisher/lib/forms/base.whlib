@@ -841,7 +841,7 @@ PUBLIC OBJECTTYPE FormBase
       IF(comptype.supportedvaluesfunc != "")
         field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
       ELSE
-        field.supportedvalues := comptype.defaultvaluetypes;
+        field.supportedvalues := comptype.supportedvalues;
     }
 
     RETURN this->__InstantiateField(parent, field);

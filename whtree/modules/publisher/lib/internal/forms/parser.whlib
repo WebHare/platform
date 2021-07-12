@@ -172,7 +172,7 @@ OBJECTTYPE FormParser
             , getinstance := this->validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
             ]);
 
-      addfield.supportedvalues := comptype.defaultvaluetypes;
+      addfield.supportedvalues := comptype.supportedvalues;
       IF(comptype.supportedvaluesfunc != "")
         addfield.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(addfield);
     }

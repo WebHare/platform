@@ -214,7 +214,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
                   , description := ParseXMLTidPtr(resourcename, "" , compinfo, "description")
                   , editextension := ""
                   , editdefaults := DEFAULT STRING ARRAY
-                  , defaultvaluetypes := [ "string" ]
+                  , supportedvalues := [ "string" ]
                   , supportedvaluesfunc := ""
                   , parserfunc := ""
                   , fieldobject := ""
@@ -243,16 +243,16 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
     parserlib := MakeAbsoluteResourcePath(resourcename, parserlib);
     elrec.parserfunc := parserlib || "#" || parserfunc;
   }
-  IF (compinfo->HasAttribute("defaultvalue"))
+  IF (compinfo->HasAttribute("supportedvalues") OR compinfo->HasAttribute("defaultvalue"))
   {
-    elrec.defaultvaluetypes := ParseXSList(compinfo->GetAttribute("defaultvalue"));
-    STRING ARRAY invalidvalue := ArrayDelete(elrec.defaultvaluetypes, supported_fieldtypes);
+    elrec.supportedvalues := ParseXSList(compinfo->GetAttribute("supportedvalues") ?? compinfo->GetAttribute("defaultvalue"));
+    STRING ARRAY invalidvalue := ArrayDelete(elrec.supportedvalues, supported_fieldtypes);
     IF (Length(invalidvalue) > 0)
     {
       INSERT CELL[ resourcename
                  , line := compinfo->line
                  , col := 0
-                 , message := `Unknown defaultvalue value${Length(invalidvalue) != 1 ? "s" : ""} '${Detokenize(invalidvalue, "', '")}' in ${resourcename}:${compinfo->linenum}`
+                 , message := `Unknown supportedvalues value${Length(invalidvalue) != 1 ? "s" : ""} '${Detokenize(invalidvalue, "', '")}' in ${resourcename}:${compinfo->linenum}`
                  ] INTO errors AT END;
     }
   }
@@ -262,7 +262,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
     STRING supportedvaluesfunc := Substring(compinfo->GetAttribute("supportedvaluesfunc"), Length(supportedvalueslib) + 1);
     supportedvalueslib := MakeAbsoluteResourcePath(resourcename, supportedvalueslib);
     elrec.supportedvaluesfunc := supportedvalueslib || "#" || supportedvaluesfunc;
-    elrec.defaultvaluetypes := DEFAULT STRING ARRAY;
+    elrec.supportedvalues := DEFAULT STRING ARRAY;
   }
 
   IF (compinfo->GetAttribute("fieldobject") LIKE "*#*")
