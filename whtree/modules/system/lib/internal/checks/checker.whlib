@@ -272,8 +272,9 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
            ] INTO messages AT END;
   }
 
-  DATETIME task_this_old_should_be_finished := AddTimeToDate(-60*60*1000, GetCurrentDatetime());
-  STRING ARRAY tasksbytype := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE finished = DEFAULT DATETIME AND creationdate < task_this_old_should_be_finished;
+  DATETIME now := GetCurrentDatetime();
+  DATETIME task_this_old_should_be_finished := AddTimeToDate(-60*60*1000, now);
+  STRING ARRAY tasksbytype := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE finished = DEFAULT DATETIME AND creationdate < task_this_old_should_be_finished AND notbefore < now;
   FOREVERY(STRING task FROM tasksbytype)
   {
     IF(task = "system:outgoingmail")
@@ -295,6 +296,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
                                FROM system.managedtasks
                               WHERE tasktype = "system:outgoingmail"
                                     AND NOT iscancelled
+                                    AND notbefore < now
                                     AND finished > AddTimeToDate(-60*60*1000, GetCurrentDatetime());
   INTEGER numfailed := Length(SELECT FROM recentmail WHERE failed);
   IF(numfailed >= 3 AND numfailed >= Length(recentmail)/5) // 3 bounces and at least in an hour
