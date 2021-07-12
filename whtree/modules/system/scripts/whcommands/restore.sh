@@ -94,14 +94,6 @@ if [ -d "$RESTORETO" ]; then
   exit 1
 fi
 
-if [ "$RESTORE_DB" == "postgresql" ]; then
-  mkdir -p "$RESTORETO" 2>/dev/null
-  if [ ! -d "$RESTORETO" ]; then
-    echo "Unable to create $RESTORETO"
-    exit 1
-  fi
-fi
-
 if [ -n "$WEBHAREIMAGE" ]; then
   # We'll be using the specified docker image to do the restore. This will not work with pre-4.20 images
   # We'll force --copy - if you're doing rescue-type restores inside a docker container (with the dbase in /opt/whdata/restore)
@@ -146,10 +138,15 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
   fi
 
   if [ "$BLOBIMPORTMODE" == "softlink" ]; then
-    if ! cp -rs "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
-      echo Softlinking blobs failed
-      exit 1
-    fi
+    # Note: can't use cp -rs on OSX, -s is not supported there
+    for P in $( cd "$TORESTORE/blob/" ; echo */ ) ; do
+      # Note $P will end with a '/'
+      mkdir -p "$WEBHARE_DATAROOT/postgresql.restore/blob/$P"
+      if ! ln -s "$TORESTORE/blob/$P"* "$WEBHARE_DATAROOT/postgresql.restore/blob/$P" ; then
+        echo Softlinking blobs failed
+        exit 1
+      fi
+    done
   else
     LINKARG=()
     if [ "$BLOBIMPORTMODE" == "hardlink" ]; then
@@ -166,6 +163,8 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
     chown postgres:root "$WEBHARE_DATAROOT/postgresql/"
     chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
+
+  mkdir -p "$RESTORETO" 2>/dev/null
   mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
   rmdir "$WEBHARE_DATAROOT/postgresql.restore"
 fi
