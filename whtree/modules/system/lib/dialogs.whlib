@@ -44,7 +44,7 @@ PUBLIC MACRO RunEmailViewDialog(OBJECT parent, BLOB email, RECORD options DEFAUL
                                  , sensitive := FALSE
                                  ], options);
 
-  parent->RunScreen("mod::system/screens/commondialogs.xml#mailviewer", CELL[ mailblob := email, options.origin, options.sensitive ]);
+  parent->RunScreen("mod::system/tolliumapps/commondialogs/mailviewer.xml#mailviewer", CELL[ mailblob := email, options.origin, options.sensitive ]);
 }
 
 /** @short Run a dialog to test and preview %PrepareMailWitty email
@@ -72,7 +72,7 @@ PUBLIC MACRO RunMailQueueDialog(OBJECT parent, STRING filter, RECORD options DEF
 {
   options := ValidateOptions(CELL[], options);
 
-  parent->RunScreen("mod::system/screens/commondialogs.xml#mailqueuedialog", [ sourcefilter := filter ]);
+  parent->RunScreen("mod::system/tolliumapps/commondialogs/mailviewer.xml#mailqueuedialog", [ sourcefilter := filter ]);
 }
 
 /** @short Run a dialog to select a remote WebHare to establish a peering connection with

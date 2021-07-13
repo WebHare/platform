@@ -18,10 +18,6 @@
       <text tid="send">Verzenden</text>
       <text tid="title">Verzend e-mail</text>
     </textgroup>
-    <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
-      <text tid="mailviewer">Bekijk e-mail</text>
-      <text tid="screentitle">E-mailwachtrij</text>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">Je hebt niet genoeg rechten om deze applicatie te starten.</text>
       <text tid="notenoughrights_spec">Je hebt niet genoeg rechten om deze applicatie te starten.<br/><br/>De volgende recht(en) zijn nodig: <param p="1"/>.</text>
@@ -1338,6 +1334,9 @@
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
+      <textgroup gid="mailviewer">   <!-- tolliumapps.commondialogs.mailviewer -->
+        <text tid="mailviewer">Bekijk e-mail</text>
+      </textgroup>
       <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
         <text tid="runscriptdialog">Niet gestart</text>
         <text tid="saveoutput">Uitvoer opslaan</text>

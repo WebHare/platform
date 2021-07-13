@@ -34,22 +34,6 @@
     </footer>
   </screen>
 
-  <screen name="mailviewer" gid="commondialogs.mailviewer" width="110x" height="50x" allowresize="true" footerbuttons="close">
-    <body spacers="bottom">
-      <emailcontents name="mailcontents" />
-    </body>
-  </screen>
-
-  <screen name="mailqueuedialog"
-          tid="tolliumapps.dashboard.mailqueue.mailqueuepanel"
-          allowresize="true"
-          width="130x"
-          height="40x"
-          footerbuttons="close">
-    <body name="body">
-    </body>
-  </screen>
-
   <screen name="rightsproblem" gid="commondialogs.rightsproblem" tid=".title" allowresize="true" >
     <body>
     </body>
