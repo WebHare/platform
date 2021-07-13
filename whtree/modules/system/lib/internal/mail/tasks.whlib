@@ -15,6 +15,11 @@ LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
 
 OBJECT smtpmgr; //Cache between tasks... the smtpmgr by default keeps connections open for 30 seconds
 
+PUBLIC STRING FUNCTION GenerateTaskMessageId(INTEGER taskid)
+{
+  RETURN `<${EncryptForThisServer("system:messageid", taskid)}@smtp.webhare.net>`;
+}
+
 PUBLIC RECORD FUNCTION CreateMailFromTask(RECORD mailtask)
 {
   STRING sender := mailtask.sender;
@@ -212,7 +217,7 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
       THROW NEW Exception(smtpconn.errors != "" ? smtpconn.errors : "Unable to connect with any mailserver");
 
     DELETE FROM data.mimeheaders WHERE TOUppercase(field)="MESSAGE-ID";
-    INSERT [ field := "Message-ID", value := `<${EncryptForThisServer("system:messageid", this->GetTaskMetadata().taskid)}@smtp.webhare.net>`
+    INSERT [ field := "Message-ID", value := GenerateTaskMessageId(this->GetTaskMetadata().taskid)
            ] INTO data.mimeheaders AT END;
 
     BOOLEAN rawheaders := CellExists(taskdata,"rawheaders") AND taskdata.rawheaders;

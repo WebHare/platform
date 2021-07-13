@@ -1526,7 +1526,19 @@
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
       <textgroup gid="mailviewer">   <!-- tolliumapps.commondialogs.mailviewer -->
+        <text tid="callbackdata">Callback data</text>
+        <text tid="callbackfunc">Callback function</text>
+        <text tid="callbackinfo">Mail status callback</text>
+        <text tid="errors">Error</text>
+        <text tid="mailcontents">Mail contents</text>
         <text tid="mailviewer">View email</text>
+        <text tid="simulate">Simulate</text>
+        <text tid="simulatecomplaint">Complaint</text>
+        <text tid="simulatedelivery">Delivery</text>
+        <text tid="simulatehardbounce">Hard bounce</text>
+        <text tid="simulatesoftbounce">Soft bounce</text>
+        <text tid="taskinfo">Task</text>
+        <text tid="taskqueued">A task has been queued to simulate a '<param p="1"/>'</text>
       </textgroup>
       <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
         <text tid="runscriptdialog">Not started</text>

@@ -12,9 +12,39 @@
     </body>
   </screen>
 
-  <screen name="mailviewer" width="110x" height="50x" allowresize="true" footerbuttons="close">
-    <body spacers="bottom">
-      <emailcontents name="mailcontents" />
+  <screen name="mailviewer" width="110x" height="50x" allowresize="true" footerbuttons="close" flags="issysop">
+    <actions>
+      <action name="simulatesoftbounce" onexecute="dosimulatesoftbounce" frameflags="issysop"/>
+      <action name="simulatehardbounce" onexecute="dosimulatehardbounce" frameflags="issysop"/>
+      <action name="simulatecomplaint" onexecute="dosimulatecomplaint" frameflags="issysop"/>
+      <action name="simulatedelivery" onexecute="dosimulatedelivery" frameflags="issysop"/>
+    </actions>
+    <body spacers="none">
+      <tabs name="tabs" type="server" height="1pr">
+        <tab tid=".mailcontents">
+          <emailcontents name="mailcontents" />
+        </tab>
+        <tab tid=".taskinfo" spacers="top left bottom right">
+          <!-- bit ugly, but with only one form label outside the box this is a quick presentation fix.. -->
+          <heading tid=".errors" />
+          <line layout="left">
+            <textarea enabled="false" name="errors" height="5gr" title="" />
+          </line>
+
+          <box name="callbackinfo" hr="false">
+            <textedit name="callbackfunc" width="1pr"/>
+            <textedit name="callbackdata" width="1pr"/>
+             <inlineblock tid=".simulate">
+               <line>
+                  <button action="simulatesoftbounce" />
+                  <button action="simulatehardbounce" />
+              <button action="simulatecomplaint" />
+              <button action="simulatedelivery" />
+            </line>
+            </inlineblock>
+          </box>
+        </tab>
+      </tabs>
     </body>
   </screen>
 

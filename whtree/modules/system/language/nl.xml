@@ -1335,7 +1335,19 @@
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
       <textgroup gid="mailviewer">   <!-- tolliumapps.commondialogs.mailviewer -->
+        <text tid="callbackdata">Callback data</text>
+        <text tid="callbackfunc">Callback function</text>
+        <text tid="callbackinfo">Mail status callback</text>
+        <text tid="errors">Foutmelding</text>
+        <text tid="mailcontents">Mailinhoud</text>
         <text tid="mailviewer">Bekijk e-mail</text>
+        <text tid="simulate">Simuleer</text>
+        <text tid="simulatecomplaint">Klacht</text>
+        <text tid="simulatedelivery">Aflevering</text>
+        <text tid="simulatehardbounce">Harde bounce</text>
+        <text tid="simulatesoftbounce">Zachte bounce</text>
+        <text tid="taskinfo">Taak</text>
+        <text tid="taskqueued">Er is een taak ingepland om een '<param p="1"/>' te simuleren</text>
       </textgroup>
       <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
         <text tid="runscriptdialog">Niet gestart</text>

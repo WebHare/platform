@@ -37,14 +37,16 @@ PUBLIC MACRO RunWittyTestDialog(OBJECT parent, RECORD data, RECORD options DEFAU
     @param email Email (as message/rfc822, also known as .EML)
     @cell(string) options.origin Origin of the message (used to be in X-WebHare-Origin)
     @cell(boolean) options.sensitive Mark the mail contents as sensitive (for sysop eyes only)
+    @cell(integer) options.task id of the managed task associated with this email
 */
 PUBLIC MACRO RunEmailViewDialog(OBJECT parent, BLOB email, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(CELL[ origin := ""
                                  , sensitive := FALSE
+                                 , task := 0
                                  ], options);
 
-  parent->RunScreen("mod::system/tolliumapps/commondialogs/mailviewer.xml#mailviewer", CELL[ mailblob := email, options.origin, options.sensitive ]);
+  parent->RunScreen("mod::system/tolliumapps/commondialogs/mailviewer.xml#mailviewer", CELL[ ...options, mailblob := email ]);
 }
 
 /** @short Run a dialog to test and preview %PrepareMailWitty email
