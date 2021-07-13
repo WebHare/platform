@@ -241,18 +241,18 @@ PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
     //RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
-    OBJECT screen := this->LoadScreen("mod::system/screens/monitor/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
+    OBJECT screen := this->LoadScreen("mod::system/tolliumapps/dashboard/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
     IF (ObjectExists(screen))
       screen->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
 
-    this->monitor->contents := screen;
-    this->monitor->contents->EnableRefresh();
-    this->monitor->contents->RefreshDashboardPanel();
+    ^body->contents := screen;
+    ^body->contents->EnableRefresh();
+    ^body->contents->RefreshDashboardPanel();
   }
 >;
 

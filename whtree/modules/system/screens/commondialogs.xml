@@ -41,22 +41,13 @@
   </screen>
 
   <screen name="mailqueuedialog"
-          gid="commondialogs.mailviewer"
-          tid=".screentitle"
+          tid="tolliumapps.dashboard.mailqueue.mailqueuepanel"
           allowresize="true"
           width="130x"
           height="40x"
-          icon="system:sysmgmt/monitoring"
-          >
-    <body>
-      <split type="vertical">
-        <part height="1pr" name="monitor" borders="all">
-        </part>
-      </split>
+          footerbuttons="close">
+    <body name="body">
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
   <screen name="rightsproblem" gid="commondialogs.rightsproblem" tid=".title" allowresize="true" >
