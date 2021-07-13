@@ -149,7 +149,7 @@
     <dashboardpanel group="database" name="postgresqllocks" tid="monitor.postgresql.locks" screen="monitor/postgresql.postgresqllocks" ifenvironset="WEBHARE_DBASENAME"  />
     <dashboardpanel group="database" name="postgresqlblobcleanup" tid="monitor.postgresql.blobcleanup" screen="monitor/postgresql.postgresqlblobcleanup" ifenvironset="WEBHARE_DBASENAME"  />
 
-    <dashboardpanel group="tasks" name="mailqueue" tid="monitor.mailqueue.title" screen="monitor/mailqueue.mailqueuepanel"  />
+    <dashboardpanel group="tasks" name="mailqueue" tid="tolliumapps.dashboard.mailqueue.mailqueuepanel" screen="tolliumapps/dashboard/mailqueue.xml#mailqueuepanel"  />
 
     <dashboardpanel group="dev" name="events" tid="monitor.events.title" screen="monitor/events.events" />
     <dashboardpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />

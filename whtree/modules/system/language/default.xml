@@ -409,9 +409,6 @@
         <text tid="servicemanagerlogbox">Service manager</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="mailqueue">   <!-- monitor.mailqueue -->
-      <text tid="title">Outgoing e-mail</text>
-    </textgroup>
     <textgroup gid="managedtasks">   <!-- monitor.managedtasks -->
       <text tid="title">Managed tasks</text>
     </textgroup>
@@ -909,35 +906,6 @@
   </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
-      <textgroup gid="mailqueue">   <!-- screens.monitor.mailqueue -->
-        <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
-        <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
-        <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
-          <text tid="cannotforwardsensitivemail">Sensitive mails cannot be forwarded</text>
-          <text tid="creationdate">Created at</text>
-          <text tid="filter">Filter</text>
-          <text tid="flush">Retry all mail</text>
-          <text tid="forward">Forward</text>
-          <text tid="nextattempt">Next attempt</text>
-          <text tid="receiver">Receiver</text>
-          <text tid="requeue">Resend mail</text>
-          <text tid="result">View send result</text>
-          <text tid="sender">Sender</text>
-          <text tid="showscheduledmail">Show scheduled mail</text>
-          <text tid="showsentmail">Show sent mail</text>
-          <text tid="subject">Subject</text>
-          <text tid="testmailsubject">Test mail from '<param p="1"/>'</text>
-        </textgroup>
-        <textgroup gid="result">   <!-- screens.monitor.mailqueue.result -->
-          <text tid="finalreceiver">Final receiver</text>
-          <text tid="lasterror">Last error</text>
-          <text tid="response">SMTP response</text>
-          <text tid="result">Send result</text>
-          <text tid="route">Route</text>
-          <text tid="sender">Sender</text>
-          <text tid="serverip">SMTP server ip</text>
-        </textgroup>
-      </textgroup>
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
         <text tid="confirmdeletetasks">Are you sure you want to delete the tasks?</text>
         <text tid="confirmrescheduletasks">Are you sure you want to reschedule the tasks?</text>
@@ -1958,6 +1926,35 @@
         <text tid="isitalicicon">Italic</text>
         <text tid="istruetypeicon">Truetype</text>
         <text tid="style">Style</text>
+      </textgroup>
+      <textgroup gid="mailqueue">   <!-- tolliumapps.dashboard.mailqueue -->
+        <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
+        <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
+        <text tid="mailqueuepanel">Outgoing e-mail</text>
+        <textgroup gid="panel">   <!-- tolliumapps.dashboard.mailqueue.panel -->
+          <text tid="cannotforwardsensitivemail">Sensitive mails cannot be forwarded</text>
+          <text tid="creationdate">Created at</text>
+          <text tid="filter">Filter</text>
+          <text tid="flush">Retry all mail</text>
+          <text tid="forward">Forward</text>
+          <text tid="nextattempt">Next attempt</text>
+          <text tid="receiver">Receiver</text>
+          <text tid="requeue">Resend mail</text>
+          <text tid="result">View send result</text>
+          <text tid="sender">Sender</text>
+          <text tid="showscheduledmail">Show scheduled mail</text>
+          <text tid="showsentmail">Show sent mail</text>
+          <text tid="testmailsubject">Test mail from '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="result">   <!-- tolliumapps.dashboard.mailqueue.result -->
+          <text tid="finalreceiver">Final receiver</text>
+          <text tid="lasterror">Last error</text>
+          <text tid="response">SMTP response</text>
+          <text tid="result">Send result</text>
+          <text tid="route">Route</text>
+          <text tid="sender">Sender</text>
+          <text tid="serverip">SMTP server ip</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
         <text tid="allunits">This message will be displayed to all users.<br/> Add units to only show the message to those units.</text>

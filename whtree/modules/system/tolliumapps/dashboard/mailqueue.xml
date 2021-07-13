@@ -1,6 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/mailqueue.whlib"
-         gid="screens.monitor.mailqueue">
+         library="mailqueue.whlib"
+         gid="tolliumapps.dashboard.mailqueue">
 
   <messageboxes>
     <messagebox name="confirmrequeuemail" buttons="yes no" />
