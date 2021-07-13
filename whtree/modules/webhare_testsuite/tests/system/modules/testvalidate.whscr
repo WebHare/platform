@@ -263,7 +263,7 @@ MACRO TestBasicValidate()
 {
   RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml");
   TestEq(RECORD[],res.errors);
-  Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="system:monitor.mailqueue.title"), "Cannot find system:monitor.mailqueue.title");
+  Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="system:tolliumapps.dashboard.mailqueue.mailqueuepanel"), "Cannot find system:monitor.mailqueue.title");
 
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
   TestEq(RECORD[],res.errors);
