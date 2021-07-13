@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="list">
-  <jstest file="testlistbase.es" />
+  <jstest file="testlistbase.es" tags="list"/>
   <jstest file="testlistresize.es" tags="list movable"/>
+  <jstest file="testlistcolumnselect.es" tags="list"/>
 </group>

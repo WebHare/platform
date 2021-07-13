@@ -56,7 +56,7 @@ export default class ObjList extends ComponentBase
 
     this.isfirstlayout = true;
 
-
+    this.columnselectmode = data.columnselectmode;
     this.node = dompack.create("div",
                            { dataset: { name: this.name }
                            , on:      { "focus": this.onFocus.bind(this)
@@ -147,8 +147,10 @@ export default class ObjList extends ComponentBase
     this.node.addEventListener('wh:listview-columnresize', evt => this.onColumnResize(evt));
     this.node.addEventListener('wh:listview-check', evt => this.onCheck(evt));
     this.node.addEventListener('wh:listview-sortchange', evt => this.onSortchange(evt));
+    this.node>addEventListener("wh:listview-selectcolumns", evt => this.onSelectColumnsChange(evt));
 
     var listoptions = { selectmode: this.selectmode
+                      , columnselectmode: this.columnselectmode
 
                       , headerheight: 28
                       , lineheight: 20
@@ -193,8 +195,6 @@ export default class ObjList extends ComponentBase
        'c' prefixed rowkey, followed by \t, followed by checkbox name, followde by \t\, followed by 'true' or '', to indicate checkbox statuses
     */
 
-    var retval="";
-
     /* FIXME
       if(this.rowlayout.rows.length == 1) //multiple rows don't allow layout ordering (and just sending row#0 will even confuse tollium, its all or nothing) so dont bother
       {
@@ -207,8 +207,9 @@ export default class ObjList extends ComponentBase
         retval += (this.sortascending?' a' : ' d') + this.sortcolumn.name;
       */
 
-    retval += this.getRowsSubmitValue(this.rows);
-    return retval;
+    return { rows: this.getRowsSubmitValue(this.rows)
+           , selectedcolumns: this.list.getSelectedColumns().map(src => src.name)
+           };
   }
   getRowsSubmitValue(rows)
   {
@@ -683,6 +684,11 @@ export default class ObjList extends ComponentBase
       sortcolumnname = this.datacolumns[this.sortcolumn].name;
 
     this.queueMessage("sortorder", { columnname: sortcolumnname, ascending: this.sortascending });
+  }
+  onSelectColumnsChange()
+  {
+    if (this.isEventUnmasked("select"))
+      this.transferState(this.syncselect);
   }
   resetSelectionRecursive(rows)
   {
@@ -1321,7 +1327,7 @@ export default class ObjList extends ComponentBase
         item.new_set = event.detail.widths[idx];
     }.bind(this));
   }
-};
+}
 
 function setIcon(list, columndef, row, cell, width, height, icon)
 {

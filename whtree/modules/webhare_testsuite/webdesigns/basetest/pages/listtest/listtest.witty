@@ -6,6 +6,11 @@
       <option value="single">Single</option>
       <option value="multiple">Multiple</option>
     </select>
+  Columns:
+    <select id="columnselectmode">
+      <option value="none">None</option>
+      <option value="single">Single</option>
+    </select>
   Datasource: <select id="datasource">
     <option value="immediatesource">30 rows, immediate callbacks</option>
     <option value="longsource">100 rows, immediate callbacks</option>

@@ -240,9 +240,13 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   OBJECT pvt_eventlistener;
 
+  STRING ARRAY _selectedcolumns;
+
   /// Selected listclass
   STRING __class;
 
+  /// List of currently selected columns
+  PUBLIC PROPERTY selectedcolumns(_selectedcolumns, -);
 
   PUBLIC RECORD ARRAY debugactions;
 
@@ -417,7 +421,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   //// The class for this list, eg 'verticaltabs'
   PUBLIC PROPERTY class(__class, SetClass);
 
-  /** Called when the selection changes.
+  /** Called when the selection (row or columns) changes
       Signature: MACRO onselect()
   */
   PUBLIC FUNCTION PTR onselect;
@@ -503,6 +507,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   */
   PUBLIC PROPERTY selectmode(GetSelectMode, SetSelectMode);
 
+  /// Column selection mode. 'none' or 'single'
+  PUBLIC STRING columnselectmode;
 
   /** Whether this list is sortable
   */
@@ -543,6 +549,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->pvt_dragsingleicon := "tollium:actions/dragsingle";
     this->pvt_dragmultipleicon := "tollium:actions/dragmultiple";
     this->pvt_selectevent := "asynchronous";
+    this->columnselectmode := "none";
 
     this->formfieldtype := "string";
     this->pvt_borders := [ top := TRUE, right := TRUE, bottom := TRUE, left := TRUE ];
@@ -590,6 +597,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->pvt_acceptdrops := def.acceptdrops;
 
     this->selectevent := def.selectevent;
+    this->columnselectmode := def.columnselectmode;
 
     this->openaction := def.openaction;
 
@@ -2395,6 +2403,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       }
 
       RECORD listinfo := [ selectmode        := this->storage->selectmode
+                         , columnselectmode  := this->columnselectmode
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
                          , selectcontextmenu := GetComponentName(this->selectcontextmenu)
                          , openaction        := GetComponentName(this->openaction)
@@ -2500,10 +2509,18 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     TolliumComponentBase::TolliumWebRender();
   }
 
-  PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
-  //NOTE: Dupe of ExtendSelect
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD inp)
   {
-    STRING ARRAY toks := Tokenize(inp, " ");
+    BOOLEAN fireonselect;
+
+    inp := EnforceStructure([ selectedcolumns := STRING[], rows := ""], inp);
+    IF(EncodeHSON(this->_selectedcolumns) != EncodeHSON(inp.selectedcolumns))
+    {
+      this->_selectedcolumns := inp.selectedcolumns;
+      fireonselect := TRUE;
+    }
+
+    STRING ARRAY toks := Tokenize(inp.rows, " ");
   //  RECORD ARRAY toupdate;
 
     INTEGER current_rowkeytype := RecordExists(this->storage->rows) ? TypeId(this->storage->rows[0].rowkey) : 0;
@@ -2610,9 +2627,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
        SET position := SearchElement(colorder, name);
 
 //    this->UpdateSelection2(SELECT * FROM updates WHERE nowselect OR nowexpand OR Length(checkboxes) > 0);
-    this->storage->SetSelectionByRecords((SELECT * FROM updates WHERE nowselect), FALSE);
+    IF(this->storage->SetSelectionByRecords((SELECT * FROM updates WHERE nowselect), FALSE))
+      fireonselect := FALSE; //just fired
+
     this->storage->ExpandRowsByRecords((SELECT * FROM updates WHERE nowexpand), TRUE, FALSE);
     this->storage->UpdateRowCells((SELECT * FROM updates WHERE LENGTH(updates.updates) != 0), FALSE);
+
+    IF(fireonselect AND this->onselect != DEFAULT FUNCTION PTR) //likely a column selection update
+      this->onselect();
   }
 
   UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)

@@ -60,7 +60,7 @@ test.registerTests(
       {
         //should be initially selected
         let listrow = test.getCurrentScreen().getListRow('staticlist','Row #2|');
-        test.true(listrow.classList.contains("selected"));
+        test.true(listrow.classList.contains("wh-list__row--selected"));
         //should have 'grayedout' class
         test.true(listrow.classList.contains("rowclass-grayedout"));
 
@@ -89,7 +89,7 @@ test.registerTests(
         test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
 
         // Must have selected class
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
 
         //Row #2.1 is not initially expanded, and should NOT be visible
         test.false(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
@@ -112,8 +112,8 @@ test.registerTests(
         test.eq("Row #2 doesn't care", cells[2].textContent);
 
         //Expanding a row should not change the selection
-        test.true( test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("selected"));
-        test.false(test.getCurrentScreen().getListRow('staticlist','Row #2|').classList.contains("selected"));
+        test.true( test.getCurrentScreen().getListRow('staticlist','Row #1|').classList.contains("wh-list__row--selected"));
+        test.false(test.getCurrentScreen().getListRow('staticlist','Row #2|').classList.contains("wh-list__row--selected"));
 
         //Row #2.1 should be there now
         test.true(getexpanded(test.getCurrentScreen().getListRow('staticlist','Row #2|')));
@@ -168,7 +168,7 @@ test.registerTests(
       {
         //this should have selected and expanded Row#1.1
         test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1') != null);
-        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1').classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow('staticlist','Row #1.1').classList.contains("wh-list__row--selected"));
         test.eq('2', test.compByName("staticlistselection").textContent); //we didn't even touch it...
       }
     }
@@ -217,7 +217,7 @@ test.registerTests(
 
         //select nochildren row
         test.click(test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10'));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("selected"));
+        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
 
         clickRowExpander(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20'));
         //the feedback should be immediate..
@@ -237,7 +237,7 @@ test.registerTests(
         test.false(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
 
         //should still be selected
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("selected"));
+        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
         test.eq('11', test.compByName("dynamiclistselection").textContent); //we didn't even touch it...
 
         //test multi selection
@@ -251,8 +251,8 @@ test.registerTests(
       {
         test.true(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 20')));
         test.false(getexpanded(test.getCurrentScreen().getListRow('dynamiclist','haschildren 30')));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("selected"));
-        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 20').classList.contains("selected"));
+        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 10').classList.contains("wh-list__row--selected"));
+        test.true( test.getCurrentScreen().getListRow('dynamiclist','0 nochildren 20').classList.contains("wh-list__row--selected"));
         test.eq('11 21', test.compByName("dynamiclistselection").textContent);
       }
     }

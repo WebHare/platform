@@ -109,7 +109,7 @@ class TestDataSource extends ListDataSource
 
     if (newvalue)
     {
-      for(var i=startrow;i<=endrow;++i)
+      for(let i=startrow; i <= endrow; ++i)
       {
         // add selection state if it wasn't selected yet
         if (!this.selected.includes(i))
@@ -122,7 +122,7 @@ class TestDataSource extends ListDataSource
     }
     else
     {
-      for(var i=startrow;i<=endrow;++i)
+      for(let i=startrow; i <= endrow; ++i)
       {
         // remove selection state if it was selected
         if (this.selected.includes(i))
@@ -314,7 +314,9 @@ function reconfigureList()
   if(currentdatasource)
     currentdatasource.selected=[];
 
-  testlist.updateOptions({ selectmode: document.querySelector('#selectmode').value });
+  testlist.updateOptions({ selectmode: document.querySelector('#selectmode').value
+                         , columnselectmode: document.querySelector('#columnselectmode').value
+                         });
   testlist.setDataSource(currentdatasource);
 }
 function oncontextmenu()
@@ -353,10 +355,13 @@ function pageinit()
   let url = new URL(location.href);
   if(url.searchParams.get("selectmode"))
     dompack.changeValue(document.querySelector('#selectmode'), url.searchParams.get("selectmode"));
+  if(url.searchParams.get("columnselectmode"))
+    dompack.changeValue(document.querySelector('#columnselectmode'), url.searchParams.get("columnselectmode"));
   if(url.searchParams.get("datasource"))
     dompack.changeValue(document.querySelector('#datasource'), url.searchParams.get("datasource"));
 
   document.querySelector('#selectmode').addEventListener("change", reconfigureList);
+  document.querySelector('#columnselectmode').addEventListener("change", reconfigureList);
   document.querySelector('#datasource').addEventListener("change", reconfigureList);
 
   testlist = new ListView(document.querySelector('#listview'), null, { selectmode: document.querySelector('#selectmode').value });
