@@ -120,7 +120,7 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
 
   MACRO DoReQueue()
   {
-    IF(this->RunMessageBox("system:monitor/mailqueue.confirmrequeuemail") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmrequeuemail")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();
@@ -166,12 +166,11 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
   }
   MACRO DoResult()
   {
-    OBJECT screen := this->LoadScreen(".result", [ id := this->mailqueue->value[0] ]);
-    screen->RunModal();
+    this->RunScreen("#result", [ id := this->mailqueue->value[0] ]);
   }
   MACRO DoDelete()
   {
-    IF(this->RunMessageBox("system:monitor/mailqueue.confirmdeletemail") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletemail")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();

@@ -1,25 +1,15 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="mailqueue.whlib"
-         gid="tolliumapps.dashboard.mailqueue">
-
-  <messageboxes>
-    <messagebox name="confirmrequeuemail" buttons="yes no" />
-    <messagebox name="confirmdeletemail" buttons="yes no" />
-  </messageboxes>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.mailqueue" library="mailqueue.whlib">
 
   <screen name="mailqueuepanel" gid=".panel" title="">
     <actions>
       <action name="new" onexecute="donew" shortcut="ctrl+n" tid="~new" />
       <action name="flush" onexecute="doflush" />
-
       <action name="requeue" onexecute="dorequeue">
         <enableon source="mailqueue" min="1" checkflags="isfinished" />
       </action>
-
       <action name="forward" onexecute="doforward">
         <enableon source="mailqueue" min="1" />
       </action>
-
       <action name="viewmessage" onexecute="doviewmessage" tid="~view">
         <enableon source="mailqueue" min="1" max="1" />
       </action>
@@ -33,16 +23,15 @@
 
     <menus>
       <menu name="email_menu">
-        <item action="viewmessage"/>
-        <item action="forward"/>
-        <item action="requeue" disablemode="hidden"/>
+        <item action="viewmessage" />
+        <item action="forward" />
+        <item action="requeue" disablemode="hidden" />
         <item action="result" />
         <item action="delete" disablemode="hidden" />
       </menu>
-
       <menu name="queue_menu">
-        <item action="flush"/>
-        <item action="new"/>
+        <item action="flush" />
+        <item action="new" />
       </menu>
     </menus>
 
@@ -54,48 +43,47 @@
       <grid height="1pr">
         <col width="1pr" />
         <col />
-        <row height='1pr'>
+        <row height="1pr">
           <cell>
             <panel height="1pr">
               <list name="mailqueue"
-                    icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available"
-                    selectmode="multiple"
-                    selectcontextmenu="email_menu"
-                    newcontextmenu="queue_menu"
-                    sortcolumn="creationdate"
-                    openaction="viewmessage"
                     width="1pr"
                     height="1pr"
-                    sortascending="false"
-                    flags="isfinished hasresult"
                     borders="right bottom"
-                    >
-                <column type="datetime" name="creationdate" storeutc="true" width="18x" precision="seconds" />
-                <column type="text"     name="sender" />
-                <column type="text"     name="subject" tid="~subject" />
-                <column type="text"     name="receiver" />
-                <column type="icon"     name="status" align="center" width="7x" tid="~status" />
-                <column type="datetime" name="nextattempt" storeutc="true" width="16x" precision="seconds" />
+                    flags="isfinished hasresult"
+                    icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available"
+                    newcontextmenu="queue_menu"
+                    openaction="viewmessage"
+                    selectcontextmenu="email_menu"
+                    selectmode="multiple"
+                    sortascending="false"
+                    sortcolumn="creationdate">
+                <column name="creationdate" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                <column name="sender" type="text" />
+                <column name="subject" type="text" tid="~subject" />
+                <column name="receiver" type="text" />
+                <column name="status" type="icon" width="7x" align="center" tid="~status" />
+                <column name="nextattempt" type="datetime" width="16x" precision="seconds" storeutc="true" />
               </list>
             </panel>
           </cell>
-          <cell spacers="left right" layout="left">
-            <textedit name="filter" onchange="RefreshDashboardPanel" width="1pr" />
-            <checkbox name="showsentmail" onchange="RefreshDashboardPanel" title="" labeltid=".showsentmail" />
-            <checkbox name="showscheduledmail" onchange="RefreshDashboardPanel" title="" labeltid=".showscheduledmail" />
-            <button width="1pr" name="newbutton" action="new" tid="~new" />
-            <button width="1pr" name="flushbutton" action="flush" tid=".flush" />
-            <button width="1pr" action="forward"             />
+          <cell layout="left" spacers="left right">
+            <textedit name="filter" width="1pr" onchange="RefreshDashboardPanel" />
+            <checkbox name="showsentmail" labeltid=".showsentmail" onchange="RefreshDashboardPanel" title="" />
+            <checkbox name="showscheduledmail" labeltid=".showscheduledmail" onchange="RefreshDashboardPanel" title="" />
+            <button name="newbutton" width="1pr" action="new" tid="~new" />
+            <button name="flushbutton" width="1pr" action="flush" tid=".flush" />
+            <button width="1pr" action="forward" />
             <button width="1pr" action="viewmessage" />
-            <button width="1pr" action="result"  />
-            <button width="1pr" name="deletebutton" action="delete" tid="~delete"  />
+            <button width="1pr" action="result" />
+            <button name="deletebutton" width="1pr" action="delete" tid="~delete" />
           </cell>
         </row>
       </grid>
     </body>
   </screen>
 
-  <screen name="result" gid=".result">
+  <screen name="result" footerbuttons="close" gid=".result">
     <body>
       <text name="serverip" />
       <text name="route" />
@@ -104,8 +92,6 @@
       <text name="finalreceiver" />
       <text name="lasterror" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
+
 </screens>

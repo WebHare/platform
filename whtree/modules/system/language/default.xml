@@ -1928,11 +1928,11 @@
         <text tid="style">Style</text>
       </textgroup>
       <textgroup gid="mailqueue">   <!-- tolliumapps.dashboard.mailqueue -->
-        <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
-        <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
         <text tid="mailqueuepanel">Outgoing e-mail</text>
         <textgroup gid="panel">   <!-- tolliumapps.dashboard.mailqueue.panel -->
           <text tid="cannotforwardsensitivemail">Sensitive mails cannot be forwarded</text>
+          <text tid="confirmdeletemail">Are you sure you want to delete the selected mail(s) ?</text>
+          <text tid="confirmrequeuemail">Are you sure you want to resend the selected mail(s) ?</text>
           <text tid="creationdate">Created at</text>
           <text tid="filter">Filter</text>
           <text tid="flush">Retry all mail</text>
