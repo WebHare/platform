@@ -823,8 +823,7 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
           {
             VARIANT value := GetCell(row, cellname);
             row := CellDelete(row, cellname);
-            IF(typeid(value) = typeid(string) and selattr.attr.attributetype=1)
-              abort(selattr.attr.tag);
+
             value := ConvertToNiceType(this->tolliumuser, this->contexts->wrdschema, selattr.attr.attributetype, value, FALSE);
             rows[#row] := CellInsert(row, cellname, value);
           }
@@ -1435,12 +1434,16 @@ VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER
   CASE 0 /* generated type, string */
     { RETURN STRING(value); }
 
-  CASE 1 /* single select*/
-     , 8 /* (multiple select) */
+    CASE 1 /* single select*/
     {
       IF (NOT alwaystotext)
         RETURN value;
       RETURN ToString(value, 10);
+    }
+
+    CASE 8 /* (multiple select) */
+    {
+      RETURN EncodeJSON(SortArray(value)); //create an array style [1,2,4] list
     }
 
   CASE 2 /* free text */
