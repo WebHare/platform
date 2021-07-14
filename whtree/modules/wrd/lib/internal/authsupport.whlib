@@ -10,7 +10,7 @@ PUBLIC INTEGER FUNCTION LookupMagicSysop(STRING name)
   RETURN SELECT AS INTEGER id FROM system.authobjects WHERE type=1 AND guid = VAR name;
 }
 
-PUBLIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser
+PUBLIC STATIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser
 <
   MACRO NEW(INTEGER overrideuser)
   : TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, overrideuser, "<overrideuser>")

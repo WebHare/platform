@@ -226,14 +226,3 @@ PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
     ^attachments->AddWrappedAttachment(wrapped);
   }
 >;
-
-PUBLIC OBJECTTYPE RightsProblem EXTEND TolliumScreenBase
-< PUBLIC MACRO Init(RECORD data)
-  {
-    IF (this->tolliumcontroller->debugging)
-      this->RunMessageBox(".notenoughrights_spec", data.needed_rights);
-    ELSE
-      this->RunMessageBox(".notenoughrights");
-    this->tolliumresult := "cancel";
-  }
->;

@@ -890,6 +890,8 @@
       <text tid="unresolvedissues">There are unresolved issues!</text>
     </textgroup>
     <textgroup gid="controller">   <!-- shell.controller -->
+      <text tid="neededrights">The following rights are needed: <param p="1"/></text>
+      <text tid="rightsproblem">You don't have access to this application (logged in as '<param p="1"/>')</text>
       <text tid="untrustedparams">You are not allowed to open this application with additional URL parameters.</text>
     </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
