@@ -479,7 +479,7 @@
         <text tid="ishidden">Verborgen</text>
         <text tid="name">Naam</text>
         <text tid="namespace">Namespace</text>
-        <text tid="noreferences">Geen verwijzingen naar dit bestand gevonden</text>
+        <text tid="noreferences">Geen verwijzingen naar dit object gevonden</text>
         <text tid="path">Pad</text>
         <text tid="preview">Bekijken als tekst</text>
         <text tid="private">Privé</text>
