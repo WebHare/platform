@@ -59,10 +59,43 @@ RECORD ARRAY FUNCTION GetRecentBuckets()
   RETURN SELECT * FROM system.webservers_usage WHERE time >= cutoff;
 }
 
+RECORD ARRAY FUNCTION CheckWebServerRules()
+{
+  RECORD ARRAY breakingsoon := SELECT id, webserver, path, error := "Support for access rule configured 'errorpath' will be dropped in the future - this should be done through modules"
+                                 FROM system.access
+                                WHERE errorpath != "";
+
+  breakingsoon := breakingsoon CONCAT SELECT id, webserver, path, error := "Support for access rule configured 'authscript' will be dropped in the future - this should be done through modules"
+                                 FROM system.access
+                                WHERE authscript != "";
+
+  breakingsoon := breakingsoon CONCAT SELECT id, webserver, path, error := "Support for single-script access rule will be dropped in the future - this should be done through modules"
+                                 FROM system.access
+                                WHERE hostingsrc = 3;
+
+  breakingsoon := breakingsoon CONCAT SELECT id, webserver, path, error := "Support for access rule references to module resources will be dropped in the future - this should be done through modules"
+                                 FROM system.access
+                                WHERE hostingsrc = 2 AND hostingpath LIKE "*:*" AND hostingpath NOT LIKE "site::*";
+
+  breakingsoon := breakingsoon CONCAT SELECT id, webserver, path, error := "Support for access rule caching configuration will be dropped in the future - this should be done through modules"
+                                 FROM system.access
+                                WHERE maxage != 0 OR disablecaching;
+
+  IF(Length(breakingsoon) = 0)
+    RETURN RECORD[];
+
+  RECORD ARRAY webservernames := SELECT id, baseurl FROM system.webservers WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT webserver FROM breakingsoon);
+  breakingsoon := SELECT msg := `:Deprecated access rule: ${ (SELECT AS STRING baseurl FROM webservernames WHERE id = breakingsoon.webserver) ?? "global"} - ${path}: ${error}`
+                    FROM breakingsoon;
+  breakingsoon := SELECT * FROM breakingsoon ORDER BY msg;
+  RETURN breakingsoon;
+}
+
 PUBLIC RECORD ARRAY FUNCTION RunWebserverChecks()
 {
   RECORD ARRAY messages := CheckCertificates();
   messages := messages CONCAT CheckWebServerConfig();
+  messages := messages CONCAT CheckWebServerRules();
 
   RECORD ARRAY recentbuckets := GetRecentBuckets();
   RECORD ARRAY failbuckets := GetFailedBuckets(recentbuckets);

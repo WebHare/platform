@@ -452,13 +452,7 @@ Alternative hosting path (for hostingsrc)
         </d:documentation>
       </d:varchar>
       <d:integer name="hostingsrc">
-        <d:documentation>
-Hosting source
-0 = standard serving
-2 = Alternate directory
-3 = single script
-          6: Apply hostingpath as a module ruleset (eg system:webdav)
-        </d:documentation>
+        <d:documentation>Hosting source: 0 = standard serving, 2 = Alternate directory, 3 = single script, 4/5 = redirect (without/with subpath), 6: Apply hostingpath as a module ruleset (eg system:webdav)</d:documentation>
       </d:integer>
       <d:integer name="matchtype">
         <d:documentation>
