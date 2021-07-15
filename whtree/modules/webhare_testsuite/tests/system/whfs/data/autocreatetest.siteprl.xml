@@ -1,0 +1,47 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatetest">
+    <string name="str" />
+    <string name="emptystr" />
+    <integer name="int" />
+    <file name="blub" />
+    <money name="price" />
+    <richdocument name="rich" />
+    <boolean name="yesno" />
+    <float name="afloat" />
+    <datetime name="adatetime" />
+    <instance name="aninstance" />
+    <stringarray name="strarray" />
+    <url name="url" />
+    <record name="arecord" />
+    <array name="anarray">
+      <richdocument name="richmember" />
+      <integer name="intmember" />
+      <array name="asubarray">
+        <richdocument name="subrichmember" />
+        <integer name="subintmember" />
+      </array>
+    </array>
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance1">
+    <string name="str1" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance2">
+    <string name="str2" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance3">
+    <string name="str3" />
+  </contenttype>
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatefiletest" blobiscontent="true" />
+
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatefoldertest" />
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatedynexectest" kind="datafile">
+    <dynamicexecution webpageobjectname="module::webhare_testsuite/publisher/testsitedesign.whlib#WebPage" />
+  </filetype>
+
+</siteprofile>
