@@ -1,16 +1,12 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="proxies.whlib"
-         gid="tolliumapps.webservers.proxies">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.webservers.proxies" library="proxies.whlib">
 
-  <screen name="proxies" gid=".proxies" tid=".title" width="120x" height="30x" allowresize="true">
-
+  <screen name="proxies" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".proxies" tid=".title">
     <actions>
-      <action name="addproxy" onexecute="doaddproxy" tid="tollium:common.actions.add" />
-      <action name="editproxy" onexecute="doeditproxy" tid="tollium:common.actions.edit" >
-        <enableon source="proxylist" min="1" max="1"/>
+      <action name="addproxy" onexecute="doaddproxy" tid="~add" />
+      <action name="editproxy" onexecute="doeditproxy" tid="~edit">
+        <enableon source="proxylist" min="1" max="1" />
       </action>
-      <action name="deleteproxy" onexecute="dodeleteproxy" tid="tollium:common.actions.delete" >
+      <action name="deleteproxy" onexecute="dodeleteproxy" tid="~delete">
         <enableon source="proxylist" min="1" max="1" checkflags="!yourproxy" />
       </action>
       <action name="reregister" onexecute="doreregister" />
@@ -35,37 +31,33 @@
         <row height="1pr">
           <cell>
             <list name="proxylist"
-                  gid=".columns"
                   flags="yourproxy"
+                  gid=".columns"
                   highlightname="yourproxy"
-                  selectmode="single"
+                  newcontextmenu="contextmenu"
                   openaction="editproxy"
                   selectcontextmenu="contextmenu"
-                  newcontextmenu="contextmenu">
-              <column type="text" width="1pr" name="url" />
-              <column type="text" width="2pr" name="description" tid="tollium:common.labels.description"/>
-              <column type="datetime" width="20x" name="lastregistration" iconname="status" storeutc="true" />
+                  selectmode="single">
+              <column name="url" type="text" width="1pr" />
+              <column name="description" type="text" width="2pr" tid="~description" />
+              <column name="lastregistration" type="datetime" width="20x" iconname="status" storeutc="true" />
             </list>
           </cell>
           <cell>
-            <button action="addproxy" width="1pr" />
-            <button action="editproxy" width="1pr" />
-            <button action="deleteproxy" width="1pr" />
-            <button action="reregister" width="1pr" />
+            <button width="1pr" action="addproxy" />
+            <button width="1pr" action="editproxy" />
+            <button width="1pr" action="deleteproxy" />
+            <button width="1pr" action="reregister" />
           </cell>
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-  <screen name="updateproxy" gid=".update" allowresize="true" width="80x">
-
+  <screen name="updateproxy" width="80x" allowresize="true" gid=".update">
     <actions>
       <action name="test" onexecute="dotest" />
-      <action name="confirm" onexecute="submit" tid="tollium:common.actions.ok" />
+      <action name="confirm" onexecute="submit" tid="~ok" />
     </actions>
 
     <compositions>
@@ -73,16 +65,27 @@
     </compositions>
 
     <body width="1pr" height="1pr">
-      <textedit composition="row" cellname="url" validationchecks="http-url secure-url" required="true" placeholder="https://...:5443/" width="1pr" />
+      <textedit composition="row"
+                cellname="url"
+                width="1pr"
+                placeholder="https://...:5443/"
+                required="true"
+                validationchecks="http-url secure-url" />
       <textedit composition="row" cellname="password" width="1pr" required="true" />
-      <textedit composition="row" cellname="reverseaddress" width="1pr" required="true" name="reverseaddress" validationchecks="http-url" />
+      <textedit composition="row"
+                cellname="reverseaddress"
+                name="reverseaddress"
+                width="1pr"
+                required="true"
+                validationchecks="http-url" />
       <textarea composition="row" cellname="hostswhitelist" name="hostswhitelist" width="1pr" height="4x" />
-      <textedit composition="row" cellname="description" tid="tollium:common.labels.description" width="1pr" />
+      <textedit composition="row" cellname="description" width="1pr" tid="~description" />
       <heading tid=".lasterror" />
       <line layout="left">
-        <textarea composition="row" cellname="lasterror" title="" enabled="false" height="6x" />
+        <textarea composition="row" cellname="lasterror" height="6x" enabled="false" title="" />
       </line>
     </body>
+
     <footer>
       <grid>
         <col width="1pr" />
@@ -96,7 +99,7 @@
             <button action="confirm" />
           </cell>
           <cell>
-            <defaultformbuttons buttons="cancel"/>
+            <defaultformbuttons buttons="cancel" />
           </cell>
         </row>
       </grid>

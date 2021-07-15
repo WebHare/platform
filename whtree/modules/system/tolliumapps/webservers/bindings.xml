@@ -1,53 +1,52 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="bindings.whlib"
-         gid="tolliumapps.webservers.bindings">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.webservers.bindings" library="bindings.whlib">
 
-  <screen name="bindings" gid=".bindings" tid=".title" width="120x" height="30x" allowresize="true">
+  <screen name="bindings" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".bindings" tid=".title">
     <body>
-      <listedit name="bindinglist" ongetchildren="ongetbindings" height="1pr" gid=".columns"
+      <listedit name="bindinglist"
+                height="1pr"
+                gid=".columns"
+                highlightname="yourbinding"
                 icons="tollium:status/checked tollium:status/negative tollium:security/key"
-                onrowedit="onrowedit" onrowdelete="onrowdelete" highlightname="yourbinding">
-        <column type="text" width="1pr" name="port" sortkeyname="sortport" iconname="porticon"/>
-        <column type="icon" width="16x" name="virtualhost" />
-        <column type="text" width="2pr" name="description" tid="tollium:common.labels.description"/>
+                ongetchildren="ongetbindings"
+                onrowdelete="onrowdelete"
+                onrowedit="onrowedit">
+        <column name="port" type="text" width="1pr" iconname="porticon" sortkeyname="sortport" />
+        <column name="virtualhost" type="icon" width="16x" />
+        <column name="description" type="text" width="2pr" tid="~description" />
       </listedit>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-  <screen name="updatebinding" gid=".updatebinding" tid=".portgroup">
+  <screen name="updatebinding" footerbuttons="ok cancel" gid=".updatebinding" tid=".portgroup">
     <body width="1pr" height="1pr">
-      <panel layout="left" name="readonlywarningpanel" visible="false">
-        <text title="" name="readonlywarning" textcolor="#ff0000" valuetid=".readonlywarning" />
+      <panel name="readonlywarningpanel" layout="left" visible="false">
+        <text name="readonlywarning" textcolor="#ff0000" title="" valuetid=".readonlywarning" />
       </panel>
-      <combobox name="port" valuetype="integer" width="10x" minvalue="1" maxvalue="65535" emptyvalue="0" required="true" />
-      <textarea name="description" tid="tollium:common.labels.description" width="1pr" height="3x"/>
-
-      <select name="localip" type="radio" >
-        <option rowkey="allips" tid=".allips"/>
-        <option rowkey="allip6s" tid=".allip6s"/>
+      <combobox name="port" width="10x" emptyvalue="0" maxvalue="65535" minvalue="1" required="true" valuetype="integer" />
+      <textarea name="description" width="1pr" height="3x" tid="~description" />
+      <select name="localip" type="radio">
+        <option rowkey="allips" tid=".allips" />
+        <option rowkey="allip6s" tid=".allip6s" />
         <option rowkey="address" tid=".address">
           <combobox name="ip" required="true" />
         </option>
       </select>
-
-      <box tid=".hostingtype" hr="false">
-        <select type="radio" rowkeytype="boolean" name="virtualhosting">
+      <box hr="false" tid=".hostingtype">
+        <select name="virtualhosting" type="radio" rowkeytype="boolean">
           <option rowkey="true" tid=".namebinding" />
           <option rowkey="false" tid=".portbinding" />
         </select>
         <line layout="left">
-          <checkbox name="securehosting" enablecomponents="privatekeys" title="" labeltid=".securehosting" />
-          <select title="" errorlabeltid=".privatekeys" name="privatekeys" type="pulldown" rowkeytype="integer" required="true" />
+          <checkbox name="securehosting" enablecomponents="privatekeys" labeltid=".securehosting" title="" />
+          <select name="privatekeys"
+                  type="pulldown"
+                  errorlabeltid=".privatekeys"
+                  required="true"
+                  rowkeytype="integer"
+                  title="" />
         </line>
       </box>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

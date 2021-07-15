@@ -1,25 +1,29 @@
-  <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="accessrules.whlib"
-         gid="tolliumapps.webservers.accessrules">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.webservers.accessrules"
+         library="accessrules.whlib">
 
-  <screen name="accessrules" gid=".accessrules" tid=".title"
-          minwidth="40x" minheight="40x"
-          width="130x" height="50x" allowresize="true" footerbuttons="close"
-          >
+  <screen name="accessrules"
+          width="130x"
+          height="50x"
+          minwidth="40x"
+          minheight="40x"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".accessrules"
+          tid=".title">
     <actions>
-      <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
-      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
-        <enableon source="accessrulelist" min="1" max="1"/>
+      <action name="add" onexecute="doadd" tid="~add" />
+      <action name="edit" onexecute="doedit" tid="~edit">
+        <enableon source="accessrulelist" min="1" max="1" />
       </action>
       <windowopenaction name="view" onwindowopen="doview">
         <enableon source="accessrulelist" min="1" max="1" checkflags="canview" />
       </windowopenaction>
-      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete">
+      <action name="delete" onexecute="dodelete" tid="~delete">
         <enableon source="accessrulelist" min="1" />
       </action>
       <action name="ipfilters" onexecute="doipfilters">
-        <enableon source="accessrulelist" min="1" max="1"/>
+        <enableon source="accessrulelist" min="1" max="1" />
       </action>
       <action name="webhareusers" onexecute="dowebhareusers">
         <enableon source="accessrulelist" min="1" max="1" checkflags="webhareusers" />
@@ -28,44 +32,44 @@
         <enableon source="accessrulelist" min="1" max="1" checkflags="externalusers" />
       </action>
     </actions>
+
     <menus>
       <menu name="sel">
-        <item action="edit" disablemode="hidden"/>
-        <item action="ipfilters" disablemode="hidden"/>
-        <item action="webhareusers" disablemode="hidden"/>
-        <item action="externalusers" disablemode="hidden"/>
+        <item action="edit" disablemode="hidden" />
+        <item action="ipfilters" disablemode="hidden" />
+        <item action="webhareusers" disablemode="hidden" />
+        <item action="externalusers" disablemode="hidden" />
         <divider />
-        <item action="view" disablemode="hidden"/>
+        <item action="view" disablemode="hidden" />
         <divider />
-        <item action="delete" disablemode="hidden"/>
+        <item action="delete" disablemode="hidden" />
       </menu>
       <menu name="nosel">
-        <item action="add" disablemode="hidden"/>
+        <item action="add" disablemode="hidden" />
       </menu>
     </menus>
+
     <body height="1pr">
       <grid height="1pr">
         <cell width="1pr">
           <list name="accessrulelist"
                 height="1pr"
+                flags="webhareusers externalusers canview"
                 gid=".columns"
-                selectcontextmenu="sel"
+                icons="tollium:objects/lock tollium:objects/arrowright tollium:tollium/tollium tollium:folders/normal"
                 newcontextmenu="nosel"
                 openaction="edit"
-                selectmode="multiple"
-                flags="webhareusers externalusers canview"
-                icons="tollium:objects/lock tollium:objects/arrowright tollium:tollium/tollium tollium:folders/normal"
-                >
-            <column type="text" width="30x" name="path" iconname="icon"/>
-            <column type="text" width="1pr" name="target" />
-            <column type="text" width="1pr" name="description" />
+                selectcontextmenu="sel"
+                selectmode="multiple">
+            <column name="path" type="text" width="30x" iconname="icon" />
+            <column name="target" type="text" width="1pr" />
+            <column name="description" type="text" width="1pr" />
           </list>
         </cell>
         <cell>
           <button width="1pr" action="add" />
           <button width="1pr" action="edit" />
           <button width="1pr" action="delete" />
-
           <spacer height="1gr" />
           <button width="1pr" action="ipfilters" />
           <button width="1pr" action="webhareusers" />
@@ -77,146 +81,174 @@
     </body>
   </screen>
 
-  <screen name="updateaccessrule" gid=".updateaccessrule" tid=".title">
+  <screen name="updateaccessrule" footerbuttons="ok cancel" gid=".updateaccessrule" tid=".title">
     <compositions>
       <radiogroup name="hostingsrc" />
     </compositions>
+
     <body height="1pr" spacers="none">
       <tabs>
         <tab tid=".general">
           <line layout="left">
-            <checkbox name="enabled" title="" labeltid=".enabled" value="true" />
+            <checkbox name="enabled" labeltid=".enabled" title="" value="true" />
           </line>
           <text name="appliesto" />
-          <textedit name="path" required="true" width="1pr" />
-          <select name="matchtype" rowkeytype="integer" type="radio">
+          <textedit name="path" width="1pr" required="true" />
+          <select name="matchtype" type="radio" rowkeytype="integer">
             <option rowkey="0" tid=".matchtype-exact" />
-            <option rowkey="1" tid=".matchtype-initial" selected="true" />
+            <option rowkey="1" selected="true" tid=".matchtype-initial" />
             <option rowkey="2" tid=".matchtype-wildcard" />
           </select>
           <textarea name="description" />
-
           <line layout="left">
-            <checkbox title="" labeltid=".disablecaching" name="disablecaching" />
+            <checkbox name="disablecaching" labeltid=".disablecaching" title="" />
           </line>
           <line>
-            <textedit name="maxage" valuetype="integer" minvalue="0" emptyvalue="0" width="12x"/>
+            <textedit name="maxage" width="12x" minvalue="0" emptyvalue="0" valuetype="integer" />
             <text valuetid=".seconds" />
           </line>
-
         </tab>
         <tab tid=".login">
-          <select name="authrequirement" rowkeytype="boolean" type="radio">
-            <option rowkey="true" tid=".authrequirement-and" selected="true" />
+          <select name="authrequirement" type="radio" rowkeytype="boolean">
+            <option rowkey="true" selected="true" tid=".authrequirement-and" />
             <option rowkey="false" tid=".authrequirement-or" />
           </select>
           <panel />
-          <select name="authtype" rowkeytype="integer" type="radio">
-            <option rowkey="0" tid=".authtype-nologinrequired" selected="true" />
+          <select name="authtype" type="radio" rowkeytype="integer">
+            <option rowkey="0" selected="true" tid=".authtype-nologinrequired" />
             <option rowkey="1" tid=".authtype-allwebhareaccounts" />
             <option rowkey="2" tid=".authtype-somewebhareaccounts" />
           </select>
           <panel />
-
           <panel layout="left">
-            <checkbox title="" name="authlist" labeltid=".authlist" />
+            <checkbox name="authlist" labeltid=".authlist" title="" />
             <line>
-              <checkbox title="" labeltid=".externalscript" name="externalscript" enablecomponents="externalscriptname" />
-              <textedit name="externalscriptname" title="" errorlabeltid=".externalscript_error" required="true" width="1pr" />
+              <checkbox name="externalscript" enablecomponents="externalscriptname" labeltid=".externalscript" title="" />
+              <textedit name="externalscriptname" width="1pr" errorlabeltid=".externalscript_error" required="true" title="" />
             </line>
           </panel>
         </tab>
-
         <tab tid=".hostingsource">
           <grid>
             <col />
             <col width="1pr" />
             <row>
-              <cell layout="left" colspan="2">
-                <radiobutton group="hostingsrc" rowkey="0" title="" name="hostingsrc_standard" labeltid=".hostingsrc-standard" />
+              <cell colspan="2" layout="left">
+                <radiobutton name="hostingsrc_standard"
+                             group="hostingsrc"
+                             labeltid=".hostingsrc-standard"
+                             rowkey="0"
+                             title="" />
               </cell>
             </row>
-
             <row>
               <cell layout="left">
-                <radiobutton group="hostingsrc" rowkey="2" title="" enablecomponents="alternatepath" name="hostingsrc_alternate" labeltid=".hostingsrc-alternate"/>
+                <radiobutton name="hostingsrc_alternate"
+                             enablecomponents="alternatepath"
+                             group="hostingsrc"
+                             labeltid=".hostingsrc-alternate"
+                             rowkey="2"
+                             title="" />
               </cell>
               <cell layout="left">
-                <browseserverpath title="" name="alternatepath" errorlabeltid=".hostingsrc-alternate" allowmanualedit="true" required="true"/>
+                <browseserverpath name="alternatepath"
+                                  allowmanualedit="true"
+                                  errorlabeltid=".hostingsrc-alternate"
+                                  required="true"
+                                  title="" />
               </cell>
             </row>
-
             <row>
               <cell layout="left">
-                <radiobutton group="hostingsrc" rowkey="3" title="" enablecomponents="singlefilepath" name="hostingsrc_singlefile" labeltid=".hostingsrc-singlefile"/>
+                <radiobutton name="hostingsrc_singlefile"
+                             enablecomponents="singlefilepath"
+                             group="hostingsrc"
+                             labeltid=".hostingsrc-singlefile"
+                             rowkey="3"
+                             title="" />
               </cell>
               <cell layout="left">
-                <browseserverpath title="" name="singlefilepath" errorlabeltid=".hostingsrc-singlefile" allowmanualedit="true" required="true"/>
+                <browseserverpath name="singlefilepath"
+                                  allowmanualedit="true"
+                                  errorlabeltid=".hostingsrc-singlefile"
+                                  required="true"
+                                  title="" />
               </cell>
             </row>
-
             <row>
               <cell layout="left">
-                <radiobutton group="hostingsrc" rowkey="4" title="" enablecomponents="redirectpath keepsubpath redirectcode" name="hostingsrc_redirect" labeltid=".hostingsrc-redirect"/>
+                <radiobutton name="hostingsrc_redirect"
+                             enablecomponents="redirectpath keepsubpath redirectcode"
+                             group="hostingsrc"
+                             labeltid=".hostingsrc-redirect"
+                             rowkey="4"
+                             title="" />
               </cell>
               <cell layout="left">
-                <textedit name="redirectpath" title="" required="true" errorlabeltid=".hostingsrc-redirect" validationchecks="http-url" />
-                <checkbox name="keepsubpath" title="" labeltid=".keepsubpath"/>
+                <textedit name="redirectpath"
+                          errorlabeltid=".hostingsrc-redirect"
+                          required="true"
+                          title=""
+                          validationchecks="http-url" />
+                <checkbox name="keepsubpath" labeltid=".keepsubpath" title="" />
                 <select name="redirectcode" type="pulldown" rowkeytype="integer">
-                  <option rowkey="301" selected="true"/>
+                  <option rowkey="301" selected="true" />
                   <option rowkey="302" />
                   <option rowkey="303" />
                   <option rowkey="307" />
                 </select>
               </cell>
             </row>
-
             <row>
               <cell layout="left">
-                <radiobutton group="hostingsrc" rowkey="6" title="" enablecomponents="installmodule" name="hostingsrc_module" labeltid=".hostingsrc-module" />
+                <radiobutton name="hostingsrc_module"
+                             enablecomponents="installmodule"
+                             group="hostingsrc"
+                             labeltid=".hostingsrc-module"
+                             rowkey="6"
+                             title="" />
               </cell>
               <cell layout="left">
-                <select name="installmodule" type="pulldown" title="" errorlabeltid=".hostingsrc-module" required="true"/>
+                <select name="installmodule" type="pulldown" errorlabeltid=".hostingsrc-module" required="true" title="" />
               </cell>
             </row>
           </grid>
           <line layout="left">
-            <checkbox name="fixcase" title="" labeltid=".fixcase" />
+            <checkbox name="fixcase" labeltid=".fixcase" title="" />
           </line>
           <browseserverpath name="errorpath" allowmanualedit="true" />
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="ipfilters" gid=".ipfilters" tid=".title" width="120x" height="30x" allowresize="true" >
+  <screen name="ipfilters" width="120x" height="30x" allowresize="true" gid=".ipfilters" tid=".title">
     <actions>
-      <action name="act_submit" onexecute="submit" tid="tollium:common.actions.close" />
-      <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
-      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
-        <enableon source="ipfilterlist" min="1" max="1"/>
+      <action name="act_submit" onexecute="submit" tid="~close" />
+      <action name="add" onexecute="doadd" tid="~add" />
+      <action name="edit" onexecute="doedit" tid="~edit">
+        <enableon source="ipfilterlist" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete">
-        <enableon source="ipfilterlist" min="1" max="1"/>
+      <action name="delete" onexecute="dodelete" tid="~delete">
+        <enableon source="ipfilterlist" min="1" max="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="sel">
-        <item action="edit" disablemode="hidden"/>
-        <item action="delete" disablemode="hidden"/>
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
       </menu>
       <menu name="nosel">
-        <item action="add" disablemode="hidden"/>
+        <item action="add" disablemode="hidden" />
       </menu>
     </menus>
+
     <body height="1pr">
       <panel name="warningpanel" spacers="bottom" visible="false">
-        <panel name="warningbar" height="24px" layout="left" backgroundcolor="#FFFEE2" borders="all">
+        <panel name="warningbar" height="24px" backgroundcolor="#FFFEE2" borders="all" layout="left">
           <line>
-            <image value="tollium:messageboxes/warning" width="16px" height="16px" title="" />
+            <image width="16px" height="16px" title="" value="tollium:messageboxes/warning" />
             <text valuetid=".allowwithoutdeny" />
           </line>
         </panel>
@@ -230,12 +262,12 @@
               <list name="ipfilterlist"
                     height="1pr"
                     gid=".columns"
-                    selectcontextmenu="sel"
                     newcontextmenu="nosel"
                     openaction="edit"
+                    selectcontextmenu="sel"
                     selectmode="single">
-                <column type="text" width="1pr" name="mask" />
-                <column type="text" width="1pr" name="status" />
+                <column name="mask" type="text" width="1pr" />
+                <column name="status" type="text" width="1pr" />
               </list>
             </panel>
           </cell>
@@ -247,14 +279,15 @@
         </row>
       </grid>
     </body>
+
     <footer>
       <line layout="right">
-        <button action="act_submit" tid="tollium:common.actions.close" />
+        <button action="act_submit" tid="~close" />
       </line>
     </footer>
   </screen>
 
-  <screen name="updateipfilter" gid=".updateipfilter" tid=".title">
+  <screen name="updateipfilter" footerbuttons="ok cancel" gid=".updateipfilter" tid=".title">
     <body>
       <textedit name="mask" required="true" />
       <panel layout="left">
@@ -264,12 +297,9 @@
         </select>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
-  <screen name="webhareusers" gid=".webhareusers" width="120x" height="30x" allowresize="true">
+  <screen name="webhareusers" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".webhareusers">
     <body>
       <grid height="1pr">
         <col width="1pr" />
@@ -279,36 +309,33 @@
             <includefragment name="objectrightslist" fragment="userrights/parts/objectrightslist.objectrightslist" />
           </cell>
           <cell>
-            <button action="objectrightslist->grantrightonobject" width="1pr" />
-            <button action="objectrightslist->edit" width="1pr" />
-            <button action="objectrightslist->revokerightonobject" width="1pr" />
+            <button width="1pr" action="objectrightslist->grantrightonobject" />
+            <button width="1pr" action="objectrightslist->edit" />
+            <button width="1pr" action="objectrightslist->revokerightonobject" />
           </cell>
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-  <screen name="externalusers" gid=".externalusers" minwidth="120x" minheight="30x" allowresize="true">
+  <screen name="externalusers" minwidth="120x" minheight="30x" allowresize="true" footerbuttons="close" gid=".externalusers">
     <actions>
-      <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
-      <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
-        <enableon source="userlist" min="1" max="1"/>
+      <action name="add" onexecute="doadd" tid="~add" />
+      <action name="edit" onexecute="doedit" tid="~edit">
+        <enableon source="userlist" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="tollium:common.actions.delete">
+      <action name="delete" onexecute="dodelete" tid="~delete">
         <enableon source="userlist" min="1" />
       </action>
     </actions>
 
     <menus>
       <menu name="sel">
-        <item action="edit" disablemode="hidden"/>
-        <item action="delete" disablemode="hidden"/>
+        <item action="edit" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
       </menu>
       <menu name="nosel">
-        <item action="add" disablemode="hidden"/>
+        <item action="add" disablemode="hidden" />
       </menu>
     </menus>
 
@@ -322,12 +349,12 @@
               <list name="userlist"
                     height="1pr"
                     gid=".columns"
-                    selectcontextmenu="sel"
                     newcontextmenu="nosel"
                     openaction="edit"
+                    selectcontextmenu="sel"
                     selectmode="multiple">
-                <column type="text" width="1pr" name="username" />
-                <column type="text" width="1pr" name="description" />
+                <column name="username" type="text" width="1pr" />
+                <column name="description" type="text" width="1pr" />
               </list>
             </panel>
           </cell>
@@ -339,21 +366,15 @@
         </row>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
-  <screen name="updateexternaluser" gid=".updateexternaluser">
+  <screen name="updateexternaluser" footerbuttons="ok cancel" gid=".updateexternaluser">
     <body width="1pr" height="1pr">
       <textedit name="username" required="true" />
       <textedit name="password" password="true" required="true" />
       <textedit name="password_again" password="true" required="true" />
       <textarea name="description" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

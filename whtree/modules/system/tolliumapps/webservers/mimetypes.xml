@@ -1,43 +1,36 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="mimetypes.whlib"
-         gid="tolliumapps.webservers.mimetypes">
+         gid="tolliumapps.webservers.mimetypes"
+         library="mimetypes.whlib">
 
-  <screen name="mimetypes" gid=".mimetypes" tid=".title" width="120x" height="30x" allowresize="true">
+  <screen name="mimetypes" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".mimetypes" tid=".title">
     <body height="1pr">
       <panel height="1pr">
         <listedit name="mimetypelist"
-              height="1pr"
-              gid=".columns"
-              ongetrows="ongetmimetypes"
-              onrowedit="onrowedit"
-              onrowdelete="onrowdelete">
-          <column type="text" width="10x" name="extension" />
-          <column type="text" width="2pr" name="mimetype" />
-          <column type="text" width="30x" name="handling" />
+                  height="1pr"
+                  gid=".columns"
+                  ongetrows="ongetmimetypes"
+                  onrowdelete="onrowdelete"
+                  onrowedit="onrowedit">
+          <column name="extension" type="text" width="10x" />
+          <column name="mimetype" type="text" width="2pr" />
+          <column name="handling" type="text" width="30x" />
         </listedit>
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="mimetype" gid=".mimetype">
+  <screen name="mimetype" footerbuttons="ok cancel" gid=".mimetype">
     <compositions>
       <radiogroup name="parsetype" />
     </compositions>
+
     <body>
       <textedit name="extension" required="true" />
       <textedit name="mimetype" required="true" />
-
-      <radiobutton group="parsetype" rowkey="0" tid=".parsetype" labeltid=".parsetype-0" />
-      <radiobutton group="parsetype" rowkey="4" title="" labeltid=".parsetype-4" />
-      <radiobutton group="parsetype" rowkey="2" title="" labeltid=".parsetype-2" />
+      <radiobutton group="parsetype" labeltid=".parsetype-0" rowkey="0" tid=".parsetype" />
+      <radiobutton group="parsetype" labeltid=".parsetype-4" rowkey="4" title="" />
+      <radiobutton group="parsetype" labeltid=".parsetype-2" rowkey="2" title="" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>
