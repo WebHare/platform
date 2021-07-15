@@ -3,7 +3,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
-PUBLIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
 <
   RECORD ARRAY FUNCTION OnGetMimetypes()
   {
@@ -43,7 +43,7 @@ PUBLIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
 <
   INTEGER mimetypeid;
 
@@ -55,16 +55,16 @@ PUBLIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
     {
       RECORD data := SELECT * FROM system.mimetypes WHERE id = this->mimetypeid;
 
-      this->extension->value := data.extension;
-      this->mimetype->value := data.mimetype;
-      this->parsetype->value := ToString(data.parsetype);
+      ^extension->value := data.extension;
+      ^mimetype->value := data.mimetype;
+      ^parsetype->value := ToString(data.parsetype);
 
       this->frame->title := this->GetTid(".windowtitle_edit", data.extension);
     }
     ELSE
     {
       this->frame->title := this->GetTid(".windowtitle_add");
-      this->parsetype->value := "0";
+      ^parsetype->value := "0";
     }
   }
 
@@ -72,28 +72,28 @@ PUBLIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
 
-    IF (this->extension->value != "")
+    IF (^extension->value != "")
     {
-      IF (Left(this->extension->value,1)=".")
+      IF (Left(^extension->value,1)=".")
         work->AddError(this->GetTid(".errors.extension_starting_dot"));
       // Check duplicate
       ELSE IF (RecordExists(SELECT FROM system.mimetypes
-                             WHERE ToUpperCase(extension) = ToUpperCase(this->extension->value)
+                             WHERE ToUpperCase(extension) = ToUpperCase(^extension->value)
                                    AND id != this->mimetypeid))
-        work->AddError(this->GetTid(".errors.duplicate_extension", this->extension->value));
+        work->AddError(this->GetTid(".errors.duplicate_extension", ^extension->value));
     }
 
     IF (this->mimetypeid = 0) // Add
     {
       INSERT INTO system.mimetypes (extension, mimetype, parsetype)
-           VALUES (this->extension->value, this->mimetype->value, ToInteger(this->parsetype->value,0));
+           VALUES (^extension->value, ^mimetype->value, ToInteger(^parsetype->value,0));
     }
     ELSE // Edit
     {
       UPDATE system.mimetypes
-         SET extension := this->extension->value
-           , mimetype := this->mimetype->value
-           , parsetype := ToInteger(this->parsetype->value,0)
+         SET extension := ^extension->value
+           , mimetype := ^mimetype->value
+           , parsetype := ToInteger(^parsetype->value,0)
        WHERE id = this->mimetypeid;
     }
 

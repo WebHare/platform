@@ -63,7 +63,7 @@ MACRO ValidateDirectCollisions(OBJECT feedback, OBJECT field, STRING hostname, I
   }
 }
 
-PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   RECORD ARRAY allwebs;
   INTEGER numrootrules;
@@ -174,15 +174,15 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                           , status := 0
                           , statusmessage := ""
                          ]];
-    IF(this->filter->value != "")
+    IF(^filter->value != "")
     {
-      rows := this->ApplyFilters(rows, this->filter->value);
-      this->webserverslist->empty := this->GetTid(".nofiltermatch", this->filter->value);
+      rows := this->ApplyFilters(rows, ^filter->value);
+      ^webserverslist->empty := this->GetTid(".nofiltermatch", ^filter->value);
     }
-    this->webserverslist->rows := rows;
+    ^webserverslist->rows := rows;
 
-    IF(this->filter->value != "") //using filters requires us to expand all
-      this->webserverslist->expanded := SELECT AS STRING ARRAY rowkey FROM this->webserverslist->rows;
+    IF(^filter->value != "") //using filters requires us to expand all
+      ^webserverslist->expanded := SELECT AS STRING ARRAY rowkey FROM ^webserverslist->rows;
   }
 
   RECORD ARRAY FUNCTION ApplyFilters(RECORD ARRAY inrows, STRING filter)
@@ -267,7 +267,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     //note: a group is also considered a webserver
     STRING ARRAY droppedwebserverskeys := SELECT AS STRING ARRAY "w" || items.data.rowkey FROM dropdata.items;
     RECORD ARRAY droppedwebservers := SELECT *
-                                        FROM this->webserverslist->rows
+                                        FROM ^webserverslist->rows
                                        WHERE rowkey IN droppedwebserverskeys;
 
     INTEGER newparent := this->FindGroup(target);
@@ -285,7 +285,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     STRING ARRAY droppedaliaskeys := SELECT AS STRING ARRAY "a" || items.data.rowkey FROM dropdata.items;
     RECORD ARRAY droppedalias := SELECT *
-                                  FROM this->webserverslist->rows
+                                  FROM ^webserverslist->rows
                                  WHERE rowkey IN droppedaliaskeys;
 
     OBJECT work := this->beginwork();
@@ -301,20 +301,20 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoAddWebServer()
   {
     OBJECT screen := this->LoadScreen(".updatewebserver", [ id := 0
-                                                          , parent := this->FindGroup(this->webserverslist->selection)
+                                                          , parent := this->FindGroup(^webserverslist->selection)
                                                           ] );
 
     IF (screen->RunModal() = "ok")
     {
       this->ReloadWebservers();
-      this->webserverslist->value := ["w" || screen->newwebserverid];
+      ^webserverslist->value := ["w" || screen->newwebserverid];
     }
   }
 
   MACRO DoAddGroup()
   {
     OBJECT screen := this->LoadScreen(".webservergroup", [ id := 0
-                                                         , parent := this->FindGroup(this->webserverslist->selection)
+                                                         , parent := this->FindGroup(^webserverslist->selection)
                                                          ] );
     IF (screen->RunModal() = "ok")
       this->ReloadWebservers();
@@ -322,7 +322,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAddAlias()
   {
-    RECORD selection := this->webserverslist->selection;
+    RECORD selection := ^webserverslist->selection;
     OBJECT screen := this->LoadScreen(".updatealias", [ id := 0, webserver := selection.id ] );
 
     IF (screen->RunModal() = "ok")
@@ -331,11 +331,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoEdit()
   {
-    RECORD selection := this->webserverslist->selection;
+    RECORD selection := ^webserverslist->selection;
 
     IF(selection.isalias)
     {
-      OBJECT screen := this->LoadScreen(".updatealias", [ webserver := this->webserverslist->GetParentRow(selection.rowkey).id, id := selection.id ] );
+      OBJECT screen := this->LoadScreen(".updatealias", [ webserver := ^webserverslist->GetParentRow(selection.rowkey).id, id := selection.id ] );
       IF (screen->RunModal() = "ok")
         this->ReloadWebservers();
     }
@@ -355,14 +355,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoPreview(OBJECT openhandler)
   {
-    RECORD selection := this->webserverslist->selection;
+    RECORD selection := ^webserverslist->selection;
     IF(selection.iswebserver)
     {
       openhandler->SendURL(selection.webserver);
     }
     ELSE IF(selection.isalias)
     {
-      RECORD parentrow := this->webserverslist->GetParentRow(selection.rowkey);
+      RECORD parentrow := ^webserverslist->GetParentRow(selection.rowkey);
       RECORD url := UnpackURL(parentrow.webserver);
       url.host := selection.webserver;
       openhandler->SendURL(RepackURL(url));
@@ -403,13 +403,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAccessRules()
   {
-    this->RunScreen("accessrules.xml#accessrules", [ id := this->webserverslist->selection[0].id ] );
+    this->RunScreen("accessrules.xml#accessrules", [ id := ^webserverslist->selection[0].id ] );
     this->ReloadWebservers();
   }
 
   MACRO DoDelete()
   {
-    RECORD ARRAY selection := this->webserverslist->selection;
+    RECORD ARRAY selection := ^webserverslist->selection;
     IF(RecordExists(SELECT FROM selection WHERE iswebserver AND id = this->tolliumcontroller->GetWebserverRequestData().webserver))
     {
       this->RunSimpleScreen("info", this->GetTid(".cannotdeleteyourserver", selection[0].webserver));
@@ -433,7 +433,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
     ELSE IF(selection[0].isgroup)
     {
-      IF(RecordExists(SELECT FROM this->webserverslist->rows WHERE parent = selection[0].id))
+      IF(RecordExists(SELECT FROM ^webserverslist->rows WHERE parent = selection[0].id))
       {
         IF(this->RunSimpleScreen("verify", this->GetTid(".verifydeletefilledgroup")) != "yes")
           RETURN;
@@ -481,7 +481,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
 < INTEGER webserverid;
   INTEGER parentid;
   INTEGER origboundto;
@@ -495,7 +495,7 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
 
     IF (params.id = 0) // Add
     {
-      this->extension->visible := FALSE;
+      ^extension->visible := FALSE;
     }
     ELSE //editing
     {
@@ -509,17 +509,17 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
 
       IF (have_versioned_sites)
       {
-        this->servertype->readonly := TRUE;
-        this->boundto->readonly := TRUE;
-        this->url->readonly := TRUE;
-        this->versioningmessagesbox->visible := TRUE;
+        ^servertype->readonly := TRUE;
+        ^boundto->readonly := TRUE;
+        ^url->readonly := TRUE;
+        ^versioningmessagesbox->visible := TRUE;
       }
 
       this->origboundto := webserverrec.port;
-      this->folder->value := FormatOutputPath(webserverrec.diskfolder);
-      this->url->value := webserverrec.baseurl;
-      this->extension->value := webserverrec.outputextension;
-      this->servertype->value := webserverrec.type = 0 AND webserverrec.diskfolder = "" ? -1 : webserverrec.type IN [0,1] ? webserverrec.type : 0;
+      ^folder->value := FormatOutputPath(webserverrec.diskfolder);
+      ^url->value := webserverrec.baseurl;
+      ^extension->value := webserverrec.outputextension;
+      ^servertype->value := webserverrec.type = 0 AND webserverrec.diskfolder = "" ? -1 : webserverrec.type IN [0,1] ? webserverrec.type : 0;
       ^stricttransportsecurity->value := webserverrec.stricttransportsecurity;
     }
 
@@ -542,27 +542,27 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
                                  AND id NOT IN usedports
                         ORDER BY port, ip;
 
-    this->boundto->options := [[ rowkey := 0, title := this->GetTid(".virtualhosted"), secure := FALSE ]]
+    ^boundto->options := [[ rowkey := 0, title := this->GetTid(".virtualhosted"), secure := FALSE ]]
                               CONCAT ports;
-    this->boundto->enabled := TRUE;
-    this->boundto->value := this->origboundto;
+    ^boundto->enabled := TRUE;
+    ^boundto->value := this->origboundto;
 
     // documentmap is not relevant for 'WebHare interface webserver' and will not be shown when creating a new webserver (you rarely change them!)
-    this->folder->visible := this->servertype->value = 0 AND this->webserverid != 0;
-    this->folder->required := this->servertype->value = 0 AND this->webserverid != 0;
-    this->extension->visible := this->servertype->value = 0 AND this->webserverid != 0;
+    ^folder->visible := ^servertype->value = 0 AND this->webserverid != 0;
+    ^folder->required := ^servertype->value = 0 AND this->webserverid != 0;
+    ^extension->visible := ^servertype->value = 0 AND this->webserverid != 0;
   }
 
   MACRO OnBindingChange()
   {
-    RECORD newbinding := this->boundto->selection;
+    RECORD newbinding := ^boundto->selection;
     IF(NOT RecordExists(newbinding) OR newbinding.rowkey=0)
       RETURN;
 
-    IF(newbinding.secure AND this->url->value LIKE "http:*")
-      this->url->value := "https:" || Substring(this->url->value, 5);
-    IF(NOT newbinding.secure AND this->url->value LIKE "https:*")
-      this->url->value := "http:" || Substring(this->url->value, 6);
+    IF(newbinding.secure AND ^url->value LIKE "http:*")
+      ^url->value := "https:" || Substring(^url->value, 5);
+    IF(NOT newbinding.secure AND ^url->value LIKE "https:*")
+      ^url->value := "http:" || Substring(^url->value, 6);
   }
 
   BOOLEAN FUNCTION Submit()
@@ -571,30 +571,30 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     //work->Validate(this->basesettingspage);
     OBJECT work := this->BeginWork();
 
-    RECORD unpacked_url := UnpackURL(this->url->value);
+    RECORD unpacked_url := UnpackURL(^url->value);
     IF (NOT IsValidIPAddress(unpacked_url.host) AND NOT IsValidHostName(Substitute(unpacked_url.host,"*","x"))) //allow '*' in validation
-      work->AddErrorFor(this->url, GetTid("tollium:validation.errors.invalid_hostname", this->url->title));
+      work->AddErrorFor(^url, GetTid("tollium:validation.errors.invalid_hostname", ^url->title));
 
-    IF(this->boundto->value != 0) //specific binding, so verify http/https
+    IF(^boundto->value != 0) //specific binding, so verify http/https
     {
-      BOOLEAN issecure := RecordExists(SELECT FROM system.ports WHERE COLUMN keypair != 0 AND id = this->boundto->value);
+      BOOLEAN issecure := RecordExists(SELECT FROM system.ports WHERE COLUMN keypair != 0 AND id = ^boundto->value);
       IF(unpacked_url.scheme = "http" AND issecure)
-        work->AddErrorFor(this->url, this->GetTid(".bindingrequireshttps"));
+        work->AddErrorFor(^url, this->GetTid(".bindingrequireshttps"));
       IF(unpacked_url.scheme = "https" AND NOT issecure)
-        work->AddErrorFor(this->url, this->GetTid(".bindingrequireshttp"));
+        work->AddErrorFor(^url, this->GetTid(".bindingrequireshttp"));
     }
     ELSE//vhosted local server
     {
-      ValidateDirectCollisions(work, this->url, unpacked_url.host, this->webserverid, 0);
+      ValidateDirectCollisions(work, ^url, unpacked_url.host, this->webserverid, 0);
     }
 
     IF(unpacked_url.urlpath!="")
-      work->AddErrorFor(this->url, this->GetTid(".urlnosubpath"));
+      work->AddErrorFor(^url, this->GetTid(".urlnosubpath"));
 
     IF(work->HasFailed())
       RETURN work->Finish();
 
-    IF(this->webserverid = 0 AND this->servertype->value = 0) //generate output path?
+    IF(this->webserverid = 0 AND ^servertype->value = 0) //generate output path?
     {
       STRING basefolder := GetWebserverBaseOutputFolder();
 
@@ -609,7 +609,7 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
 
         IF(NOT RecordExists(SELECT FROM system.webservers WHERE ToUppercase(diskfolder) = ToUppercase(tryfolder)))
         {
-          this->folder->value := tryfolder;
+          ^folder->value := tryfolder;
           BREAK;
         }
       }
@@ -644,16 +644,16 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
       }
     }
 
-    STRING url := this->url->value;
+    STRING url := ^url->value;
     IF(url NOT LIKE "*/")
       url := url || "/";
 
     UPDATE system.webservers
-       SET diskfolder := this->servertype->value = 0 ? UnmapOutputPath(this->folder->value) : ""
+       SET diskfolder := ^servertype->value = 0 ? UnmapOutputPath(^folder->value) : ""
          , baseurl := url
-         , outputextension := this->servertype->value = 0 ? this->extension->value : ".html"
-         , type := this->servertype->value = -1 ? 0 : this->servertype->value
-         , port := this->boundto->value
+         , outputextension := ^servertype->value = 0 ? ^extension->value : ".html"
+         , type := ^servertype->value = -1 ? 0 : ^servertype->value
+         , port := ^boundto->value
          , stricttransportsecurity := ^stricttransportsecurity->value
      WHERE id = webserverid;
 
@@ -679,7 +679,7 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
 <
   INTEGER groupid;
   INTEGER parentid;
@@ -691,7 +691,7 @@ PUBLIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
     IF (this->groupid != 0)
     {
       RECORD grouprec := SELECT * FROM system.webservers WHERE id = this->groupid AND type=6;
-      this->title->value := grouprec.title;
+      ^title->value := grouprec.title;
     }
     ELSE
     {
@@ -705,11 +705,11 @@ PUBLIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
 
     IF (this->groupid = 0)
     {
-      INSERT INTO system.webservers(title, parent, type) VALUES (this->title->value, this->parentid, 6);
+      INSERT INTO system.webservers(title, parent, type) VALUES (^title->value, this->parentid, 6);
     }
     ELSE
     {
-      UPDATE system.webservers SET title := this->title->value WHERE id = this->groupid;
+      UPDATE system.webservers SET title := ^title->value WHERE id = this->groupid;
     }
 
     IF(NOT work->Finish())
@@ -721,7 +721,7 @@ PUBLIC OBJECTTYPE WebserverGroup EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateAlias EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateAlias EXTEND TolliumScreenBase
 <
   INTEGER id;
   INTEGER webserver;
@@ -734,34 +734,34 @@ PUBLIC OBJECTTYPE UpdateAlias EXTEND TolliumScreenBase
     IF(data.id != 0)
     {
       RECORD aliasinfo := SELECT * FROM system.webservers_aliases WHERE id=this->id;
-      this->hostname->value := aliasinfo.hostname;
-      this->explicit->value := aliasinfo.explicit;
+      ^hostname->value := aliasinfo.hostname;
+      ^explicit->value := aliasinfo.explicit;
     }
   }
 
   BOOLEAN FUNCTION Submit()
   {
     OBJECT feedback := this->BeginFeedback();
-    IF (NOT IsValidIPAddress(this->hostname->value) AND NOT IsValidHostName(Substitute(this->hostname->value,"*","x"))) //allow '*' in validation
-      feedback->AddErrorFor(this->hostname, GetTid("tollium:validation.errors.invalid_hostname", this->hostname->title));
+    IF (NOT IsValidIPAddress(^hostname->value) AND NOT IsValidHostName(Substitute(^hostname->value,"*","x"))) //allow '*' in validation
+      feedback->AddErrorFor(^hostname, GetTid("tollium:validation.errors.invalid_hostname", ^hostname->title));
     IF(NOT feedback->Finish())
       RETURN FALSE;
 
     OBJECT work := this->BeginWork();
 
-    ValidateDirectCollisions(work, this->hostname, this->hostname->value, 0, this->id); //verify against conflicts
+    ValidateDirectCollisions(work, ^hostname, ^hostname->value, 0, this->id); //verify against conflicts
 
     IF(work->HasFailed())
       RETURN work->Finish();
 
     IF(this->id = 0)
     {
-      INSERT INTO system.webservers_aliases(webserver,hostname,explicit) VALUES(this->webserver, this->hostname->value,this->explicit->value);
+      INSERT INTO system.webservers_aliases(webserver,hostname,explicit) VALUES(this->webserver, ^hostname->value, ^explicit->value);
     }
     ELSE
     {
-      UPDATE system.webservers_aliases SET hostname := this->hostname->value
-                                         , explicit := this->explicit->value
+      UPDATE system.webservers_aliases SET hostname := ^hostname->value
+                                         , explicit := ^explicit->value
                                      WHERE id = this->id;
     }
 
@@ -774,18 +774,18 @@ PUBLIC OBJECTTYPE UpdateAlias EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
     RECORD now := UnpackDatetime(GetCurrentDatetime());
-    this->startdate->value := MakeDate(now.month=1 ? now.year-1 : now.year, now.month = 1 ? 12 : now.month-1, 1);
-    this->enddate->value := AddDaysToDate(-1, AddMonthsToDate(1, this->startdate->value));
+    ^startdate->value := MakeDate(now.month=1 ? now.year-1 : now.year, now.month = 1 ? 12 : now.month-1, 1);
+    ^enddate->value := AddDaysToDate(-1, AddMonthsToDate(1, ^startdate->value));
   }
 
   MACRO DoExport(OBJECT filereceiver)
   {
-    filereceiver->SendWrappedFile(GetWebserverUsageStatsAsXLSX([GetRawWebserverUsageStats(this->startdate->value, AddDaysToDate(1,this->enddate->value))]));
+    filereceiver->SendWrappedFile(GetWebserverUsageStatsAsXLSX([GetRawWebserverUsageStats(^startdate->value, AddDaysToDate(1, ^enddate->value))]));
   }
 >;
 

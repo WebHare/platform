@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD params)
   {
@@ -37,10 +37,10 @@ PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
     RECORD ARRAY proxies :=
         SELECT *
              , lastregistration
-             , status :=  this->proxylist->GetIcon(this->GetStatusIcon(status))
+             , status :=  ^proxylist->GetIcon(this->GetStatusIcon(status))
           FROM system.proxies;
 
-    this->proxylist->rows :=
+    ^proxylist->rows :=
         SELECT rowkey := id
              , url
              , yourproxy := id = currentproxy
@@ -54,28 +54,28 @@ PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
   {
     OBJECT screen := this->LoadScreen(".updateproxy", [ id := 0 ]);
     IF (screen->RunModal() = "ok")
-      this->proxylist->value := screen->id;
+      ^proxylist->value := screen->id;
   }
 
   MACRO DoEditProxy()
   {
-    OBJECT screen := this->LoadScreen(".updateproxy", [ id := this->proxylist->value ]);
+    OBJECT screen := this->LoadScreen(".updateproxy", [ id := ^proxylist->value ]);
     screen->RunModal();
   }
 
   MACRO DoDeleteProxy()
   {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteproxy", this->proxylist->selection.url)) != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteproxy", ^proxylist->selection.url)) != "yes")
       RETURN;
 
-    IF(NOT UnregisterWebhareProxy(this->proxylist->value))
+    IF(NOT UnregisterWebhareProxy(^proxylist->value))
     {
       IF (this->RunSimpleScreen("confirm", this->GetTid(".unregisterfailedsuredelete")) != "yes")
         RETURN;
     }
 
     OBJECT work := this->BeginUnvalidatedWork();
-    DeleteWebhareProxy(this->proxylist->value);
+    DeleteWebhareProxy(^proxylist->value);
     work->Finish();
   }
 
@@ -85,7 +85,7 @@ PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
 <
   INTEGER proxyid;
 
@@ -98,10 +98,10 @@ PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     this->proxyid := data.id;
     IF (this->proxyid != 0)
     {
-      this->row->value := SELECT * FROM system.proxies WHERE id = data.id;
-      this->tested := this->row->value;
+      ^row->value := SELECT * FROM system.proxies WHERE id = data.id;
+      this->tested := ^row->value;
     }
-    this->reverseaddress->placeholder := "http://.....:" || GetWebHareConfiguration().baseport + 5;
+    ^reverseaddress->placeholder := "http://.....:" || GetWebHareConfiguration().baseport + 5;
   }
 
   BOOLEAN FUNCTION DoTest(BOOLEAN hidepositivefeedback DEFAULTSTO FALSE)
@@ -110,12 +110,12 @@ PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     IF(feedback->HasFailed())
       RETURN feedback->Finish();
 
-    RECORD testresult := TestWebHareProxy(this->row->value.url, this->row->value.password, this->row->value.reverseaddress);
+    RECORD testresult := TestWebHareProxy(^row->value.url, ^row->value.password, ^row->value.reverseaddress);
     IF(testresult.success)
     {
       IF (NOT hidepositivefeedback)
         this->RunSimpleScreen("info", this->GetTid(".testok"));
-      this->tested := this->row->value;
+      this->tested := ^row->value;
       RETURN feedback->Finish();
     }
     ELSE
@@ -130,7 +130,7 @@ PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     IF (NOT this->BeginFeedback()->Finish())
       RETURN FALSE;
 
-    IF (NOT RecordExists(this->tested) OR NOT RecordLowerBound([ this->tested ], this->row->value,
+    IF (NOT RecordExists(this->tested) OR NOT RecordLowerBound([ this->tested ], ^row->value,
         [ "URL"
         , "PASSWORD"
         , "REVERSEADDRESS"
@@ -141,7 +141,7 @@ PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     }
 
     OBJECT work := this->BeginWork();
-    INTEGER id := SetWebHareProxy(this->proxyid, this->row->value);
+    INTEGER id := SetWebHareProxy(this->proxyid, ^row->value);
     IF (NOT work->Finish())
       RETURN FALSE;
 

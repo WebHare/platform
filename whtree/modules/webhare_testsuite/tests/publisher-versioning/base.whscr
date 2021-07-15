@@ -350,22 +350,18 @@ ASYNC MACRO SystemWebservers()
   // ------
   // Test: edit of URL of webserver with versioned sites is disallowed
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:webservers", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:webservers"));
 
   TT("webserverslist")->selection := SELECT * FROM TT("webserverslist")->rows WHERE rowkey = "w" || testfw->GetTestSite()->outputweb;
   TestEq(TRUE, RecordExists(TT("webserverslist")->selection));
-  AWAIT ExpectScreenChange(+1, PTR topscreen->edit->ProcessInboundMessage("execute", [ rule := 0 ]));
+  AWAIT ExpectScreenChange(+1, PTR topscreen->^edit->ProcessInboundMessage("execute", [ rule := 0 ]));
 
   TestEQ(TRUE, TT("servertype")->readonly, "Servertype field should be readonly");
   TestEQ(TRUE, TT("boundto")->readonly, "Bound to field should be readonly");
   TestEQ(TRUE, TT("url")->readonly, "URL field should be readonly");
 
-  //cancel props
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-  //close webservers
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-
-  // ADDME: ** adding/deleting aliases of webserver with versioned sites is allowed
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //cancel props
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close webservers
 }
 
 MACRO TestOrderingAndVersionNumbers()

@@ -29,7 +29,7 @@ RECORD ARRAY FUNCTION GetAvailableModuleRoleSets()
 }
 
 
-PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 <
   INTEGER webserverid;
 
@@ -79,7 +79,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO DoEdit()
   {
-    OBJECT screen := this->LoadScreen(".updateaccessrule", [ id := this->accessrulelist->value[0], webserver := this->webserverid ] );
+    OBJECT screen := this->LoadScreen(".updateaccessrule", [ id := ^accessrulelist->value[0], webserver := this->webserverid ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -88,12 +88,12 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
   MACRO DoView(OBJECT urlreceiver)
   {
     STRING webserverroot := SELECT AS STRING baseurl FROM system.webservers WHERE id = this->webserverid;
-    urlreceiver->SendURL(webserverroot || Substring(this->accessrulelist->selection[0].path,1));
+    urlreceiver->SendURL(webserverroot || Substring(^accessrulelist->selection[0].path,1));
   }
 
   MACRO DoIPFilters()
   {
-    OBJECT screen := this->LoadScreen(".ipfilters", [ id := this->accessrulelist->value[0] ] );
+    OBJECT screen := this->LoadScreen(".ipfilters", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -101,7 +101,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO DoWebhareUsers()
   {
-    OBJECT screen := this->LoadScreen(".webhareusers", [ id := this->accessrulelist->value[0] ] );
+    OBJECT screen := this->LoadScreen(".webhareusers", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -109,7 +109,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO DoExternalUsers()
   {
-    OBJECT screen := this->LoadScreen(".externalusers", [ id := this->accessrulelist->value[0] ] );
+    OBJECT screen := this->LoadScreen(".externalusers", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -123,7 +123,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     OBJECT work := this->beginwork();
 
     DELETE FROM system.access
-           WHERE id IN this->accessrulelist->value;
+           WHERE id IN ^accessrulelist->value;
 
     IF (NOT work->Finish())
       RETURN;
@@ -134,7 +134,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
 <
   INTEGER accessid;
   INTEGER webserverid;
@@ -149,51 +149,51 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
 
     RECORD accessrec := SELECT * FROM system.access WHERE id = this->accessid;
 
-    this->hostingsrc->value := "0";
-    this->installmodule->options := [[rowkey:="",title:="",invalidselection:=TRUE]] CONCAT GetAvailableModuleRoleSets();
+    ^hostingsrc->value := "0";
+    ^installmodule->options := [[rowkey:="",title:="",invalidselection:=TRUE]] CONCAT GetAvailableModuleRoleSets();
 
     IF(this->webserverid = 0)
-      this->appliesto->value := this->GetTid(".allservers");
+      ^appliesto->value := this->GetTid(".allservers");
     ELSE
-      this->appliesto->value := SELECT AS STRING baseurl FROM system.webservers WHERE id=this->webserverid;
+      ^appliesto->value := SELECT AS STRING baseurl FROM system.webservers WHERE id=this->webserverid;
 
     IF (RecordExists(accessrec))
     {
-      this->enabled->value := NOT accessrec.disabled;
-      this->path->value := accessrec.path;
-      this->errorpath->value := FormatOutputPath(accessrec.errorpath);
-      this->authtype->value := accessrec.authtype;
-      this->authrequirement->value := accessrec.authrequirement;
+      ^enabled->value := NOT accessrec.disabled;
+      ^path->value := accessrec.path;
+      ^errorpath->value := FormatOutputPath(accessrec.errorpath);
+      ^authtype->value := accessrec.authtype;
+      ^authrequirement->value := accessrec.authrequirement;
       this->SetHostingPath(accessrec.hostingsrc, accessrec.hostingpath, accessrec.redirectcode);
-      this->authlist->value := accessrec.authlist;
-      this->externalscript->value := accessrec.authscript != "";
-      this->externalscriptname->value := accessrec.authscript;
-      this->description->value := accessrec.description;
-      this->matchtype->value := accessrec.matchtype;
-      this->disablecaching->value := accessrec.disablecaching;
-      this->maxage->value := accessrec.maxage;
-      this->fixcase->value := accessrec.fixcase;
+      ^authlist->value := accessrec.authlist;
+      ^externalscript->value := accessrec.authscript != "";
+      ^externalscriptname->value := accessrec.authscript;
+      ^description->value := accessrec.description;
+      ^matchtype->value := accessrec.matchtype;
+      ^disablecaching->value := accessrec.disablecaching;
+      ^maxage->value := accessrec.maxage;
+      ^fixcase->value := accessrec.fixcase;
     }
   }
 
   STRING FUNCTION GetHostingPath()
   {
-    SWITCH (this->hostingsrc->value)
+    SWITCH (^hostingsrc->value)
     {
       CASE "2"
       {
-        STRING path := UnmapOutputPath(this->alternatepath->value);
+        STRING path := UnmapOutputPath(^alternatepath->value);
         IF(path NOT LIKE "*/")
           path := path || "/";
         RETURN path;
       }
-      CASE "3" { RETURN UnmapOutputPath(this->singlefilepath->value); }
+      CASE "3" { RETURN UnmapOutputPath(^singlefilepath->value); }
       CASE "4"
       {
         //Add slash if urlpath is empty and doesnt even have the slash to prevent 'http://nu.nl' as redirect (#1162)
-        RETURN this->redirectpath->value || (UnpackURL(this->redirectpath->value).urlpathslash ? "" : "/");
+        RETURN ^redirectpath->value || (UnpackURL(^redirectpath->value).urlpathslash ? "" : "/");
       }
-      CASE "6" { RETURN this->installmodule->value; }
+      CASE "6" { RETURN ^installmodule->value; }
     }
 
     RETURN "";
@@ -203,59 +203,30 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
   {
     SWITCH (hostingsrc)
     {
-      CASE 2 { this->alternatepath->value := FormatOutputPath(hostingpath); this->hostingsrc->value := "2"; }
-      CASE 3 { this->singlefilepath->value := FormatOutputPath(hostingpath); this->hostingsrc->value := "3"; }
+      CASE 2 { ^alternatepath->value := FormatOutputPath(hostingpath); ^hostingsrc->value := "2"; }
+      CASE 3 { ^singlefilepath->value := FormatOutputPath(hostingpath); ^hostingsrc->value := "3"; }
       CASE 4,5
       {
-        this->redirectpath->value := hostingpath;
-        this->hostingsrc->value := "4";
-        this->keepsubpath->value := hostingsrc=5;
-        IF(this->redirectcode->IsValidValue(redirectcode))
-          this->redirectcode->value := redirectcode;
+        ^redirectpath->value := hostingpath;
+        ^hostingsrc->value := "4";
+        ^keepsubpath->value := hostingsrc=5;
+        IF(^redirectcode->IsValidValue(redirectcode))
+          ^redirectcode->value := redirectcode;
       }
       CASE 6
       {
-        IF(this->installmodule->IsValidValue(hostingpath))
-          this->installmodule->value := hostingpath;
-        this->hostingsrc->value := "6";
+        IF(^installmodule->IsValidValue(hostingpath))
+          ^installmodule->value := hostingpath;
+        ^hostingsrc->value := "6";
       }
     }
   }
 
-  STRING FUNCTION GetHSRights()
-  {
-    STRING ARRAY parts;
-
-    IF (this->externaldb->value)
-      INSERT "REMOTEDB" INTO parts AT END;
-
-    IF (this->fulldb->value)
-      INSERT "FULLDB" INTO parts AT END;
-
-    IF (this->tcpip->value)
-      INSERT "TCPIP" INTO parts AT END;
-
-    IF (this->super->value)
-      INSERT "SUPER" INTO parts AT END;
-
-    RETURN DeTokenize(parts, ",");
-  }
-
-  MACRO SetHSRights(STRING hsrights)
-  {
-    STRING ARRAY parts := Tokenize(hsrights, ",");
-
-    this->externaldb->value := ("REMOTEDB" IN parts);
-    this->fulldb->value := ("FULLDB" IN parts);
-    this->tcpip->value := ("TCPIP" IN parts);
-    this->super->value := ("EXEC" IN parts) OR ("SUPER" IN parts);
-  }
-
   STRING FUNCTION GetSanitizedPath()
   {
-    STRING path := this->path->value;
+    STRING path := ^path->value;
 
-    IF (this->matchtype->value != 2 AND path NOT LIKE "/*") //make sure all non-wildcard paths start with a slash
+    IF (^matchtype->value != 2 AND path NOT LIKE "/*") //make sure all non-wildcard paths start with a slash
       path := "/" || path;
 
     RETURN path;
@@ -265,14 +236,14 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
 
-    IF (NOT this->authrequirement->value AND this->authtype->value = 0)
-      work->AddErrorFor(this->authtype, this->GetTid(".login_required"));
+    IF (NOT ^authrequirement->value AND ^authtype->value = 0)
+      work->AddErrorFor(^authtype, this->GetTid(".login_required"));
 
     STRING sanitizedpath := this->GetSanitizedPath();
 
-    IF (this->hostingsrc->value = "4" AND this->matchtype->value != 1 AND this->keepsubpath->value=TRUE)
+    IF (^hostingsrc->value = "4" AND ^matchtype->value != 1 AND ^keepsubpath->value=TRUE)
     {
-      work->AddErrorFor(this->hostingsrc, this->GetTid(".errors.cannot_redirect_to_initial_matchtype", this->GetTid(".matchtype"), this->GetTid(".matchtype-initial")));
+      work->AddErrorFor(^hostingsrc, this->GetTid(".errors.cannot_redirect_to_initial_matchtype", this->GetTid(".matchtype"), this->GetTid(".matchtype-initial")));
     }
 
     IF (work->HasFailed())
@@ -286,20 +257,20 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
 
     RECORD data :=
     [ path := sanitizedpath
-    , errorpath := UnmapOutputPath(this->errorpath->value)
-    , authtype := this->authtype->value
-    , authrequirement := this->authrequirement->value
-    , hostingsrc := ToInteger(this->hostingsrc->value, 0) + (this->keepsubpath->value ? 1 : 0)
+    , errorpath := UnmapOutputPath(^errorpath->value)
+    , authtype := ^authtype->value
+    , authrequirement := ^authrequirement->value
+    , hostingsrc := ToInteger(^hostingsrc->value, 0) + (^keepsubpath->value ? 1 : 0)
     , hostingpath := this->GetHostingPath()
-    , authlist := this->authlist->value
-    , authscript := this->externalscript->value ? this->externalscriptname->value : ""
-    , description := this->description->value
-    , matchtype := this->matchtype->value
-    , redirectcode := this->redirectcode->value
-    , disablecaching := this->disablecaching->value
-    , maxage := this->maxage->value
-    , fixcase := this->fixcase->value
-    , disabled := NOT this->enabled->value
+    , authlist := ^authlist->value
+    , authscript := ^externalscript->value ? ^externalscriptname->value : ""
+    , description := ^description->value
+    , matchtype := ^matchtype->value
+    , redirectcode := ^redirectcode->value
+    , disablecaching := ^disablecaching->value
+    , maxage := ^maxage->value
+    , fixcase := ^fixcase->value
+    , disabled := NOT ^enabled->value
     ];
 
     UPDATE system.access SET RECORD data WHERE id = this->accessid;
@@ -313,7 +284,7 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
 <
   INTEGER accessid;
 
@@ -325,13 +296,13 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION HaveAllowButNoDeny()
   {
-    RECORD ARRAY rows := this->ipfilterlist->rows;
+    RECORD ARRAY rows := ^ipfilterlist->rows;
     RETURN RecordExists(rows) AND NOT RecordExists(SELECT FROM rows WHERE NOT is_allow);
   }
 
   MACRO Refresh()
   {
-    this->ipfilterlist->rows :=
+    ^ipfilterlist->rows :=
       SELECT rowkey := mask
            , mask := CanonicalizeIPAddress(mask, TRUE)
            , status := is_allow ? this->GetTid(".allowed") : this->GetTid(".denied")
@@ -339,7 +310,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
         FROM system.access_ips
        WHERE accessid = this->accessid;
 
-    this->warningpanel->visible := this->HaveAllowButNoDeny();
+    ^warningpanel->visible := this->HaveAllowButNoDeny();
   }
 
   MACRO DoAdd()
@@ -352,7 +323,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
 
   MACRO DoEdit()
   {
-    OBJECT screen := this->LoadScreen(".updateipfilter", [ accessid := this->accessid, mask := this->ipfilterlist->value ] );
+    OBJECT screen := this->LoadScreen(".updateipfilter", [ accessid := this->accessid, mask := ^ipfilterlist->value ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -366,7 +337,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
 
       DELETE FROM system.access_ips
        WHERE accessid = this->accessid
-             AND mask = this->ipfilterlist->value;
+             AND mask = ^ipfilterlist->value;
 
       IF (NOT work->Finish())
         RETURN;
@@ -385,7 +356,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
 <
   INTEGER accessid;
   STRING oldmask;
@@ -403,19 +374,19 @@ PUBLIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
 
     IF (RecordExists(maskrec))
     {
-      this->mask->value := CanonicalizeIPAddress(maskrec.mask, TRUE);
-      this->allow_access->value := maskrec.is_allow;
+      ^mask->value := CanonicalizeIPAddress(maskrec.mask, TRUE);
+      ^allow_access->value := maskrec.is_allow;
     }
   }
 
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->beginwork();
-    STRING standardized_mask := CanonicalizeIPAddress(this->mask->value, TRUE);
+    STRING standardized_mask := CanonicalizeIPAddress(^mask->value, TRUE);
     IF(standardized_mask = "")
-      work->AddErrorFor(this->mask, this->GetTid(".errors.invalid_mask"));
+      work->AddErrorFor(^mask, this->GetTid(".errors.invalid_mask"));
     ELSE IF (this->oldmask = "" AND RecordExists(SELECT FROM system.access_ips WHERE accessid = this->accessid AND CanonicalizeIPAddress(mask, TRUE) = standardized_mask))
-      work->AddErrorFor(this->mask, this->GetTid(".errors.duplicate_mask"));
+      work->AddErrorFor(^mask, this->GetTid(".errors.duplicate_mask"));
 
     IF (work->HasFailed())
       RETURN work->Finish();
@@ -423,13 +394,13 @@ PUBLIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
     IF (this->oldmask = "")
     {
       INSERT INTO system.access_ips(accessid, mask, is_allow)
-           VALUES (this->accessid, standardized_mask, this->allow_access->value);
+           VALUES (this->accessid, standardized_mask, ^allow_access->value);
     }
     ELSE
     {
       UPDATE system.access_ips
          SET mask := standardized_mask
-           , is_allow := this->allow_access->value
+           , is_allow := ^allow_access->value
        WHERE accessid = this->accessid
              AND mask = this->oldmask;
     }
@@ -442,18 +413,18 @@ PUBLIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE WebhareUsers EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE WebhareUsers EXTEND TolliumScreenBase
 <
   INTEGER accessruleid;
 
   MACRO Init(RECORD params)
   {
-    this->objectrightslist->InitForCommonDialog();
-    this->objectrightslist->SelectObject("system:accessrules", params.id);
+    ^objectrightslist->InitForCommonDialog();
+    ^objectrightslist->SelectObject("system:accessrules", params.id);
   }
 >;
 
-PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
 <
   INTEGER accessruleid;
 
@@ -465,7 +436,7 @@ PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
 
   MACRO Refresh()
   {
-    this->userlist->rows :=
+    ^userlist->rows :=
       SELECT rowkey := username
            , username
            , description
@@ -483,7 +454,7 @@ PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
 
   MACRO DoEdit()
   {
-    OBJECT screen := this->LoadScreen(".updateexternaluser", [ accessrule := this->accessruleid, user := this->userlist->value[0] ] );
+    OBJECT screen := this->LoadScreen(".updateexternaluser", [ accessrule := this->accessruleid, user := ^userlist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
       this->Refresh();
@@ -496,7 +467,7 @@ PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
 
     OBJECT work := this->beginwork();
 
-    DELETE FROM system.access_externalusers WHERE accessid = this->accessruleid AND username IN this->userlist->value;
+    DELETE FROM system.access_externalusers WHERE accessid = this->accessruleid AND username IN ^userlist->value;
 
     IF (NOT work->Finish())
       RETURN;
@@ -507,7 +478,7 @@ PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
 < INTEGER accessruleid;
   STRING user;
   STRING oldusername_uc; // used to check for duplicates
@@ -527,10 +498,10 @@ PUBLIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
 
       this->oldusername_uc := ToUpperCase(userrec.username);
 
-      this->username->value := userrec.username;
-      this->description->value := userrec.description;
-      this->password->value := userrec.userpassword;
-      this->password_again->value := userrec.userpassword;
+      ^username->value := userrec.username;
+      ^description->value := userrec.description;
+      ^password->value := userrec.userpassword;
+      ^password_again->value := userrec.userpassword;
     }
   }
 
@@ -539,29 +510,29 @@ PUBLIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
     OBJECT work := this->beginwork();
 
     // Check password fields
-    IF (this->password->value != "" AND this->password_again->value != "" AND this->password->value != this->password_again->value)
+    IF (^password->value != "" AND ^password_again->value != "" AND ^password->value != ^password_again->value)
       work->AddError(this->GetTid(".errors.passwords_dont_match"));
 
     // Check duplicate usernames
     IF (RecordExists(SELECT FROM system.access_externalusers
-                      WHERE ToUpperCase(username) = ToUpperCase(this->username->value)
+                      WHERE ToUpperCase(username) = ToUpperCase(^username->value)
                             AND accessid = this->accessruleid
-                            AND ToUpperCase(this->username->value) != this->oldusername_uc))
+                            AND ToUpperCase(^username->value) != this->oldusername_uc))
     {
-      work->AddError(this->GetTid(".errors.duplicate_username", this->username->value));
+      work->AddError(this->GetTid(".errors.duplicate_username", ^username->value));
     }
 
     IF (this->user = "")
     {
       INSERT INTO system.access_externalusers(accessid, username, description, userpassword)
-        VALUES(this->accessruleid, this->username->value, this->description->value, this->password->value);
+        VALUES(this->accessruleid, ^username->value, ^description->value, ^password->value);
     }
     ELSE
     {
       UPDATE system.access_externalusers
-         SET username := this->username->value
-           , description := this->description->value
-           , userpassword := this->password->value
+         SET username := ^username->value
+           , description := ^description->value
+           , userpassword := ^password->value
        WHERE accessid = this->accessruleid
          AND username = this->user;
     }
