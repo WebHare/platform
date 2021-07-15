@@ -1,17 +1,9 @@
   <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          library="accessrules.whlib"
-         gid="webservers.accessrules">
+         gid="tolliumapps.webservers.accessrules">
 
-  <messageboxes gid="sysmgmt.webservers.messages">
-    <messagebox name="deleteaccessrule" icon="question" buttons="yes no" />
-    <messagebox name="deleteipfilter" icon="question" buttons="yes no" />
-    <messagebox name="deleteuser" icon="question" buttons="yes no" />
-    <messagebox name="useipfiltersiwithoutdeny" icon="question" buttons="yes no" />
-  </messageboxes>
-
-  <screen name="accessrules"
-          gid="sysmgmt.webservers.accessrules" tid=".title"
+  <screen name="accessrules" gid=".accessrules" tid=".title"
           minwidth="40x" minheight="40x"
           width="130x" height="50x" allowresize="true" footerbuttons="close"
           >
@@ -85,7 +77,7 @@
     </body>
   </screen>
 
-  <screen name="updateaccessrule" gid="sysmgmt.webservers.updateaccessrule" tid=".title">
+  <screen name="updateaccessrule" gid=".updateaccessrule" tid=".title">
     <compositions>
       <radiogroup name="hostingsrc" />
     </compositions>
@@ -200,7 +192,7 @@
     </footer>
   </screen>
 
-  <screen name="ipfilters" gid="sysmgmt.webservers.ipfilters" tid=".title" width="120x" height="30x" allowresize="true" >
+  <screen name="ipfilters" gid=".ipfilters" tid=".title" width="120x" height="30x" allowresize="true" >
     <actions>
       <action name="act_submit" onexecute="submit" tid="tollium:common.actions.close" />
       <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
@@ -262,7 +254,7 @@
     </footer>
   </screen>
 
-  <screen name="updateipfilter" gid="sysmgmt.webservers.updateipfilter" tid=".title">
+  <screen name="updateipfilter" gid=".updateipfilter" tid=".title">
     <body>
       <textedit name="mask" required="true" />
       <panel layout="left">
@@ -277,7 +269,7 @@
     </footer>
   </screen>
 
-  <screen name="webhareusers" gid="sysmgmt.webservers.webhareusers" width="120x" height="30x" allowresize="true">
+  <screen name="webhareusers" gid=".webhareusers" width="120x" height="30x" allowresize="true">
     <body>
       <grid height="1pr">
         <col width="1pr" />
@@ -299,7 +291,7 @@
     </footer>
   </screen>
 
-  <screen name="externalusers" gid="sysmgmt.webservers.externalusers" minwidth="120x" minheight="30x" allowresize="true">
+  <screen name="externalusers" gid=".externalusers" minwidth="120x" minheight="30x" allowresize="true">
     <actions>
       <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
       <action name="edit" onexecute="doedit" tid="tollium:common.actions.edit">
@@ -352,7 +344,7 @@
     </footer>
   </screen>
 
-  <screen name="updateexternaluser" gid="sysmgmt.webservers.updateexternaluser">
+  <screen name="updateexternaluser" gid=".updateexternaluser">
     <body width="1pr" height="1pr">
       <textedit name="username" required="true" />
       <textedit name="password" password="true" required="true" />

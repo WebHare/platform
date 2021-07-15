@@ -1,14 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          library="bindings.whlib"
-         gid="webservers.bindings">
+         gid="tolliumapps.webservers.bindings">
 
-  <messageboxes gid="sysmgmt.webservers.messages">
-    <messagebox name="cannotdeletebindinginuse" icon="error" buttons="ok" />
-    <messagebox name="deletebinding" icon="question" buttons="yes no" />
-  </messageboxes>
-
-  <screen name="bindings" gid="sysmgmt.webservers.bindings" tid=".title" width="120x" height="30x" allowresize="true">
+  <screen name="bindings" gid=".bindings" tid=".title" width="120x" height="30x" allowresize="true">
     <body>
       <listedit name="bindinglist" ongetchildren="ongetbindings" height="1pr" gid=".columns"
                 icons="tollium:status/checked tollium:status/negative tollium:security/key"
@@ -23,7 +18,7 @@
     </footer>
   </screen>
 
-  <screen name="updatebinding" gid="sysmgmt.webservers.updatebinding" tid=".portgroup">
+  <screen name="updatebinding" gid=".updatebinding" tid=".portgroup">
     <body width="1pr" height="1pr">
       <panel layout="left" name="readonlywarningpanel" visible="false">
         <text title="" name="readonlywarning" textcolor="#ff0000" valuetid=".readonlywarning" />

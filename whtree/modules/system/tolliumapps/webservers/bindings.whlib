@@ -65,10 +65,10 @@ PUBLIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
     RECORD existingwebserver := SELECT * FROM system.webservers WHERE port = row.rowkey;
     IF(RecordExists(existingwebserver))
     {
-      this->RunMessageBox(".cannotdeletebindinginuse", existingwebserver.baseurl);
+      this->RunSimpleScreen("info", this->GetTid(".cannotdeletebindinginuse", existingwebserver.baseurl));
       RETURN;
     }
-    IF (this->RunMessageBox(".deletebinding") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletebinding")) != "yes")
       RETURN;
     if(row.yourbinding AND this->RunSimpleScreen("verify", this->GetTid(".confirmdeleteusedinding"))!="yes")
       RETURN;
@@ -164,13 +164,13 @@ PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
       http_ip := "0.0.0.0";
 
     IF (IsPortUsed(this->port->value, http_ip, this->bindingid))
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.port_used"));
+      work->AddError(this->GetTid(".errors.port_used"));
 
     IF (this->port->value < 1)
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_port"));
+      work->AddError(this->GetTid(".errors.invalid_port"));
 
     IF (NOT IsValidIPAddress(http_ip))
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_ip"));
+      work->AddError(this->GetTid(".errors.invalid_ip"));
 
     IF (work->HasFailed())
       RETURN work->Finish();

@@ -117,7 +117,7 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deleteaccessrule") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteaccessrule")) != "yes")
       RETURN;
 
     OBJECT work := this->beginwork();
@@ -153,7 +153,7 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     this->installmodule->options := [[rowkey:="",title:="",invalidselection:=TRUE]] CONCAT GetAvailableModuleRoleSets();
 
     IF(this->webserverid = 0)
-      this->appliesto->value := GetTid("system:sysmgmt.webservers.updateaccessrule.allservers");
+      this->appliesto->value := this->GetTid(".allservers");
     ELSE
       this->appliesto->value := SELECT AS STRING baseurl FROM system.webservers WHERE id=this->webserverid;
 
@@ -266,13 +266,13 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     OBJECT work := this->BeginWork();
 
     IF (NOT this->authrequirement->value AND this->authtype->value = 0)
-      work->AddErrorFor(this->authtype, GetTid("system:sysmgmt.webservers.updateaccessrule.errors.login_required"));
+      work->AddErrorFor(this->authtype, this->GetTid(".login_required"));
 
     STRING sanitizedpath := this->GetSanitizedPath();
 
     IF (this->hostingsrc->value = "4" AND this->matchtype->value != 1 AND this->keepsubpath->value=TRUE)
     {
-      work->AddErrorFor(this->hostingsrc, GetTid("system:sysmgmt.webservers.updateaccessrule.errors.cannot_redirect_to_initial_matchtype", GetTid("system:sysmgmt.webservers.updateaccessrule.matchtype"), GetTid("system:sysmgmt.webservers.updateaccessrule.matchtype-initial")));
+      work->AddErrorFor(this->hostingsrc, this->GetTid(".errors.cannot_redirect_to_initial_matchtype", this->GetTid(".matchtype"), this->GetTid(".matchtype-initial")));
     }
 
     IF (work->HasFailed())
@@ -334,7 +334,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
     this->ipfilterlist->rows :=
       SELECT rowkey := mask
            , mask := CanonicalizeIPAddress(mask, TRUE)
-           , status := is_allow ? GetTid("system:sysmgmt.webservers.ipfilters.allowed") : GetTid("system:sysmgmt.webservers.ipfilters.denied")
+           , status := is_allow ? this->GetTid(".allowed") : this->GetTid(".denied")
            , is_allow
         FROM system.access_ips
        WHERE accessid = this->accessid;
@@ -360,7 +360,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deleteipfilter") = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteipfilter")) = "yes")
     {
       OBJECT work := this->beginwork();
 
@@ -379,7 +379,7 @@ PUBLIC OBJECTTYPE IPFilters EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     IF (this->HaveAllowButNoDeny())
-      RETURN this->RunMessageBox(".useipfiltersiwithoutdeny") = "yes";
+      RETURN this->RunSimpleScreen("confirm", this->GetTid(".useipfiltersiwithoutdeny")) = "yes";
 
     RETURN TRUE;
   }
@@ -413,9 +413,9 @@ PUBLIC OBJECTTYPE UpdateIPFilter EXTEND TolliumScreenBase
     OBJECT work := this->beginwork();
     STRING standardized_mask := CanonicalizeIPAddress(this->mask->value, TRUE);
     IF(standardized_mask = "")
-      work->AddErrorFor(this->mask, GetTid("system:sysmgmt.webservers.updateipfilter.errors.invalid_mask"));
+      work->AddErrorFor(this->mask, this->GetTid(".errors.invalid_mask"));
     ELSE IF (this->oldmask = "" AND RecordExists(SELECT FROM system.access_ips WHERE accessid = this->accessid AND CanonicalizeIPAddress(mask, TRUE) = standardized_mask))
-      work->AddErrorFor(this->mask, GetTid("system:sysmgmt.webservers.updateipfilter.errors.duplicate_mask"));
+      work->AddErrorFor(this->mask, this->GetTid(".errors.duplicate_mask"));
 
     IF (work->HasFailed())
       RETURN work->Finish();
@@ -491,7 +491,7 @@ PUBLIC OBJECTTYPE ExternalUsers EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deleteuser") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteuser")) != "yes")
       RETURN;
 
     OBJECT work := this->beginwork();
@@ -540,7 +540,7 @@ PUBLIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
 
     // Check password fields
     IF (this->password->value != "" AND this->password_again->value != "" AND this->password->value != this->password_again->value)
-      work->AddError(GetTid("system:sysmgmt.webservers.updateexternaluser.errors.passwords_dont_match"));
+      work->AddError(this->GetTid(".errors.passwords_dont_match"));
 
     // Check duplicate usernames
     IF (RecordExists(SELECT FROM system.access_externalusers
@@ -548,7 +548,7 @@ PUBLIC OBJECTTYPE UpdateExternalUser EXTEND TolliumScreenBase
                             AND accessid = this->accessruleid
                             AND ToUpperCase(this->username->value) != this->oldusername_uc))
     {
-      work->AddError(GetTid("system:sysmgmt.webservers.updateexternaluser.errors.duplicate_username", this->username->value));
+      work->AddError(this->GetTid(".errors.duplicate_username", this->username->value));
     }
 
     IF (this->user = "")

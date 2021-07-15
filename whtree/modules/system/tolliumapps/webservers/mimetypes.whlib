@@ -7,11 +7,11 @@ PUBLIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
 <
   RECORD ARRAY FUNCTION OnGetMimetypes()
   {
-    STRING ARRAY parsetypetexts := [ GetTid("system:sysmgmt.webservers.mimetype.parsetype-0")
-                                   , GetTid("system:sysmgmt.webservers.mimetype.parsetype-1")
-                                   , GetTid("system:sysmgmt.webservers.mimetype.parsetype-2")
-                                   , GetTid("system:sysmgmt.webservers.mimetype.parsetype-3")
-                                   , GetTid("system:sysmgmt.webservers.mimetype.parsetype-4")
+    STRING ARRAY parsetypetexts := [ GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-0")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-1")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-2")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-3")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-4")
                                    ];
 
     RETURN SELECT rowkey := id
@@ -31,7 +31,7 @@ PUBLIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
 
   MACRO OnRowDelete(RECORD row)
   {
-    IF (this->RunMessageBox(".deletemimetype",  row.extension) != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletemimetype", row.extension)) != "yes")
       RETURN;
 
     OBJECT work := this->beginwork();
@@ -59,11 +59,11 @@ PUBLIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
       this->mimetype->value := data.mimetype;
       this->parsetype->value := ToString(data.parsetype);
 
-      this->frame->title := GetTid("system:sysmgmt.webservers.mimetype.windowtitle_edit", data.extension);
+      this->frame->title := this->GetTid(".windowtitle_edit", data.extension);
     }
     ELSE
     {
-      this->frame->title := GetTid("system:sysmgmt.webservers.mimetype.windowtitle_add");
+      this->frame->title := this->GetTid(".windowtitle_add");
       this->parsetype->value := "0";
     }
   }
@@ -75,12 +75,12 @@ PUBLIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
     IF (this->extension->value != "")
     {
       IF (Left(this->extension->value,1)=".")
-        work->AddError(GetTID("system:sysmgmt.webservers.mimetype.errors.extension_starting_dot"));
+        work->AddError(this->GetTid(".errors.extension_starting_dot"));
       // Check duplicate
       ELSE IF (RecordExists(SELECT FROM system.mimetypes
                              WHERE ToUpperCase(extension) = ToUpperCase(this->extension->value)
                                    AND id != this->mimetypeid))
-        work->AddError(GetTID("system:sysmgmt.webservers.mimetype.errors.duplicate_extension", this->extension->value));
+        work->AddError(this->GetTid(".errors.duplicate_extension", this->extension->value));
     }
 
     IF (this->mimetypeid = 0) // Add

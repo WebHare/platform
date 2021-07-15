@@ -1,15 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          library="proxies.whlib"
-         gid="webservers.proxies">
+         gid="tolliumapps.webservers.proxies">
 
-  <messageboxes gid="sysmgmt.webservers.messages">
-    <messagebox name="deleteproxy" icon="question" buttons="yes no" />
-    <messagebox name="testok" icon="information" buttons="close" />
-    <messagebox name="unregisterfailedsuredelete" icon="warning" buttons="yes no" />
-  </messageboxes>
-
-  <screen name="proxies" gid="sysmgmt.webservers.proxies" tid=".title" width="120x" height="30x" allowresize="true">
+  <screen name="proxies" gid=".proxies" tid=".title" width="120x" height="30x" allowresize="true">
 
     <actions>
       <action name="addproxy" onexecute="doaddproxy" tid="tollium:common.actions.add" />
@@ -67,7 +61,7 @@
     </footer>
   </screen>
 
-  <screen name="updateproxy" gid="webservers.proxies.update" allowresize="true" width="80x">
+  <screen name="updateproxy" gid=".update" allowresize="true" width="80x">
 
     <actions>
       <action name="test" onexecute="dotest" />

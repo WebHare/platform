@@ -30,7 +30,7 @@ BOOLEAN FUNCTION IsLocalIP(STRING ip)
 
 STRING FUNCTION GetWebserverTypeTitle(INTEGER type)
 {
-  RETURN type = 1 ? GetTid("system:sysmgmt.webservers.types.webhare_interface") : GetTid("system:sysmgmt.webservers.types.webhare_output");
+  RETURN type = 1 ? GetTid("system:tolliumapps.webservers.updatewebserver.types.webhare_interface") : GetTid("system:tolliumapps.webservers.updatewebserver.types.webhare_output");
 }
 
 MACRO ValidateDirectCollisions(OBJECT feedback, OBJECT field, STRING hostname, INTEGER ignorewebserver, INTEGER ignorealias)
@@ -44,7 +44,7 @@ MACRO ValidateDirectCollisions(OBJECT feedback, OBJECT field, STRING hostname, I
                                            AND id != ignorewebserver
                                            AND ToUppercase(GetHostnameFromUrl(baseurl)) = toUppercase(hostname);
     IF(RecordExists(conflicting_webserver))
-      feedback->AddErrorFor(field, GetTid("system:system.webservers.updatewebserver.hostnameinuse", hostname));
+      feedback->AddErrorFor(field, GetTid("system:tolliumapps.webservers.updatewebserver.hostnameinuse", hostname));
   }
 
   IF(NOT feedback->HasFailed())
@@ -59,7 +59,7 @@ MACRO ValidateDirectCollisions(OBJECT feedback, OBJECT field, STRING hostname, I
                                        AND webservers_aliases.id != ignorealias
                                        AND ToUppercase(webservers_aliases.hostname) = toUppercase(VAR hostname);
     IF(RecordExists(conflicting_alias))
-      feedback->AddErrorFor(field, GetTid("system:system.webservers.updatewebserver.hostnameinuseasalias", hostname, conflicting_alias.baseurl));
+      feedback->AddErrorFor(field, GetTid("system:tolliumapps.webservers.updatewebserver.hostnameinuseasalias", hostname, conflicting_alias.baseurl));
   }
 }
 
@@ -153,7 +153,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO RefreshWebservers()
   {
     RECORD ARRAY rows := [[ path := ""
-                          , webserver := GetTid("system:sysmgmt.webservers.overview.webroot")
+                          , webserver := this->GetTid(".webroot")
                           , icon := 5
                           , rowkey := "root"
                           , parent := 0
@@ -177,7 +177,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF(this->filter->value != "")
     {
       rows := this->ApplyFilters(rows, this->filter->value);
-      this->webserverslist->empty := GetTid("system:sysmgmt.webservers.overview.nofiltermatch", this->filter->value);
+      this->webserverslist->empty := this->GetTid(".nofiltermatch", this->filter->value);
     }
     this->webserverslist->rows := rows;
 
@@ -394,7 +394,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoScheduleCheck()
   {
     GetPrimary()->ScheduleTask("system:checkwebservers", DEFAULT DATETIME);
-    this->RunMessageBox(".checkingwebservers");
+    this->RunSimpleScreen("info", this->GetTid(".checkingwebservers"));
   }
   MACRO OnErrorsRefresh(STRING mask, RECORD ARRAY events)
   {
@@ -412,41 +412,41 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD ARRAY selection := this->webserverslist->selection;
     IF(RecordExists(SELECT FROM selection WHERE iswebserver AND id = this->tolliumcontroller->GetWebserverRequestData().webserver))
     {
-      this->RunMessageBox(".cannotdeleteyourserver", selection[0].webserver);
+      this->RunSimpleScreen("info", this->GetTid(".cannotdeleteyourserver", selection[0].webserver));
       RETURN;
     }
     IF(RecordExists(SELECT FROM selection WHERE iswebserver AND id = (SELECT AS INTEGER outputweb FROM system.sites WHERE id = 16)))
     {
-      this->RunMessageBox(".cannotdeleteprimaryinterface", selection[0].webserver);
+      this->RunSimpleScreen("info", this->GetTid(".cannotdeleteprimaryinterface", selection[0].webserver));
       RETURN;
     }
 
     IF(Length(selection)>1)
     {
-      IF(this->RunMessageBox(".deleteselection")!="yes")
+      IF(this->RunSimpleScreen("confirm", this->GetTid(".deleteselection")) != "yes")
         RETURN;
     }
     ELSE IF(selection[0].isalias)
     {
-      IF (this->RunMessageBox(".deletealias", selection[0].webserver) != "yes")
+      IF (this->RunSimpleScreen("confirm", this->GetTid(".deletealias", selection[0].webserver)) != "yes")
         RETURN;
     }
     ELSE IF(selection[0].isgroup)
     {
       IF(RecordExists(SELECT FROM this->webserverslist->rows WHERE parent = selection[0].id))
       {
-        IF(this->RunMessageBox(".verifydeletefilledgroup")!="yes")
+        IF(this->RunSimpleScreen("verify", this->GetTid(".verifydeletefilledgroup")) != "yes")
           RETURN;
       }
       ELSE
       {
-        IF(this->RunMessageBox(".deletegroup")!="yes")
+        IF(this->RunSimpleScreen("confirm", this->GetTid(".deletegroup")) != "yes")
           RETURN;
       }
     }
     ELSE
     {
-      IF (this->RunMessageBox(".deletewebserver", selection[0].webserver) != "yes")
+      IF (this->RunSimpleScreen("confirm", this->GetTid(".deletewebserver", selection[0].webserver)) != "yes")
         RETURN;
     }
 
@@ -535,14 +535,14 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
   {
     INTEGER ARRAY usedports := SELECT AS INTEGER ARRAY port FROM system.webservers WHERE id != this->webserverid AND port != 0;
     RECORD ARRAY ports := SELECT rowkey := id
-                               , title := (ip="" ? GetTid("system:sysmgmt.webservers.updatewebserver.bound-allips") : ip) || ":" || port
+                               , title := (ip="" ? this->GetTid(".bound-allips") : ip) || ":" || port
                                , secure := COLUMN keypair != 0
                             FROM system.ports
                            WHERE NOT virtualhost
                                  AND id NOT IN usedports
                         ORDER BY port, ip;
 
-    this->boundto->options := [[ rowkey := 0, title := GetTid("system:sysmgmt.webservers.updatewebserver.virtualhosted"), secure := FALSE ]]
+    this->boundto->options := [[ rowkey := 0, title := this->GetTid(".virtualhosted"), secure := FALSE ]]
                               CONCAT ports;
     this->boundto->enabled := TRUE;
     this->boundto->value := this->origboundto;
@@ -579,9 +579,9 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     {
       BOOLEAN issecure := RecordExists(SELECT FROM system.ports WHERE COLUMN keypair != 0 AND id = this->boundto->value);
       IF(unpacked_url.scheme = "http" AND issecure)
-        work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.bindingrequireshttps"));
+        work->AddErrorFor(this->url, this->GetTid(".bindingrequireshttps"));
       IF(unpacked_url.scheme = "https" AND NOT issecure)
-        work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.bindingrequireshttp"));
+        work->AddErrorFor(this->url, this->GetTid(".bindingrequireshttp"));
     }
     ELSE//vhosted local server
     {
@@ -589,7 +589,7 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
     }
 
     IF(unpacked_url.urlpath!="")
-      work->AddErrorFor(this->url, GetTid("system:system.webservers.updatewebserver.urlnosubpath"));
+      work->AddErrorFor(this->url, this->GetTid(".urlnosubpath"));
 
     IF(work->HasFailed())
       RETURN work->Finish();
@@ -638,7 +638,7 @@ PUBLIC OBJECTTYPE UpdateWebserver EXTEND TolliumScreenBase
         }
         ELSE
         {
-          work->AddWarning(GetTid("system:sysmgmt.webservers.updatewebserver.aliasswap", oldhostname, unpacked_url.host));
+          work->AddWarning(this->GetTid(".aliasswap", oldhostname, unpacked_url.host));
           UPDATE system.webservers_aliases SET hostname := oldhostname WHERE id = dupe_self_alias;
         }
       }

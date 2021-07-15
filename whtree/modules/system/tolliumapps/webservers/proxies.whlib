@@ -65,12 +65,12 @@ PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
 
   MACRO DoDeleteProxy()
   {
-    IF (this->RunMessageBox(".deleteproxy", this->proxylist->selection.url) != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deleteproxy", this->proxylist->selection.url)) != "yes")
       RETURN;
 
     IF(NOT UnregisterWebhareProxy(this->proxylist->value))
     {
-      IF (this->RunMessageBox(".unregisterfailedsuredelete") != "yes")
+      IF (this->RunSimpleScreen("confirm", this->GetTid(".unregisterfailedsuredelete")) != "yes")
         RETURN;
     }
 
@@ -114,7 +114,7 @@ PUBLIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     IF(testresult.success)
     {
       IF (NOT hidepositivefeedback)
-        this->RunMessageBox(".testok");
+        this->RunSimpleScreen("info", this->GetTid(".testok"));
       this->tested := this->row->value;
       RETURN feedback->Finish();
     }

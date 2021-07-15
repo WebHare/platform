@@ -2327,7 +2327,7 @@ The full base URL on which this site will be published, calculated by combining 
 
     <internalservice tag="getconfig"
                      library="internal/webserver/getconfig.whscr"
-                     tid="sysmgmt.webservers.scripts.getconfig"
+                     tid="tolliumapps.webservers.scripts.getconfig"
                      portname="system:webserver.getconfig"
                      globalport="true"
                      mode="alwayson"

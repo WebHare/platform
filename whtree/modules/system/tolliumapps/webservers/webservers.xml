@@ -1,20 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          library="webservers.whlib"
-         gid="webservers.webservers">
+         gid="tolliumapps.webservers">
 
-  <messageboxes gid="sysmgmt.webservers.messages">
-    <messagebox name="deleteselection" icon="question" buttons="yes no" />
-    <messagebox name="deletewebserver" icon="question" buttons="yes no" />
-    <messagebox name="deletealias" icon="question" buttons="yes no" />
-    <messagebox name="cannotdeleteyourserver" icon="error" buttons="ok" />
-    <messagebox name="cannotdeleteprimaryinterface" icon="error" buttons="ok" />
-    <messagebox name="deletegroup" icon="question" buttons="yes no" />
-    <messagebox name="verifydeletefilledgroup" icon="warning" buttons="yes no" />
-    <messagebox name="checkingwebservers" buttons="ok" />
-  </messageboxes>
-
-  <screen name="main" gid="sysmgmt.webservers.overview" tid=".title" width="120x" height="30x" allowresize="true" savestate="size" menubar="menubar" icon="tollium:objects/rackserver" flags="issysop">
+  <screen name="main" gid=".overview" tid=".title" width="120x" height="30x" allowresize="true" savestate="size" menubar="menubar" icon="tollium:objects/rackserver" flags="issysop">
     <actions>
 <!--      <action name="addgroup"     onexecute="@notimplemented" /> -->
       <action name="addwebserver" onexecute="doaddwebserver">
@@ -140,7 +129,7 @@
     </body>
   </screen>
 
-  <screen name="updatewebserver" gid="sysmgmt.webservers.updatewebserver"
+  <screen name="updatewebserver" gid=".updatewebserver"
           minwidth="80x"
           >
     <body width="1pr" height="1pr" spacers="none">
@@ -150,9 +139,9 @@
 
       <panel spacers="all">
         <select name="servertype" type="radio" rowkeytype="integer" onchange="onservertypechange">
-          <option rowkey="0" tid="sysmgmt.webservers.types.webhare_output" />
-          <option rowkey="-1" tid="sysmgmt.webservers.types.webhare_rulesonly" />
-          <option rowkey="1" tid="sysmgmt.webservers.types.webhare_interface" />
+          <option rowkey="0" tid=".types.webhare_output" />
+          <option rowkey="-1" tid=".types.webhare_rulesonly" />
+          <option rowkey="1" tid=".types.webhare_interface" />
         </select>
         <select name="boundto" type="pulldown" rowkeytype="integer" onchange="onbindingchange" />
         <textedit name="url" required="true" validationchecks="http-url" placeholder="https://www.example.org/" maxlength="256" width="1pr"/>
@@ -177,7 +166,7 @@
     </footer>
   </screen>
 
-  <screen name="webservergroup" gid="sysmgmt.webservers.webservergroup">
+  <screen name="webservergroup" gid=".webservergroup">
     <body width="1pr" height="1pr">
       <panel height="1pr">
         <textedit name="title" required="true" />
@@ -188,7 +177,7 @@
     </footer>
   </screen>
 
-  <screen name="updatealias" gid="sysmgmt.webservers.updatealias" tid=".title">
+  <screen name="updatealias" gid=".updatealias" tid=".title">
     <body>
       <panel height="1pr">
         <textedit name="hostname" required="true" />

@@ -1,13 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          library="mimetypes.whlib"
-         gid="webservers.mimetypes">
+         gid="tolliumapps.webservers.mimetypes">
 
-  <messageboxes gid="sysmgmt.webservers.messages">
-    <messagebox name="deletemimetype" icon="question" buttons="yes no" />
-  </messageboxes>
-
-  <screen name="mimetypes" gid="sysmgmt.webservers.mimetypes" tid=".title" width="120x" height="30x" allowresize="true">
+  <screen name="mimetypes" gid=".mimetypes" tid=".title" width="120x" height="30x" allowresize="true">
     <body height="1pr">
       <panel height="1pr">
         <listedit name="mimetypelist"
@@ -27,7 +23,7 @@
     </footer>
   </screen>
 
-  <screen name="mimetype" gid="sysmgmt.webservers.mimetype">
+  <screen name="mimetype" gid=".mimetype">
     <compositions>
       <radiogroup name="parsetype" />
     </compositions>
