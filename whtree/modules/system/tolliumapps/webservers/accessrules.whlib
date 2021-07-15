@@ -2,6 +2,7 @@
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
@@ -32,30 +33,39 @@ RECORD ARRAY FUNCTION GetAvailableModuleRoleSets()
 PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 <
   INTEGER webserverid;
+  //record rule ids which are temporarily forced shown until the filter is modified again
+  INTEGER ARRAY addtofilterresults;
+  STRING servername;
+  RECORD ARRAY rows;
 
   MACRO Init(RECORD params)
   {
     this->webserverid := params.id;
-    this->Refresh();
+    IF(this->webserverid != 0)
+      this->servername := SELECT AS STRING UnpackURL(baseurl).host FROM system.webservers WHERE id = this->webserverid;
+
+    this->Reload();
   }
 
-  MACRO Refresh()
+  RECORD ARRAY FUNCTION GetAccessRules()
   {
     // Get all unique accesrule id's which have an ip rule
     INTEGER ARRAY ruleswithips := SELECT AS INTEGER ARRAY DISTINCT(accessid) FROM system.access_ips;
     RECORD ARRAY rolesets := GetAvailableModuleRoleSets();
 
     RECORD ARRAY rows := SELECT rowkey := id
-                              , icon := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? 1
-                                        : hostingsrc in [4,5] ? 2
-                                        : hostingsrc = 6 ? 3 //app icon
-                                        : hostingsrc = 2 ? 4 //folder icon
-                                        : 0
+                              , type := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? "login"
+                                        : hostingsrc = 4 ? "redirect"
+                                        : hostingsrc = 5 ? "redirect-keep-suburl"
+                                        : hostingsrc = 6 ? "module"
+                                        : hostingsrc = 2 ? "folder"
+                                        : ""
+                              , matchtype := matchtype = 0 ? "exact" : matchtype = 1 ? "initial" : matchtype = 2 ? "wildcard" : ""
                               , path
                               , webhareusers := (authtype = 2)
                               , externalusers := authlist
                               , description
-                              , canview := matchtype IN [0,1]
+                              , disabled
                               , listrowclasses := disabled ? ["grayedout"] : STRING[]
                               , target := hostingsrc in [2,4,5,6] ? hostingpath : ""
                               , hostingsrc
@@ -66,7 +76,35 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     UPDATE rows SET target := (SELECT AS STRING title FROM rolesets WHERE rowkey = rows.target) ?? rows.target
               WHERE hostingsrc = 6;
 
-    ^accessrulelist->rows := rows;
+    RETURN rows;
+  }
+
+  MACRO Reload()
+  {
+    RECORD ARRAY rows := SELECT *
+                              , icon := SearchElement([ "", "login", "folder", "redirect", "redirect-keep-suburl", "module" ], type)
+                              , canview := this->webserverid != 0 AND matchtype IN [ "exact", "initial" ]
+                              , listrowclasses := disabled ? [ "grayedout" ] : STRING[]
+                           FROM this->GetAccessRules();
+    this->rows := rows;
+    this->Refresh();
+  }
+
+  MACRO Refresh()
+  {
+    RECORD ARRAY toshow := this->rows;
+    IF(^filter->value != "")
+    {
+      toshow := SELECT *
+                 FROM toshow
+                WHERE rowkey IN this->addtofilterresults
+                      OR ToUppercase(path || " " || target || " " || description) LIKE ToUppercase("*" || ^filter->value || "*");
+    }
+
+    IF(Length(toshow) = 0)
+      ^accessrulelist->empty := ^filter->value != "" ? this->GetTid(".empty-nomatchfor" , ^filter->value) : this->GetTid(".empty-norules");
+
+    ^accessrulelist->rows := toshow;
   }
 
   MACRO DoAdd()
@@ -74,15 +112,21 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     INTEGER newrule := this->RunScreen("#updateaccessrule", [ id := 0, webserver := this->webserverid ] );
     IF(newrule != 0)
     {
-      this->Refresh();
+      INSERT newrule INTO this->addtofilterresults AT END;
+      this->Reload();
       ^accessrulelist->value := [ newrule ];
     }
   }
 
   MACRO DoEdit()
   {
-    IF(this->RunScreen("#updateaccessrule", [ id := ^accessrulelist->value[0], webserver := this->webserverid ] ) != 0)
-      this->Refresh();
+    INTEGER editrule := this->RunScreen("#updateaccessrule", [ id := ^accessrulelist->value[0], webserver := this->webserverid ] );
+    IF(editrule != 0)
+    {
+      INSERT editrule INTO this->addtofilterresults AT END;
+      this->Reload();
+      ^accessrulelist->value := [ editrule ];
+    }
   }
 
   MACRO DoView(OBJECT urlreceiver)
@@ -96,7 +140,7 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     OBJECT screen := this->LoadScreen(".ipfilters", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
-      this->Refresh();
+      this->Reload();
   }
 
   MACRO DoWebhareUsers()
@@ -104,7 +148,7 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     OBJECT screen := this->LoadScreen(".webhareusers", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
-      this->Refresh();
+      this->Reload();
   }
 
   MACRO DoExternalUsers()
@@ -112,7 +156,7 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     OBJECT screen := this->LoadScreen(".externalusers", [ id := ^accessrulelist->value[0] ] );
 
     IF (screen->RunModal() = "ok")
-      this->Refresh();
+      this->Reload();
   }
 
   MACRO DoDelete()
@@ -130,6 +174,37 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
     ReloadWebhareConfig(TRUE, FALSE);
 
+    this->Reload();
+  }
+
+  MACRO DoExportRules()
+  {
+    STRING exporttitle;
+    IF(this->webserverid != 0)
+      exporttitle := this->GetTid(".export-rulesfor", this->servername);
+    ELSE
+      exporttitle := this->GetTid(".export-globalrules");
+
+    RECORD ARRAY rows := SELECT *
+                           FROM this->GetAccessRules()
+                          WHERE NOT disabled
+                       ORDER BY ToUppercase(path), rowkey;
+
+    RunColumnFileExportDialog(this,
+         CELL[ rows
+             , columns := [ [ name := "type",        type := "string", title := this->GetTid(".columns.type") ]
+                          , [ name := "matchtype",   type := "string", title := this->GetTid(".columns.matchtype") ]
+                          , [ name := "path",        type := "string", title := this->GetTid(".columns.path") ]
+                          , [ name := "target",      type := "string", title := this->GetTid(".columns.target") ]
+                          , [ name := "description", type := "string", title := this->GetTid(".columns.description") ]
+                          ]
+             , exporttitle
+             ]);
+  }
+
+  MACRO OnFilterChange()
+  {
+    this->addtofilterresults := INTEGER[];
     this->Refresh();
   }
 >;

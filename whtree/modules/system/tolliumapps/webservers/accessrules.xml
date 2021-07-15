@@ -8,7 +8,6 @@
           minwidth="40x"
           minheight="40x"
           allowresize="true"
-          footerbuttons="close"
           gid=".accessrules"
           tid=".title">
     <actions>
@@ -31,6 +30,7 @@
       <action name="externalusers" onexecute="doexternalusers">
         <enableon source="accessrulelist" min="1" max="1" checkflags="externalusers" />
       </action>
+      <action name="exportrules" onexecute="doexportrules" tid="~export" />
     </actions>
 
     <menus>
@@ -50,6 +50,7 @@
     </menus>
 
     <body height="1pr">
+      <textedit name="filter" placeholdertid=".filter-placeholder" width="1pr" onchange="onfilterchange" />
       <grid height="1pr">
         <cell width="1pr">
           <list name="accessrulelist"
@@ -79,6 +80,14 @@
         </cell>
       </grid>
     </body>
+
+    <footer>
+      <line layout="left">
+        <button action="exportrules" />
+        <spacer width="1pr" />
+        <button tid="~close" tolliumresult="close" />
+      </line>
+    </footer>
   </screen>
 
   <screen name="updateaccessrule" footerbuttons="ok cancel" gid=".updateaccessrule" tid=".title">

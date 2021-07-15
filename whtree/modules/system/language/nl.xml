@@ -1575,15 +1575,23 @@
       <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules -->
         <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules.accessrules -->
           <text tid="deleteaccessrule">Weet je zeker dat je deze toegangsregel wilt verwijderen?</text>
+          <text tid="empty-nomatchfor">Geen van de toegangsregels bevat '<param p="1"/>'</text>
+          <text tid="empty-norules">Er zijn hier nog geen toegangsregels ingesteld</text>
+          <text tid="export-globalrules">Globale toegangsregels</text>
+          <text tid="export-rulesfor">Toegangsregels <param p="1"/></text>
           <text tid="externalusers">Externe gebruikers</text>
+          <text tid="filter">Filter</text>
+          <text tid="filter-placeholder">Zoek in pad, doel of omschrijving</text>
           <text tid="ipfilters">IP-filters</text>
           <text tid="title">Toegangsregels</text>
           <text tid="view">Bekijk URL</text>
           <text tid="webhareusers">WebHare gebruikers</text>
           <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
             <text tid="description">Omschrijving</text>
+            <text tid="matchtype">Match type</text>
             <text tid="path">Pad</text>
             <text tid="target">Doel</text>
+            <text tid="type">Regel type</text>
           </textgroup>
         </textgroup>
         <textgroup gid="externalusers">   <!-- tolliumapps.webservers.accessrules.externalusers -->

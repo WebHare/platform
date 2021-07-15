@@ -1766,15 +1766,23 @@
       <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules -->
         <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules.accessrules -->
           <text tid="deleteaccessrule">Are you sure you want to delete this access rule?</text>
+          <text tid="empty-nomatchfor">No access rules match '<param p="1"/>'</text>
+          <text tid="empty-norules">There are no access rules configured here yet</text>
+          <text tid="export-globalrules">Global access rules</text>
+          <text tid="export-rulesfor">Access rules <param p="1"/></text>
           <text tid="externalusers">External users</text>
+          <text tid="filter">Filter</text>
+          <text tid="filter-placeholder">Search in path, target or description</text>
           <text tid="ipfilters">IP filters</text>
           <text tid="title">Access rules</text>
           <text tid="view">View URL</text>
           <text tid="webhareusers">WebHare users</text>
           <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
             <text tid="description">Description</text>
+            <text tid="matchtype">Match type</text>
             <text tid="path">Path</text>
             <text tid="target">Target</text>
+            <text tid="type">Rule type</text>
           </textgroup>
         </textgroup>
         <textgroup gid="externalusers">   <!-- tolliumapps.webservers.accessrules.externalusers -->
