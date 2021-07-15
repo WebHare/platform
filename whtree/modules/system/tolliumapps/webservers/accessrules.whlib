@@ -71,17 +71,17 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO DoAdd()
   {
-    OBJECT screen := this->LoadScreen(".updateaccessrule", [ id := 0, webserver := this->webserverid ] );
-
-    IF (screen->RunModal() = "ok")
+    INTEGER newrule := this->RunScreen("#updateaccessrule", [ id := 0, webserver := this->webserverid ] );
+    IF(newrule != 0)
+    {
       this->Refresh();
+      ^accessrulelist->value := [ newrule ];
+    }
   }
 
   MACRO DoEdit()
   {
-    OBJECT screen := this->LoadScreen(".updateaccessrule", [ id := ^accessrulelist->value[0], webserver := this->webserverid ] );
-
-    IF (screen->RunModal() = "ok")
+    IF(this->RunScreen("#updateaccessrule", [ id := ^accessrulelist->value[0], webserver := this->webserverid ] ) != 0)
       this->Refresh();
   }
 
@@ -232,7 +232,7 @@ PUBLIC STATIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     RETURN path;
   }
 
-  BOOLEAN FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
 
@@ -249,10 +249,11 @@ PUBLIC STATIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     IF (work->HasFailed())
       RETURN work->Finish();
 
-    IF (this->accessid = 0)
+    INTEGER accessid := this->accessid;
+    IF (accessid = 0)
     {
-      this->accessid := MakeAutonumber(system.access, "ID");
-      INSERT INTO system.access(id, webserver) VALUES (this->accessid, this->webserverid);
+      accessid := MakeAutonumber(system.access, "ID");
+      INSERT INTO system.access(id, webserver) VALUES (accessid, this->webserverid);
     }
 
     RECORD data :=
@@ -273,14 +274,14 @@ PUBLIC STATIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     , disabled := NOT ^enabled->value
     ];
 
-    UPDATE system.access SET RECORD data WHERE id = this->accessid;
+    UPDATE system.access SET RECORD data WHERE id = VAR accessid;
 
     IF (NOT work->Finish())
-      RETURN FALSE;
+      RETURN 0;
 
     ReloadWebhareConfig(TRUE, FALSE);
 
-    RETURN TRUE;
+    RETURN accessid;
   }
 >;
 

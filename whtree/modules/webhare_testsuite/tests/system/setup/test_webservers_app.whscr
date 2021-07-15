@@ -22,10 +22,10 @@ ASYNC MACRO TestWebserversApp()
   TT("redirectpath")->value := "https://www.webhare.nl/";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  //TestEq("/redirect-this/", TT("accessrulelist")->selection.path);
+  TestEq("/redirect-this/", TT("accessrulelist")->selection.path);
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //leaves accessrulelist
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //leaves webserverapp
 }
 
 RunTestframework([ PTR TestWebserversApp
