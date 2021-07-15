@@ -910,6 +910,14 @@
       <webrule path="/tmp/secret/" match="initial" redirecttodir="site::WebHare testsuite site/tmp/sub2" requirehttpauth="true">
         <account username="service" password="protected"/>
       </webrule>
+
+      <!-- accessrule tests (authenticating against a different primary wrdauth) -->
+      <webrule authmode="ipandaccess" match="initial" path="/portal2/" authscript="lib/webhare-auth-portal1.whscr" requirewhaccount="true" />
+      <webrule authmode="ipandaccess" match="initial" path="/staticprotected/" authscript="lib/webhare-auth-staticlogin.whscr" requirewhaccount="true" />
+      <webrule authmode="ipandaccess" match="initial" path="/staticprotected2/" authscript="lib/webhare-auth-staticlogin.whscr" requirewhaccount="true" >
+        <account username="external" password="secret"/>
+      </webrule>
+
     </webruleset>
   </sitesettings>
 

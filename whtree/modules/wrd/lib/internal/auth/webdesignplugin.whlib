@@ -1,4 +1,6 @@
 ﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -25,6 +27,7 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -35,6 +38,15 @@ LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
+
+RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)
+{
+  RECORD rule := SELECT * FROM DownloadWebserverConfig().rules WHERE id = uselist;
+  RETURN [ value := RecordExists(rule) ? rule.data.accounts : RECORD[]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "system:internal.webserver.didconfigreload" ]
+         ];
+}
 
 MACRO SendHTMLPage(STRING wittypath, RECORD wittydata)
 {
@@ -962,11 +974,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     IF (NOT trylogin.success AND RecordExists(challenge) AND challenge.use_list != 0)
     {
-      IF (RecordExists(
-            SELECT
-              FROM system.access_externalusers
-             WHERE username = loginname
-               AND userpassword = password))
+      //we use DownloadWebserverConfig as the easiest way to ALSO access accounts in moduledefinition rules
+      RECORD ARRAY accounts := GetAdhocCached([ getuserlist := challenge.use_list ], PTR GetCacheableExternalUserAccounts(challenge.use_list));
+      IF (RecordExists(SELECT FROM accounts WHERE accounts.username = loginname AND accounts.password = password))
       {
         trylogin :=
             [ success :=  TRUE
@@ -1667,6 +1677,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           , username :=   ""
           , backurl :=    /*backurl ?? */UpdateURLVariables(GetClientRequestURL(), [wrdauth_proof := ""])
           , cookiedata := ""
+          , ruleid :=     0
           ];
 
       SWITCH (proof.type)
@@ -1681,6 +1692,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         CASE "external"
         {
           result.username := proof.username;
+          result.ruleid := proof.ruleid;
         }
       }
 

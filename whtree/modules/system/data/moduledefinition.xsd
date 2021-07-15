@@ -1224,7 +1224,7 @@
     <xs:attribute name="authscript" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          Path, relative to modulescript::modulename/, of a script to invoke on every request to verify whether the user has access to the content in this folder
+          Path to a script to invoke on every request to verify whether the user has access to the content in this folder
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

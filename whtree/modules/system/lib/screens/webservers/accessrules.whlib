@@ -161,7 +161,6 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
       this->disablecaching->value := accessrec.disablecaching;
       this->maxage->value := accessrec.maxage;
       this->fixcase->value := accessrec.fixcase;
-      this->applysource->value := accessrec.applysource;
     }
   }
 
@@ -288,7 +287,6 @@ PUBLIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     , disablecaching := this->disablecaching->value
     , maxage := this->maxage->value
     , fixcase := this->fixcase->value
-    , applysource := this->applysource->value
     , disabled := NOT this->enabled->value
     ];
 

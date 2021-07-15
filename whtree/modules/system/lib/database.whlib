@@ -110,7 +110,6 @@ PUBLIC SCHEMA
     , INTEGER 'redirectcode'
     , BOOLEAN fixcase
     , INTEGER maxage
-    , INTEGER applysource NULL := 0
     , BOOLEAN disabled
     ; KEY id
     > access

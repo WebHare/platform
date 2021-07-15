@@ -1,0 +1,107 @@
+<?wh
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
+{
+  BOOLEAN enable_logging := FALSE;
+  OBJECT trans;
+
+  //TODO optimize to not require a db connection for every check. that'll require not opening the plugin immediately!
+  TRY
+  {
+    trans := OpenPrimary();
+  }
+  CATCH(OBJECT e)
+  {
+    AddHTTPHeader("Status","500",FALSE);
+    SendWebfile(GetWebhareResource("mod::system/web/errors/nodatabase.html"));
+  }
+
+  RECORD rule := GetCurrentWebhareAccessRule();
+  IF (rule.data.authtype = 0 AND NOT rule.data.authlist)
+    ABORT("This script should not have been called, no authentication is required");
+
+  IF (enable_logging)
+    LogDebug("system:backend:auth", "Invocating script for authentication rule " || rule.id, rule);
+
+  IF (IsFullAccessIP())
+  {
+    IF (enable_logging)
+      LogDebug("system:backend:auth", "Allow access for full access ip " || GetClientRemoteIP());
+
+    RETURN;
+  }
+
+  trans->BeginWork();
+
+  OBJECT authplugin := getauthplugincallback();
+
+  IF (enable_logging)
+    LogDebug("system:backend:auth", "Handle login");
+
+  // If Basic auth is specified,we'll allow it
+  RECORD authheader := GetParsedAuthenticationHeader();
+  IF(authheader.type = "BASIC")
+  {
+    RECORD match := SELECT * FROM system.access_externalusers WHERE ToUppercase(username) = ToUppercase(TrimWhitespace(authheader.username)) AND accessid = GetWebHareAccessRuleId();
+    IF(RecordExists(match) AND TrimWhitespace(authheader.password) = match.userpassword)
+    {
+      //Authenticate for direct access
+      AcceptBasicAuthCredentials(match.username, 0);
+      RETURN;
+    }
+  }
+
+  // Handle login, determine current user
+  RECORD res := authplugin->__HandleAuthScriptLogin(
+      [ use_list :=       rule.data.authlist ? rule.id : 0
+      , use_wrdauth :=    rule.data.authtype != 0
+      , rulepath :=       rule.data.path
+      ]);
+
+  IF (enable_logging)
+    LogDebug("system:backend:auth", "Login ok, type: " || res.type);
+
+  BOOLEAN checked;
+  SWITCH (res.type)
+  {
+    CASE "wrdauth"
+    {
+      IF (enable_logging)
+        LogDebug("system:backend:auth", "Res: ", res.sessionid, res.user->entityid, res.backurl);
+
+      // Have res.sessionid, res.user, res.backurl
+
+      // Authtype 2 (users with rights on url)
+      checked := rule.data.authtype != 2 OR res.user->HasRightOn("system:urlaccess", rule.id);
+    }
+    CASE "external"
+    {
+      checked := res.ruleid = GetWebHareAccessRuleId();
+    }
+  }
+
+  IF (checked)
+  {
+    IF (enable_logging)
+      LogDebug("system:backend:auth", "success, authenticating web session");
+
+    authplugin->__AuthenticateWebSession(res);
+
+    IF (res.backurl != "")
+      Redirect(res.backurl);
+  }
+  ELSE
+  {
+    AddHTTPHeader("Status", "403", FALSE);
+  }
+
+  trans->CommitWork();
+
+}

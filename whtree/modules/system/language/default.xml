@@ -1405,7 +1405,6 @@
       <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
         <text tid="allservers">All webservers hosted on this installation</text>
         <text tid="appliesto">Applies to</text>
-        <text tid="applysource">Apply source</text>
         <text tid="authlist">Use external user accounts to log in</text>
         <text tid="authrequirement">IP access rules</text>
         <text tid="authrequirement-and">Users must match IP access rules AND must login if required</text>

@@ -1214,7 +1214,6 @@
       <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
         <text tid="allservers">Alle door deze installatie gehoste webservers</text>
         <text tid="appliesto">Geldt voor</text>
-        <text tid="applysource">Toepassingsbron</text>
         <text tid="authlist">Externe gebruikersaccounts gebruiken om in te loggen</text>
         <text tid="authrequirement">IP toegangsregels</text>
         <text tid="authrequirement-and">Gebruikers moeten én aan de IP-toegangsregels voldoen én moeten inloggen indien vereist</text>

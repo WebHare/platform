@@ -143,7 +143,6 @@
               <checkbox title="" labeltid=".externalscript" name="externalscript" enablecomponents="externalscriptname" />
               <textedit name="externalscriptname" title="" errorlabeltid=".externalscript_error" required="true" width="1pr" />
             </line>
-            <p:browseforobject name="applysource" />
           </panel>
         </tab>
 

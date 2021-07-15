@@ -267,6 +267,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   ELSE IF(ParseXSBoolean(rulenode->GetAttribute("requirewhaccount")))
   {
     rule.extauthscript := "mod::system/scripts/internal/webhare-auth.whscr";
+    INSERT CELL authtype := 1 INTO rule; //pre 4.32 we didn't set this, but webhare-auth.whscr won't do anything then
     requirevarycookie := TRUE;
   }
 
@@ -307,8 +308,13 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
     INSERT [ name := "Vary", value := "Cookie" ] INTO rule.addheaders AT END;
   }
 
-  FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "account")->GetCurrentElements())
-    INSERT [ username := node->GetAttribute("username") ,password := node->GetAttribute("password") ] INTO rule.accounts AT END;
+  OBJECT ARRAY accounts := rulenode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "account");
+  IF(Length(accounts) > 0)
+  {
+    INSERT CELL authlist := TRUE INTO rule; //pre 4.32 we didn't set this, but webhare-auth.whscr won't do anything then
+    FOREVERY(OBJECT node FROM accounts)
+      INSERT [ username := node->GetAttribute("username"), password := node->GetAttribute("password") ] INTO rule.accounts AT END;
+  }
 
   rule.cachecontrol := rulenode->GetAttribute("cachecontrol");
   IF(rulenode->HasAttribute("redirectcode"))
