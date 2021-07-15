@@ -1,6 +1,6 @@
   <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/webservers/accessrules.whlib"
+         library="accessrules.whlib"
          gid="webservers.accessrules">
 
   <messageboxes gid="sysmgmt.webservers.messages">

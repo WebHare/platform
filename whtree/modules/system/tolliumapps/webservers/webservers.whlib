@@ -371,12 +371,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoBindings()
   {
-    this->LoadScreen("webservers/bindings.bindings")->RunModal();
+    this->RunScreen("bindings.xml#bindings");
   }
 
   MACRO DoProxies()
   {
-    this->LoadScreen("webservers/proxies.proxies")->RunModal();
+    this->RunScreen("proxies.xml#proxies");
   }
 
   MACRO DOKeystore()
@@ -385,7 +385,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
   MACRO DoFiletypes()
   {
-    this->LoadScreen("webservers/mimetypes.mimetypes")->RunModal();
+    this->RunScreen("mimetypesxml#mimetypes");
   }
   MACRO DoExportUsageStats()
   {
@@ -403,8 +403,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAccessRules()
   {
-    OBJECT screen := this->LoadScreen("webservers/accessrules.accessrules", [ id := this->webserverslist->selection[0].id ] );
-    screen->RunModal();
+    this->RunScreen("accessrules.xml#accessrules", [ id := this->webserverslist->selection[0].id ] );
     this->ReloadWebservers();
   }
 

@@ -118,7 +118,7 @@
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-    <application name="webservers" screen="webservers/webservers.main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
+    <application name="webservers" screen="tolliumapps/webservers/webservers.xml#main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
       <accesscheck>
         <requireright right="system:webservermgmt" />
       </accesscheck>
