@@ -1272,6 +1272,7 @@
           <text tid="description">Description</text>
           <text tid="path">Path</text>
           <text tid="protected">Protected</text>
+          <text tid="target">Target</text>
         </textgroup>
       </textgroup>
       <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->

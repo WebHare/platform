@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestWebserversApp()
+{
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:webservers"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addwebserver"));
+  TT("url")->value := "https://test-by-lina.localhost.beta.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("https://test-by-lina.localhost.beta.webhare.net/", TT("webserverslist")->selection.webserver);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("accessrules"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("path")->value := "redirect-this/";
+  TT("hostingsrc_redirect")->value := TRUE;
+  TT("redirectpath")->value := "https://www.webhare.nl/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //TestEq("/redirect-this/", TT("accessrulelist")->selection.path);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestWebserversApp
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa", grantrights := ["system:webservermgmt"] ]
+                                   ]]);

@@ -995,18 +995,18 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     }
 
     //Find and remove any interface test webservers/ports. They are marked by having a security access rule pointing to "/" || test_prefix || "/betatestaccessrule/"
+    GetPrimary()->BeginLockedWork("system:webservers"); //coordinate ourselves with webserverusage script, we conflict too often in test cleanup
     INTEGER ARRAY ourwebservers := SELECT AS INTEGER ARRAY webserver
                                      FROM system.access
                                     WHERE hostingsrc=6 AND hostingpath="webhare_testsuite:testframework"
                                           AND webserver != 0;
     IF(Length(ourwebservers)>0)
-    {
-      GetPrimary()->BeginLockedWork("system:webservers"); //coordinate ourselves with webserverusage script, we conflict too often in test cleanup
       DELETE FROM system.webservers WHERE id IN ourwebservers;
-      DELETE FROM system.webservers_aliases WHERE hostname LIKE "*.localhost.beta.webhare.net";
-      GetPrimary()->CommitWork();
-    }
 
+    DELETE FROM system.webservers WHERE baseurl LIKE "http*://*.localhost.beta.webhare.net/*";
+    DELETE FROM system.webservers_aliases WHERE hostname LIKE "*.localhost.beta.webhare.net";
+
+    GetPrimary()->CommitWork();
     GetPrimary()->Beginwork();
 
     //Wipe existing WRD schemas

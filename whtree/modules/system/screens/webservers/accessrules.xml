@@ -13,7 +13,7 @@
   <screen name="accessrules"
           gid="sysmgmt.webservers.accessrules" tid=".title"
           minwidth="40x" minheight="40x"
-          width="95x" height="50x" allowresize="true"
+          width="130x" height="50x" allowresize="true" footerbuttons="close"
           >
     <actions>
       <action name="add" onexecute="doadd" tid="tollium:common.actions.add" />
@@ -53,47 +53,36 @@
     </menus>
     <body height="1pr">
       <grid height="1pr">
-        <col width="1pr" />
-        <col width="1x" />
-        <row height="1pr">
-          <cell>
-            <panel height="1pr">
-              <list name="accessrulelist"
-                    height="1pr"
-                    gid=".columns"
-                    selectcontextmenu="sel"
-                    newcontextmenu="nosel"
-                    openaction="edit"
-                    selectmode="multiple"
-                    flags="webhareusers externalusers canview"
-                    icons="tollium:security/lock_closed"
-                    >
-                <column type="text" width="30x"  name="path" />
-                <column type="text" width="1pr"  name="description" />
-                <column type="icon" width="8px" name="protected" />
-                <style name="disabled" textcolor="#9a9a9a" />
-              </list>
-            </panel>
-          </cell>
-          <cell>
-            <button width="1pr" action="add" />
-            <button width="1pr" action="edit" />
-            <button width="1pr" action="delete" />
+        <cell width="1pr">
+          <list name="accessrulelist"
+                height="1pr"
+                gid=".columns"
+                selectcontextmenu="sel"
+                newcontextmenu="nosel"
+                openaction="edit"
+                selectmode="multiple"
+                flags="webhareusers externalusers canview"
+                icons="tollium:objects/lock tollium:objects/arrowright tollium:tollium/tollium tollium:folders/normal"
+                >
+            <column type="text" width="30x" name="path" iconname="icon"/>
+            <column type="text" width="1pr" name="target" />
+            <column type="text" width="1pr" name="description" />
+          </list>
+        </cell>
+        <cell>
+          <button width="1pr" action="add" />
+          <button width="1pr" action="edit" />
+          <button width="1pr" action="delete" />
 
-            <panel spacers="top bottom">
-              <button width="1pr" action="ipfilters" />
-              <button width="1pr" action="webhareusers" />
-              <button width="1pr" action="externalusers" />
-            </panel>
-
-            <button width="1pr" action="view" />
-          </cell>
-        </row>
+          <spacer height="1gr" />
+          <button width="1pr" action="ipfilters" />
+          <button width="1pr" action="webhareusers" />
+          <button width="1pr" action="externalusers" />
+          <spacer height="1gr" />
+          <button width="1pr" action="view" />
+        </cell>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close"/>
-    </footer>
   </screen>
 
   <screen name="updateaccessrule" gid="sysmgmt.webservers.updateaccessrule" tid=".title">

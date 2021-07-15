@@ -43,18 +43,30 @@ PUBLIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
   {
     // Get all unique accesrule id's which have an ip rule
     INTEGER ARRAY ruleswithips := SELECT AS INTEGER ARRAY DISTINCT(accessid) FROM system.access_ips;
+    RECORD ARRAY rolesets := GetAvailableModuleRoleSets();
 
-    this->accessrulelist->rows :=
-      SELECT rowkey := id
-           , path
-           , webhareusers := (authtype = 2)
-           , externalusers := authlist
-           , description
-           , canview := matchtype IN [0,1]
-           , protected := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? 1 : 0
-           , style := disabled ? "disabled" : ""
-        FROM system.access
-       WHERE access.webserver = this->webserverid;
+    RECORD ARRAY rows := SELECT rowkey := id
+                              , icon := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? 1
+                                        : hostingsrc in [4,5] ? 2
+                                        : hostingsrc = 6 ? 3 //app icon
+                                        : hostingsrc = 2 ? 4 //folder icon
+                                        : 0
+                              , path
+                              , webhareusers := (authtype = 2)
+                              , externalusers := authlist
+                              , description
+                              , canview := matchtype IN [0,1]
+                              , listrowclasses := disabled ? ["grayedout"] : STRING[]
+                              , target := hostingsrc in [2,4,5,6] ? hostingpath : ""
+                              , hostingsrc
+                           FROM system.access
+                          WHERE access.webserver = this->webserverid;
+
+    //Set readable names for module-sourced
+    UPDATE rows SET target := (SELECT AS STRING title FROM rolesets WHERE rowkey = rows.target) ?? rows.target
+              WHERE hostingsrc = 6;
+
+    ^accessrulelist->rows := rows;
   }
 
   MACRO DoAdd()

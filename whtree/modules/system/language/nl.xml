@@ -1081,6 +1081,7 @@
           <text tid="description">Omschrijving</text>
           <text tid="path">Pad</text>
           <text tid="protected">Beschermd</text>
+          <text tid="target">Doel</text>
         </textgroup>
       </textgroup>
       <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
