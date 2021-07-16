@@ -232,7 +232,7 @@ PUBLIC BOOLEAN FUNCTION IsWebhareVersionMatch(STRING semverrange)
   RETURN VersionSatisfiesRange(GetWebhareVersionInfo().version, semverrange);
 }
 
-/** Test if the specified module's semantic version matches the speciified version range
+/** Test if the specified module's semantic version matches the specified version range
     @param modulename Module to test
     @param semverrange Semver range to test against
     @return True if the module is installed and matches the version range */
