@@ -43,7 +43,7 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
       IF (IsRequestPost() AND GetWebVariable("UcasE") != "1")
         ABORT("Case of variable names is not preserved in form post");
 
-      PRINT(`<!DOCTYPE html><body>
+      PRINT(`<!DOCTYPE html><head><body>
       <header>
         <div class="navlevel">
           <h1>Test provider payment page</h1>
@@ -67,38 +67,18 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
         IF (GetWebVariable("approve") != "pending")
           PRINT('<button type="submit" name="approve" value="pending" id="pendingpayment">Dunno, keep pending</button>');
         PRINT('</form>');
-        //PRINT(`<br><button onclick="javascript:window.open(location.href + '&push=1', '_blank')">Send separate HTTP notification</button>`);
       }
 
       PRINT(`<br><br>Send HTTP push for payment of ${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)} ref ${data.payment->paymentref}<br><br>`);
-      PRINT(
-    `<script>
-    function sendNotification(form, approve)
-    {
-      var xhr = new XMLHttpRequest();
-      var formdata = new FormData(form);
-      formdata.append("approve", approve);
-      formdata.append("sleep", "0");
-      formdata.append("isnotify", "1");
-      xhr.onload = () =>
-      {
-        // navigate on load (is easy for tests to wait for)
-        var strippedurl = location.href.replace(/&notified=[^&]*/, "");
-        location.href = strippedurl + "&notified=" + approve;
-      };
-      xhr.open("POST", "${EncodeValue(GetClientRequestURL())}");
-      xhr.send(formdata);
-      return false;
-    };
-    </script>`);
 
-      PRINT(`<form onsubmit="javascript:return false;">`);
+      PRINT(`<form>`);
       PRINT('<input type="hidden" name="pi" value="'||EncodeValue(GetWebVariable("pi"))||'" />');
-      PRINT(`<button type="submit" name="notified" value="approved" id="notifyapprovepayment" onclick="javascript:sendNotification(this.parentNode, 'approved');" >Approved</button>`);
-      PRINT(`<button type="submit" name="notified" value="rejected" id="notifyrejectpayment" onclick="javascript:sendNotification(this.parentNode,'rejected');" >Rejected</button>`);
-      PRINT(`<button type="submit" name="notified" value="pending" id="notifypending" onclick="javascript:sendNotification(this.parentNode, 'pending');" >Pending</button>`);
+      PRINT(`<button type="button" name="notified" value="approved" id="notifyapprovepayment">Approved</button>`);
+      PRINT(`<button type="button" name="notified" value="rejected" id="notifyrejectpayment">Rejected</button>`);
+      PRINT(`<button type="button" name="notified" value="pending" id="notifypending">Pending</button>`);
       PRINT('</form>');
       PRINT(`<br>Notified: <input disabled id="notified" value="${EncodeValue(GetWebVariable("notified"))}"></input>`);
+      Print('<script src="test.js"></script>');
     }
     ELSE
     {

@@ -875,6 +875,18 @@
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
       <webrule applyruleset="system:webdav" match="initial" path="/" wrdschema="wrd:testschema" />
+      <webrule match="initial" path="/testpages/dynamicpage">
+        <!-- GA integration tests, eg socialite.test_gtmintegration, requires freedom to load analytics
+             we cannot set https:// for google-analytics.com, as GTM (or GA itself) will load ecomerce.js over http
+             when invoked from a http origin, and CI runs on http. -->
+        <csp policy="script-src 'self' 'unsafe-inline' www.googletagmanager.com www.google-analytics.com" />
+      </webrule>
+      <webrule match="initial" path="/webtools/formcaptcha">
+        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com" /> <!-- recaptcha: tests publisher.forms.testformfile-captcha -->
+      </webrule>
+      <webrule match="initial" path="/webtools/forumcomments-recaptcha">
+        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com" /> <!-- recaptcha: tests publisher.webtools.forum.test_forum_frontend -->
+      </webrule>
       <webrule authmode="ipandaccess" match="initial" path="/portal1/requiresysop/">
         <accesscheck>
           <requireright right="system:sysop" />
