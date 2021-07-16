@@ -671,7 +671,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     this->propsafterupload := this->tolliumuser->GetRegistryKey("publisher.prefs.propsafterupload", FALSE);
     ^filelist->groupfolders := this->tolliumuser->GetRegistryKey("publisher.prefs.groupfolders", TRUE);
-    ^filelist->hideexternal := NOT this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE);
+    ^filelist->hideexternal := NOT (this->tolliumuser->GetRegistryKey("publisher.prefs.showforeignfolders", FALSE) AND this->contexts->user->HasRight("system:supervisor"));
     ^togglepreviewitem->checked := NOT this->tolliumuser->GetRegistryKey("publisher.prefs.hidepreview", FALSE);
     ^converttositemenuitem->visible := this->frame->flags.issysop;
 

@@ -479,7 +479,7 @@
         <text tid="ishidden">Hidden</text>
         <text tid="name">Name</text>
         <text tid="namespace">Namespace</text>
-        <text tid="noreferences">No references found to this file</text>
+        <text tid="noreferences">No references found to this object</text>
         <text tid="path">Path</text>
         <text tid="preview">View as text</text>
         <text tid="private">Private</text>
