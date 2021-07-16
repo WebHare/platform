@@ -2,6 +2,7 @@
 *.args
 .checkoutstate
 .wh.connectinfo
+.wh.dev.connectinfo
 .vscode
 *.swp
 .DS_Store
