@@ -109,7 +109,7 @@ IF(numerrors>0)
   RECORD ARRAY langedits := SELECT module := Tokenize(Tokenize(message,"'")[1],':')[0] FROM allissues WHERE category = "error" AND message LIKE "Missing tid: '*:*";
   langedits := SELECT module, num := Count(*) FROM langedits GROUP BY module;
   FOREVERY(RECORD openlangedit FROM langedits)
-    Print(`To fix ${openlangedit.num} language errors: https://my.webhare.dev/?app=tollium:langedit(${openlangedit.module})\n`);
+    Print(`To fix ${openlangedit.num} language errors: https://my.webhare.dev/?app=dev:langedit(${openlangedit.module})\n`);
 }
 ELSE
 {

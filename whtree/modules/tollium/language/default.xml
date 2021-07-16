@@ -823,50 +823,6 @@
     <text tid="takeoverdenied">Your request to take over the screen has been denied.</text>
     <text tid="waitforreplytext">Waiting for <ifparam p="1" value="">the other user <else/>user <ifparam p="2" value=""><param p="1"/><else/><param p="2"/> (<param p="1"/>)</ifparam></ifparam> to respond to your take-over request.<br/><br/>When left unanswered you will be allowed to take over the screen automatically after <ifparam p="3" value="1">1 second<else/><param p="3"/> seconds</ifparam>.</text>
   </textgroup>
-  <textgroup gid="langedit">   <!-- langedit -->
-    <text tid="apptitle">Language editor</text>
-    <textgroup gid="main">   <!-- langedit.main -->
-      <textgroup gid="issues">   <!-- langedit.main.issues -->
-        <text tid="untranslated">This text is missing in one or more languages</text>
-      </textgroup>
-      <textgroup gid="langeditreferences">   <!-- langedit.main.langeditreferences -->
-        <text tid="langeditreferences">References</text>
-        <text tid="line">Line number</text>
-        <text tid="opencontext">Show file</text>
-        <text tid="openineditor">Open in editor</text>
-        <text tid="resourcename">Path</text>
-        <text tid="tid">References for '<param p="1"/>' were found in:</text>
-      </textgroup>
-      <textgroup gid="langtext">   <!-- langedit.main.langtext -->
-        <text tid="next">Next</text>
-        <text tid="previous">Previous</text>
-        <text tid="tid">Text ID</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- langedit.main.main -->
-        <text tid="apptitle">Language file editor</text>
-        <textgroup gid="actions">   <!-- langedit.main.main.actions -->
-          <text tid="showreferences">Show references</text>
-        </textgroup>
-        <textgroup gid="toolbar">   <!-- langedit.main.main.toolbar -->
-          <text tid="contextview">Context</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="messageboxes">   <!-- langedit.main.messageboxes -->
-        <text tid="nolanguagefiles">Please create a language file before editing texts.</text>
-        <text tid="removehighlighted">Are you sure you want to remove the highlighted entries?</text>
-      </textgroup>
-      <textgroup gid="namedialog" keepemptyreason="test keep me">   <!-- langedit.main.namedialog -->
-        <text tid="elementname">Name</text>
-        <text tid="namedialog">Rename</text>
-      </textgroup>
-      <textgroup gid="showcontext">   <!-- langedit.main.showcontext -->
-        <text tid="showcontext">Show context</text>
-      </textgroup>
-      <textgroup gid="translate">   <!-- langedit.main.translate -->
-        <text tid="translate">Translate</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="testnotification">Test Notification</text>
     <text tid="testnotification-desc"><ifparam p="1" value="">It works!<else/><param p="1"/></ifparam></text>
@@ -1151,78 +1107,7 @@
     </textgroup>
     <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
       <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
-        <text tid="add">Add</text>
-        <text tid="addgroup">Add group</text>
-        <text tid="addlanguagefile">Add language file</text>
-        <text tid="addtext">Add text</text>
-        <text tid="allsaved">All language files in this module have been rewritten</text>
-        <text tid="allunreferenced">All texts in this group appear to be unused</text>
-        <text tid="askreload">Are you sure you want to reload? Unsaved changes will be lost.</text>
-        <text tid="badtext">The language text has a syntax error.</text>
-        <text tid="cannoteditmodule">The language files of core modules may only be edited when the DTAP stage is 'Development'.</text>
-        <text tid="cannotparselanguagefile">Cannot parse language file '<param p="1"/>'</text>
-        <text tid="collapserecursive">Collapse all</text>
-        <text tid="contextview">Context</text>
-        <text tid="currenttid">References of node</text>
-        <text tid="deleteconfirmation">Are you sure you want to delete the selected nodes?</text>
-        <text tid="duplicategroupname">This name already exists in this group</text>
-        <text tid="duplicatenodename">This name already exists in this group</text>
-        <text tid="edittext">Edit text</text>
-        <text tid="elementname">Group name</text>
-        <text tid="error_badlanguagecode">Invalid language code. A language code must be two characters long, and be in lowercase</text>
-        <text tid="exit">Exit</text>
-        <text tid="expandrecursive">Expand all</text>
-        <text tid="export">Export</text>
-        <text tid="find">Display search bar</text>
-        <text tid="fromlang">From language</text>
-        <text tid="fromtext">Translate</text>
-        <text tid="gid">Group ID</text>
-        <text tid="illegaltidname">This TID does not have a valid name</text>
-        <text tid="import">Import</text>
-        <text tid="issues">Issues</text>
-        <text tid="keepemptyreason">Reason</text>
-        <text tid="keepifempty">Keep empty/unreferenced texts</text>
-        <text tid="langcode">Language code</text>
-        <text tid="langtext">Language text</text>
-        <text tid="languagefile">Language file</text>
-        <text tid="limitlanguages">Limit languages</text>
         <text tid="main">Language editor</text>
-        <text tid="mi_unreferenced">Highlight unused teksts</text>
-        <text tid="mi_untranslated">Highlight missing texts</text>
-        <text tid="movefrom">Move texts from</text>
-        <text tid="movemissingfrom">Move missing texts from</text>
-        <text tid="next">Next</text>
-        <text tid="nosuchgroup">No such group '<param p="1"/>'</text>
-        <text tid="notalanguagefile">File '<param p="1"/>' doesn't seem to be a language file.</text>
-        <text tid="notfound">Could not find a node when searching for string '<param p="1"/>'.</text>
-        <text tid="occurrences">Occurences</text>
-        <text tid="open">Open</text>
-        <text tid="possiblecvsconflict">Failed to load the language file '<param p="1"/>'. It appears to contain SVN/CVS conflict markers.</text>
-        <text tid="previous">Previous</text>
-        <text tid="references">References of node <param p="1"/></text>
-        <text tid="regex">RegEx</text>
-        <text tid="reload">Reload</text>
-        <text tid="reloadwarning">The language files have been modified outside the language editor. You should reload</text>
-        <text tid="removehighlighted">Remove highlighted</text>
-        <text tid="removenodes">Remove node</text>
-        <text tid="saveall">Rewrite all languagefiles</text>
-        <text tid="search">Search</text>
-        <text tid="searchbtn">Search</text>
-        <text tid="searchfor">Search for</text>
-        <text tid="searchintexts">Also within texts</text>
-        <text tid="selectunreferenced">Select unrefenced nodes</text>
-        <text tid="targetgroup">Receiving group</text>
-        <text tid="textgroup">Text group</text>
-        <text tid="title">Entry</text>
-        <text tid="tolang">To language</text>
-        <text tid="totext">Translation</text>
-        <text tid="translate">Translate</text>
-        <text tid="translateword">Translate</text>
-        <text tid="unlinked">This text is not linked to anything</text>
-        <text tid="unreferenced">Unreferenced</text>
-        <text tid="untranslated">Untranslated</text>
-        <text tid="untranslated_button">Untranslated</text>
-        <text tid="verifyfirstlanguagefile">The first language file you create will be the default language file for the module. Are you sure you want to make this language the default?</text>
       </textgroup>
     </textgroup>
   </textgroup>
