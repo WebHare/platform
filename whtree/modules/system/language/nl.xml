@@ -18,10 +18,6 @@
       <text tid="send">Verzenden</text>
       <text tid="title">Verzend e-mail</text>
     </textgroup>
-    <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
-      <text tid="mailviewer">Bekijk e-mail</text>
-      <text tid="screentitle">E-mailwachtrij</text>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="notenoughrights">Je hebt niet genoeg rechten om deze applicatie te starten.</text>
       <text tid="notenoughrights_spec">Je hebt niet genoeg rechten om deze applicatie te starten.<br/><br/>De volgende recht(en) zijn nodig: <param p="1"/>.</text>
@@ -227,9 +223,6 @@
         <text tid="runlogsscreen">Open logs scherm</text>
         <text tid="servicemanagerlogbox">Servicebeheer</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="mailqueue">   <!-- monitor.mailqueue -->
-      <text tid="title">Uitgaande e-mail</text>
     </textgroup>
     <textgroup gid="managedtasks">   <!-- monitor.managedtasks -->
       <text tid="title">Beheerde taken</text>
@@ -728,35 +721,6 @@
   </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
-      <textgroup gid="mailqueue">   <!-- screens.monitor.mailqueue -->
-        <text tid="confirmdeletemail">Weet je zeker dat je de geselecteerde mail(s) wilt verwijderen ?</text>
-        <text tid="confirmrequeuemail">Weet je zeker dat je de geselecteerde mail(s) opnieuw wil verzenden ?</text>
-        <textgroup gid="panel">   <!-- screens.monitor.mailqueue.panel -->
-          <text tid="cannotforwardsensitivemail">Gevoelige mails kunnen niet worden doorgestuurd</text>
-          <text tid="creationdate">Aangemaakt op</text>
-          <text tid="filter">Filter</text>
-          <text tid="flush">Alles opnieuw proberen</text>
-          <text tid="forward">Doorsturen</text>
-          <text tid="nextattempt">Volgende poging</text>
-          <text tid="receiver">Ontvanger</text>
-          <text tid="requeue">Mail opnieuw versturen</text>
-          <text tid="result">Verzendresultaat</text>
-          <text tid="sender">Afzender</text>
-          <text tid="showscheduledmail">Toon ingeplande mail</text>
-          <text tid="showsentmail">Toon verzonden mail</text>
-          <text tid="subject">Onderwerp</text>
-          <text tid="testmailsubject">Test mail van '<param p="1"/>'</text>
-        </textgroup>
-        <textgroup gid="result">   <!-- screens.monitor.mailqueue.result -->
-          <text tid="finalreceiver">Uiteindelijke ontvanger</text>
-          <text tid="lasterror">Laatste fout</text>
-          <text tid="response">SMTP antwoord</text>
-          <text tid="result">Verzendresultaat</text>
-          <text tid="route">Route</text>
-          <text tid="sender">Verstuurder</text>
-          <text tid="serverip">SMTP server ip</text>
-        </textgroup>
-      </textgroup>
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
         <text tid="confirmdeletetasks">Weet je zeker dat je de taken wil verwijderen?</text>
         <text tid="confirmrescheduletasks">Weet je zeker dat je de taken opnieuw wil inplannen?</text>
@@ -1370,6 +1334,21 @@
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
+      <textgroup gid="mailviewer">   <!-- tolliumapps.commondialogs.mailviewer -->
+        <text tid="callbackdata">Callback data</text>
+        <text tid="callbackfunc">Callback function</text>
+        <text tid="callbackinfo">Mail status callback</text>
+        <text tid="errors">Foutmelding</text>
+        <text tid="mailcontents">Mailinhoud</text>
+        <text tid="mailviewer">Bekijk e-mail</text>
+        <text tid="simulate">Simuleer</text>
+        <text tid="simulatecomplaint">Klacht</text>
+        <text tid="simulatedelivery">Aflevering</text>
+        <text tid="simulatehardbounce">Harde bounce</text>
+        <text tid="simulatesoftbounce">Zachte bounce</text>
+        <text tid="taskinfo">Taak</text>
+        <text tid="taskqueued">Er is een taak ingepland om een '<param p="1"/>' te simuleren</text>
+      </textgroup>
       <textgroup gid="runscript">   <!-- tolliumapps.commondialogs.runscript -->
         <text tid="runscriptdialog">Niet gestart</text>
         <text tid="saveoutput">Uitvoer opslaan</text>
@@ -1767,6 +1746,35 @@
         <text tid="isitalicicon">Cursief</text>
         <text tid="istruetypeicon">Truetype</text>
         <text tid="style">Stijl</text>
+      </textgroup>
+      <textgroup gid="mailqueue">   <!-- tolliumapps.dashboard.mailqueue -->
+        <text tid="mailqueuepanel">Uitgaande e-mail</text>
+        <textgroup gid="panel">   <!-- tolliumapps.dashboard.mailqueue.panel -->
+          <text tid="cannotforwardsensitivemail">Gevoelige mails kunnen niet worden doorgestuurd</text>
+          <text tid="confirmdeletemail">Weet je zeker dat je de geselecteerde mail(s) wilt verwijderen ?</text>
+          <text tid="confirmrequeuemail">Weet je zeker dat je de geselecteerde mail(s) opnieuw wil verzenden ?</text>
+          <text tid="creationdate">Aangemaakt op</text>
+          <text tid="filter">Filter</text>
+          <text tid="flush">Alles opnieuw proberen</text>
+          <text tid="forward">Doorsturen</text>
+          <text tid="nextattempt">Volgende poging</text>
+          <text tid="receiver">Ontvanger</text>
+          <text tid="requeue">Mail opnieuw versturen</text>
+          <text tid="result">Verzendresultaat</text>
+          <text tid="sender">Afzender</text>
+          <text tid="showscheduledmail">Toon ingeplande mail</text>
+          <text tid="showsentmail">Toon verzonden mail</text>
+          <text tid="testmailsubject">Test mail van '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="result">   <!-- tolliumapps.dashboard.mailqueue.result -->
+          <text tid="finalreceiver">Uiteindelijke ontvanger</text>
+          <text tid="lasterror">Laatste fout</text>
+          <text tid="response">SMTP antwoord</text>
+          <text tid="result">Verzendresultaat</text>
+          <text tid="route">Route</text>
+          <text tid="sender">Verstuurder</text>
+          <text tid="serverip">SMTP server ip</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
         <text tid="allunits">Dit bericht wordt standaard aan alle gebruikers getoond.<br/> Voeg eenheden toe om de weergave tot die eenheden te beperken.</text>

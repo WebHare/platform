@@ -38,7 +38,7 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
   {
     //Simulate what the outbound task does too.. replacing the actual messageid with the task id
     DELETE FROM email.mimeheaders WHERE ToUppercase(field) = "MESSAGE-ID";
-    INSERT [ field := "Message-ID", value := `<${EncryptForThisServer("system:messageid", email.taskid)}@smtp.webhare.net>`
+    INSERT [ field := "Message-ID", value := GenerateTaskMessageId(email.taskid)
            ] INTO email.mimeheaders AT END;
 
     RECORD outmail := [ envelope_sender := email.sender

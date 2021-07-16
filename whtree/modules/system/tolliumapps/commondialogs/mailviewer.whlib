@@ -1,0 +1,93 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/testfw/emails.whlib";
+LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
+    OBJECT screen := this->LoadScreen("mod::system/tolliumapps/dashboard/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
+    IF (ObjectExists(screen))
+      screen->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
+
+    ^body->contents := screen;
+    ^body->contents->EnableRefresh();
+    ^body->contents->RefreshDashboardPanel();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
+<
+  RECORD task;
+  INTEGER taskid;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    data := ValidateOptions([ mailblob := DEFAULT BLOB
+                            , origin := ""
+                            , sensitive := FALSE
+                            , task := 0
+                            ], data);
+
+    IF(data.task != 0)
+    {
+      this->taskid := data.task;
+      this->task := DescribeManagedTask(data.task);
+      IF(NOT RecordExists(this->task)) //race?
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      data.origin := data.origin ?? this->task.data.origin;
+      data.sensitive := data.sensitive OR (CellExists(this->task.data,'sensitive') AND this->task.data.sensitive);
+      data.mailblob := GetEMLFromMailTask(this->task.data);
+    }
+
+    ^mailcontents->origin := data.origin;
+    ^mailcontents->LoadEML(data.mailblob, CELL[ data.sensitive ]);
+
+    this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+    IF(RecordExists(this->task) AND this->frame->flags.issysop)
+    {
+      ^tabs->type := "regular";
+      ^errors->visible := this->task.lasterrors != "";
+      ^errors->value := this->task.lasterrors;
+      ^callbackinfo->visible := RecordExists(this->task.data.callback);
+      IF(RecordExists(this->task.data.callback))
+      {
+        ^callbackfunc->value := this->task.data.callback.func;
+        ^callbackdata->value := this->task.data.callback.data;
+      }
+    }
+  }
+
+  MACRO DoSimulateDelivery()
+  {
+    this->DoSimulate("Delivery", "");
+  }
+  MACRO DoSimulateComplaint()
+  {
+    this->DoSimulate("Complaint", "");
+  }
+  MACRO DoSimulateSoftBounce()
+  {
+    this->DoSimulate("Bounce", "Transient");
+  }
+  MACRO DoSimulateHardBounce()
+  {
+    this->DoSimulate("Bounce", "Permanent");
+  }
+  MACRO DoSimulate(STRING type, STRING bouncetype)
+  {
+    SendBounceToSNSEndpoint(GenerateTaskMessageId(this->taskid), type, this->task.data.receiver, [ bouncetype := bouncetype ?? "Undetermined"]);
+    this->RunSimpleScreen("info", this->GetTid(".taskqueued", (bouncetype != "" ? bouncetype || " " : "") || type));
+  }
+>;
+

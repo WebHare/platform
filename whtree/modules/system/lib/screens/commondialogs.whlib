@@ -227,35 +227,6 @@ PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
-<
-  PUBLIC MACRO Init(RECORD data)
-  {
-    data := ValidateOptions([ mailblob := DEFAULT BLOB
-                            , origin := ""
-                            , sensitive := FALSE
-                            ], data);
-
-    ^mailcontents->origin := data.origin;
-    ^mailcontents->LoadEML(data.mailblob, CELL[ data.sensitive ]);
-  }
->;
-
-PUBLIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    //RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
-    OBJECT screen := this->LoadScreen("mod::system/screens/monitor/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
-    IF (ObjectExists(screen))
-      screen->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
-
-    this->monitor->contents := screen;
-    this->monitor->contents->EnableRefresh();
-    this->monitor->contents->RefreshDashboardPanel();
-  }
->;
-
 PUBLIC OBJECTTYPE RightsProblem EXTEND TolliumScreenBase
 < PUBLIC MACRO Init(RECORD data)
   {

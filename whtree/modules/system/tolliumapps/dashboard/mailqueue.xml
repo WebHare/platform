@@ -1,0 +1,97 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.mailqueue" library="mailqueue.whlib">
+
+  <screen name="mailqueuepanel" gid=".panel" title="">
+    <actions>
+      <action name="new" onexecute="donew" shortcut="ctrl+n" tid="~new" />
+      <action name="flush" onexecute="doflush" />
+      <action name="requeue" onexecute="dorequeue">
+        <enableon source="mailqueue" min="1" checkflags="isfinished" />
+      </action>
+      <action name="forward" onexecute="doforward">
+        <enableon source="mailqueue" min="1" />
+      </action>
+      <action name="viewmessage" onexecute="doviewmessage" tid="~view">
+        <enableon source="mailqueue" min="1" max="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+        <enableon source="mailqueue" min="1" />
+      </action>
+      <action name="result" onexecute="doresult">
+        <enableon source="mailqueue" min="1" max="1" checkflags="hasresult" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="email_menu">
+        <item action="viewmessage" />
+        <item action="forward" />
+        <item action="requeue" disablemode="hidden" />
+        <item action="result" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+      <menu name="queue_menu">
+        <item action="flush" />
+        <item action="new" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="listener" masks="system:managedtasks.system:outgoingmail.*" onevents="onmanagedtaskevent" />
+    </compositions>
+
+    <body height="1pr">
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <panel height="1pr">
+              <list name="mailqueue"
+                    width="1pr"
+                    height="1pr"
+                    borders="right bottom"
+                    flags="isfinished hasresult"
+                    icons="tollium:status/wait tollium:status/error tollium:status/checked tollium:status/not_available"
+                    newcontextmenu="queue_menu"
+                    openaction="viewmessage"
+                    selectcontextmenu="email_menu"
+                    selectmode="multiple"
+                    sortascending="false"
+                    sortcolumn="creationdate">
+                <column name="creationdate" type="datetime" width="18x" precision="seconds" storeutc="true" />
+                <column name="sender" type="text" />
+                <column name="subject" type="text" tid="~subject" />
+                <column name="receiver" type="text" />
+                <column name="status" type="icon" width="7x" align="center" tid="~status" />
+                <column name="nextattempt" type="datetime" width="16x" precision="seconds" storeutc="true" />
+              </list>
+            </panel>
+          </cell>
+          <cell layout="left" spacers="left right">
+            <textedit name="filter" width="1pr" onchange="RefreshDashboardPanel" />
+            <checkbox name="showsentmail" labeltid=".showsentmail" onchange="RefreshDashboardPanel" title="" />
+            <checkbox name="showscheduledmail" labeltid=".showscheduledmail" onchange="RefreshDashboardPanel" title="" />
+            <button name="newbutton" width="1pr" action="new" tid="~new" />
+            <button name="flushbutton" width="1pr" action="flush" tid=".flush" />
+            <button width="1pr" action="forward" />
+            <button width="1pr" action="viewmessage" />
+            <button width="1pr" action="result" />
+            <button name="deletebutton" width="1pr" action="delete" tid="~delete" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="result" footerbuttons="close" gid=".result">
+    <body>
+      <text name="serverip" />
+      <text name="route" />
+      <text name="response" />
+      <text name="sender" />
+      <text name="finalreceiver" />
+      <text name="lasterror" />
+    </body>
+  </screen>
+
+</screens>

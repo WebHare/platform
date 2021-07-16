@@ -29,6 +29,8 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
       this->flushbutton->visible := FALSE;
       this->deletebutton->visible := FALSE;
       this->showsentmail->value := TRUE;
+      ^mailqueue->borders.left := TRUE;
+      ^mailqueue->borders.top := TRUE;
       this->RefreshDashboardPanel();
     }
     IF(CellExists(data, "FILTER"))
@@ -120,7 +122,7 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
 
   MACRO DoReQueue()
   {
-    IF(this->RunMessageBox("system:monitor/mailqueue.confirmrequeuemail") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmrequeuemail")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();
@@ -155,23 +157,15 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
   }
   MACRO DoViewMessage()
   {
-    RECORD task := DescribeManagedTask(this->mailqueue->value[0]);
-    IF(NOT RecordExists(task))
-      RETURN;
-
-    BLOB msgblob := GetEMLFromMaiLTask(task.data);
-    RunEmailViewDialog(this, msgblob, [ origin := task.data.origin
-                                      , sensitive := CellExists(task.data,'sensitive') AND task.data.sensitive
-                                      ]);
+    RunEmailViewDialog(this, DEFAULT BLOB, [ task := this->mailqueue->value[0] ]);
   }
   MACRO DoResult()
   {
-    OBJECT screen := this->LoadScreen(".result", [ id := this->mailqueue->value[0] ]);
-    screen->RunModal();
+    this->RunScreen("#result", [ id := this->mailqueue->value[0] ]);
   }
   MACRO DoDelete()
   {
-    IF(this->RunMessageBox("system:monitor/mailqueue.confirmdeletemail") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletemail")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();

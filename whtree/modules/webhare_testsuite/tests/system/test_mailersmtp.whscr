@@ -224,10 +224,10 @@ MACRO MailNewComposerSendTest()
 ASYNC MACRO TestInspectMailqueue()
 {
   AWAIT ExpectScreenChange(+1, PTR RunMailQueueDialog(GetTestController(), "*simplemail*"));
-  RECORD ARRAY mails := SELECT * FROM tt("monitor")->contents->mailqueue->rows WHERE NOT iscancelled;
+  RECORD ARRAY mails := SELECT * FROM TT("body")->contents->mailqueue->rows WHERE NOT iscancelled;
   TestEq(2,Length(mails));
 
-  TT("monitor")->contents->mailqueue->selection := SELECT * FROM mails WHERE receiver = "to@smtp.beta.webhare.net";
+  TT("body")->contents->mailqueue->selection := SELECT * FROM mails WHERE receiver = "to@smtp.beta.webhare.net";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":View"));
   TestEq("<info@sender.beta.webhare.net>", TT(":From")->value);
   TestEq("<replyto@beta.webhare.net>", TT(":Reply-To")->value);
