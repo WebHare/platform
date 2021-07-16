@@ -41,24 +41,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
-    <textgroup gid="browsewhfsobject">   <!-- commondialogs.browsewhfsobject -->
-      <text tid="descr-file">Blader naar een map en kies een bestand uit de lijst van bestanden</text>
-      <text tid="descr-filefolder">Blader naar een map en kies een bestand of map uit de lijst van bestanden en mappen</text>
-      <text tid="descr-folder">Kies een map uit de lijst van mappen</text>
-      <text tid="favoritestab">Favorieten</text>
-      <text tid="folders">Mappen</text>
-      <text tid="folderstab">Mappen</text>
-      <text tid="gotoanything">Ga naar site of URL</text>
-      <text tid="openinpublisher">Open in Publisher</text>
-      <text tid="title-file">Kies een bestand</text>
-      <text tid="title-filefolder">Kies een bestand of map</text>
-      <text tid="title-folder">Kies een map</text>
-      <textgroup gid="fileviews">   <!-- commondialogs.browsewhfsobject.fileviews -->
-        <text tid="fileviewtype">Weergave</text>
-        <text tid="list">Lijst</text>
-        <text tid="thumbnails">Verkleiningen</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
       <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
         <text tid="choose">Kies</text>
@@ -69,11 +51,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- commondialogs.errors -->
-      <textgroup gid="browsedialog">   <!-- commondialogs.errors.browsedialog -->
-        <text tid="nofilefolderselected">Kiest u a.u.b. een map of bestand uit de bestandenlijst alvorens op 'Ok' te drukken.</text>
-        <text tid="nofileselected">Kiest u a.u.b. een bestand uit de bestandenlijst alvorens op 'Ok' te drukken.</text>
-        <text tid="nofolderselected">Kiest u a.u.b. een map uit de mappenlijst alvorens op 'Ok' te drukken.</text>
-      </textgroup>
       <textgroup gid="objectprops">   <!-- commondialogs.errors.objectprops -->
         <text tid="createoutputfolder">Site '<param p="1"/>' gebruikt al een submap van het opgegeven pad en veroorzaakt een conflict. Dit kan opgelost worden door een externe map genaamd '<param p="2"/>' in deze site aan te maken op '<param p="3"/>'</text>
         <text tid="outputfolderused">Site '<param p="1"/>' gebruikt al (een voorouder van) de nieuwe uitvoermap.</text>
@@ -1808,6 +1785,24 @@
         <text tid="siteprofile">Siteprofiel</text>
         <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
         <text tid="typename">Type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialogs">   <!-- tolliumapps.dialogs -->
+      <textgroup gid="browseforobject">   <!-- tolliumapps.dialogs.browseforobject -->
+        <text tid="descr-file">Blader naar een map en kies een bestand uit de lijst van bestanden</text>
+        <text tid="descr-filefolder">Blader naar een map en kies een bestand of map uit de lijst van bestanden en mappen</text>
+        <text tid="descr-folder">Kies een map uit de lijst van mappen</text>
+        <text tid="folders">Mappen</text>
+        <text tid="gotoanything">Ga naar site of URL</text>
+        <text tid="openinpublisher">Open in Publisher</text>
+        <text tid="title-file">Kies een bestand</text>
+        <text tid="title-filefolder">Kies een bestand of map</text>
+        <text tid="title-folder">Kies een map</text>
+        <textgroup gid="fileviews">   <!-- tolliumapps.dialogs.browseforobject.fileviews -->
+          <text tid="fileviewtype">Weergave</text>
+          <text tid="list">Lijst</text>
+          <text tid="thumbnails">Verkleiningen</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->

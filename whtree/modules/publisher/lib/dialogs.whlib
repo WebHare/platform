@@ -58,7 +58,7 @@ PUBLIC MACRO RunFSObjectHistoryDialog(OBJECT parentscreen, INTEGER objectid, REC
     @return Selected object, or 0 if the dialog was cancelled */
 PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "single"]);
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/tolliumapps/dialogs/browseforobject.xml#browseforobject', CELL[...options, __selectmode := "single"]);
   IF (dialog->RunModal() = "ok")
     RETURN dialog->value;
 
@@ -72,7 +72,7 @@ PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD o
     @return Selected objects or an empty array if the dialog was cancelled */
 PUBLIC INTEGER ARRAY FUNCTION RunBrowseForFSObjectsDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "multiple"]);
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/tolliumapps/dialogs/browseforobject.xml#browseforobject', CELL[...options, __selectmode := "multiple"]);
   IF (dialog->RunModal() = "ok")
     RETURN dialog->value;
 
