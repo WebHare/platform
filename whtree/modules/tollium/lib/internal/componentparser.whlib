@@ -634,7 +634,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
   RETURN retval;
 }
 
-RECORD FUNCTION GetCachableComponents(STRING resourcename)
+RECORD FUNCTION GetCacheableComponents(STRING resourcename)
 {
   RECORD retval := [ success := FALSE
                    , error := ""
@@ -653,7 +653,7 @@ RECORD FUNCTION GetCachableComponents(STRING resourcename)
 PUBLIC RECORD FUNCTION GetComponents(STRING resourcename)
 {
   RECORD cachekey := [ type := "components", resourcename := resourcename ];
-  RETURN GetAdhocCached(cachekey, PTR GetCachableComponents(resourcename));
+  RETURN GetAdhocCached(cachekey, PTR GetCacheableComponents(resourcename));
 }
 
 RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)

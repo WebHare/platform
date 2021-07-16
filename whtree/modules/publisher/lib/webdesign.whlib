@@ -1210,7 +1210,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       @return @includecelldef #PublishableRichDocument::ExtractExcerpt.return */
   PUBLIC STRING FUNCTION ExtractRTDExcerpt(INTEGER fileid, STRING selector, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    //TODO use (default) rtdtype as a cachekey to be safe against different interpretations, but first we'll need to make getting the fallback rtdtype fully cachable (no db hits)
+    //TODO use (default) rtdtype as a cachekey to be safe against different interpretations, but first we'll need to make getting the fallback rtdtype fully cacheable (no db hits)
     RETURN GetAdhocCached( CELL[ fileid, selector, options ], PTR this->GetCacheableRTDExcerpt(fileid, selector, options));
   }
 

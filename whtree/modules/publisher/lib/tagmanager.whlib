@@ -1,5 +1,5 @@
 ﻿<?wh
-/** @private OpenSimpleTagManager()->GetTagsInfo should be exposed as a cachable api elsewhere */
+/** @private OpenSimpleTagManager()->GetTagsInfo should be exposed as a cacheable api elsewhere */
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 

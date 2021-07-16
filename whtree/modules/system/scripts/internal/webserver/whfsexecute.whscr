@@ -60,7 +60,7 @@ STRING FUNCTION CalculateCacheKey(INTEGER fileid, RECORD rec, STRING suburl)
   RETURN hashbase;
 }
 
-RECORD FUNCTION GetCachableFileData(INTEGER fileid)
+RECORD FUNCTION GetCacheableFileData(INTEGER fileid)
 {
   IF(HavePrimaryTransaction())
     ABORT("A primary transaction is already open - you may have to update the access rule and disable transactions");
@@ -69,7 +69,7 @@ RECORD FUNCTION GetCachableFileData(INTEGER fileid)
   RECORD info := GetSystemRedirectInfo(fileid);
   IF(NOT info.success)
   {
-    LogError("system:redirect", "GetCachableFileData", info);
+    LogError("system:redirect", "GetCacheableFileData", info);
     AbortWithHTTPError(404, "Not found - See notice log for details");
   }
 
@@ -122,7 +122,7 @@ currentfileid := GetAuthenticationRecord().whfsexecute;
 __currentwhfsscriptid := currentfileid;
 
 // Get the library data for the library
-RECORD rec := GetAdhocCached([ fileid := currentfileid ], PTR GetCachableFileData(currentfileid));
+RECORD rec := GetAdhocCached([ fileid := currentfileid ], PTR GetCacheableFileData(currentfileid));
 IF (NOT RecordExists(rec)) // FIXME: nicer error pages?
   THROW NEW Exception("Could not locate type for fs object #" || currentfileid);
 

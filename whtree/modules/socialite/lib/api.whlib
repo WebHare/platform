@@ -104,14 +104,14 @@ PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
   RETURN app;
 }
 
-RECORD FUNCTION GetCachableApplicationByTags(STRING accounttag, STRING apptag)
+RECORD FUNCTION GetCacheableApplicationByTags(STRING accounttag, STRING apptag)
 {
   RETURN [ ttl :=          5 * 1000
          , eventmasks :=   [ "socialite:applications" ]
          , value :=        PrepareSocialiteConnection(accounttag,apptag)
          ];
 }
-RECORD FUNCTION GetCachableApplicationById(INTEGER appid)
+RECORD FUNCTION GetCacheableApplicationById(INTEGER appid)
 {
   RETURN
       [ ttl :=          5 * 1000
@@ -125,7 +125,7 @@ PUBLIC OBJECT FUNCTION OpenSocialiteConnection(STRING accounttag, STRING apptag)
   RECORD apprec := GetAdhocCached( [ type := "app_by_tag"
                                    , accounttag := accounttag
                                    , apptag := apptag
-                                   ], PTR GetCachableApplicationByTags(accounttag, apptag));
+                                   ], PTR GetCacheableApplicationByTags(accounttag, apptag));
 
   IF (NOT RecordExists(apprec))
     THROW NEW SocialiteException("INVALIDARG", 'Application "'||accounttag||':'||apptag||'" does not exist.');
@@ -150,6 +150,6 @@ PUBLIC OBJECT FUNCTION OpenSocialiteConnectionById(INTEGER appid)
 {
   RECORD apprec := GetAdhocCached([ type := "app_by_id"
                                   , appid := appid
-                                  ], PTR GetCachableApplicationById(appid));
+                                  ], PTR GetCacheableApplicationById(appid));
   RETURN OpenPreparedSocialiteConnection(apprec);
 }

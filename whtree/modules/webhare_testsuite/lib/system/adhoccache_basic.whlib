@@ -84,7 +84,7 @@ PUBLIC MACRO FillUpCache(INTEGER count)
     GetAdhocCached([ type := "fillup", id := id ], PTR DummyData());
 }
 
-RECORD FUNCTION GetSlowCachableData()
+RECORD FUNCTION GetSlowCacheableData()
 {
   Sleep(10);
   RETURN
@@ -95,7 +95,7 @@ RECORD FUNCTION GetSlowCachableData()
 
 PUBLIC RECORD FUNCTION LockedSlowCache()
 {
-  RECORD rec := GetAdhocCached([ type := "slow" ], PTR GetSlowCachableData);
+  RECORD rec := GetAdhocCached([ type := "slow" ], PTR GetSlowCacheableData);
 
   RETURN rec;
 }

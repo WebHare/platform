@@ -16,7 +16,7 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 INTEGER clone_ctr;
 
-VARIANT FUNCTION ReturnCachableValue(VARIANT data)
+VARIANT FUNCTION ReturnCacheableValue(VARIANT data)
 {
   RETURN [ ttl := 60000, value := data ];
 }
@@ -27,7 +27,7 @@ VARIANT FUNCTION ThrowNotCached()
 }
 
 INTEGER uncached_cntr;
-VARIANT FUNCTION ReturnUncachableValue(VARIANT ttl)
+VARIANT FUNCTION ReturnUncacheableValue(VARIANT ttl)
 {
   uncached_cntr := uncached_cntr + 1;
   RETURN CELL[ ttl, value := CELL[ cntr := uncached_cntr ] ];
@@ -38,7 +38,7 @@ VARIANT FUNCTION GetCachedClone(VARIANT value)
 {
   clone_ctr := clone_ctr + 1;
 
-  GetAdhocCached([ mykey := clone_ctr ], PTR ReturnCachableValue(value));
+  GetAdhocCached([ mykey := clone_ctr ], PTR ReturnCacheableValue(value));
   GetAdhocCached([ mykey := clone_ctr ], PTR ThrowNotCached()); // 1st copy
   RETURN GetAdhocCached([ mykey := clone_ctr ], PTR ThrowNotCached()); // 2nd copy
 }
@@ -108,14 +108,14 @@ MACRO AdHocCacheTest()
   uncached_cntr := 0;
   FOR (INTEGER i := 1; i <= 1000; i := i + 1)
   {
-    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncachableValue(0));
+    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncacheableValue(0));
     TestEq(i, rec.cntr);
   }
 
   uncached_cntr := 0;
   FOR (INTEGER i := 1; i <= 1000; i := i + 1)
   {
-    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncachableValue(0));
+    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncacheableValue(0));
     TestEq(i, rec.cntr);
   }
 }
@@ -263,7 +263,7 @@ MACRO EventInvalidationTest()
 }
 
 
-RECORD FUNCTION GetCachableStuff(INTEGER id)
+RECORD FUNCTION GetCacheableStuff(INTEGER id)
 {
  RETURN [ eventmasks := [ "webhare_testsuite:localeventtest" ]
          , value := id
@@ -272,7 +272,7 @@ RECORD FUNCTION GetCachableStuff(INTEGER id)
 }
 INTEGER FUNCTION GAC(INTEGER id)
 {
-  RETURN GetAdHocCached([ type := "3" ], PTR GetCachableStuff(id));
+  RETURN GetAdHocCached([ type := "3" ], PTR GetCacheableStuff(id));
 }
 
 MACRO LocalEventtest()
@@ -395,7 +395,7 @@ MACRO ErrorDetectTest()
 
 MACRO NonExclusiveTest()
 {
-  TestEQ(1, GetAdhocCached([ type := "nonexclusive-1" ], PTR GetCachableStuff(1)));
+  TestEQ(1, GetAdhocCached([ type := "nonexclusive-1" ], PTR GetCacheableStuff(1)));
 }
 
 

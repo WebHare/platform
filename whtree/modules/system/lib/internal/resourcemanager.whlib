@@ -183,7 +183,7 @@ PUBLIC STRING ARRAY FUNCTION GetModuleDependencyIssues()
   RETURN errors;
 }
 
-RECORD FUNCTION GetCachableGlobalDragTypes()
+RECORD FUNCTION GetCacheableGlobalDragTypes()
 {
   RECORD ARRAY results;
 
@@ -245,7 +245,7 @@ PUBLIC RECORD ARRAY FUNCTION GetGlobalDragTypes()
 {
   RETURN GetAdhocCached(
       [ type := "globaldragtypes"
-      ], PTR GetCachableGlobalDragTypes);
+      ], PTR GetCacheableGlobalDragTypes);
 }
 
 PUBLIC BOOLEAN FUNCTION IsApplicationAccessible(OBJECT user, RECORD apprec)

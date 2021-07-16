@@ -36,7 +36,7 @@ INTEGER FUNCTION GetAccountAttrId(OBJECT intype, STRING tag)
   RETURN field.id;
 }
 
-RECORD FUNCTION GetCachableTypeRecById(INTEGER schemaid, INTEGER type_id)
+RECORD FUNCTION GetCacheableTypeRecById(INTEGER schemaid, INTEGER type_id)
 {
   RETURN
       [ ttl := ttl_wrdschemacache
@@ -596,7 +596,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     IF(ObjectExists(savedtype))
       RETURN savedtype;
 
-    FUNCTION PTR cachecall := PTR GetCachableTypeRecById(this->id, type_id);
+    FUNCTION PTR cachecall := PTR GetCacheableTypeRecById(this->id, type_id);
     RECORD typerec := disablewrdcache = FALSE ? GetAdhocCached([ type := "typerecbyid", wrdschema := this->id, id := type_id ], cachecall) : cachecall().value;
     IF(NOT RecordExists(typerec))
       RETURN DEFAULT OBJECT;
@@ -620,9 +620,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 
     RECORD typerec;
     IF(disablewrdcache)
-      typerec := this->GetCachableTypeRecByName(findtag).value;
+      typerec := this->GetCacheableTypeRecByName(findtag).value;
     ELSE
-      typerec := GetAdhocCached([ type := "typerecbyname", wrdschema := this->id, tag := findtag ], PTR this->GetCachableTypeRecByName(findtag));
+      typerec := GetAdhocCached([ type := "typerecbyname", wrdschema := this->id, tag := findtag ], PTR this->GetCacheableTypeRecByName(findtag));
 
     IF(NOT RecordExists(typerec))
       RETURN DEFAULT OBJECT;
@@ -642,7 +642,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   {
     THROW NEW Exception("__CreateTypeObject not implemented");
   }
-  RECORD FUNCTION GetCachableTypeRecByName(STRING findtag)
+  RECORD FUNCTION GetCacheableTypeRecByName(STRING findtag)
   {
     RETURN
         [ ttl :=        ttl_wrdschemacache

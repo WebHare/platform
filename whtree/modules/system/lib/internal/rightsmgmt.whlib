@@ -281,7 +281,7 @@ PUBLIC RECORD FUNCTION GetRightByNameInternal(STRING rightname)
 }
 
 
-RECORD FUNCTION GetCachableRightNameById(INTEGER rightid)
+RECORD FUNCTION GetCacheableRightNameById(INTEGER rightid)
 {
   STRING fullname :=
     SELECT AS STRING modules.name || ":" || module_rights.name
@@ -308,14 +308,14 @@ RECORD FUNCTION GetRightById(INTEGER rightid)
   IF (id_pos >= 0)
     RETURN GetRightByNameInternal(rights_id_cache[id_pos].name);
 
-  STRING fullname := GetAdhocCached([ type := "namebyid", rightid := rightid ], PTR GetCachableRightNameById(rightid));
+  STRING fullname := GetAdhocCached([ type := "namebyid", rightid := rightid ], PTR GetCacheableRightNameById(rightid));
 
   INSERT [ "0" := rightid, name := fullname ] INTO rights_id_cache AT -id_pos - 1;
   RETURN GetRightByNameInternal(fullname);
 }
 
 
-RECORD FUNCTION GetCachableImpliedBysById(INTEGER rightid)
+RECORD FUNCTION GetCacheableImpliedBysById(INTEGER rightid)
 {
   RECORD ARRAY impliedbys :=
       SELECT impliedby
@@ -353,7 +353,7 @@ PUBLIC RECORD ARRAY FUNCTION GetImpliedBysById(INTEGER rightid)
   IF (pos >= 0)
     RETURN impliedbyes_cache[pos].impliedbys;
 
-  RECORD ARRAY results := GetAdhocCached([ type := "impliedbysbyid", rightid := rightid ], PTR GetCachableImpliedBysById(rightid));
+  RECORD ARRAY results := GetAdhocCached([ type := "impliedbysbyid", rightid := rightid ], PTR GetCacheableImpliedBysById(rightid));
 
   INSERT
       [ "0" := rightid

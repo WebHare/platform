@@ -9,7 +9,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 
 
 /** Returns all task types and taskclusters, for adhoccache
-    @return Cachable task & taskcluster data
+    @return Cacheable task & taskcluster data
     @cell(string array) return.eventmasks Masks for events that invalidate this data
     @cell(record) return.value All managed/ephemeral tasktypes and taskclusters
     @cell(string array) return.value.eventmasks Masks for events that invalidate this data
@@ -19,7 +19,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
     @cell(integer) return.value.clusters.harescriptworkers Number of harescript workers
     @cell(integer) return.value.clusters.javascriptworkers Number of javascript workers
 */
-RECORD FUNCTION GetCachableAllTaskTypeInfo()
+RECORD FUNCTION GetCacheableAllTaskTypeInfo()
 {
   RECORD ARRAY tasktypes;
   STRING ARRAY resources;
@@ -76,11 +76,11 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
 }
 
 /** Get all tasktype and taskclusters
-    @return @includecelldef #GetCachableAllTaskTypeInfo.return.value
+    @return @includecelldef #GetCacheableAllTaskTypeInfo.return.value
 */
 PUBLIC RECORD FUNCTION GetAllTaskTypeInfo()
 {
-  RETURN GetAdhocCached(CELL[ "tasktypes" ], PTR GetCachableAllTaskTypeInfo());
+  RETURN GetAdhocCached(CELL[ "tasktypes" ], PTR GetCacheableAllTaskTypeInfo());
 }
 
 

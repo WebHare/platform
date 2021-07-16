@@ -285,7 +285,7 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
   RETURN FixupReturnURL(baseurl, objinfo.fsobjectfolder, "/.uc/" || suffix);
 }
 
-RECORD FUNCTION GetCachableCDNUrl(INTEGER fsobjectid)
+RECORD FUNCTION GetCacheableCDNUrl(INTEGER fsobjectid)
 {
   RECORD siteinfo := SELECT cdnbaseurl
                           , sites.id
@@ -313,7 +313,7 @@ STRING FUNCTION FixupReturnURL(STRING baseurl, INTEGER fsobjectid, STRING return
   {
     RECORD siteinfo := GetAdhocCached(
         [ type := "siteinfo", fsobjectid := fsobjectid ],
-        PTR GetCachableCDNUrl(fsobjectid),
+        PTR GetCacheableCDNUrl(fsobjectid),
         [ exclusive := FALSE
         ]);
 

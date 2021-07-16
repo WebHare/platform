@@ -68,7 +68,7 @@ STATIC OBJECTTYPE WRDAuth
   // Helper functions
   //
 
-  RECORD FUNCTION GetCachableDomainRec()
+  RECORD FUNCTION GetCacheableDomainRec()
   {
     RECORD configfields;
     IF(this->domainid != 0)
@@ -113,7 +113,7 @@ STATIC OBJECTTYPE WRDAuth
         [ wrdschemaid := this->wrdschema->id
         , domaintype := Objectexists(this->domaintype) ? this->domaintype->id : 0
         , domainid := this->domainid
-        ], PTR this->GetCachableDomainRec);
+        ], PTR this->GetCacheableDomainRec);
 
     IF(NOT RecordExists(this->domainrec))
       THROW NEW Exception("No such authentication domain #" || this->domainid);

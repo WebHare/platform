@@ -38,7 +38,7 @@ RECORD FUNCTION GetRPCLogStatus(STRING logtype, RECORD options)
       ];
 }
 
-RECORD FUNCTION GetCachableRPCTrafficLogged(STRING logsource, RECORD options )
+RECORD FUNCTION GetCacheableRPCTrafficLogged(STRING logsource, RECORD options )
 {
   RECORD data := RunInSeparatePrimary(PTR GetRPCLogStatus(logsource, options));
   RETURN
@@ -52,7 +52,7 @@ PUBLIC RECORD FUNCTION GetRPCLogSettings(STRING logsource, RECORD options DEFAUL
   options := ValidateOptions([ autoenable := TRUE ], options);
   IF (logsource = "" OR logsource NOT LIKE "*:*")
     THROW NEW Exception(`Invalid service name ${logsource}`);
-  RETURN GetAdhocCached([ type := "rpclog", logsource := logsource ], PTR GetCachableRPCTrafficLogged(logsource, options));
+  RETURN GetAdhocCached([ type := "rpclog", logsource := logsource ], PTR GetCacheableRPCTrafficLogged(logsource, options));
 }
 
 /** @short Check whether certain RPC traffic should be logged */

@@ -188,7 +188,7 @@ PUBLIC MACRO TryHTTPLogin(STRING realm, FUNCTION PTR getpassword)
     LogWebserverError("Auth: offering basic: " || basic_auth);
 }
 
-RECORD FUNCTION GetCachableFullAccessIPs()
+RECORD FUNCTION GetCacheableFullAccessIPs()
 {
   STRING ARRAY value := Tokenize(Substitute(ReadRegistryKey("system.webserver.security.fullaccessips"), " ", ""), ",");
   RETURN
@@ -199,7 +199,7 @@ RECORD FUNCTION GetCachableFullAccessIPs()
 
 PUBLIC BOOLEAN FUNCTION IsFullAccessIP()
 {
-  RETURN GetClientRemoteIP() IN GetAdhocCached([ type := "fullaccessips" ], PTR GetCachableFullAccessIPs);
+  RETURN GetClientRemoteIP() IN GetAdhocCached([ type := "fullaccessips" ], PTR GetCacheableFullAccessIPs);
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetLoggedOnUsers()

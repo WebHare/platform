@@ -183,7 +183,7 @@ STRING FUNCTION MapAction(STRING indata)
 }
 
 
-RECORD ARRAY FUNCTION GetCachableColumns(OBJECT trans, STRING schemaname, STRING tablename, INTEGER table_oid)
+RECORD ARRAY FUNCTION GetCacheableColumns(OBJECT trans, STRING schemaname, STRING tablename, INTEGER table_oid)
 {
   SCHEMA catalog LIKE postgresql_pg_catalog;
   catalog := BindTransactionToSchema(trans->id, "pg_catalog");
@@ -288,7 +288,7 @@ RECORD ARRAY FUNCTION GetColumns(OBJECT trans, STRING table_schema, STRING table
              , table_id :=      tablerec.object_id
              , table_schema :=  table_schema
              , table_name :=    table_name
-          FROM GetCachableColumns(trans, table_schema, table_name, schemata[spos.position].tables[tpos.position].object_id);
+          FROM GetCacheableColumns(trans, table_schema, table_name, schemata[spos.position].tables[tpos.position].object_id);
     schemata[spos.position].tables[tpos.position].have_columns := TRUE; //set columns first, if above might ever throw?
   }
   RETURN schemata[spos.position].tables[tpos.position].columns;

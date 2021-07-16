@@ -407,7 +407,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
 }
 
 // FIXME: also sets the members immediately, but calculation of attributes must have childids set
-RECORD FUNCTION GetCachableTypeData(RECORD typerec, STRING langcode)
+RECORD FUNCTION GetCacheableTypeData(RECORD typerec, STRING langcode)
 {
   RECORD ARRAY __final_attrs := __SelectAttributes(typerec, langcode);
   INTEGER ARRAY __childtypeids := GetChildTypes(typerec.id);
@@ -524,9 +524,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD data;
     STRING langcode := this->pvt_wrdschema->__GetCurrentLanguageCode();
     IF (NOT disablewrdcache)
-      data := GetAdhocCached([ type := this->typerec.id, lang := langcode ], PTR GetCachableTypeData(this->typerec, langcode));
+      data := GetAdhocCached([ type := this->typerec.id, lang := langcode ], PTR GetCacheableTypeData(this->typerec, langcode));
     ELSE
-      data := GetCachableTypeData(this->typerec,langcode).value;
+      data := GetCacheableTypeData(this->typerec,langcode).value;
 
     this->__childtypeids := data.__childtypeids;
     this->__consiliolinkcheckattrs := data.__consiliolinkcheckattrs;
