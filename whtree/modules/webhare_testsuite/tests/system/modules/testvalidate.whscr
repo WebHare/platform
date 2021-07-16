@@ -570,6 +570,17 @@ MACRO TestSiteProfiles()
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badregexes ]);
   TestEqLike("Invalid regular expression in \'parentregex\'*", res.errors[0].message);
   TestEqLike("Invalid regular expression in \'pathregex\'*", res.errors[1].message);
+
+  BLOB badelememnt := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <apply>
+      <to type="all" />
+      <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" api1979="true" />
+    </apply>
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badelememnt ]);
+  TestEqLike("*The attribute 'api1979' is not allowed*", res.errors[0].message);
 }
 
 MACRO TestTidScan()

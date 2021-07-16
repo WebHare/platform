@@ -26,7 +26,7 @@
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents&amp;skipns=http://www.webhare.net/xmlns/publisher/siteprofile" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition" schemaLocation="mod::system/data/moduledefinition.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/wrd/siteprofile" schemaLocation="mod::wrd/data/siteprofile.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/wrd" schemaLocation="mod::wrd/data/siteprofile.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/consilio" schemaLocation="mod::consilio/data/siteprofile.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
