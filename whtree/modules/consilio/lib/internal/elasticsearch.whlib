@@ -211,7 +211,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       IF (indexmanager.browser->GetSocketError() = -9) // timeout
       {
         FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
-        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout * 1000, GetCurrentDateTime())));
+        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
         FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
         // Don't break, try to send request again with new connection
       }
