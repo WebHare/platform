@@ -3,7 +3,7 @@
          gid="tolliumapps.dialogs.browseforobject"
          library="browseforobject.whlib">
 
-  <screen name="browseforobject" minwidth="100x" minheight="22gr" allowresize="true" title="">
+  <screen name="browseforobject" width="800px" height="600px" allowresize="true" title="">
     <actions>
       <action name="openfilelist" onexecute="doopenfilelist" title="" />
       <action name="openinpublisher" ellipsis="true" tid="tolliumapps.common.actions.revealinpublisher">
