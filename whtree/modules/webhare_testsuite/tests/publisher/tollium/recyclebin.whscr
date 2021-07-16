@@ -59,7 +59,7 @@ OBJECT ASYNC FUNCTION TestCopyMoveDialogs()
   // There shouldn't be any virtual folders in moveto except RECYCLEBIN
   TestEq(DEFAULT RECORD ARRAY, SELECT FROM TT("folders")->rows WHERE id < 0 AND name != "Trash");
   TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name = "Trash";
-  topscreen->frame->focused := topscreen->folders;
+  topscreen->frame->focused := TT("folders");
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->TolliumClick());
 
   TestEq(FALSE, OpenWHFSObject(recycleherid)->isactive);

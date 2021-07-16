@@ -7,7 +7,6 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 
 /** @short Adds a Recent Folder to a user's list of recently used folders.
@@ -58,7 +57,7 @@ RECORD ARRAY FUNCTION GetRecentFolders(OBJECT user)
 }
 
 
-PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
 <
   PUBLIC PROPERTY value(GetValue, SetValue);
 
@@ -132,7 +131,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
 
   /** Show 'read-only' overlays, defaults to FALSE
   */
-  PUBLIC PROPERTY showreadonly(this->folders->showreadonly, this->folders->showreadonly);
+  PUBLIC PROPERTY showreadonly(^folders->showreadonly, ^folders->showreadonly);
 
   BOOLEAN submittedfolder;
   INTEGER mostrecentfolder;
@@ -185,7 +184,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     IF(data.showreadonly)
       this->showreadonly := TRUE;
 
-    this->folders->filteritems := PTR this->FilterFolders;
+    ^folders->filteritems := PTR this->FilterFolders;
 
     this->ApplySettingsToView(TRUE);
 
@@ -268,7 +267,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     {
       OBJECT menuitem := this->CreateTolliumComponent("menuitem");
       menuitem->title := pathitem.title;
-      menuitem->checked := FALSE;//pathitem.rowkey = this->folders->value;
+      menuitem->checked := FALSE;//pathitem.rowkey = ^folders->value;
       STRING hint;
       IF(CellExists(pathitem, "fullpath"))
       {
@@ -300,9 +299,9 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
 
   INTEGER FUNCTION GetFolder()
   {
-    IF(this->folders->selectmode = "multiple")
+    IF(^folders->selectmode = "multiple")
     {
-      INTEGER ARRAY val := this->folders->value;
+      INTEGER ARRAY val := ^folders->value;
       IF(Length(val)>0)
         RETURN val[0];
       ELSE
@@ -310,7 +309,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     }
     ELSE
     {
-      RETURN this->folders->value;
+      RETURN ^folders->value;
     }
   }
   MACRO DoGotoAnything()
@@ -319,7 +318,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     IF (gotoobject->RunModal() = "ok")
     {
       INTEGER gotoid := gotoobject->id;
-      IF(NOT this->filepart->visible) //get the parent  ?
+      IF(NOT ^filepart->visible) //get the parent  ?
         gotoid := SELECT AS INTEGER isfolder ? id : parent FROM system.fs_objects WHERE id = gotoid;
 
       this->value := gotoid;
@@ -327,22 +326,22 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   }
   MACRO SetFolder(INTEGER folder)
   {
-    IF(this->folders->selectmode = "multiple")
+    IF(^folders->selectmode = "multiple")
     {
       IF(folder = 0)
-        this->folders->value := DEFAULT INTEGER ARRAY;
+        ^folders->value := DEFAULT INTEGER ARRAY;
       ELSE
-        this->folders->value := [folder];
+        ^folders->value := [folder];
     }
     ELSE
     {
-      this->folders->value := folder;
+      ^folders->value := folder;
     }
   }
 
   PUBLIC OBJECT FUNCTION __GetCurrentFilelist()
   {
-    RETURN this->type="thumbnails" ? this->filesthumbs : this->fileslist;
+    RETURN this->type="thumbnails" ? ^filesthumbs : ^fileslist;
   }
 
   VARIANT FUNCTION GetSelection()
@@ -361,7 +360,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
         RETURN DEFAULT RECORD;
     }
 
-    RECORD selectedfolder := this->folders->selection;
+    RECORD selectedfolder := ^folders->selection;
     IF(this->selectmode="single")
       RETURN RecordExists(selectedfolder) ? CELL[ selectedfolder.contentmode, id := selectedfolder.rowkey, selectedfolder.modulekey ] : DEFAULT RECORD;
     ELSE
@@ -402,13 +401,13 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
 
       IF(firstvalue != 0)
       {
-        this->folders->value := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = firstvalue;
+        ^folders->value := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = firstvalue;
       }
       this->__GetCurrentFilelist()->value := value;
     }
     ELSE
     {
-      this->folders->value := value;
+      ^folders->value := value;
     }
   }
   RECORD ARRAY FUNCTION FilterFolders(RECORD ARRAY infolders)
@@ -430,8 +429,8 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
       THROW NEW Exception('Unknown BrowseWHFSObject dialog type \''||type || "'");
 
     ^fileviewtype->value := type;
-    this->fileslist->foldertree := type="list" ? this->folders : DEFAULT OBJECT;
-    this->filesthumbs->foldertree := type="thumbnails" ? this->folders : DEFAULT OBJECT;
+    ^fileslist->foldertree := type="list" ? ^folders : DEFAULT OBJECT;
+    ^filesthumbs->foldertree := type="thumbnails" ? ^folders : DEFAULT OBJECT;
     this->ApplySettingsToView(FALSE);
   }
 
@@ -509,42 +508,42 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   {
     STRING ARRAY filelistflags := this->acceptfiles ? this->acceptfolders ? DEFAULT STRING ARRAY : ["!isfolder"] : ["isfolder"];
 
-    this->submitaction->enableon[0].checkflags := filelistflags;
+    ^submitaction->enableon[0].checkflags := filelistflags;
     IF(NOT this->acceptrootfolder AND Length(this->roots) = 0) //disable selecting the root, but only if the root is really the publisher root (no limited folder selection)
-      INSERT "!isroot" INTO this->submitaction->enableon[0].checkflags AT END;
+      INSERT "!isroot" INTO ^submitaction->enableon[0].checkflags AT END;
 
-    this->submitaction->enableon[1].checkflags := filelistflags;
+    ^submitaction->enableon[1].checkflags := filelistflags;
     // The thumbnailview only shows files, we don't have to update the checkflags
 
     IF(this->acceptfiles OR this->pvt_selectmode = "multiple")
     {
       ^fileviewtype->visible := this->pvt_hideviewtype = FALSE;
-      this->filepart->visible := TRUE;
+      ^filepart->visible := TRUE;
 
-      this->folders->selectmode := "single";
-      this->folders->accepttypes := DEFAULT STRING ARRAY;
+      ^folders->selectmode := "single";
+      ^folders->accepttypes := DEFAULT STRING ARRAY;
 
       OBJECT filecomp := this->__GetCurrentFilelist();
       filecomp->selectmode := this->pvt_selectmode;
       filecomp->accepttypes := this->accepttypedefs;
       filecomp->filteritems := PTR this->FilterItems;
 
-      OBJECT toselect := ^fileviewtype->value="thumbnails" ? this->thumbnailtab : this->filelisttab;
-      IF(toselect != this->fileparttabs->selectedtab OR ispreinit) //first run, ensure our components are initialized
+      OBJECT toselect := ^fileviewtype->value="thumbnails" ? ^thumbnailtab : ^filelisttab;
+      IF(toselect != ^fileparttabs->selectedtab OR ispreinit) //first run, ensure our components are initialized
       {
-        this->fileparttabs->selectedtab := toselect;
+        ^fileparttabs->selectedtab := toselect;
         IF(^fileviewtype->value="thumbnails")
         {
-          this->filesthumbs->SetThumbnailWHFSType(this->thumbnailwhfstype, this->thumbnailwhfsfield);
+          ^filesthumbs->SetThumbnailWHFSType(this->thumbnailwhfstype, this->thumbnailwhfsfield);
         }
         ELSE
         {
-          this->fileslist->hidefiles := NOT this->acceptfiles;
-          this->fileslist->hidefolders := NOT this->acceptfolders;
+          ^fileslist->hidefiles := NOT this->acceptfiles;
+          ^fileslist->hidefolders := NOT this->acceptfolders;
         }
 
         // Ensure the current filelist is listening to the folder tree
-        this->__GetCurrentFilelist()->foldertree := this->folders;
+        this->__GetCurrentFilelist()->foldertree := ^folders;
       }
 
       IF (this->acceptfolders)
@@ -552,46 +551,46 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
         IF (NOT this->acceptfiles)
         {
           this->frame->title := this->title != "" ? this->title : this->GetTid(".title-folder");
-          this->descr->value := this->description != "" ? this->description : this->GetTid(".descr-folder");
+          ^descr->value := this->description != "" ? this->description : this->GetTid(".descr-folder");
         }
         ELSE
         {
           this->frame->title := this->title!="" ? this->title : this->GetTid(".title-filefolder");
-          this->descr->value := this->description!="" ? this->description : this->GetTid(".descr-filefolder");
+          ^descr->value := this->description!="" ? this->description : this->GetTid(".descr-filefolder");
         }
       }
       ELSE
       {
         this->frame->title := this->title!="" ? this->title : this->GetTid(".title-file");
-        this->descr->value := this->description!="" ? this->description : this->GetTid(".descr-file");
+        ^descr->value := this->description!="" ? this->description : this->GetTid(".descr-file");
       }
     }
     ELSE
     {
       ^fileviewtype->visible := FALSE;
-      this->filepart->visible := FALSE;
+      ^filepart->visible := FALSE;
 
-      this->folders->selectmode := this->pvt_selectmode;
-      this->folders->accepttypes := this->accepttypedefs;
+      ^folders->selectmode := this->pvt_selectmode;
+      ^folders->accepttypes := this->accepttypedefs;
 
       this->frame->title := this->title != "" ? this->title : this->GetTid(".title-folder");
-      this->descr->value := this->description != "" ? this->description : this->GetTid(".descr-folder");
+      ^descr->value := this->description != "" ? this->description : this->GetTid(".descr-folder");
     }
 
     IF (Length(this->roots) > 0)
     {
-      this->folders->SetupLimitedRoots(this->roots);
+      ^folders->SetupLimitedRoots(this->roots);
       IF(Length(this->roots)=1)
-        INSERT this->roots[0] INTO this->folders->expanded AT END;
+        INSERT this->roots[0] INTO ^folders->expanded AT END;
     }
 
     this->PopulateRecentAndFavoriteFolders();
 
     // Reload folder tree (and file list), so new settings (e.g. accepttypes) are applied correctly to already loaded items
-    this->folders->ReloadOverview();
+    ^folders->ReloadOverview();
 
-    IF((this->selectmode = "single" AND this->folders->value = 0))
-      this->folders->SetvalueIfValid(this->mostrecentfolder);
+    IF((this->selectmode = "single" AND ^folders->value = 0))
+      ^folders->SetvalueIfValid(this->mostrecentfolder);
   }
 
   MACRO SetAcceptTypes(STRING ARRAY types)
@@ -619,11 +618,11 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   }
   MACRO DoOpenInPublisher_Folders()
   {
-    this->DoOpenInPublisher(this->folders);
+    this->DoOpenInPublisher(^folders);
   }
   MACRO DoOpenInPublisher_FilesList()
   {
-    this->DoOpenInPublisher(this->fileslist);
+    this->DoOpenInPublisher(^fileslist);
   }
 
   MACRO DoOpenFilelist()
@@ -635,7 +634,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
         RETURN;
       INTEGER addid;
       IF(NOT selection.isfolder)
-        addid := this->folders->selection.rowkey;
+        addid := ^folders->selection.rowkey;
       ELSE
         addid := selection.id;
 
@@ -648,12 +647,12 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
       RECORD ARRAY selection := this->__GetCurrentFilelist()->selection;
       IF(Length(selection)>1 OR NOT selection[0].isfolder)
       {
-        AddRecentFolder(this->tolliumuser, this->folders->selection.rowkey);
+        AddRecentFolder(this->tolliumuser, ^folders->selection.rowkey);
         this->tolliumresult := "ok";
       }
       ELSE
       {
-        this->folders->value := selection[0].rowkey;
+        ^folders->value := selection[0].rowkey;
       }
     }
     ELSE
@@ -661,10 +660,10 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
       RECORD selection := this->__GetCurrentFilelist()->selection;
       IF(selection.isfolder)
       {
-        this->folders->value := selection.rowkey;
+        ^folders->value := selection.rowkey;
         RETURN;
       }
-      AddRecentFolder(this->tolliumuser, this->folders->selection.rowkey);
+      AddRecentFolder(this->tolliumuser, ^folders->selection.rowkey);
       this->tolliumresult := "ok";
     }
   }
@@ -672,13 +671,13 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   MACRO DoSubmitFile()
   {
     this->submittedfolder := FALSE;
-    AddRecentFolder(this->tolliumuser, this->folders->selection.rowkey);
+    AddRecentFolder(this->tolliumuser, ^folders->selection.rowkey);
     this->tolliumresult := "ok";
   }
   MACRO DoSubmitFolder()
   {
     this->submittedfolder := TRUE;
-    AddRecentFolder(this->tolliumuser, this->folders->selection.rowkey);
+    AddRecentFolder(this->tolliumuser, ^folders->selection.rowkey);
     this->tolliumresult := "ok";
   }
 
@@ -686,7 +685,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   {
     STRING result := TolliumScreenBase::RunModal();
     IF(result = "ok")
-      AddRecentFolder(this->tolliumuser, this->folders->selection.rowkey);
+      AddRecentFolder(this->tolliumuser, ^folders->selection.rowkey);
     RETURN result;
   }
 
@@ -696,6 +695,6 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
   }
   PUBLIC MACRO SetCustomComponents(OBJECT customscreen)
   {
-    this->customcomponents->contents := customscreen;
+    ^customcomponents->contents := customscreen;
   }
 >;
