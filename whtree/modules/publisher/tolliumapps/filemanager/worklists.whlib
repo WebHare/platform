@@ -157,11 +157,14 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
       IF (parentid = this->rootid)
         RETURN this->worklistcache;
 
-      // Return the selected work list's items that the user has read access to
+      /* Return the selected work list's items that the user has write access to (this used to be fs_browse but you can't
+         really fix anything with just read. if we ever need readble too, it should probably be a worklist level option) */
       INTEGER ARRAY objectids :=
           SELECT AS INTEGER ARRAY objectid
             FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
-      RETURN ToRecordArray(this->tolliumuser->HasRightOnMultiple("system:fs_browse", objectids), "id");
+
+      objectids := this->tolliumuser->HasRightOnMultiple("system:fs_fullaccess", objectids);
+      RETURN ToRecordArray(objectids,"id");
     }
   }
 
