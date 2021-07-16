@@ -194,7 +194,6 @@
             extensions=".doc"
             isacceptableindex="true"
             ispublishedassubdir="true"
-            needsprofile="true"
             needstemplate="true"
             pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
             requirescontent="true"

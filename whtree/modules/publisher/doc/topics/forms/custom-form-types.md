@@ -11,7 +11,6 @@ Siteprofile:
             tolliumicon="tollium:files/application_x-webhare-survey"
             blobiscontent="false"
             needstemplate="true"
-            needsprofile="false"
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true">

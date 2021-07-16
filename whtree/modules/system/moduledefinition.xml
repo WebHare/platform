@@ -1565,11 +1565,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:boolean>
-      <d:boolean name="needsprofile">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="needsprofile" />
       <d:boolean name="ispublishedassubdir">
         <d:documentation>
 

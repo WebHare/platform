@@ -282,7 +282,6 @@ PUBLIC SCHEMA
     , BOOLEAN "orphan"
     , BOOLEAN "isacceptableindex"
     , BOOLEAN "needstemplate"
-    , BOOLEAN "needsprofile"
     , BOOLEAN "ispublishedassubdir"
     , BOOLEAN "isdynamicexecution"
     , BOOLEAN "ispublishable"

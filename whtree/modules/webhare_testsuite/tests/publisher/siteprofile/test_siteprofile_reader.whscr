@@ -31,7 +31,6 @@ MACRO TestWHFSType()
 
   RECORD wordtype := DescribeContentTypeById(4);
   TestEq(TRUE, wordtype.needstemplate);
-  TestEq(TRUE, wordtype.needsprofile);
   TestEq(TRUE, wordtype.ispublishable);
   TestEq("publisher:filetypes.msword", wordtype.title);
   TestEQ(TRUE, wordtype.isacceptableindex);

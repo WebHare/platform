@@ -172,7 +172,6 @@ STATIC OBJECTTYPE WHFSType
       @cell cloneoncopy Whether instances of this type must be copied too when a file is copied.
       @cell namespace Namespace of the type
       @cell needstemplate Do files of this type need a template (only for file types)
-      @cell needsprofile  Do files of this type need a profile (only for file types)
       @cell isfiletype TRUE when this is a file type
       @cell isfoldertype TRUE when this is a folder type
       @cell isacceptableindex Can files of this type be an index (only for file types)
@@ -245,11 +244,6 @@ STATIC OBJECTTYPE WHFSType
 
   /// Whether files of this type need a template
   PUBLIC PROPERTY needstemplate(this->typedef.needstemplate, -);
-
-
-  /// Whether files of this type need a profile
-  PUBLIC PROPERTY needsprofile(this->typedef.needsprofile, -);
-
 
   /// Whether files of this type can function as index
   PUBLIC PROPERTY isacceptableindex(this->typedef.isacceptableindex, -);
