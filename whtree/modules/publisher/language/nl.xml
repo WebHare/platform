@@ -540,7 +540,6 @@
           <text tid="gotoid">Object met ID</text>
           <text tid="gotopath">Object met pad</text>
           <text tid="gotorepository">Repository</text>
-          <text tid="gotoresult">Open resultaat in Publisher</text>
           <text tid="gotoroot">Hoofdmap</text>
           <text tid="gotosite">Website</text>
           <text tid="gototrash">Prullenbak</text>
@@ -1753,6 +1752,11 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="common">   <!-- tolliumapps.common -->
+      <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
+        <text tid="revealinpublisher">Openen in Publisher</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Huidig pad</text>
@@ -1794,7 +1798,6 @@
         <text tid="descr-folder">Kies een map uit de lijst van mappen</text>
         <text tid="folders">Mappen</text>
         <text tid="gotoanything">Ga naar site of URL</text>
-        <text tid="openinpublisher">Open in Publisher</text>
         <text tid="title-file">Kies een bestand</text>
         <text tid="title-filefolder">Kies een bestand of map</text>
         <text tid="title-folder">Kies een map</text>
@@ -2274,7 +2277,6 @@
         </textgroup>
       </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
-        <text tid="open">Openen in Publisher</text>
         <text tid="references">Referenties</text>
         <text tid="url">URL</text>
         <text tid="whfspath">Pad</text>

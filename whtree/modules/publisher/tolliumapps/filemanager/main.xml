@@ -219,7 +219,7 @@
               onexecute="dogoup">
         <enableon source="foldertreeproxy" min="1" checkflags="!isroot !isvirtual" />
       </action>
-      <action name="gotoresult" ellipsis="true" onexecute="dogotoresult" frameflags="searchresults">
+      <action name="gotoresult" ellipsis="true" onexecute="dogotoresult" frameflags="searchresults" tid="tolliumapps.common.actions.revealinpublisher">
         <enableon source="filelist" min="1" />
       </action>
       <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g"  />
