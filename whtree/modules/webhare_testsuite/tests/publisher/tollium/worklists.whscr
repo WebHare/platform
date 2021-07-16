@@ -115,6 +115,17 @@ ASYNC MACRO TestResolve()
   selection := TT("filelist")->selection;
   TestEq(FALSE, selection.custom_resolveddate = "");
 
+  // Open the folder in a new tab
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfolder5->id AND custom_listid = testworklistid;
+
+  // Open result in new tab. Check if that went to the right place
+  TTClick("gotoresult");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp);
+  TestEq(lisaresolveroot->id, TT("foldertree")->value);
+  TestEq("workfolder5", TT("filelist")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 

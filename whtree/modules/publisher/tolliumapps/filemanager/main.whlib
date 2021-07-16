@@ -142,7 +142,15 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                 AND (NOT CellExists(data.target, "foldercreationdate")                            // and has the correct creationdate
                      OR data.target.foldercreationdate = EncodeDateTime(obj->creationdate))))
         {
-          ^foldertree->value := data.target.folderid;
+          IF(CellExists(data.target,'infilelist') AND data.target.infilelist)
+          {
+            ^foldertree->value := obj->parent;
+            ^filelist->value := INTEGER[data.target.folderid];
+          }
+          ELSE
+          {
+            ^foldertree->value := data.target.folderid;
+          }
         }
         ELSE
         {
@@ -1301,7 +1309,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoGoToResult()
   {
-    RunPublisherFileManager(this, ^filelist->selection.id);
+    RunPublisherFileManager(this, ^filelist->selection.id, [ infilelist := TRUE ]);
   }
 
   /// Changes the current selected folder, used to implement path menu actions

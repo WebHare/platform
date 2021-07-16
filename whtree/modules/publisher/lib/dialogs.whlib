@@ -404,14 +404,21 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
 /** @short Launch the filemanager opening the specified file or folder
     @param parentscreen Screen invoking us
-    @param objectid ID of object to edit
+    @param objectid ID of object to focus in foldertree or filelist
+    @cell(boolean) options.infilelist Prefer the selected object to be in the filelist
 */
 PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ infilelist := FALSE ], options);
+
   RECORD objinfo := SELECT isfolder FROM system.fs_objects WHERE id = objectid;
   RECORD target;
   IF(RecordExists(objinfo))
+  {
     target := objinfo.isfolder ? [ folderid := objectid ] : [ fileid := objectid ];
+    IF(options.infilelist)
+      INSERT CELL infilelist := TRUE INTO target;
+  }
 
   parentscreen->contexts->controller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
 }
