@@ -11,11 +11,5 @@
   xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
-  <xs:element name="addressvalidation">
-    <xs:complexType>
-      <xs:attribute name="registrykey" type="xs:string"/>
-      <xs:attribute name="wrdschema" type="xs:string"/>
-    </xs:complexType>
-  </xs:element>
 
 </xs:schema>

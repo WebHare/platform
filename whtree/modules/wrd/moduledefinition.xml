@@ -14,7 +14,6 @@
     <webdesignplugin name="formpayments" namespace="http://www.webhare.net/xmlns/wrd" objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin"  />
     <siteprofile path="data/wrd.siteprl.xml" />
     <formcomponents namespace="http://www.webhare.net/xmlns/wrd/forms" xmlschema="data/formcomponents.xsd"/>
-    <customnode namespace="http://www.webhare.net/xmlns/wrd/siteprofile" name="addressvalidation" />
   </publisher>
 
   <servicemanager>

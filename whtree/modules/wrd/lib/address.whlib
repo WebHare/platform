@@ -550,21 +550,6 @@ PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
     RETURN DEFAULT OBJECT;
 
   STRING regkey, wrdschema;
-  BOOLEAN seenregkey;
-
-  //FIXME this approach has already been deprecated!
-  RECORD ARRAY sitesettings := applytester->GetCustomSettings("http://www.webhare.net/xmlns/wrd/siteprofile", "addressvalidation");
-  FOREVERY(RECORD setting FROM sitesettings)
-  {
-    IF(setting.node->HasAttribute("registrykey"))
-    {
-      seenregkey := TRUE;
-      regkey := setting.node->GetAttribute("registrykey");
-    }
-    IF(setting.node->HasAttribute("wrdschema"))
-      wrdschema := setting.node->GetAttribute("wrdschema");
-  }
-
   RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
   IF(RecordExists(config))
   {
