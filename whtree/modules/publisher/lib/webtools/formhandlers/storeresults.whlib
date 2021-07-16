@@ -118,6 +118,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                        ];
 
     // If these results replace existing results, update the existing results record (before inserting the new one)
+    RECORD ARRAY existingattachments;
     IF (options.isedit)
     {
       IF (oldresultid != 0)
@@ -133,7 +134,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
         THROW NEW Exception("Cannot find result to replace");
       }
 
-      DELETE FROM publisher.formattachments WHERE formresult = oldresultid; //we'll be reinserting the attachments (FIXME don't do that when attachment is unchanged)
+      existingattachments := SELECT id, metadata, question FROM publisher.formattachments WHERE formresult = oldresultid;
     }
     ELSE
     {
@@ -155,7 +156,16 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     }
 
     FOREVERY(RECORD attachment FROM attachments)
-      INSERT CELL[...attachment, formresult := resultid ] INTO publisher.formattachments;
+    {
+      RECORD match := SELECT * FROM existingattachments WHERE metadata = attachment.metadata AND question = attachment.question;
+      IF(RecordExists(match))
+        DELETE FROM existingattachments WHERE id = match.id; //keep the existing version
+      ELSE
+        INSERT CELL[...attachment, formresult := resultid ] INTO publisher.formattachments;
+    }
+
+    IF(Length(existingattachments) > 0) //there are still old attachments that we're no longer referring to
+      DELETE FROM publisher.formattachments WHERE id IN (SELECT AS INTEGER ARRAY id FROM existingattachments);
 
     RETURN result;
   }
