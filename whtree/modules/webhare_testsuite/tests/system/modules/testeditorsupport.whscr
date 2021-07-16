@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
@@ -34,6 +35,15 @@ STRING baseurl;
 STRING testfiledata;
 STRING testfilerelpath;
 RECORD connectinfo;
+
+MACRO testDeVAPIs()
+{
+  RECORD libinfo;
+  libinfo := ReadLibraryLoadlibs(StringToBlob(`<?wh LOADLIB "mod::mymod/stuff.whlib"; LOADLIB "relative::somethingelse.whlib"; `), "mod::mymod/test.whlib" );
+  TestEq(TRUE, RecordExists(SELECT FROM libinfo.loadlibs WHERE name = "wh::system.whlib"));
+  TestEq([[ col := 14, line := 1, name := "mod::mymod/stuff.whlib" ]], SELECT * FROM libinfo.loadlibs WHERE name = "mod::mymod/stuff.whlib");
+  TestEq([[ col := 48, line := 1, name := "mod::mymod/somethingelse.whlib" ]], SELECT * FROM libinfo.loadlibs WHERE name LIKE "*somethingelse*");
+}
 
 MACRO PrepareTests()
 {
@@ -336,7 +346,8 @@ MACRO TestNoticeLog()
   TestEq("Exception: test-notice-log", errors[0].data.errors[0].message);
 }
 
-RunTestFramework([ PTR PrepareTests
+RunTestFramework([ PTR TestDevAPIS
+                 , PTR PrepareTests
                  , PTR TestToddService
                  , PTR TestWebdavVirtualInfo
                  , PTR TestWebdavVirtualInfo_DavFS

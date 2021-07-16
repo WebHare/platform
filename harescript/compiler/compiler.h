@@ -129,7 +129,7 @@ struct BLEXLIB_PUBLIC CompilerContext
 /** Per-library information about how to load it - we need the additional info
     so that the compilecontrol can give proper file/line info about failing
     libraries */
-struct LoadlibInfo
+struct BLEXLIB_PUBLIC LoadlibInfo
 {
         LoadlibInfo();
         ~LoadlibInfo();

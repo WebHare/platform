@@ -141,6 +141,11 @@ void CompileControl::CompileLibraryFromSource(Blex::ContextKeeper &keeper, std::
 }
 
 
+void CompileControl::ReadLibraryLoadLibs(Blex::ContextKeeper &keeper, std::shared_ptr< Blex::RandomStream > const &source, std::string const &liburi, std::vector<LoadlibInfo> &loadlibs)
+{
+        loadlibs = engine.GetLoadLibs(keeper, liburi, *source);
+}
+
 bool CompileControl::CheckLibraryValidity(Assignment &assignment, Library const &library, bool show_debug)
 {
         if (!library.file)
