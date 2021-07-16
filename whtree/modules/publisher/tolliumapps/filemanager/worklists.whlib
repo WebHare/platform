@@ -238,7 +238,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
           , addtomenu        := "file"
           , addtocontextmenu := TRUE
           , allowmultiple    := TRUE
-          , onlyfiles        := TRUE
+          , onlyfiles        := FALSE
           , checkflags       := [ "custom_canresolve" ]
           ]
         , [ title            := GetTid("publisher:filemanager.worklists.actions.cleanupresolved")
