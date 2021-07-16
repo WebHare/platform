@@ -845,6 +845,7 @@ case $INSTR in
     getwhparameters
     echo "Installation:  $WEBHARE_DIR"
     echo "Log files:     $LOGFILEPATH"
+    echo "Rescue port:   http://127.0.0.1:$(($WEBHARE_BASEPORT + 9))/" # whwebserverconfig_rescueportoffset
     echo ""
     echo "Data root:     $WEBHARE_DATAROOT"
     echo "Database data: $STORAGEPATH"

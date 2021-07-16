@@ -144,7 +144,9 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
 
 PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname, STRING command, RECORD request, STRING method, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ throwonfailure := FALSE ], options);
+  options := ValidateOptions([ throwonfailure := FALSE
+                             , timeout := elastic_timeout * 1000
+                             ], options);
 
   STRING url := (indexname != "" ? "/" || indexname : "") || command;
   RECORD body := request;
@@ -155,16 +157,17 @@ PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname,
     body := [ bulkrequests := request._bulkrequests ];
   }
 
-  RETURN SendRawJSONToElasticsearch(indexmgrid, method, url, body, CELL[ ndjson, options.throwonfailure ]);
+  RETURN SendRawJSONToElasticsearch(indexmgrid, method, url, body, CELL[ ndjson, options.throwonfailure, options.timeout ]);
 }
 
 PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ ndjson := FALSE
                               , throwonfailure := TRUE //if you use the RAW api, you're a new caller and should be expecting THROWs instead of adding new error paths
+                              , timeout := elastic_timeout * 1000
                               ], options);
 
-  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(elastic_timeout * 1000, GetCurrentDateTime())));
+  WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
 
   INTEGER statuscode;
   RECORD indexmanager;
@@ -198,6 +201,8 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       INSERT [ field := "Content-Type", value := options.ndjson ? "application/x-ndjson" : "application/json" ] INTO headers AT END;
     IF (__indexmanager_debugall)
       LogDebug("IndexManager", "Elasticsearch curl", `curl -X${method} "${url}"${Length(body) > 0 ? ` ${Detokenize((SELECT AS STRING ARRAY ` -H '${field}: ${value}'` FROM headers), " ")} -d'${BlobToString(body)}'` : ""}`);
+
+    indexmanager.browser->timeout := options.timeout;
     BOOLEAN success := indexmanager.browser->SendRawRequest(method, url, headers, body);
 
     statuscode := indexmanager.browser->GetHTTPStatusCode();
@@ -206,7 +211,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       IF (indexmanager.browser->GetSocketError() = -9) // timeout
       {
         FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
-        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(elastic_timeout * 1000, GetCurrentDateTime())));
+        WaitForPromise(WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime())));
         FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
         // Don't break, try to send request again with new connection
       }
@@ -302,13 +307,14 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults)
+PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ timeout := elastic_timeout * 1000 ], options);
   STRING command := "/_cluster/settings?flat_settings=true";
   IF (include_defaults)
     command := command || "&include_defaults=true";
 
-  RECORD settings := SendToElasticsearch(indexmgrid, "", command, DEFAULT RECORD, "GET");
+  RECORD settings := SendToElasticsearch(indexmgrid, "", command, DEFAULT RECORD, "GET", options);
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 
@@ -857,7 +863,7 @@ RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
 {
   // Check if a record subfield was requested
   STRING subfld;
-  IF (fld LIKE "*.*")
+  IF (NOT CellExists(hit, fld) AND fld LIKE "*.*") //FIXME this is a hack to support the pre-dec-2020 record situation. should we be studying 'mapping' to figure out the real format ?
   {
     subfld := Substring(fld, SearchSubstring(fld, ".") + 1);
     fld := Left(fld, SearchSubstring(fld, "."));
