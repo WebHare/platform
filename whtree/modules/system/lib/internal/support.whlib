@@ -24,29 +24,25 @@ PUBLIC INTEGER ARRAY FUNCTION GetExtraUnitRoots(OBJECT user)
   RETURN extra_roots;
 }
 
+PUBLIC STRING FUNCTION GetFSObjectTolliumIcon(RECORD obj, RECORD typeinfo)
+{
+  IF(obj.id = 1)
+    RETURN "tollium:folders/repository";
+  IF(obj.issite)
+    RETURN "tollium:folders/site";
+  IF(RecordExists(typeinfo) AND typeinfo.tolliumicon != "")
+    RETURN typeinfo.tolliumicon;
+  RETURN obj.isfolder ? whconstant_publisher_foldericonfallback : whconstant_publisher_fileiconfallback;
+}
+
 PUBLIC RECORD FUNCTION EnrichFSObject(RECORD obj)
 {
   RECORD typeinfo := DescribeContentTypeById(obj.type, [ isfolder := obj.isfolder, mockifmissing := TRUE ]);
-  INSERT CELL candownload := typeinfo.blobiscontent
-            , ispublishable := typeinfo.ispublishable
-         INTO obj;
-
-  //FIXME realign the different icon handlers
-  IF(CellExists(obj,'pvt_iconname'))
-  {
-    IF(obj.pvt_iconname != "")
-      RETURN obj;
-
-    DELETE CELL pvt_iconname FROM obj;
-  }
-
-  IF (obj.id = 1)
-    INSERT CELL pvt_iconname := "tollium:folders/repository" INTO obj;
-  ELSE IF (obj.issite)
-    INSERT CELL pvt_iconname := "tollium:folders/site" INTO obj;
-  ELSE
-    INSERT CELL pvt_iconname := typeinfo.tolliumicon INTO obj;
-  RETURN obj;
+  RETURN CELL [ ...obj
+              , candownload := typeinfo.blobiscontent
+              , ispublishable := typeinfo.ispublishable
+              , pvt_iconname := GetFSObjectTolliumIcon(obj, typeinfo)
+              ];
 }
 
 /** Returns whether a specific authobject (and thus the authobjects within)

@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -18,6 +19,31 @@ LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT TolliumFragmentBase;
 
 
 OBJECT hooks;
+
+//Cache only the data needed for fast fsobject overiews
+RECORD FUNCTION GetCacheableFSObjectOverviewInfo()
+{
+  RECORD csp := GetCachedSiteProfiles();
+
+  INTEGER ARRAY hiddenfoldertypes := csp.hiddenfoldertypes;
+  RECORD ARRAY typemap := SELECT id
+                               , foldertype := RecordExists(foldertype)
+                               , tolliumicon
+                               , candownload := RecordExists(filetype) AND filetype.blobiscontent
+                               , ispublishable := RecordExists(fstype) AND fstype.ispublishable
+                            FROM csp.contenttypes
+                           WHERE RecordExists(filetype) OR RecordExists(foldertype)
+                        ORDER BY id, RecordExists(foldertype);
+
+  RETURN [ value := CELL[ hiddenfoldertypes, typemap ]
+         , ttl :=          60 * 60 * 1000 // 1 hour
+         , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+         ];
+}
+RECORD FUNCTION GetFSObjectOverviewInfo()
+{
+  RETURN GetAdhocCached(CELL[type := "fsobjectoverviewinfo"], PTR GetCacheableFSObjectOverviewInfo);
+}
 
 RECORD ARRAY FUNCTION GetVersionedObjectRecycleBin(OBJECT tolliumuser, RECORD ARRAY objects)
 {
@@ -116,13 +142,15 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                           WHERE id IN (SELECT AS INTEGER ARRAY id FROM objects)
                        ORDER BY id;
 
+  // Add tollium-specific extra fields (e.g. icons)
+  RECORD overinfo := GetFSObjectOverviewInfo();
+
   // Add access fields and filter out hidden objects
-  RECORD csp := GetCachedSiteProfiles();
   objects := SELECT TEMPORARY fsdatapos := RecordLowerBound(fsdata, objects, [ "ID"])
                   , *
                   , __fsdata := fsdatapos.found ? fsdata[fsdatapos.position] : DEFAULT RECORD
                FROM objects
-              WHERE hidden_too OR (type NOT IN csp.hiddenfoldertypes);
+              WHERE hidden_too OR (type NOT IN overinfo.hiddenfoldertypes);
 
   objects := SELECT TEMPORARY sitepos := RecordLowerBound(sitelist, objects, [ "ID" ])
                   , TEMPORARY islockedsite := sitepos.found AND sitelist[sitepos.position].locked
@@ -155,8 +183,14 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , contentshandler
                FROM objects;
 
-  // Add tollium-specific extra fields (e.g. icons)
-  objects := SELECT AS RECORD ARRAY (EnrichFSObject(objects)) FROM objects;
+
+  objects := SELECT TEMPORARY posinfo := RecordLowerBound(overinfo.typemap, CELL[ id := type, foldertype := isfolder ], ["ID", "FOLDERTYPE"])
+                  , TEMPORARY typeinfo := posinfo.found ? overinfo.typemap[posinfo.position] : DEFAULT RECORD
+                  , *
+                  , candownload := RecordExists(typeinfo) AND typeinfo.candownload
+                  , ispublishable := RecordExists(typeinfo) AND typeinfo.ispublishable
+                  , pvt_iconname := GetFSObjectTolliumIcon(objects, typeinfo)
+               FROM objects;
 
   // Add drag info
   RETURN
