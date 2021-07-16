@@ -19,7 +19,7 @@
   </xs:element>
 ```
 
-`handlertask` scheduled a task to handle the form results and is recommended where possible so your handler cannot delay
+`handlertask` schedules a task to handle the form results and is recommended where possible so your handler cannot delay
 or block form submisison. Alternatively, you can set a `handlerobject` to hook directly into the form.
 
 Add `editdefaults="condition"` if you want to add the interface for setting a condition.
