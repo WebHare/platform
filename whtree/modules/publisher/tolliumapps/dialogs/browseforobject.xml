@@ -1,25 +1,21 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="browseforobject.whlib"
-         gid="tolliumapps.dialogs.browseforobject">
+         gid="tolliumapps.dialogs.browseforobject"
+         library="browseforobject.whlib">
 
-
-  <screen name="browseforobject"
-          title=""
-          allowresize="true"
-          minheight="22gr" minwidth="100x">
+  <screen name="browseforobject" minwidth="100x" minheight="22gr" allowresize="true" title="">
     <actions>
       <action name="openfilelist" onexecute="doopenfilelist" title="" />
       <action name="openinpublisher">
-        <enableon source="folders" min="1" onexecute="doopeninpublisher_folders"/>
+        <enableon source="folders" min="1" onexecute="doopeninpublisher_folders" />
         <enableon source="fileslist" min="1" onexecute="doopeninpublisher_fileslist" />
       </action>
-      <action name="submitaction" tid="tollium:common.actions.ok">
+      <action name="submitaction" tid="~ok">
         <enableon source="folders" min="1" onexecute="dosubmitfolder" />
         <enableon source="fileslist" min="1" onexecute="dosubmitfile" />
-        <enableon source="filesthumbs" min="1" onexecute="dosubmitfile"/>
+        <enableon source="filesthumbs" min="1" onexecute="dosubmitfile" />
       </action>
-      <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g"  />
+      <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g" />
     </actions>
 
     <menus>
@@ -47,57 +43,58 @@
           </cell>
         </row>
       </grid>
-
       <split type="horizontal" minwidth="50x" splitter="transparent">
-        <part name="folderpart" minwidth="25x" width="2pr">
+        <part name="folderpart" width="2pr" minwidth="25x">
           <panel name="foldertreebuttonsholder" backgroundcolor="#f0f0f0" borders="top left right" spacers="left">
             <line layout="tabs-space">
-              <text title="" valuetid=".folders"/>
+              <text title="" valuetid=".folders" />
               <spacer name="togglespacer" />
               <buttongroup borders="left" layout="horizontal">
-                <button action="gotoanything" name="gotobutton" icon="tollium:folders/open" type="icon" title="" disablemode="hidden" />
-                <button name="folderpathbutton" icon="tollium:folders/star" type="icon" title="" disablemode="hidden" />
+                <button name="gotobutton"
+                        type="icon"
+                        action="gotoanything"
+                        disablemode="hidden"
+                        icon="tollium:folders/open"
+                        title="" />
+                <button name="folderpathbutton" type="icon" disablemode="hidden" icon="tollium:folders/star" title="" />
               </buttongroup>
               <spacer name="toggleref" width="0" visible="false" />
             </line>
           </panel>
           <publisher:foldertree name="folders"
-                                selectcontextmenu="folderlistmenu"
-                                columnheaders="false"
-                                selectmode="single"
-                                showreadonly="false"
-                                borders="left top bottom right"
                                 width="1pr"
                                 height="1pr"
-                                minheight="18x" />
+                                minheight="18x"
+                                borders="left top bottom right"
+                                columnheaders="false"
+                                selectcontextmenu="folderlistmenu"
+                                selectmode="single"
+                                showreadonly="false" />
         </part>
-        <part name="filepart" minwidth="40x" width="3pr">
+        <part name="filepart" width="3pr" minwidth="40x">
           <tabs name="fileparttabs" type="server" height="1pr">
-            <tab name="filelisttab" title="" spacers="none">
+            <tab name="filelisttab" spacers="none" title="">
               <publisher:filelist name="fileslist"
-                                  selectmode="single"
-                                  selectcontextmenu="filelistmenu"
-                                  openaction="openfilelist"
-                                  hidefolders="true"
-                                  showcolumns="name title modified"
                                   width="1pr"
                                   height="1pr"
                                   minheight="22x"
                                   borders="right bottom"
-                                  />
+                                  hidefolders="true"
+                                  openaction="openfilelist"
+                                  selectcontextmenu="filelistmenu"
+                                  selectmode="single"
+                                  showcolumns="name title modified" />
             </tab>
             <tab name="thumbnailtab" title="">
-              <panel height="1pr" width="1pr" borders="right top bottom">
-              <publisher:thumbnailview name="filesthumbs"
-                                         sortby="ordering"
-                                         selectmode="single"
-                                         openaction="openfilelist"
-                                         orderable="false"
+              <panel width="1pr" height="1pr" borders="right top bottom">
+                <publisher:thumbnailview name="filesthumbs"
                                          width="1pr"
                                          height="1pr"
                                          minheight="22x"
-                                         />
-
+                                         openaction="openfilelist"
+                                         orderable="false"
+                                         selectmode="single"
+                                         sortby="ordering" />
               </panel>
             </tab>
           </tabs>
@@ -107,6 +104,7 @@
         <!-- Custom components can be added here using SetCustomComponents -->
       </panel>
     </body>
+
     <footer>
       <line layout="right">
         <button action="submitaction" />
