@@ -91,16 +91,7 @@
   -->
   </xs:attributeGroup>
 
-  <xs:attributeGroup name="AutocompleteAttributes">
-    <xs:attribute name="autocomplete">
-      <xs:annotation>
-        <xs:documentation>
-          See https://html.spec.whatwg.org/multipage/forms.html#attr-fe-autocomplete
-          and https://developers.google.com/web/fundamentals/design-and-ui/input/forms/#recommended_input_name_and_autocomplete_attribute_values
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:attributeGroup>
+  <xs:attributeGroup name="AutocompleteAttributes" /> <!-- obsolete. because many components need it, we've just added this to to the FormBaseATtributes  in 4.32 -->
 
   <xs:element name="formdefinitions">
     <xs:complexType>
@@ -592,7 +583,6 @@
       <xs:attributeGroup ref="MapUnmapAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
       <xs:attributeGroup ref="PrefixSuffixAttributes" />
-      <xs:attributeGroup ref="AutocompleteAttributes" />
       <xs:attribute name="valuetype" type="TextEditValueTypes" />
       <!-- only support integer now -->
       <xs:attribute name="min" type="xs:integer" />
@@ -633,7 +623,6 @@
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="MapUnmapAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
-      <xs:attributeGroup ref="AutocompleteAttributes" />
       <xs:attribute name="maxlength" type="xs:integer" />
       <xs:attribute name="value" type="xs:string" />
       <xs:attribute name="validationchecks" type="sc:ValidationChecks">
@@ -715,7 +704,6 @@
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
       <xs:attributeGroup ref="PrefixSuffixAttributes" />
-      <xs:attributeGroup ref="AutocompleteAttributes" />
     </xs:complexType>
   </xs:element>
 
@@ -884,7 +872,6 @@
       </xs:sequence>
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
-      <xs:attributeGroup ref="AutocompleteAttributes" />
       <xs:attribute name="type" type="SelectTypes" use="required" />
       <xs:attribute name="orientation" type="sc:HVOrientation" />
       <xs:attribute name="horizontal" type="xs:boolean" /> <!-- DEPRECATED! -->
@@ -970,7 +957,6 @@
 
   <xs:complexType name="AddressType">
     <xs:attributeGroup ref="BaseAttributes" />
-    <xs:attributeGroup ref="AutocompleteAttributes" />
     <xs:attribute name="countrylist">
       <xs:simpleType>
         <xs:list>

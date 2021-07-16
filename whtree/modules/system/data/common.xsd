@@ -305,6 +305,14 @@
     <xs:attribute name="groupclasses" type="xs:string" />
     <xs:attribute name="hideinresults" />
     <xs:attribute name="infotextid" type="InstanceId" />
+    <xs:attribute name="autocomplete">
+      <xs:annotation>
+        <xs:documentation>
+          See https://html.spec.whatwg.org/multipage/forms.html#attr-fe-autocomplete
+          and https://developers.google.com/web/fundamentals/design-and-ui/input/forms/#recommended_input_name_and_autocomplete_attribute_values
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="FormHandlerAttributes">

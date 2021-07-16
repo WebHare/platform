@@ -5,14 +5,14 @@ As an example, we're creating a (disabled) textedit field that will generate a u
 
 Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the module's moduledefinition.xml file (assuming the module is called 'mymodule'), create a form definition file, mymodule/data/formdef.xsd, and fill it with:
 
+## XML field definition
+
 ```xml
 <xs:schema
   xmlns="http://www.mysite.net/xmlns/forms"
   xmlns:forms="http://www.webhare.net/xmlns/publisher/forms"
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
-  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.mysite.net/xmlns/forms"
   elementFormDefault="qualified"
   xml:lang="en"
@@ -28,19 +28,24 @@ Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the modu
             tolliumicon="tollium:forms/textedit"
             tid="module.forms.myhandler"
             descriptiontid="module.forms.myhandlerdesc"
-            editdefaults="title placeholder"
+            editdefaults="name title hidetitle required groupclasses"
             fieldobject="mod::mymodule/formcomponents/formcomponents.whlib#GenerateID"
             />
         </xs:appinfo>
       </xs:annotation>
-      <xs:attributeGroup ref="sc:FormHandlerAttributes" />
+      <xs:attributeGroup ref="sc:FormBaseAttributes" />
     </xs:complexType>
   </xs:element>
 
 </xs:schema>
 ```
 
-Refer to this form definition in your moduledefinition.xml by adding the following tags (if you have an existing <publisher> section, just add the <formcomponents> there):
+`editdefaults` controls which fields are made available when editing the component. The following `editdefaults` are supported:
+"name", "title", "hidetitle", "required", "noenabled", "novisible", "groupclasses", "label", "placeholder", "prefix", "suffix", "infotext"
+
+By default, only the 'enabled' and 'visible' condition fields will be shown as they require an explicit opt-out. Most components will choose `name title hidetitle required groupclasses`.
+
+Refer to this form definition in your moduledefinition.xml by adding the following tags (if you have an existing `<publisher>` section, just add the `<formcomponents>` there):
 
 ```xml
   <publisher>
@@ -48,7 +53,26 @@ Refer to this form definition in your moduledefinition.xml by adding the followi
   </publisher>
 ```
 
-And set up the field handler on the backend. This example creates a sub-textedit prefilled with a random value
+Once you've setup the XSD, the field is available for use in custom forms and when you manually edit the sourcecode for a form.
+
+To enable users to select the custom fields in the form editor, your siteprofile needs to enable the new question type(s).
+This can be done by adding this piece of code to your main site profile:
+
+```xml
+<apply>
+  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
+  <allowformquestion type="http://www.mysite.net/xmlns/forms#*" />
+</apply>
+```
+
+
+## Component code
+The `fieldobject` needs to point to the server-side code handling the field. All form fields must (eventually) derive from
+%FormFieldBase, but you can consier using %SelectFormFieldBase as a base class if you're building a component that
+is simply wrapping a `<select>`, or %ComposedFormFieldBase as a generic base class for holding one or more dynamically
+created components.
+
+This example creates a sub-textedit prefilled with a random value
 
 ```harescript
 LOADLIB "mod::publisher/lib/forms/components.whlib";
@@ -83,14 +107,6 @@ PUBLIC STATIC OBJECTTYPE GenerateID EXTEND ComposedFormFieldBase
 >;
 ```
 
-To enable the custom fields in the form editor, tell your site profile about it. This can be done by adding this piece of code to your main site profile:
-
-```xml
-<apply>
-  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
-  <allowformquestion type="http://www.mysite.net/xmlns/forms#*" />
-</apply>
-```
 
 ## Custom attributes
 Your form can accept custom attributes by

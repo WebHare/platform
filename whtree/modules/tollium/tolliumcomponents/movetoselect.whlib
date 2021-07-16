@@ -26,6 +26,10 @@ PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(description);
     ^sourcelist->columns := description.columns;
+    ^sourcelist->minheight := description.minheight;
+    ^sourcelist->minwidth := description.minwidth;
+    ^sourcelist->height := description.height;
+    ^sourcelist->width := description.width;
     ^selectionlist->columns := description.columns;
     ^sourcelist->sortcolumn := ""; //will pick first column
     ^selectionlist->sortcolumn := ""; //will pick first column
