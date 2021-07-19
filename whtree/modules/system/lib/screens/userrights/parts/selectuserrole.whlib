@@ -107,6 +107,7 @@ PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumFragmentBase
   MACRO SetFilterOnType(INTEGER newtype)
   {
     this->unitcontents->filterontype := newtype;
+    this->RecalculateTitle();
   }
 
   STRING FUNCTION GetSelectMode()
