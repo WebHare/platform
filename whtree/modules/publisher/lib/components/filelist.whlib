@@ -309,7 +309,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE objectname = foldersettings.contentslisthandler.objectname;
       IF(NOT ObjectExists(cachedlisthandler))
       {
-        __contentlisthandlersetup := [ tolliumuser := this->owner->tolliumuser ];
+        __contentlisthandlersetup := [ contexts := this->owner->contexts ];
         cachedlisthandler := MakeObject(foldersettings.contentslisthandler.objectname);
         __contentlisthandlersetup := DEFAULT RECORD;
         INSERT [ objectname := foldersettings.contentslisthandler.objectname

@@ -515,7 +515,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO SetupFilemgrExtensions() //Setup the module-based extensions
   {
-    this->contexts->^__contentshandlercontext := NEW ContentsHandlerContext(this->tolliumuser);
+    this->contexts->^__contentshandlercontext := NEW ContentsHandlerContext(this->contexts);
     this->extensions := [ actionsmenuitems := DEFAULT RECORD ARRAY ];
 
     INTEGER insertpos := SELECT AS INTEGER #items FROM ^gotomenu->items WHERE isdivider;
