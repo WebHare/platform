@@ -581,6 +581,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
             , onlywritable      := FALSE
             , onlyfolders       := FALSE
             , onlyfiles         := FALSE
+            , ellipsis          := FALSE
             , checkflags        := STRING[]
             ], action);
 
@@ -592,6 +593,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ELSE
           THROW NEW Exception(`ContentsHandler action without 'executehandler' or 'windowopenhandler'`);
         actionobj->title := action.title;
+        actionobj->ellipsis := action.ellipsis;
         actionobj->frameflags := [ handler_frameflag ];
 
         OBJECT menuitemobj := this->CreateTolliumComponent("menuitem");
