@@ -48,14 +48,14 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
   */
   PUBLIC RECORD ARRAY FUNCTION GetAllWorkLists()
   {
+    BOOLEAN issysop := this->tolliumuser->HasRight("system:sysop");
     INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
     RETURN
         SELECT *
-             , iseditor := owner = this->tolliumuser->authobjectid
+             , iseditor := issysop OR owner = this->tolliumuser->authobjectid
              , DELETE owner
           FROM publisher.worklists
-         WHERE id IN accessible_worklists
-               OR owner = this->tolliumuser->authobjectid;
+         WHERE issysop ? TRUE : (id IN accessible_worklists OR owner = this->tolliumuser->authobjectid);
   }
 
   /** @short Create a new work list

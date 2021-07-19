@@ -13,7 +13,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 OBJECT api_sysop, api_lisa;
 OBJECT workfile1, workfile2, workfile3, workfile4, workfolder5;
 OBJECT lisaresolveroot;
-INTEGER testworklistid;
+INTEGER testworklistid, testworklistid2;
 
 BOOLEAN FUNCTION WaitForWorkList(INTEGER worklistid, RECORD event)
 {
@@ -56,13 +56,15 @@ MACRO Setup()
   testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisaresolveroot->id, FALSE);
 
   // Let the sysop create a work list
-  testworklistid := api_sysop->CreateWorkList([ name := "Test Work List", tag := "webhare_testsuite:testlist" ]);
+  testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);
   api_sysop->AddToWorkList(testworklistid,
       [ [ objectid := workfile1->id, comments := "Work list item 1" ]
       , [ objectid := workfile2->id, comments := "Do some stuff for item 2" ]
       , [ objectid := workfile4->id, comments := "Workfile 4 needs stuff done, but Lisa can't do that" ]
       , [ objectid := workfolder5->id, comments := "Workfolder 5 is a folder and so far we only tested files!" ]
       ]);
+
+  testworklistid2 := api_sysop->CreateWorkList([ name := "TESTFW - Second Work List", tag := "webhare_testsuite:testlist2" ]);
 
   testfw->CommitWork();
 }
@@ -93,6 +95,7 @@ ASYNC MACRO TestResolve()
   TestEq(TRUE, RecordExists(selection));
   TestEq("Work lists", selection.name);
   TestEq(TRUE, selection.expandable);
+
   // The main 'Work lists' item is not resolvable
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
 
@@ -148,7 +151,7 @@ ASYNC MACRO TestEvents()
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE custom_listid = testworklistid;
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
-  TestEq("Test Work List", selection.name);
+  TestEq("TESTFW - Test Work List", selection.name);
   // A work list is not resolvable
   topscreen->frame->focused := TT("filelist");
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
@@ -162,7 +165,7 @@ ASYNC MACRO TestEvents()
   TT("filelist")->openaction->TolliumClick();
   selection := TT("foldertree")->selection;
   TestEq(TRUE, RecordExists(selection));
-  TestEq("Test Work List", selection.name);
+  TestEq("TESTFW - Test Work List", selection.name);
   TestEq(FALSE, selection.expandable);
 
   // The first work list item cannot be resolved (again)
@@ -219,21 +222,41 @@ ASYNC MACRO TestEvents()
 
   // Delete the worklist through the filelist
   TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "Work lists";
-  TestEQ(TRUE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Test Work List"));
-  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "Test Work List";
+  TestEQ(TRUE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "TESTFW - Test Work List"));
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Test Work List";
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("editmenu->:Delete", [ menuitem := TRUE ]), [ messagemask := "*delete*worklist*" ]);
 
-  TestEQ(FALSE, RecordExists(SELECT FROM TT("filelist")->rows WHERE name = "Test Work List"));
-  TestEQ(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Test Work List"));
+  TestEQ(FALSE, RecordExists(SELECT FROM TT("filelist")->rows WHERE name = "TESTFW - Test Work List"));
+  TestEQ(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "TESTFW - Test Work List"));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestWorkListMgmt()
+{
+  testfw->SetTestUser("sysop2");
+
+  // Open the work lists view in the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Work lists"], target := DEFAULT RECORD ]));
+
+  TestEq([ "TESTFW - Second Work List" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows WHERE name LIKE "TESTFW - *" ORDER BY name);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Second Work List";
+
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
 
 RunTestFrameworK([ PTR Setup
                  , PTR TestResolve
                  , PTR TestEvents
-                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                 , PTR TestWorkListMgmt
+                 ], [ testroles := [[ role := "powerplantmanagers" ]]
+                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "sysop2", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);

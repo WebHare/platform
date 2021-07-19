@@ -39,8 +39,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsVisible()
   {
+    // We need to resync or as sysop we might miss the removal of lists (probably need a smarter cache stragegy, this change might have made it net-worse than no caching at all)
+    this->SyncWorkLists();
+
     // GetAllWorkLists returns all accessible work lists
-    RETURN RecordExists(this->api->GetAllWorkLists());
+    RETURN this->tolliumuser->HasRight("system:sysop") OR RecordExists(SELECT FROM this->worklistcache);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
@@ -155,7 +158,10 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     {
       // If the parent is the root, return the work lists
       IF (parentid = this->rootid)
+      {
+        this->SyncWorkLists();
         RETURN this->worklistcache;
+      }
 
       /* Return the selected work list's items that the user has write access to (this used to be fs_browse but you can't
          really fix anything with just read. if we ever need readble too, it should probably be a worklist level option) */
