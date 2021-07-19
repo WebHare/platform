@@ -1567,6 +1567,7 @@
     <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
+    <text tid="worklist_owner">Eigenaar van de werklijst</text>
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
     <text tid="worklists">Werklijsten</text>
   </textgroup>

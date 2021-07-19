@@ -1567,6 +1567,7 @@
     <text tid="managefeedbackscope-descr">Allows access to the Feedback application to view and handle feedback for a specific scope submitted through the feedback option</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
+    <text tid="worklist_owner">Owns the work list</text>
     <text tid="worklist_resolve">Handle work list items</text>
     <text tid="worklists">Work lists</text>
   </textgroup>

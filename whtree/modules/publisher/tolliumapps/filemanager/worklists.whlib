@@ -380,13 +380,14 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   // This function is only called to add users
   RECORD ARRAY FUNCTION OnEditUser(RECORD _unused_row)
   {
-    RECORD ARRAY result := RunUserRoleSelectDialog(this, [ selectmultiple := TRUE, roles := FALSE ]);
+    RECORD ARRAY result := RunUserRoleSelectDialog(this, [ selectmultiple := TRUE ]);
+    //TODO we need a user+role enrichtment component, or perhaps we just need to be able to use a userrolelist ?
     RETURN
-          SELECT TEMPORARY user := this->contexts->userapi->GetUser(entityid)
-               , id := user->authobjectid
-               , name := user->realname ?? user->login
-               , email := user->emailaddress
-               , obj := user
+          SELECT TEMPORARY obj := type = "user" ? this->contexts->userapi->GetUser(entityid) : this->contexts->userapi->GetRole(entityid)
+               , id := obj->authobjectid
+               , name := type = "user" ? (obj->realname ?? obj->login) :  obj->GetUncachedUserRightsName()
+               , email := type = "user" ? obj->emailaddress : ""
+               , obj := obj
             FROM result;
   }
 

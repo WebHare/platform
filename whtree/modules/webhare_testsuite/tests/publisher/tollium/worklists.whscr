@@ -54,6 +54,7 @@ MACRO Setup()
   // Grant testuser 'lisa' browse right on the test website
   testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testroot->id, FALSE);
   testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisaresolveroot->id, FALSE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetRoleObject("powerplantmanagers"), lisaresolveroot->id, FALSE);
 
   // Let the sysop create a work list
   testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);
@@ -65,11 +66,14 @@ MACRO Setup()
       ]);
 
   testworklistid2 := api_sysop->CreateWorkList([ name := "TESTFW - Second Work List", tag := "webhare_testsuite:testlist2" ]);
+  api_sysop->AddToWorkList(testworklistid2,
+      [ [ objectid := workfile1->id, comments := "Work list item 1" ]
+      ]);
 
   testfw->CommitWork();
 }
 
-ASYNC MACRO TestResolve()
+ASYNC MACRO TestResolveAsLisa()
 {
   testfw->SetTestUser("lisa");
 
@@ -98,6 +102,9 @@ ASYNC MACRO TestResolve()
 
   // The main 'Work lists' item is not resolvable
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
+
+  // Validate that we can't see all worklists option
+  //TestEq(["participating", "myworklists" ], SELECT AS STRING ARRAY rowkey FROM TT("filelist")->^worklists->options);
 
   // Expand the 'Work lists' to reveal the 'Test Work List' and select that
   selection := SELECT *, __idx := #rows FROM TT("foldertree")->rows WHERE rowkey = selection.rowkey;
@@ -128,14 +135,10 @@ ASYNC MACRO TestResolve()
   TestEq("workfolder5", TT("filelist")->selection.name);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  // Resolve the folder too
-  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
-  TestEq(FALSE, RECORD(TT("filelist")->selection).custom_resolveddate = "");
-
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 }
 
-ASYNC MACRO TestEvents()
+ASYNC MACRO TestAsSysop()
 {
   testfw->SetTestUser("sysop");
 
@@ -159,7 +162,15 @@ ASYNC MACRO TestEvents()
   // Check if 'lisa' is one of the list users
   AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
   TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetUserObject("lisa")->authobjectid ));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Add 'Marge' through role powerplantmanagers
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("selectuserrole->unittree->unitlist")->value := testfw->testunit;
+  TT("selectuserrole->unitcontents->userandrolelist")->value := INTEGER[ testfw->GetRoleObject("powerplantmanagers")->entityid ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetRoleObject("powerplantmanagers")->authobjectid ));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   // Open the Test Work List, check if it's expanded in the folder tree
   TT("filelist")->openaction->TolliumClick();
@@ -168,10 +179,38 @@ ASYNC MACRO TestEvents()
   TestEq("TESTFW - Test Work List", selection.name);
   TestEq(FALSE, selection.expandable);
 
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+}
+
+ASYNC MACRO TestAsMarge()
+{
+  //verify we can resolve the single file on list 2. and we're done.
+  testfw->SetTestUser("marge");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Work lists/TESTFW - Test Work List"], target := DEFAULT RECORD ]));
+  TestEq(["workfile1","workfile2","workfolder5"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "workfolder5";
+
+  // Resolve the folder too
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
+  TestEq(FALSE, RECORD(TT("filelist")->selection).custom_resolveddate = "");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+}
+
+ASYNC MACRO TestEvents()
+{
+  testfw->SetTestUser("sysop");
+
+  // Open the work lists view in the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Work lists/TESTFW - Test Work List"], target := DEFAULT RECORD ]));
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE custom_listid = testworklistid;
+
   // The first work list item cannot be resolved (again)
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid;
   TestEq(["workfile1","workfile2","workfile4","workfolder5"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
-  selection := TT("filelist")->selection;
+  RECORD selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile1", selection.name);
   TestEq(FALSE, selection.custom_resolveddate = "");
@@ -225,12 +264,13 @@ ASYNC MACRO TestEvents()
   TestEQ(TRUE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "TESTFW - Test Work List"));
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Test Work List";
   topscreen->frame->focused := TT("filelist");
+
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("editmenu->:Delete", [ menuitem := TRUE ]), [ messagemask := "*delete*worklist*" ]);
 
   TestEQ(FALSE, RecordExists(SELECT FROM TT("filelist")->rows WHERE name = "TESTFW - Test Work List"));
   TestEQ(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "TESTFW - Test Work List"));
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 }
 
 ASYNC MACRO TestWorkListMgmt()
@@ -252,11 +292,14 @@ ASYNC MACRO TestWorkListMgmt()
 }
 
 RunTestFrameworK([ PTR Setup
-                 , PTR TestResolve
+                 , PTR TestResolveAsLisa
+                 , PTR TestAsSysop
+                 , PTR TestAsMarge
                  , PTR TestEvents
                  , PTR TestWorkListMgmt
                  ], [ testroles := [[ role := "powerplantmanagers" ]]
                     , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "sysop2", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
+                                   ,[ login := "marge", grantroles := ["powerplantmanagers"] ]
                                    ]]);
