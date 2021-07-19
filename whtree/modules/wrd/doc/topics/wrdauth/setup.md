@@ -38,7 +38,6 @@ You need to update your wrdschema definition to import the authentication schema
 <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
          wrdschema="YOURSCHEMA"
          sitetag="WEBSITE"
-         api2017="true"
          cookiename="webharelogin-YOURCOKIE" />
 ```
 cookiename must be a string starting with webharelogin- and not contain any underscores
