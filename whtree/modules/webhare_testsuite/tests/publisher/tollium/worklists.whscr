@@ -154,7 +154,7 @@ ASYNC MACRO TestEvents()
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
 
   // Check if 'lisa' is one of the list users
-  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage users", [ menuitem := TRUE ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
   TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetUserObject("lisa")->authobjectid ));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
@@ -211,7 +211,7 @@ ASYNC MACRO TestEvents()
 
   // Remove all resolved items from the work list, there should be one item left
   topscreen->frame->focused := TT("foldertree");
-  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Delete resolved items", [ menuitem := TRUE ]), [ messagemask := "*delete all resolved items*" ]);
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Remove resolved items from worklist", [ menuitem := TRUE ]), [ messagemask := "*remove all resolved items*" ]);
   TestEq(["workfile2","workfile4"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   // Delete the worklist through foldertree, check that we get to the right handler. Don't delete yet...

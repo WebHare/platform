@@ -225,7 +225,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
   {
     RETURN
-        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageusers")
+        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageworklist")
           , executehandler   := PTR this->AssignWorkListUsers
           , addtomenu        := "file"
           , addtocontextmenu := TRUE
