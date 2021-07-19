@@ -853,8 +853,11 @@ STATIC OBJECTTYPE QueueMgr
       INSERT CELL cluster := RecordExists(tasktype) ? tasktype.cluster : "system:default"
                 , maxfailures := RecordExists(tasktype) ? tasktype.maxfailures : -1
                 , failreschedule := RecordExists(tasktype) ? tasktype.failreschedule : whconstant_default_failreschedule
+                , allowed := IsRestoredWebHare() = FALSE OR (RecordExists(tasktype) AND tasktype.allowifrestore)
              INTO currenttasks[#rec];
     }
+
+    DEleTE FROM currenttasks WHERE NOT allowed;
 
     IF (updateid = 0)
       this->managedtasks := this->UpdateManagedTaskCache(this->managedtasks, currenttasks);
@@ -1235,6 +1238,8 @@ OBJECTTYPE QueueMgrClientConnection
 
     IF (NOT RecordExists(tasktypeinfo))
       THROW NEW Exception(`Nu such ephemeral task type ${tasktype}`);
+    IF(IsRestoredWebHare() AND NOT tasktypeinfo.allowifrestore)
+      THROW NEW Exception("WebHare is running in 'restore' mode and this task isn't allowed to run (allowifrestore)");
 
     RECORD taskinfo :=
        [ queuename :=       tasktypeinfo.cluster || ":" || workertype

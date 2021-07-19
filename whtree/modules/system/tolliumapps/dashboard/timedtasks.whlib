@@ -27,7 +27,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
   {
     STRING iconname;
 
-    IF (NOT task.enabled)
+    IF (NOT task.enabled OR (task.inapplicable = "" AND task.inapplicable NOT LIKE "*allowifrestore*")) //very ugly approach, we should probably get better state by directly communicating with the executetasks script
       iconname := "tollium:status/negative";
     ELSE IF(task.nexttime != DEFAULT DATETIME AND task.nexttime < GetCurrentDatetime())
       iconname := "tollium:status/wait";
@@ -41,15 +41,18 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
 
   RECORD ARRAY FUNCTION GetTasks()
   {
-    RECORD ARRAY newlist := SELECT error
+    RECORD ARRAY newlist := SELECT TEMPORARY isenabled := enabled AND inapplicable = ""
+                                 , error
+                                 , inapplicable
                                  , running :=     currentstart = DEFAULT DATETIME ? 0 : ^tasks->GetIcon("tollium:status/neutral")
                                  , currentstart
                                  , nexttime
                                  , script
                                  , description
                                  , rowkey := id
-                                 , enabled
-                                 , style := enabled ? "" : "disabled"
+                                 , enabled  //raw from the database
+                                 , isenabled := isenabled //this one is conditional on 'inapplicable'
+                                 , listrowclasses := isenabled ? STRING[] : STRING["grayedout"]
                               FROM system_internal.tasks;
 
     RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;

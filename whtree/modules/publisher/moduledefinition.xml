@@ -29,8 +29,11 @@
     <task tag="updatefeedbackscopes" script="scripts/tasks/updatefeedbackscopes.whscr" description="Update feedback scopes" runatstartup="true" />
 
     <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
-    <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" />
-    <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" timeout="600000" />
+
+     <!-- assetpackcompile must be able to run in restore to bring up a webinterface -->
+    <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" allowifrestore="true" />
+     <!-- publication must be able to run in restore to bring up a webinterface -->
+    <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" timeout="600000" allowifrestore="true" />
 
     <managedtask type="generatewidgetpreview" objectname="lib/internal/tasks.whlib#generatewidgetpreviewtask" />
     <managedtask type="mailresults" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailResultsTask" />

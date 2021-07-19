@@ -862,7 +862,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
                 RECORD task := [ tag := modulename || "." || subchild->GetAttribute("tag")
                                , script := script
-                               , runatstartup := subchild->GetAttribute("runatstartup") IN ["true","1"]
+                               , runatstartup := ParseXSBoolean(subchild->GetAttribute("runatstartup"))
+                               , allowifrestore := ParseXSBoolean(subchild->GetAttribute("allowifrestore"))
                                , runtime := subchild->GetAttribute("runtime")
                                , runinterval := subchild->GetAttribute("runinterval")
                                , timeout := ToInteger(subchild->GetAttribute("timeout"),0)

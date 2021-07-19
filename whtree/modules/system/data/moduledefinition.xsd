@@ -495,6 +495,15 @@
     <xs:attributeGroup ref="ApplicabletoWebHare" /> <!-- FIXME actualy implement dtap stage etc, but we need to ensure the attributes are allowed first -->
   </xs:complexType>
 
+  <xs:attributeGroup name="TaskRunnableAttributes">
+    <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
+    <xs:attribute name="allowifrestore" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Allow this task to run when WebHare is in 'restore' mode</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
   <xs:complexType name="Servicemanager">
     <xs:choice minOccurs="0" maxOccurs="unbounded" >
       <xs:element name="runatstartup">
@@ -559,7 +568,7 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attributeGroup ref="ApplicabletoWebHare" />
+          <xs:attributeGroup ref="TaskRunnableAttributes" />
         </xs:complexType>
       </xs:element>
       <xs:element name="runonce">
@@ -629,6 +638,7 @@
         </xs:annotation>
         <xs:complexType>
           <xs:attributeGroup ref="ManagedTaskAttrs" />
+          <xs:attributeGroup ref="TaskRunnableAttributes" />
         </xs:complexType>
       </xs:element>
       <xs:element name="managedtask">
@@ -639,7 +649,7 @@
         </xs:annotation>
         <xs:complexType>
           <xs:attributeGroup ref="ManagedTaskAttrs" />
-          <xs:attributeGroup ref="ApplicabletoWebHare" />
+          <xs:attributeGroup ref="TaskRunnableAttributes" />
           <xs:attribute name="maxfailures" type="xs:nonNegativeInteger">
             <xs:annotation>
               <xs:documentation>Maximum number of failures. Set to 0 to never retry. By default tasks are retried indefinitely</xs:documentation>
