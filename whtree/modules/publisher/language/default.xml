@@ -855,6 +855,8 @@
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
       <text tid="email">Email address</text>
       <text tid="name">User</text>
+      <text tid="participants">Participants</text>
+      <text tid="worklist">Work list</text>
       <text tid="worklistusers">Work list users</text>
       <text tid="worklistusers-desc">The following users can mark work list items as resolved:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->

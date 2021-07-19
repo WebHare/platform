@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 
@@ -363,12 +364,15 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   {
     this->api := NEW WorkListAPI(this->tolliumuser);
     this->worklistid := data.worklistid;
+    RECORD worklistinfo := SELECT * FROM publisher.worklists WHERE id = this->worklistid;
+
     ^users->value :=
         SELECT id := user->authobjectid
              , name := user->realname ?? user->login
              , email := user->emailaddress
              , obj := user
           FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+    ^name->value := worklistinfo.name;
   }
 
 
@@ -393,8 +397,9 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginUnvalidatedWork();
+    OBJECT work := this->BeginWork();
 
+    UPDATE publisher.worklists SET name := ^name->value WHERE id = this->worklistid;
     RECORD ARRAY curusers :=
         SELECT id := user->authobjectid
              , obj := user
@@ -409,6 +414,7 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
       ELSE
         DELETE FROM curusers AT idx;
     }
+
     this->api->AddWorkListUsers(this->worklistid, addusers);
     OBJECT ARRAY delusers := SELECT AS OBJECT ARRAY obj FROM curusers;
     this->api->RemoveWorkListUsers(this->worklistid, delusers);

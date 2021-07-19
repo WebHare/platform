@@ -1,20 +1,20 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="worklists.whlib"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         gid="filemanager.worklists"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="filemanager.worklists" library="worklists.whlib">
 
-  <screen name="worklistusers" width="60x" height="20x">
-    <body>
-      <text title="" valuetid=".worklistusers-desc" wordwrap="true" width="1pr" />
-      <arrayedit name="users" buttons="add delete" onrowedit="onedituser" height="1pr">
-        <column name="name" type="text" />
-        <column name="email" type="email" />
-      </arrayedit>
+  <screen name="worklistusers" width="60x" height="20x" footerbuttons="ok cancel">
+    <body spacers="none">
+      <tabs height="1pr">
+        <tab tid=".worklist">
+          <textedit name="name" width="1pr" required="true" tid="~name" />
+        </tab>
+        <tab tid=".participants">
+          <text width="1pr" title="" valuetid=".worklistusers-desc" wordwrap="true" />
+          <arrayedit name="users" height="1pr" buttons="add delete" onrowedit="onedituser">
+            <column name="name" type="text" />
+            <column name="email" type="email" />
+          </arrayedit>
+        </tab>
+      </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

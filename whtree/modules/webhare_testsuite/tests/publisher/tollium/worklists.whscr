@@ -280,13 +280,23 @@ ASYNC MACRO TestWorkListMgmt()
   // Open the work lists view in the Publisher
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Work lists"], target := DEFAULT RECORD ]));
 
-  TestEq([ "TESTFW - Second Work List" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows WHERE name LIKE "TESTFW - *" ORDER BY name);
-  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Second Work List";
+  //TODO retry attempt to att worklist filtering? it failed on the tree: https://gitlab.webhare.com/webharebv/codekloppers/-/issues/326#note_108034
+  //TestEq(RECORD[], TT("filelist")->rows, "Should not see worklist yet, they're not mine");
+  //OBJECT filterscreen := TT("filelist")->folderfilter->contents;
+  //TestEq("participating", TT("filelist")->^worklists->value);
+
+  //TT("filelist")->^worklists->value := "myworklists";
+  //TestEq(RECORD[], TT("filelist")->rows, "Should not see worklist yet, they're not mine");
+
+  //TT("filelist")->^worklists->value := "allworklists";
 
   topscreen->frame->focused := TT("filelist");
-  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Second Work List";
 
+  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
+  TestEq("TESTFW - Second Work List", TT(":Name")->value);
+  TT(":Name")->value := "TESTFW - 2nd Work List";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }

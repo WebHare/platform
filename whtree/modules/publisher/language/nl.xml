@@ -855,6 +855,8 @@
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
       <text tid="email">E-mailadres</text>
       <text tid="name">Gebruiker</text>
+      <text tid="participants">Deelnemers</text>
+      <text tid="worklist">Werklijst</text>
       <text tid="worklistusers">Gebruikers werklijst</text>
       <text tid="worklistusers-desc">De volgende gebruikers kunnen werklijstonderdelen als opgelost markeren:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
