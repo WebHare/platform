@@ -857,7 +857,7 @@ STATIC OBJECTTYPE QueueMgr
              INTO currenttasks[#rec];
     }
 
-    DEleTE FROM currenttasks WHERE NOT allowed;
+    DELETE FROM currenttasks WHERE NOT allowed;
 
     IF (updateid = 0)
       this->managedtasks := this->UpdateManagedTaskCache(this->managedtasks, currenttasks);
