@@ -58,8 +58,6 @@ MACRO InitDB()
 //  Print(AnyToString(GetObjectIdsOfDirectGrantsTo(limited_user, "webhare_testsuite:globalright"), "tree"));
 
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->GrantRightTo("system:sysop", testfw->GetRoleObject("sysoprole"), TRUE);
-  testfw->GetUserObject("sysop")->GrantRightTo("system:sysop", testfw->GetUserObject("mysysop"), TRUE);
   testfw->GetUserObject("sysop")->UpdateRoleGrant("grant", testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole"), [ comment := "Granted by your sysop"]);
   TestEqMembers([ comment := "Granted by your sysop"], ExplainRoleGrantedTo(testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole")->EnsureAuthObject()), "*");
   testfw->GetUserObject("sysop")->UpdateRoleGrant("update", testfw->GetRoleObject("sysoprole")->authobjectid, testfw->GetUserObject("mysysopusingrole"), [ comment := "Updated by your sysop"]);
@@ -70,6 +68,7 @@ MACRO InitDB()
   TestEq(0, LENGTH(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", testfw->GetUserObject("limited2")->EnsureAuthObject(), FALSE)));
   TestEq(0, LENGTH(GetObjectIdsOfDirectGrantsTo("webhare_testsuite:globalright", testfw->GetRoleObject("role1")->EnsureAuthObject(), FALSE)));
   TestEq(FALSE, testfw->GetUserObject("mysysop")->HasRole(testfw->GetRoleObject("role1")));
+  TestEq(TRUE, testfw->GetUserObject("mysysop")->HasRole(testfw->GetRoleObject("sysoprole")));
   TestEq(FALSE, testfw->GetUserObject("limited")->HasRole(testfw->GetRoleObject("role1")));
   TestEq(FALSE, testfw->GetUserObject("limited2")->HasRole(testfw->GetRoleObject("role1")));
 
@@ -290,7 +289,7 @@ MACRO GrantTest()
   // Grant with grant right (use objectright2, because it is implied by globalright)
 
   testfw->StartTrans("mysysop", FALSE);
-  TestThrowsLike('*does not have the right*', PTR limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE));
+  TestThrowsLike('*lacks the right*', PTR limited_user->GrantRightTo("webhare_testsuite:globalright", limited2_user, FALSE));
   sysop_user->GrantRightTo("webhare_testsuite:globalright", limited_user, TRUE);
 
   TestEq(TRUE, limited_user->HasRight("webhare_testsuite:globalright"));
@@ -732,14 +731,14 @@ RunTestframework( [ PTR InitDB
                   , PTR EnumTest
                   , PTR UnitTest
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                    ,[ login := "mysysop"]
+                                    ,[ login := "mysysop", grantroles := ["sysoprole"]]
                                     ,[ login := "mysysopusingrole"]
                                     ,[ login := "limited"]
                                     ,[ login := "limited2"]
                                     ]
                      , testroles := [[ role := "role1" ]
                                     ,[ role := "role2" ]
-                                    ,[ role := "sysoprole" ]
+                                    ,[ role := "sysoprole", grantrights := ["system:sysop"] ]
                                     ]
                      ]
                   );

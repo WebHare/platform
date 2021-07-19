@@ -529,6 +529,15 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     IF (disallowtestframework != "")
       THROW NEW Exception("The testframework may only be used in an exclusive context: " || disallowtestframework);
+
+    FOREVERY(RECORD testrole FROM options.testroles)
+      this->DeclareTestRole(testrole.role, testrole.grantrights);
+
+    FOREVERY(RECORD testuser FROM options.testusers)
+    {
+      testuser := ValidateOptions( [ login := "", grantrights := STRING[], grantroles := STRING[] ], testuser, [ title := "testuser", required := ["login"]]);
+      this->DeclareTestUser(testuser.login, testuser.grantrights, testuser.grantroles);
+    }
   }
 
   MACRO SetParanoiaOptions()
@@ -557,7 +566,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /** Declare a user for further use in tests. Call before running any tests
       @param username User's name
   */
-  PUBLIC MACRO DeclareTestUser(STRING username, STRING ARRAY grantrights)
+  MACRO DeclareTestUser(STRING username, STRING ARRAY grantrights, STRING ARRAY grantroles)
   {
     IF(this->tests_started)
       ABORT("Cannot invoke DeclareTestUser once the tests are running");
@@ -567,12 +576,13 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
            , authobjectid := 0
            , userpassword := GeneratePassword("betatest",32,TRUE)
            , userobj := DEFAULT OBJECT
-           , rights := grantrights
+           , grantrights := grantrights
+           , grantroles := grantroles
            ] INTO this->credentials AT END;
   }
 
   /** Declare a user for further use in tests. Call before running any tests */
-  PUBLIC MACRO DeclareTestRole(STRING rolename)
+  MACRO DeclareTestRole(STRING rolename, STRING ARRAY grantrights)
   {
     IF(this->tests_started)
       ABORT("Cannot invoke DeclareTestUser once the tests are running");
@@ -581,6 +591,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
            , wrdid := 0
            , authobjectid := 0
            , roleobj := DEFAULT OBJECT
+           , grantrights := grantrights
            ] INTO this->roles AT END;
   }
 
@@ -1105,6 +1116,20 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       this->__betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit", wrd_tag := "TESTFW_TESTUNIT" ]);
     }
 
+    IF(Length(this->roles) > 0)
+    {
+      //Create any requested roles
+      OBJECT roletype := this->userapi->wrdschema->GetType("WHUSER_ROLE");
+      FOREVERY(RECORD role FROM this->roles)
+      {
+        role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->testunit, wrd_title := role.rolename ]);
+        role.roleobj := this->userapi->GetRole(role.wrdid);
+        role.authobjectid := role.roleobj->authobjectid;
+
+        this->roles[#role] := role;
+      }
+    }
+
     IF(Length(this->credentials) > 0)
     {
       //Create any requested users
@@ -1136,24 +1161,25 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         cred.userobj->LoadSettingsFromRegistry();
 
         cred.authobjectid := cred.userobj->authobjectid;
-        FOREVERY(STRING grantright FROM cred.rights)
-          cred.userobj->GrantRightTo(grantright, cred.userobj, TRUE, TRUE, "Granted by RunTestframework");
+        FOREVERY(STRING grantright FROM cred.grantrights)
+          cred.userobj->UpdateGrant("grant", grantright, 0, cred.userobj, [ allowselfassignment := TRUE, withgrantoption := TRUE, comment := "Granted by RunTestframework" ]);
 
-        this->credentials[#cred] := cred;
+        this->credentials[#cred] := cred; //do this first so we can access the user's object
+
+        FOREVERY(STRING grantrole FROM cred.grantroles)
+          this->credentials[0].userobj->UpdateRoleGrant("grant", this->GetRoleAuthobjectId(grantrole), cred.userobj, [ comment := "Granted by RunTestframework" ]);
       }
     }
-    IF(Length(this->roles) > 0)
-    {
-      //Create any requested roles
-      OBJECT roletype := this->userapi->wrdschema->GetType("WHUSER_ROLE");
-      FOREVERY(RECORD role FROM this->roles)
+
+    FOREVERY(RECORD role FROM this->roles)
+      FOREVERY(STRING grantright FROM role.grantrights)
       {
-        role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->testunit, wrd_title := role.rolename ]);
-        role.roleobj := this->userapi->GetRole(role.wrdid);
-        role.authobjectid := role.roleobj->authobjectid;
-        this->roles[#role] := role;
+        IF(Length(this->credentials) = 0)
+          THROW NEW Exception(`Granting rights to roles require at least one user to exist. The first defined user will be used to grant the right`);
+
+        this->credentials[0].userobj->UpdateGrant("grant", grantright, 0, role.roleobj, [ withgrantoption := TRUE, comment := "Granted by RunTestframework" ]);
       }
-    }
+
     GetPrimary()->CommitWork();
 
     IF(Length(this->credentials) > 0)
@@ -2172,7 +2198,10 @@ STRING FUNCTION GenerateName(MACRO PTR test)
     @cell(boolean) options.relativeoutputfolders
     @cell(integer) options.requireport
     @cell(record array) options.testusers Users to create in the test WRD schema
-    @cell(record array) options.testroles Roles  to create in the test WRD schema
+    @cell(string array) options.testusers.grantroles Roles to grant to this user (will be granted by first created user)
+    @cell(string array) options.testusers.grantrights Rights to grant to this user (will be self-granted)
+    @cell(record array) options.testroles Roles to create in the test WRD schema
+    @cell(string array) options.testusers.grantrights Rights to grant to this role (will be granted by first created user)
     @cell(boolean) options.wrdschema
     @cell(boolean) options.wrdauth Set to true to setup the testschema for users/role/rights. Implicity set if testusers or testroles are set
     @cell(boolean) options.usedatabase
@@ -2205,6 +2234,17 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
   IF(Length(options.testusers) > 0 OR Length(options.testroles) > 0)
     options.wrdauth := TRUE; //this requires wrdauth
 
+  options.testusers := SELECT AS RECORD ARRAY ValidateOptions( [ login := ""
+                                                               , grantrights := STRING[]
+                                                               , grantroles := STRING[]
+                                                               ], testuser)
+                         FROM options.testusers AS testuser;
+
+  options.testroles := SELECT AS RECORD ARRAY ValidateOptions( [ role := ""
+                                                               , grantrights := STRING[]
+                                                               ], testrole)
+                         FROM options.testroles AS testrole;
+
   IF(options.profile)
   {
     Enablefunctionprofile();
@@ -2233,14 +2273,6 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
 
   testfw->profile := options.profile;
   testfw->debug := options.debug;
-
-  FOREVERY(RECORD testuser FROM options.testusers)
-  {
-    testuser := ValidateOptions( [ login := "", grantrights := DEFAULT STRING ARRAY], testuser, [ title := "testuser", required := ["login"]]);
-    testfw->DeclareTestUser(testuser.login, testuser.grantrights);
-  }
-  FOREVERY(RECORD testrole FROM options.testroles)
-    testfw->DeclareTestRole(testrole.role);
 
   FOREVERY(FUNCTION PTR test FROM tests)
   {
