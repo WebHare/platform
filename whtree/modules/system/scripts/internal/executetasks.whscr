@@ -290,6 +290,9 @@ MACRO UpdateScheduler()
   FOREVERY(RECORD mod FROM GetWebHareModules())
     alltasks := alltasks CONCAT mod.tasks;
 
+  IF(IsRestoredWebHare())
+    UPDATE alltasks SET inapplicable := "WebHare is running in 'restore' mode and this task isn't allowed to run (allowifrestore)" WHERE inapplicable = "" AND NOT allowifrestore;
+
   cachedtaskmetadata := alltasks;
 
   //Add/update tasks

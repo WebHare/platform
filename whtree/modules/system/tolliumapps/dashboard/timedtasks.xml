@@ -8,7 +8,7 @@
         <enableon source="tasks" min="1" max="1" />
       </action>
       <action name="scheduletasknow" onexecute="doscheduletasknow">
-        <enableon source="tasks" max="1" min="1" checkflags="enabled" />
+        <enableon source="tasks" max="1" min="1" checkflags="isenabled" />
       </action>
     </actions>
     <menus>
@@ -24,12 +24,11 @@
               borders="top right bottom"
               openaction="taskproperties"
               selectcontextmenu="taskmenu"
-              flags="enabled" >
+              flags="isenabled" >
           <column type="text" name="script" iconname="icon" />
           <column name="running" type="icon" />
           <column type="datetime" name="nexttime" storeutc="true" width="16x" />
           <column type="text" name="description" />
-          <style name="disabled" textcolor="#9a9a9a" />
         </list>
       </panel>
     </body>

@@ -27,10 +27,10 @@
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
     <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>
     <task runat="26  2 * * *"  runtz="maintenance" tag="unifiedcache_cleanup" script="scripts/tasks/unifiedcache_cleanup.whscr"  />
-    <task runat=" 3  2 * * *"  runtz="maintenance" tag="system_cleanversions" script="scripts/tasks/cleanversions.whscr" unlessenvironset="WEBHARE_ISRESTORED"/>
-    <task runat=" 6  2 * * *"  runtz="maintenance" tag="system_cleanfsdata" script="scripts/tasks/cleanfsdata.whscr" unlessenvironset="WEBHARE_ISRESTORED"/>
+    <task runat=" 3  2 * * *"  runtz="maintenance" tag="system_cleanversions" script="scripts/tasks/cleanversions.whscr" />
+    <task runat=" 6  2 * * *"  runtz="maintenance" tag="system_cleanfsdata" script="scripts/tasks/cleanfsdata.whscr" />
     <task runat="11  3 * * *"  runtz="maintenance" tag="system_fix_whfs" script="scripts/tasks/fix_whfs.whscr"  />
-    <task runat="19  4 * * *"  runtz="maintenance" tag="renewcertbot" script="scripts/tasks/renewcertbot.whscr" description="Renew certbot certificates" unlessenvironset="WEBHARE_ISRESTORED" />
+    <task runat="19  4 * * *"  runtz="maintenance" tag="renewcertbot" script="scripts/tasks/renewcertbot.whscr" description="Renew certbot certificates" />
     <task runat="39  5 * * *"  runtz="maintenance" tag="updatefallbackcertificate" script="scripts/tasks/updatefallbackcertificate.whscr" description="Renew the fallback certificate" runatstartup="true"/>
 
     <task runat="29  * * * *"  runtz="maintenance" tag="cleanup_hourly" script="scripts/tasks/cleanup_hourly.whscr" description="Hourly cleanup"/>
@@ -38,12 +38,12 @@
     <task runat="*/10 * * * *" runtz="maintenance" tag="webserverusage" script="scripts/tasks/webserverusage.whscr" description="Process webserver usage stats" />
     <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
 
-    <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve"/>
+    <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve" allowifrestore="true" />
     <task runat="  33 * * * *" tag="updateconnectinfo" script="scripts/tasks/updateconnectinfo.whscr" runatstartup="true" />
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
     <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
-    <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" unlessenvironset="WEBHARE_ISRESTORED" />
+    <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
 
   </servicemanager>

@@ -39,6 +39,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   BOOLEAN isnode := library LIKE "*.js" OR library LIKE "*.es";
   INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
   INTEGER failreschedule := ToInteger(tasknode->GetAttribute("failreschedule"), whconstant_default_failreschedule);
+  BOOLEAN allowifrestore := ParseXSBoolean(tasknode->GetAttribute("allowifrestore"));
   STRING libname;
 
   IF (cluster != "" AND cluster NOT LIKE "*:*")
@@ -74,6 +75,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
              , failreschedule
              , linenum := tasknode->linenum
              , timeout
+             , allowifrestore
              ];
 }
 
