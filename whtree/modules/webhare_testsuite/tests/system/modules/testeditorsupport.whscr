@@ -36,7 +36,7 @@ STRING testfiledata;
 STRING testfilerelpath;
 RECORD connectinfo;
 
-MACRO testDeVAPIs()
+MACRO TestDevAPIs()
 {
   RECORD libinfo;
   libinfo := ReadLibraryLoadlibs(StringToBlob(`<?wh LOADLIB "mod::mymod/stuff.whlib"; LOADLIB "relative::somethingelse.whlib"; `), "mod::mymod/test.whlib" );
@@ -346,7 +346,7 @@ MACRO TestNoticeLog()
   TestEq("Exception: test-notice-log", errors[0].data.errors[0].message);
 }
 
-RunTestFramework([ PTR TestDevAPIS
+RunTestFramework([ PTR TestDevAPIs
                  , PTR PrepareTests
                  , PTR TestToddService
                  , PTR TestWebdavVirtualInfo
