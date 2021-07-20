@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/imexport.whlib";
 
@@ -312,8 +313,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION OnDatabasesLoadItems(RECORD item)
   {
-    STRING ARRAY claimed_schemas := GetInstalledModuleNames() //ADDME only if they register a <databaseschema>
-                                    CONCAT ["public","system_rights","information_schema"];
     IF(NOT RecordExists(item))
     {
       RETURN SELECT name := title
@@ -336,7 +335,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF(NOT ObjectExists(trans))
         RETURN DEFAULT RECORD ARRAY;
 
-      RETURN SELECT TEMPORARY isclaimed := ToLowercase(schema_name) IN claimed_schemas
+      STRING ARRAY claimed_schemas := GetInstalledModuleNames(); //ADDME only if they register a <databaseschema>
+      RETURN SELECT TEMPORARY isbuiltin := ToLowercase(schema_name) IN whconstant_builtin_schemas
+                  , TEMPORARY isclaimed := isbuiltin OR ToLowercase(schema_name) IN STRING["public", ...claimed_schemas]
                   , *
                   , name := ToLowercase(schema_name)
                   , rowkey := item.rowkey || "\t" || schema_name
@@ -346,7 +347,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
                   , icon := 2
                   , expandable := Length(trans->GetTableListing(schema_name)) > 0
                   , expanded := FALSE
-                  , candelete := isclaimed = FALSE OR NOT IsDtapLive()
+                  , candelete := isbuiltin = FALSE AND (isclaimed = FALSE OR NOT IsDtapLive())
                   , database := item.database
                   , schema_name := schema_name
                   , listrowclasses := isclaimed ? STRING[] : ["grayedout"]
@@ -360,7 +361,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       IF(NOT ObjectExists(trans))
         RETURN DEFAULT RECORD ARRAY;
 
-      BOOLEAN allclaimed := ToLowercase(item.schema_name) IN [ "information_schema", "system_rights" ];
+      BOOLEAN allclaimed := ToLowercase(item.schema_name) IN whconstant_builtin_schemas;
       STRING ARRAY tables;
       IF(NOT allclaimed)
       {
