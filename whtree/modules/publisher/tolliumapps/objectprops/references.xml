@@ -5,7 +5,7 @@
 
   <tabsextension name="referencestab" implementation="lib">
     <actions>
-      <action name="open" onexecute="doopen" >
+      <action name="open" onexecute="doopen" tid="tolliumapps.common.actions.revealinpublisher">
         <enableon source="documents" min="1" max="1" />
       </action>
       <action name="refresh" onexecute="dorefresh" tid="~refresh" />
@@ -20,7 +20,7 @@
           </list>
         </cell>
         <cell>
-          <button name="openbutton" width="1pr" action="open" tid=".open" />
+          <button name="openbutton" width="1pr" action="open" tid="tolliumapps.common.actions.revealinpublisher" />
           <button width="1pr" action="refresh" />
         </cell>
       </grid>

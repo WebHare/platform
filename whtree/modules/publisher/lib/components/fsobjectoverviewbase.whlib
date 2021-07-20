@@ -343,7 +343,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
               , filterscreen := ""
               , modulekey := ""
               , extension := DEFAULT OBJECT
-              , contentmode := ""
+              , contentmode := Cellexists(objects,"contentmode") ? objects.contentmode : ""
               , tag := ""
               , contentshandler := contentshandler->rootid
            FROM objects

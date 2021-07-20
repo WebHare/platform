@@ -3,7 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
-LOADLIB "mod::publisher/lib/commondialogs.whlib"; // for browse dialog
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";        // for GetWebhareResource
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -71,16 +72,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoOpenPublisherFile()
   {
-    OBJECT browse := CreateBrowseForWHFSObjectDialog(this);
-    browse->accepttypes   := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
-    browse->acceptfolders := FALSE;
-    browse->type          := "thumbnails";
-    browse->selectmode    := "single";
-
-    IF (browse->RunModal() != "ok")
-      RETURN; // browsing was cancelled
-
-    INTEGER imagefileid := browse->value;
+    INTEGER imagefileid := RunBrowseForFSObjectDialog(this, [ accepttypes   := [ "http://www.webhare.net/xmlns/publisher/imagefile" ]
+                                                            , acceptfolders := FALSE
+                                                            ]);
+    IF(imagefileid = 0)
+      RETURN;
 
     RECORD imagefilerec := SELECT name, data FROM system.fs_objects WHERE id = imagefileid;
     this->icon->value := WrapBlob(imagefilerec.data, imagefilerec.name);;

@@ -82,7 +82,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
 
   // Run 'restore' action, expect location selection. When clicking ok, expect submit for approval, confirmation message
   dumpvalue(tt("filelist")->rows,'boxed');
-  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("restore"), [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("restore"), [ namemask := "*browseforobject" ]); // rule 1: filelist, versioned file
   TT("folders")->value := root->id;
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->ProcessInboundMessage("execute", [ rule := 0 ])); // folder tree
   AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
@@ -150,7 +150,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
 
   // Run 'restore' action, expect confirmation, then location selection. When clicking ok, expect submit for approval, confirmation message
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("restore")->ProcessInboundMessage("execute", [ rule := 1 ]), [ messagemask := "*confirmrestore*" ]);
-  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR, [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR, [ namemask := "*browseforobject" ]); // rule 1: filelist, versioned file
   TT("folders")->value := root->id;
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->ProcessInboundMessage("execute", [ rule := 0 ])); // folder tree
   AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);

@@ -40,7 +40,7 @@ ASYNC MACRO ObjectProps()
   AWAIT ExpectScreenChange(+1, PTR TT("path")->__test_executebrowse());
 
   //the thumbnail view should have inited.
-  TestEQ(TRUE, topscreen->filesthumbs->__test_preinitdone, "The preinit for the thumbnail view was not invoked");
+  TestEQ(TRUE, TT("filesthumbs")->__test_preinitdone, "The preinit for the thumbnail view was not invoked");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   OBJECT betatab := TT(":Beta test tab");

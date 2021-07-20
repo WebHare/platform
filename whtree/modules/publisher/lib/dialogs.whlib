@@ -58,7 +58,7 @@ PUBLIC MACRO RunFSObjectHistoryDialog(OBJECT parentscreen, INTEGER objectid, REC
     @return Selected object, or 0 if the dialog was cancelled */
 PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "single"]);
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/tolliumapps/dialogs/browseforobject.xml#browseforobject', CELL[...options, __selectmode := "single"]);
   IF (dialog->RunModal() = "ok")
     RETURN dialog->value;
 
@@ -72,7 +72,7 @@ PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD o
     @return Selected objects or an empty array if the dialog was cancelled */
 PUBLIC INTEGER ARRAY FUNCTION RunBrowseForFSObjectsDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "multiple"]);
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/tolliumapps/dialogs/browseforobject.xml#browseforobject', CELL[...options, __selectmode := "multiple"]);
   IF (dialog->RunModal() = "ok")
     RETURN dialog->value;
 
@@ -404,14 +404,21 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
 /** @short Launch the filemanager opening the specified file or folder
     @param parentscreen Screen invoking us
-    @param objectid ID of object to edit
+    @param objectid ID of object to focus in foldertree or filelist
+    @cell(boolean) options.infilelist Prefer the selected object to be in the filelist
 */
 PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ infilelist := FALSE ], options);
+
   RECORD objinfo := SELECT isfolder FROM system.fs_objects WHERE id = objectid;
   RECORD target;
   IF(RecordExists(objinfo))
+  {
     target := objinfo.isfolder ? [ folderid := objectid ] : [ fileid := objectid ];
+    IF(options.infilelist)
+      INSERT CELL infilelist := TRUE INTO target;
+  }
 
   parentscreen->contexts->controller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
 }

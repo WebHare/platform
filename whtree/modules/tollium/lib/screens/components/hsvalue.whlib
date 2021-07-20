@@ -69,13 +69,6 @@ PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
     {
       // Open the publisher by WHFS ID, URL or WHFSPATH
       this->tolliumcontroller->SendApplicationMessage("publisher:app", [ selectobject := urlrec.urlpath ], DEFAULT RECORD, FALSE);
-      /*
-      STRING ARRAY urlparts := Tokenize(urlrec.urlpath, ",");
-      IF (Length(urlparts) > 0)
-      {
-        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := ToInteger(urlparts[0], 0) ], DEFAULT RECORD, FALSE);
-      }
-      */
     }
     // ADDME: implement opening of URL (urlopenaction)
     //ELSE
@@ -87,26 +80,6 @@ PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
   }
 
 /*
-  MACRO DoShowInNewPublishers()
-  {
-    RECORD ARRAY sel := this->whfsobjects->selection;
-    INTEGER items := Length(sel);
-
-    IF (items > 15)
-      RETURN; // silently ignore
-
-    IF (items > 10 AND this->RunMessageBox(".suretoopenmultiple",  ToString(items)) != "yes")
-      RETURN;
-
-    FOREVERY(RECORD fsobj FROM sel)
-    {
-      IF (fsobj.isfolder)
-        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := fsobj.id ], DEFAULT RECORD, FALSE);
-      ELSE
-        this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := fsobj.id / *, folderid := fsobj.parent* / ], DEFAULT RECORD, FALSE);
-    }
-  }
-
   MACRO DoOpenProperties()
   {
     RECORD sel := this->whfsobjects->selection;

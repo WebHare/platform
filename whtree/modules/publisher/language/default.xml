@@ -41,24 +41,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
-    <textgroup gid="browsewhfsobject">   <!-- commondialogs.browsewhfsobject -->
-      <text tid="descr-file">Browse to a folder and choose a file from the list of files</text>
-      <text tid="descr-filefolder">Browse to a folder and choose a file or folder from the list of files and folders</text>
-      <text tid="descr-folder">Choose a folder from the list of folders</text>
-      <text tid="favoritestab">Favorites</text>
-      <text tid="folders">Folders</text>
-      <text tid="folderstab">Folders</text>
-      <text tid="gotoanything">Go to site or URL</text>
-      <text tid="openinpublisher">Open in Publisher</text>
-      <text tid="title-file">Choose a file</text>
-      <text tid="title-filefolder">Choose a file or folder</text>
-      <text tid="title-folder">Choose a folder</text>
-      <textgroup gid="fileviews">   <!-- commondialogs.browsewhfsobject.fileviews -->
-        <text tid="fileviewtype">View</text>
-        <text tid="list">List</text>
-        <text tid="thumbnails">Thumbnails</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
       <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
         <text tid="choose">Choose</text>
@@ -69,11 +51,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- commondialogs.errors -->
-      <textgroup gid="browsedialog">   <!-- commondialogs.errors.browsedialog -->
-        <text tid="nofilefolderselected">Please choose a folder or file from the filelist before clicking the 'OK' button.</text>
-        <text tid="nofileselected">Please choose a file from the file list before pressing 'Ok'.</text>
-        <text tid="nofolderselected">Please choose a folder from the folder list before pressing 'Ok'.</text>
-      </textgroup>
       <textgroup gid="objectprops">   <!-- commondialogs.errors.objectprops -->
         <text tid="createoutputfolder">The site '<param p="1"/>' already uses a subfolder of the specified path and conflicts. This may be resolved by creating a foreign folder named '<param p="2"/>' in this site at '<param p="3"/>'</text>
         <text tid="outputfolderused">Site '<param p="1"/>' already uses (an ancestor of) the new output folder.</text>
@@ -563,7 +540,6 @@
           <text tid="gotoid">Object With ID</text>
           <text tid="gotopath">Object With Path</text>
           <text tid="gotorepository">Repository</text>
-          <text tid="gotoresult">Open result in Publisher</text>
           <text tid="gotoroot">Publisher root</text>
           <text tid="gotosite">Website</text>
           <text tid="gototrash">Trash</text>
@@ -1776,6 +1752,11 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
+    <textgroup gid="common">   <!-- tolliumapps.common -->
+      <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
+        <text tid="revealinpublisher">Open in Publisher</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
       <textgroup gid="whfsregister">   <!-- tolliumapps.config.whfsregister -->
         <text tid="currentpath">Current path</text>
@@ -1808,6 +1789,23 @@
         <text tid="siteprofile">Site profile</text>
         <text tid="siteprofilesrecompiled">The site profiles are recompiled.</text>
         <text tid="typename">Type</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dialogs">   <!-- tolliumapps.dialogs -->
+      <textgroup gid="browseforobject">   <!-- tolliumapps.dialogs.browseforobject -->
+        <text tid="descr-file">Browse to a folder and choose a file from the list of files</text>
+        <text tid="descr-filefolder">Browse to a folder and choose a file or folder from the list of files and folders</text>
+        <text tid="descr-folder">Choose a folder from the list of folders</text>
+        <text tid="folders">Folders</text>
+        <text tid="gotoanything">Go to site or URL</text>
+        <text tid="title-file">Choose a file</text>
+        <text tid="title-filefolder">Choose a file or folder</text>
+        <text tid="title-folder">Choose a folder</text>
+        <textgroup gid="fileviews">   <!-- tolliumapps.dialogs.browseforobject.fileviews -->
+          <text tid="fileviewtype">View</text>
+          <text tid="list">List</text>
+          <text tid="thumbnails">Thumbnails</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
@@ -2279,7 +2277,6 @@
         </textgroup>
       </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
-        <text tid="open">Open in Publisher</text>
         <text tid="references">References</text>
         <text tid="url">URL</text>
         <text tid="whfspath">Path</text>

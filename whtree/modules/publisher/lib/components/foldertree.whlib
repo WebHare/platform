@@ -99,8 +99,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
 
     this->onselect := def.onselect;
 
-    //this->thelist->ongetpath := PTR this->OnGetPath;
-    //this->thelist->ongetchildren := PTR this->OnGetChildren;
     this->thelist->selectmode := def.selectmode;
     this->thelist->acceptdrops := def.acceptdrops;
     this->thelist->newcontextmenu := def.newcontextmenu;
@@ -109,7 +107,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     this->thelist->savestate := def.savestate;
     this->thelist->borders := def.borders;
     this->thelist->openaction := def.openaction;
-    //this->thelist->styles := [ name := "protected" ];
     this->thelist->empty := def.empty;
     this->thelist->onrestoreexpand := PTR this->OnListRestoreExpanded;
     this->thelist->onrestoreselection := PTR this->OnListRestoreSelection;

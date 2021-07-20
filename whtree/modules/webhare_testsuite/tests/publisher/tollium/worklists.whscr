@@ -11,7 +11,8 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 OBJECT api_sysop, api_lisa;
-OBJECT workfile1, workfile2, workfile3;
+OBJECT workfile1, workfile2, workfile3, workfile4, workfolder5;
+OBJECT lisaresolveroot;
 INTEGER testworklistid;
 
 BOOLEAN FUNCTION WaitForWorkList(INTEGER worklistid, RECORD event)
@@ -24,32 +25,43 @@ MACRO Setup()
   testfw->BeginWork();
 
   OBJECT testroot := GetTestsuiteTempFolder();
+  lisaresolveroot := testroot->EnsureFolder([name := "lisa" ]);
 
   api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
   api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
 
   testfw->SetTestUser("sysop");
-  workfile1 := testroot->CreateFile(
+  workfile1 := lisaresolveroot->CreateFile(
       [ name := "workfile1"
       , title := "This is the first worklist file"
       , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
       ]);
-  workfile2 := testroot->CreateFile(
+  workfile2 := lisaresolveroot->CreateFile(
       [ name := "workfile2"
       ]);
-  workfile3 := testroot->CreateFile(
+  workfile3 := lisaresolveroot->CreateFile(
       [ name := "workfile3"
       , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  workfile4 := testroot->CreateFile(
+      [ name := "workfile4"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  workfolder5 := lisaresolveroot->CreateFolder(
+      [ name := "workfolder5"
       ]);
 
   // Grant testuser 'lisa' browse right on the test website
   testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testroot->id, FALSE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), lisaresolveroot->id, FALSE);
 
   // Let the sysop create a work list
   testworklistid := api_sysop->CreateWorkList([ name := "Test Work List", tag := "webhare_testsuite:testlist" ]);
   api_sysop->AddToWorkList(testworklistid,
       [ [ objectid := workfile1->id, comments := "Work list item 1" ]
       , [ objectid := workfile2->id, comments := "Do some stuff for item 2" ]
+      , [ objectid := workfile4->id, comments := "Workfile 4 needs stuff done, but Lisa can't do that" ]
+      , [ objectid := workfolder5->id, comments := "Workfolder 5 is a folder and so far we only tested files!" ]
       ]);
 
   testfw->CommitWork();
@@ -89,10 +101,8 @@ ASYNC MACRO TestResolve()
   INSERT selection.rowkey INTO TT("foldertree")->expanded AT END;
   TT("foldertree")->selection := TT("foldertree")->rows[selection.__idx + 1];
 
-  // Check if both workfiles are shown in the file list
-  TestEq(2, Length(TT("filelist")->rows));
-  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid));
-  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
+  // Check if we see only the accessible (not 4) workitems (not 3) on the list
+  TestEq([ "workfile1", "workfile2", "workfolder5" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   // Resolve the first work list item
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid;
@@ -104,6 +114,20 @@ ASYNC MACRO TestResolve()
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
   selection := TT("filelist")->selection;
   TestEq(FALSE, selection.custom_resolveddate = "");
+
+  // Open the folder in a new tab
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfolder5->id AND custom_listid = testworklistid;
+
+  // Open result in new tab. Check if that went to the right place
+  TTClick("gotoresult");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp);
+  TestEq(lisaresolveroot->id, TT("foldertree")->value);
+  TestEq("workfolder5", TT("filelist")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Resolve the folder too
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
+  TestEq(FALSE, RECORD(TT("filelist")->selection).custom_resolveddate = "");
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
@@ -132,7 +156,7 @@ ASYNC MACRO TestEvents()
   // Check if 'lisa' is one of the list users
   AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage users", [ menuitem := TRUE ]));
   TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetUserObject("lisa")->authobjectid ));
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   // Open the Test Work List, check if it's expanded in the folder tree
   TT("filelist")->openaction->TolliumClick();
@@ -143,6 +167,7 @@ ASYNC MACRO TestEvents()
 
   // The first work list item cannot be resolved (again)
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid;
+  TestEq(["workfile1","workfile2","workfile4","workfolder5"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile1", selection.name);
@@ -187,8 +212,7 @@ ASYNC MACRO TestEvents()
   // Remove all resolved items from the work list, there should be one item left
   topscreen->frame->focused := TT("foldertree");
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Delete resolved items", [ menuitem := TRUE ]), [ messagemask := "*delete all resolved items*" ]);
-  TestEq(1, Length(TT("filelist")->rows));
-  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
+  TestEq(["workfile2","workfile4"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   // Delete the worklist through foldertree, check that we get to the right handler. Don't delete yet...
   AWAIT ExpectAndAnswerMessageBox("No", PTR TTClick("editmenu->:Delete", [ menuitem := TRUE ]), [ messagemask := "*delete*worklist*" ]);
@@ -210,5 +234,6 @@ RunTestFrameworK([ PTR Setup
                  , PTR TestResolve
                  , PTR TestEvents
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "sysop2", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);

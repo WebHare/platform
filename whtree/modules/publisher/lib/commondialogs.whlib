@@ -17,14 +17,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
-/** @short Create a dialog for browsing files and folders in the publisher
-    @param parent The parent object to insert the dialog in
-*/
-PUBLIC OBJECT FUNCTION CreateBrowseForWHFSObjectDialog(OBJECT parent) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunBrowseForFSObjectDialog")
-{
-  RETURN parent->LoadScreen('publisher:commondialogs.browsewhfsobject');
-}
-
 
 /////////////////////////////////////////////////////////////////////
 //
