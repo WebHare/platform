@@ -51,6 +51,7 @@ PUBLIC MACRO RunFSObjectHistoryDialog(OBJECT parentscreen, INTEGER objectid, REC
     @cell(boolean) options.acceptfiles Accept files. (defaults to TRUE)
     @cell(boolean) options.acceptfolders Accept folders. (defaults to TRUE)
     @cell(boolean) options.acceptforeignfolders Accept selection of foreign folders (defaults to FALSE)
+    @cell(boolean) options.hideviewtype Remove the view type (list/thumbnails selector) control
     @cell(string array) options.accepttypes List of acceptable WHFS types for selection
     @cell(integer) options.recyclebinid ID for the recyclebin. If not set, no recyclebin will be available in the browse dialog
     @cell(integer) options.value Currently selected item

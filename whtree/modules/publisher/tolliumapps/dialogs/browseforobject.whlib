@@ -157,6 +157,7 @@ PUBLIC STATIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
        , acceptfolders := TRUE
        , acceptforeignfolders := FALSE //switching the default to FALSE, much safer...
        , acceptunpublished := TRUE // show both published and non-published files by default
+       , hideviewtype := FALSE
        , thumbnailwhfstype := ""
        , thumbnailwhfsfield := ""
        , value := expectvalue
@@ -179,6 +180,7 @@ PUBLIC STATIC OBJECTTYPE BrowseForObject EXTEND TolliumScreenBase
     this->acceptunpublished := data.acceptunpublished;
     this->pvt_thumbnailwhfstype := data.thumbnailwhfstype;
     this->pvt_thumbnailwhfsfield := data.thumbnailwhfsfield;
+    this->pvt_hideviewtype := data.hideviewtype;
     this->recyclebinid := data.recyclebinid;
 
     IF(data.showreadonly)
