@@ -32,8 +32,13 @@ You should never set the number of build processors too high - the build process
 
 Run `wh fixmodules` once to update NPM dependencies.
 
-From this point, you should be able to use the [Getting started](https://www.webhare.dev/manuals/getting-started/) manual
-to configure your WebHare - you can just leave out all the `docker exec webhare` parts.
+If you want to run the WebHare webserver on ports 80 and/or 443 (the default ports) without having to set up a [proxy](https://gitlab.com/webhare/proxy#readme)
+you will need to either run WebHare as `root` (not recommend) or install the socketbinder by running `wh installsocketbinder`.
+The socket binder is a small daemon that runs as root and allows WebHare to access portnumbers below 1024.
+
+From this point you should be able to use the [Getting started](https://www.webhare.dev/manuals/getting-started/) manual
+to configure your WebHare - you can just leave out all the `docker exec webhare` parts. You may need to use higher numbered
+ports (eg 8000) for the webinterface if you didn't install the socketbinder of if you're running multiple webservers.
 
 ## Getting Java to work
 Some of the software used by WebHare (eg PDFBox for printer.whlib) requires Java. You will need to install that yourself.
