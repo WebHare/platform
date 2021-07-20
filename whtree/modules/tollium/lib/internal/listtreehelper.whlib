@@ -1380,14 +1380,15 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       that are not in this array will be unselected.
       @param rows Rows to select
       @cell rows.rowkey Rowkey of row to select
+      @return TRUE if we  the selection changed
   */
-  PUBLIC MACRO SetSelectionByRecords(RECORD ARRAY rows, BOOLEAN frontend_change)
+  PUBLIC BOOLEAN FUNCTION SetSelectionByRecords(RECORD ARRAY rows, BOOLEAN frontend_change)
   {
     IF(debuglth)
       PRINT("SetSelectionByRecords "||this->callback->GetComponentIdentification()||"\n"||AnyToString(rows, "boxed"));
 
     IF (LENGTH(this->pvt_rows) = 0)
-      RETURN;
+      RETURN FALSE;
 
     // Just check a single rowkey (and steal the type when necessary)
     IF (LENGTH(rows) != 0)
@@ -1398,7 +1399,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       INSERT row.rowkey INTO rowkeys AT END;
 
     this->ValidateRowKeys(rowkeys, TRUE);
-    this->SelectRows(rowkeys, /*unselect_other=*/TRUE, /*is_new_selection=*/TRUE, /*frontend_change=*/frontend_change, /*no_callback=*/FALSE);
+    RETURN this->SelectRows(rowkeys, /*unselect_other=*/TRUE, /*is_new_selection=*/TRUE, /*frontend_change=*/frontend_change, /*no_callback=*/FALSE);
   }
 
   /** Expands rows

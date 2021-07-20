@@ -140,8 +140,11 @@ export default class ListView
     // will create an array with 7999 'undefined' items)
     this.visiblerows = {};
 
-      // List of all footerrows
+    // List of all footerrows
     this.footerrows = [];
+
+    //Selected cell numbers
+    this._selectedcellnumbers = [];
 
       /** List of visible columns in the list
           @cell width Width in pixels
@@ -180,6 +183,7 @@ export default class ListView
     this.highlightidx = 0;
 
     this.cursorrow = -1;
+    this.cursorcol = -1;
     this.range_start_idx = -1;
     this.range_end_idx = -1;
 
@@ -201,6 +205,7 @@ export default class ListView
     this.listcount = ++globallistcount;
 
     this.node=node;
+    this.node.classList.add("wh-list"); //this is the new BEM anchor class. as we go, move other classes under us
     this.node.classList.add("wh-ui-listview");
     this.node.addEventListener("mouseover", evt => this.onMouseOver(evt));
     this.node.addEventListener("click", evt => this.onClickList(evt, false));
@@ -219,6 +224,7 @@ export default class ListView
                    , keepcursorinviewrows: 2 // how many rows to keep visibile above/below the cursor row while navigating // FIXME: find a better name
 
                    , selectmode: 'none'
+                   , columnselectmode: 'none'
                    , searchtimeout: 2000 //after this number of ms find-as-you-type is cancelled, set to 0 to disable find-as-you-type
                    , searchkeys: "[0-9a-z-., ]" //which event keys activate find-as-you-type
                    , hideheader: false
@@ -229,7 +235,7 @@ export default class ListView
                    , delay_layout: false // set to true if you want to be able to interact with the class, but not have it layout yet
                    , ...options
                    };
-    this._constrainOptions();
+    this._configureTopNode();
 
     new Keyboard(this.node, { "ArrowUp":             this.onKeyboardUp.bind(this)
                                  , "ArrowDown":           this.onKeyboardDown.bind(this)
@@ -275,6 +281,11 @@ export default class ListView
       this.setDataSource(null);
   }
 
+  getSelectedColumns()
+  {
+    return this._selectedcellnumbers.map(nr => this.datacolumns[nr].src);
+  }
+
   setDataSource(newdatasource)
   {
     //console.log("setDataSource", newdatasource);
@@ -296,9 +307,14 @@ export default class ListView
     //console.log("updateOptions");
     var need_reset = false;
 
-    if(newopts.selectmode)
+    if(newopts.selectmode && newopts.selectmode != this.options.selectmode)
     {
       this.options.selectmode = newopts.selectmode;
+      need_reset = true;
+    }
+    if(newopts.columnselectmode && newopts.columnselectmode != this.options.columnselectmode)
+    {
+      this.options.columnselectmode = newopts.columnselectmode;
       need_reset = true;
     }
 
@@ -336,6 +352,7 @@ export default class ListView
     if (this.options.delay_layout)
       return;
 
+    this._configureTopNode();
     this.listdomcreated = true;
     //console.info("resetList");
 
@@ -596,10 +613,10 @@ export default class ListView
 
   _createRowClassName(row, rownum, rowoptions)
   {
-    return 'listrow'
+    return 'listrow wh-list__row'
            + ((rownum % 2) == 0 ? ' odd' : ' even')
            + (row && (!rowoptions || rowoptions.selectable !== false) && this.options.selectmode != 'none' ? '' : ' unselectable')
-           + (row && row[this.selectedidx] ? ' selected' : '')
+           + (row && row[this.selectedidx] && !this._columnselect ? ' wh-list__row--selected' : '')
            + (row && this.highlightidx > 0 && row[this.highlightidx] ? ' highlighted' : '')
            + (rowoptions && rowoptions.classes ? rowoptions.classes.map(classname => ' rowclass-' + classname).join(' ') : '');
   }
@@ -745,6 +762,7 @@ export default class ListView
 
   _renderRowContents(rowel, datacolumns, rowdata)
   {
+    let isrowselected = rowdata.cells[this.selectedidx];
     var curcell=0;
     for(var i = 0; i < datacolumns.length; ++i)
     {
@@ -765,6 +783,7 @@ export default class ListView
           cell.classList.add("rowspan_" + col.h);
         }
       }
+      cell.classList.toggle("wh-list__cell--selected", isrowselected && this._selectedcellnumbers.includes(i));
 
       ++curcell;
 
@@ -786,8 +805,18 @@ export default class ListView
   {
     if(!['single','multiple'].includes(this.options.selectmode))
       this.options.selectmode = 'none';
+    if(!['single'].includes(this.options.columnselectmode))
+      this.options.columnselectmode = 'none';
 
     this.findasyoutyperegex = new RegExp("^" + this.options.searchkeys + "$");
+  }
+
+  _configureTopNode()
+  {
+    this._constrainOptions();
+    this._columnselect = this.options.columnselectmode == "single";
+    this.node.classList.toggle("wh-ui-listview--columnselect", this._columnselect);
+
   }
 
   /// Start an update selection groups (groups partial updates of selection together)
@@ -898,7 +927,7 @@ export default class ListView
         {
           // Select the found item and click to close
           this.setCursorRow(parentrownr);
-          this.clickSelectRowByNumber(event, this.cursorrow, false, true);
+          this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
         }
       }
     }
@@ -924,7 +953,7 @@ export default class ListView
       {
         // Select the next item
         this.setCursorRow(this.cursorrow + 1);
-        this.clickSelectRowByNumber(event, this.cursorrow, false, true);
+        this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
       }
     }
   }
@@ -1035,13 +1064,14 @@ export default class ListView
       return;
 
     var celledit = false;
-    var cellnum;
+    let columnschanged = false;
+    let cellnum;
     if(listcell) // a cell is clicked
     {
       /* Fire an event on the list allowing our parent to intercept */
       cellnum = this._findDataColumnFromCellNode(listrow, listcell);
 
-      if(!dompack.dispatchCustomEvent(this.node, "wh:listview-cellclick",
+      if(!dompack.dispatchCustomEvent(this.node, "wh:listview-cellclick", //used by list.es to intercept icon clicks
                                        { bubbles: true
                                        , cancelable: true
                                        , detail: { cellidx: cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
@@ -1059,7 +1089,9 @@ export default class ListView
       if (column.src && column.src.edittype == "textedit")
       {
         // If this an editable column, start editing if the current is already selected or not selectable at all
-        if (!srcrow.options || !("selectable" in srcrow.options) || !srcrow.options.selectable || this.datasource.isSelected(listrow.propRow))
+        let canselectrow = srcrow.options && srcrow.options.selectable;
+        let isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum == this.cursorcol);
+        if (!canselectrow || isselected)
           celledit = true;
       }
     }
@@ -1080,9 +1112,18 @@ export default class ListView
     // Delay selection only for left clicks  (FIXME/ADDME: and only in case there's an openaction?)
     var immediate_select = dblclick || event.which !== 1;
 
-    this.clickSelectRowByNumber(event, listrow.propRow, dblclick, immediate_select);
+    if(listcell && this._columnselect && !this._selectedcellnumbers.includes(cellnum))
+    {
+      this._selectedcellnumbers = [ cellnum ];
+      columnschanged = true;
+    }
 
-    // fire doubleclick (but only if the rownum of the rowelt didn't change)
+    this.clickSelectRowByNumber(event, listrow.propRow, { forceselected: dblclick, immediate_select, columnschanged });
+
+    if(columnschanged)
+      dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
+
+    // fire doubleclick (but only if we clicked the same cell for both clicks)
     if (dblclick && listrow.propRow == this.cursorrow)
     {
       if (celledit)
@@ -1097,6 +1138,7 @@ export default class ListView
         this._editCell(listrow.propRow, cellnum, false);
     }
 
+    this.cursorcol = cellnum;
     return true;
   }
 
@@ -1552,7 +1594,7 @@ export default class ListView
 
     this.setCursorRow(new_cursorrow);
 
-    this.updateSelection(this.cursorrow, false, true, expandselection, toggle);
+    this.updateSelection(this.cursorrow, { immediate_select: true, expandselection, toggle });
   }
 
   moveRowCursorDown(expandselection, toggle, distance)
@@ -1576,16 +1618,16 @@ export default class ListView
 
     this.setCursorRow(new_cursorrow);
 
-    this.updateSelection(this.cursorrow, false, true, expandselection, toggle);
+    this.updateSelection(this.cursorrow, { immediate_select: true, expandselection, toggle });
   }
 
-  clickSelectRowByNumber(event, rownum, forceselected, immediate_select)
+  clickSelectRowByNumber(event, rownum, options)
   {
-    this.updateSelection(rownum, forceselected, immediate_select, event && event.shiftKey, event && Keyboard.hasNativeEventMultiSelectKey(event));
+    this.updateSelection(rownum, { ...options, expandselection: event && event.shiftKey, toggle: event && Keyboard.hasNativeEventMultiSelectKey(event) });
     this.scrollRowIntoView(rownum, false);
   }
 
-  updateSelection(rownum, forceselected, immediate_select, expandselection, toggle)
+  updateSelection(rownum, options)
   {
     if(this.options.selectmode == 'none')
       return false;
@@ -1599,7 +1641,7 @@ export default class ListView
     try
     {
       // click + shift expands
-      if (rownum > -1 && expandselection && this.options.selectmode=='multiple')
+      if (rownum > -1 && options.expandselection && this.options.selectmode == 'multiple')
       {
         // FIXME: improve performance by only clearing/updating the parts that may have changed
         if (this.range_start_idx > -1)
@@ -1619,13 +1661,13 @@ export default class ListView
 
       if (rownum < 0)
       {
-        if (!expandselection || this.options.selectmode != 'multiple')
+        if (!options.expandselection || this.options.selectmode != 'multiple')
           this.datasource.clearSelection(); //Negative rownumber clears selection
 
         return false;
       }
 
-      if(!toggle)
+      if(!options.toggle)
       {
         this.datasource.clearSelection(); //simple clicks clear selection
         this.datasource.setSelectionForRange(rownum, rownum, true);
@@ -1636,7 +1678,9 @@ export default class ListView
         var status = srcrow.cells[this.selectedidx];
         if(this.options.selectmode == "multiple")
         {
-          this.datasource.setSelectionForRange(rownum, rownum, !status || forceselected);
+          this.datasource.setSelectionForRange(rownum, rownum, !status || options.forceselected);
+          if(options.columnschanged) //then we need to send an update to the rest of the selection to make sure they select the proper cell
+            this.refreshSelectedRows();
         }
         else
         {
@@ -1653,7 +1697,7 @@ export default class ListView
     }
     finally
     {
-      this._finishSelectionUpdateGroup(immediate_select);
+      this._finishSelectionUpdateGroup(options.immediate_select);
     }
   }
 
@@ -1682,7 +1726,7 @@ export default class ListView
 
     if (status !== true) // not yet selected? select it now
     {
-      this.clickSelectRowByNumber(event, row.propRow, false, true);
+      this.clickSelectRowByNumber(event, row.propRow, { immediate_select: true });
 
       srcrow = this.visiblerows[rownum];
       status = srcrow.cells[this.selectedidx];
@@ -2225,6 +2269,11 @@ export default class ListView
   isRowVisible(rownum)
   {
     return this.firstvisiblerow <= rownum && rownum <= this.firstvisiblerow + this.numvisiblerows;
+  }
+
+  refreshSelectedRows()
+  {
+    Object.values(this.visiblerows).filter(row => row.cells[this.selectedidx]).forEach(row => this._renderRowContents(row.node, this.datacolumns, row));
   }
 
   requestAnyMissingRows()

@@ -119,10 +119,6 @@
   white-space: pre-line;
 }
 
-.wh-ui-listview > div > div > div > .listrow.selected
-{
-}
-
 .wh-ui-listview > div > div > div > .listrow.highlighted:before
 {
   display: block;

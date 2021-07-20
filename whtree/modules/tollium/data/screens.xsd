@@ -5418,6 +5418,19 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="columnselectmode" default="none">
+      <xs:annotation>
+        <xs:documentation>"none" or "single"</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="none"/>
+          <xs:enumeration value="single"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+
+
     <xs:attribute name="class">
       <xs:annotation>
         <xs:documentation>Specify the class for this list, eg 'verticaltabs'</xs:documentation>

@@ -287,5 +287,43 @@
     </body>
   </screen>
 
+  <screen name="columnselection" title="Columnselection test" allowresize="true">
+    <actions>
+      <action name="openaction" onexecute="onrowedit" />
+    </actions>
+    <body>
+      <line>
+        <select name="selectmode" type="pulldown" onchange="onselectmodechange" title="List selection mode">
+          <option rowkey="" title="none"/>
+          <option rowkey="single" title="single" selected="true"/>
+          <option rowkey="multiple" title="multiple"/>
+        </select>
+      </line>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="leesplankje"
+                selectmode="single"
+                columnselectmode="single"
+                onselect="onselect"
+                oncelledit="oncelledit"
+                openaction="openaction"
+                height="1pr">
+            <column name="title" title="Title" type="text" edittype="textedit" />
+            <column name="email" title="E-mail" type="email" edittype="textedit" checkboxname="checked" checkboxvisible="checkbox" />
+          </list>
+        </cell>
+      </grid>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <text name="selectedrows" title="Selected rows" />
+        </cell>
+        <cell width="1pr">
+          <text name="selectedcolumns" title="Selected columns" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
 
 </screens>

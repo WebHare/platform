@@ -7,4 +7,5 @@
   <jstest file="testmultirow.es" />
   <jstest file="testfindasyoutype.es" />
   <jstest file="testcelledit.es" />
+  <jstest file="testcolumnselection.es" />
 </group>

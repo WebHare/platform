@@ -239,23 +239,25 @@ div.wh-ui-listview--normal.flatview.singleline .listrow.even
   background-color: #f7f7f7;
 }
 
-  div.wh-ui-listview--normal .listrow.selected
-, div.wh-ui-listview--normal.flatview.singleline .listrow.even.selected
+  div.wh-ui-listview--normal .wh-list__row--selected
+, div.wh-ui-listview--normal.flatview.singleline .wh-list__row--selected.even
+, div.wh-ui-listview--normal .wh-list__cell--selected
 {
   background: #e1e1e1;
 }
-  div:focus.wh-ui-listview--normal .listrow.selected
-, div:focus.wh-ui-listview--normal.flatview.singleline .listrow.even.selected
+  div:focus.wh-ui-listview--normal .wh-list__row--selected
+, div:focus.wh-ui-listview--normal.flatview.singleline .wh-list__row--selected.even
+, div:focus.wh-ui-listview--normal .wh-list__cell--selected
 {
   background: #95cdfe;
 }
-  div.wh-ui-listview--verticaltabs .listrow.selected
-, div.wh-ui-listview--verticaltabs.flatview.singleline .listrow.even.selected
+  div.wh-ui-listview--verticaltabs .wh-list__row--selected
+, div.wh-ui-listview--verticaltabs.flatview.singleline .wh-list__row--selected.even
 {
   background: #595959;
 }
-  div:focus.wh-ui-listview--verticaltabs .listrow.selected
-, div:focus.wh-ui-listview--verticaltabs.flatview.singleline .listrow.even.selected
+  div:focus.wh-ui-listview--verticaltabs .wh-list__row--selected
+, div:focus.wh-ui-listview--verticaltabs.flatview.singleline .wh-list__row--selected.even
 {
   background: #595959;
 }

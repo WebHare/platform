@@ -555,28 +555,36 @@ PUBLIC OBJECTTYPE FindAsYouTypeList EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE CellEditList EXTEND TolliumScreenBase
+PUBLIC OBJECTTYPE ListTestBase EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    this->leesplankje->rows := [ [ rowkey := "aap",      title := "Aap",      email := "aap@example.org",     checkbox := TRUE, checked := FALSE ]
-                               , [ rowkey := "noot",     title := "Noot",     email := "noot@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "mies",     title := "Mies",     email := "mies@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "wim",      title := "Wim",      email := "wim@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "zus",      title := "Zus",      email := "zus@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "jet",      title := "Jet",      email := "jet@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "teun",     title := "Teun",     email := "teun@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "vuur",     title := "Vuur",     email := "vuur@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "gijs",     title := "Gijs",     email := "gijs@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "lam",      title := "Lam",      email := "lam@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "kees",     title := "Kees",     email := "kees@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "bok",      title := "Bok",      email := "bok@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "wei-de",   title := "Wei-de",   email := "weide@example.org",   checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "does",     title := "Does",     email := "does@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "hok",      title := "Hok",      email := "hok@example.org",     checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "duif",     title := "Duif",     email := "duif@example.org",    checkbox := FALSE, checked := FALSE ]
-                               , [ rowkey := "scha-pen", title := "Scha-pen", email := "schapen@example.org", checkbox := FALSE, checked := FALSE ]
-                               ];
+    ^leesplankje->rows := [ [ rowkey := "aap",      title := "Aap",      email := "aap@example.org",     checkbox := TRUE, checked := FALSE ]
+                          , [ rowkey := "noot",     title := "Noot",     email := "noot@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "mies",     title := "Mies",     email := "mies@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "wim",      title := "Wim",      email := "wim@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "zus",      title := "Zus",      email := "zus@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "jet",      title := "Jet",      email := "jet@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "teun",     title := "Teun",     email := "teun@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "vuur",     title := "Vuur",     email := "vuur@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "gijs",     title := "Gijs",     email := "gijs@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "lam",      title := "Lam",      email := "lam@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "kees",     title := "Kees",     email := "kees@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "bok",      title := "Bok",      email := "bok@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "wei-de",   title := "Wei-de",   email := "weide@example.org",   checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "does",     title := "Does",     email := "does@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "hok",      title := "Hok",      email := "hok@example.org",     checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "duif",     title := "Duif",     email := "duif@example.org",    checkbox := FALSE, checked := FALSE ]
+                          , [ rowkey := "scha-pen", title := "Scha-pen", email := "schapen@example.org", checkbox := FALSE, checked := FALSE ]
+                          ];
+  }
+
+>;
+PUBLIC OBJECTTYPE CellEditList EXTEND ListTestBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    ListTestBase::Init(data);
     ^arrayedit->value := ^leesplankje->rows;
   }
 
@@ -591,6 +599,34 @@ PUBLIC OBJECTTYPE CellEditList EXTEND TolliumScreenBase
       this->leesplankje->UpdateSingleRow(CellUpdate(row, cellname, ToUppercase(Left(newvalue, 1)) || Substring(newvalue, 1)));
     ELSE
       this->leesplankje->UpdateSingleRow(CellUpdate(row, cellname, newvalue));
+    RETURN TRUE;
+  }
+
+  MACRO OnRowEdit()
+  {
+    reflect("row edit");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ColumnSelection EXTEND ListTestBase
+<
+  MACRO OnSelect()
+  {
+    ^selectedrows->value := Detokenize((SELECT AS STRING ARRAY title FROM ^leesplankje->rows WHERE tolliumselected), "; ");
+    ^selectedcolumns->value := Detokenize(^leesplankje->selectedcolumns, "; ");
+  }
+
+  MACRO onselectmodechange()
+  {
+    ^leesplankje->selectmode := ^selectmode->value;
+  }
+
+  BOOLEAN FUNCTION OnCellEdit(RECORD row, STRING cellname, STRING newvalue)
+  {
+    IF (cellname != "email")
+      ^leesplankje->UpdateSingleRow(CellUpdate(row, cellname, ToUppercase(Left(newvalue, 1)) || Substring(newvalue, 1)));
+    ELSE
+      ^leesplankje->UpdateSingleRow(CellUpdate(row, cellname, newvalue));
     RETURN TRUE;
   }
 

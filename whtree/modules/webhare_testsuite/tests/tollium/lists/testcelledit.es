@@ -1,31 +1,24 @@
 import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
-  [ { loadpage: test.getTestScreen("tests/lists.celleditlist")
-    , waits:["ui"]
-    }
+  [ async function()
+    {
+      await test.load(test.getTestScreen("tests/lists.celleditlist"));
+      await test.wait('ui');
 
-  , { name: "not selected"
-    , test: function(doc, win)
-      {
-        // The first row should not be selected
-        test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("selected"));
+      // The first row should not be selected
+      test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
 
-        // Click the first cell in the first row (the second cell has an e-mail link)
-        test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      }
-    , waits: [ "ui" ]
-    }
+      // Click the first cell in the first row (the second cell has an e-mail link)
+      test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
+      await test.wait('ui');
 
-  , { name: "selected, not editing"
-    , test: function(doc, win)
-      {
-        // The first row should now be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("selected"));
-        // There should not be a textedit
-        test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
-      }
-    , waits: [ 500 ] // Prevent double click
+      // The first row should now be selected
+      test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
+      // There should not be a textedit
+      test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
+
+      await test.wait(500); // Prevent double click
     }
 
   , { name: "not editing"
@@ -41,7 +34,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         // The first row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should be a textedit now
         let textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
         test.true(textedit);
@@ -56,7 +49,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         // The first row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
         test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
 
@@ -83,7 +76,7 @@ test.registerTests(
     , test: function(doc, win)
       {
         // The first row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
         test.false(test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
 
@@ -149,7 +142,7 @@ test.registerTests(
         // There should not be a textedit
         test.false(test.getCurrentScreen().getListRow("leesplankje", "Monkey").querySelector(".textedit"));
         // The first row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Monkey").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Monkey").classList.contains("wh-list__row--selected"));
 
         // Click the first cell in the first row again to start editing it again
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Monkey").childNodes[0]);
@@ -183,7 +176,7 @@ test.registerTests(
         // The 'monkey' should be capitalized to 'Ape'
         test.true(test.getCurrentScreen().getListRow("leesplankje", "Ape"));
         // The first row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Ape").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Ape").classList.contains("wh-list__row--selected"));
       }
     }
 
@@ -228,7 +221,7 @@ test.registerTests(
         // The 'duif' should be changed to 'Dove'
         test.true(test.getCurrentScreen().getListRow("leesplankje", "Dove"));
         // The 4th row should be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Dove").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Dove").classList.contains("wh-list__row--selected"));
       }
     }
 
@@ -262,7 +255,7 @@ test.registerTests(
         // The 'duif@example.org' should be changed to 'dove@example.org'
         test.true(test.getCurrentScreen().getListRow("leesplankje", "dove@example.org"));
         // The 4th row should still be selected
-        test.true(test.getCurrentScreen().getListRow("leesplankje", "Dove").classList.contains("selected"));
+        test.true(test.getCurrentScreen().getListRow("leesplankje", "Dove").classList.contains("wh-list__row--selected"));
       }
     }
 

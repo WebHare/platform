@@ -35,7 +35,7 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(2, callcounter, 'Expecting 2 onchanges, +1 for added row');
 
   //ADDME: This relies on the internal list message formats
-  topscreen->comp->list->TolliumWeb_FormUpdate("c2\tcheckbox\ttrue");
+  topscreen->comp->list->TolliumWeb_FormUpdate([rows:="c2\tcheckbox\ttrue"]);
   topscreen->comp->list->TolliumWeb_ParseEvent("check", "2 checkbox");
 
   TestEq([TRUE,TRUE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
