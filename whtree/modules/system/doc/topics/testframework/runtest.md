@@ -66,11 +66,12 @@ docker run -p 8000 --rm --name webhare-test -ti \
   gitlab-registry.webhare.com/webhare/webhare:master-b7748faf2b50d85ccfad1bd0b47aadc5b4c0f167-withts
 ```
 
-Then, in a second console (you may want to skip the `wh setupdev` to get a
-more pristine test environment)
+Then, in a second console
+
 ```bash
-docker exec webhare-test wh preptestsuite
-docker exec webhare-test wh softreset
+docker exec webhare-test wh webserver addport 8088
+docker exec webhare-test wh webserver addbackend http://127.0.0.1:8088/
+docker exec webhare-test wh webhare_testsuite:reset
 docker exec webhare-test wh runtest <name of the failed test>
 ```
 
