@@ -1,0 +1,95 @@
+<?wh
+
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestWebserversApp()
+{
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:webservers"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("addwebserver"));
+  TT("url")->value := "https://test-by-lina.localhost.beta.webhare.net";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("https://test-by-lina.localhost.beta.webhare.net/", TT("webserverslist")->selection.webserver);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("accessrules"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("path")->value := "redirect-this/";
+  TT("hostingsrc_redirect")->value := TRUE;
+  TT("redirectpath")->value := "https://www.webhare.nl/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("/redirect-this/", TT("accessrulelist")->selection.path);
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("path")->value := "/allow-cors-all/";
+  TT("hostingsrc_module")->value := TRUE;
+  TT("description")->value := "TESTS APP RULE";
+  TT("installmodule")->value := "publisher:allowcorsall";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("/allow-cors-all/", TT("accessrulelist")->selection.path);
+
+  //Test filtering
+  TestEq(2, Length(TT("accessrulelist")->rows));
+  TT("filter")->value := "XXZZ";
+  TestEq(0, Length(TT("accessrulelist")->rows));
+  TesteqLike("*XXZZ*", TT("accessrulelist")->empty);
+  TT("filter")->value := "";
+  TestEq(2, Length(TT("accessrulelist")->rows));
+  TT("filter")->value := "-this";
+  TestEq([[ path := "/redirect-this/" ]], SELECT path FROM TT("accessrulelist")->rows);
+  TT("filter")->value := "app rule";
+  TestEq([[ path := "/allow-cors-all/" ]], SELECT path FROM TT("accessrulelist")->rows);
+  TT("filter")->value := "Fully open";
+  TestEq([[ path := "/allow-cors-all/" ]], SELECT path FROM TT("accessrulelist")->rows);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("path")->value := "/disabled-rule/";
+  TT("hostingsrc_alternate")->value := TRUE;
+  TT("alternatepath")->value := "/tmp/";
+  TT("enabled")->value := FALSE;
+  TT("description")->value := "Purposefully disabled rule";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("Fully open",TT("filter")->value);
+  TestEq("/disabled-rule/", TT("accessrulelist")->selection.path); //not a match but should still apear!
+  TestEq(2, Length(TT("accessrulelist")->rows));
+
+  TT("filter")->value := "Fully ope"; //modify it..
+  TestEq(1, Length(TT("accessrulelist")->rows)); //our rule goes
+
+  TT("filter")->value := "PURPOSEFULLY DISABLED RULE"; //modify it..
+  TestEq([[ path := "/disabled-rule/" ]], SELECT path FROM TT("accessrulelist")->rows);
+  TT("accessrulelist")->selection := TT("accessrulelist")->rows;
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TT("description")->value := "";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  TestEq([[ path := "/disabled-rule/" ]], SELECT path FROM TT("accessrulelist")->rows); //should not have gone away even though no longer a match.
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("exportrules"));
+  RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  RECORD ARRAY testrows := GetOOXMLSpreadsheetRows(file.data);
+  //dumpvalue(testrows);
+  TestEqMembers([[ enabled := "TRUE", "rule type" := "module",   "match type" := "initial", path := "/allow-cors-all/", target := "Fully open 'Access-Control-Allow-Origin'", description := "TESTS APP RULE" ]
+                ,[ enabled := "FALSE", "rule type" := "folder", "match type" := "initial", path := "/disabled-rule/",  target := "/tmp/" ]
+                ,[ enabled := "TRUE", "rule type" := "redirect", "match type" := "initial", path := "/redirect-this/",  target := "https://www.webhare.nl/" ]
+                ], testrows, "*");
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //leaves accessrulelist
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //leaves webserverapp
+}
+
+RunTestframework([ PTR TestWebserversApp
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa", grantrights := ["system:webservermgmt"] ]
+                                   ]]);

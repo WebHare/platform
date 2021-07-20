@@ -1,0 +1,52 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.webservers.bindings" library="bindings.whlib">
+
+  <screen name="bindings" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".bindings" tid=".title">
+    <body>
+      <listedit name="bindinglist"
+                height="1pr"
+                gid=".columns"
+                highlightname="yourbinding"
+                icons="tollium:status/checked tollium:status/negative tollium:security/key"
+                ongetchildren="ongetbindings"
+                onrowdelete="onrowdelete"
+                onrowedit="onrowedit">
+        <column name="port" type="text" width="1pr" iconname="porticon" sortkeyname="sortport" />
+        <column name="virtualhost" type="icon" width="16x" />
+        <column name="description" type="text" width="2pr" tid="~description" />
+      </listedit>
+    </body>
+  </screen>
+
+  <screen name="updatebinding" footerbuttons="ok cancel" gid=".updatebinding" tid=".portgroup">
+    <body width="1pr" height="1pr">
+      <panel name="readonlywarningpanel" layout="left" visible="false">
+        <text name="readonlywarning" textcolor="#ff0000" title="" valuetid=".readonlywarning" />
+      </panel>
+      <combobox name="port" width="10x" emptyvalue="0" maxvalue="65535" minvalue="1" required="true" valuetype="integer" />
+      <textarea name="description" width="1pr" height="3x" tid="~description" />
+      <select name="localip" type="radio">
+        <option rowkey="allips" tid=".allips" />
+        <option rowkey="allip6s" tid=".allip6s" />
+        <option rowkey="address" tid=".address">
+          <combobox name="ip" required="true" />
+        </option>
+      </select>
+      <box hr="false" tid=".hostingtype">
+        <select name="virtualhosting" type="radio" rowkeytype="boolean">
+          <option rowkey="true" tid=".namebinding" />
+          <option rowkey="false" tid=".portbinding" />
+        </select>
+        <line layout="left">
+          <checkbox name="securehosting" enablecomponents="privatekeys" labeltid=".securehosting" title="" />
+          <select name="privatekeys"
+                  type="pulldown"
+                  errorlabeltid=".privatekeys"
+                  required="true"
+                  rowkeytype="integer"
+                  title="" />
+        </line>
+      </box>
+    </body>
+  </screen>
+
+</screens>

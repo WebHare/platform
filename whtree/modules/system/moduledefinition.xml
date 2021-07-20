@@ -118,7 +118,7 @@
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
-    <application name="webservers" screen="webservers/webservers.main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
+    <application name="webservers" screen="tolliumapps/webservers/webservers.xml#main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
       <accesscheck>
         <requireright right="system:webservermgmt" />
       </accesscheck>
@@ -452,13 +452,7 @@ Alternative hosting path (for hostingsrc)
         </d:documentation>
       </d:varchar>
       <d:integer name="hostingsrc">
-        <d:documentation>
-Hosting source
-0 = standard serving
-2 = Alternate directory
-3 = single script
-          6: Apply hostingpath as a module ruleset (eg system:webdav)
-        </d:documentation>
+        <d:documentation>Hosting source: 0 = standard serving, 2 = Alternate directory, 3 = single script, 4/5 = redirect (without/with subpath), 6: Apply hostingpath as a module ruleset (eg system:webdav)</d:documentation>
       </d:integer>
       <d:integer name="matchtype">
         <d:documentation>
@@ -492,11 +486,7 @@ Initial path to which this access rule applies. Rule applies to path and all con
           Try to fix lowercase/uppercase issues in URLs
         </d:documentation>
       </d:boolean>
-      <d:integer name="applysource" references=".fs_objects" ondelete="set default">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
+      <d:obsoletecolumn name="applysource" />
     </d:table>
     <d:table name="access_externalusers">
       <d:documentation>This table contains the external users that can access a certain path. It is only applicable when 'authlist' on the access rule is set to true.</d:documentation>
@@ -2337,7 +2327,7 @@ The full base URL on which this site will be published, calculated by combining 
 
     <internalservice tag="getconfig"
                      library="internal/webserver/getconfig.whscr"
-                     tid="sysmgmt.webservers.scripts.getconfig"
+                     tid="tolliumapps.webservers.scripts.getconfig"
                      portname="system:webserver.getconfig"
                      globalport="true"
                      mode="alwayson"

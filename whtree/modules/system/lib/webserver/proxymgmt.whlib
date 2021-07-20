@@ -91,17 +91,17 @@ PUBLIC RECORD FUNCTION TestWebHareProxy(STRING url, STRING password, STRING reve
         CASE "wrongverificationcode"
         {
           retval.errorcode := "wrongverificationcode";
-          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.wrongverificationcode");
+          retval.errormessage := GetTid("system:tolliumapps.webservers.messages.wrongverificationcode");
         }
         CASE "interfaceurlnothosted"
         {
           retval.errorcode := "interfaceurlnothosted";
-          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.interfaceurlnothosted");
+          retval.errormessage := GetTid("system:tolliumapps.webservers.messages.interfaceurlnothosted");
         }
         DEFAULT
         {
           retval.errorcode := "unkownerror";
-          retval.errormessage := GetTid("system:sysmgmt.webservers.messages.unknownproxyerror", result.result.code);
+          retval.errormessage := GetTid("system:tolliumapps.webservers.messages.unknownproxyerror", result.result.code);
         }
       }
       RETURN retval;
@@ -110,19 +110,19 @@ PUBLIC RECORD FUNCTION TestWebHareProxy(STRING url, STRING password, STRING reve
   ELSE IF (browser->GetHTTPStatusCode() = 401)
   {
     retval.errorcode := "wrongpassword";
-    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.wrongpassword");
+    retval.errormessage := GetTid("system:tolliumapps.webservers.messages.wrongpassword");
     RETURN retval;
   }
   ELSE IF (NOT RecordExists(result) OR NOT result.success)
   {
     retval.errorcode := "couldnotconnect";
-    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.couldnotconnect");
+    retval.errormessage := GetTid("system:tolliumapps.webservers.messages.couldnotconnect");
     RETURN retval;
   }
   ELSE
   {
     retval.errorcode := "proxycouldnotconnect";
-    retval.errormessage := GetTid("system:sysmgmt.webservers.messages.proxycouldnotconnect");
+    retval.errormessage := GetTid("system:tolliumapps.webservers.messages.proxycouldnotconnect");
     RETURN retval;
   }
 }

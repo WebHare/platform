@@ -1026,303 +1026,10 @@
         <text tid="deleteusers">Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen?</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="webservers">   <!-- sysmgmt.webservers -->
-      <text tid="title">Webservers</text>
-      <textgroup gid="accessrules">   <!-- sysmgmt.webservers.accessrules -->
-        <text tid="externalusers">Externe gebruikers</text>
-        <text tid="ipfilters">IP-filters</text>
-        <text tid="title">Toegangsregels</text>
-        <text tid="view">Bekijk URL</text>
-        <text tid="webhareusers">WebHare gebruikers</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.accessrules.columns -->
-          <text tid="description">Omschrijving</text>
-          <text tid="path">Pad</text>
-          <text tid="protected">Beschermd</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
-        <text tid="allip6s">Alle lokale IPv6 adressen</text>
-        <text tid="allips">Alle lokale IPv4 adressen</text>
-        <text tid="confirmdeleteusedinding">Je lijkt momenteel via deze poort verbonden te zijn. Weet u ECHT ZEKER dat u deze poort wil verwijderen?</text>
-        <text tid="title">Poorten en inkomende verbindingen</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.bindings.columns -->
-          <text tid="ip">IP adres</text>
-          <text tid="port">Poort</text>
-          <text tid="secure">Beveiligd</text>
-          <text tid="virtualhost">Naam-gebaseerd</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="externalusers">   <!-- sysmgmt.webservers.externalusers -->
-        <text tid="externalusers">Externe gebruikers</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.externalusers.columns -->
-          <text tid="description">Omschrijving</text>
-          <text tid="username">Gebruikersnaam</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="ipfilters">   <!-- sysmgmt.webservers.ipfilters -->
-        <text tid="allowed">Toegestaan</text>
-        <text tid="allowwithoutdeny">IP filters zijn niet effectief als er niet tenminste één regel is die toegang verbiedt.</text>
-        <text tid="denied">Niet toegestaan</text>
-        <text tid="title">IP Filters</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.ipfilters.columns -->
-          <text tid="mask">IP masker</text>
-          <text tid="status">Toegang</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.webservers.messages -->
-        <text tid="cannotdeletebindinginuse">De webserver '<param p="1"/>' dient van deze binding afgehaald te worden alvorens deze teverwijderen.</text>
-        <text tid="cannotdeletefilledgroup">Deze groep kan niet worden verwijderd omdat er nog webserver in zitten.</text>
-        <text tid="cannotdeleteprimaryinterface">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat deze de primaire WebHare-interface host.</text>
-        <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat je deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
-        <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
-        <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
-        <text tid="deleteaccessrule">Weet je zeker dat je deze toegangsregel wilt verwijderen?</text>
-        <text tid="deletealias">Weet je zeker dat je de alias "<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletebinding">Weet je zeker dat je deze binding wilt verwijderen?</text>
-        <text tid="deletegroup">Weet je zeker dat je deze group wil verwijderen?</text>
-        <text tid="deleteipfilter">Weet je zeker dat je dit IP filter wilt verwijderen?</text>
-        <text tid="deletemimetype">Weet je zeker dat je het bestandtype met de extensie '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteproxy">Weet je zeker dat je deze server wilt deregistreren bij proxy '<param p="1"/>'?</text>
-        <text tid="deleteselection">Weet je zeker dat je de selectie wil verwijderen ?</text>
-        <text tid="deleteuser">Weet je zeker dat je deze gebruikers wilt verwijderen?</text>
-        <text tid="deletewebserver">Weet je zeker dat je webserver '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="interfaceurlnothosted">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de URL van de WebHare interface niet werd gevonden op de bereikte server. Is deze installatie een backup van de originele server?</text>
-        <text tid="proxycouldnotconnect">De proxy kon geen verbinding maken met het lokale verbindingsadres.</text>
-        <text tid="testok">De connectie-test met de proxy is gelukt.</text>
-        <text tid="unknownproxyerror">De proxy kon de verbinding met deze server niet verifiëren, en gaf de volgende code als foutmelding: '<param p="1"/>'</text>
-        <text tid="unregisterfailedsuredelete">Kon deze server niet deregistreren bij de proxy. Weet je zeker dat je deze de registratie lokaal wel wilt verwijderen?</text>
-        <text tid="useipfiltersiwithoutdeny">De toegang van gebruikers zal niet worden geweigerd omdat er geen regel is die ze die toegang verbiedt. Weet je zeker dat je de IP filters zo wilt configureren?</text>
-        <text tid="verifydeletefilledgroup">Het verwijderen van deze groep zal de zich hierin bevindende webservers, aliassen en toegangsregels permantent verwijderen en kan niet ongedaan worden.<br/><br/>Weet je zeker dat je deze groep wil verwijderen?</text>
-        <text tid="wrongpassword">Kon niet verbinden met de proxy: het wachtwoord is niet correct.</text>
-        <text tid="wrongverificationcode">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de gebruikte verificatiecode niet bekend was op de bereikte server. Is deze installatie een backup van de originele server?</text>
-      </textgroup>
-      <textgroup gid="mimetype">   <!-- sysmgmt.webservers.mimetype -->
-        <text tid="extension">Extensie</text>
-        <text tid="mimetype">Mime-type</text>
-        <text tid="parsetype">Behandeling</text>
-        <text tid="parsetype-0">Ongewijzigd opsturen</text>
-        <text tid="parsetype-1">HareScript</text>
-        <text tid="parsetype-2">CGI</text>
-        <text tid="parsetype-3">Script</text>
-        <text tid="parsetype-4">HareScript (websocket)</text>
-        <text tid="windowtitle_add">Voeg bestandstype toe</text>
-        <text tid="windowtitle_edit">Wijzig bestandstype met extensie '<param p="1"/>'</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.mimetype.errors -->
-          <text tid="duplicate_extension">De extensie '<param p="1"/>' is al in gebruik door een ander mime-type, kiest u a.u.b. een andere extensie</text>
-          <text tid="extension_starting_dot">De extensie mag niet met een punt (.) beginnen.</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="mimetypes">   <!-- sysmgmt.webservers.mimetypes -->
-        <text tid="title">Bestandstypes</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.mimetypes.columns -->
-          <text tid="extension">Extensie</text>
-          <text tid="handling">Bahandeling</text>
-          <text tid="mimetype">Mime-type</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="overview">   <!-- sysmgmt.webservers.overview -->
-        <text tid="accessrules">Toegangsregels</text>
-        <text tid="addalias">Alias</text>
-        <text tid="addalias_contextmenu">Voeg alias toe</text>
-        <text tid="addgroup">Groep</text>
-        <text tid="addwebserver">Webserver</text>
-        <text tid="addwebservergroup">Groep</text>
-        <text tid="bindings">Poorten</text>
-        <text tid="certbotrequest">LetsEncrypt certificaat aanvragen</text>
-        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
-        <text tid="filetypes">File types</text>
-        <text tid="filter">Filter</text>
-        <text tid="filterchange">Aanpassen</text>
-        <text tid="keystore">Sleutels</text>
-        <text tid="nofiltermatch">Er zijn geen webservers of aliassen die de tekst '<param p="1"/>' bevatten</text>
-        <text tid="permissions">Rechten</text>
-        <text tid="preview">Bekijk site</text>
-        <text tid="proxies">Proxies</text>
-        <text tid="schedulecheck">Plan webservercontrole in</text>
-        <text tid="title">Webserversbeheer</text>
-        <text tid="webroot">Alle webservers</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.overview.columns -->
-          <text tid="path">Locatie</text>
-          <text tid="rules">Regels</text>
-          <text tid="sites">Sites</text>
-          <text tid="webserver">Webserver</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="proxies">   <!-- sysmgmt.webservers.proxies -->
-        <text tid="reregister">Herregistreren</text>
-        <text tid="title">Proxies</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.proxies.columns -->
-          <text tid="lastregistration">Laatste registratie</text>
-          <text tid="url">URL</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="scripts">   <!-- sysmgmt.webservers.scripts -->
-        <text tid="eventcompletion">WHFS event voltooing</text>
-        <text tid="getconfig">Webserver dynamische herconfiguratie</text>
-        <text tid="mutexmgr">Mutexmanager</text>
-        <text tid="resourcemgr">Modulecache</text>
-      </textgroup>
-      <textgroup gid="types">   <!-- sysmgmt.webservers.types -->
-        <text tid="external_webhare">Externe (alleen publiceren, geen hosting)</text>
-        <text tid="webhare_interface">WebHare backend (webinterface)</text>
-        <text tid="webhare_output">WebHare output webserver</text>
-        <text tid="webhare_rulesonly">Alleen toegangsregels hosten, geen gepubliceerde content</text>
-      </textgroup>
-      <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
-        <text tid="allservers">Alle door deze installatie gehoste webservers</text>
-        <text tid="appliesto">Geldt voor</text>
-        <text tid="applysource">Toepassingsbron</text>
-        <text tid="authlist">Externe gebruikersaccounts gebruiken om in te loggen</text>
-        <text tid="authrequirement">IP toegangsregels</text>
-        <text tid="authrequirement-and">Gebruikers moeten én aan de IP-toegangsregels voldoen én moeten inloggen indien vereist</text>
-        <text tid="authrequirement-or">Gebruikers dienen in te loggen wanneer ze niet aan de IP-toegangsregels voldoen</text>
-        <text tid="authtype">Inlogwijze</text>
-        <text tid="authtype-allwebhareaccounts">Alle gebruikers dienen in te loggen met hun WebHare account</text>
-        <text tid="authtype-nologinrequired">Geen inlogmogelijkheid voor WebHare accounts</text>
-        <text tid="authtype-somewebhareaccounts">Alleen specifieke WebHare gebruikers kunnen inloggen</text>
-        <text tid="dbroles">Database rollen</text>
-        <text tid="dbroles-explanation">(komma-gescheiden)</text>
-        <text tid="dbroles-hint">Lijst van rollen, door komma gescheiden</text>
-        <text tid="description">Omschrijving</text>
-        <text tid="disablecaching">Schakel browser caching uit</text>
-        <text tid="enabled">Schakel deze toegangsregel in</text>
-        <text tid="errorhandling">Foutafhandeling</text>
-        <text tid="errorpath">Locatie van de foutmeldingbestanden</text>
-        <text tid="externaldb">Verbind met externe database (LDAP, ODBC, Oracle, etc)</text>
-        <text tid="externalscript">Specifiek autorisatiescript:</text>
-        <text tid="externalscript_error">Specifiek autorisatiescript</text>
-        <text tid="fixcase">Probeer alternatieve combinaties van kleine/hoofdletters, indien een bestand niet gevonden werd</text>
-        <text tid="forcehttps">Stuur HTTP gebruikers door naar HTTPS</text>
-        <text tid="fulldb">Maak verbinding als de WebHare database operator</text>
-        <text tid="general">Algemeen</text>
-        <text tid="hostingsource">Bron voor hosting</text>
-        <text tid="hostingsrc-alternate">Alternatieve contentmap</text>
-        <text tid="hostingsrc-cgi">CGI script map</text>
-        <text tid="hostingsrc-module">WebHare module website</text>
-        <text tid="hostingsrc-redirect">Doorsturen naar URL</text>
-        <text tid="hostingsrc-singlefile">Afgehandeld door één enkel scriptbestand</text>
-        <text tid="hostingsrc-standard">Normale hosting (geen uitzonderingen)</text>
-        <text tid="hsrights">HareScript rechten</text>
-        <text tid="keepsubpath">Behoud submap van de URL</text>
-        <text tid="localdb">Lokale WebHare database</text>
-        <text tid="localdb-localdb">Maak verbinding met de lokale WebHare database</text>
-        <text tid="localdb-none">Mag geen (extra) verbindingen maken</text>
-        <text tid="login">Inloggen</text>
-        <text tid="matchtype">Pad vergelijking</text>
-        <text tid="matchtype-exact">Het opgevraagde pad dient exact gelijk te zijn</text>
-        <text tid="matchtype-initial">Het opgevraagde pad dient initieel gelijk te zijn</text>
-        <text tid="matchtype-wildcard">Wildcard vergelijking</text>
-        <text tid="maxage">Maximum cachetijd</text>
-        <text tid="othermethods">Andere inlogwijzen</text>
-        <text tid="path">Voor het opgevraagde pad</text>
-        <text tid="redirectcode">Redirect code</text>
-        <text tid="redirectcode-301">301 - Permanent verplaatst</text>
-        <text tid="redirectcode-302">302 - Op andere locatie gevonden</text>
-        <text tid="redirectcode-303">303 - Zie elders</text>
-        <text tid="redirectcode-307">307 - Tijdelijke redirect</text>
-        <text tid="seconds">seconden</text>
-        <text tid="super">Volledige toegang tot het systeem (bestanden en processen)</text>
-        <text tid="tcpip">Sta netwerk (TCP/IP) verbindingen toe</text>
-        <text tid="title">Toegangsregel</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateaccessrule.errors -->
-          <text tid="cannot_redirect_to_initial_matchtype">Als je doorstuurt naar een bepaalde URL, dient het veld '<param p="1"/>' ingesteld te worden op '<param p="2"/>'</text>
-          <text tid="duplicate_path">Er is al een toegangsregel gedefinieerd voor het gespecificeerde pad</text>
-          <text tid="invalid_role">Kon rol '<param p="1"/>' niet vinden</text>
-          <text tid="login_required">Je dient een inlogwijze te kiezen indien inloggen een alternatief is voor het voldoen aan de IP toegangsregels</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updatealias">   <!-- sysmgmt.webservers.updatealias -->
-        <text tid="explicit">Alias type</text>
-        <text tid="explicit-false">Redirecten naar hoofd URL</text>
-        <text tid="explicit-true">Dit is een alternatieve hostnaam</text>
-        <text tid="hostname">Hostnaam</text>
-        <text tid="title">Aliasgegevens</text>
-      </textgroup>
-      <textgroup gid="updatebinding">   <!-- sysmgmt.webservers.updatebinding -->
-        <text tid="address">Specifiek adres</text>
-        <text tid="allip6s">Alle lokale IPv6 adressen</text>
-        <text tid="allips">Alle lokale IPv4 adressen</text>
-        <text tid="hostingtype">Hosting type</text>
-        <text tid="ip">IP adres</text>
-        <text tid="localip">Beschikbaar op</text>
-        <text tid="namebinding">Name based (gebaseerd op naam)</text>
-        <text tid="port">Poort</text>
-        <text tid="portbinding">IP- en poortgebaseerd</text>
-        <text tid="portgroup">Poort en IP</text>
-        <text tid="privatekeys">Sleutel</text>
-        <text tid="readonlywarning">Deze waardes kunnen niet worden aangepast omdat deze binding in gebruik is.</text>
-        <text tid="securehosting">Beveiligde (SSL) hosting, met sleutel:</text>
-        <text tid="selectacertificate">Kies een sleutel...</text>
-        <text tid="updatebinding">Binding</text>
-        <text tid="virtualhosting">Type binding</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updatebinding.errors -->
-          <text tid="invalid_ip">Dit is geen geldig IP-adres</text>
-          <text tid="invalid_port">Het veld 'Poort' dient een geldig getal te bevatten</text>
-          <text tid="port_used">Deze poort is al in gebruik, kies een ander poortnummer</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updateexternaluser">   <!-- sysmgmt.webservers.updateexternaluser -->
-        <text tid="description">Omschrijving</text>
-        <text tid="password">Wachtwoord</text>
-        <text tid="password_again">Wachtwoord (nogmaals)</text>
-        <text tid="updateexternaluser">Externe gebruiker</text>
-        <text tid="username">Gebruikersnaam</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateexternaluser.errors -->
-          <text tid="duplicate_username">De gebruikersnaam '<param p="1"/>' wordt al gebruikt binnen deze webserver</text>
-          <text tid="passwords_dont_match">De ingevulde wachtwoorden komen niet overeen</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updateipfilter">   <!-- sysmgmt.webservers.updateipfilter -->
-        <text tid="allow_access">Toegang toestaan</text>
-        <text tid="deny_access">Toegang niet toestaan</text>
-        <text tid="mask">IP masker</text>
-        <text tid="title">IP filter</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateipfilter.errors -->
-          <text tid="duplicate_mask">Het IP masker is al gedefinieerd</text>
-          <text tid="invalid_mask">Het ingevoerde IP masker is niet correct</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updatewebserver">   <!-- sysmgmt.webservers.updatewebserver -->
-        <text tid="aliasswap">De hostnaam '<param p="1"/>' was al een alias voor deze webserver. De nieuwe hostnaam zal als voorkeurshostnaam worden ingesteld op deze webserver, en de oude hostnaam '<param p="2"/>' zal op de aliaslijst geplaatst worden.</text>
-        <text tid="bound-allips">Alle lokale IP-adressen</text>
-        <text tid="boundto">Gebonden aan</text>
-        <text tid="extension">Uitvoerextensie</text>
-        <text tid="folder">Uitvoermap</text>
-        <text tid="servertype">Type webserver</text>
-        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
-        <text tid="stricttransportsecurity-0">Niet ingesteld</text>
-        <text tid="stricttransportsecurity-2592000">1 maand</text>
-        <text tid="stricttransportsecurity-31536000">1 jaar (aangeraden)</text>
-        <text tid="stricttransportsecurity-63072000">3 jaren</text>
-        <text tid="stricttransportsecurity-7776000">3 maanden</text>
-        <text tid="stricttransportsecurity-86400">1 dag</text>
-        <text tid="stricttransportsecurity-900">15 minuten (om te testen)</text>
-        <text tid="updatewebserver">Pas webserver aan</text>
-        <text tid="url">URL</text>
-        <text tid="urllockedforversioning">De URL mag niet worden aangepast omdat deze webserver een of meer websites met versiebeheer host.</text>
-        <text tid="virtualhosted">Naam-gebaseerde hosting</text>
-      </textgroup>
-      <textgroup gid="webhareusers">   <!-- sysmgmt.webservers.webhareusers -->
-        <text tid="webhareusers">WebHare gebruikers</text>
-      </textgroup>
-      <textgroup gid="webservergroup">   <!-- sysmgmt.webservers.webservergroup -->
-        <text tid="title">Naam</text>
-        <text tid="webservergroup">Pas webservergroep aan</text>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="system">   <!-- system -->
     <textgroup gid="apprunner">   <!-- system.apprunner -->
       <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>
-    </textgroup>
-    <textgroup gid="webservers">   <!-- system.webservers -->
-      <textgroup gid="updatewebserver">   <!-- system.webservers.updatewebserver -->
-        <text tid="bindingrequireshttp">Op de geselecteerde poort heeft is geen encryptie ingesteld, dus de URL moet met 'http://' beginnen.</text>
-        <text tid="bindingrequireshttps">Op de geselecteerde poort is encryptie ingesteld, dus de URL moet met 'https://' beginnen.</text>
-        <text tid="hostnameinuse">De hostnaam '<param p="1"/>' is al in gebruik door een andere virtueel gehoste webserver.</text>
-        <text tid="hostnameinuseasalias">De hostnaam '<param p="1"/>' is al in gebruik door een alias van de virtueel gehoste webserver '<param p="2"/>'.</text>
-        <text tid="urlnosubpath">De URL van een gehoste webserver mag geen subpad bevatten maar moet de vorm 'http(s)://hostname/' hebben.</text>
-      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
@@ -1863,6 +1570,300 @@
     <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Rechtentoekenning intrekken</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- tolliumapps.webservers -->
+      <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules -->
+        <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules.accessrules -->
+          <text tid="deleteaccessrule">Weet je zeker dat je deze toegangsregel wilt verwijderen?</text>
+          <text tid="empty-nomatchfor">Geen van de toegangsregels bevat '<param p="1"/>'</text>
+          <text tid="empty-norules">Er zijn hier nog geen toegangsregels ingesteld</text>
+          <text tid="export-globalrules">Globale toegangsregels</text>
+          <text tid="export-rulesfor">Toegangsregels <param p="1"/></text>
+          <text tid="externalusers">Externe gebruikers</text>
+          <text tid="filter">Filter</text>
+          <text tid="filter-placeholder">Zoek in pad, doel of omschrijving</text>
+          <text tid="ipfilters">IP-filters</text>
+          <text tid="title">Toegangsregels</text>
+          <text tid="view">Bekijk URL</text>
+          <text tid="webhareusers">WebHare gebruikers</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
+            <text tid="description">Omschrijving</text>
+            <text tid="enabled">Ingeschakeld</text>
+            <text tid="matchtype">Match type</text>
+            <text tid="path">Pad</text>
+            <text tid="target">Doel</text>
+            <text tid="type">Regel type</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="externalusers">   <!-- tolliumapps.webservers.accessrules.externalusers -->
+          <text tid="deleteuser">Weet je zeker dat je de geselecteerde gebruiker '<param p="1"/>' wilt verwijderen?</text>
+          <text tid="externalusers">Externe gebruikers</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.externalusers.columns -->
+            <text tid="description">Omschrijving</text>
+            <text tid="username">Gebruikersnaam</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="ipfilters">   <!-- tolliumapps.webservers.accessrules.ipfilters -->
+          <text tid="allowed">Toegestaan</text>
+          <text tid="allowwithoutdeny">IP filters zijn niet effectief als er niet tenminste één regel is die toegang verbiedt.</text>
+          <text tid="deleteipfilter">Weet je zeker dat je dit IP filter wilt verwijderen?</text>
+          <text tid="denied">Niet toegestaan</text>
+          <text tid="title">IP Filters</text>
+          <text tid="useipfiltersiwithoutdeny">De toegang van gebruikers zal niet worden geweigerd omdat er geen regel is die ze die toegang verbiedt. Weet je zeker dat je de IP filters zo wilt configureren?</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.ipfilters.columns -->
+            <text tid="mask">IP masker</text>
+            <text tid="status">Toegang</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateaccessrule">   <!-- tolliumapps.webservers.accessrules.updateaccessrule -->
+          <text tid="allservers">Alle door deze installatie gehoste webservers</text>
+          <text tid="appliesto">Geldt voor</text>
+          <text tid="authlist">Externe gebruikersaccounts gebruiken om in te loggen</text>
+          <text tid="authrequirement">IP toegangsregels</text>
+          <text tid="authrequirement-and">Gebruikers moeten én aan de IP-toegangsregels voldoen én moeten inloggen indien vereist</text>
+          <text tid="authrequirement-or">Gebruikers dienen in te loggen wanneer ze niet aan de IP-toegangsregels voldoen</text>
+          <text tid="authtype">Inlogwijze</text>
+          <text tid="authtype-allwebhareaccounts">Alle gebruikers dienen in te loggen met hun WebHare account</text>
+          <text tid="authtype-nologinrequired">Geen inlogmogelijkheid voor WebHare accounts</text>
+          <text tid="authtype-somewebhareaccounts">Alleen specifieke WebHare gebruikers kunnen inloggen</text>
+          <text tid="description">Omschrijving</text>
+          <text tid="disablecaching">Schakel browser caching uit</text>
+          <text tid="enabled">Schakel deze toegangsregel in</text>
+          <text tid="errorpath">Locatie van de foutmeldingbestanden</text>
+          <text tid="externalscript">Specifiek autorisatiescript:</text>
+          <text tid="externalscript_error">Specifiek autorisatiescript</text>
+          <text tid="fixcase">Probeer alternatieve combinaties van kleine/hoofdletters, indien een bestand niet gevonden werd</text>
+          <text tid="general">Algemeen</text>
+          <text tid="hostingsource">Bron voor hosting</text>
+          <text tid="hostingsrc-alternate">Alternatieve contentmap</text>
+          <text tid="hostingsrc-module">WebHare module website</text>
+          <text tid="hostingsrc-redirect">Doorsturen naar URL</text>
+          <text tid="hostingsrc-singlefile">Afgehandeld door één enkel scriptbestand</text>
+          <text tid="hostingsrc-standard">Normale hosting (geen uitzonderingen)</text>
+          <text tid="keepsubpath">Behoud submap van de URL</text>
+          <text tid="login">Inloggen</text>
+          <text tid="login_required">Je dient een inlogwijze te kiezen indien inloggen een alternatief is voor het voldoen aan de IP toegangsregels</text>
+          <text tid="matchtype">Pad vergelijking</text>
+          <text tid="matchtype-exact">Het opgevraagde pad dient exact gelijk te zijn</text>
+          <text tid="matchtype-initial">Het opgevraagde pad dient initieel gelijk te zijn</text>
+          <text tid="matchtype-wildcard">Wildcard vergelijking</text>
+          <text tid="maxage">Maximum cachetijd</text>
+          <text tid="path">Voor het opgevraagde pad</text>
+          <text tid="redirectcode">Redirect code</text>
+          <text tid="redirectcode-301">301 - Permanent verplaatst</text>
+          <text tid="redirectcode-302">302 - Op andere locatie gevonden</text>
+          <text tid="redirectcode-303">303 - Zie elders</text>
+          <text tid="redirectcode-307">307 - Tijdelijke redirect</text>
+          <text tid="seconds">seconden</text>
+          <text tid="title">Toegangsregel</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateaccessrule.errors -->
+            <text tid="cannot_redirect_to_initial_matchtype">Als je doorstuurt naar een bepaalde URL, dient het veld '<param p="1"/>' ingesteld te worden op '<param p="2"/>'</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateexternaluser">   <!-- tolliumapps.webservers.accessrules.updateexternaluser -->
+          <text tid="description">Omschrijving</text>
+          <text tid="password">Wachtwoord</text>
+          <text tid="password_again">Wachtwoord (nogmaals)</text>
+          <text tid="updateexternaluser">Externe gebruiker</text>
+          <text tid="username">Gebruikersnaam</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateexternaluser.errors -->
+            <text tid="duplicate_username">De gebruikersnaam '<param p="1"/>' wordt al gebruikt binnen deze webserver</text>
+            <text tid="passwords_dont_match">De ingevulde wachtwoorden komen niet overeen</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateipfilter">   <!-- tolliumapps.webservers.accessrules.updateipfilter -->
+          <text tid="allow_access">Toegang toestaan</text>
+          <text tid="deny_access">Toegang niet toestaan</text>
+          <text tid="mask">IP masker</text>
+          <text tid="title">IP filter</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateipfilter.errors -->
+            <text tid="duplicate_mask">Het IP masker is al gedefinieerd</text>
+            <text tid="invalid_mask">Het ingevoerde IP masker is niet correct</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="webhareusers">   <!-- tolliumapps.webservers.accessrules.webhareusers -->
+          <text tid="webhareusers">WebHare gebruikers</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="bindings">   <!-- tolliumapps.webservers.bindings -->
+        <textgroup gid="bindings">   <!-- tolliumapps.webservers.bindings.bindings -->
+          <text tid="cannotdeletebindinginuse">De webserver '<param p="1"/>' dient van deze binding afgehaald te worden alvorens deze teverwijderen.</text>
+          <text tid="confirmdeleteusedinding">Je lijkt momenteel via deze poort verbonden te zijn. Weet u ECHT ZEKER dat u deze poort wil verwijderen?</text>
+          <text tid="deletebinding">Weet je zeker dat je deze binding wilt verwijderen?</text>
+          <text tid="title">Poorten en inkomende verbindingen</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.bindings.bindings.columns -->
+            <text tid="port">Poort</text>
+            <text tid="virtualhost">Naam-gebaseerd</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updatebinding">   <!-- tolliumapps.webservers.bindings.updatebinding -->
+          <text tid="address">Specifiek adres</text>
+          <text tid="allip6s">Alle lokale IPv6 adressen</text>
+          <text tid="allips">Alle lokale IPv4 adressen</text>
+          <text tid="hostingtype">Hosting type</text>
+          <text tid="ip">IP adres</text>
+          <text tid="localip">Beschikbaar op</text>
+          <text tid="namebinding">Name based (gebaseerd op naam)</text>
+          <text tid="port">Poort</text>
+          <text tid="portbinding">IP- en poortgebaseerd</text>
+          <text tid="portgroup">Poort en IP</text>
+          <text tid="privatekeys">Sleutel</text>
+          <text tid="readonlywarning">Deze waardes kunnen niet worden aangepast omdat deze binding in gebruik is.</text>
+          <text tid="securehosting">Beveiligde (SSL) hosting, met sleutel:</text>
+          <text tid="selectacertificate">Kies een sleutel...</text>
+          <text tid="virtualhosting">Type binding</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.bindings.updatebinding.errors -->
+            <text tid="invalid_ip">Dit is geen geldig IP-adres</text>
+            <text tid="invalid_port">Het veld 'Poort' dient een geldig getal te bevatten</text>
+            <text tid="port_used">Deze poort is al in gebruik, kies een ander poortnummer</text>
+          </textgroup>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="certbotrequest">   <!-- tolliumapps.webservers.certbotrequest -->
+        <text tid="certbotrequest">LetsEncrypt (Certbot) certificaat aanvraag</text>
+        <text tid="domainnames">Domeinnamen</text>
+        <text tid="domainnames-placeholder">De namen om aan te vragen, bv www.example.net example.net</text>
+        <text tid="nothostedhere">De hostnaam '<param p="1"/>' wordt niet door deze server gehost</text>
+        <text tid="request">Certificaat aanvragen</text>
+      </textgroup>
+      <textgroup gid="exportusagestats">   <!-- tolliumapps.webservers.exportusagestats -->
+        <text tid="enddate">Einddatum</text>
+        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
+        <text tid="startdate">Startdatum</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
+        <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
+        <text tid="interfaceurlnothosted">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de URL van de WebHare interface niet werd gevonden op de bereikte server. Is deze installatie een backup van de originele server?</text>
+        <text tid="proxycouldnotconnect">De proxy kon geen verbinding maken met het lokale verbindingsadres.</text>
+        <text tid="unknownproxyerror">De proxy kon de verbinding met deze server niet verifiëren, en gaf de volgende code als foutmelding: '<param p="1"/>'</text>
+        <text tid="wrongpassword">Kon niet verbinden met de proxy: het wachtwoord is niet correct.</text>
+        <text tid="wrongverificationcode">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de gebruikte verificatiecode niet bekend was op de bereikte server. Is deze installatie een backup van de originele server?</text>
+      </textgroup>
+      <textgroup gid="mimetypes">   <!-- tolliumapps.webservers.mimetypes -->
+        <textgroup gid="mimetype">   <!-- tolliumapps.webservers.mimetypes.mimetype -->
+          <text tid="extension">Extensie</text>
+          <text tid="mimetype">Mime-type</text>
+          <text tid="parsetype">Behandeling</text>
+          <text tid="parsetype-0">Ongewijzigd opsturen</text>
+          <text tid="parsetype-1">HareScript</text>
+          <text tid="parsetype-2">CGI</text>
+          <text tid="parsetype-3">Script</text>
+          <text tid="parsetype-4">HareScript (websocket)</text>
+          <text tid="windowtitle_add">Voeg bestandstype toe</text>
+          <text tid="windowtitle_edit">Wijzig bestandstype met extensie '<param p="1"/>'</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.mimetypes.mimetype.errors -->
+            <text tid="duplicate_extension">De extensie '<param p="1"/>' is al in gebruik door een ander mime-type, kiest u a.u.b. een andere extensie</text>
+            <text tid="extension_starting_dot">De extensie mag niet met een punt (.) beginnen.</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="mimetypes">   <!-- tolliumapps.webservers.mimetypes.mimetypes -->
+          <text tid="deletemimetype">Weet je zeker dat je het bestandtype met de extensie '<param p="1"/>' wilt verwijderen?</text>
+          <text tid="title">Mime-types</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.mimetypes.mimetypes.columns -->
+            <text tid="extension">Extensie</text>
+            <text tid="handling">Bahandeling</text>
+            <text tid="mimetype">Mime-type</text>
+          </textgroup>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="overview">   <!-- tolliumapps.webservers.overview -->
+        <text tid="accessrules">Toegangsregels</text>
+        <text tid="addalias">Alias</text>
+        <text tid="addgroup">Groep</text>
+        <text tid="addwebserver">Webserver</text>
+        <text tid="bindings">Poorten</text>
+        <text tid="cannotdeleteprimaryinterface">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat deze de primaire WebHare-interface host.</text>
+        <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat je deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
+        <text tid="certbotrequest">LetsEncrypt certificaat aanvragen</text>
+        <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
+        <text tid="deletealias">Weet je zeker dat je de alias "<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletegroup">Weet je zeker dat je deze group wil verwijderen?</text>
+        <text tid="deleteselection">Weet je zeker dat je de selectie wil verwijderen ?</text>
+        <text tid="deletewebserver">Weet je zeker dat je webserver '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
+        <text tid="filetypes">File types</text>
+        <text tid="filter">Filter</text>
+        <text tid="keystore">Sleutels</text>
+        <text tid="nofiltermatch">Er zijn geen webservers of aliassen die de tekst '<param p="1"/>' bevatten</text>
+        <text tid="preview">Bekijk site</text>
+        <text tid="proxies">Proxies</text>
+        <text tid="schedulecheck">Plan webservercontrole in</text>
+        <text tid="title">Webserversbeheer</text>
+        <text tid="verifydeletefilledgroup">Het verwijderen van deze groep zal de zich hierin bevindende webservers, aliassen en toegangsregels permantent verwijderen en kan niet ongedaan worden.<br/><br/>Weet je zeker dat je deze groep wil verwijderen?</text>
+        <text tid="webroot">Alle webservers</text>
+        <textgroup gid="columns">   <!-- tolliumapps.webservers.overview.columns -->
+          <text tid="path">Locatie</text>
+          <text tid="rules">Regels</text>
+          <text tid="sites">Sites</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="proxies">   <!-- tolliumapps.webservers.proxies -->
+        <textgroup gid="proxies">   <!-- tolliumapps.webservers.proxies.proxies -->
+          <text tid="deleteproxy">Weet je zeker dat je deze server wilt deregistreren bij proxy '<param p="1"/>'?</text>
+          <text tid="reregister">Herregistreren</text>
+          <text tid="title">Proxies</text>
+          <text tid="unregisterfailedsuredelete">Kon deze server niet deregistreren bij de proxy. Weet je zeker dat je deze de registratie lokaal wel wilt verwijderen?</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.proxies.proxies.columns -->
+            <text tid="lastregistration">Laatste registratie</text>
+            <text tid="url">URL</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="update">   <!-- tolliumapps.webservers.proxies.update -->
+          <text tid="hostswhitelist">Hosts whitelist</text>
+          <text tid="lasterror">Laatste fout</text>
+          <text tid="password">Wachtwoord</text>
+          <text tid="reverseaddress">Lokale verbindingsadres</text>
+          <text tid="test">Testen</text>
+          <text tid="testok">De connectie-test met de proxy is gelukt.</text>
+          <text tid="updateproxy">Proxy bewerken</text>
+          <text tid="url">URL</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="scripts">   <!-- tolliumapps.webservers.scripts -->
+        <text tid="getconfig">Webserver dynamische herconfiguratie</text>
+      </textgroup>
+      <textgroup gid="updatealias">   <!-- tolliumapps.webservers.updatealias -->
+        <text tid="explicit">Alias type</text>
+        <text tid="explicit-false">Redirecten naar hoofd URL</text>
+        <text tid="explicit-true">Dit is een alternatieve hostnaam</text>
+        <text tid="hostname">Hostnaam</text>
+        <text tid="title">Aliasgegevens</text>
+      </textgroup>
+      <textgroup gid="updatewebserver">   <!-- tolliumapps.webservers.updatewebserver -->
+        <text tid="aliasswap">De hostnaam '<param p="1"/>' was al een alias voor deze webserver. De nieuwe hostnaam zal als voorkeurshostnaam worden ingesteld op deze webserver, en de oude hostnaam '<param p="2"/>' zal op de aliaslijst geplaatst worden.</text>
+        <text tid="bindingrequireshttp">Op de geselecteerde poort heeft is geen encryptie ingesteld, dus de URL moet met 'http://' beginnen.</text>
+        <text tid="bindingrequireshttps">Op de geselecteerde poort is encryptie ingesteld, dus de URL moet met 'https://' beginnen.</text>
+        <text tid="bound-allips">Alle lokale IP-adressen</text>
+        <text tid="boundto">Gebonden aan</text>
+        <text tid="extension">Uitvoerextensie</text>
+        <text tid="folder">Uitvoermap</text>
+        <text tid="hostnameinuse">De hostnaam '<param p="1"/>' is al in gebruik door een andere virtueel gehoste webserver.</text>
+        <text tid="hostnameinuseasalias">De hostnaam '<param p="1"/>' is al in gebruik door een alias van de virtueel gehoste webserver '<param p="2"/>'.</text>
+        <text tid="servertype">Type webserver</text>
+        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
+        <text tid="stricttransportsecurity-0">Niet ingesteld</text>
+        <text tid="stricttransportsecurity-2592000">1 maand</text>
+        <text tid="stricttransportsecurity-31536000">1 jaar (aangeraden)</text>
+        <text tid="stricttransportsecurity-63072000">3 jaren</text>
+        <text tid="stricttransportsecurity-7776000">3 maanden</text>
+        <text tid="stricttransportsecurity-86400">1 dag</text>
+        <text tid="stricttransportsecurity-900">15 minuten (om te testen)</text>
+        <text tid="updatewebserver">Pas webserver aan</text>
+        <text tid="url">URL</text>
+        <text tid="urllockedforversioning">De URL mag niet worden aangepast omdat deze webserver een of meer websites met versiebeheer host.</text>
+        <text tid="urlnosubpath">De URL van een gehoste webserver mag geen subpad bevatten maar moet de vorm 'http(s)://hostname/' hebben.</text>
+        <text tid="virtualhosted">Naam-gebaseerde hosting</text>
+        <textgroup gid="types">   <!-- tolliumapps.webservers.updatewebserver.types -->
+          <text tid="webhare_interface">WebHare backend (webinterface)</text>
+          <text tid="webhare_output">WebHare output webserver</text>
+          <text tid="webhare_rulesonly">Alleen toegangsregels hosten, geen gepubliceerde content</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="webservergroup">   <!-- tolliumapps.webservers.webservergroup -->
+        <text tid="title">Naam</text>
+        <text tid="webservergroup">Pas webservergroep aan</text>
       </textgroup>
     </textgroup>
   </textgroup>
@@ -2458,35 +2459,6 @@
       <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
         <text tid="rights">Rechten</text>
         <text tid="users">Gebruikers</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="webservers">   <!-- webservers -->
-    <textgroup gid="proxies">   <!-- webservers.proxies -->
-      <textgroup gid="update">   <!-- webservers.proxies.update -->
-        <text tid="hostswhitelist">Hosts whitelist</text>
-        <text tid="lasterror">Laatste fout</text>
-        <text tid="password">Wachtwoord</text>
-        <text tid="portswhitelist">Ports whitelist</text>
-        <text tid="reverseaddress">Lokale verbindingsadres</text>
-        <text tid="test">Testen</text>
-        <text tid="updateproxy">Proxy bewerken</text>
-        <text tid="url">URL</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="webservers">   <!-- webservers.webservers -->
-      <textgroup gid="certbotrequest">   <!-- webservers.webservers.certbotrequest -->
-        <text tid="certbotrequest">LetsEncrypt (Certbot) certificaat aanvraag</text>
-        <text tid="domainnames">Domeinnamen</text>
-        <text tid="domainnames-placeholder">De namen om aan te vragen, bv www.example.net example.net</text>
-        <text tid="nothostedhere">De hostnaam '<param p="1"/>' wordt niet door deze server gehost</text>
-        <text tid="request">Certificaat aanvragen</text>
-        <text tid="result">Resultaat aanvraag</text>
-      </textgroup>
-      <textgroup gid="exportusagestats">   <!-- webservers.webservers.exportusagestats -->
-        <text tid="enddate">Einddatum</text>
-        <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
-        <text tid="startdate">Startdatum</text>
       </textgroup>
     </textgroup>
   </textgroup>

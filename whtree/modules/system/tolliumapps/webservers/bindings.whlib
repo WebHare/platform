@@ -15,7 +15,7 @@ PUBLIC BOOLEAN FUNCTION IsPortUsed(INTEGER portnum, STRING ipbind, INTEGER skipb
                                         OR (ip IN ["","0.0.0.0"] AND ipbind IN ["","0.0.0.0"])));
 }
 
-PUBLIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD params)
   {
@@ -65,10 +65,10 @@ PUBLIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
     RECORD existingwebserver := SELECT * FROM system.webservers WHERE port = row.rowkey;
     IF(RecordExists(existingwebserver))
     {
-      this->RunMessageBox(".cannotdeletebindinginuse", existingwebserver.baseurl);
+      this->RunSimpleScreen("info", this->GetTid(".cannotdeletebindinginuse", existingwebserver.baseurl));
       RETURN;
     }
-    IF (this->RunMessageBox(".deletebinding") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletebinding")) != "yes")
       RETURN;
     if(row.yourbinding AND this->RunSimpleScreen("verify", this->GetTid(".confirmdeleteusedinding"))!="yes")
       RETURN;
@@ -83,13 +83,13 @@ PUBLIC OBJECTTYPE Bindings EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
 <
   INTEGER bindingid;
 
   MACRO Init(RECORD params)
   {
-    this->privatekeys->options := [ [ rowkey := 0, title := this->GetTid(".selectacertificate"), invalidselection := TRUE ] ] CONCAT
+    ^privatekeys->options := [ [ rowkey := 0, title := this->GetTid(".selectacertificate"), invalidselection := TRUE ] ] CONCAT
        SELECT rowkey :=             id
             , title :=              name
          FROM ListKeyPairs()
@@ -98,54 +98,54 @@ PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
 
     this->bindingid := params.id;
 
-    this->port->options := [[ title := "80" ]
-                           ,[ title := "443" ]
-                           ,[ title := "8000" ]
-                           ];
-    this->ip->options := SELECT title := ip
-                           FROM ToRecordArray(GetLocalIPs(), "ip")
-                          WHERE ToUppercase(ip) NOT LIKE "FE80:*"
-                       ORDER BY ip NOT LIKE "*:*" DESC
-                              , ip;
+    ^port->options := [[ title := "80" ]
+                      ,[ title := "443" ]
+                      ,[ title := "8000" ]
+                      ];
+    ^ip->options := SELECT title := ip
+                      FROM ToRecordArray(GetLocalIPs(), "ip")
+                     WHERE ToUppercase(ip) NOT LIKE "FE80:*"
+                  ORDER BY ip NOT LIKE "*:*" DESC
+                         , ip;
 
     IF (this->bindingid != 0)
     {
       RECORD thisipport := SELECT * FROM system.ports WHERE id = this->bindingid;
 
-      this->port->value := thisipport.port;
-      this->description->value := thisipport.description;
+      ^port->value := thisipport.port;
+      ^description->value := thisipport.description;
 
       IF (thisipport.ip IN ["","0.0.0.0"])
       {
-        this->localip->value := "allips";
+        ^localip->value := "allips";
       }
       ELSE IF (thisipport.ip = "::")
       {
-        this->localip->value := "allip6s";
+        ^localip->value := "allip6s";
       }
       ELSE IF (thisipport.ip != "")
       {
-        this->localip->value := "address";
-        this->ip->value := thisipport.ip;
+        ^localip->value := "address";
+        ^ip->value := thisipport.ip;
       }
 
 
-      this->virtualhosting->enabled := FALSE;
-      this->virtualhosting->value := thisipport.virtualhost;
-      this->securehosting->value := thisipport.keypair != 0;
-      this->privatekeys->SetValueIfValid(thisipport.keypair);
+      ^virtualhosting->enabled := FALSE;
+      ^virtualhosting->value := thisipport.virtualhost;
+      ^securehosting->value := thisipport.keypair != 0;
+      ^privatekeys->SetValueIfValid(thisipport.keypair);
 
       RECORD requestdata := this->tolliumcontroller->GetWebserverRequestData();
 
       // if this binding is being used by us, make everything read-only
       IF (requestdata.localport = thisipport.port AND (thisipport.ip="" OR thisipport.ip = requestdata.localip))
       {
-        this->readonlywarningpanel->visible := TRUE;
-        this->localip->enabled := FALSE;
-        this->port->enabled := FALSE;
-        this->ip->enabled := FALSE;
-        this->securehosting->enabled := FALSE;
-        this->privatekeys->enabled := FALSE;
+        ^readonlywarningpanel->visible := TRUE;
+        ^localip->enabled := FALSE;
+        ^port->enabled := FALSE;
+        ^ip->enabled := FALSE;
+        ^securehosting->enabled := FALSE;
+        ^privatekeys->enabled := FALSE;
       }
     }
   }
@@ -156,21 +156,21 @@ PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
 
     STRING http_ip;
 
-    IF (this->localip->value = "address")
-      http_ip := this->ip->value;
-    ELSE IF (this->localip->value = "allip6s")
+    IF (^localip->value = "address")
+      http_ip := ^ip->value;
+    ELSE IF (^localip->value = "allip6s")
       http_ip := "::";
     ELSE
       http_ip := "0.0.0.0";
 
-    IF (IsPortUsed(this->port->value, http_ip, this->bindingid))
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.port_used"));
+    IF (IsPortUsed(^port->value, http_ip, this->bindingid))
+      work->AddError(this->GetTid(".errors.port_used"));
 
-    IF (this->port->value < 1)
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_port"));
+    IF (^port->value < 1)
+      work->AddError(this->GetTid(".errors.invalid_port"));
 
     IF (NOT IsValidIPAddress(http_ip))
-      work->AddError(GetTID("system:sysmgmt.webservers.updatebinding.errors.invalid_ip"));
+      work->AddError(this->GetTid(".errors.invalid_ip"));
 
     IF (work->HasFailed())
       RETURN work->Finish();
@@ -179,15 +179,15 @@ PUBLIC OBJECTTYPE UpdateBinding EXTEND TolliumScreenBase
     IF (updatebinding=0)
     {
       updatebinding := MakeAutonumber(system.ports, "id");
-      INSERT INTO system.ports(id,port) VALUES(updatebinding,this->port->value);
+      INSERT INTO system.ports(id,port) VALUES(updatebinding, ^port->value);
     }
 
     UPDATE system.ports
        SET ip := http_ip
-         , port := this->port->value
-         , virtualhost := this->virtualhosting->value
-         , keypair := this->securehosting->value ? this->privatekeys->value : 0
-         , description := this->description->value
+         , port := ^port->value
+         , virtualhost := ^virtualhosting->value
+         , keypair := ^securehosting->value ? ^privatekeys->value : 0
+         , description := ^description->value
      WHERE id = updatebinding;
 
     IF (NOT work->Finish())

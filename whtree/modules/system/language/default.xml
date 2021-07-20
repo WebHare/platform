@@ -1217,303 +1217,10 @@
         <text tid="deleteusers">Are you sure you want to remove access for <param p="1"/> users?</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="webservers">   <!-- sysmgmt.webservers -->
-      <text tid="title">Webservers</text>
-      <textgroup gid="accessrules">   <!-- sysmgmt.webservers.accessrules -->
-        <text tid="externalusers">External users</text>
-        <text tid="ipfilters">IP filters</text>
-        <text tid="title">Access rules</text>
-        <text tid="view">View URL</text>
-        <text tid="webhareusers">WebHare users</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.accessrules.columns -->
-          <text tid="description">Description</text>
-          <text tid="path">Path</text>
-          <text tid="protected">Protected</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="bindings">   <!-- sysmgmt.webservers.bindings -->
-        <text tid="allip6s">All local IPv6 addresses</text>
-        <text tid="allips">All local IPv4 addresses</text>
-        <text tid="confirmdeleteusedinding">You seem to be connected using this port. Are you REALLY SURE you want to delete this port?</text>
-        <text tid="title">Ports and incoming connections</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.bindings.columns -->
-          <text tid="ip">IP address</text>
-          <text tid="port">Port</text>
-          <text tid="secure">Secure</text>
-          <text tid="virtualhost">Name-based</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="externalusers">   <!-- sysmgmt.webservers.externalusers -->
-        <text tid="externalusers">External users</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.externalusers.columns -->
-          <text tid="description">Description</text>
-          <text tid="username">Username</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="ipfilters">   <!-- sysmgmt.webservers.ipfilters -->
-        <text tid="allowed">Allowed</text>
-        <text tid="allowwithoutdeny">IP filters are not effective without at least one denying rule.</text>
-        <text tid="denied">Denied</text>
-        <text tid="title">IP filters</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.ipfilters.columns -->
-          <text tid="mask">IP mask</text>
-          <text tid="status">Access</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.webservers.messages -->
-        <text tid="cannotdeletebindinginuse">The webserver '<param p="1"/>' needs to be removed from this binding before you can delete it.</text>
-        <text tid="cannotdeletefilledgroup">This group cannot be deleted at this moment because there are webserver inside.</text>
-        <text tid="cannotdeleteprimaryinterface">The webserver '<param p="1"/>' can not be deleted at this moment, because it hosts the primary WebHare interface.</text>
-        <text tid="cannotdeleteyourserver">The webserver '<param p="1"/>' can not be deleted at this moment, because you are using this webserver now to access this configuration screen.</text>
-        <text tid="checkingwebservers">A webserver check has been scheduled, the list will update when it's done</text>
-        <text tid="couldnotconnect">Could not connect to the proxy.</text>
-        <text tid="deleteaccessrule">Are you sure you want to delete this access rule?</text>
-        <text tid="deletealias">Are you sure you want to delete alias '<param p="1"/>'?</text>
-        <text tid="deletebinding">Are you sure you want to delete this binding?</text>
-        <text tid="deletegroup">Are you sure you want to delete this group?</text>
-        <text tid="deleteipfilter">Are you sure you want to delete this IP filter?</text>
-        <text tid="deletemimetype">Are you sure you want to delete the file type with extension '<param p="1"/>'?</text>
-        <text tid="deleteproxy">Are you sure you want to unregister from proxy '<param p="1"/>'?</text>
-        <text tid="deleteselection">Are you sure you want to delete the selection ?</text>
-        <text tid="deleteuser">Are you sure you want to delete these users?</text>
-        <text tid="deletewebserver">Are you sure you want to delete webserver '<param p="1"/>'?</text>
-        <text tid="interfaceurlnothosted">The proxy detected that the local connection address does not resolve to this server, because the WebHare interface URL was not found on the connected server. Is this a backup of the original server?</text>
-        <text tid="proxycouldnotconnect">The proxy could not connect to your local connect address.</text>
-        <text tid="testok">The connection test to the proxy succeeded.</text>
-        <text tid="unknownproxyerror">The proxy could not verify the connection to this server, and returned the following error code: '<param p="1"/>'</text>
-        <text tid="unregisterfailedsuredelete">Could not unregister this server with the proxy. Are you sure you want to remove the registration locally?</text>
-        <text tid="useipfiltersiwithoutdeny">Users will not be denied access because no denying rule is present. Are you sure you want to configure the IP filters this way?</text>
-        <text tid="verifydeletefilledgroup">Deleting this group will permanently delete the contained webservers, aliases and access rule settings and cannot be undone.<br/><br/>Are you sure you want to delete this group?</text>
-        <text tid="wrongpassword">Could not connect to the proxy: the password was wrong.</text>
-        <text tid="wrongverificationcode">The proxy detected that the local connection address does not resolve to this server, because the used verification code was not known on the connected server. Is this a backup of the original server?</text>
-      </textgroup>
-      <textgroup gid="mimetype">   <!-- sysmgmt.webservers.mimetype -->
-        <text tid="extension">Extension</text>
-        <text tid="mimetype">Mime type</text>
-        <text tid="parsetype">Handling</text>
-        <text tid="parsetype-0">Send as-is</text>
-        <text tid="parsetype-1">HareScript</text>
-        <text tid="parsetype-2">CGI</text>
-        <text tid="parsetype-3">Script</text>
-        <text tid="parsetype-4">HareScript (websocket)</text>
-        <text tid="windowtitle_add">Add file type</text>
-        <text tid="windowtitle_edit">Edit file type with extension '<param p="1"/>'</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.mimetype.errors -->
-          <text tid="duplicate_extension">The extension '<param p="1"/>' is already in use, please choose an other extension</text>
-          <text tid="extension_starting_dot">The extension cannot start with a dot (.)</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="mimetypes">   <!-- sysmgmt.webservers.mimetypes -->
-        <text tid="title">File types</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.mimetypes.columns -->
-          <text tid="extension">Extension</text>
-          <text tid="handling">Handling</text>
-          <text tid="mimetype">Mime type</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="overview">   <!-- sysmgmt.webservers.overview -->
-        <text tid="accessrules">Access rules</text>
-        <text tid="addalias">Alias</text>
-        <text tid="addalias_contextmenu">Add alias</text>
-        <text tid="addgroup">Group</text>
-        <text tid="addwebserver">Webserver</text>
-        <text tid="addwebservergroup">Group</text>
-        <text tid="bindings">Ports</text>
-        <text tid="certbotrequest">Request LetsEncrypt certificate</text>
-        <text tid="exportusagestats">Export usage stats</text>
-        <text tid="filetypes">Filetypes</text>
-        <text tid="filter">Filter</text>
-        <text tid="filterchange">Change</text>
-        <text tid="keystore">Keystore</text>
-        <text tid="nofiltermatch">No webservers or aliasses contain the text '<param p="1"/>'</text>
-        <text tid="permissions">Rights</text>
-        <text tid="preview">View site</text>
-        <text tid="proxies">Proxies</text>
-        <text tid="schedulecheck">Schedule webservers check</text>
-        <text tid="title">Webserver management</text>
-        <text tid="webroot">All webservers</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.overview.columns -->
-          <text tid="path">Location</text>
-          <text tid="rules">Rules</text>
-          <text tid="sites">Sites</text>
-          <text tid="webserver">Webserver</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="proxies">   <!-- sysmgmt.webservers.proxies -->
-        <text tid="reregister">Reregister</text>
-        <text tid="title">Proxies</text>
-        <textgroup gid="columns">   <!-- sysmgmt.webservers.proxies.columns -->
-          <text tid="lastregistration">Last registration</text>
-          <text tid="url">URL</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="scripts">   <!-- sysmgmt.webservers.scripts -->
-        <text tid="eventcompletion">WHFS event completion</text>
-        <text tid="getconfig">Webserver dynamic reconfiguration</text>
-        <text tid="mutexmgr">Mutex manager</text>
-        <text tid="resourcemgr">Module cache</text>
-      </textgroup>
-      <textgroup gid="types">   <!-- sysmgmt.webservers.types -->
-        <text tid="external_webhare">External (publish only, no hosting)</text>
-        <text tid="webhare_interface">WebHare backend (webinterface)</text>
-        <text tid="webhare_output">WebHare output webserver</text>
-        <text tid="webhare_rulesonly">Host access rules only, no published content</text>
-      </textgroup>
-      <textgroup gid="updateaccessrule">   <!-- sysmgmt.webservers.updateaccessrule -->
-        <text tid="allservers">All webservers hosted on this installation</text>
-        <text tid="appliesto">Applies to</text>
-        <text tid="applysource">Apply source</text>
-        <text tid="authlist">Use external user accounts to log in</text>
-        <text tid="authrequirement">IP access rules</text>
-        <text tid="authrequirement-and">Users must match IP access rules AND must login if required</text>
-        <text tid="authrequirement-or">Users must login if they were rejected by the IP access rules</text>
-        <text tid="authtype">Login method</text>
-        <text tid="authtype-allwebhareaccounts">All users must login using their WebHare account</text>
-        <text tid="authtype-nologinrequired">No WebHare account login</text>
-        <text tid="authtype-somewebhareaccounts">Only selected WebHare users are able to login</text>
-        <text tid="dbroles">Database roles</text>
-        <text tid="dbroles-explanation">(comma-separated)</text>
-        <text tid="dbroles-hint">Comma-separated list of roles</text>
-        <text tid="description">Description</text>
-        <text tid="disablecaching">Disable browser caching</text>
-        <text tid="enabled">Enable this access rule</text>
-        <text tid="errorhandling">Error handling</text>
-        <text tid="errorpath">Location of error files</text>
-        <text tid="externaldb">Connect to external or remote databases (LDAP, ODBC, Oracle, etc)</text>
-        <text tid="externalscript">Custom authorization script:</text>
-        <text tid="externalscript_error">Custom authorization script</text>
-        <text tid="fixcase">If a file cannot be found, try alternative capitalizations</text>
-        <text tid="forcehttps">Redirect HTTP users to HTTPS</text>
-        <text tid="fulldb">Establish connections as the WebHare database operator</text>
-        <text tid="general">General</text>
-        <text tid="hostingsource">Hosting source</text>
-        <text tid="hostingsrc-alternate">Alternative content folder</text>
-        <text tid="hostingsrc-cgi">CGI script directory</text>
-        <text tid="hostingsrc-module">WebHare module website</text>
-        <text tid="hostingsrc-redirect">Redirect to URL</text>
-        <text tid="hostingsrc-singlefile">Handled by single (HareScript) file</text>
-        <text tid="hostingsrc-standard">Standard serving</text>
-        <text tid="hsrights">HareScript rights</text>
-        <text tid="keepsubpath">Keep URL subpath</text>
-        <text tid="localdb">Local WebHare database</text>
-        <text tid="localdb-localdb">Establish connections to the local WebHare database</text>
-        <text tid="localdb-none">May not establish (additional) connections</text>
-        <text tid="login">Page logins</text>
-        <text tid="matchtype">Path matching</text>
-        <text tid="matchtype-exact">Requested path must match exactly</text>
-        <text tid="matchtype-initial">Initial path must match</text>
-        <text tid="matchtype-wildcard">Wildcard matching</text>
-        <text tid="maxage">Maximum cache age</text>
-        <text tid="othermethods">Other login methods</text>
-        <text tid="path">For requested path</text>
-        <text tid="redirectcode">Redirect code</text>
-        <text tid="redirectcode-301">301 - Moved permanently</text>
-        <text tid="redirectcode-302">302 - Found at different location</text>
-        <text tid="redirectcode-303">303 - See other</text>
-        <text tid="redirectcode-307">307 - Moved temporarily</text>
-        <text tid="seconds">seconds</text>
-        <text tid="super">Full access to the system (files and processes)</text>
-        <text tid="tcpip">Allow networking (TCP/IP)</text>
-        <text tid="title">Access rule</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateaccessrule.errors -->
-          <text tid="cannot_redirect_to_initial_matchtype">When redirecting to an URL, the field '<param p="1"/>' must be set to '<param p="2"/>'</text>
-          <text tid="duplicate_path">The path you specified already has an access rule defined.</text>
-          <text tid="invalid_role">Could not find role '<param p="1"/>'</text>
-          <text tid="login_required">You must select a login method if logging in is an alternative to matching the IP access rules.</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updatealias">   <!-- sysmgmt.webservers.updatealias -->
-        <text tid="explicit">Alias type</text>
-        <text tid="explicit-false">Redirect to main URL</text>
-        <text tid="explicit-true">This is an alternative hostname</text>
-        <text tid="hostname">Hostname</text>
-        <text tid="title">Alias properties</text>
-      </textgroup>
-      <textgroup gid="updatebinding">   <!-- sysmgmt.webservers.updatebinding -->
-        <text tid="address">Specified address</text>
-        <text tid="allip6s">All local IPv6 addresses</text>
-        <text tid="allips">All local IPv4 addresses</text>
-        <text tid="hostingtype">Hosting type</text>
-        <text tid="ip">IP address</text>
-        <text tid="localip">Available on</text>
-        <text tid="namebinding">Name based</text>
-        <text tid="port">Port</text>
-        <text tid="portbinding">IP and port based</text>
-        <text tid="portgroup">Port and IP</text>
-        <text tid="privatekeys">Key</text>
-        <text tid="readonlywarning">These values cannot be changed because the binding is being used by you.</text>
-        <text tid="securehosting">Secure (SSL) hosting, using:</text>
-        <text tid="selectacertificate">Choose a key...</text>
-        <text tid="updatebinding">Binding</text>
-        <text tid="virtualhosting">Binding type</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updatebinding.errors -->
-          <text tid="invalid_ip">This is not a valid IP address</text>
-          <text tid="invalid_port">The field 'Port' containts an valid port number</text>
-          <text tid="port_used">This port is already being used, please choose an other port number</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updateexternaluser">   <!-- sysmgmt.webservers.updateexternaluser -->
-        <text tid="description">Description</text>
-        <text tid="password">Password</text>
-        <text tid="password_again">Password (again)</text>
-        <text tid="updateexternaluser">External user</text>
-        <text tid="username">Username</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateexternaluser.errors -->
-          <text tid="duplicate_username">The username '<param p="1"/>' is already in use for this webserver</text>
-          <text tid="passwords_dont_match">The entered passwords do not match</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updateipfilter">   <!-- sysmgmt.webservers.updateipfilter -->
-        <text tid="allow_access">Allow access</text>
-        <text tid="deny_access">Deny access</text>
-        <text tid="mask">IP mask</text>
-        <text tid="title">IP Filter</text>
-        <textgroup gid="errors">   <!-- sysmgmt.webservers.updateipfilter.errors -->
-          <text tid="duplicate_mask">The IP mask you specified has already been defined.</text>
-          <text tid="invalid_mask">The IP mask you entered is invalid.</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="updatewebserver">   <!-- sysmgmt.webservers.updatewebserver -->
-        <text tid="aliasswap">The hostname '<param p="1"/>' was already on the alias list for this webserver.The new hostname will be set for this webserver as its preferred hostname, and the old hostname '<param p="2"/>' will be moved to the alias list instead.</text>
-        <text tid="bound-allips">All local IP addresses</text>
-        <text tid="boundto">Bound to</text>
-        <text tid="extension">Output extension</text>
-        <text tid="folder">Output folder</text>
-        <text tid="servertype">Webserver type</text>
-        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
-        <text tid="stricttransportsecurity-0">Not set</text>
-        <text tid="stricttransportsecurity-2592000">1 month</text>
-        <text tid="stricttransportsecurity-31536000">1 year (recommended)</text>
-        <text tid="stricttransportsecurity-63072000">3 years</text>
-        <text tid="stricttransportsecurity-7776000">3 months</text>
-        <text tid="stricttransportsecurity-86400">1 day</text>
-        <text tid="stricttransportsecurity-900">15 minutes (for testing)</text>
-        <text tid="updatewebserver">Edit webserver</text>
-        <text tid="url">URL</text>
-        <text tid="urllockedforversioning">The URL cannot be changed because this webservers hosts one or more versioned sites.</text>
-        <text tid="virtualhosted">Name-based hosting</text>
-      </textgroup>
-      <textgroup gid="webhareusers">   <!-- sysmgmt.webservers.webhareusers -->
-        <text tid="webhareusers">WebHare users</text>
-      </textgroup>
-      <textgroup gid="webservergroup">   <!-- sysmgmt.webservers.webservergroup -->
-        <text tid="title">Name</text>
-        <text tid="webservergroup">Edit webserver group</text>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="system">   <!-- system -->
     <textgroup gid="apprunner">   <!-- system.apprunner -->
       <text tid="apprunnerdown">The service manager is unavaialble</text>
-    </textgroup>
-    <textgroup gid="webservers">   <!-- system.webservers -->
-      <textgroup gid="updatewebserver">   <!-- system.webservers.updatewebserver -->
-        <text tid="bindingrequireshttp">The selected port does not have encryption set up, so the URL must start with 'http://'.</text>
-        <text tid="bindingrequireshttps">The selected port has been configured to use encryption, so the URL must start with 'https://'.</text>
-        <text tid="hostnameinuse">The hostname '<param p="1"/>' is already in use by a different virtual hosted webserver.</text>
-        <text tid="hostnameinuseasalias">The hostname '<param p="1"/>' is already in use by an alias of the virtual hosted webserver' <param p="2"/>'.</text>
-        <text tid="urlnosubpath">The URL of a hosted webserver may not contain a subpath, it must be of the form 'http(s)://hostname/'.</text>
-      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
@@ -2054,6 +1761,300 @@
     <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Revoke right grant</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="webservers">   <!-- tolliumapps.webservers -->
+      <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules -->
+        <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules.accessrules -->
+          <text tid="deleteaccessrule">Are you sure you want to delete this access rule?</text>
+          <text tid="empty-nomatchfor">No access rules match '<param p="1"/>'</text>
+          <text tid="empty-norules">There are no access rules configured here yet</text>
+          <text tid="export-globalrules">Global access rules</text>
+          <text tid="export-rulesfor">Access rules <param p="1"/></text>
+          <text tid="externalusers">External users</text>
+          <text tid="filter">Filter</text>
+          <text tid="filter-placeholder">Search in path, target or description</text>
+          <text tid="ipfilters">IP filters</text>
+          <text tid="title">Access rules</text>
+          <text tid="view">View URL</text>
+          <text tid="webhareusers">WebHare users</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
+            <text tid="description">Description</text>
+            <text tid="enabled">Enabled</text>
+            <text tid="matchtype">Match type</text>
+            <text tid="path">Path</text>
+            <text tid="target">Target</text>
+            <text tid="type">Rule type</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="externalusers">   <!-- tolliumapps.webservers.accessrules.externalusers -->
+          <text tid="deleteuser">Are you sure you want to remove access for the user '<param p="1"/>'?</text>
+          <text tid="externalusers">External users</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.externalusers.columns -->
+            <text tid="description">Description</text>
+            <text tid="username">Username</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="ipfilters">   <!-- tolliumapps.webservers.accessrules.ipfilters -->
+          <text tid="allowed">Allowed</text>
+          <text tid="allowwithoutdeny">IP filters are not effective without at least one denying rule.</text>
+          <text tid="deleteipfilter">Are you sure you want to delete this IP filter?</text>
+          <text tid="denied">Denied</text>
+          <text tid="title">IP filters</text>
+          <text tid="useipfiltersiwithoutdeny">Users will not be denied access because no denying rule is present. Are you sure you want to configure the IP filters this way?</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.ipfilters.columns -->
+            <text tid="mask">IP mask</text>
+            <text tid="status">Access</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateaccessrule">   <!-- tolliumapps.webservers.accessrules.updateaccessrule -->
+          <text tid="allservers">All webservers hosted on this installation</text>
+          <text tid="appliesto">Applies to</text>
+          <text tid="authlist">Use external user accounts to log in</text>
+          <text tid="authrequirement">IP access rules</text>
+          <text tid="authrequirement-and">Users must match IP access rules AND must login if required</text>
+          <text tid="authrequirement-or">Users must login if they were rejected by the IP access rules</text>
+          <text tid="authtype">Login method</text>
+          <text tid="authtype-allwebhareaccounts">All users must login using their WebHare account</text>
+          <text tid="authtype-nologinrequired">No WebHare account login</text>
+          <text tid="authtype-somewebhareaccounts">Only selected WebHare users are able to login</text>
+          <text tid="description">Description</text>
+          <text tid="disablecaching">Disable browser caching</text>
+          <text tid="enabled">Enable this access rule</text>
+          <text tid="errorpath">Location of error files</text>
+          <text tid="externalscript">Custom authorization script:</text>
+          <text tid="externalscript_error">Custom authorization script</text>
+          <text tid="fixcase">If a file cannot be found, try alternative capitalizations</text>
+          <text tid="general">General</text>
+          <text tid="hostingsource">Hosting source</text>
+          <text tid="hostingsrc-alternate">Alternative content folder</text>
+          <text tid="hostingsrc-module">WebHare module website</text>
+          <text tid="hostingsrc-redirect">Redirect to URL</text>
+          <text tid="hostingsrc-singlefile">Handled by single (HareScript) file</text>
+          <text tid="hostingsrc-standard">Standard serving</text>
+          <text tid="keepsubpath">Keep URL subpath</text>
+          <text tid="login">Page logins</text>
+          <text tid="login_required">You must select a login method if logging in is an alternative to matching the IP access rules.</text>
+          <text tid="matchtype">Path matching</text>
+          <text tid="matchtype-exact">Requested path must match exactly</text>
+          <text tid="matchtype-initial">Initial path must match</text>
+          <text tid="matchtype-wildcard">Wildcard matching</text>
+          <text tid="maxage">Maximum cache age</text>
+          <text tid="path">For requested path</text>
+          <text tid="redirectcode">Redirect code</text>
+          <text tid="redirectcode-301">301 - Moved permanently</text>
+          <text tid="redirectcode-302">302 - Found at different location</text>
+          <text tid="redirectcode-303">303 - See other</text>
+          <text tid="redirectcode-307">307 - Moved temporarily</text>
+          <text tid="seconds">seconds</text>
+          <text tid="title">Access rule</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateaccessrule.errors -->
+            <text tid="cannot_redirect_to_initial_matchtype">When redirecting to an URL, the field '<param p="1"/>' must be set to '<param p="2"/>'</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateexternaluser">   <!-- tolliumapps.webservers.accessrules.updateexternaluser -->
+          <text tid="description">Description</text>
+          <text tid="password">Password</text>
+          <text tid="password_again">Password (again)</text>
+          <text tid="updateexternaluser">External user</text>
+          <text tid="username">Username</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateexternaluser.errors -->
+            <text tid="duplicate_username">The username '<param p="1"/>' is already in use for this webserver</text>
+            <text tid="passwords_dont_match">The entered passwords do not match</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updateipfilter">   <!-- tolliumapps.webservers.accessrules.updateipfilter -->
+          <text tid="allow_access">Allow access</text>
+          <text tid="deny_access">Deny access</text>
+          <text tid="mask">IP mask</text>
+          <text tid="title">IP Filter</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.accessrules.updateipfilter.errors -->
+            <text tid="duplicate_mask">The IP mask you specified has already been defined.</text>
+            <text tid="invalid_mask">The IP mask you entered is invalid.</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="webhareusers">   <!-- tolliumapps.webservers.accessrules.webhareusers -->
+          <text tid="webhareusers">WebHare users</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="bindings">   <!-- tolliumapps.webservers.bindings -->
+        <textgroup gid="bindings">   <!-- tolliumapps.webservers.bindings.bindings -->
+          <text tid="cannotdeletebindinginuse">The webserver '<param p="1"/>' needs to be removed from this binding before you can delete it.</text>
+          <text tid="confirmdeleteusedinding">You seem to be connected using this port. Are you REALLY SURE you want to delete this port?</text>
+          <text tid="deletebinding">Are you sure you want to delete this binding?</text>
+          <text tid="title">Ports and incoming connections</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.bindings.bindings.columns -->
+            <text tid="port">Port</text>
+            <text tid="virtualhost">Name-based</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="updatebinding">   <!-- tolliumapps.webservers.bindings.updatebinding -->
+          <text tid="address">Specified address</text>
+          <text tid="allip6s">All local IPv6 addresses</text>
+          <text tid="allips">All local IPv4 addresses</text>
+          <text tid="hostingtype">Hosting type</text>
+          <text tid="ip">IP address</text>
+          <text tid="localip">Available on</text>
+          <text tid="namebinding">Name based</text>
+          <text tid="port">Port</text>
+          <text tid="portbinding">IP and port based</text>
+          <text tid="portgroup">Port and IP</text>
+          <text tid="privatekeys">Key</text>
+          <text tid="readonlywarning">These values cannot be changed because the binding is being used by you.</text>
+          <text tid="securehosting">Secure (SSL) hosting, using:</text>
+          <text tid="selectacertificate">Choose a key...</text>
+          <text tid="virtualhosting">Binding type</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.bindings.updatebinding.errors -->
+            <text tid="invalid_ip">This is not a valid IP address</text>
+            <text tid="invalid_port">The field 'Port' containts an valid port number</text>
+            <text tid="port_used">This port is already being used, please choose an other port number</text>
+          </textgroup>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="certbotrequest">   <!-- tolliumapps.webservers.certbotrequest -->
+        <text tid="certbotrequest">LetsEncrypt (Certbot) certificate request</text>
+        <text tid="domainnames">Domain names</text>
+        <text tid="domainnames-placeholder">The name(s) to request, eg www.example.net example.net</text>
+        <text tid="nothostedhere">The hostname '<param p="1"/>'' is not hosted on this server</text>
+        <text tid="request">Request certificate</text>
+      </textgroup>
+      <textgroup gid="exportusagestats">   <!-- tolliumapps.webservers.exportusagestats -->
+        <text tid="enddate">End date</text>
+        <text tid="exportusagestats">Export usage stats</text>
+        <text tid="startdate">Start date</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
+        <text tid="couldnotconnect">Could not connect to the proxy.</text>
+        <text tid="interfaceurlnothosted">The proxy detected that the local connection address does not resolve to this server, because the WebHare interface URL was not found on the connected server. Is this a backup of the original server?</text>
+        <text tid="proxycouldnotconnect">The proxy could not connect to your local connect address.</text>
+        <text tid="unknownproxyerror">The proxy could not verify the connection to this server, and returned the following error code: '<param p="1"/>'</text>
+        <text tid="wrongpassword">Could not connect to the proxy: the password was wrong.</text>
+        <text tid="wrongverificationcode">The proxy detected that the local connection address does not resolve to this server, because the used verification code was not known on the connected server. Is this a backup of the original server?</text>
+      </textgroup>
+      <textgroup gid="mimetypes">   <!-- tolliumapps.webservers.mimetypes -->
+        <textgroup gid="mimetype">   <!-- tolliumapps.webservers.mimetypes.mimetype -->
+          <text tid="extension">Extension</text>
+          <text tid="mimetype">Mime type</text>
+          <text tid="parsetype">Handling</text>
+          <text tid="parsetype-0">Send as-is</text>
+          <text tid="parsetype-1">HareScript</text>
+          <text tid="parsetype-2">CGI</text>
+          <text tid="parsetype-3">Script</text>
+          <text tid="parsetype-4">HareScript (websocket)</text>
+          <text tid="windowtitle_add">Add file type</text>
+          <text tid="windowtitle_edit">Edit file type with extension '<param p="1"/>'</text>
+          <textgroup gid="errors">   <!-- tolliumapps.webservers.mimetypes.mimetype.errors -->
+            <text tid="duplicate_extension">The extension '<param p="1"/>' is already in use, please choose an other extension</text>
+            <text tid="extension_starting_dot">The extension cannot start with a dot (.)</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="mimetypes">   <!-- tolliumapps.webservers.mimetypes.mimetypes -->
+          <text tid="deletemimetype">Are you sure you want to delete the file type with extension '<param p="1"/>'?</text>
+          <text tid="title">Mime types</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.mimetypes.mimetypes.columns -->
+            <text tid="extension">Extension</text>
+            <text tid="handling">Handling</text>
+            <text tid="mimetype">Mime type</text>
+          </textgroup>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="overview">   <!-- tolliumapps.webservers.overview -->
+        <text tid="accessrules">Access rules</text>
+        <text tid="addalias">Alias</text>
+        <text tid="addgroup">Group</text>
+        <text tid="addwebserver">Webserver</text>
+        <text tid="bindings">Ports</text>
+        <text tid="cannotdeleteprimaryinterface">The webserver '<param p="1"/>' can not be deleted at this moment, because it hosts the primary WebHare interface.</text>
+        <text tid="cannotdeleteyourserver">The webserver '<param p="1"/>' can not be deleted at this moment, because you are using this webserver now to access this configuration screen.</text>
+        <text tid="certbotrequest">Request LetsEncrypt certificate</text>
+        <text tid="checkingwebservers">A webserver check has been scheduled, the list will update when it's done</text>
+        <text tid="deletealias">Are you sure you want to delete alias '<param p="1"/>'?</text>
+        <text tid="deletegroup">Are you sure you want to delete this group?</text>
+        <text tid="deleteselection">Are you sure you want to delete the selection ?</text>
+        <text tid="deletewebserver">Are you sure you want to delete webserver '<param p="1"/>'?</text>
+        <text tid="exportusagestats">Export usage stats</text>
+        <text tid="filetypes">Filetypes</text>
+        <text tid="filter">Filter</text>
+        <text tid="keystore">Keystore</text>
+        <text tid="nofiltermatch">No webservers or aliasses contain the text '<param p="1"/>'</text>
+        <text tid="preview">View site</text>
+        <text tid="proxies">Proxies</text>
+        <text tid="schedulecheck">Schedule webservers check</text>
+        <text tid="title">Webserver management</text>
+        <text tid="verifydeletefilledgroup">Deleting this group will permanently delete the contained webservers, aliases and access rule settings and cannot be undone.<br/><br/>Are you sure you want to delete this group?</text>
+        <text tid="webroot">All webservers</text>
+        <textgroup gid="columns">   <!-- tolliumapps.webservers.overview.columns -->
+          <text tid="path">Location</text>
+          <text tid="rules">Rules</text>
+          <text tid="sites">Sites</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="proxies">   <!-- tolliumapps.webservers.proxies -->
+        <textgroup gid="proxies">   <!-- tolliumapps.webservers.proxies.proxies -->
+          <text tid="deleteproxy">Are you sure you want to unregister from proxy '<param p="1"/>'?</text>
+          <text tid="reregister">Reregister</text>
+          <text tid="title">Proxies</text>
+          <text tid="unregisterfailedsuredelete">Could not unregister this server with the proxy. Are you sure you want to remove the registration locally?</text>
+          <textgroup gid="columns">   <!-- tolliumapps.webservers.proxies.proxies.columns -->
+            <text tid="lastregistration">Last registration</text>
+            <text tid="url">URL</text>
+          </textgroup>
+        </textgroup>
+        <textgroup gid="update">   <!-- tolliumapps.webservers.proxies.update -->
+          <text tid="hostswhitelist">Hosts whitelist</text>
+          <text tid="lasterror">Last error</text>
+          <text tid="password">Password</text>
+          <text tid="reverseaddress">Local connect address</text>
+          <text tid="test">Test</text>
+          <text tid="testok">The connection test to the proxy succeeded.</text>
+          <text tid="updateproxy">Edit proxy</text>
+          <text tid="url">URL</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="scripts">   <!-- tolliumapps.webservers.scripts -->
+        <text tid="getconfig">Webserver dynamic reconfiguration</text>
+      </textgroup>
+      <textgroup gid="updatealias">   <!-- tolliumapps.webservers.updatealias -->
+        <text tid="explicit">Alias type</text>
+        <text tid="explicit-false">Redirect to main URL</text>
+        <text tid="explicit-true">This is an alternative hostname</text>
+        <text tid="hostname">Hostname</text>
+        <text tid="title">Alias properties</text>
+      </textgroup>
+      <textgroup gid="updatewebserver">   <!-- tolliumapps.webservers.updatewebserver -->
+        <text tid="aliasswap">The hostname '<param p="1"/>' was already on the alias list for this webserver.The new hostname will be set for this webserver as its preferred hostname, and the old hostname '<param p="2"/>' will be moved to the alias list instead.</text>
+        <text tid="bindingrequireshttp">The selected port does not have encryption set up, so the URL must start with 'http://'.</text>
+        <text tid="bindingrequireshttps">The selected port has been configured to use encryption, so the URL must start with 'https://'.</text>
+        <text tid="bound-allips">All local IP addresses</text>
+        <text tid="boundto">Bound to</text>
+        <text tid="extension">Output extension</text>
+        <text tid="folder">Output folder</text>
+        <text tid="hostnameinuse">The hostname '<param p="1"/>' is already in use by a different virtual hosted webserver.</text>
+        <text tid="hostnameinuseasalias">The hostname '<param p="1"/>' is already in use by an alias of the virtual hosted webserver' <param p="2"/>'.</text>
+        <text tid="servertype">Webserver type</text>
+        <text tid="stricttransportsecurity">Strict Transport Security (HSTS)</text>
+        <text tid="stricttransportsecurity-0">Not set</text>
+        <text tid="stricttransportsecurity-2592000">1 month</text>
+        <text tid="stricttransportsecurity-31536000">1 year (recommended)</text>
+        <text tid="stricttransportsecurity-63072000">3 years</text>
+        <text tid="stricttransportsecurity-7776000">3 months</text>
+        <text tid="stricttransportsecurity-86400">1 day</text>
+        <text tid="stricttransportsecurity-900">15 minutes (for testing)</text>
+        <text tid="updatewebserver">Edit webserver</text>
+        <text tid="url">URL</text>
+        <text tid="urllockedforversioning">The URL cannot be changed because this webservers hosts one or more versioned sites.</text>
+        <text tid="urlnosubpath">The URL of a hosted webserver may not contain a subpath, it must be of the form 'http(s)://hostname/'.</text>
+        <text tid="virtualhosted">Name-based hosting</text>
+        <textgroup gid="types">   <!-- tolliumapps.webservers.updatewebserver.types -->
+          <text tid="webhare_interface">WebHare backend (webinterface)</text>
+          <text tid="webhare_output">WebHare output webserver</text>
+          <text tid="webhare_rulesonly">Host access rules only, no published content</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="webservergroup">   <!-- tolliumapps.webservers.webservergroup -->
+        <text tid="title">Name</text>
+        <text tid="webservergroup">Edit webserver group</text>
       </textgroup>
     </textgroup>
   </textgroup>
@@ -2649,35 +2650,6 @@
       <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
         <text tid="rights">Rights</text>
         <text tid="users">Users</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="webservers">   <!-- webservers -->
-    <textgroup gid="proxies">   <!-- webservers.proxies -->
-      <textgroup gid="update">   <!-- webservers.proxies.update -->
-        <text tid="hostswhitelist">Hosts whitelist</text>
-        <text tid="lasterror">Last error</text>
-        <text tid="password">Password</text>
-        <text tid="portswhitelist">Ports whitelist</text>
-        <text tid="reverseaddress">Local connect address</text>
-        <text tid="test">Test</text>
-        <text tid="updateproxy">Edit proxy</text>
-        <text tid="url">URL</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="webservers">   <!-- webservers.webservers -->
-      <textgroup gid="certbotrequest">   <!-- webservers.webservers.certbotrequest -->
-        <text tid="certbotrequest">LetsEncrypt (Certbot) certificate request</text>
-        <text tid="domainnames">Domain names</text>
-        <text tid="domainnames-placeholder">The name(s) to request, eg www.example.net example.net</text>
-        <text tid="nothostedhere">The hostname '<param p="1"/>'' is not hosted on this server</text>
-        <text tid="request">Request certificate</text>
-        <text tid="result">Request result</text>
-      </textgroup>
-      <textgroup gid="exportusagestats">   <!-- webservers.webservers.exportusagestats -->
-        <text tid="enddate">End date</text>
-        <text tid="exportusagestats">Export usage stats</text>
-        <text tid="startdate">Start date</text>
       </textgroup>
     </textgroup>
   </textgroup>

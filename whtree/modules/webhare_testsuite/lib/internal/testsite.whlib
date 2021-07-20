@@ -1231,12 +1231,6 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
   // Add access rule which requires login on portal1 when visiting portal2
   OBJECT testsite := OpenTestsuiteSite();
 
-  RECORD localhostitf := testfw->GetLocalhostWebinterface();
-
-  STRING portal2_urlpath := "/" || UnpackURL(testsite->OpenByPath("portal2")->url).urlpath;
-  STRING staticprotected_urlpath := "/" || UnpackURL(testsite->OpenByPath("staticprotected")->url).urlpath;
-  STRING staticprotected2_urlpath := "/" || UnpackURL(testsite->OpenByPath("staticprotected2")->url).urlpath;
-
   testfw->BeginWork();
 
   OBJECT wrdschema2 := CreateWRDSchema("webhare_testsuite:backend2", [ initialize := TRUE
@@ -1268,85 +1262,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
       , whuser_unit :=            testfw->testunit
       ]);
 
-  // Add accessrule protecting /portal2/ with login into portal1 schema, via portal1
-  INSERT INTO system.access(
-      description,
-      webserver,
-      path,
-      matchtype,
-      authtype,
-      authrequirement,
-      applysource)
-  VALUES (
-      "webhare_testsuite access rule test",
-      testsite->outputweb,
-      portal2_urlpath,
-      1, // Initial match
-      1, // Any webhare user
-      TRUE, // must login
-      testsite->OpenByPath("portal1/portal")->id);
-
-  // Add accessrule protecting /staticprotected/ with login into portal1 schema, via staticlogin
-  INSERT INTO system.access(
-      description,
-      webserver,
-      path,
-      matchtype,
-      authtype,
-      authrequirement,
-      applysource)
-  VALUES (
-      "webhare_testsuite access rule test",
-      testsite->outputweb,
-      staticprotected_urlpath,
-      1, // Initial match
-      1, // Any webhare user
-      TRUE, // must login
-      testsite->OpenByPath("staticlogin/login")->id);
-
-  INTEGER rule3 := MakeAutoNumber(system.access, "ID");
-
-  // Add accessrule protecting /staticprotected/ with login into portal1 schema, via staticlogin
-  INSERT INTO system.access(
-      id,
-      description,
-      webserver,
-      path,
-      matchtype,
-      authtype,
-      authlist,
-      authrequirement,
-      applysource)
-  VALUES (
-      rule3,
-      "webhare_testsuite access rule test",
-      testsite->outputweb,
-      staticprotected2_urlpath,
-      1, // Initial match
-      1, // Any webhare user
-      TRUE, // with external users
-      TRUE, // must login
-      testsite->OpenByPath("staticlogin/login")->id);
-
-  INSERT INTO system.access_externalusers(accessid, username, userpassword)
-      VALUES (rule3, "external", "secret");
-
-  INTEGER ARRAY waitfor;
-  FOREVERY(STRING repubpath FROM ["staticlogin", "staticprotected", "staticprotected2"])
-  {
-    OBJECT torepub := testsite->OpenByPath(repubpath);
-    IF(NOT ObjectExists(torepub))
-      THROW NEW Exception("Cannot find folder '" || repubpath || "' in the testsite");
-
-    ScheduleFolderRepublish(torepub->id, TRUE);
-    INSERT torepub->id INTO waitfor AT END;
-  }
-
   testfw->CommitWork();
-
-  testfw->RefreshWebserverConfig();
-  FOREVERY(INTEGER folder FROM waitfor)
-    testfw->WaitForPublishCompletion(folder);
 
   OBJECT staticloginlogin := testsite->OpenByPath("staticlogin/login");
   TestEq(0, GetErrorFromPublished(staticloginlogin->published), "Failed to publish " || staticloginlogin->url);
@@ -1534,8 +1450,8 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
     // Add accessrule protecting /staticprotected/ with login into portal1 schema, via staticlogin
     GetPrimary()->BeginWork();
     DELETE FROM system.access WHERE description = "altsite access rule" AND webserver = altsite->outputweb;
-    INSERT INTO system.access(description,webserver,path,matchtype,authtype,authrequirement,applysource)
-           VALUES ("altsite access rule",altsite->outputweb,options.protectroot ? "/" : "/requirewhaccount/",1/*initial match*/,1/*any webhare user*/,TRUE,OpenTestsuiteSite()->rootobject->OpenByPath("portal1")->id);
+    INSERT INTO system.access(description,webserver,path,matchtype,authtype,authrequirement) ////apply source: OpenTestsuiteSite()->rootobject->OpenByPath("portal1")->id
+           VALUES ("altsite access rule",altsite->outputweb,options.protectroot ? "/" : "/requirewhaccount/",1/*initial match*/,1/*any webhare user*/,TRUE);
     GetPrimary()->CommitWork();
     RefreshGlobalWebserverConfig();
   }

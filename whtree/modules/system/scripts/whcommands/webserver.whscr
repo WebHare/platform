@@ -10,7 +10,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/screens/webservers/bindings.whlib";
+LOADLIB "mod::system/tolliumapps/webservers/bindings.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -35,7 +35,7 @@ MACRO AddPort(STRING ARRAY params)
 
   INTEGER portnumber := ToInteger(subargs.port,0);
   IF(portnumber < 1 OR portnumber > 65535)
-    TerminateScriptWithError(GetTid("system:sysmgmt.webservers.updatebinding.errors.invalid_port")); //TODO support for ipv6, IP addresses etc
+    TerminateScriptWithError(GetTid("system:tolliumapps.webservers.bindings.updatebinding.errors.invalid_port")); //TODO support for ipv6, IP addresses etc
   IF(portnumber = 80 AND subargs.ssl != "")
     TerminateScriptWithError(`Creating port 80 is incompatible with the --ssl argument`);
   IF(portnumber = 443 AND subargs.ssl = "")
@@ -43,10 +43,10 @@ MACRO AddPort(STRING ARRAY params)
 
   STRING http_ip := subargs.ip ??  "0.0.0.0";
   IF(NOT IsValidIPAddress(http_ip))
-    TerminateScriptWithError(GetTid("system:sysmgmt.webservers.updatebinding.errors.invalid_ip"));
+    TerminateScriptWithError(GetTid("system:tolliumapps.webservers.bindings.updatebinding.errors.invalid_ip"));
 
   IF (IsPortUsed(portnumber, http_ip, 0))
-    TerminateScriptWithError(GetTid("system:sysmgmt.webservers.updatebinding.errors.port_used"));
+    TerminateScriptWithError(GetTid("system:tolliumapps.webservers.bindings.updatebinding.errors.port_used"));
 
   GetPrimary()->BeginWork();
 

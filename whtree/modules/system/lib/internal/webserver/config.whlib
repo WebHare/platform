@@ -876,7 +876,6 @@ OBJECTTYPE WebConfigBuilder
                                 , fixcase := fixcase
                                 , disablecaching
                                 , maxage
-                                , applysource
                                 , priority := webrulepriority_default
                                 , source := `system:access, id: ${id}`
                              FROM system.access
@@ -1000,7 +999,6 @@ OBJECTTYPE WebConfigBuilder
                                   , checkandvm
                                   , authtype :=           CellExists(rules, "AUTHTYPE") ? authtype : 0
                                   , authlist :=           CellExists(rules, "AUTHLIST") ? authlist : FALSE
-                                  , applysource :=        CellExists(rules, "APPLYSOURCE") ? applysource : 0
                                   , apispec :=            CellExists(rules, "APISPEC") ? apispec : ""
                                   , accounts
                                   , datastorage
@@ -1019,7 +1017,6 @@ OBJECTTYPE WebConfigBuilder
              , DELETE authtype
              , DELETE disablecaching
              , DELETE maxage
-             , DELETE applysource
           FROM rules;
 
     this->finalconfig := GetBaseWebserverConfigRecord();

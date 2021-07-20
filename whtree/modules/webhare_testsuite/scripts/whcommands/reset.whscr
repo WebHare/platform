@@ -133,7 +133,7 @@ testsite->rootobject->CreateFolder([name := "staticlogin"])->CreateFile(
   [ name := "login"
   , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
   , publish := TRUE
-  , data := StringToBlob(` <form id="form" class="wh-wrdauth__loginform">
+  , data := StringToBlob(` <form id="form" class="wh-wrdauth__loginform" method="post">
                               login: <input id="login" name="login" value="" /><br/>
                               password: <input id="password" name="password" type="password" /><br/> <input type="submit" />
                             </form>

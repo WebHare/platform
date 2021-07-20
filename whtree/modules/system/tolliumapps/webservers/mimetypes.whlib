@@ -1,0 +1,107 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+PUBLIC STATIC OBJECTTYPE MimeTypes EXTEND TolliumScreenBase
+<
+  RECORD ARRAY FUNCTION OnGetMimetypes()
+  {
+    STRING ARRAY parsetypetexts := [ GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-0")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-1")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-2")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-3")
+                                   , GetTid("system:tolliumapps.webservers.mimetypes.mimetype.parsetype-4")
+                                   ];
+
+    RETURN SELECT rowkey := id
+                , mimetype
+                , extension
+                , handling := parsetype>=0 AND parsetype<=4 ? parsetypetexts[parsetype] : ""
+             FROM system.mimetypes;
+  }
+
+  MACRO OnRowEdit(RECORD row)
+  {
+    IF(RecordExists(row))
+      this->RunScreen("#mimetype", [ id := row.rowkey ]);
+    ELSE
+      this->RunScreen("#mimetype", [ id := 0 ]);
+  }
+
+  MACRO OnRowDelete(RECORD row)
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletemimetype", row.extension)) != "yes")
+      RETURN;
+
+    OBJECT work := this->beginwork();
+    DELETE FROM system.mimetypes WHERE id = row.rowkey;
+    IF (NOT work->Finish())
+      RETURN;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MimeType EXTEND TolliumScreenBase
+<
+  INTEGER mimetypeid;
+
+  MACRO Init(RECORD params)
+  {
+    this->mimetypeid := params.id;
+
+    IF (this->mimetypeid != 0)
+    {
+      RECORD data := SELECT * FROM system.mimetypes WHERE id = this->mimetypeid;
+
+      ^extension->value := data.extension;
+      ^mimetype->value := data.mimetype;
+      ^parsetype->value := ToString(data.parsetype);
+
+      this->frame->title := this->GetTid(".windowtitle_edit", data.extension);
+    }
+    ELSE
+    {
+      this->frame->title := this->GetTid(".windowtitle_add");
+      ^parsetype->value := "0";
+    }
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    IF (^extension->value != "")
+    {
+      IF (Left(^extension->value,1)=".")
+        work->AddError(this->GetTid(".errors.extension_starting_dot"));
+      // Check duplicate
+      ELSE IF (RecordExists(SELECT FROM system.mimetypes
+                             WHERE ToUpperCase(extension) = ToUpperCase(^extension->value)
+                                   AND id != this->mimetypeid))
+        work->AddError(this->GetTid(".errors.duplicate_extension", ^extension->value));
+    }
+
+    IF (this->mimetypeid = 0) // Add
+    {
+      INSERT INTO system.mimetypes (extension, mimetype, parsetype)
+           VALUES (^extension->value, ^mimetype->value, ToInteger(^parsetype->value,0));
+    }
+    ELSE // Edit
+    {
+      UPDATE system.mimetypes
+         SET extension := ^extension->value
+           , mimetype := ^mimetype->value
+           , parsetype := ToInteger(^parsetype->value,0)
+       WHERE id = this->mimetypeid;
+    }
+
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    ReloadWebhareConfig(TRUE, FALSE);
+
+    RETURN TRUE;
+  }
+>;

@@ -1,0 +1,109 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.webservers.proxies" library="proxies.whlib">
+
+  <screen name="proxies" width="120x" height="30x" allowresize="true" footerbuttons="close" gid=".proxies" tid=".title">
+    <actions>
+      <action name="addproxy" onexecute="doaddproxy" tid="~add" />
+      <action name="editproxy" onexecute="doeditproxy" tid="~edit">
+        <enableon source="proxylist" min="1" max="1" />
+      </action>
+      <action name="deleteproxy" onexecute="dodeleteproxy" tid="~delete">
+        <enableon source="proxylist" min="1" max="1" checkflags="!yourproxy" />
+      </action>
+      <action name="reregister" onexecute="doreregister" />
+    </actions>
+
+    <menus>
+      <menu name="contextmenu">
+        <item action="addproxy" />
+        <item action="editproxy" disablemode="hidden" />
+        <item action="deleteproxy" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:webserver.proxies" onevents="gotproxyupdate" />
+    </compositions>
+
+    <body>
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="proxylist"
+                  flags="yourproxy"
+                  gid=".columns"
+                  highlightname="yourproxy"
+                  newcontextmenu="contextmenu"
+                  openaction="editproxy"
+                  selectcontextmenu="contextmenu"
+                  selectmode="single">
+              <column name="url" type="text" width="1pr" />
+              <column name="description" type="text" width="2pr" tid="~description" />
+              <column name="lastregistration" type="datetime" width="20x" iconname="status" storeutc="true" />
+            </list>
+          </cell>
+          <cell>
+            <button width="1pr" action="addproxy" />
+            <button width="1pr" action="editproxy" />
+            <button width="1pr" action="deleteproxy" />
+            <button width="1pr" action="reregister" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="updateproxy" width="80x" allowresize="true" gid=".update">
+    <actions>
+      <action name="test" onexecute="dotest" />
+      <action name="confirm" onexecute="submit" tid="~ok" />
+    </actions>
+
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body width="1pr" height="1pr">
+      <textedit composition="row"
+                cellname="url"
+                width="1pr"
+                placeholder="https://...:5443/"
+                required="true"
+                validationchecks="http-url secure-url" />
+      <textedit composition="row" cellname="password" width="1pr" required="true" />
+      <textedit composition="row"
+                cellname="reverseaddress"
+                name="reverseaddress"
+                width="1pr"
+                required="true"
+                validationchecks="http-url" />
+      <textarea composition="row" cellname="hostswhitelist" name="hostswhitelist" width="1pr" height="4x" />
+      <textedit composition="row" cellname="description" width="1pr" tid="~description" />
+      <heading tid=".lasterror" />
+      <line layout="left">
+        <textarea composition="row" cellname="lasterror" height="6x" enabled="false" title="" />
+      </line>
+    </body>
+
+    <footer>
+      <grid>
+        <col width="1pr" />
+        <col />
+        <col />
+        <row>
+          <cell>
+            <button action="test" />
+          </cell>
+          <cell>
+            <button action="confirm" />
+          </cell>
+          <cell>
+            <defaultformbuttons buttons="cancel" />
+          </cell>
+        </row>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>
