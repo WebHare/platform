@@ -79,8 +79,9 @@ ASYNC MACRO TestWebserversApp()
   RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
   RECORD ARRAY testrows := GetOOXMLSpreadsheetRows(file.data);
   //dumpvalue(testrows);
-  TestEqMembers([[ "rule type" := "module",   "match type" := "initial", path := "/allow-cors-all/", target := "Fully open 'Access-Control-Allow-Origin'" ]
-                ,[ "rule type" := "redirect", "match type" := "initial", path := "/redirect-this/",  target := "https://www.webhare.nl/" ]
+  TestEqMembers([[ enabled := "TRUE", "rule type" := "module",   "match type" := "initial", path := "/allow-cors-all/", target := "Fully open 'Access-Control-Allow-Origin'", description := "TESTS APP RULE" ]
+                ,[ enabled := "FALSE", "rule type" := "folder", "match type" := "initial", path := "/disabled-rule/",  target := "/tmp/" ]
+                ,[ enabled := "TRUE", "rule type" := "redirect", "match type" := "initial", path := "/redirect-this/",  target := "https://www.webhare.nl/" ]
                 ], testrows, "*");
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
 

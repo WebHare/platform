@@ -1779,6 +1779,7 @@
           <text tid="webhareusers">WebHare users</text>
           <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
             <text tid="description">Description</text>
+            <text tid="enabled">Enabled</text>
             <text tid="matchtype">Match type</text>
             <text tid="path">Path</text>
             <text tid="target">Target</text>

@@ -186,8 +186,8 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
       exporttitle := this->GetTid(".export-globalrules");
 
     RECORD ARRAY rows := SELECT *
+                              , enabled := NOT disabled
                            FROM this->GetAccessRules()
-                          WHERE NOT disabled
                        ORDER BY ToUppercase(path), rowkey;
 
     RunColumnFileExportDialog(this,
@@ -196,6 +196,7 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
                           , [ name := "matchtype",   type := "string", title := this->GetTid(".columns.matchtype") ]
                           , [ name := "path",        type := "string", title := this->GetTid(".columns.path") ]
                           , [ name := "target",      type := "string", title := this->GetTid(".columns.target") ]
+                          , [ name := "enabled",     type := "boolean", title := this->GetTid(".columns.enabled") ]
                           , [ name := "description", type := "string", title := this->GetTid(".columns.description") ]
                           ]
              , exporttitle

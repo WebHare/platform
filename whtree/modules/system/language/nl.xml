@@ -1588,6 +1588,7 @@
           <text tid="webhareusers">WebHare gebruikers</text>
           <textgroup gid="columns">   <!-- tolliumapps.webservers.accessrules.accessrules.columns -->
             <text tid="description">Omschrijving</text>
+            <text tid="enabled">Ingeschakeld</text>
             <text tid="matchtype">Match type</text>
             <text tid="path">Pad</text>
             <text tid="target">Doel</text>
