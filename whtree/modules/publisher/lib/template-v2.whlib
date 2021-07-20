@@ -1551,7 +1551,6 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
   RECORD profile;
   IF (contentfile.type = 4) //word doc!
   {
-    //NOTE worddocs are the only 'needsprofile' type...
     //TODO if there's still a (limited?) need for profiles, hardcode or registrykey an ID for ReadConversionProfile?
     __PUBLISHER_Exception(109,""); //No associated profile
 

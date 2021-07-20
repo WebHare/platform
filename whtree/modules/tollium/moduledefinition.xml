@@ -23,7 +23,7 @@
   </backend>
 
   <portal>
-    <application name="langedit" tid="tolliumapps.langedit.langedit.main" screen="tolliumapps/langedit/langedit.xml#main">
+    <application name="langedit" tid="tolliumapps.langedit.langedit.main" startmacro="tolliumapps/langedit.whlib#startlangedit">
       <accesscheck>
         <requireright right="system:sysop"/>
       </accesscheck>

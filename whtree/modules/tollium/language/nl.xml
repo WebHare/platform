@@ -796,46 +796,6 @@
     <text tid="takeoverdenied">Uw verzoek om het scherm over te mogen nemen is afgewezen.</text>
     <text tid="waitforreplytext">Aan het wachten op een reactie van <ifparam p="1" value="">de andere gebruiker<else/><ifparam p="2" value=""><param p="1"/><else/>gebruiker <param p="2"/> (<param p="1"/>)</ifparam></ifparam>. <br/><br/>Wanneer deze niet reageert geeft wordt de overname na <ifparam p="3" value="1">1 seconde<else/><param p="3"/> seconden</ifparam> automatisch toegestaan.</text>
   </textgroup>
-  <textgroup gid="langedit">   <!-- langedit -->
-    <text tid="apptitle">Taaleditor</text>
-    <textgroup gid="main">   <!-- langedit.main -->
-      <textgroup gid="issues">   <!-- langedit.main.issues -->
-        <text tid="untranslated">Deze tekst ontbreekt in één of meer talen</text>
-      </textgroup>
-      <textgroup gid="langeditreferences">   <!-- langedit.main.langeditreferences -->
-        <text tid="langeditreferences">Verwijzingen</text>
-        <text tid="line">Regelnummer</text>
-        <text tid="opencontext">Bestand tonen</text>
-        <text tid="openineditor">In editor openen</text>
-        <text tid="resourcename">Pad</text>
-        <text tid="tid">Verwijzingen voor '<param p="1"/>' zijn gevonden in:</text>
-      </textgroup>
-      <textgroup gid="langtext">   <!-- langedit.main.langtext -->
-        <text tid="next">Volgende</text>
-        <text tid="previous">Vorige</text>
-        <text tid="tid">Text ID</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- langedit.main.main -->
-        <text tid="apptitle">Taal editor</text>
-        <textgroup gid="actions">   <!-- langedit.main.main.actions -->
-          <text tid="showreferences">Toon verwijzingen</text>
-        </textgroup>
-        <textgroup gid="toolbar">   <!-- langedit.main.main.toolbar -->
-          <text tid="contextview">Context</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="messageboxes">   <!-- langedit.main.messageboxes -->
-        <text tid="nolanguagefiles">Maak eerst een taalbestand aan om de taaleditor te kunnen gebruiken.</text>
-        <text tid="removehighlighted">Weet u zeker dat u de gemarkeerde teksten wilt verwijderen?</text>
-      </textgroup>
-      <textgroup gid="showcontext">   <!-- langedit.main.showcontext -->
-        <text tid="showcontext">Toon context</text>
-      </textgroup>
-      <textgroup gid="translate">   <!-- langedit.main.translate -->
-        <text tid="translate">Vertalen</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="testnotification">Testmelding</text>
     <text tid="testnotification-desc"><ifparam p="1" value="">Het werkt!<else/><param p="1"/></ifparam></text>
@@ -1120,78 +1080,7 @@
     </textgroup>
     <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
       <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
-        <text tid="add">Toevoegen</text>
-        <text tid="addgroup">Groep toevoegen</text>
-        <text tid="addlanguagefile">Taalbestand toevoegen</text>
-        <text tid="addtext">Tekst toevoegen</text>
-        <text tid="allsaved">Alle taalbestanden in deze module zijn herschreven</text>
-        <text tid="allunreferenced">Alle teksten in deze groep lijken ongebruikt</text>
-        <text tid="askreload">Weet u zeker dat u wilt verversen? Niet-opgeslagen wijzigingen zullen verloren gaan.</text>
-        <text tid="badtext">Deze tekst heeft een syntax error</text>
-        <text tid="cannoteditmodule">De taalbestanden van basismodules mogen alleen worden bewerkt als de DTAP stage 'Development' is.</text>
-        <text tid="cannotparselanguagefile">Taalbestand '<param p="1"/>' kan niet worden ingeladen</text>
-        <text tid="collapserecursive">Alles inklappen</text>
-        <text tid="contextview">Context</text>
-        <text tid="currenttid">Referenties van</text>
-        <text tid="deleteconfirmation">Weet u zeker dat u de geselecteerde groepen en/of teksten wilt verwijderen?</text>
-        <text tid="duplicategroupname">Deze naam bestaat al in deze groep</text>
-        <text tid="duplicatenodename">Deze naam bestaat al in deze groep</text>
-        <text tid="edittext">Tekst bewerken</text>
-        <text tid="elementname">Groep naam</text>
-        <text tid="error_badlanguagecode">Ongeldige taalcode; een taalcode bestaat uit 2 kleine letters.</text>
-        <text tid="exit">Afsluiten</text>
-        <text tid="expandrecursive">Alles uitklappen</text>
-        <text tid="export">Exporteren</text>
-        <text tid="find">Zoekbalk weergeven</text>
-        <text tid="fromlang">Vanuit</text>
-        <text tid="fromtext">Vertalen</text>
-        <text tid="gid">Groep ID</text>
-        <text tid="illegaltidname">Deze TID heeft geen geldige naam</text>
-        <text tid="import">Importeren</text>
-        <text tid="issues">Probleem</text>
-        <text tid="keepemptyreason">Reden</text>
-        <text tid="keepifempty">Onvertaalde/ongebruikte teksten bewaren</text>
-        <text tid="langcode">Taalcode</text>
-        <text tid="langtext">Tekst bewerken</text>
-        <text tid="languagefile">Taalbestand</text>
-        <text tid="limitlanguages">Beperk vertalingen</text>
         <text tid="main">Taaleditor</text>
-        <text tid="mi_unreferenced">Markeer ongebruikte teksten</text>
-        <text tid="mi_untranslated">Markeer ontbrekende teksten</text>
-        <text tid="movefrom">Verplaats teksten uit</text>
-        <text tid="movemissingfrom">Verplaats missende teksten van</text>
-        <text tid="next">Volgende</text>
-        <text tid="nosuchgroup">Groep '<param p="1"/>' bestaat niet</text>
-        <text tid="notalanguagefile">Bestand '<param p="1"/>' lijkt geen taalbestand te zijn.</text>
-        <text tid="notfound">Er is geen tekst of groep gevonden voor zoekopdracht '<param p="1"/>'</text>
-        <text tid="occurrences">Gebruikt</text>
-        <text tid="open">Openen</text>
-        <text tid="possiblecvsconflict">Taalbestand '<param p="1"/>' kon niet worden geopend; het lijkt SVN/CVS conflictmarkering te bevatten.</text>
-        <text tid="previous">Vorige</text>
-        <text tid="references">Referenties van <param p="1"/></text>
-        <text tid="regex">RegEx</text>
-        <text tid="reload">Verversen</text>
-        <text tid="reloadwarning">De taalbestanden zijn buiten de languageeditor om gewijzigd. Je moet herladen</text>
-        <text tid="removehighlighted">Gemarkeerd verwijderen</text>
-        <text tid="removenodes">Node verwijderen</text>
-        <text tid="saveall">Herschrijf alle taalfiles</text>
-        <text tid="search">Zoeken</text>
-        <text tid="searchbtn">Zoeken</text>
-        <text tid="searchfor">Zoek naar</text>
-        <text tid="searchintexts">Ook binnen teksten</text>
-        <text tid="selectunreferenced">Selecteer ongebruikte nodes</text>
-        <text tid="targetgroup">Ontvangende groep</text>
-        <text tid="textgroup">Tekstgroep</text>
-        <text tid="title">Node</text>
-        <text tid="tolang">Naar</text>
-        <text tid="totext">Vertaling</text>
-        <text tid="translate">Veralen</text>
-        <text tid="translateword">Vertalen</text>
-        <text tid="unlinked">Deze tekst is nergens aan gekoppeld</text>
-        <text tid="unreferenced">Zonder verwijzing</text>
-        <text tid="untranslated">Niet vertaald</text>
-        <text tid="untranslated_button">Niet vertaald</text>
-        <text tid="verifyfirstlanguagefile">Het eerste taalbestand dat u aanmaakt wordt de standaardtaal voor de module. Weet u zeker dat u deze taal de standaardtaal wilt maken?</text>
       </textgroup>
     </textgroup>
   </textgroup>

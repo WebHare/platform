@@ -296,14 +296,6 @@ BOOLEAN FUNCTION LookupNeedsTemplate(INTEGER type, INTEGER filelink)
     RETURN TRUE;
   RETURN FALSE;
 }
-BOOLEAN FUNCTION LookupNeedsProfile(INTEGER type, INTEGER filelink)
-{
-  IF(type IN GetNeedsProfileTypes())
-    RETURN TRUE;
-  IF(type = 20 AND (SELECT AS INTEGER COLUMN  type FROM system.fs_objects WHERE id=VAR filelink) IN GetNeedsProfileTypes())
-    RETURN TRUE;
-  RETURN FALSE;
-}
 
 
 /** @short Base class for WHFS objects
@@ -495,10 +487,6 @@ OBJECTTYPE WHFSObject
   /// Whether this object needs a template
   PUBLIC PROPERTY needstemplate(GetNeedsTemplate, -);
 
-
-  /// Whether this object needs a template
-  PUBLIC PROPERTY needsprofile(GetNeedsProfile, -);
-
   /// Is versioning active on this object?
   //PUBLIC PROPERTY isversioned(GetIsVersioned, -);
 
@@ -536,10 +524,6 @@ OBJECTTYPE WHFSObject
   }
 
 
-  BOOLEAN FUNCTION GetNeedsProfile()
-  {
-    RETURN this->isfolder OR LookupNeedsProfile(this->type,this->filelink);
-  }
 /*
   BOOLEAN FUNCTION GetIsVersioned()
   {

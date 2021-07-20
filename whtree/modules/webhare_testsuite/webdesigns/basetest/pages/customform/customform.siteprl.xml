@@ -11,7 +11,6 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
-            needsprofile="false"
             needstemplate="true"
             title="WebHare testsuite customform type"
             tolliumicon="tollium:files/application_x-webhare-survey">

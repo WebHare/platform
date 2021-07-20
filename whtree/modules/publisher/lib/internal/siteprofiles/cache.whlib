@@ -63,7 +63,6 @@ PUBLIC BOOLEAN FUNCTION AppliesToAllSites(RECORD sitesetting)
     @cell(string) return.namespace Namespace of the content type
     @cell(boolean) return.ispublishable Whether the content type is publishable
     @cell(boolean) return.needstemplate Whether files of this type need a template
-    @cell(boolean) return.needsprofile Whether files of this type nee a sprofile
     @cell(string) return.title Tid with the title of the content type
     @cell(string) return.tolliumicon Icon of this content type
     @cell(record) return.dynamicexecution
@@ -133,7 +132,6 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , namespace := ns
          , ispublishable := RecordExists(type.fstype) AND type.fstype.ispublishable
          , needstemplate := RecordExists(type.fstype) AND type.fstype.needstemplate
-         , needsprofile := RecordExists(type.fstype) AND type.fstype.needsprofile
          , title := ismissing ? ":"||ns : RecordExists(type.filetype) ? type.filetype.title : RecordExists(type.foldertype) ? type.foldertype.title : ":"||ns
          , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? whconstant_publisher_fileiconfallback
                          : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? "tollium:folders/normal"

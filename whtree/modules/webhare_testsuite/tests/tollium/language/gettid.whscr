@@ -3,18 +3,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
-LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 //LOADLIB "mod::tollium/lib/gettid2.whlib"; //when debugging/developing you might want to copypaste gettid.whlib and develop on your local instance
 LOADLIB "mod::tollium/lib/testframework.whlib";
-
-LOADLIB "mod::tollium/lib/internal/langedit/langeditor.whlib";
 
 MACRO TidCompilerTest()
 {
@@ -113,34 +108,6 @@ MACRO FallbackLanguageTest()
   SetTidLanguage("en");
 }
 
-ASYNC MACRO TestLangEditingApi()
-{
-  OBJECT api  := NEW LangEditAPI("webhare_testsuite_temp");
-  OBJECT api2 := NEW LangEditAPI("webhare_testsuite_temp");
-
-  TestEq(FALSE, api->IsOutOfDate());
-  TestEq(FALSE, api2->IsOutOfDate());
-  TestEq(FALSE, api->IsDirty());
-  TestEq(FALSE, api2->IsDirty());
-  Sleep(100);
-  api->SaveChanges([force := TRUE]);
-  Sleep(100);
-
-  TestEq(FALSE, api->IsDirty());
-  TestEq(FALSE, api2->IsDirty());
-  TestEq(FALSE, api->IsOutOfDate());
-  TestEq(TRUE, api2->IsOutOfDate());
-  api2 := NEW LangEditAPI("webhare_testsuite_temp"); //reload
-
-  api->LookupTextGroup("notifications")->SetRawText("messagefromthefuture", 0, "Yet Another Message");
-  TestEq(TRUE, api->IsDirty());
-  TestEq(FALSE, api2->IsOutOfDate());
-  api->SaveChanges([force := TRUE]);
-  TestEq(FALSE, api->IsDirty());
-  TestEq(FALSE, api->IsOutOfDate());
-  TestEq(TRUE, api2->IsOutOfDate());
-}
-
 ASYNC MACRO ScreenTidTest()
 {
   SetTidLanguage("debug");
@@ -160,6 +127,5 @@ RunTestFramework([ PTR TidCompilerTest
                  , PTR SetupTestModule_LanguageFiles
                  , PTR GetTidTest
                  , PTR FallbackLanguageTest
-                 , PTR TestLangEditingApi
                  , PTR ScreenTidTest
                  ]);

@@ -178,11 +178,6 @@ PUBLIC INTEGER ARRAY FUNCTION GetNeedsTemplateTypes()
   RETURN SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE needstemplate ; //FIXME cache but invalidate with site profiles
 }
 
-PUBLIC INTEGER ARRAY FUNCTION GetNeedsProfileTypes()
-{
-  RETURN SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE needsprofile ; //FIXME cache but invalidate with site profiles
-}
-
 /** @short Look up the WebHare Publisher file ID for a mimetype
     @param mimetype Mimetype to lookup
     @return WebHare type id, or 1 if the mimetype was not recognized

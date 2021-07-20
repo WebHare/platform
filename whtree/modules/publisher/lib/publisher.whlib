@@ -323,13 +323,12 @@ STRING ARRAY FUNCTION GetTypeExtension (INTEGER type)
     @cell return.isPublishedAsSubdir Will this document be published into a subdirectory?
     @cell return.isAcceptableIndex Is this file acceptable as an index document?
     @cell return.needsTemplate Files of this type must be associated with a template
-    @cell return.needsprofile Files of this type must be associated with a coversion profile
     @cell return.publishintosubdir Files of this type are always published into a subdirectory
     @cell return.extensions A string array of common extensions for this file type
 */
 PUBLIC RECORD FUNCTION GetFileTypeProps(INTEGER gettype)
 {
-  RECORD fsinfo := SELECT namespace, id, isacceptableindex, needstemplate, needsprofile, ispublishedassubdir, ispublishable
+  RECORD fsinfo := SELECT namespace, id, isacceptableindex, needstemplate, ispublishedassubdir, ispublishable
                      FROM system.fs_types
                     WHERE id = gettype AND isfiletype;
   IF(RecordExists(fsinfo))
@@ -346,7 +345,6 @@ PUBLIC RECORD FUNCTION GetFileTypeProps(INTEGER gettype)
               , namespace := "http://www.webhare.net/xmlns/publisher/unknownfile"
               , isacceptableindex := FALSE
               , needstemplate := FALSE
-              , needsprofile := FALSE
               , ispublishedassubdir := FALSE
               , ispublishable := TRUE
               , isbaseable := FALSE
