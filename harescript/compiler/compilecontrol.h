@@ -32,6 +32,8 @@ class BLEXLIB_PUBLIC CompileControl
             @param liburi URI of library to compile */
         void CompileLibraryFromSource(Blex::ContextKeeper &keeper, std::shared_ptr< Blex::RandomStream > const &source, std::string const &liburi);
 
+        void ReadLibraryLoadLibs(Blex::ContextKeeper &keeper, std::shared_ptr< Blex::RandomStream > const &source, std::string const &liburi, std::vector<LoadlibInfo> &loadlibs);
+
     private:
         /** Engine that is used for compilation */
         Engine &engine;

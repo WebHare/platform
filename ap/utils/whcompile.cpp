@@ -4,6 +4,7 @@
 #include <blex/getopt.h>
 #include <blex/logfile.h>
 #include <iostream>
+#include <harescript/compiler/compiler.h>
 #include <harescript/compiler/engine.h>
 #include <harescript/vm/errors.h>
 #include <harescript/compiler/compilecontrol.h>
@@ -308,6 +309,7 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
 
         std::string tocompile;
         std::shared_ptr< Blex::RandomStream > source;
+        bool loadlibs = false;
 
         if (!webcon->GetCategoryRunPermission(1))
         {
@@ -337,6 +339,18 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 Blex::DecodeUrl(url.begin()+15, url.end(), std::back_inserter(tocompile));
                 source.reset(webcon->GetRequestParser().OpenBody());
         }
+        else if (Blex::StrLike(url, "/sourceloadlibs/*"))
+        {
+                if (webcon->GetRequestParser().GetProtocolMethod() != WebServer::Methods::Post)
+                {
+                        webcon->FailRequest(WebServer::StatusMethodNotAllowed, "Only POST is supported for uri compiles");
+                        return;
+                }
+
+                Blex::DecodeUrl(url.begin()+16, url.end(), std::back_inserter(tocompile));
+                source.reset(webcon->GetRequestParser().OpenBody());
+                loadlibs = true;
+        }
         else
         {
                 webcon->FailRequest(WebServer::StatusNotFound, "Illegal compile URL: '" + url + "'");
@@ -350,6 +364,7 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 preload = "mod::system/lib/internal/harescript/preload.whlib";
 
         Engine compile_engine(filesystem, preload);
+        std::vector<LoadlibInfo> loadliblist;
         try
         {
                 compile_engine.SetDebugOptions(dopts);
@@ -358,7 +373,12 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 if (!source.get())
                     control.CompileLibrary(keeper, tocompile);
                 else
-                    control.CompileLibraryFromSource(keeper, source, tocompile);
+                {
+                        if (loadlibs)
+                            control.ReadLibraryLoadLibs(keeper, source, tocompile, loadliblist);
+                        else
+                            control.CompileLibraryFromSource(keeper, source, tocompile);
+                }
         }
         catch(Message &m)
         {
@@ -369,19 +389,35 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 compile_engine.GetErrorHandler().AddInternalError(e.what());
         }
 
-        ErrorHandler::MessageList const &warnlist = compile_engine.GetErrorHandler().GetWarnings();
-        ErrorHandler::MessageList const &errorlist = compile_engine.GetErrorHandler().GetErrors();
-
-
-        for (ErrorHandler::MessageList::const_iterator it = warnlist.begin(); it != warnlist.end(); ++it)
-            DisplayWebMessage(&keeper, *it, webcon);
-
-        std::string error;
-        for (ErrorHandler::MessageList::const_iterator it = errorlist.begin(); it != errorlist.end(); ++it)
+        if (loadlibs)
         {
-                DisplayWebMessage(&keeper, *it, webcon);
-                if (error.empty() && it->code != 146) // (skip relevant function)
-                    error = GetMessageString(*it);
+                for (std::vector<LoadlibInfo>::const_iterator it = loadliblist.begin(); it != loadliblist.end(); ++it)
+                {
+                        std::string line = it->loadlib + '\t';
+                        Blex::EncodeNumber(it->loc.line, 10, std::back_inserter(line));
+                        line += '\t';
+                        Blex::EncodeNumber(it->loc.column, 10, std::back_inserter(line));
+                        line += '\n';
+
+                        webcon->GetAsyncInterface()->StoreData(line.data(), line.size());
+                }
+        }
+        else
+        {
+                ErrorHandler::MessageList const &warnlist = compile_engine.GetErrorHandler().GetWarnings();
+                ErrorHandler::MessageList const &errorlist = compile_engine.GetErrorHandler().GetErrors();
+
+
+                for (ErrorHandler::MessageList::const_iterator it = warnlist.begin(); it != warnlist.end(); ++it)
+                    DisplayWebMessage(&keeper, *it, webcon);
+
+                std::string error;
+                for (ErrorHandler::MessageList::const_iterator it = errorlist.begin(); it != errorlist.end(); ++it)
+                {
+                        DisplayWebMessage(&keeper, *it, webcon);
+                        if (error.empty() && it->code != 146) // (skip relevant function)
+                            error = GetMessageString(*it);
+                }
         }
 
 #ifdef DEBUG
