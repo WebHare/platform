@@ -240,7 +240,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
 
   PUBLIC RECORD FUNCTION GetMyself()
   {
-    RETURN this->GetResource(`/user`);
+    RETURN this->GetResource(`user`);
   }
 
   PUBLIC VARIANT FUNCTION GetProjectResource(STRING project, STRING subpath, RECORD options DEFAULTSTO DEFAULT RECORD)
