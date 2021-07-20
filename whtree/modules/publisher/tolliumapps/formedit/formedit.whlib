@@ -1103,8 +1103,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       THROW NEW Exception(`Unknown question type '${qname}'`);
     // A field is required if the 'required' attribute is set, or if it's a multiple choice question with a minimum of one answer
     BOOLEAN required := ParseXSBoolean(question->GetAttribute("required"))
-      OR ("options" IN component.defaultvaluetypes
-        AND ("stringarray" IN component.defaultvaluetypes OR "integerarray" IN component.defaultvaluetypes)
+      OR ("options" IN component.supportedvalues
+        AND ("stringarray" IN component.supportedvalues OR "integerarray" IN component.supportedvalues)
         AND ParseXSInt(question->GetAttribute("min")) > 0);
     BOOLEAN istext := qname = "http://www.webhare.net/xmlns/publisher/forms#richtext";
     RECORD draginfo := this->frame->flags.canedit

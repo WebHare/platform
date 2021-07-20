@@ -2244,15 +2244,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RECORD switchres := ApplyAccessCheck(app.accesscheck, /*makeautotrans*/ TRUE, this->tolliumuser);
     IF(NOT switchres.success)
     {
-      OBJECT screen := this->LoadScreen("system:commondialogs.rightsproblem",
-          [ needed_rights := DescribeAccessCheck(app.accesscheck)
-          ]);
+      STRING err := GetTid("tollium:shell.controller.rightsproblem", this->tolliumuser->login);
+      IF(this->debugging OR GetDtapStage () = "development")
+        err := err || "\n\n" || GetTid("tollium:shell.controller.neededrights", DescribeAccessCheck(app.accesscheck));
 
-      IF(ObjectExists(screen))
-        screen->RunModal();
-      ELSE
-        THROW NEW Exception("Unable to open rightsproblem dialog to signal the rights issue");
-
+      this->RunSimpleScreen("error", err);
       RETURN;
     }
 

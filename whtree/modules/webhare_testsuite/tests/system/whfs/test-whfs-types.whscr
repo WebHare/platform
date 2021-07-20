@@ -12,10 +12,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
-STRING emptysiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" />';
-
-//PublisherTestSiteInit(DEFAULT BLOB);
-
 OBJECT testsite;
 
 MACRO Prepare()
@@ -73,36 +69,33 @@ MACRO MergeTypeInto()
 
 MACRO FindTest()
 {
-  testfw->BeginWork();
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
-  testfw->CommitWork();
 
   testfw->BeginWork();
   OBJECT findtest1 := firstfolder->CreateFile([name:="findtest1"]);
   OBJECT findtest2 := firstfolder->CreateFile([name:="findtest2"]);
   OBJECT findtest3 := firstfolder->CreateFile([name:="findtest3"]);
 
-  OBJECT ctype := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest");
+  OBJECT ctype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
   INTEGER ARRAY result;
 
-  findtest1->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest1->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ int := 15
       , yesno := TRUE
       ]);
-  findtest2->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest2->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ int := 30
       ]);
-  findtest3->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest3->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ yesno := TRUE
       ]);
-  findtest1->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest1->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ strarray := [ "a" ]
       ]);
-  findtest2->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest2->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ strarray := [ "a", "a" ]
       ]);
-  findtest3->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  findtest3->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ strarray := [ "" ]
       ]);
 
@@ -472,62 +465,52 @@ MACRO TestArrayMembers()
 MACRO TestDirectInstanceData()
 {
   testfw->BeginWork();
-  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT testdatafolder := testsite->rootobject->CreateFolder(
-            [ name:="instancetestdata"
-            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")->id
-            ]);
-  OBJECT testfile := testdatafolder->CreateFile(
-            [ name:="testfile"
-            , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest")->id
-            ]);
+  OBJECT testdatafolder := testsite->rootobject->CreateFolder( [ name:="instancetestdata" ]);
+  OBJECT testfile := testdatafolder->CreateFile( [ name:="testfile" ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
   // Update instance
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ aninstance :=
-          [ whfstype := "http://www.webhare.net/xmlns/beta/instance2"
+          [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
           , str2 := "str2"
           ]
       ]);
 
-  OBJECT whfstype_instance1 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1");
-  OBJECT whfstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2");
+  OBJECT whfstype_instance1 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1");
+  OBJECT whfstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2");
 
-  RECORD rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  RECORD rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
   TestEQ(rec.aninstance, GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
 
   RECORD irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = rec.aninstance.whfssettingid;
   TestEQ(rec.aninstance, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
 
   // Wrong type
-  TestThrows(PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/beta/instance3" ]));
+  TestThrows(PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3" ]));
   whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ str2 := "str3" ]);
 
   TestEQ(
       [ str2 :=           "str3"
       , whfsfileid :=     0
       , whfssettingid :=  rec.aninstance.whfssettingid
-      , whfstype :=       "http://www.webhare.net/xmlns/beta/instance2"
+      , whfstype :=       "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
       ], GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
 
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ rich :=
           [ htmltext :=   StringToBlob("htmltext")
           , embedded :=   DEFAULT RECORD ARRAY
           , instances :=  [ [ instanceid := "TAG1"
                             , data :=
-                                 [ whfstype := "http://www.webhare.net/xmlns/beta/instance1"
+                                 [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1"
                                  , str1 := "str3"
                                  ]
                             ]
                           , [ instanceid := "TAG3"
                             , data :=
-                                 [ whfstype := "http://www.webhare.net/xmlns/beta/instance3"
+                                 [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3"
                                  , str3 := "str3"
                                  ]
                             ]
@@ -535,7 +518,7 @@ MACRO TestDirectInstanceData()
           ]
       ]);
 
-  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
   TestEQ(rec.rich.instances[0].data, GetWHFSInstanceDirect(rec.rich.instances[0].data.whfssettingid));
 
   irec := SELECT * FROM whfstype_instance1->ListAllInstances() WHERE settingid = rec.rich.instances[0].data.whfssettingid;
@@ -545,11 +528,11 @@ MACRO TestDirectInstanceData()
 //  DumpValue((SELECT * FROM system.fs_instances WHERE fs_object = testfile->id), "boxed");
 //  DumpValue((SELECT fs_settings.* FROM system.fs_settings, system.fs_instances WHERE fs_instances.fs_object = testfile->id AND fs_instances.id = fs_instance), "boxed");
 
-  whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/beta/instance2", str2 := "str2" ]);
+  whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2", str2 := "str2" ]);
 
-  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest");
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
   TestEQ("TAG1", rec.rich.instances[0].instanceid, "Instanceid isn't preserved for type changes");
-  TestEQ("http://www.webhare.net/xmlns/beta/instance2", rec.rich.instances[0].data.whfstype);
+  TestEQ("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2", rec.rich.instances[0].data.whfstype);
 
   testfw->CommitWork();
 
@@ -557,11 +540,11 @@ MACRO TestDirectInstanceData()
   testfw->BeginWork();
 
   // Update instance
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/instance2",
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2",
       [ str2 := "str2"
       ]);
 
-  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/instance2");
+  rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2");
   irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = 0 AND fsobject = testfile->id;
   TestEQ(rec, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
 

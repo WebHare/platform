@@ -222,6 +222,40 @@
     <extendproperties name="fsobjectcrash" />
   </apply>
 
+  <!-- generic test types -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/generictesttype">
+    <member name="str" type="string" />
+    <member name="emptystr" type="string" />
+    <member name="int" type="integer" />
+    <member name="blub" type="file" />
+    <member name="price" type="money" />
+    <member name="rich" type="richdocument" />
+    <member name="yesno" type="boolean" />
+    <member name="afloat" type="float" />
+    <member name="adatetime" type="datetime" />
+    <member name="aninstance" type="instance" />
+    <member name="strarray" type="stringarray" />
+    <member name="url" type="url" />
+    <member name="arecord" type="record" />
+    <member name="anarray" type="array">
+      <member name="richmember" type="richdocument" />
+      <member name="intmember" type="integer" />
+      <member name="asubarray" type="array">
+        <member name="subrichmember" type="richdocument" />
+        <member name="subintmember" type="integer" />
+      </member>
+    </member>
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1">
+    <member name="str1" type="string" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2">
+    <member name="str2" type="string" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3">
+    <member name="str3" type="string" />
+  </contenttype>
+
   <!-- publisher.publishersearchtest -->
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest">
     <member name="testfield" type="integer" />

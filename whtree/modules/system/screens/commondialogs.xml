@@ -3,11 +3,6 @@
          xmlns:system="http://www.webhare.net/xmlns/system/components"
          xmlns:email="http://www.webhare.net/xmlns/system/email">
 
-  <messageboxes gid="commondialogs.messageboxes">
-    <messagebox name="notenoughrights"             icon="error"    buttons="ok" />
-    <messagebox name="notenoughrights_spec"        icon="error"    buttons="ok" />
-  </messageboxes>
-
   <screen name="mailer" gid="commondialogs.mailer" tid=".title" width="850px" height="650px" allowresize="true" savestate="size" defaultbutton="send">
     <actions>
       <action name="send" onexecute="submit" />
@@ -32,11 +27,6 @@
         <button action="abort"/>
       </line>
     </footer>
-  </screen>
-
-  <screen name="rightsproblem" gid="commondialogs.rightsproblem" tid=".title" allowresize="true" >
-    <body>
-    </body>
   </screen>
 
 </screens>

@@ -27,7 +27,7 @@
             tid="forms.paymentmethod.name"
             parserfunc="/lib/webtools/paymentmethod.whlib#__parsepaymentmethod"
             fieldobject="/lib/webtools/paymentmethod.whlib#PaymentMethodField"
-            defaultvalue="record"
+            supportedvalues="record"
             />
         </xs:appinfo>
       </xs:annotation>

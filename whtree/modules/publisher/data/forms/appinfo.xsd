@@ -20,7 +20,8 @@
     <xs:attribute name="linecomponent" type="xs:boolean" />
     <xs:attribute name="editdefaults" />
     <xs:attribute name="editextension" />
-    <xs:attribute name="defaultvalue" />
+    <xs:attribute name="defaultvalue" /> <!-- deprecated, use supportedvalues -->
+    <xs:attribute name="supportedvalues" />
     <xs:attribute name="parserfunc" />
     <xs:attribute name="fieldobject" />
     <xs:attribute name="supportedvaluesfunc" />
