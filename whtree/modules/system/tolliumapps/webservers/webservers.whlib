@@ -385,7 +385,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
   MACRO DoFiletypes()
   {
-    this->RunScreen("mimetypesxml#mimetypes");
+    this->RunScreen("mimetypes.xml#mimetypes");
   }
   MACRO DoExportUsageStats()
   {
