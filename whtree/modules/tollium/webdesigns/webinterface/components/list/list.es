@@ -147,7 +147,7 @@ export default class ObjList extends ComponentBase
     this.node.addEventListener('wh:listview-columnresize', evt => this.onColumnResize(evt));
     this.node.addEventListener('wh:listview-check', evt => this.onCheck(evt));
     this.node.addEventListener('wh:listview-sortchange', evt => this.onSortchange(evt));
-    this.node>addEventListener("wh:listview-selectcolumns", evt => this.onSelectColumnsChange(evt));
+    this.node.addEventListener("wh:listview-selectcolumns", evt => this.onSelectColumnsChange(evt));
 
     var listoptions = { selectmode: this.selectmode
                       , columnselectmode: this.columnselectmode
