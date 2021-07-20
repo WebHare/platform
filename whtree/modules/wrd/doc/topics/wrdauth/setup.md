@@ -69,5 +69,3 @@ PUBLIC OBJECTTYPE MyWRDAuthSupport EXTEND WRDAuthSupportBase
 
 `GetJSUserInfo()` is invoked by the Login RPC and restoresession.shtml, and
 provides the userinfo for `wrdauth.getAuthenticationProvider.getUserInfo()`
-
-```

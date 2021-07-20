@@ -13,7 +13,6 @@ activity                                Show recent hitcounters grouped by minut
 dirs                                    Show paths and environment settings
 check                                   Run selfchecks
 shellconfig                             Get WebHare configuration in shell variables
-setupdev                                Set up this WebHare for development
 getmodulelist                           Get the list of installed modules
 getmoduledir <name>                     Where is module '<name>' ?
 getrootdir                              Get the WebHare installation root directory

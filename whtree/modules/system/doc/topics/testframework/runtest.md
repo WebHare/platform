@@ -70,7 +70,6 @@ Then, in a second console (you may want to skip the `wh setupdev` to get a
 more pristine test environment)
 ```bash
 docker exec webhare-test wh preptestsuite
-docker exec -ti webhare-test wh setupdev
 docker exec webhare-test wh softreset
 docker exec webhare-test wh runtest <name of the failed test>
 ```

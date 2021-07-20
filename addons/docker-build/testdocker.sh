@@ -145,6 +145,12 @@ if [ -n "$ISMODULETEST" ]; then
   fi
 fi
 
+if [ "$COVERAGE" == "1" ]; then
+  WEBHARE_DEBUG="cov $WEBHARE_DEBUG"
+elif [ "$PROFILE" == "1" ]; then
+  WEBHARE_DEBUG="apr $WEBHARE_DEBUG"
+fi
+
 TESTLIST="$@"
 BUILDDIR="$PWD"
 cd `dirname $0`
@@ -404,10 +410,8 @@ create_container()
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
   if [ "$COVERAGE" == "1" ]; then
-    echo "WEBHARE_DEBUG=cov" >> ${TEMPBUILDROOT}/env-file
     echo "WEBHARE_DEBUGSESSION=coverage" >> ${TEMPBUILDROOT}/env-file
   elif [ "$PROFILE" == "1" ]; then
-    echo "WEBHARE_DEBUG=apr" >> ${TEMPBUILDROOT}/env-file
     echo "WEBHARE_DEBUGSESSION=functionprofile" >> ${TEMPBUILDROOT}/env-file
   fi
 
