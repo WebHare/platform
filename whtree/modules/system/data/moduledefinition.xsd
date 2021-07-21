@@ -1615,6 +1615,7 @@
         <xs:element name="worklisttype">
           <xs:complexType>
             <xs:attribute name="name" use="required" type="Name" />
+            <xs:attribute name="filterscreen" />
           </xs:complexType>
         </xs:element>
         <xs:element name="embedvideodetector">

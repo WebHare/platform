@@ -37,6 +37,7 @@ PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
 {
   RETURN [ ordering := "orderable"
          , filterscreen := ""
+         , filtersettings := DEFAULT RECORD
          , contentslisthandler := [ objectname := "mod::publisher/lib/components/filelist.whlib#DefaultContentsListHandler"
                                   ]
          , visibleforeignfolders := FALSE

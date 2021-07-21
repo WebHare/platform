@@ -311,6 +311,18 @@ ASYNC MACRO TestWorkListMgmt()
   TT(":Name")->value := "TESTFW - 2nd Work List";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
+  //A filter screen should appear in the worklist itself
+  TT("filelist")->openaction->TolliumClick();
+
+  OBJECT filterscreen := TT("filelist")->folderfilter->contents;
+  TestEq(TRUE, ObjectExists(filterscreen));
+  TestEq("none", filterscreen->^toshow->value);
+  TestEq(RECORD[], TT("filelist")->rows); //filelist should then be initially empty
+
+  filterscreen->^toshow->value := "some";
+  TTClick(":Filter");
+  TestEq([[ name := "workfile1" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
 

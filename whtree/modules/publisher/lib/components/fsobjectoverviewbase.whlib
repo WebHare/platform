@@ -158,6 +158,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , name
                   , title
                   , filterscreen
+                  , filtersettings
                   , canwrite
                   , canadd :=       isfolder AND type != 1 AND canwrite AND NOT islockedsite
                   , candelete :=    RecordExists(__fsdata) ? __fsdata.parent != 18 AND candelete : candelete // can't delete from versioning archive
@@ -238,6 +239,7 @@ PUBLIC RECORD ARRAY FUNCTION GetInnerObjectListing(OBJECT tolliumuser, INTEGER p
                                , modificationdate
                                , creationdate
                                , filterscreen := ""
+                               , filtersettings := DEFAULT RECORD
                                , pvt_iconname := ""
                                , modulekey := ""
                                , contentshandler := 0
@@ -316,6 +318,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
                                   , contentmode := ""
                                   , tag := ""
                                   , filterscreen := ""
+                                  , filtersettings := DEFAULT RECORD
                                FROM GetInnerObjectListing(this->owner->tolliumuser, parentfolderid, showfolders, showexternal, showfiles, specificobjects, specificobjectids, contentmode);
 
     RETURN EnrichObjectListing(this->owner->tolliumuser, baselist, hidden_too, contentmode);
@@ -341,7 +344,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
     RETURN FALSE;
   }
 
-  RECORD ARRAY FUNCTION GetCustomObjectListing(INTEGER parentid, BOOLEAN forfoldertree, BOOLEAN showfolders, BOOLEAN showfiles, BOOLEAN hidden_too)
+  RECORD ARRAY FUNCTION GetCustomObjectListing(INTEGER parentid, BOOLEAN forfoldertree, BOOLEAN showfolders, BOOLEAN showfiles, BOOLEAN hidden_too, RECORD filterresults)
   {
     OBJECT contentshandler := this->GetCustomContentsHandler(parentid);
     IF (NOT ObjectExists(contentshandler))
@@ -352,6 +355,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
         , showfolders
         , showfiles
         , showhidden := hidden_too
+        , filterresults
         ];
 
     RECORD ARRAY objects := contentshandler->OnGetChildren(parentid, options);
@@ -374,7 +378,8 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
 
               , parent := parentid
               , type := 0
-              , filterscreen := ""
+              , filterscreen := Cellexists(objects,"filterscreen") ? objects.filterscreen : ""
+              , filtersettings := Cellexists(objects,"filtersettings") ? objects.filtersettings : DEFAULT RECORD
               , modulekey := ""
               , extension := DEFAULT OBJECT
               , contentmode := Cellexists(objects,"contentmode") ? objects.contentmode : ""
@@ -396,6 +401,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
 
                , parent := parentid
                , filterscreen := ""
+               , filtersettings := DEFAULT RECORD
                , pvt_iconname := ""
                , modulekey := ""
                , extension := DEFAULT OBJECT
@@ -515,15 +521,15 @@ PUBLIC OBJECTTYPE FSContentsOverviewBase EXTEND FSObjectOverviewBase
   */
   UPDATE PUBLIC MACRO ReloadOverview()
   {
-    ABORT("ReloadOverview must be overwritten");
+    THROW NEW Exception("ReloadOverview must be overwritten");
   }
 
   /** @short Apply a filtered set of results to the list.
       @param(RECORD ARRAY) The output of the filter callback.
   */
-  PUBLIC MACRO SetFilterResult(RECORD ARRAY filterresult)
+  PUBLIC MACRO _SetFilterResult(RECORD filterresult)
   {
-    ABORT("SetFilterResult must be overwritten");
+    THROW NEW Exception("_SetFilterResult must be overwritten"); //this function is only PUBLIC so filemanager can jump to recycled file
   }
 
   /** @short Sets the FolderTree object that should be followed, if any.
@@ -554,7 +560,7 @@ PUBLIC OBJECTTYPE FSContentsOverviewBase EXTEND FSObjectOverviewBase
   */
   PUBLIC MACRO ShowFSObjects(INTEGER ARRAY fileids)
   {
-    ABORT("ShowFSObjects must be overwritten");
+    THROW NEW Exception("ShowFSObjects must be overwritten");
   }
 
   /** @short Should update the list when the FolderTree selection has changed; used in conjunction with SetFoldertree.
@@ -576,6 +582,6 @@ PUBLIC OBJECTTYPE FSContentsOverviewBase EXTEND FSObjectOverviewBase
   */
   MACRO __SetFolder(INTEGER folderid, RECORD foldersettings)
   {
-    ABORT("__SetFolder must be overwritten");
+    THROW NEW Exception("__SetFolder must be overwritten");
   }
 >;

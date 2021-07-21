@@ -211,6 +211,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       @cell(integer) return.objectid The WHFS object this item refers to
       @cell(string) return.comments Optional comments for this item
       @cell(datetime) return.resolveddate If not DEFAULT DATETIME, the date/time at which this item was resolved
+      @cell(record) return.metadata Item metadata
   */
   PUBLIC RECORD ARRAY FUNCTION GetWorkListItems(INTEGER worklistid)
   {

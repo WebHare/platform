@@ -347,6 +347,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       IF(RecordExists(selection))
       {
         this->foldersettings.filterscreen := selection.filterscreen;
+        this->foldersettings.filtersettings := selection.filtersettings;
         IF (selection.contentmode = "searchresults")
         {
           this->foldersettings.ordering := "searchresults";
@@ -574,7 +575,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       IF (ObjectExists(contentshandler))
       {
         customhandlerid := parentfolder.id;
-        displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden);
+        displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden, DEFAULT RECORD);
         displayfolders := contentshandler->OnMapItems(parentfolder.id, displayfolders);
 
         this->folderlistener->masks := this->folderlistener->masks CONCAT
@@ -695,6 +696,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
                , name             := GetTid(addroot.title)
                , isfolder         := TRUE
                , filterscreen     := addroot.filterscreen
+               , filtersettings   := DEFAULT RECORD
                , pvt_iconname     := addroot.icon
                , type             := 0
                , title            := ""

@@ -38,7 +38,6 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
   {
     WHFSFilterScreenBase::Init(data);
 
-    this->allowsallresults := TRUE;
     this->and_search := TRUE;
     this->results_limit := 100;
 
@@ -171,6 +170,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
         [ numresults := res.totalcount
         , moreresults := res.totalcount > Length(res.results)
         , showresults :=  finalresults
+        , allowallresults := this->tolliumuser->HasRight("system:sysop")
         ];
   }
 

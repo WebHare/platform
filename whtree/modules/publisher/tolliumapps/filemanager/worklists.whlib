@@ -7,9 +7,25 @@ LOADLIB "mod::publisher/lib/worklists.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+
+RECORD FUNCTION EnrichWorklistObject(RECORD inrec)
+{
+  RECORD descr;
+
+  IF(inrec.type != "")
+  { //try to get the type, but don't crash the interface if we can't derive it
+    TRY descr := DescribeWorklistType(inrec.type);
+    CATCH(OBJECT e) LogHarescriptException(e);
+  }
+  RETURN CELL[ ...inrec
+             , filterscreen := RecordExists(descr) ? descr.filterscreen : ""
+             , filtersettings := [ worklist := inrec.custom_listid ]
+             ];
+}
 
 PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 < //----------------------------------------------------------------------------
@@ -153,7 +169,9 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
       // Return the (accessible) work lists
       this->SyncWorkLists();
-      RETURN this->worklistcache;
+
+      RECORD ARRAY worklists := SELECT AS RECORD ARRAY EnrichWorklistObject(worklist) FROM this->worklistcache AS worklist;
+      RETURN worklists;
     }
     ELSE
     {
@@ -164,13 +182,24 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         RETURN this->worklistcache;
       }
 
-      /* Return the selected work list's items that the user has write access to (this used to be fs_browse but you can't
-         really fix anything with just read. if we ever need readble too, it should probably be a worklist level option) */
-      INTEGER ARRAY objectids :=
-          SELECT AS INTEGER ARRAY objectid
-            FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
+      INTEGER ARRAY objectids;
+      IF(RecordExists(options.filterresults))
+      {
+        //Then we can just show those items  TODO save the custom_itemids !
+        objectids := SELECT AS INTEGER ARRAY id FROM options.filterresults.showresults;
+      }
+      ELSE
+      {
+        /* Return the selected work list's items that the user has write access to (this used to be fs_browse but you can't
+           really fix anything with just read. if we ever need readble too, it should probably be a worklist level option) */
+        objectids :=
+            SELECT AS INTEGER ARRAY objectid
+              FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
+      }
 
+      //TODO is there a way to move responsibility for this to the search result filtering too ?
       objectids := this->tolliumuser->HasRightOnMultiple("system:fs_fullaccess", objectids);
+
       RETURN ToRecordArray(objectids,"id");
     }
   }
@@ -329,6 +358,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
             , candelete := worklist.iseditor
             , custom_canresolve := FALSE
             , icon := "tollium:actions/checklist"
+            , type := worklist.type
             ];
         INSERT item INTO this->worklistcache AT END;
       }

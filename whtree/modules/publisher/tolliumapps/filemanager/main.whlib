@@ -246,7 +246,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       {
         ^foldertree->value := 0; //force it to fill
         ^foldertree->selection := RECORD(SELECT * FROM ^foldertree->rows WHERE contentmode = "recyclebin");
-        ^filelist->SetFilterResult([[ id := objid, parent := objinfo.parent]]);
+        ^filelist->_SetFilterResult([ showresults := [[ id := objid, parent := objinfo.parent]]]);
         ^filelist->SetValueIfValid([objid]);
         this->frame->focused := ^filelist;
         RETURN TRUE;
