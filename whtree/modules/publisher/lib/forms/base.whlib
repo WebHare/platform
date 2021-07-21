@@ -508,8 +508,6 @@ PUBLIC OBJECTTYPE FormBase
             , field.title
             , obj := newfield
             , field.supportedvalues
-            , defaulttype := GetFieldTypeID(field.supportedvalues)
-            , columntype := GetFieldColumnType(field.supportedvalues)
             ] INTO this->__formfields AT insertpos;
     RETURN newfield;
   }
