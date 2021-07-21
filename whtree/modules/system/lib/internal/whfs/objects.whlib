@@ -2974,6 +2974,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     //Gather import data per folder
     RECORD ARRAY perfoldermetadata;
 
+    STRING ARRAY seentypes;
     FOREVERY(RECORD imp FROM import_entries)
       IF(imp.name="^^webhare_folder_metadata.xml")
       {
@@ -2985,6 +2986,24 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
             path := SubString(path, 1);
 
           INSERT [ path := path , metadata := data ] INTO perfoldermetadata AT END;
+
+          IF(RecordExists(data.meta) AND Length(data.meta.describetypes)>0)
+          {
+            FOREVERY(RECORD type FROM data.meta.describetypes)
+            {
+              STRING typehash := GetMD5Hash(EncodeHson(type)); //avoid reregistering types we've seen before, registerwhfstype is slow
+              IF(typehash NOT IN seentypes)
+              {
+                IF(debugmapping)
+                {
+                  Print("registering type\n");
+                  Printrecordto(0,type,'tree');
+                }
+                INSERT typehash INTO seentypes AT END;
+                RegisterWHFSType(type);
+              }
+            }
+          }
         }
       }
 

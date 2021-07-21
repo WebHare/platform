@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="libs">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="data">
   <test script="test-whfs-base.whscr" />
   <test script="test-whfs-register.whscr" />
   <test script="test-whfs-siteprofiles_apply.whscr" />
@@ -7,6 +7,7 @@
   <test script="test-whfs-history.whscr" />
   <test script="test-whfs-versioning.whscr" />
   <test script="test-whfs-types.whscr" />
+  <test script="test-whfs-autocreate.whscr" />
   <test script="test-whfs-types_bulkapi.whscr" />
   <test script="test-whfs-rights.whscr" />
   <test script="test-whfs-consilio.whscr" />
