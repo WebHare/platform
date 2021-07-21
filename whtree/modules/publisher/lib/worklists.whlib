@@ -2,11 +2,53 @@
 
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 
+/** @short Describe a single work list
+    @param worklistid The work list id
+    @return The requested work list
+    @includecelldef %WorkListAPI::GetAllWorkLists.return
+    @cell(record) return.metadata Type specific metadata
+*/
+PUBLIC RECORD FUNCTION DescribeWorkList(INTEGER worklistid)
+{
+  RETURN SELECT *
+              , metadata := metadata != "" ? DecodeHSON(metadata) : DEFAULT RECORD
+          FROM publisher.worklists
+         WHERE id = VAR worklistid;
+}
+
+RECORD FUNCTION GetCacheableWorklistType(STRING type)
+{
+  IF(type NOT LIKE "?*:?*" OR type LIKE "?*:?*:*") //make sure our next tokenize makes sense
+    THROW NEW Exception(`Invalid worklist type '${type}', it must be of the form 'module:type'`);
+
+  STRING ARRAY split := Tokenize(type,':');
+  OBJECT moduledef := GetModuleDefinitionXML(split[0]);
+  FOREVERY(OBJECT worklistnode FROM moduledef->ListElements(whconstant_xmlns_moduledef,"worklisttype"))
+    IF(worklistnode->GetAttribute("name") = split[1])
+    {
+      STRING basepath := GetModuleDefinitionXMLResourceName(split[0]);
+      RECORD descr :=  CELL[ filterscreen := MakeAbsoluteResourcePath(basepath, worklistnode->GetAttribute("filterscreen"))
+                           ];
+      RETURN [ value := descr
+             , eventmasks := ["system:modulesupdate"]
+             ];
+    }
+
+  THROW NEW Exception(`No such worklist type '${type}'`);
+}
+
+PUBLIC RECORD FUNCTION DescribeWorklistType(STRING type)
+{
+  RETURN GetAdhocCached(CELL[type], PTR GetCacheableWorklistType(type));
+}
 
 /** @short An API for Publisher work lists
 */
@@ -51,9 +93,12 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     BOOLEAN issysop := this->tolliumuser->HasRight("system:sysop");
     INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
     RETURN
-        SELECT *
+        SELECT id
+             , name
+             , type
+             , tag
              , iseditor := issysop OR owner = this->tolliumuser->authobjectid
-             , DELETE owner
+             , creationdate
           FROM publisher.worklists
          WHERE issysop ? TRUE : (id IN accessible_worklists OR owner = this->tolliumuser->authobjectid);
   }
@@ -66,10 +111,12 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
   */
   PUBLIC INTEGER FUNCTION CreateWorkList(RECORD worklist)
   {
-    worklist := EnforceStructure(
+    worklist := ValidateOptions(
         [ name := ""
         , tag := ""
-        ], worklist);
+        , type := ""
+        , metadata := DEFAULT RECORD
+        ], worklist, [ title := "worklist" ]);
 
     IF (worklist.name = "")
       THROW NEW Exception(`Expected a 'name' for the work list`);
@@ -77,10 +124,12 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       THROW NEW Exception(`A work list with name '${worklist.name}' already exists`);
     IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(tag) = ToUppercase(worklist.tag)))
       THROW NEW Exception(`A work list with tag '${worklist.tag}' already exists`);
+    IF(worklist.type != "" AND NOT RecordExists(DescribeWorklistType(worklist.type)))
+      THROW NEW Exception(`No such worklist type '${worklist.type}' installed`);
 
     INTEGER listid := MakeAutonumber(publisher.worklists, "id");
-    INSERT INTO publisher.worklists(id, name, tag, owner, creationdate)
-      VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime());
+    INSERT INTO publisher.worklists(id, name, tag, owner, creationdate, type, metadata)
+      VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime(), worklist.type, RecordExists(worklist.metadata) ? EncodeHSON(worklist.metadata) : "");
 
     //Make ourselves an owner
     this->tolliumuser->UpdateGrant("grant", "publisher:worklist_owner", listid, this->tolliumuser, [ allowselfassignment := TRUE, withgrantoption := TRUE ]);
@@ -92,7 +141,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
   /** @short Get a single work list
       @param worklistid The work list id
       @return The requested work list, or a DEFAULT RECORD if the user doesn't have access to the work list
-          @includecelldef %WorkListAPI::GetAllWorkLists.return
+              @includecelldef %WorkListAPI::GetAllWorkLists.return
   */
   PUBLIC RECORD FUNCTION GetWorkList(INTEGER worklistid)
   {
@@ -173,6 +222,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
              , objectid
              , comments
              , resolveddate
+             , metadata := metadata != "" ? DecodeHSON(metadata) : DEFAULT RECORD
           FROM publisher.worklistitems
          WHERE listid = worklistid;
   }
@@ -182,6 +232,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       @param items The items to add
       @cell(integer) items.id The WHFS object id to add
       @cell(string) items.comments Optional comments for this item
+      @cell(record) items.metadata Worklist-type specific metadata
       @cell(string) options.existing How to handle items already present on the work list, either "reset" to mark them as
           unresolved (and update the comments) or "ignore" to leave them, defaults to "reset"
   */
@@ -190,11 +241,12 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     options := ValidateOptions(
         [ existing := "reset"
         ], options, [ enums := [ existing := [ "reset", "ignore" ] ] ]);
-    items := EnforceStructure(
-        [ [ objectid := 0
-          , comments := ""
-          ]
-        ], items);
+
+    items := SELECT AS RECORD ARRAY ValidateOptions
+        ([ objectid := 0
+         , comments := ""
+         , metadata := DEFAULT RECORD
+         ], items, [ title := `items[${#items}]` ]) FROM items;
 
     IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
       THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
@@ -207,10 +259,14 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
         THROW NEW Exception(`Expected an 'objectid' for item #${#item}`);
 
       INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND objectid = item.objectid;
+      STRING setmetadata;
+      IF(RecordExists(item.metadata))
+        setmetadata := EncodeHSON(item.metadata);
+
       IF (itemid = 0)
       {
-        INSERT INTO publisher.worklistitems(listid, objectid, comments, creationdate)
-          VALUES(worklistid, item.objectid, item.comments, now);
+        INSERT INTO publisher.worklistitems(listid, objectid, comments, creationdate, metadata)
+          VALUES(worklistid, item.objectid, item.comments, now, setmetadata);
         INSERT item.objectid INTO objectids AT END;
       }
       ELSE IF (options.existing = "reset")
@@ -219,6 +275,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
            SET resolveddate := DEFAULT DATETIME
              , resolvedby := 0
              , comments := item.comments
+             , metadata := setmetadata
          WHERE id = itemid;
         INSERT item.objectid INTO objectids AT END;
       }

@@ -1613,6 +1613,9 @@
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
         <xs:element name="worklisttype">
+          <xs:complexType>
+            <xs:attribute name="name" use="required" type="Name" />
+          </xs:complexType>
         </xs:element>
         <xs:element name="embedvideodetector">
           <xs:complexType>
