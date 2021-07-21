@@ -61,13 +61,20 @@ MACRO TestVies()
   TestEqLike("*WEBHARE*", result.name);
   TestEq("", result.error);
 
-  //we just picked a random HAPPY cooperation
+  //we just picked a random HAPPY cooperation.
   result := CheckViesVATCode("BE 0890.294.605");
+  IF(NOT result.serviceunavailable) //IF the BE VAT VIES is up, which it is more often not.
+  {
+    TestEq(TRUE, result.valid);
+    TestEq("BE0890294605", result.vatnumber);
+    TestEqLike("*BEKKEVOORT*", ToUppercase(result.address));
+    TestEqLike("*HAPPY*", result.name);
+  }
+
+  result := CheckViesVATCode("DE129274202"); //Siemens AG
   TestEq(FALSE, result.serviceunavailable);
   TestEq(TRUE, result.valid);
-  TestEq("BE0890294605", result.vatnumber);
-  TestEqLike("*BEKKEVOORT*", ToUppercase(result.address));
-  TestEqLike("*HAPPY*", result.name);
+  TestEq("DE129274202", result.vatnumber);
 }
 
 RunTestframework([ PTR TestVies
