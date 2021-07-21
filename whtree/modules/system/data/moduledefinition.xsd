@@ -1612,6 +1612,8 @@
         <xs:element name="indexfield" type="PublisherIndexField" />
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
+        <xs:element name="worklisttype">
+        </xs:element>
         <xs:element name="embedvideodetector">
           <xs:complexType>
             <xs:attribute name="functionname" use="required" />
