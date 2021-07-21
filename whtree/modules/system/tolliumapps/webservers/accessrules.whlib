@@ -19,9 +19,6 @@ RECORD ARRAY FUNCTION GetAvailableModuleRoleSets()
   FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name))
   {
     OBJECT xmlfile := GetModuleDefinitionXML(mod.name);
-    IF(NOT ObjectExists(xmlfile) OR NOT ObjectExists(xmlfile->documentelement))
-      CONTINUE;
-
     retval := retval CONCAT ListModuleWebruleSets(GetModuleDefinitionXMLResourceName(mod.name), xmlfile);
   }
 

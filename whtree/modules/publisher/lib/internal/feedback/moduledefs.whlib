@@ -36,8 +36,6 @@ RECORD FUNCTION GetCacheableModuleDefinedWRDscopes(STRING modulename)
     xmldef := GetModuleDefinitionXML(modulename);
   CATCH
     RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
-  IF(NOT ObjectExists(xmldef))
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
 
   RECORD ARRAY scopes := ParseScopes(xmldef, modulename);
 

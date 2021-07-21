@@ -200,37 +200,35 @@ RECORD FUNCTION GetCacheableGlobalDragTypes()
     CATCH
       CONTINUE;
 
-    IF (ObjectExists(xmldoc))
+
+    OBJECT ARRAY elts := xmldoc->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "dragtype")->GetCurrentElements();
+
+    FOREVERY (OBJECT elt FROM elts)
     {
-      OBJECT ARRAY elts := xmldoc->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "dragtype")->GetCurrentElements();
+      STRING ARRAY flags := Tokenize(elt->GetAttribute("flags"), " ");
+      flags := SELECT AS STRING ARRAY flag FROM ToRecordArray(flags, "FLAG") WHERE flag != "";
 
-      FOREVERY (OBJECT elt FROM elts)
+      STRING library := "module::" || module || "/" || elt->GetAttribute("library");
+      STRING objectname := elt->GetAttribute("objectname");
+
+      OBJECT dragtypeobj;
+      TRY
       {
-        STRING ARRAY flags := Tokenize(elt->GetAttribute("flags"), " ");
-        flags := SELECT AS STRING ARRAY flag FROM ToRecordArray(flags, "FLAG") WHERE flag != "";
-
-        STRING library := "module::" || module || "/" || elt->GetAttribute("library");
-        STRING objectname := elt->GetAttribute("objectname");
-
-        OBJECT dragtypeobj;
-        TRY
-        {
-          dragtypeobj := MakeObject(library, objectname);
-        }
-        CATCH (OBJECT e) {}
-        IF (NOT ObjectExists(dragtypeobj))
-          THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' could not be found");
-        ELSE IF (dragtypeobj NOT EXTENDSFROM DragTypeDescriber)
-          THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' not extending DragTypeDescriber");
-
-        INSERT
-            [ name := module || ":" || elt->GetAttribute("name")
-            , candownloadflags := elt->GetAttribute("candownloadflags")
-            , library := library
-            , objectname := objectname
-            , flags := flags
-            ] INTO results AT END;
+        dragtypeobj := MakeObject(library, objectname);
       }
+      CATCH (OBJECT e) {}
+      IF (NOT ObjectExists(dragtypeobj))
+        THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' could not be found");
+      ELSE IF (dragtypeobj NOT EXTENDSFROM DragTypeDescriber)
+        THROW NEW Exception("Dragtype object '" || library || ":" || objectname || "' not extending DragTypeDescriber");
+
+      INSERT
+          [ name := module || ":" || elt->GetAttribute("name")
+          , candownloadflags := elt->GetAttribute("candownloadflags")
+          , library := library
+          , objectname := objectname
+          , flags := flags
+          ] INTO results AT END;
     }
   }
 

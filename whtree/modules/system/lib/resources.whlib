@@ -1,13 +1,13 @@
 ﻿<?wh
 /** @topic modules/resources */
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib" EXPORT RetrieveWebHareResource, GetModuleNameFromResourcePath, IsAbsoluteResourcePath, MakeAbsoluteResourcePath, GetResourceEventMasks;
-LOADLIB "wh::internal/interface.whlib";
 
 RECORD FUNCTION GetCacheableIntercepts(STRING targetname)
 {
@@ -108,11 +108,12 @@ PUBLIC STRING FUNCTION GetModuleDefinitionXMLResourceName(STRING modulename)
 */
 PUBLIC OBJECT FUNCTION GetModuleDefinitionXML(STRING modulename)
 {
-  STRING resname := GetModuleDefinitionXMLResourceName(modulename);
-  IF(resname="")
-    RETURN DEFAULT OBJECT;
-
-  RETURN OpenXMLDoc(resname, FALSE).doc;
+  /* this function used to return a DEFAULT OBJECT ift he module didn't exist, but
+     was otherwise not blocked from throwing a RetrieveResourceException if there
+     was a validation error. Which means that code calling us should be prepared to deal
+     with RetrieveResourceException either way, so no need to return DEFAULT OBJECTs (which
+     was broken due to earlier 4.32 commits anyway without known bad consequences) */
+  RETURN OpenXMLDoc(GetModuleDefinitionXMLResourceName(modulename), FALSE).doc;
 }
 /** Get a list of installed modules
     @return List of module names */
@@ -137,9 +138,6 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomModuleSettings(STRING ns, STRING localname
     TRY
     {
       OBJECT xmldoc := GetModuleDefinitionXML(mod);
-      IF(NOT ObjectExists(xmldoc))
-        CONTINUE;
-
       OBJECT ARRAY applynode := xmldoc->GetElementsByTagNameNS(ns, localname)->GetCurrentElements();
       FOREVERY(OBJECT apply FROM applynode)
       {

@@ -53,8 +53,6 @@ RECORD ARRAY FUNCTION GetXMLValidators()
       doc := GetModuleDefinitionXML(module);
     CATCH
       CONTINUE;
-    IF(NOT ObjectExists(doc))
-      CONTINUE;
 
     OBJECT ARRAY xmltypes := doc->GetEvaluatedElements(resolver, "/m:module/m:validation/m:xmlfiletype");
     FOREVERY (OBJECT node FROM xmltypes)

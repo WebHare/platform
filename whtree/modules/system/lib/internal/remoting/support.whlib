@@ -211,9 +211,6 @@ OBJECT FUNCTION GetServiceDefinitionNode(STRING modulename, STRING functionname)
     RETURN DEFAULT OBJECT;
 
   OBJECT moduledefinition := GetModuleDefinitionXML(modulename);
-  IF(NOT ObjectExists(moduledefinition) OR NOT ObjectExists(moduledefinition->documentelement))
-    RETURN DEFAULT OBJECT;
-
   OBJECT servicesnode := moduledefinition->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
   IF(NOT ObjectExists(servicesnode))
     RETURN DEFAULT OBJECT;

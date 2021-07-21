@@ -63,37 +63,32 @@ PUBLIC RECORD ARRAY FUNCTION GetModuleRegKeys(STRING modname)
   OBJECT xmldoc := GetModuleDefinitionXML(modname);
   RECORD ARRAY keys;
 
-  IF(ObjectExists(xmldoc))
+  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "moduleregistry")->GetCurrentElements())
   {
-    FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "moduleregistry")->GetCurrentElements())
+    keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
+  }
+  FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "registry")->GetCurrentElements())
+  {
+    RECORD rk := RecurseRegKey(keystore, Touppercase(modname));
+
+    STRING keyowner := ToUppercase(keystore->GetAttribute("owner"));
+    IF(keyowner != "_SYSTEM" AND keyowner != "")
     {
+      //If they're not _SYSTEM owned, reflect them to <modules>.[modulename]
       keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
     }
-    FOREVERY(OBJECT keystore FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "registry")->GetCurrentElements())
+    ELSE
     {
-      RECORD rk := RecurseRegKey(keystore, Touppercase(modname));
-
-      STRING keyowner := ToUppercase(keystore->GetAttribute("owner"));
-      IF(keyowner != "_SYSTEM" AND keyowner != "")
-      {
-        //If they're not _SYSTEM owned, reflect them to <modules>.[modulename]
-        keys := keys CONCAT RecurseRegKey(keystore, modname || ".");
-      }
-      ELSE
-      {
-        keys := keys CONCAT RecurseRegKey(keystore, "");
-      }
+      keys := keys CONCAT RecurseRegKey(keystore, "");
     }
   }
+
   RETURN keys;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetModuleDatabaseSchema(STRING modname)
 {
   OBJECT xmldoc := GetModuleDefinitionXML(modname);
-  IF(NOT ObjectExists(xmldoc))
-    RETURN DEFAULT RECORD ARRAY;
-
   OBJECT specs := xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema");
   RECORD ARRAY retval;
   FOREVERY(OBJECT spec FROM specs->GetCurrentElements())
