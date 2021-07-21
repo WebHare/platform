@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 
