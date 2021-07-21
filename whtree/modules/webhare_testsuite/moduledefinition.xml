@@ -154,6 +154,9 @@
     <webrule path="root:/.webhare_testsuite/tests/csp" match="initial">
       <csp policy="frame-ancestors [webhare];script-src 'self'" />
     </webrule>
+    <webrule path="root:/.webhare_testsuite/tests/pages/captcha" match="initial">
+      <csp policy="frame-ancestors [webhare];script-src 'self' https://www.google.com https://www.gstatic.com" /> <!-- needed for publisher.components.test-captcha -->
+    </webrule>
     <webrule path="root:/.webhare_testsuite/tests/searchallcases/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" searchallcases="true" />
 
     <webruleset name="testset" tid="module.webruleset">
