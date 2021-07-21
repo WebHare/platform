@@ -40,11 +40,18 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
 
   MACRO Init(RECORD params)
   {
+    params := ValidateOptions([ id := 0, openaccessrule := 0 ], params);
+
     this->webserverid := params.id;
     IF(this->webserverid != 0)
       this->servername := SELECT AS STRING UnpackURL(baseurl).host FROM system.webservers WHERE id = this->webserverid;
 
     this->Reload();
+    IF(params.openaccessrule != 0)
+    {
+      IF(^accessrulelist->SetValueIfValid(INTEGER[params.openaccessrule]))
+        this->DoEdit();
+    }
   }
 
   RECORD ARRAY FUNCTION GetAccessRules()

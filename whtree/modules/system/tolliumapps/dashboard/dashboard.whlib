@@ -333,7 +333,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (CellExists(sel, "JUMPTO") AND RecordExists(sel.jumpto))
     {
       RECORD jumpto := ^results->selection[0].jumpto;
-      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, [ reusemode := "whennotbusy" ]);
+      STRING reusemode := CellExists(jumpto,'reusemode') ? jumpto.reusemode : "whennotbusy";
+      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
     }
     ELSE IF (CellExists(sel, "FILENAME"))
     {

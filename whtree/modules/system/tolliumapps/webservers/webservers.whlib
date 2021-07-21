@@ -77,8 +77,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RegisterLocalDragType("local:webserver", DEFAULT STRING ARRAY);
     this->RegisterLocalDragType("local:webserveralias", DEFAULT STRING ARRAY);
 
-    IF (RecordExists(data.message) AND data.message.task = "selectkey")
-      this->RunScreen("mod::system/tolliumapps/config/keystore.xml#main", [ value := data.message.id ]);
+    IF (RecordExists(data.message))
+    {
+      IF(data.message.task = "selectkey")
+        this->RunScreen("mod::system/tolliumapps/config/keystore.xml#main", [ value := data.message.id ]);
+      IF(data.message.task = "selectaccessrule")
+        this->RunScreen("accessrules.xml#", [ id := data.message.webserver, openaccessrule := data.message.id ]);
+    }
   }
 
   RECORD ARRAY FUNCTION GetAliases(RECORD ARRAY aliases)
