@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 
@@ -39,8 +40,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsVisible()
   {
+    // We need to resync or as sysop we might miss the removal of lists (probably need a smarter cache stragegy, this change might have made it net-worse than no caching at all)
+    this->SyncWorkLists();
+
     // GetAllWorkLists returns all accessible work lists
-    RETURN RecordExists(this->api->GetAllWorkLists());
+    RETURN this->tolliumuser->HasRight("system:sysop") OR RecordExists(SELECT FROM this->worklistcache);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
@@ -155,7 +159,10 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     {
       // If the parent is the root, return the work lists
       IF (parentid = this->rootid)
+      {
+        this->SyncWorkLists();
         RETURN this->worklistcache;
+      }
 
       /* Return the selected work list's items that the user has write access to (this used to be fs_browse but you can't
          really fix anything with just read. if we ever need readble too, it should probably be a worklist level option) */
@@ -225,7 +232,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
   {
     RETURN
-        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageusers")
+        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageworklist")
           , executehandler   := PTR this->AssignWorkListUsers
           , addtomenu        := "file"
           , addtocontextmenu := TRUE
@@ -357,12 +364,15 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   {
     this->api := NEW WorkListAPI(this->tolliumuser);
     this->worklistid := data.worklistid;
+    RECORD worklistinfo := SELECT * FROM publisher.worklists WHERE id = this->worklistid;
+
     ^users->value :=
         SELECT id := user->authobjectid
              , name := user->realname ?? user->login
              , email := user->emailaddress
              , obj := user
           FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+    ^name->value := worklistinfo.name;
   }
 
 
@@ -374,20 +384,22 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   // This function is only called to add users
   RECORD ARRAY FUNCTION OnEditUser(RECORD _unused_row)
   {
-    RECORD ARRAY result := RunUserRoleSelectDialog(this, [ selectmultiple := TRUE, roles := FALSE ]);
+    RECORD ARRAY result := RunUserRoleSelectDialog(this, [ selectmultiple := TRUE ]);
+    //TODO we need a user+role enrichtment component, or perhaps we just need to be able to use a userrolelist ?
     RETURN
-          SELECT TEMPORARY user := this->contexts->userapi->GetUser(entityid)
-               , id := user->authobjectid
-               , name := user->realname ?? user->login
-               , email := user->emailaddress
-               , obj := user
+          SELECT TEMPORARY obj := type = "user" ? this->contexts->userapi->GetUser(entityid) : this->contexts->userapi->GetRole(entityid)
+               , id := obj->authobjectid
+               , name := type = "user" ? (obj->realname ?? obj->login) :  obj->GetUncachedUserRightsName()
+               , email := type = "user" ? obj->emailaddress : ""
+               , obj := obj
             FROM result;
   }
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginUnvalidatedWork();
+    OBJECT work := this->BeginWork();
 
+    UPDATE publisher.worklists SET name := ^name->value WHERE id = this->worklistid;
     RECORD ARRAY curusers :=
         SELECT id := user->authobjectid
              , obj := user
@@ -402,6 +414,7 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
       ELSE
         DELETE FROM curusers AT idx;
     }
+
     this->api->AddWorkListUsers(this->worklistid, addusers);
     OBJECT ARRAY delusers := SELECT AS OBJECT ARRAY obj FROM curusers;
     this->api->RemoveWorkListUsers(this->worklistid, delusers);

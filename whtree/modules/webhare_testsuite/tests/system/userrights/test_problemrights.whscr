@@ -165,6 +165,5 @@ RunTestFramework([ PTR Prepare
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa"]
                                    ]
-                    , testroles := [[ role := "powerplantmanagers" ]]
                     ]
                  );

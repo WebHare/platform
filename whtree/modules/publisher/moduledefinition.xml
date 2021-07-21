@@ -72,8 +72,12 @@
                 tid="rights.worklists"
                 describer="lib/internal/support.whlib#worklistsdescriber" />
 
-    <right name="worklist_resolve" objecttype="worklists" tid="rights.worklist_resolve" isrootright="true">
-      <impliedby right="worklist_resolve" />
+    <right name="worklist_owner" objecttype="worklists" tid="rights.worklist_owner" isrootright="true">
+      <impliedby right="worklist_owner" />
+    </right>
+
+    <right name="worklist_resolve" objecttype="worklists" tid="rights.worklist_resolve">
+      <impliedby right="worklist_owner" />
     </right>
   </rights>
 

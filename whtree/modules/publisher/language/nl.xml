@@ -855,11 +855,13 @@
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
       <text tid="email">E-mailadres</text>
       <text tid="name">Gebruiker</text>
+      <text tid="participants">Deelnemers</text>
+      <text tid="worklist">Werklijst</text>
       <text tid="worklistusers">Gebruikers werklijst</text>
       <text tid="worklistusers-desc">De volgende gebruikers kunnen werklijstonderdelen als opgelost markeren:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
-        <text tid="cleanupresolved">Opgeloste onderdelen verwijderen</text>
-        <text tid="manageusers">Gebruikers beheren</text>
+        <text tid="cleanupresolved">Opgeloste onderdelen verwijderen van werklijst</text>
+        <text tid="manageworklist">Werklijst beheren</text>
         <text tid="resolveitem">Als opgelost markeren</text>
       </textgroup>
       <textgroup gid="columns">   <!-- filemanager.worklists.columns -->
@@ -868,7 +870,7 @@
         <text tid="custom_statusicons">Status</text>
       </textgroup>
       <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
-        <text tid="confirmcleanupresolved">Weet u zeker dat u alle opgeloste onderdelen wilt verwijderen?</text>
+        <text tid="confirmcleanupresolved">Weet u zeker dat u alle opgeloste onderdelen wilt verwijderen van de werklijst?</text>
         <text tid="confirmdeleteworklists">Weet u zeker dat u de geselecteerde werklijst(en) wilt verwijderen?</text>
         <text tid="confirmresolveitems">Weet u zeker dat u <ifparam p="1" value="1">dit onderdeel<else/>deze <param p="1"/> onderdelen</ifparam> als opgelost wilt markeren?</text>
       </textgroup>
@@ -1567,6 +1569,7 @@
     <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
+    <text tid="worklist_owner">Eigenaar van de werklijst</text>
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
     <text tid="worklists">Werklijsten</text>
   </textgroup>

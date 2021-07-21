@@ -134,7 +134,7 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , needstemplate := RecordExists(type.fstype) AND type.fstype.needstemplate
          , title := ismissing ? ":"||ns : RecordExists(type.filetype) ? type.filetype.title : RecordExists(type.foldertype) ? type.foldertype.title : ":"||ns
          , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? whconstant_publisher_fileiconfallback
-                         : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? "tollium:folders/normal"
+                         : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? whconstant_publisher_foldericonfallback
                          : whconstant_publisher_fileiconfallback
          , dynamicexecution := RecordExists(type.filetype) ? type.filetype.dynamicexecution : RecordExists(type.foldertype) ? type.foldertype.dynamicexecution : DEFAULT RECORD
          , isacceptableindex := RecordExists(type.fstype) AND type.fstype.isacceptableindex

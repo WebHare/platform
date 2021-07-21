@@ -48,14 +48,14 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
   */
   PUBLIC RECORD ARRAY FUNCTION GetAllWorkLists()
   {
+    BOOLEAN issysop := this->tolliumuser->HasRight("system:sysop");
     INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
     RETURN
         SELECT *
-             , iseditor := owner = this->tolliumuser->authobjectid
+             , iseditor := issysop OR owner = this->tolliumuser->authobjectid
              , DELETE owner
           FROM publisher.worklists
-         WHERE id IN accessible_worklists
-               OR owner = this->tolliumuser->authobjectid;
+         WHERE issysop ? TRUE : (id IN accessible_worklists OR owner = this->tolliumuser->authobjectid);
   }
 
   /** @short Create a new work list
@@ -70,6 +70,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
         [ name := ""
         , tag := ""
         ], worklist);
+
     IF (worklist.name = "")
       THROW NEW Exception(`Expected a 'name' for the work list`);
     IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(name) = ToUppercase(worklist.name)))
@@ -80,6 +81,9 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     INTEGER listid := MakeAutonumber(publisher.worklists, "id");
     INSERT INTO publisher.worklists(id, name, tag, owner, creationdate)
       VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime());
+
+    //Make ourselves an owner
+    this->tolliumuser->UpdateGrant("grant", "publisher:worklist_owner", listid, this->tolliumuser, [ allowselfassignment := TRUE, withgrantoption := TRUE ]);
 
     GetPrimary()->BroadcastOnCommit("publisher:worklist." || listid, [ worklistid := listid ]);
     RETURN listid;
@@ -118,7 +122,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     FOREVERY (OBJECT userobject FROM userobjects)
-      userobject->GrantRightToOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+      this->tolliumuser->UpdateGrant("grant", "publisher:worklist_resolve",worklistid, userobject);
 
     GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
   }

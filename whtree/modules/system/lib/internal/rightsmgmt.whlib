@@ -1274,6 +1274,11 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     RETURN SELECT AS STRING name FROM system_internal.authobjects WHERE authobjects.id = this->__pvt_authobjectid;
   }
 
+  STRING FUNCTION DescribeMe()
+  {
+    RETURN `#${this->id} (${this->GetName()})`;
+  }
+
   PUBLIC INTEGER FUNCTION __PVT_GetGrantorAuthobject()
   {
     RETURN this->__pvt_authobjectid;
@@ -1320,7 +1325,7 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
                                ], options, [ optional := [ "withgrantoption", "comment" ]]);
 
     IF(action NOT IN ["grant","update","revoke"])
-      THROW NEW Exception("The action must be one of 'grant', 'update' or 'revoke'");
+      THROW NEW Exception(`The action must be one of 'grant', 'update' or 'revoke', not '${action}'`);
 
     IF (NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception("This operation requires an explicitly opened transaction");
@@ -1330,7 +1335,10 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF(NOT (options.allowselfassignment AND this->authobjectid = grantee->authobjectid))
     {
       IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ this->__pvt_authobjectid ], TRUE), FALSE, objectid, FALSE, FALSE, TRUE)))
-        THROW NEW Exception("The grantor does not have the right to grant this right");
+      {
+        BOOLEAN lacksgrant := RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ this->__pvt_authobjectid ], TRUE), FALSE, objectid, FALSE, FALSE, FALSE));
+        THROW NEW Exception(`Grantor '${this->DescribeMe()}' lacks ${lacksgrant ? "the right to grant the right" : "the right"} '${rightname}'${objectid != 0 ? " on #" || objectid : ""}`);
+      }
     }
 
     // Integrity check (objectrights and object)
@@ -1482,21 +1490,21 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
                                ], options, [ optional := [ "comment" ]]);
 
     IF(action NOT IN ["grant","update","revoke"])
-      THROW NEW Exception("The action must be one of 'grant', 'update' or 'revoke'");
+      THROW NEW Exception(`The action must be one of 'grant', 'update' or 'revoke', not '${action}'`);
 
     IF (NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception("This operation requires an explicitly opened transaction");
 
+    RECORD rolerec := SELECT * FROM system_internal.authobjects WHERE id = roleid AND type = 3;
+    IF (NOT RecordExists(rolerec))
+      THROW NEW Exception(`The role to grant (#${roleid}) does not exist`);
+
     IF (NOT this->HasRightOn("system:manageroles", roleid))
-      THROW NEW Exception("You do not have enough rights to grant this role");
+      THROW NEW Exception(`Grantor '${this->DescribeMe()}' does not have enough rights to grant the role #${roleid} ('${rolerec.name}')`);
 
     INTEGER grantee_id := grantee->__PVT_GetAllAuthObjects()[0];
     IF (grantee_id = 0)
       THROW NEW Exception("Invalid grantee");
-
-    RECORD rolerec := SELECT * FROM system_internal.authobjects WHERE id = roleid AND type = 3;
-    IF (NOT RecordExists(rolerec))
-      THROW NEW Exception("The granted role does not exist");
 
     // Lookup any existing grants
     RECORD ARRAY grants := SELECT id, comment FROM system_internal.rolegrants WHERE COLUMN grantee = grantee_id AND role = roleid;
