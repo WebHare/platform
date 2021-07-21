@@ -1,3 +1,5 @@
+# This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
+
 estimate_buildj()
 {
   if [ -n "$WHBUILD_NUMPROC" ]; then

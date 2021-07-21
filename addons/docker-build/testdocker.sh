@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/bash -x
+
+# This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 
 testfail()
 {
@@ -204,7 +206,26 @@ if [ "$NOPULL" != "1" ]; then
   echo "`date` Pulling image $WEBHAREIMAGE"
   if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
     echo "Failed to pull image"
-    exit 1
+
+    # All registry.gitlab.com/webhare/platform: images should also be on dockerhub. But we generally avoid dockerhub, it seems slower and is rate limited
+    if [[ $WEBHAREIMAGE =~ registry.gitlab.com/webhare/platform:.* ]]; then
+
+      # Which alternative registry to use?
+      [ -n "$WH_CI_ALTERNATEREGISTRY" ] || WH_CI_ALTERNATEREGISTRY=webhare/platform
+      if [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] ; then
+        echo $WH_CI_ALTERNATEREGISTRY_PASSWORD | docker login -u $WH_CI_ALTERNATEREGISTRY_LOGIN --password-stdin $WH_CI_ALTERNATEREGISTRY
+      fi
+
+      WEBHAREIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:37}  # 37 is the length of 'registry.gitlab.com/webhare/platform:'
+      if ! $SUDO docker pull "$WEBHAREIMAGE" ; then
+        echo "Failed to pull fallback image"
+        [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+        exit 1
+      fi
+      [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && docker logout $WH_CI_ALTERNATEREGISTRY
+    else
+      exit 1
+    fi
   fi
 fi
 
