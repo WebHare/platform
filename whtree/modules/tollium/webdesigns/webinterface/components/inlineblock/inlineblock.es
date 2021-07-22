@@ -137,8 +137,6 @@ export default class ObjInlineBlock extends ComponentBase
 
     this.node.propTodd = this;
 
-    updateNodeBackground(this.node, this.backgroundcolor, this.backgroundimages);
-
     for (const dir of ['top','bottom','left','right'])
     {
       if(this.borders && this.borders[dir])
@@ -237,16 +235,7 @@ export default class ObjInlineBlock extends ComponentBase
     let elementheight = this.height.set;
     dompack.setStyles(this.node, {width: this.width.set, height: elementheight });
 
-    // Check if the node is big enough to display the whole background image
-    if (this.node[bgstyle])
-    {
-      if ((this.node[bgstyle].width && this.node[bgstyle].width > this.width.set)
-          || (this.node[bgstyle].height && this.node[bgstyle].height > elementheight))
-        this.node.classList.add("bgstyle-responsive");
-      else
-        this.node.classList.remove("bgstyle-responsive");
-    }
-
+    updateNodeBackground(this);
     this.lines.forEach(comp => comp.relayout());
   }
 }
