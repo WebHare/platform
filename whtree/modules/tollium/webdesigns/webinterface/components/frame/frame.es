@@ -1340,7 +1340,7 @@ export default class Frame extends ComponentBase
     event.stopPropagation();
 
     // If this window can be resized, check if one of the resizers was hit
-    var outline = <div class="outline" style="top:0;bottom:0;left:0;right:0"/>;
+    var outline = <div class="outline" style={{top:0, left:0, bottom: 0, right: 0}}/>;
     this.node.appendChild(outline);
     this.draginfo = { type: "resize"
                     , dir: event.detail.listener.dataset.resize
