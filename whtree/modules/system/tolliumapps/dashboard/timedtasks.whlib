@@ -27,7 +27,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
   {
     STRING iconname;
 
-    IF (NOT task.enabled OR (task.inapplicable = "" AND task.inapplicable NOT LIKE "*allowifrestore*")) //very ugly approach, we should probably get better state by directly communicating with the executetasks script
+    IF (NOT task.enabled OR (task.inapplicable != "" AND task.inapplicable NOT LIKE "*allowifrestore*")) //very ugly approach, we should probably get better state by directly communicating with the executetasks script
       iconname := "tollium:status/negative";
     ELSE IF(task.nexttime != DEFAULT DATETIME AND task.nexttime < GetCurrentDatetime())
       iconname := "tollium:status/wait";
