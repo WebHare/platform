@@ -1255,6 +1255,15 @@
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="scope">
+        <xs:annotation>
+          <xs:documentation>Where the condition will be used (in the website frontend or the processing backend). Some fields cannot be used in frontend conditions</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="frontend" />
+            <xs:enumeration value="backend" />
+          </xs:restriction>
+        </xs:simpleType>
       </xs:attribute>
     </xs:complexType>
   </xs:element>

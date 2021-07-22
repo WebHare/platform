@@ -15,6 +15,15 @@
     <xs:attribute name="tid" />
     <xs:attribute name="title" />
     <xs:attribute name="conditionscope">
+      <xs:annotation>
+        <xs:documentation>Limit where this field can be used in a condition context.</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="frontend" />
+          <xs:enumeration value="backend" />
+        </xs:restriction>
+      </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="descriptiontid" />
     <xs:attribute name="description" />

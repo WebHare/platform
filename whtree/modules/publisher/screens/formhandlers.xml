@@ -39,7 +39,7 @@
     </compositions>
     <body>
       <textedit composition="row" cellname="email" validationchecks="email-maysendto" width="1pr" required="true" tid="~email" />
-      <p:formcondition composition="row" cellname="condition" />
+      <p:formcondition composition="row" cellname="condition" scope="backend" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />

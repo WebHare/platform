@@ -103,6 +103,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
                   , fieldobject := ""
                   , ordering := ParseXSInt(compinfo->GetAttribute("ordering"))
                   , parsertype := ""
+                  , conditionscope := compinfo->GetAttribute("conditionscope")
                   ];
   //Print(elrec.name||"\n");
 

@@ -12,7 +12,7 @@
           <!-- insert position="settings" where="after" -->
         </tab>
         <tab name="dependencies">
-          <p:formcondition name="condition" />
+          <p:formcondition name="condition" scope="backend" />
           <spacer name="dependencies_insertpoint" visible="false" />
         </tab>
         <tab name="advanced">

@@ -821,11 +821,13 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GetConditionSources(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ scope := "" ], options, [ enums := [ scope := [ "", "frontend", "backend" ]]]);
+    options := ValidateOptions([ scope := "" ]
+                               , options
+                               , [ enums := [ scope := [ "", "frontend", "backend" ]]]);
 
     RECORD ARRAY sources;
 
-    RECORD ARRAY fields := this->GetFieldsForTypes(STRING[]);
+    RECORD ARRAY fields := this->GetFieldsForTypes(STRING[], [ scope := options.scope ]);
     FOREVERY (RECORD field FROM fields)
     {
       { //scope the action on the field itself
@@ -888,11 +890,16 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     RETURN this->curform->ListFields([ languagecode := this->uselanguage, applytester := this->contexts->applytester ]);
   }
 
-  RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types)
+  RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF (Length(types) = 0)
-      RETURN this->ListFormFields();
-    RETURN SELECT * FROM this->ListFormFields() WHERE ArraysIntersect(types, supportedvalues);
+    options := ValidateOptions([ scope := "" ]
+                               , options
+                               , [ enums := [ scope := [ "", "frontend", "backend" ]]]);
+
+    RETURN SELECT *
+             FROM this->ListFormFields()
+            WHERE (Length(types) = 0 ? TRUE : ArraysIntersect(types, supportedvalues))
+                  AND (options.scope = ""  ? TRUE : conditionscope = "" OR options.scope = conditionscope);
   }
 
   RECORD FUNCTION GetField(STRING guid)

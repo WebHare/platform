@@ -175,7 +175,7 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
 
   MACRO SetupIntraFieldPulldown(OBJECT component, STRING ARRAY inputtypes)
   {
-    RECORD ARRAY candidates := this->contexts->formcomponentapi->GetFieldsForTypes(inputtypes);
+    RECORD ARRAY candidates := this->contexts->formcomponentapi->GetFieldsForTypes(inputtypes, [ scope := "backend" ]);
     IF(Length(candidates) > 0)
     {
       component->options := component->options CONCAT

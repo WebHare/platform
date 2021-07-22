@@ -52,6 +52,7 @@ PUBLIC RECORD basefieldstructure :=
 , isgroup := FALSE
 , infotext := DEFAULT RECORD
 , qname := ""
+, conditionscope := ""
 ];
 
 RECORD FUNCTION GetFormInstance(OBJECT formdefinitions, STRING id)
@@ -171,6 +172,8 @@ OBJECTTYPE FormParser
             , parsesubnode := PTR this->ParseFormContent(root, #1, gid, formdefinitions, formpage)
             , getinstance := this->validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
             ]);
+
+      addfield.conditionscope := comptype.conditionscope;
 
       IF(comptype.supportedvaluesfunc != "")
       {

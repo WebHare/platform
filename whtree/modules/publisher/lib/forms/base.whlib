@@ -508,6 +508,7 @@ PUBLIC OBJECTTYPE FormBase
             , field.title
             , obj := newfield
             , field.supportedvalues
+            , field.conditionscope
             ] INTO this->__formfields AT insertpos;
     RETURN newfield;
   }
