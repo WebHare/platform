@@ -966,7 +966,7 @@ PUBLIC OBJECTTYPE FormBase
                  ] INTO bygroup AT END;
           CONTINUE;
         }
-        IF(NOT (field.isstatic OR field.ishidden) OR Length(field.supportedvalues) = 0) //not a writable field
+        IF(NOT (field.isstatic OR field.ishidden) OR "none" IN field.supportedvalues) //not a writable field
           CONTINUE;
 
         IF(NOT RecordExists(bygroup) OR ToUppercase(field.formgroup) != ToUppercase(bygroup[END-1].name)) //open a group
@@ -1065,7 +1065,7 @@ PUBLIC OBJECTTYPE FormBase
 
   PUBLIC RECORD ARRAY FUNCTION ListFields()
   {
-    RETURN SELECT * FROM this->__formfields WHERE (isstatic OR ishidden) AND Length(supportedvalues) > 0;
+    RETURN SELECT * FROM this->__formfields WHERE (isstatic OR ishidden) AND "none" NOT IN supportedvalues;
   }
 
   PUBLIC MACRO PrefillWithSingleResult(RECORD results)

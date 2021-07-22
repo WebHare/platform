@@ -23,7 +23,19 @@
     <xs:attribute name="editdefaults" />
     <xs:attribute name="editextension" />
     <xs:attribute name="defaultvalue" /> <!-- deprecated, use supportedvalues -->
-    <xs:attribute name="supportedvalues" />
+    <xs:attribute name="supportedvalues">
+      <xs:annotation>
+        <xs:documentation>List of the interfaces the value of this component supports. This may contain
+                          - 'none' to explicitly indicate that this field will never return a value. also excludes it from export/list
+                          - HareScript type the component can offer (eg 'string', 'integerarray')
+                          - 'options' if the components implements GetOptions and is suitable for use in conditional options
+                          - 'image' if this component holds a wrapped image (implies 'file')
+                          - 'file', 'address', 'rtd' if this component holds a record of this type (implies 'file')
+                          - 'email' if this component holds a single email as value. implies 'string'
+                          - 'emailarray' if this component holds one or more email addresses as value. implies 'stringarray'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="parserfunc" />
     <xs:attribute name="fieldobject" />
     <xs:attribute name="supportedvaluesfunc" />

@@ -780,77 +780,76 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   //
   // Callbacks from FormComponentAPI/EditorExtensionsAPI
   //
-  RECORD ARRAY FUNCTION GetConditionSources()
+  RECORD FUNCTION GetConditionSourceFromField(RECORD getoptions, RECORD field, STRING rowkey, STRING title, RECORD ARRAY optionrows)
   {
+    IF(NOT CellExists(field,'supportedvalues'))
+      RETURN DEFAULT RECORD;
+
+    IF ("options" IN field.supportedvalues)
+    {
+      IF (Length(optionrows) > 0)
+      {
+        RETURN [ rowkey := rowkey
+               , title := title
+               , options := (SELECT optionrows.rowkey
+                                  , optionrows.title
+                               FROM optionrows)
+               , type := "in"
+               , supportedvalues := field.supportedvalues
+               ];
+      }
+    }
+    ELSE IF ("boolean" IN field.supportedvalues)
+    {
+      RETURN [ rowkey := rowkey
+             , title := title
+             , type := "hasvalue"
+             , supportedvalues := field.supportedvalues
+             ];
+    }
+    ELSE IF ("datetime" IN field.supportedvalues)
+    {
+      RETURN [ rowkey := rowkey
+             , title := title
+             , type := "datetime"
+             , supportedvalues := field.supportedvalues
+             ];
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD ARRAY FUNCTION GetConditionSources(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ scope := "" ], options, [ enums := [ scope := [ "", "frontend", "backend" ]]]);
+
     RECORD ARRAY sources;
 
     RECORD ARRAY fields := this->GetFieldsForTypes(STRING[]);
     FOREVERY (RECORD field FROM fields)
     {
-      IF ("options" IN field.supportedvalues)
-      {
-        RECORD ARRAY options := field.obj->options;
-        IF (Length(options) > 0)
-        {
-          INSERT
-              [ rowkey := field.guid
-              , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
-              , options := (SELECT rowkey
-                                 , title
-                              FROM field.obj->options)
-              , type := "in"
-              , supportedvalues := field.supportedvalues
-              ] INTO sources AT END;
-        }
+      { //scope the action on the field itself
+        STRING sourcetitle := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle;
+        RECORD ARRAY sourceoptions;
+        IF("options" IN field.supportedvalues)
+          sourceoptions := field.obj->GetOptions();
+
+        RECORD addsource := this->GetConditionSourceFromField(options, field, field.guid, sourcetitle, sourceoptions);
+        IF(RecordExists(addsource))
+          INSERT addsource INTO sources AT END;
       }
-      ELSE IF ("boolean" IN field.supportedvalues)
-      {
-        INSERT
-            [ rowkey := field.guid
-            , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
-            , type := "hasvalue"
-            , supportedvalues := field.supportedvalues
-            ] INTO sources AT END;
-      }
-      ELSE IF ("datetime" IN field.supportedvalues)
-      {
-        INSERT
-            [ rowkey := field.guid
-            , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
-            , type := "datetime"
-            , supportedvalues := field.supportedvalues
-            ] INTO sources AT END;
-      }
+
+      //and check the subfields
       FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(DEFAULT RECORD))
       {
         IF(CellExists(extrafield, 'hidden') AND extrafield.hidden)
           CONTINUE; //do not offer in UI
 
-        IF (CellExists(extrafield, "supportedvalues"))
-        {
-          IF ("options" IN extrafield.supportedvalues)
-          {
-            IF (CellExists(extrafield, "options") AND Length(extrafield.options) > 0)
-            {
-              INSERT
-                  [ rowkey := field.guid || "$" || extrafield.name
-                  , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle || " – " || extrafield.title
-                  , options := extrafield.options
-                  , type := "in"
-                  , supportedvalues := extrafield.supportedvalues
-                  ] INTO sources AT END;
-            }
-          }
-          ELSE IF ("boolean" IN field.supportedvalues)
-          {
-            INSERT
-                [ rowkey := field.guid || "$" || extrafield.name
-                , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle || " – " || extrafield.title
-                , type := "hasvalue"
-                , supportedvalues := extrafield.supportedvalues
-                ] INTO sources AT END;
-          }
-        }
+        STRING sourcerowkey := field.guid || "$" || extrafield.name;
+        STRING sourcetitle := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle || " – " || extrafield.title;
+        RECORD addsource := this->GetConditionSourceFromField(options, extrafield, sourcerowkey, sourcetitle, CellExists(extrafield,'options') ? extrafield.options : RECORD[]);
+        IF(RecordExists(addsource))
+          INSERT addsource INTO sources AT END;
       }
     }
 

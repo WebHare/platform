@@ -184,7 +184,7 @@ PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD
           // Get the extra field's values for all selected options
           RECORD ARRAY matchvalues :=
               SELECT extravalue := GetCell(extrafields, extrafield)
-                FROM matchfield.obj->options
+                FROM matchfield.obj->GetOptions()
                WHERE rowkey IN checkvalue
                      AND CellExists(extrafields, extrafield);
           IF (RecordExists(matchvalues))
@@ -204,7 +204,7 @@ PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD
           // Get the extra field's value for the selected option
           RECORD matchvalue :=
               SELECT extravalue := GetCell(extrafields, extrafield)
-                FROM matchfield.obj->options
+                FROM matchfield.obj->GetOptions()
                WHERE rowkey = checkvalue
                      AND CellExists(extrafields, extrafield);
           IF (RecordExists(matchvalue))

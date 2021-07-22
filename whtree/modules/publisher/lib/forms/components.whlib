@@ -305,6 +305,11 @@ PUBLIC OBJECTTYPE FormFieldBase
     this->infotext := newtext;
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetOptions()
+  {
+    THROW NEW Exception(`GetOptions not implemented (field: ${this->name})`);
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Helper fuctions
