@@ -330,30 +330,17 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
     STRING link := this->iframe->AddEmbeddedObject(bobimage, "image/jpeg");
 
     RETURN
-         "<html>\n"
-      || "  <head>\n"
-      || "    <script src='" || this->iframe->toddiframeurl || "'></script>\n"
-      || "    <script>\n"
-      || "\n"
-      || "      $toddIFrame = new $toddiframe();\n"
-      || "\n"
-      || "      function func1()\n"
-      || "      {\n"
-      || "        var calls = document.getElementById('calls');\n"
-      || "        var args = Array.prototype.slice.apply(arguments);\n"
-      || "        calls.value += 'func1 '+ args.join(' ') + '\\n';\n"
-      || "\n"
-      || "        $toddIFrame.doCallback({ type: 'receivedcall', args: args });\n"
-      || "      }\n"
-      || "\n"
-      || "    </script>\n"
-      || "  </head>\n"
-      || "  <body>\n"
-      || "    <span id='source' data-source='" || source || "'>" || source ||"</span>:<img id='image' src='" || link || "' width='60' height='40'><br>\n"
-      || "    <textarea id='calls' style='white-space: pre; height: 150px; width: 80%'></textarea><br>\n"
-      || "    <a id='link' href='http://www.webhare.dev/'>A link!</a><br>\n"
-      || "  </body>\n"
-      || "</html>";
+       `<html>
+         <head>
+           <script src="${EncodeValue(this->iframe->toddiframeurl)}"></script>
+           <script src="/tollium_todd.res/webhare_testsuite/tests/iframetest.js"></script>
+         </head>
+         <body>
+           <span id='source' data-source="${EncodeValue(source)}">${EncodeValue(source)}</span>:<img id="image" src="${EncodeValue(link)}" width="60" height="40"><br>
+           <textarea id='calls' style='white-space: pre; height: 150px; width: 80%'></textarea><br>
+           <a id='link' href='http://www.webhare.dev/'>A link!</a><br>
+         </body>
+       </html>`;
   }
 
   MACRO DoInit()
@@ -384,7 +371,7 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   MACRO DoCallJS()
   {
     this->counter := this->counter + 1;
-    this->iframe->CallJavascript("func1", this->counter, "test");
+    this->iframe->postmessage([ type := "calljs", funcname := "func1", args := VARIANT[this->counter, "test"] ], "*");
   }
 
   MACRO DoPrintUpdateData()
