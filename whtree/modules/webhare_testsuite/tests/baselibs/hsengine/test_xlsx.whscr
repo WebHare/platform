@@ -413,7 +413,7 @@ MACRO TestXLSX_WeirdNewFormat()
   TestEq("Thema", quickexport[END-1].soort);
 }
 
-Print("\n === Running TestOOXML\n");
+Print("\n === Running TestXLSX\n");
 TestXLSX_columnfiles();
 TestXLSX_testfile();
 TestXLSX_wide();
