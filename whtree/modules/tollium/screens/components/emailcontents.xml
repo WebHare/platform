@@ -26,7 +26,7 @@
         </line>
       </panel>
       <split type="vertical" height="1pr">
-        <part height="4pr" borders="bottom top">
+        <part height="4pr" borders="top">
           <panel name="sensitivecontent"
                  backgroundcolor="#FEFFDE"
                  borders="bottom"
@@ -38,13 +38,19 @@
               <button name="showsensitivecontentbutton" action="showsensitivecontent" tid=".showsensitivecontent" />
             </line>
           </panel>
-          <iframe name="preview"
-                  width="1pr"
-                  height="1pr"
-                  enablesandbox="true"
-                  sandbox="allow-popups allow-popups-to-escape-sandbox" />
+
+          <!-- we put the mail inside borders so you can see where the mail would be (possibly incorrectly) touching the edges on some mail clients -->
+          <panel height="1pr" spacers="top bottom left right">
+            <panel height="1pr" borders="top bottom left right">
+              <iframe name="preview"
+                      width="1pr"
+                      height="1pr"
+                      enablesandbox="true"
+                      sandbox="allow-popups allow-popups-to-escape-sandbox" />
+            </panel>
+          </panel>
         </part>
-        <part name="attachmentpart" height="1pr" spacers="left right">
+        <part name="attachmentpart" height="1pr" spacers="left right top bottom">
           <list name="attachmentrows" height="1pr" openaction="downloadattachment" selectmode="single" visible="true">
             <column name="name" type="text" tid="~filename" />
             <column name="type" type="text" tid="~mimetype" />
