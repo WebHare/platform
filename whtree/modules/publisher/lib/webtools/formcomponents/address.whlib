@@ -443,7 +443,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
   RECORD ARRAY allfields;
   OBJECT allcountries;
   RECORD pvt_fieldtitles;
-  STRING ARRAY pvt_options;
+  STRING ARRAY _addressoptions;
 
   // ---------------------------------------------------------------------------
   //
@@ -457,7 +457,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
   /** List of options. Allowed values: nl-zip-force: For NL, place zip and nr_detail first and disable street/city,
       nl-zip-suggest: For NL, place zip and nr_detail first, keep street/city editable.
   */
-  PUBLIC PROPERTY options(pvt_options, SetOptions);
+  PUBLIC PROPERTY addressoptions(_addressoptions, SetAddressOptions);
 
   // ---------------------------------------------------------------------------
   //
@@ -478,7 +478,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     RECORD integrationsettings := this->GetIntegrationConfiguration();
 
     // Set options before initializing components by setting countrylist
-    this->options := integrationsettings.options CONCAT field.options;
+    this->addressoptions := integrationsettings.options CONCAT field.options;
     this->countrylist := field.hascountrylist ? field.countrylist : CheckCountryList(integrationsettings.countrylist, this->allcountries, this->form->formlanguagecode);
   }
 
@@ -573,7 +573,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
           this->validators->Add(code, validator);
           IF(Length(validator->completionfields) > 0) //actually disabling still requires a country specific optin
           {
-            IF(code = "NL" AND "nl-zip-force" IN this->pvt_options)
+            IF(code = "NL" AND "nl-zip-force" IN this->_addressoptions)
               disablefields := validator->completionfields;
           }
         }
@@ -581,7 +581,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
       IF (code = "NL") //reorder for NL
       {
-        IF ("nl-zip-suggest" IN this->pvt_options OR "nl-zip-force" IN this->pvt_options)
+        IF ("nl-zip-suggest" IN this->_addressoptions OR "nl-zip-force" IN this->_addressoptions)
           fields := SELECT * FROM fields ORDER BY (SearchElement([ "ZIP", "NR_DETAIL" ], tag) + 1 ?? 99);
       }
 
@@ -684,7 +684,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
         field.fieldobj->title := GetTid(GetCell(this->fieldtitles, field.tag));
   }
 
-  MACRO SetOptions(STRING ARRAY newoptions)
+  MACRO SetAddressOptions(STRING ARRAY newoptions)
   {
     STRING ARRAY finaloptions ;
 
@@ -705,7 +705,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
         INSERT option INTO finaloptions AT END;
     }
 
-    this->pvt_options := finaloptions;
+    this->_addressoptions := finaloptions;
   }
 
   UPDATE MACRO SetRequired(BOOLEAN newval)
@@ -846,7 +846,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
                 : "address_not_found";
 
             IF(status IN ["address_not_found", "zip_not_found"]
-               AND NOT (this->value.country = "NL" AND "nl-zip-force" IN this->options))
+               AND NOT (this->value.country = "NL" AND "nl-zip-force" IN this->addressoptions))
             {
               //Do not report lookup errors unless we're in FORCE mode for NL
               CONTINUE;
@@ -936,7 +936,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
   {
     IF (CellExists(value, "country") AND this->validators->Has(value.country))
     {
-      IF (value.country = "NL" AND "nl-zip-force" IN this->options)
+      IF (value.country = "NL" AND "nl-zip-force" IN this->addressoptions)
         value := CELL[ ...value, street := "", city := "" ];
 
       RETURN this->validators->Lookup(value.country)->CheckAddress(value);
