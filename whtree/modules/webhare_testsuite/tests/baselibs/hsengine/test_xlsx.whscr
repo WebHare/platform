@@ -28,6 +28,7 @@ RECORD ARRAY outrows;
 
 RECORD ARRAY reftestrows := [ [ title := "Ti<>tle 1", bool := TRUE, date := now, int := 17,    time:=now, time2 := GetMsecondCount(now), dt := now, mf := 1.5, sa := ["a","2"], int64 := 0 ]
                             , [ title := "Tit&le 2\nnext line!", bool := FALSE, date := sometime, int := 666, time:=sometime, time2 := MakeTime(6, 6, 6), dt:=sometime, mf := 2.5, sa := [3,4], int64 := -10000000000i64 ]
+                            , [ title := "Third row", bool := FALSE, date := DEFAULT DATETIME, int := 0, time := DEFAULT DATETIME, time2 := 0, dt:=DEFAULT DATETIME, mf := 0m, sa := STRING[], int64 := 0i64 ]
                             ];
 
 BOOLEAN FUNCTION OnRow(VARIANT ARRAY cells)
@@ -65,7 +66,7 @@ MACRO TestXLSX_columnfiles()
   OBJECT xlssheet := xlsxin->OpenSheet(0);
   xlssheet->ExportRowsToCallback(PTR onrow);
 
-  TestEq(3, Length(outrows));
+  TestEq(4, Length(outrows));
 
   TestEq(Length(columns), Length(outrows[0].cells));
   FOREVERY(RECORD col FROM columns)
@@ -83,6 +84,9 @@ MACRO TestXLSX_columnfiles()
   TestEq("a; 2", outrows[1].cells[8]);
   TestEq(0f, outrows[1].cells[9]);
 
+  Testeq("",outrows[3].cells[2]);
+  Testeq("",outrows[3].cells[6]);
+
   TestEq(Length(columns), Length(outrows[2].cells));
   TestEq("Tit&le 2\nnext line!", outrows[2].cells[0]);
   TestEq(FALSE, outrows[2].cells[1]);
@@ -98,7 +102,7 @@ MACRO TestXLSX_columnfiles()
   outrows := RECORD[];
   xlssheet->ExportRowsToCallback(PTR onrow, [ alltostring := TRUE ]);
 
-  TestEq(3, Length(outrows));
+  TestEq(4, Length(outrows));
 
   TestEq(Length(columns), Length(outrows[0].cells));
   FOREVERY(RECORD col FROM columns)
@@ -131,7 +135,7 @@ MACRO TestXLSX_columnfiles()
   outrows := RECORD[];
   xlssheet->ExportRowsToCallback(PTR onrow, [ alltostring := TRUE, floatmode := "money" ]);
 
-  TestEq(3, Length(outrows));
+  TestEq(4, Length(outrows));
 
   TestEq(Length(columns), Length(outrows[1].cells));
   TestEq("Ti<>tle 1", outrows[1].cells[0]);
@@ -160,7 +164,7 @@ MACRO TestXLSX_columnfiles()
   outrows := RECORD[];
   xlssheet->ExportRowsToCallback(PTR onrow, [ floatmode := "money" ]);
 
-  TestEq(3, Length(outrows));
+  TestEq(4, Length(outrows));
 
   TestEq(Length(columns), Length(outrows[1].cells));
   TestEq("Ti<>tle 1", outrows[1].cells[0]);

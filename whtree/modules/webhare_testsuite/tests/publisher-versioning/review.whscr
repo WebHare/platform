@@ -274,8 +274,6 @@ OBJECT ASYNC FUNCTION GetVersioningAppExport()
 }
 
 
-DATETIME excel_default_dt := MakeDate(1899, 12, 30);
-
 OBJECT ASYNC FUNCTION TestExport()
 {
   RECORD rec, webfileres;
@@ -303,11 +301,11 @@ OBJECT ASYNC FUNCTION TestExport()
   TestEQMembers(
       [ [ location :=             "/test.rtd"
         , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
-        , request_expirydate :=   excel_default_dt
+        , request_expirydate :=   ""
         , request_comment :=      "request approval"
         , request_user :=         "Sysop McTestsuite"
         , responsestatus :=       "{publisher:versioning.export.pending}"
-        , response_when :=        excel_default_dt
+        , response_when :=        ""
         ]
       ], exportdata, "*");
 
@@ -319,7 +317,7 @@ OBJECT ASYNC FUNCTION TestExport()
   TestEQMembers(
       [ [ location :=             "/test.rtd"
         , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
-        , request_expirydate :=   excel_default_dt
+        , request_expirydate :=   ""
         , request_comment :=      "request approval"
         , request_user :=         "Sysop McTestsuite"
         , responsestatus :=       "{publisher:versioning.export.accepted}"
@@ -338,7 +336,7 @@ OBJECT ASYNC FUNCTION TestExport()
   TestEQMembers(
       [ [ location :=             "/test.rtd"
         , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
-        , request_expirydate :=   excel_default_dt
+        , request_expirydate :=   ""
         , request_comment :=      "request approval"
         , request_user :=         "Sysop McTestsuite"
         , responsestatus :=       "{publisher:versioning.export.accepted}"
@@ -375,7 +373,7 @@ OBJECT ASYNC FUNCTION TestExport()
       [ [ request_fileid :=       FLOAT(testfile->id)
         , location :=             "/test.rtd"
         , publishstatus :=        "{publisher:versioning.export.nonpublished} -> {publisher:versioning.export.published}"
-        , request_expirydate :=   excel_default_dt
+        , request_expirydate :=   ""
         , request_comment :=      "request approval"
         , request_user :=         "Sysop McTestsuite"
         , responsestatus :=       "{publisher:versioning.export.accepted}"
@@ -395,7 +393,7 @@ OBJECT ASYNC FUNCTION TestExport()
       , [ location :=             "/test.rtd"
         , locationstatus :=       "{publisher:versioning.export.deleted}"
         , publishstatus :=        "{publisher:versioning.export.published} -> {publisher:versioning.export.nonpublished}"
-        , request_expirydate :=   excel_default_dt
+        , request_expirydate :=   ""
         , request_comment :=      "request delete"
         , request_user :=         "Sysop McTestsuite"
         , responsestatus :=       "{publisher:versioning.export.accepted}"

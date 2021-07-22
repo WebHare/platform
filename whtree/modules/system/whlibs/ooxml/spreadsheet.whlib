@@ -917,6 +917,9 @@ PUBLIC STATIC OBJECTTYPE ExcelSheet
       }
       CASE TypeID(DATETIME)
       {
+        IF(newvalue = DEFAULT DATETIME)
+          RETURN DEFAULT RECORD;
+
         //Note. do NOT use type=d storage format. It's not actually supported by older versions of the FileFormatConverters.exe
         STRING dateval := forcestring ? FormatISO8601Datetime(newvalue) : newvalue != DEFAULT DATETIME ? FormatFloat(this->exceldoc->ExcelFloatFromDatetime(newvalue), 10) : "";
         RETURN [ value := dateval, type := "" ];
@@ -1150,16 +1153,19 @@ PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
 
 
       RECORD setvalue := this->sheet->__EncodeAsCellNodeValue(storevalue, FALSE);
-      PrintTo(this->rowstream, `<c r="${GetNameForColumn(#col + 1)}${this->currow}"${this->colstyles[#col] = 0 ? "" : ` s="${this->colstyles[#col]}"`}`);
-      IF (setvalue.type != "")
-        PrintTo(this->rowstream, ` t="${EncodeValue(setvalue.type)}">`);
-      ELSE
-        PrintTo(this->rowstream, `>`);
+      IF(RecordExists(setvalue))
+      {
+        PrintTo(this->rowstream, `<c r="${GetNameForColumn(#col + 1)}${this->currow}"${this->colstyles[#col] = 0 ? "" : ` s="${this->colstyles[#col]}"`}`);
+        IF (setvalue.type != "")
+          PrintTo(this->rowstream, ` t="${EncodeValue(setvalue.type)}">`);
+        ELSE
+          PrintTo(this->rowstream, `>`);
 
-      IF (setvalue.type = "inlineStr")
-        PrintTo(this->rowstream, `<is><t>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</t></is></c>`);
-      ELSE
-        PrintTo(this->rowstream, `<v>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</v></c>`);
+        IF (setvalue.type = "inlineStr")
+          PrintTo(this->rowstream, `<is><t>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</t></is></c>`);
+        ELSE
+          PrintTo(this->rowstream, `<v>${EncodeValue(Substitute(setvalue.value,'\n','\r'))}</v></c>`);
+      }
     }
     PrintTo(this->rowstream, `</row>`);
     this->sheet->__DropRowCellsCache(this->currow);
