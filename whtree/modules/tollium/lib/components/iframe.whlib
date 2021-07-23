@@ -2,7 +2,11 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 
@@ -428,6 +432,11 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   */
   PUBLIC MACRO CallJavascript(STRING funcname, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
   {
+    IF(GetDtapStage() = "development")
+    {
+      DumpValue(GetStackTrace(),'boxed');
+      this->owner->RunSimpleScreen("info", "Future versions of WebHare will remove CallJavascript as it is not compatible with our Content-Security-Policy. Use PostMessage");
+    }
     this->QueueOutboundMessage("JS", [ funcname := funcname, args := args ]);
   }
 

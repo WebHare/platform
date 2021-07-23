@@ -31,6 +31,7 @@ test.registerTests(
 
         test.eq(2,table.querySelectorAll("tr").length);
         test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader, .wh-rtd--hascolheader").length, 'none of our hcol/vcol classes may exist yet');
+        test.true(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, it didn't receive its normal 50/50 styling at table insertion");
       }
     }
 
@@ -130,6 +131,7 @@ test.registerTests(
         var rtenode = test.compByName('structured');
         var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
 
+        test.true(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, the table lost its styling after rewriting");
         test.click(table.querySelector("td"), { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));
       }

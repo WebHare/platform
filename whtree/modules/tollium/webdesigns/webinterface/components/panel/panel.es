@@ -9,8 +9,6 @@ import "./panel.scss";
 var $todd = require('@mod-tollium/web/ui/js/support');
 require("@mod-tollium/js/icons");
 
-const bgstyle = Symbol.for("background style");
-
 /* Tollium inline layouting
    - The 'gr' unit is defined to be logically a 'grid line', but has to be calculated differently based on context...
      - For inline items, <n>gr = <n>*gridlineHeight - gridlineTotalMargin (28 and 5, or see support.js for the constants)
@@ -30,48 +28,24 @@ const bgstyle = Symbol.for("background style");
 */
 
 // Set the node's background color and images, based on the component's backgroundcolor resp. backgroundimages properties
-export function updateNodeBackground(node, backgroundcolor, backgroundimages)
+export function updateNodeBackground(panel)
 {
-  // Save styling information
-  if (!node[bgstyle])
+  // Create a background string, see https://developer.mozilla.org/en-US/docs/Web/CSS/background#formal_syntax
+  let backgroundlayers = [];
+
+  if (panel.backgroundimages && panel.backgroundimages.length)
   {
-    node[bgstyle] = { node: null // The node's <style> node
-                    , width: 0   // Width of the "fit" background image
-                    , height: 0  // Height of the "fit" background image
-                    };
-  }
-  else if (node[bgstyle].node)
-  {
-    node[bgstyle].node.remove();
-    node[bgstyle].node = null;
-  }
-
-  if (!backgroundcolor && !(backgroundimages && backgroundimages.length))
-    return;
-
-  // Make sure the node has an id, so it can be referred to in the <style>
-  if (!node.id)
-    node.id = "bgstyle-" + Math.random().toString(36).substr(2);
-
-  let styleNode = document.createElement("style");
-  if (backgroundcolor)
-    styleNode.appendChild(document.createTextNode(`#${node.id}{background-color:${$todd.fixupColor(backgroundcolor)};}`));
-
-  if (backgroundimages && backgroundimages.length)
-  {
-    let images = [];
-    let sizes = [];
-    let positions = [];
-    let repeats = [];
-    node[bgstyle].width = 0;
-    node[bgstyle].height = 0;
-    let fitIdx = -1; //ADDME: Only one "fit" image is supported now (but it's only used by imgedit for now)
-    backgroundimages.forEach((img, idx) =>
+    panel.backgroundimages.forEach((img, idx) =>
     {
+      let layer = '';
       if (img.src)
       {
-        images.push("url('" + img.src + "')");
-        if (img.size.indexOf("fit") === 0)
+        layer += "url('" + img.src + "')";
+        layer += " " + (img.position.length ? img.position.join(" ") : "center");
+
+        let imgsize = img.size;
+
+        if (imgsize.startsWith("fit|"))
         {
           // For the "fit" size, the width and height of the background image are specified, so the background-size can be
           // set to "auto" if the node is big enough, or to "contain" if the background image should be scaled down (we don't
@@ -79,46 +53,29 @@ export function updateNodeBackground(node, backgroundcolor, backgroundimages)
           // It would be nice if CSS would have a "fit" background-size that only scales down, or if we could have media-like
           // queries for elements instead of the whole document
           let size = img.size.split("|");
-          if (size.length == 3)
+          let width = parseInt(size[1], 10);
+          let height = parseInt(size[2], 10);
+          if(height > panel.height.set || width > panel.width.set)
           {
-            node[bgstyle].width = parseInt(size[1], 10);
-            node[bgstyle].height = parseInt(size[2], 10);
-            fitIdx = idx;
-            img.size = "auto";
+            imgsize = "contain";
           }
           else
-            img.size = "contain";
+          {
+            imgsize = "auto";
+          }
         }
-        sizes.push(img.size ? img.size : "auto");
-        positions.push(img.position.length ? img.position.join(" ") : "center");
-        repeats.push(img.repeat ? img.repeat : "repeat");
+        layer += "/" + (imgsize || "auto");
+        layer += " " + (img.repeat ? img.repeat : "repeat");
       }
+
+      backgroundlayers.push(layer);
     });
-    if (images.length)
-    {
-      styleNode.appendChild(document.createTextNode(`#${node.id}{`
-          + `background-image:${images.join(",")};`
-          + `background-size:${sizes.join(",")};`
-          + `background-position:${positions.join(",")};`
-          + `background-repeat:${repeats.join(",")};`
-          + `}`));
-      if (fitIdx >= 0 && (node[bgstyle].width || node[bgstyle].height))
-      {
-        sizes[fitIdx] = "contain";
-        // By adding the "bgstyle-responsive" class to the node if it's not big enough to display the whole background image,
-        // the background image is resized to fit
-        styleNode.appendChild(document.createTextNode(`#${node.id}.bgstyle-responsive{`
-            + `background-size:${sizes.join(",")};`
-            + `}`));
-      }
-    }
   }
 
-  if (styleNode.childNodes.length)
-  {
-    node.appendChild(styleNode, node);
-    node[bgstyle].node = styleNode;
-  }
+  if (panel.backgroundcolor)
+    backgroundlayers.push($todd.fixupColor(panel.backgroundcolor));
+
+  panel.node.style.background = backgroundlayers.join(", ");
 }
 
 
@@ -313,8 +270,6 @@ export default class ObjPanel extends ComponentBase
 
     this.node.propTodd = this;
 
-    updateNodeBackground(this.node, this.backgroundcolor, this.backgroundimages);
-
     if(this.isfooter)
     {
       this.node.classList.add("isfooter");
@@ -445,15 +400,7 @@ export default class ObjPanel extends ComponentBase
         this.node.style.overflow = "visible";
     }
 
-    // Check if the node is big enough to display the whole background image
-    if (this.node[bgstyle])
-    {
-      if ((this.node[bgstyle].width && this.node[bgstyle].width > this.width.set)
-          || (this.node[bgstyle].height && this.node[bgstyle].height > this.height.set))
-        this.node.classList.add("bgstyle-responsive");
-      else
-        this.node.classList.remove("bgstyle-responsive");
-    }
+    updateNodeBackground(this);
 
     this.lines.forEach(comp => comp.relayout());
   }

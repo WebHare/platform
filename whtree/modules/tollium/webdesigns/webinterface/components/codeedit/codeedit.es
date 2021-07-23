@@ -62,7 +62,7 @@ export default class ObjCodeEdit extends ComponentBase
   buildNode()
   {
     this.node =
-          <t-codeedit data-name={this.name} style="position: relative">
+          <t-codeedit data-name={this.name} style={{position: "relative"}}>
             { this.linenumberbg = <div className="gutter-background" /> }
             { this.markerholderdiv =
                 <div className="marker-container">

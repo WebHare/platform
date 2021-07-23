@@ -21,7 +21,6 @@
   <jstest file="testimgedit-refpoint.es" />
   <jstest file="testimgedit-rotate.es" />
   <jstest file="testiframe.es" />
-  <jstest file="testiframe-postmessage.es" />
   <jstest file="testinlineblock.es" />
   <jstest file="testlistedit.es" />
   <jstest file="testmenus.es" />

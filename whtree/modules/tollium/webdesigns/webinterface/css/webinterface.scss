@@ -159,10 +159,6 @@ cite
   color: #FFFFFF;
 }
 
-/*main
-{
-  padding:5px 15px;
-}*/
 
 .wh-tollium__feedback
 {
@@ -185,4 +181,26 @@ cite
   {
     background: rgba(255, 0, 0, .5);
   }
+}
+
+.webinterface__fontpreloader
+{
+  position:absolute;
+  bottom: 0;
+  right: 0;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.webinterface__fontpreloader__regularfont
+{
+  font-family: Roboto;
+}
+
+.webinterface__fontpreloader__monofont
+{
+  font-family: 'Roboto Mono';
 }

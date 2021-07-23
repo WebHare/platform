@@ -388,7 +388,7 @@ class PhotoFilters extends SurfaceTool
           {
             if (!this.progress)
             {
-              this.progress = <progress style="width: 50%; height:20px; position:absolute;top:50%;left:25%;margin-top:-10px;z-index:1" max="100" value="0"/>
+              this.progress = <progress style={{width: "50%", height:"20px", position:"absolute",top:"50%",left:"25%",marginTop:"-10px",zIndex:1}} max="100" value="0"/>
               this.filterbox.append(this.progress);
             }
             this.progress.value = data.progress;
