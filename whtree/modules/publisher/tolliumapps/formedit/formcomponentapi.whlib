@@ -56,13 +56,13 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     this->editscreen := editscreen;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetConditionSources()
+  PUBLIC RECORD ARRAY FUNCTION GetConditionSources(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN this->editscreen->GetConditionSources();
+    RETURN this->editscreen->GetConditionSources(options);
   }
-  PUBLIC RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types)
+  PUBLIC RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN this->editscreen->GetFieldsForTypes(types);
+    RETURN this->editscreen->GetFieldsForTypes(types, options);
   }
   PUBLIC RECORD FUNCTION DescribeField(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {

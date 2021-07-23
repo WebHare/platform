@@ -443,7 +443,7 @@
             tid="formcomponents.page.name"
             editextension="/screens/formcomponents.xml#formpage"
             editdefaults=""
-            supportedvalues=""
+            supportedvalues="none"
             />
           <fai:formcomponent
             matchattribute="hson:{'role':'overview'}"
@@ -452,7 +452,7 @@
             tid="formcomponents.page.name-overview"
             editextension="/screens/formcomponents.xml#formoverviewpage"
             editdefaults=""
-            supportedvalues=""
+            supportedvalues="none"
             />
           <fai:formcomponent
             matchattribute="hson:{'role':'thankyou'}"
@@ -461,7 +461,7 @@
             tid="formcomponents.page.name-thankyou"
             editextension="/screens/formcomponents.xml#formthankyoupage"
             editdefaults=""
-            supportedvalues=""
+            supportedvalues="none"
             />
         </xs:appinfo>
       </xs:annotation>
@@ -495,7 +495,7 @@
             tid="formcomponents.group.name"
             editextension="/screens/formcomponents.xml#formgroup"
             editdefaults="title hidetitle"
-            supportedvalues=""
+            supportedvalues="none"
             parserfunc="/lib/webtools/formcomponents/group.whlib#parseformgroup"
             fieldobject="/lib/webtools/formcomponents/group.whlib#FormGroupField"
             />
@@ -649,7 +649,7 @@
             descriptiontid="formcomponents.rtd.description"
             editextension="/screens/formcomponents.xml#formrtd"
             editdefaults="name title hidetitle required groupclasses"
-            supportedvalues="rtd record"
+            supportedvalues="rtd"
             parserfunc="/lib/webtools/formcomponents/rtd.whlib#parseformrtd"
             fieldobject="/lib/webtools/formcomponents/rtd.whlib#RTDField"
             />
@@ -673,7 +673,7 @@
             tid="formcomponents.imgedit.name"
             descriptiontid="formcomponents.imgedit.description"
             editdefaults="name title hidetitle required groupclasses infotext"
-            supportedvalues="file record"
+            supportedvalues="image"
             fieldobject="/lib/webtools/formcomponents/imgedit.whlib#ImgEditField"
             ordering="12"
             />
@@ -721,7 +721,7 @@
             descriptiontid="formcomponents.date.description"
             editextension="/screens/formcomponents.xml#formdate"
             editdefaults="name title hidetitle required groupclasses placeholder infotext"
-            supportedvalues="datetime string"
+            supportedvalues="datetime"
             parserfunc="/lib/webtools/formcomponents/date.whlib#parseformdate"
             fieldobject="/lib/webtools/formcomponents/date.whlib#DateField"
             ordering="9"
@@ -750,7 +750,7 @@
             descriptiontid="formcomponents.time.description"
             editextension="/screens/formcomponents.xml#formtime"
             editdefaults="name title hidetitle required groupclasses placeholder infotext"
-            supportedvalues="integer string"
+            supportedvalues="integer"
             parserfunc="/lib/webtools/formcomponents/time.whlib#parseformtime"
             fieldobject="/lib/webtools/formcomponents/time.whlib#TimeField"
             ordering="10"
@@ -783,7 +783,7 @@
             tid="formcomponents.upload.name"
             descriptiontid="formcomponents.upload.description"
             editdefaults="name title hidetitle required groupclasses infotext"
-            supportedvalues="file record"
+            supportedvalues="file"
             fieldobject="/lib/webtools/formcomponents/upload.whlib#UploadField"
             ordering="13"
             />
@@ -942,7 +942,7 @@
           editextension="/screens/formcomponents.xml#richtext"
           parserfunc="/lib/webtools/formcomponents/richtext.whlib#parseformrichtext"
           fieldobject="/lib/webtools/formcomponents/richtext.whlib#RichTextField"
-          supportedvalues=""
+          supportedvalues="none"
           />
       </xs:appinfo>
     </xs:annotation>
@@ -987,7 +987,7 @@
           editextension="/screens/formcomponents.xml#address"
           parserfunc="/lib/webtools/formcomponents/address.whlib#parseformaddress"
           fieldobject="/lib/webtools/formcomponents/address.whlib#AddressField"
-          supportedvalues="address record"
+          supportedvalues="address"
           />
       </xs:appinfo>
     </xs:annotation>

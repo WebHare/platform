@@ -390,9 +390,9 @@ PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(RECORD field)
   IF(CellExists(field,'validationchecks')) //These may not have been set if we came through AppendFormField and no match option was set
   {
     IF ("email" IN field.validationchecks)
-      RETURN [ "email", "string" ];
+      RETURN [ "email" ];
     IF ("emails" IN field.validationchecks)
-      RETURN [ "emailarray", "stringarray" ];
+      RETURN [ "emailarray" ];
   }
 
   IF(CellExists(field,'valuetype')) //These may not have been set if we came through AppendFormField and no match option was set

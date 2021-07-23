@@ -21,185 +21,68 @@ PUBLIC RECORD passthrough_formeditorextension_options;
 
 PUBLIC CONSTANT STRING xmlns_forms := "http://www.webhare.net/xmlns/publisher/forms";
 
-PUBLIC CONSTANT STRING ARRAY supported_fieldtypes :=
+CONSTANT STRING ARRAY supportedvalues_hstypes :=
     [ "string", "integer", "money", "float", "boolean", "datetime", "record"
     , "stringarray", "integerarray", "moneyarray", "floatarray", "booleanarray", "datetimearray", "recordarray"
-    , "email", "whfsref"
-    , "emailarray", "whfsrefarray"
-    , "options", "file", "rtd", "address"
     ];
 
-PUBLIC INTEGER FUNCTION GetFieldTypeID(STRING ARRAY fieldtypes)
+CONSTANT STRING ARRAY supportedvalues_interfaces :=
+    [ "email", "emailarray"
+    , "options", "file", "rtd", "address", "image"
+    ];
+
+PUBLIC RECORD FUNCTION ParseSupportedValues(STRING ARRAY inattr)
 {
-  FOREVERY (STRING fieldtype FROM fieldtypes)
+  RECORD retval := [ supportedvalues := STRING[]
+                   , errors := STRING[]
+                   ];
+
+  IF("none" IN inattr)
   {
-    STRING basetype := fieldtype;
-    BOOLEAN isarray := basetype LIKE "*array";
-    IF (isarray)
-      basetype := Left(basetype, Length(basetype) - 5);
+    IF(Length(inattr) > 1)
+      INSERT `Supportedvalues 'none' can not be combined with any other value` INTO retval.errors AT END; //we need a GetValueAs for conditions to select the proper value PLUS a practical use case for testing
 
-    IF (basetype IN [ "string", "integer", "money", "float", "boolean", "datetime", "record" ])
-      RETURN GetHarescriptTypeIdByName(ToUppercase(basetype || (isarray ? " array" : "")));
-
-    SWITCH (basetype)
-    {
-      CASE "email"
-      {
-        RETURN isarray ? TypeID(STRING ARRAY) : TypeID(STRING);
-      }
-      CASE "whfsref"
-      {
-        RETURN isarray ? TypeID(INTEGER ARRAY) : TypeID(INTEGER);
-      }
-      CASE "options", "file", "rtd", "address"
-      {
-        CONTINUE;
-      }
-      DEFAULT
-      {
-        THROW NEW Exception(`Unknown field types '${Detokenize(fieldtypes, ", ")}'`);
-      }
-    }
+    retval.supportedvalues := ["none"];
+    RETURN retval;
   }
-  RETURN 0;
-}
 
-PUBLIC STRING FUNCTION GetFieldColumnType(STRING ARRAY fieldtypes)
-{
-  FOREVERY (STRING fieldtype FROM fieldtypes)
+  //Deal with implicit types
+  IF("email" IN inattr AND "string" NOT IN inattr)
+    INSERT "string" INTO inattr AT END;
+  IF("emailarray" IN inattr AND "stringarray" NOT IN inattr)
+    INSERT "stringarray" INTO inattr AT END;
+  IF("image" IN inattr AND "file" NOT IN inattr)
+    INSERT "file" INTO inattr AT END;
+
+  IF("record" NOT IN inattr)
+    FOREVERY(STRING recordtype FROM ["rtd","file","address"])
+      IF(recordtype IN inattr)
+      {
+        INSERT "record" INTO inattr AT END;
+        BREAK;
+      }
+
+  STRING hstype;
+
+  FOREVERY(STRING val FROM inattr)
   {
-    STRING basetype := fieldtype;
-    BOOLEAN isarray := basetype LIKE "*array";
-    IF (isarray)
+    IF(val IN supportedvalues_hstypes)
     {
-      basetype := Left(basetype, Length(basetype) - 5);
-      RETURN "text";
+      IF(hstype = "")
+      {
+        hstype := val;
+        INSERT val INTO retval.supportedvalues AT END;
+      }
+      ELSE
+        INSERT `Multiple HareScript types claimed, '${hstype}' and '${val}' - this is not yet supported` INTO retval.errors AT END; //we need a GetValueAs for conditions to select the proper value PLUS a practical use case for testing
     }
-
-    IF (basetype IN [ "integer", "money", "float", "email" ])
-      RETURN basetype;
-
-    SWITCH (basetype)
-    {
-      CASE "string"
-      {
-        RETURN "text";
-      }
-      CASE "datetime" // (date)time?
-      {
-        RETURN "date";
-      }
-      CASE "boolean"
-      {
-        RETURN "icon";
-      }
-      CASE "whfsref"
-      {
-        RETURN "integer";
-      }
-      CASE "record", "options", "file", "rtd", "address"
-      {
-        CONTINUE;
-      }
-      DEFAULT
-      {
-        THROW NEW Exception(`Unknown field types '${Detokenize(fieldtypes, ", ")}'`);
-      }
-    }
+    ELSE IF(val IN supportedvalues_interfaces)
+      INSERT val INTO retval.supportedvalues AT END;
+    ELSE
+      INSERT `Unknown supportedvalues value '${val}'` INTO retval.errors AT END;
   }
-  RETURN "";
-}
 
-STRING FUNCTION StripRight(STRING value, STRING char)
-{
-  WHILE (UCRight(value, 1) = char)
-    value := UCLeft(value, UCLength(value) - 1);
-  RETURN value;
-}
-
-PUBLIC VARIANT FUNCTION FormatFieldForColumnType(VARIANT value, STRING columntype, OBJECT tolliumuser DEFAULTSTO DEFAULT OBJECT)
-{
-  INTEGER valuetype := TypeID(value);
-  SWITCH (columntype)
-  {
-    CASE "text"
-    {
-      IF (IsTypeIDArray(valuetype))
-      {
-        IF (Length(value) = 0)
-          RETURN "";
-        SWITCH (TypeID(value[0]))
-        {
-          CASE TypeID(STRING)
-          {
-            RETURN Detokenize(value, ", ");
-          }
-          CASE TypeID(INTEGER)
-          {
-            RETURN Detokenize((
-                SELECT AS STRING ARRAY ToString(val)
-                  FROM ToRecordArray(value, "val")), ", ");
-          }
-          CASE TypeID(MONEY)
-          {
-            RETURN Detokenize((
-                SELECT AS STRING ARRAY ObjectExists(tolliumuser)
-                           ? tolliumuser->FormatMoney(val, 0, FALSE)
-                           : FormatMoney(val, 0, ".", "", FALSE)
-                  FROM ToRecordArray(value, "val")), ", ");
-          }
-          CASE TypeID(FLOAT)
-          {
-            RETURN Detokenize((
-                SELECT AS STRING ARRAY ObjectExists(tolliumuser)
-                           ? StripRight(tolliumuser->FormatFloat(val, -1), "0") // strip trailing zeroes
-                           : StripRight(FormatFloat(val, -1), "0") // strip trailing zeroes
-                  FROM ToRecordArray(value, "val")), ", ");
-          }
-        }
-      }
-      ELSE IF (CanCastTypeTo(valuetype, TypeID(STRING)))
-        RETURN value;
-      RETURN "";
-    }
-    CASE "integer"
-    {
-      IF (CanCastTypeTo(valuetype, TypeID(INTEGER)))
-        RETURN value;
-      RETURN 0;
-    }
-    CASE "money"
-    {
-      IF (CanCastTypeTo(valuetype, TypeID(MONEY)))
-        RETURN value;
-      RETURN 0m;
-    }
-    CASE "float"
-    {
-      IF (CanCastTypeTo(valuetype, TypeID(FLOAT)))
-        RETURN value;
-      RETURN 0f;
-    }
-    CASE "datetime"
-    {
-      IF (valuetype = TypeID(DATETIME))
-        RETURN value;
-      RETURN DEFAULT DATETIME;
-    }
-    CASE "email"
-    {
-      IF (valuetype = TypeID(STRING) AND IsValidEmailAddress(value))
-        RETURN value;
-      RETURN "";
-    }
-    CASE "icon"
-    {
-      IF (valuetype = TypeID(BOOLEAN))
-        RETURN value ? 1 : 2;
-      RETURN 0;
-    }
-  }
-  RETURN value;
+  RETURN retval;
 }
 
 RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulename, STRING resourcename, RECORD matchattribute)
@@ -214,12 +97,13 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
                   , description := ParseXMLTidPtr(resourcename, "" , compinfo, "description")
                   , editextension := ""
                   , editdefaults := DEFAULT STRING ARRAY
-                  , supportedvalues := [ "string" ]
+                  , supportedvalues := STRING[]
                   , supportedvaluesfunc := ""
                   , parserfunc := ""
                   , fieldobject := ""
                   , ordering := ParseXSInt(compinfo->GetAttribute("ordering"))
                   , parsertype := ""
+                  , conditionscope := compinfo->GetAttribute("conditionscope")
                   ];
   //Print(elrec.name||"\n");
 
@@ -245,16 +129,9 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
   }
   IF (compinfo->HasAttribute("supportedvalues") OR compinfo->HasAttribute("defaultvalue"))
   {
-    elrec.supportedvalues := ParseXSList(compinfo->GetAttribute("supportedvalues") ?? compinfo->GetAttribute("defaultvalue"));
-    STRING ARRAY invalidvalue := ArrayDelete(elrec.supportedvalues, supported_fieldtypes);
-    IF (Length(invalidvalue) > 0)
-    {
-      INSERT CELL[ resourcename
-                 , line := compinfo->line
-                 , col := 0
-                 , message := `Unknown supportedvalues value${Length(invalidvalue) != 1 ? "s" : ""} '${Detokenize(invalidvalue, "', '")}' in ${resourcename}:${compinfo->linenum}`
-                 ] INTO errors AT END;
-    }
+    RECORD parseresult := ParseSupportedValues(ParseXSList(compinfo->GetAttribute("supportedvalues") ?? compinfo->GetAttribute("defaultvalue")));
+    errors := errors CONCAT SELECT resourcename := resourcename, line := compinfo->line, col := 0, message := err FROM ToRecordArray(parseresult.errors, 'err');
+    elrec.supportedvalues := parseresult.supportedvalues;
   }
   ELSE IF (compinfo->GetAttribute("supportedvaluesfunc") LIKE "*#*")
   {

@@ -14,6 +14,17 @@
     <xs:attribute name="tolliumicon" />
     <xs:attribute name="tid" />
     <xs:attribute name="title" />
+    <xs:attribute name="conditionscope">
+      <xs:annotation>
+        <xs:documentation>Limit where this field can be used in a condition context.</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="frontend" />
+          <xs:enumeration value="backend" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
     <xs:attribute name="descriptiontid" />
     <xs:attribute name="description" />
     <xs:attribute name="matchattribute" />
@@ -21,7 +32,19 @@
     <xs:attribute name="editdefaults" />
     <xs:attribute name="editextension" />
     <xs:attribute name="defaultvalue" /> <!-- deprecated, use supportedvalues -->
-    <xs:attribute name="supportedvalues" />
+    <xs:attribute name="supportedvalues">
+      <xs:annotation>
+        <xs:documentation>List of the interfaces the value of this component supports. This may contain
+                          - 'none' to explicitly indicate that this field will never return a value. also excludes it from export/list
+                          - HareScript type the component can offer (eg 'string', 'integerarray')
+                          - 'options' if the components implements GetOptions and is suitable for use in conditional options
+                          - 'image' if this component holds a wrapped image (implies 'file')
+                          - 'file', 'address', 'rtd' if this component holds a record of this type (implies 'record')
+                          - 'email' if this component holds a single email as value. implies 'string'
+                          - 'emailarray' if this component holds one or more email addresses as value. implies 'stringarray'
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="parserfunc" />
     <xs:attribute name="fieldobject" />
     <xs:attribute name="supportedvaluesfunc" />

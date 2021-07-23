@@ -736,7 +736,7 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
       @cell(record array) subfields
       @cell(record) dataset
   */
-  PUBLIC PROPERTY options(this->pvt_options, SetOptions);
+  PUBLIC PROPERTY options(GetOptions, SetOptions);
 
   /// Current value
   PUBLIC PROPERTY value(GetValue, SetValue);
@@ -820,6 +820,11 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
         names := names CONCAT field->GetComponentNames();
 
     RETURN names;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOptions()
+  {
+    RETURN this->pvt_options;
   }
 
   // ---------------------------------------------------------------------------

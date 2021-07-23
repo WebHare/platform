@@ -21,6 +21,8 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
   RECORD pvt_value;
   MACRO PTR onchange;
 
+  PUBLIC STRING scope;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -43,7 +45,7 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
   UPDATE MACRO PreInitComponent()
   {
     this->contexts->^conditioncontext := NEW ConditionContext();
-    this->contexts->^conditioncontext->conditionsources := this->contexts->formcomponentapi->GetConditionSources();
+    this->contexts->^conditioncontext->conditionsources := this->contexts->formcomponentapi->GetConditionSources([ scope := this->scope]);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)
@@ -51,6 +53,7 @@ PUBLIC OBJECTTYPE FormCondition EXTEND TolliumFragmentBase
     TolliumFragmentBase::StaticInit(description);
     this->condition->title := this->title;
     this->onchange := description.onchange;
+    this->scope := description.scope;
   }
 
   UPDATE MACRO PostInitComponent()

@@ -99,9 +99,9 @@
           <!-- insert position="validation" where="after" -->
         </tab>
         <tab name="dependencies">
-          <p:formcondition name="requiredcondition" onchange="onrequiredconditionchange"/>
-          <p:formcondition name="enabledcondition" />
-          <p:formcondition name="visiblecondition" />
+          <p:formcondition name="requiredcondition" onchange="onrequiredconditionchange" scope="frontend" />
+          <p:formcondition name="enabledcondition" scope="frontend" />
+          <p:formcondition name="visiblecondition" scope="frontend" />
           <spacer name="dependencies_insertpoint" visible="false" />
         </tab>
         <tab name="advanced">
