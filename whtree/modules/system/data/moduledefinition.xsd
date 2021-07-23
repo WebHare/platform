@@ -1606,6 +1606,8 @@
         <xs:element name="indexfield" type="PublisherIndexField" />
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
+        <xs:element name="worklisttype">
+        </xs:element>
         <xs:element name="feedbackscope">
           <xs:complexType>
             <xs:attribute name="tag" use="required" />

@@ -1254,7 +1254,8 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
-
+      <xs:attribute name="scope">
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
