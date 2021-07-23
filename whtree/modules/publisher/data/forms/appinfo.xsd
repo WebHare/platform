@@ -39,7 +39,7 @@
                           - HareScript type the component can offer (eg 'string', 'integerarray')
                           - 'options' if the components implements GetOptions and is suitable for use in conditional options
                           - 'image' if this component holds a wrapped image (implies 'file')
-                          - 'file', 'address', 'rtd' if this component holds a record of this type (implies 'file')
+                          - 'file', 'address', 'rtd' if this component holds a record of this type (implies 'record')
                           - 'email' if this component holds a single email as value. implies 'string'
                           - 'emailarray' if this component holds one or more email addresses as value. implies 'stringarray'
         </xs:documentation>
