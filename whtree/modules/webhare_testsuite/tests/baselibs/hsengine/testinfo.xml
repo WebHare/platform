@@ -39,7 +39,7 @@
   <test script="test_nestedif.whscr" />
   <test script="test_numbers.whscr" />
   <test script="test_objects.whscr" />
-  <test script="test_ooxml.whscr" />
+  <test script="test_xlsx.whscr" />
   <test script="test_operators.whscr" />
   <test script="test_os.whscr" />
   <test script="test_otp.whscr" />

@@ -271,9 +271,22 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF (Length(this->analyzertasks) > 0)
     {
-      OBJECT service := __OpenSynchronousWebHareService("publisher:outputanalyzer");
-      service->ScheduleMultiple(this->analyzertasks);
-      service->CloseService();
+      OBJECT service;
+      TRY
+      {
+        service := __OpenSynchronousWebHareService("publisher:outputanalyzer");
+        service->ScheduleMultiple(this->analyzertasks);
+      }
+      CATCH(OBJECT e)
+      {
+        //TODO we need never-failing persistent queues but until then, we may have races especially when WebHare is starting and outputanalyzer should self-recovery anyway if it misses something
+        LogHarescriptException(e);
+      }
+      FINALLY
+      {
+        IF(ObjectExists(service))
+          service->CloseService();
+      }
     }
 
     IF (Length(to_reindex) > 0 OR Length(this->reindexes) > 0)

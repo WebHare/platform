@@ -59,8 +59,8 @@ PUBLIC STATIC OBJECTTYPE MailViewer EXTEND TolliumScreenBase
       ^tabs->type := "regular";
       ^errors->visible := this->task.lasterrors != "";
       ^errors->value := this->task.lasterrors;
-      ^callbackinfo->visible := RecordExists(this->task.data.callback);
-      IF(RecordExists(this->task.data.callback))
+      ^callbackinfo->visible := CellExists(this->task.data, 'callback') AND RecordExists(this->task.data.callback);
+      IF(^callbackinfo->visible)
       {
         ^callbackfunc->value := this->task.data.callback.func;
         ^callbackdata->value := this->task.data.callback.data;
