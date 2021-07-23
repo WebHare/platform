@@ -177,7 +177,7 @@ OBJECTTYPE FormParser
 
       IF(comptype.supportedvaluesfunc != "")
       {
-        RECORd parseresult := ParseSupportedValues(MakeFunctionPtr(comptype.supportedvaluesfunc)(addfield));
+        RECORD parseresult := ParseSupportedValues(MakeFunctionPtr(comptype.supportedvaluesfunc)(addfield));
         FOREVERY(STRING err FROM parseresult.errors)
           this->AddError(fld, err);
         addfield.supportedvalues := parseresult.supportedvalues;
