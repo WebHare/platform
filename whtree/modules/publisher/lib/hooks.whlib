@@ -21,7 +21,7 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
   // Variables
   //
 
-  OBJECT tolliumuser;
+  OBJECT contexts;
   OBJECT contentshandlercache;
 
 
@@ -31,15 +31,15 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
   //
 
   /** @short Initialize the context object and root item contents handlers
-      @param tolliumuser The user to initialize the context for
+      @param contexts Tollium contexts we're initializing for
   */
-  MACRO NEW(OBJECT tolliumuser)
+  MACRO NEW(OBJECT contexts)
   {
-    this->tolliumuser := tolliumuser;
+    this->contexts := contexts;
     this->contentshandlercache := NEW ValueMapper();
 
     INTEGER counter;
-    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->tolliumuser, 'filemgrextensions'))
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->contexts->user, 'filemgrextensions'))
       FOREVERY(RECORD addroot FROM ext.addrootitems)
       {
         counter := counter + 1;
@@ -89,7 +89,7 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
 
   OBJECT FUNCTION InstantiateHandler(INTEGER rootitemid, STRING contentshandlername)
   {
-    __contentlisthandlersetup := CELL[ rootitemid, this->tolliumuser ];
+    __contentlisthandlersetup := CELL[ rootitemid, this->contexts ];
     OBJECT contentshandler := MakeObject(contentshandlername);
     __contentlisthandlersetup := DEFAULT RECORD;
     IF (contentshandler NOT EXTENDSFROM ContentsHandlerBase)
@@ -107,6 +107,7 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
   // Variables
   //
 
+  OBJECT _contexts;
   PUBLIC FUNCTION PTR __ongeticon;
 
 
@@ -115,8 +116,10 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
   // Public variables
   //
 
+  PUBLIC PROPERTY contexts(this->_contexts, -);
+
   /// @type(object %TolliumUser) The current Tollium user
-  PUBLIC OBJECT tolliumuser;
+  PUBLIC PROPERTY tolliumuser(this->_contexts->user, -);
 
 
   //----------------------------------------------------------------------------
@@ -127,8 +130,8 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
   /// @private
   MACRO NEW()
   {
-    RECORD setup := ValidateOptions([ tolliumuser := DEFAULT OBJECT ], __contentlisthandlersetup, [ passthrough := TRUE ]);
-    this->tolliumuser := setup.tolliumuser;
+    RECORD setup := ValidateOptions([ contexts := DEFAULT OBJECT ], __contentlisthandlersetup, [ passthrough := TRUE ]);
+    this->_contexts := setup.contexts;
   }
 
 

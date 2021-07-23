@@ -515,7 +515,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO SetupFilemgrExtensions() //Setup the module-based extensions
   {
-    this->contexts->^__contentshandlercontext := NEW ContentsHandlerContext(this->tolliumuser);
+    this->contexts->^__contentshandlercontext := NEW ContentsHandlerContext(this->contexts);
     this->extensions := [ actionsmenuitems := DEFAULT RECORD ARRAY ];
 
     INTEGER insertpos := SELECT AS INTEGER #items FROM ^gotomenu->items WHERE isdivider;
@@ -581,6 +581,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
             , onlywritable      := FALSE
             , onlyfolders       := FALSE
             , onlyfiles         := FALSE
+            , ellipsis          := FALSE
             , checkflags        := STRING[]
             ], action);
 
@@ -592,6 +593,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ELSE
           THROW NEW Exception(`ContentsHandler action without 'executehandler' or 'windowopenhandler'`);
         actionobj->title := action.title;
+        actionobj->ellipsis := action.ellipsis;
         actionobj->frameflags := [ handler_frameflag ];
 
         OBJECT menuitemobj := this->CreateTolliumComponent("menuitem");
