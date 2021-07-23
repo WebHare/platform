@@ -1,0 +1,16 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         library="worklistfilter.whlib">
+
+  <screen name="FilteredListPanel" title="">
+    <body>
+      <select name="toshow" type="pulldown" title="To show">
+        <option rowkey="none" title="None"/>
+        <option rowkey="some" title="Some"/>
+        <option rowkey="all" title="All"/>
+      </select>
+    </body>
+  </screen>
+
+
+</screens>

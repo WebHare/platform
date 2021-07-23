@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/lib/worklists.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE FilteredListPanel EXTEND WHFSFilterScreenBase
+<
+  UPDATE PUBLIC MACRO ResetFilter()
+  {
+    this->ClearFilter();
+  }
+
+  PUBLIC MACRO ClearFilter()
+  {
+    ^toshow->value := "none";
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunFilter(RECORD options)
+  {
+    //BOOLEAN enabled := ^toshow->value;
+    RECORD ARRAY results;
+
+    IF(^toshow->value != "none")
+    {
+      RECORD ARRAY allentries := NEW WorkListAPI(this->contexts->user)->GetWorkListItems(this->filtersettings.worklist);
+      IF(^toshow->value = "some")
+        DELETE FROM allentries WHERE NOT RecordExists(metadata);
+
+      results := SELECT id := objectid, custom_itemid := id FROM allentries;
+    }
+
+    RETURN [ moreresults := FALSE
+           , numresults := Length(results) //publisher currently just wants a >0 value to give control back to us..
+           , showresults := results
+           , staticresults := TRUE
+           ];
+  }
+>;

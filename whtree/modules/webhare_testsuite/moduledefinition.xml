@@ -262,6 +262,7 @@
         <requireright right="system:sysop"/>
       </accesscheck>
     </virtualfs>
+    <worklisttype name="filteredlist" filterscreen="tests/publisher/tollium/data/worklistfilter.xml#FilteredListPanel" />
     <webdesign hidden="true" name="basetest" title="WH testsuite: selftest 'basetest'" siteprofile="webdesigns/basetest/basetest.siteprl">
       <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl xyz" />
     </webdesign>

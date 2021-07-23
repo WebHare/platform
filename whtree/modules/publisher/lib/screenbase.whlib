@@ -5,18 +5,18 @@ LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE WHFSFilterScreenBase EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE WHFSFilterScreenBase EXTEND TolliumScreenBase
 <
+  RECORD filtersettings;
   INTEGER folder;
 
   /// Set to the title to use for the filter button, leave empty for default
   PUBLIC STRING filterbuttontitle;
 
-  PUBLIC BOOLEAN allowsallresults;
-
   PUBLIC MACRO Init(RECORD data)
   {
-    this->folder := CellExists(data,'folder') ? data.folder : 0; //legacy loadfilterscreens do not pass the folder
+    this->filtersettings := data;
+    this->folder := data.folder;
   }
 
   /** Invoked on first selection or reselection of the folder. Should clear

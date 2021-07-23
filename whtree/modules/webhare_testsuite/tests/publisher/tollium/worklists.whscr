@@ -64,12 +64,22 @@ MACRO Setup()
       , [ objectid := workfile4->id, comments := "Workfile 4 needs stuff done, but Lisa can't do that" ]
       , [ objectid := workfolder5->id, comments := "Workfolder 5 is a folder and so far we only tested files!" ]
       ]);
+  TestEq("", DescribeWorklist(testworklistid).type);
+  TestEq(DEFAULT RECORD, DescribeWorklist(testworklistid).metadata);
+  TestEq(TRUE, api_sysop->GetWorklist(testworklistid).iseditor);
 
-  testworklistid2 := api_sysop->CreateWorkList([ name := "TESTFW - Second Work List", tag := "webhare_testsuite:testlist2" ]);
+  testworklistid2 := api_sysop->CreateWorkList([ name := "TESTFW - Second Work List", tag := "webhare_testsuite:testlist2", type := "webhare_testsuite:filteredlist", metadata := [ dummy := 43 ] ]);
   api_sysop->AddToWorkList(testworklistid2,
-      [ [ objectid := workfile1->id, comments := "Work list item 1" ]
+      [ [ objectid := workfile1->id, comments := "W1", metadata := [ str := "OnSite1", int := 42 ] ]
+      , [ objectid := workfile2->id, comments := "W2" ]
       ]);
+  TestEq("webhare_testsuite:filteredlist", DescribeWorklist(testworklistid2).type);
+  TestEqMembers([[ objectid := workfile1->id, metadata := [ str := "OnSite1", int := 42 ] ]
+                ,[ objectid := workfile2->id, metadata := DEFAULT RECORD ]
+                ], (SELECT * FROM api_sysop->GetWorkListItems(testworklistid2) ORDER BY objectid), "*");
+  TestEq([ dummy := 43], DescribeWorklist(testworklistid2).metadata);
 
+  TestThrowsLike("*No such*webhare_testsuite:nonexistingtype*", PTR api_sysop->CreateWorkList([ name := "TESTFW - Third Work List", tag := "webhare_testsuite:testlist3", type := "webhare_testsuite:nonexistingtype" ]));
   testfw->CommitWork();
 }
 
@@ -81,6 +91,7 @@ ASYNC MACRO TestResolveAsLisa()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
 
   // The user 'lisa' has no work lists or 'resolve' rights
+  TestEq(DEFAULT RECORD, api_lisa->GetWorklist(testworklistid));
   TestEq(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Work lists"));
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
@@ -89,6 +100,8 @@ ASYNC MACRO TestResolveAsLisa()
   testfw->BeginWork();
   api_sysop->AddWorkListUsers(testworklistid, OBJECT[ testfw->GetUserObject("lisa") ]);
   testfw->CommitWork();
+
+  TestEq(FALSE, api_lisa->GetWorklist(testworklistid).iseditor);
 
   // Open the Publisher
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
@@ -297,6 +310,18 @@ ASYNC MACRO TestWorkListMgmt()
   TestEq("TESTFW - Second Work List", TT(":Name")->value);
   TT(":Name")->value := "TESTFW - 2nd Work List";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //A filter screen should appear in the worklist itself
+  TT("filelist")->openaction->TolliumClick();
+
+  OBJECT filterscreen := TT("filelist")->folderfilter->contents;
+  TestEq(TRUE, ObjectExists(filterscreen));
+  TestEq("none", filterscreen->^toshow->value);
+  TestEq(RECORD[], TT("filelist")->rows); //filelist should then be initially empty
+
+  filterscreen->^toshow->value := "some";
+  TTClick(":Filter");
+  TestEq([[ name := "workfile1" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }

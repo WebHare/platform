@@ -114,7 +114,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   ///How to show current content
   STRING pvt_contentmode;
 
-  RECORD ARRAY currentfilterresults;
+  RECORD currentfilterresults;
 
   RECORD ARRAY filterscreencache;
   RECORD ARRAY listshandlercache;
@@ -265,7 +265,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
   UPDATE MACRO __SetFolder(INTEGER folderid, RECORD foldersettings)
   {
-    this->currentfilterresults := DEFAULT RECORD ARRAY;
+    this->currentfilterresults := DEFAULT RECORD;
     this->resultslimitedpanel->visible := FALSE;
     this->foldersettings := foldersettings;
 
@@ -274,10 +274,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     {
       this->hasfilter := TRUE;
 
-      OBJECT cachedscreen := SELECT AS OBJECT obj FROM this->filterscreencache WHERE id=folderid;
+      OBJECT cachedscreen := SELECT AS OBJECT obj FROM this->filterscreencache WHERE id = folderid;
       IF(NOT ObjectExists(cachedscreen))
       {
-        cachedscreen := this->owner->LoadScreen(filterscreen, [ folder := folderid ]);
+        cachedscreen := this->owner->LoadScreen(filterscreen, CELL[ folder := folderid, ...foldersettings.filtersettings ]);
         IF(NOT cachedscreen EXTENDSFROM WHFSFilterScreenBase)
           THROW NEW Exception(`Screen '${filterscreen}' should derive from WHFSFilterScreenBase`);
         INSERT [ id := folderid, obj := cachedscreen ] INTO this->filterscreencache AT END;
@@ -345,17 +345,26 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->RefreshList();
   }
 
-  UPDATE PUBLIC MACRO SetFilterResult(RECORD ARRAY filterresult)
+  UPDATE PUBLIC MACRO _SetFilterResult(RECORD filterresult)
   {
-    this->currentfilterresults := filterresult;
+    this->currentfilterresults := EnforceStructure([ moreresults := FALSE
+                                                   , showresults := RECORD[]
+                                                   , allowallresults := FALSE
+                                                   , numresults := 0
+                                                   , staticresults := FALSE
+                                                   ], filterresult);
 
-    // don't have isfolder here, get it from the system tables
-    INTEGER ARRAY ids := SELECT AS INTEGER ARRAY DISTINCT id FROM filterresult WHERE id > 0;
-    RECORD ARRAY parents := SELECT DISTINCT id := isfolder ? id : parent FROM system.fs_objects WHERE id IN ids;
-
-    this->folderlistener->masks :=
-        (SELECT AS STRING ARRAY "system:whfs.folder." || id FROM parents) CONCAT
-        (SELECT AS STRING ARRAY "publisher:publish.folder." || id FROM parents);
+    STRING ARRAY eventmasks;
+    IF(NOT this->currentfilterresults.staticresults)
+    {
+      // don't have isfolder here, get it from the system tables
+      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY DISTINCT id FROM this->currentfilterresults.showresults WHERE id > 0;
+      RECORD ARRAY parents := SELECT DISTINCT id := isfolder ? id : parent FROM system.fs_objects WHERE id IN ids;
+      eventmasks := (SELECT AS STRING ARRAY "system:whfs.folder." || id FROM parents)
+                    CONCAT
+                    (SELECT AS STRING ARRAY "publisher:publish.folder." || id FROM parents);
+    }
+    this->folderlistener->masks := eventmasks;
 
     this->RefreshList();
   }
@@ -683,20 +692,22 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
     RECORD ARRAY files;
     BOOLEAN showexternalfolders := (RecordExists(this->foldersettings) AND this->foldersettings.visibleforeignfolders) OR NOT this->hideexternal;
-    IF(this->hasfilter)
+    BOOLEAN customcontentsource := ObjectExists(this->_contentslisthandler) AND this->_contentslisthandler EXTENDSFROM ContentsHandlerBase;
+    IF(this->hasfilter AND NOT customcontentsource)
     {
-      IF(Length(this->currentfilterresults) > 0)
+      IF(RecordExists(this->currentfilterresults) AND Length(this->currentfilterresults.showresults) > 0)
       {
-        INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM this->currentfilterresults;
+        INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM this->currentfilterresults.showresults;
         files := GetInnerObjectListing(this->owner->tolliumuser, 0, NOT this->hidefolders, showexternalfolders, NOT this->hidefiles, TRUE, fileids, this->contentmode);
 
-        FOREVERY(RECORD file FROM files)
-          IF(NOT RecordExists(SELECT FROM this->currentfilterresults WHERE currentfilterresults.id = file.id AND currentfilterresults.parent = file.parent))
-          {
-            DELETE FROM files WHERE id=file.id;
-            //it's never ever ever coming back. until you refilter.
-            DELETE FROM this->currentfilterresults WHERE id=file.id;
-          }
+        IF(NOT this->currentfilterresults.staticresults)
+          FOREVERY(RECORD file FROM files)
+            IF(NOT RecordExists(SELECT FROM this->currentfilterresults.showresults WHERE showresults.id = file.id AND showresults.parent = file.parent))
+            {
+              DELETE FROM files WHERE id=file.id;
+              //it's never ever ever coming back. until you refilter.
+              DELETE FROM this->currentfilterresults.showresults WHERE id=file.id;
+            }
 
         //FIXME move contentmode to the extension object.
         files := SELECT *, contentmode := "" FROM files;
@@ -718,9 +729,9 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
                                    WHERE id IN this->customcontents;
         files := EnrichObjectListing(DEFAULT OBJECT, fileslist, FALSE, "");
       }
-      ELSE IF (ObjectExists(this->_contentslisthandler) AND this->_contentslisthandler EXTENDSFROM ContentsHandlerBase)
+      ELSE IF (customcontentsource)
       {
-        files := this->GetCustomObjectListing(this->curfolder, FALSE, NOT this->hidefolders, NOT this->hidefiles, showhidden);
+        files := this->GetCustomObjectListing(this->curfolder, FALSE, NOT this->hidefolders, showexternalfolders, NOT this->hidefiles, this->currentfilterresults);
       }
     }
 
@@ -887,14 +898,14 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   {
     this->resultslimitedpanel->visible := FALSE;
     RECORD filterresult := this->folderfilter->contents->RunFilter(CELL[allresults]);
-    IF(NOT RecordExists(filterresult) OR filterresult.numresults=0) //no matches
+    IF(NOT RecordExists(filterresult) OR filterresult.numresults = 0) //no matches
     {
       IF(interactive)
       {
         this->resultslimited->htmlvalue := GetTid("publisher:components.filelist.filternoresults");
         this->resultslimitedpanel->visible := TRUE;
-        this->SetFilterResult(DEFAULT RECORD ARRAY);
       }
+      this->_SetFilterResult(filterresult);
       RETURN;
     }
 
@@ -902,7 +913,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     {
       STRING htmlvalue;
       // Only sysops have the option to show all results
-      IF (this->folderfilter->contents->allowsallresults AND this->owner->tolliumuser->HasRight("system:sysop"))
+      IF (filterresult.allowallresults)
         htmlvalue := `${GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)))} <a href="filelist:showallresults">${GetTid("publisher:components.filelist.clickallresults", ToString(filterresult.numresults))}</a>`;
       ELSE
         htmlvalue := GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)), ToString(filterresult.numresults));
@@ -910,7 +921,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->resultslimitedpanel->visible := TRUE;
     }
 
-    this->SetFilterResult(filterresult.showresults);
+    this->_SetFilterResult(filterresult);
   }
 
   MACRO OnShowAllResults(STRING link)

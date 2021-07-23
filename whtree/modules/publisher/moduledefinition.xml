@@ -864,6 +864,12 @@
         </d:documentation>
       </d:varchar>
 
+      <d:varchar name="type" maxlength="256">
+        <d:documentation>
+          Worklist type (optional)
+        </d:documentation>
+      </d:varchar>
+
       <d:integer name="owner" references="system.authobjects" ondelete="cascade" nullable="true">
         <d:documentation>
           The work list owner
@@ -875,6 +881,12 @@
           The work list creation date
         </d:documentation>
       </d:datetime>
+
+      <d:varchar name="metadata" maxlength="4096">
+        <d:documentation>
+          HSON-encoded worklist specific metadata, if any
+        </d:documentation>
+      </d:varchar>
 
       <d:index name="uniquename" columns="name(32)" unique="true" uppercase="true">
         <d:documentation>
@@ -941,6 +953,13 @@
           The WHFS objects within a list must be unique
         </d:documentation>
       </d:index>
+
+      <d:varchar name="metadata" maxlength="4096">
+        <d:documentation>
+          HSON-encoded worklist-type specific metadata, if any
+        </d:documentation>
+      </d:varchar>
+
     </d:table>
 
     <d:grant permissions="all" schema="wrd" grantee=".webinterface"/>

@@ -205,6 +205,8 @@ PUBLIC SCHEMA
     , STRING "tag"
     , INTEGER "owner" NULL := 0
     , DATETIME "creationdate"
+    , STRING "type"
+    , STRING "metadata"
     ; KEY id
     > worklists
 
@@ -216,6 +218,7 @@ PUBLIC SCHEMA
     , STRING "comments"
     , DATETIME "resolveddate"
     , INTEGER "resolvedby" NULL := 0
+    , STRING "metadata"
     ; KEY id
     > worklistitems
 
