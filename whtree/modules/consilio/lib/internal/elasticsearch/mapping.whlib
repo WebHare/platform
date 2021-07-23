@@ -10,9 +10,6 @@ OBJECT FUNCTION GetIndexFieldDefinitionNode(STRING name, STRING type)
 
   STRING ARRAY parts := Tokenize(name, ':');
   OBJECT xmldoc := GetModuleDefinitionXML(parts[0]); //FIXME require validation to succeed ? use lastknown good if so unless on test/dev?
-  IF (NOT ObjectExists(xmldoc))
-    THROW NEW Exception(`Cannot retrieve moduledefinition for module '${parts[0]}'`);
-
   FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
     FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", type))
       IF(indexnode->localname = type AND indexnode->GetAttribute("tag") = parts[1])

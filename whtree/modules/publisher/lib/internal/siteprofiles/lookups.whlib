@@ -15,9 +15,6 @@ PUBLIC OBJECT FUNCTION LookupModuleDefNamedNode(STRING topnodename, STRING subno
     THROW NEW Exception(`Invalid ${options.title} name '${qualifiedname}'`);
 
   OBJECT moduledef := GetModuleDefinitionXML(toks[0]);
-  IF(NOT ObjectExists(moduledef))
-    THROW NEW Exception(`No such module '${toks[0]}' while looking for ${options.title} '${qualifiedname}'`);
-
   OBJECT topnode := PickFirst(moduledef->documentelement->ListChildren(whconstant_xmlns_moduledef, topnodename));
   IF(ObjectExists(topnode))
     FOREVERY(OBJECT subnode FROM topnode->ListChildren(whconstant_xmlns_moduledef, subnodename))

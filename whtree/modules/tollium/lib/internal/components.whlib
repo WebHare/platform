@@ -191,9 +191,6 @@ PUBLIC MACRO ExecuteDebugAction(OBJECT screen, RECORD action, VARIANT data)
     THROW NEW Exception(`Invalid debug action '${action.type}'`);
 
   OBJECT modxml := GetModuleDefinitionXML(acttoks[0]);
-  IF(NOT ObjectExists(modxml))
-    THROW NEW Exception(`Invalid debug action '${action.type}'`);
-
   OBJECT tolliumnode := modxml->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","tollium")->Item(0);
   IF(ObjectExists(tolliumnode))
     FOREVERY(OBJECT debugactionnode FROM tolliumnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","debugaction")->GetCurrentElements())

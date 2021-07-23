@@ -619,9 +619,6 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       CONTINUE;
 
     OBJECT xmldoc := GetModuleDefinitionXML(mod);
-    IF (NOT ObjectExists(xmldoc))
-      CONTINUE;
-
     FOREVERY(OBJECT consilionode FROM xmldoc->documentelement->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "consilio"))
       FOREVERY(OBJECT indexnode FROM consilionode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "index"))
       {

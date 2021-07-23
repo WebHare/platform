@@ -228,8 +228,6 @@ OBJECTTYPE WebConfigBuilder
       xmlfile := GetModuleDefinitionXML(modname);
     CATCH
       RETURN DEFAULT RECORD ARRAY;
-    IF(NOT ObjectExists(xmlfile))
-      RETURN DEFAULT RECORD ARRAY;
 
     STRING sourcefile := GetModuleDefinitionXMLResourceName(modname);
     OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
@@ -436,69 +434,66 @@ OBJECTTYPE WebConfigBuilder
       OBJECT xmlfile := GetModuleDefinitionXML(mod.name);
       STRING filename := GetModuleDefinitionXMLResourceName(mod.name);
 
-      IF(ObjectExists(xmlfile) AND ObjectExists(xmlfile->documentelement))
+      //Create a virtual dir for the module itself
+      RECORD rule := this->GetBaseRule("/tollium_todd.res/" || mod.name || "/", webrulepriority_after, "Implicit for " || filename);
+      rule.datastorage :=
+          [ [ resource :=       `mod::${mod.name}/web/resources/`
+            , isfolder :=       TRUE
+            , method :=         "direct"
+            ]
+          ];
+      rule.matchtype := 1;
+      //bit of a hack to ensure this rule are ordered later than 'global' rules (to prevent /tollium_todd/ overwrites)
+      rule.limitservers := allhosts;
+      INSERT rule INTO rules AT END;
+
+      OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
+      FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(backend))
       {
-        //Create a virtual dir for the module itself
-        RECORD rule := this->GetBaseRule("/tollium_todd.res/" || mod.name || "/", webrulepriority_after, "Implicit for " || filename);
-        rule.datastorage :=
-            [ [ resource :=       `mod::${mod.name}/web/resources/`
-              , isfolder :=       TRUE
-              , method :=         "direct"
-              ]
-            ];
-        rule.matchtype := 1;
-        //bit of a hack to ensure this rule are ordered later than 'global' rules (to prevent /tollium_todd/ overwrites)
-        rule.limitservers := allhosts;
-        INSERT rule INTO rules AT END;
+        STRING path := rulenode->GetAttribute("path");
+        BOOLEAN isproxy := ToUppercase(path) LIKE "PROXY:*";
+        BOOLEAN iswildcardmatch := rulenode->GetAttribute("match") = "wildcards";
+        BOOLEAN iscookiematch := rulenode->GetAttribute("match") = "cookie";
 
-        OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
-        FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(backend))
+        rule := this->GetBaseRule(ConvertPath(mod.name, path, iswildcardmatch, iscookiematch), webrulepriority_default, filename || ":" || rulenode->linenum);
+        IF(rule.path="" AND NOT isproxy)
+          CONTINUE;
+
+        IF(isproxy)
         {
-          STRING path := rulenode->GetAttribute("path");
-          BOOLEAN isproxy := ToUppercase(path) LIKE "PROXY:*";
-          BOOLEAN iswildcardmatch := rulenode->GetAttribute("match") = "wildcards";
-          BOOLEAN iscookiematch := rulenode->GetAttribute("match") = "cookie";
-
-          rule := this->GetBaseRule(ConvertPath(mod.name, path, iswildcardmatch, iscookiematch), webrulepriority_default, filename || ":" || rulenode->linenum);
-          IF(rule.path="" AND NOT isproxy)
-            CONTINUE;
-
-          IF(isproxy)
-          {
-            //don't touch proxy rules, let them apply everywhere
-            rule.limitservers := [whwebserverconfig_proxywebserverid];
-          }
-          ELSE IF(ToUppercase(path) LIKE "ALLROOTS:*")
-          {
-            rule.limitservers := DEFAULT INTEGER ARRAY;
-          }
-          ELSE IF(ToUppercase(path) LIKE "OUTPUTROOTS:*")
-          {
-            INTEGER ARRAY outputhosts :=
-                SELECT AS INTEGER ARRAY id
-                  FROM ToRecordArray(allhosts, "ID")
-                 WHERE id NOT IN interfacehosts;
-
-            IF (LENGTH(outputhosts) = 0) //no output webservers at all?
-              CONTINUE;
-
-            rule.limitservers := outputhosts;
-          }
-          ELSE
-          {
-            IF(Length(interfacehosts)=0) //no interface webserves at all?
-              CONTINUE;
-
-            rule.limitservers := interfacehosts;
-          }
-
-          RECORD parsed := ParseWebRuleData(mod.name, rule, rulenode, filename);
-          this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
-          IF(NOT RecordExists(parsed.rule))
-            CONTINUE;
-
-          rules := rules CONCAT this->FilterWebRuleData(RECORD[parsed.rule], mod.name, hosts);
+          //don't touch proxy rules, let them apply everywhere
+          rule.limitservers := [whwebserverconfig_proxywebserverid];
         }
+        ELSE IF(ToUppercase(path) LIKE "ALLROOTS:*")
+        {
+          rule.limitservers := DEFAULT INTEGER ARRAY;
+        }
+        ELSE IF(ToUppercase(path) LIKE "OUTPUTROOTS:*")
+        {
+          INTEGER ARRAY outputhosts :=
+              SELECT AS INTEGER ARRAY id
+                FROM ToRecordArray(allhosts, "ID")
+               WHERE id NOT IN interfacehosts;
+
+          IF (LENGTH(outputhosts) = 0) //no output webservers at all?
+            CONTINUE;
+
+          rule.limitservers := outputhosts;
+        }
+        ELSE
+        {
+          IF(Length(interfacehosts)=0) //no interface webserves at all?
+            CONTINUE;
+
+          rule.limitservers := interfacehosts;
+        }
+
+        RECORD parsed := ParseWebRuleData(mod.name, rule, rulenode, filename);
+        this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
+        IF(NOT RecordExists(parsed.rule))
+          CONTINUE;
+
+        rules := rules CONCAT this->FilterWebRuleData(RECORD[parsed.rule], mod.name, hosts);
 
         OBJECT servicesnode := xmlfile->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
         IF (ObjectExists(servicesnode))

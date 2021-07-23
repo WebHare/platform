@@ -19,8 +19,6 @@ RECORD FUNCTION GetCacheableAllApplications()
       moddef := GetModuleDefinitionXML(mod.name);
     CATCH
       CONTINUE;
-    IF(NOT ObjectExists(moddef))
-      CONTINUE;
 
     groups := groups CONCAT GetAppGroups(mod.name, moddef);
     applications := applications CONCAT

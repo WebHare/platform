@@ -53,11 +53,11 @@ PUBLIC RECORD FUNCTION ParseIntercept(OBJECT addwarningcontext, STRING resourcen
 PUBLIC RECORD ARRAY FUNCTION ListModuleWebruleSets(STRING resourcename, OBJECT xmldoc)
 {
   RECORD ARRAY retval;
-  OBJECT backend := xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
+  OBJECT backend := xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "backend")->Item(0);
   IF(NOT ObjectExists(backend))
     RETURN retval;
 
-  OBJECT ARRAY webrulesets := backend->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
+  OBJECT ARRAY webrulesets := backend->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webruleset")->GetCurrentElements();
   FOREVERY(OBJECT webruleset FROM webrulesets)
   {
     IF(webruleset->GetAttribute("name")="")
@@ -78,9 +78,9 @@ PUBLIC OBJECT ARRAY FUNCTION GetWebRuleNodes(OBJECT parent)
   IF(NOT ObjectExists(parent))
     RETURN OBJECT[];
 
-  RETURN parent->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webrule")->GetCurrentElements()
+  RETURN parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webrule")->GetCurrentElements()
          CONCAT
-         parent->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "restapi")->GetCurrentElements();
+         parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "restapi")->GetCurrentElements();
 }
 
 /** Parses the contents of the 'priority' attribute of a webrule/webruleset
@@ -286,7 +286,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
 
   rule.realm := rulenode->GetAttribute("realm");
 
-  FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "addheader")->GetCurrentElements())
+  FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addheader")->GetCurrentElements())
   {
     STRING name :=  TrimWhitespace(node->GetAttribute("header"));
     IF(name="")
@@ -308,7 +308,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
     INSERT [ name := "Vary", value := "Cookie" ] INTO rule.addheaders AT END;
   }
 
-  OBJECT ARRAY accounts := rulenode->ListChildren("http://www.webhare.net/xmlns/system/moduledefinition", "account");
+  OBJECT ARRAY accounts := rulenode->ListChildren(whconstant_xmlns_moduledef, "account");
   IF(Length(accounts) > 0)
   {
     INSERT CELL authlist := TRUE INTO rule; //pre 4.32 we didn't set this, but webhare-auth.whscr won't do anything then
@@ -328,7 +328,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   BOOLEAN have_try_node;
   FOREVERY(OBJECT node FROM rulenode->childnodes->GetCurrentElements())
   {
-    IF (node->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR node->localname NOT IN [ "tryfolder", "tryfile" ])
+    IF (node->namespaceuri != whconstant_xmlns_moduledef OR node->localname NOT IN [ "tryfolder", "tryfile" ])
       CONTINUE;
 
     IF (NOT have_try_node AND RecordExists(rule.datastorage))
@@ -532,14 +532,14 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
   RECORD ARRAY groups, panels;
   STRING resourcename := GetModuleDefinitionXMLResourceName(modulename);
 
-  OBJECT portalnode := moddef->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "portal")->Item(0);
+  OBJECT portalnode := moddef->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "portal")->Item(0);
   IF(NOT ObjectExists(portalnode))
     RETURN CELL[ groups, panels ];
 
   STRING topgid := moddef->documentelement->GetAttribute("gid");
-  OBJECT ARRAY groupnodes := portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "monitorgroup")->GetCurrentElements() //FIXME only pronuntio does this, so remove soon
+  OBJECT ARRAY groupnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "monitorgroup")->GetCurrentElements() //FIXME only pronuntio does this, so remove soon
                              CONCAT
-                             portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "dashboardgroup")->GetCurrentElements();
+                             portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardgroup")->GetCurrentElements();
   FOREVERY(OBJECT grp FROM groupnodes)
   {
     INSERT [ name :=          QualifyName(modulename, grp->GetAttribute("name"))
@@ -549,9 +549,9 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
            ] INTO groups aT END;
   }
 
-  OBJECT ARRAY panelnodes := portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "dashboardpanel")->GetCurrentElements()
+  OBJECT ARRAY panelnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardpanel")->GetCurrentElements()
                              CONCAT
-                             portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "monitorpanel")->GetCurrentElements();
+                             portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "monitorpanel")->GetCurrentElements();
   FOREVERY(OBJECT panel FROM panelnodes)
   {
     RECORD rec :=
@@ -624,7 +624,7 @@ PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT modd
 
 PUBLIC RECORD ARRAY FUNCTION GetDashboardPanels(STRING modulename, OBJECT moddef)
 {
-  OBJECT portalnode := moddef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "portal")->Item(0);
+  OBJECT portalnode := moddef->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "portal")->Item(0);
   IF(NOT ObjectExists(portalnode))
     RETURN DEFAULT RECORD ARRAY;
 
@@ -780,7 +780,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
     app.name := this->moduledef.name || ":" || app.name;
 
-    OBJECT appcontexts := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "appcontexts")->Item(0);
+    OBJECT appcontexts := node->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "appcontexts")->Item(0);
     IF(ObjectExists(appcontexts))
     {
       this->AddWarning(node, "<appcontexts> have been deprecated and generalized into this->contexts");
@@ -803,7 +803,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     OBJECT root := this->xml->documentelement;
     STRING modulename := this->modulename;
 
-    IF(NOT ObjectExists(root) OR root->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR root->localname!="module")
+    IF(NOT ObjectExists(root) OR root->namespaceuri != whconstant_xmlns_moduledef OR root->localname!="module")
     {
       this->AddError(DEFAULT OBJECT, "Not a recognized module definition file");
       RETURN this->moduledef;
@@ -822,7 +822,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       IF (pos.found)
         this->AddError(child, "Node {" || nodekey.namespace || "}" || nodekey.name || " exists multiple times");
 
-      IF(child->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR child->localname NOT IN ["registry","databaseschema"]) //allow multiple registry nodes
+      IF(child->namespaceuri != whconstant_xmlns_moduledef OR child->localname NOT IN ["registry","databaseschema"]) //allow multiple registry nodes
         INSERT nodekey INTO seennodes AT pos.position;
 
       STRING childgid := ParseGid(modulename, rootgid, child);

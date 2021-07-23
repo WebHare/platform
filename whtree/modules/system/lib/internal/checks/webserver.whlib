@@ -86,7 +86,8 @@ RECORD ARRAY FUNCTION CheckWebServerRules()
 
   RECORD ARRAY webservernames := SELECT id, baseurl FROM system.webservers WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT webserver FROM breakingsoon);
   breakingsoon := SELECT msg := `:Deprecated access rule: ${ (SELECT AS STRING baseurl FROM webservernames WHERE id = breakingsoon.webserver) ?? "global"} - ${path}: ${error}`
-                    FROM breakingsoon;
+                       , jumpto := CELL[ app := "system:webservers", task := "selectaccessrule", webserver, id, reusemode := "never" ]
+                   FROM breakingsoon;
   breakingsoon := SELECT * FROM breakingsoon ORDER BY msg;
   RETURN breakingsoon;
 }
