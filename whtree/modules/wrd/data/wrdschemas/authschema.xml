@@ -12,7 +12,7 @@
       <obsolete tag="WRDAUTH_EMAILSUBJECTPREFIX" />
       <obsolete tag="WRDAUTH_EMAILSENDER" title="Sender for emails" />
       <obsolete tag="WRDAUTH_LOGINPAGE" title="URL to login page" />
-      <free tag="WRDAUTH_DOMAINSECRET" title="Domain secret (used in preference to GUID for hashes)" />
+      <obsolete tag="WRDAUTH_DOMAINSECRET" title="Domain secret (used in preference to GUID for hashes)" />
 
       <!-- Now stored in schema metadata -->
       <obsolete tag="WRDAUTH_ACCOUNTTYPE" />
