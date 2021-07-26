@@ -2389,6 +2389,63 @@ void StringParser_TryParseCase(VarId id_set, VirtualMachine *vm)
         StringParser_TryParseAll(id_set, vm, false);
 }
 
+void StringParser_ParseSkipN(VarId id_set, VirtualMachine *vm, bool isskip)
+{
+        SystemContext context(vm->GetContextKeeper());
+        context->CheckColumnMappings(vm);
+
+        HSVM_VariableId obj = HSVM_Arg(0);
+        int32_t n = HSVM_IntegerGet(*vm, HSVM_Arg(1));
+
+        HSVM_VariableId var_eof = HSVM_ObjectMemberRef(*vm, obj, context->col_pvt_eof, true);
+        HSVM_VariableId var_pos = HSVM_ObjectMemberRef(*vm, obj, context->col_pvt_pos, true);
+        HSVM_VariableId var_data = HSVM_ObjectMemberRef(*vm, obj, context->col_pvt_data, true);
+        HSVM_VariableId var_current = HSVM_ObjectMemberRef(*vm, obj, context->col_pvt_current, true);
+
+        const char *data_begin;
+        const char *data_end;
+        HSVM_StringGet(*vm, var_data, &data_begin, &data_end);
+
+        int32_t data_len = data_end - data_begin;
+        int32_t pos = HSVM_IntegerGet(*vm, var_pos);
+
+        if (n > data_len - pos)
+            n = data_len - pos;
+        else if (n < 0)
+            n = 0;
+
+        int32_t newpos = pos + n;
+        char buf = newpos != data_len ? *(data_begin + newpos) : 0;
+
+        if (isskip)
+            HSVM_BooleanSet(*vm, id_set, newpos != data_len);
+        else
+            HSVM_StringSet(*vm, id_set, data_begin + pos, data_begin + newpos); // Realloc!
+
+        if (newpos == data_len)
+        {
+                HSVM_BooleanSet(*vm, var_eof, true);
+                HSVM_StringSet(*vm, var_current, 0, 0);  // Realloc!
+        }
+        else
+        {
+                HSVM_BooleanSet(*vm, var_eof, false);
+                HSVM_StringSet(*vm, var_current, &buf, &buf + 1); // Realloc!
+        }
+
+        HSVM_IntegerSet(*vm, var_pos, newpos);
+}
+
+void StringParser_ParseN(VarId id_set, VirtualMachine *vm)
+{
+        StringParser_ParseSkipN(id_set, vm, false);
+}
+
+void StringParser_SkipN(VarId id_set, VirtualMachine *vm)
+{
+        StringParser_ParseSkipN(id_set, vm, true);
+}
+
 void ThrowException(VirtualMachine *vm)
 {
         HSVM_CopyFrom(*vm, vm->throwvar, HSVM_Arg(0));
@@ -3014,6 +3071,8 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_REBINDFUNCTIONPTR2::P:PRAIB", RebindFunctionPtr2));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#NEXT::B:O", StringParser_Next));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#PARSEN::S:OI", StringParser_ParseN));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#SKIPN::B:OI", StringParser_SkipN));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#PARSEWHILENOTINSET::S:OS", StringParser_ParseWhileNotInSet));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#PARSEWHILEINSET::S:OS", StringParser_ParseWhileInSet));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("STRINGPARSER#TRYPARSE::B:OS", StringParser_TryParse));

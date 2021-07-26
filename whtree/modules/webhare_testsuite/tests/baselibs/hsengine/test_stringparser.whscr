@@ -348,6 +348,58 @@ MACRO TestStates()
   TestEQ(-2, parser->GetDistanceFromState(two));
 }
 
+MACRO ParseNTest()
+{
+  OBJECT parser := NEW StringParser("123456");
+
+  TestEQ("1", parser->ParseN(1));
+  TestEQ("", parser->ParseN(-1));
+  TestEQ("", parser->ParseN(0));
+  TestEQ("2", parser->ParseN(1));
+  TestEQ("34", parser->ParseN(2));
+  TestEQ("5", parser->current);
+
+  RECORD state := parser->SaveState();
+  TestEQ(FALSE, parser->eof);
+  TestEQ("56", parser->ParseN(2));
+  TestEQ(TRUE, parser->eof);
+  TestEQ("", parser->current);
+
+  parser->RestoreState(state);
+  TestEQ(FALSE, parser->eof);
+  TestEQ("56", parser->ParseN(3));
+  TestEQ(TRUE, parser->eof);
+  TestEQ("", parser->current);
+}
+
+MACRO SkipNTest()
+{
+  OBJECT parser := NEW StringParser("123456");
+
+  TestEQ(TRUE, parser->SkipN(1));
+  TestEQ("2", parser->current);
+  TestEQ(TRUE, parser->SkipN(-1));
+  TestEQ(TRUE, parser->SkipN(0));
+  TestEQ("2", parser->current);
+  TestEQ(TRUE, parser->SkipN(1));
+  TestEQ("3", parser->current);
+  TestEQ(TRUE, parser->SkipN(2));
+  TestEQ("5", parser->current);
+
+  RECORD state := parser->SaveState();
+  TestEQ(FALSE, parser->eof);
+  TestEQ(FALSE, parser->SkipN(2));
+  TestEQ(TRUE, parser->eof);
+  TestEQ("", parser->current);
+
+  parser->RestoreState(state);
+  TestEQ(FALSE, parser->eof);
+  TestEQ(FALSE, parser->SkipN(3));
+  TestEQ(TRUE, parser->eof);
+  TestEQ("", parser->current);
+}
+
+
 PRINT("\n === Running TestStringParser\n");
 ResetTest();
 NextTest();
@@ -356,3 +408,5 @@ ParseWhileNotInSetTest();
 TryParseTest();
 TryParseCaseTest();
 TestStates();
+ParseNTest();
+SkipNTest();

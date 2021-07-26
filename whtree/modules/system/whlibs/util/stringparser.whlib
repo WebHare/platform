@@ -158,22 +158,7 @@ PUBLIC STATIC OBJECTTYPE StringParser
       @param n Number of characters to skip
       @return TRUE if the end of the file hasn't been reached yet
   */
-  PUBLIC BOOLEAN FUNCTION SkipN(INTEGER n)
-  {
-    this->pvt_pos := this->pvt_pos + n;
-    INTEGER data_limit := LENGTH(this->pvt_data);
-    IF (this->pvt_pos >= data_limit)
-    {
-      this->pvt_pos := data_limit;
-      this->pvt_eof := TRUE;
-      this->pvt_current := "";
-      RETURN FALSE;
-    }
-
-    this->pvt_current := SubString(this->pvt_data, this->pvt_pos, 1);
-    this->pvt_eof := FALSE;
-    RETURN TRUE;
-  }
+  PUBLIC BOOLEAN FUNCTION SkipN(INTEGER n) __ATTRIBUTES__(EXTERNAL);
 
   /** Parses until a specific character, or the end of the data. Returns the data from the current position up to (but not including) the end character
       @param c Character to stop parsing at
@@ -193,17 +178,7 @@ PUBLIC STATIC OBJECTTYPE StringParser
       @param n Number of characters to parse
       @return Parsed characters. If the end of the data is reached while reading, all characters until then are returned
   */
-  PUBLIC STRING FUNCTION ParseN(INTEGER n)
-  {
-    INTEGER avail := LENGTH(this->pvt_data) - this->pvt_pos;
-    IF (avail < n)
-      n := avail;
-
-    STRING data := SubString(this->pvt_data, this->pvt_pos, n);
-    this->SkipN(n);
-
-    RETURN data;
-  }
+  PUBLIC STRING FUNCTION ParseN(INTEGER n) __ATTRIBUTES__(EXTERNAL);
 
   /** Tries to parse a string, returns whether successful.
       @param c String to match
