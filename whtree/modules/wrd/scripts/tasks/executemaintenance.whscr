@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -52,6 +53,25 @@ MACRO CleanupAuditLogs()
   }
 }
 
+MACRO CleanupWRDAuths()
+{
+  RECORD ARRAY doms_with_wrdauthdomain := SELECT wrd_schema, id FROM wrd.types WHERE ToUppercase(tag)="WRD_AUTHDOMAIN";
+  FOREVERY(RECORD tocheck FROM doms_with_wrdauthdomain)
+  {
+    OBJECT wrdschema := OpenWRDSchemaById(tocheck.wrd_schema);
+    RECORD ARRAY authdomains := wrdschema->^wrd_authdomain->RunQuery(
+        [ outputcolumns := CELL[ "WRD_ID", "WRD_TAG", "WRD_CREATIONDATE", "WRD_MODIFICATIONDATE" ]
+        ]);
+
+    IF(Length(authdomains) > 1)
+    {
+      PrintTo(2, `Schema '${wrdschema->tag}' has multiple WRD Auth domains but support for authdomains will be dropped in the future!\n`);
+      DumpValue(authdomains, [ format := 'boxed', outputid := 2, name := ""]);
+      SetConsoleExitCode(1);
+    }
+  }
+}
+
 trans := OpenPrimary();
 
 trans->BeginWork();
@@ -71,3 +91,5 @@ CleanupOutdatedChanges();
 trans->CommitWork();
 
 CleanupAuditLogs();
+
+CleanupWRDAuths();
