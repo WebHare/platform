@@ -120,22 +120,55 @@ PUBLIC STATIC OBJECTTYPE WebHareSMTPManager
 
             IF(url.user!="")
             {
-              RECORD authres := conn->SEndCommand( "AUTH PLAIN");
-              IF(authres.code != 334)
+              RECORD authres := conn->SEndCommand("AUTH PLAIN");
+              IF(authres.code = 504 )//unrecognized? FXIME check the "250-AUTH LOGIN XOAUTH2" response to immediately select the right one
               {
-                INSERT "AUTH PLAIN authentication request refused by " || usedserver || ": " || authres.message INTO errors AT END;
-                conn->Close();
-                conn := DEFAULT OBJECT;
-                CONTINUE;
+                authres := conn->SendCommand("AUTH LOGIN");
+                IF(authres.code != 334)
+                {
+                  INSERT "AUTH PLAIN and LOGIN authentication request refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                  conn->Close();
+                  conn := DEFAULT OBJECT;
+                  CONTINUE;
+                }
+                /* we'll have received 334 EncodeBase46('Username:') or something similar. theoretically we should prompt the user for
+                  these steps, but obviously smtp clients automate this someway or outlook365 wouldn't work for unattended sending */
+                authres := conn->SendCommand(EncodeBase64(url.user));
+                IF(authres.code != 334)
+                {
+                  INSERT "AUTH LOGIN authentication username refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                  conn->Close();
+                  conn := DEFAULT OBJECT;
+                  CONTINUE;
+                }
+                //we'll have received 334 EncodeBase46('Password:') or something similar
+                authres := conn->SendCommand(EncodeBase64(url.password));
+                IF(authres.code != 235)
+                {
+                  INSERT "AUTH LOGIN authentication password refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                  conn->Close();
+                  conn := DEFAULT OBJECT;
+                  CONTINUE;
+                }
               }
-
-              authres := conn->SEndCommand(EncodeBase64("\0" || url.user || "\0" || url.password));
-              IF(authres.code != 235)
+              ELSE
               {
-                INSERT "Authentication credentials refused by " || usedserver || ": " || authres.message INTO errors AT END;
-                conn->Close();
-                conn := DEFAULT OBJECT;
-                CONTINUE;
+                IF(authres.code != 334)
+                {
+                  INSERT "AUTH PLAIN authentication request refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                  conn->Close();
+                  conn := DEFAULT OBJECT;
+                  CONTINUE;
+                }
+
+                authres := conn->SEndCommand(EncodeBase64("\0" || url.user || "\0" || url.password));
+                IF(authres.code != 235)
+                {
+                  INSERT "Authentication credentials refused by " || usedserver || ": " || authres.message INTO errors AT END;
+                  conn->Close();
+                  conn := DEFAULT OBJECT;
+                  CONTINUE;
+                }
               }
             }
 
