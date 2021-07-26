@@ -1,0 +1,21 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
+IF(ObjectExists(usermgmtschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE"))
+   AND NOT usermgmtschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE")->isobject)
+{
+  ABORT("usermgmt looks unmigrated!");
+}
+
+usermgmtschema->^wrd_authdomain->DeleteAllEntities();
+IF(RecordExists(usermgmtschema->^wrd_person->GetAttribute("WHUSER_LASTIP")))
+  usermgmtschema->^wrd_person->DeleteAttribute("WHUSER_LASTIP");
+
+trans->CommitWork();

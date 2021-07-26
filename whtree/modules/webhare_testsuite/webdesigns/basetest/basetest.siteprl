@@ -614,7 +614,6 @@
              api2017="true"
              cookiename="webharelogin-testsuite-saml-idp"
              loginpage="currentsite::/test-saml/portal-idp/"
-             sitetag="WEBHAREBACKEND"
              wrdschema="webhare_testsuite:saml-idp" />
   </apply>
 
@@ -641,7 +640,6 @@
              api2017="true"
              cookiename="webharelogin-testsuite-portal1-sp"
              loginpage="currentsite::/test-saml/portal-sp/"
-             sitetag="WEBHAREBACKEND"
              spautocreate="true"
              wrdschema="webhare_testsuite:saml-sp" />
   </apply>

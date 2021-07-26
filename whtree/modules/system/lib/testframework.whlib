@@ -1040,8 +1040,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       IF(this->wrdauth)
       {
         this->openwrdschema->^wrd_authdomain->CreateEntity([ wrd_tag := "MYBACKEND"
-                                                           , WRDAUTH_LASTLOGINFIELD := "WHUSER_LASTLOGIN"
-                                                           , WRDAUTH_LASTIPFIELD := "WHUSER_LASTIP"
                                                            ]);
         this->pvt_userapi := GetWRDAuthUserAPi(this->openwrdschema);
       }

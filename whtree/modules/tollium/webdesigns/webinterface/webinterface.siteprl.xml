@@ -16,8 +16,8 @@
              api2017="true"
              cookiename="webharelogin-webharebackend"
              loginpage="currentsite::/"
-             sitetag="WEBHAREBACKEND"
              supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport"
+             lastloginfield="WHUSER_LASTLOGIN"
              wrdschema="system:usermgmt" />
 
     <!-- Setup default webdesign. Sync with tollium/data/siteprofile.xml. We need it here for 404 and /.publisher/debug pages -->
