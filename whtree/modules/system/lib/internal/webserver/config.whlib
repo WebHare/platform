@@ -494,76 +494,73 @@ OBJECTTYPE WebConfigBuilder
           CONTINUE;
 
         rules := rules CONCAT this->FilterWebRuleData(RECORD[parsed.rule], mod.name, hosts);
+      }
 
-        OBJECT servicesnode := xmlfile->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
-        IF (ObjectExists(servicesnode))
+      OBJECT servicesnode := xmlfile->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")->Item(0);
+      IF (ObjectExists(servicesnode))
+      {
+        OBJECT ARRAY webservicenodes := servicesnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webservice")->GetCurrentElements();
+        FOREVERY (OBJECT node FROM webservicenodes)
         {
-          OBJECT ARRAY webservicenodes := servicesnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webservice")->GetCurrentElements();
-          FOREVERY (OBJECT node FROM webservicenodes)
-          {
-            IF (NOT IsNodeApplicableToThisWebHare(node))
-              CONTINUE;
-
-            RECORD def := ParseWebServiceDefinitionNode(mod.name, node);
-
-            INTEGER webservice_priority := webrulepriority_default;
-
-            // Exact rule for the service without trailing slash
-            RECORD webservicerule := this->GetBaseRule("/wh_services/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
-            webservicerule.matchtype := 0; //exact
-
-            IF (def.require_whauth)
-              webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
-            webservicerule.limitservers := allhosts;
-            webservicerule.checkandvm := def.checkandvm;
-
-            INSERT webservicerule INTO rules AT END;
-
-            // And another for the subdir
-            webservicerule.path := "/wh_services/" || mod.name || "/" || def.name || "/";
-            webservicerule.matchtype := 1; //initial
-            webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
-
-            INSERT webservicerule INTO rules AT END;
-
-            rule := this->GetBaseRule("/wh_services.whsock/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
-            webservicerule.matchtype := 0; //exact
-
-            IF (def.require_whauth)
-              webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
-            webservicerule.limitservers := allhosts;
-
-            INSERT webservicerule INTO rules AT END;
-
-            // And another for the subdir
-            webservicerule.path := "/wh_services.whsock/" || mod.name || "/" || def.name || "/";
-            webservicerule.matchtype := 1; //initial
-            webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
-
-            INSERT webservicerule INTO rules AT END;
-          }
-        }
-
-        FOREVERY(RECORD design FROM mod.webdesigns)
-        {
-          IF(design.istemplate)
+          IF (NOT IsNodeApplicableToThisWebHare(node))
             CONTINUE;
 
-          RECORD sdrule := this->GetBaseRule("/.publisher/sd/" || mod.name || "/" || design.name || "/", webrulepriority_after, filename || ":" || design.line);
-          sdrule.matchtype := 1; //initial
-          sdrule.datastorage :=
-              [ [ resource :=     MergePath(design.designroot, "/web/")
-                , isfolder :=     TRUE
-                , method :=       "direct"
-                ]
-              ];
+          RECORD def := ParseWebServiceDefinitionNode(mod.name, node);
 
-          INSERT sdrule INTO rules AT END;
+          INTEGER webservice_priority := webrulepriority_default;
+
+          // Exact rule for the service without trailing slash
+          RECORD webservicerule := this->GetBaseRule("/wh_services/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
+          webservicerule.matchtype := 0; //exact
+
+          IF (def.require_whauth)
+            webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
+          webservicerule.limitservers := allhosts;
+          webservicerule.checkandvm := def.checkandvm;
+
+          INSERT webservicerule INTO rules AT END;
+
+          // And another for the subdir
+          webservicerule.path := "/wh_services/" || mod.name || "/" || def.name || "/";
+          webservicerule.matchtype := 1; //initial
+          webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
+
+          INSERT webservicerule INTO rules AT END;
+
+          rule := this->GetBaseRule("/wh_services.whsock/" || mod.name || "/" || def.name, webservice_priority, filename || ":" || node->linenum);
+          webservicerule.matchtype := 0; //exact
+
+          IF (def.require_whauth)
+            webservicerule.extauthscript := "mod::system/scripts/internal/auth/rpc.whscr";
+          webservicerule.limitservers := allhosts;
+
+          INSERT webservicerule INTO rules AT END;
+
+          // And another for the subdir
+          webservicerule.path := "/wh_services.whsock/" || mod.name || "/" || def.name || "/";
+          webservicerule.matchtype := 1; //initial
+          webservicerule.matchassubdir := FALSE; // Don't redirect when modname '/' def.name is encountered
+
+          INSERT webservicerule INTO rules AT END;
         }
-      } //     IF(ObjectExists(xmlfile))
+      }
 
-      IF(Length(interfacehosts)=0) //all legacy rules require an interface websrever, so if none are specified, skip
-        CONTINUE;
+      FOREVERY(RECORD design FROM mod.webdesigns)
+      {
+        IF(design.istemplate)
+          CONTINUE;
+
+        RECORD sdrule := this->GetBaseRule("/.publisher/sd/" || mod.name || "/" || design.name || "/", webrulepriority_after, filename || ":" || design.line);
+        sdrule.matchtype := 1; //initial
+        sdrule.datastorage :=
+            [ [ resource :=     MergePath(design.designroot, "/web/")
+              , isfolder :=     TRUE
+              , method :=       "direct"
+              ]
+            ];
+
+        INSERT sdrule INTO rules AT END;
+      }
     }
 
     RETURN rules;

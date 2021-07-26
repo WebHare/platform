@@ -273,6 +273,7 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
   STRING pvt_hostname;
   STRING ARRAY capabilities;
   BOOLEAN lmtp;
+  PUBLIC BOOLEAN debug;
 
   /// @type record Last error @includecelldef #SendCommand.return
   PUBLIC PROPERTY lasterror(pvt_lasterror,-);
@@ -391,6 +392,8 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
       IF(received="")
         BREAK; //eof (ADDME log as corrupt)
 
+      IF(this->debug)
+        Print(`[smtp] received: '${EncodeJava(received)}'\n`);
       message := (message != "" ? message || "\n" : "") || Substring(received,4);
       IF(received NOT LIKE "???-*")
       {
