@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE Lifecycle EXTEND TolliumTabsExtensionBase
+PUBLIC STATIC OBJECTTYPE Lifecycle EXTEND TolliumTabsExtensionBase
 <
   UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
   {

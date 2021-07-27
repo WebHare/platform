@@ -639,7 +639,7 @@ OBJECT ASYNC FUNCTION ReturnAsyncImmediately() { RETURN DEFAULT RECORD; }
     @cell options.titlemask Mask for the expected title of the screen
     @return Extra wait functions
     @cell return.expectcallreturn Expect call that requires the trigger-call to have finished.
-    @cell return.expectinitfinish Expect call that requires the Init function of the curren topscreen to have finished
+    @cell return.expectinitfinish Expect call that requires the Init function of the current topscreen to have finished
 */
 PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
