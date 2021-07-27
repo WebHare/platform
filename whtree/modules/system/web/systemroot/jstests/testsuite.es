@@ -714,6 +714,19 @@ class TestFramework
     return deferred.promise.then(this.processLoadedTestFrame.bind(this, iframe, options));
   }
 
+  canAccessTestframe()
+  {
+    try
+    {
+      this.pageframewin.document;
+      return true;
+    }
+    catch(ignore)
+    {
+      return false;
+    }
+  }
+
   /// Get & store the win.doc from the pageframe
   processLoadedTestFrame(pageframe, options)
   {
@@ -721,6 +734,9 @@ class TestFramework
     this.pageframewin = pageframe.contentWindow;
     if (dompack.debugflags.testfw)
       console.log('[testfw] loaded page: ' + this.pageframewin.location.href);
+
+    if(!this.canAccessTestframe())
+      return;
 
     this._recordAssetpacks(this.pageframewin);
 
@@ -730,12 +746,6 @@ class TestFramework
         this.pageframewin.onerror = options.onerrorhandler;
       this.pageframewin_setonerror = true;
     }
-
-    //this.uiwasbusy = true;
-
-    //Implement focus handling
-    //if(getActiveElement(document) != pageframe) //needed for IE8 test
-      //pageframe.contentWindow.focus();
 
     var focusable = domfocus.getFocusableComponents(this.pageframedoc.documentElement);
     for (var i=0;i<focusable.length;++i)
@@ -1153,6 +1163,7 @@ class TestFramework
   {
     var test = this.tests[this.currenttest];
     let scripttags = wnd.document.getElementsByTagName("script");
+
     for (let tag of Array.from(scripttags))
     {
       let match = tag.src.match(/\/.ap\/([^/]*)\/ap.js$/);
