@@ -3,38 +3,12 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/components/tabs.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
-
-PUBLIC OBJECTTYPE TolliumPanelLikeBase EXTEND TolliumExtendableLinesContainerBase
-<
-  /** @short Extend the panel
-      @long Extend the panel using a specified XML document.
-      @param extensionselement The extension node to load (must be a t:tabsextension)
-      @param uniquename Unique name for the screens file (used for caching)
-      @param modtime Modification date of the screen
-  */
-  PUBLIC RECORD FUNCTION LoadFragment(STRING resourcename, STRING fragmentname)
-  {
-    RECORD retval := [ components := DEFAULT OBJECT ARRAY
-                     ];
-
-    RECORD ARRAY offered_comps := this->extendcomponents;
-    RECORD ARRAY offered_handlers := this->extendhandlers;
-
-    RECORD result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, fragmentname, FALSE);
-    IF(Length(result.errors)>0) //then just throw the first..
-      THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
-
-    retval.components := result.components;
-    this->InsertComponentAfter(result.fragment, DEFAULT OBJECT, TRUE);
-    RETURN retval;
-  }
-
->;
+LOADLIB "mod::tollium/lib/internal/linescomponent.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // An updateable panel
 
-PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
+PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumLinesContainerBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -100,7 +74,7 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
-    TolliumComponentBase::StaticInit(def);
+    TolliumLinesContainerBase::StaticInit(def);
     this->layout := def.layout;
     this->pvt_borders := def.borders;
     this->pvt_spacers := def.spacers;
@@ -179,12 +153,12 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
 
   UPDATE MACRO PreInitComponent() //FIXME ROB: shouldn't be needed, but without this imageedit breaks
   {
-    TolliumComponentBase::PreInitComponent();
+    TolliumLinesContainerBase::PreInitComponent();
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN flag) //FIXME ROB: shouldn't be needed, but without this imageedit breaks
   {
-    TolliumComponentBase::SetEnabled(flag);
+    TolliumLinesContainerBase::SetEnabled(flag);
   }
 
   UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
@@ -286,7 +260,7 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
         this->ToddUpdate([type := "backgroundimages", backgroundimages := this->backgroundimages ]);
       }
     }
-    TolliumComponentBase::TolliumWebRender();
+    TolliumLinesContainerBase::TolliumWebRender();
   }
 
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
@@ -306,7 +280,7 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
 
       DEFAULT
       {
-        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+        TolliumLinesContainerBase::ProcessInboundMessage(type, msgdata);
       }
     }
   }
@@ -477,6 +451,21 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumPanelLikeBase
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.droptarget := TRUE;
     */
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Former TolliumExtendableLinesContainerBase. only used for widgets and should NOT be used for new code
+  //
+
+  /** DEPRECATED
+      @private */
+  PUBLIC OBJECT FUNCTION GetExtendComponent(STRING objname)
+  {
+    RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);
+    IF(NOT RecordExists(hit))
+      THROW NEW Exception(`No extendcompontent '${objname}' available to this extension`);
+    RETURN hit.component;
   }
 
 >;

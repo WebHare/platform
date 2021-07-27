@@ -14,7 +14,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
           more extensions, you need to invoke RunExtensionsPostInit on this component. During submission you should invoke
           SubmitExtensions to give all inserted extensions a chance to do their work */
 
-PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
+PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -61,6 +61,12 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
       @cell(object) component
   */
   PUBLIC RECORD ARRAY insertpoints;
+
+  /// Extra components to offer to extensions
+  PUBLIC RECORD ARRAY extendcomponents;
+
+  /// Extra handlers to offer to extensions
+  PUBLIC RECORD ARRAY extendhandlers;
 
   // ---------------------------------------------------------------------------
   //
@@ -664,7 +670,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
       IF (ObjectExists(rec.fragment))
         rec.fragment->ValidateValue(feedback);
 
-    TolliumExtendableLinesContainerBase::ValidateValue(feedback);
+    TolliumComponentBase::ValidateValue(feedback);
   }
 
   /** Request extensions to submit.
@@ -725,4 +731,12 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
     RETURN SELECT extension := fragment FROM this->loaded_extensions;
   }
 
+  /** @return The component. Can still be a DEFAULT OBJECT if nothing was inserted!  */
+  PUBLIC OBJECT FUNCTION GetExtendComponent(STRING objname)
+  {
+    RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);
+    IF(NOT RecordExists(hit))
+      THROW NEW Exception(`No extendcompontent '${objname}' available to this extension`);
+    RETURN hit.component;
+  }
 >;

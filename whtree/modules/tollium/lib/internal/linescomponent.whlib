@@ -1,0 +1,515 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+
+RECORD ARRAY FUNCTION ExplainLines(OBJECT parent, RECORD ARRAY lines)
+{
+  RECORD ARRAY outlines;
+
+  FOREVERY(RECORD line FROM lines)
+  {
+    OBJECT ARRAY items := line.items;
+    OBJECT firstblock;
+    INTEGER numblocks := 0;
+    INTEGER numreplaceditems;
+
+    FOR(INTEGER numitem := Length(items)-1; numitem>=0; numitem:=numitem-1)
+    {
+      IF(items[numitem]->componenttype="component") //Suppress references to serverside components
+      {
+        DELETE FROM items AT numitem;
+        CONTINUE;
+      }
+
+      IF(items[numitem]->blockelement)
+      {
+        IF(numblocks=0)
+          firstblock:=items[numitem];
+        numblocks := numblocks + 1;
+      }
+
+      //ADDME: Just assuming that items with invisibletitle set are replaced elements, which will not be rendered (and can
+      //       thus safely coexist with a blockitem on a single line)
+      IF (items[numitem]->invisibletitle)
+        numreplaceditems := numreplaceditems + 1;
+      IF(NOT items[numitem]->isnowvisible)
+        DELETE FROM items AT numitem;
+    }
+
+    //ADDME: Still render the line if it had a bottom padding?
+    IF(Length(items)=0)
+      CONTINUE;
+    IF(numblocks>1)
+    {
+      THROW NEW TolliumException(parent, "Panel " || parent->name || ": Multiple block items on single line #" || #line);
+    }
+
+    IF(numblocks=1) //This line consists of a block item
+    {
+      IF (numblocks=1 AND (Length(items)-numreplaceditems)>1)
+      {
+        OBJECT first_non_block;
+        FOR(INTEGER i:=0;i<Length(items);i:=i+1)
+          IF(items[i]->blockelement = FALSE)
+          {
+            first_non_block := items[i];
+            BREAK;
+          }
+
+        THROW NEW TolliumException(parent, "Panel " || parent->name || ": Block (" || firstblock->componenttype || ") and non-block items (" || first_non_block->componenttype || ") on single line #" || #line);
+      }
+      INSERT
+          [ isblock :=            TRUE
+          , layout :=             "block"
+          , linetitle :=          ""
+          , linelabelfor :=       DEFAULT OBJECT
+          , linelabelrequired :=  FALSE
+          , items :=              [[title:="",obj:=firstblock]]
+          , height :=             firstblock->GetHeight()
+          ] INTO outlines AT END;
+
+      CONTINUE;
+    }
+
+    OBJECT labelobject;
+    IF(line.linesettings.layout="form")
+    {
+      //Lookup the first title (selftest: 'alignment test: componenten')
+      FOREVERY(OBJECT item FROM items)
+        IF (NOT item->invisibletitle AND MemberExists(item, 'title'))
+        {
+          IF (item->title != "")
+            labelobject := item;
+          BREAK;
+        }
+    }
+
+    RECORD ARRAY outitems;
+    OBJECT previtem;
+    FOREVERY(OBJECT item FROM items)
+    {
+      RECORD iteminfo := [ title := ""
+                         , obj := item
+                         , required := item->required
+                         ];
+
+      IF(item != labelobject AND NOT item->invisibletitle AND MemberExists(item, 'title') AND item->title!='')
+        iteminfo.title := item->renderedtitle;
+
+      INSERT iteminfo INTO outitems at END;
+      previtem := item;
+    }
+
+    OBJECT labelforobject := ObjectExists(labelobject) ? labelobject->GetTitleForComponent() : DEFAULT OBJECT;
+    STRING lineheight;
+    IF(Length(items) = 1 AND items[0]->height LIKE "*pr") //copy only item lineheight to the line: this fixes <textarea height="1pr"> (TODO what if there are multiple items? not sure what <line><..height="1pr"><..height=2"pr"> should even accomplish..)
+      lineheight := items[0]->height;
+
+    INSERT
+        [ isblock :=            FALSE
+        , layout :=             line.linesettings.layout
+        , linetitle :=          ObjectExists(labelobject) ? labelobject->renderedtitle : ""
+        , linelabelfor :=       labelforobject
+        , linelabelrequired :=  ObjectExists(labelobject) AND labelobject->required
+        , items :=              outitems
+        , height :=             lineheight
+        ] INTO outlines AT END;
+  }
+  RETURN outlines;
+}
+
+
+PUBLIC OBJECTTYPE TolliumLinesContainerBase EXTEND TolliumComponentBase
+<
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  // Called recursively for panels with screen contents
+  PUBLIC RECORD ARRAY FUNCTION TolliumWebDoLines()
+  {
+    RECORD ARRAY outlines;
+
+    FOREVERY(RECORD line FROM ExplainLines(this, this->lines))
+    {
+      RECORD outline := [ layout   := line.isblock ? "block" : line.layout
+                        , title    := ObjectExists(line.linelabelfor) ? line.linetitle : ""
+                        , labelfor := GetComponentName(line.linelabelfor)
+                        , items    := DEFAULT RECORD ARRAY
+                        , height := line.height
+                        ];
+
+      FOREVERY(RECORD item FROM line.items)
+      {
+        IF(item.title != "" AND NOT line.isblock)
+          INSERT
+              [ title := item.title
+              , labelfor := GetComponentName(this->GetActiveComponent(item.obj->GetTitleForComponent()))
+              ] INTO outline.items AT END;
+        INSERT
+            [ item := item.obj->toddname
+            ] INTO outline.items AT END;
+      }
+      INSERT outline INTO outlines AT END;
+    }
+
+    RETURN outlines;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** @short Insert a set of lines before an existing component
+    @param lines Lines to insert
+    @param before Component whose line these lines should precede (use DEFAULT OBJECT to add the lines to the beginning of the panel) */
+  PUBLIC MACRO InsertLinesBefore(RECORD ARRAY lines, OBJECT before)
+  {
+    this->DoInsertLines(lines,before,FALSE);
+  }
+
+  /** @short Insert a set of lines after an existing component
+      @param lines Lines to insert
+      @param before Component whose line these lines should follow (use DEFAULT OBJECT to add the lines to the end of the panel) */
+  PUBLIC MACRO InsertLinesAfter(RECORD ARRAY lines, OBJECT after)
+  {
+    this->DoInsertLines(lines,after,TRUE);
+  }
+
+  /** @short Extract all lines
+      @long Remove all lines from this panel and return them, making them available for InsertLines */
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllLines()
+  {
+    RECORD ARRAY returnlines := this->lines;
+    this->lines := DEFAULT RECORD ARRAY;
+
+    FOREVERY(RECORD line FROM returnlines)
+      FOREVERY(OBJECT item FROM line.items)
+        item->RemoveFromParent();
+
+    this->ExtUpdatedComponent();
+    RETURN returnlines;
+  }
+
+  /** @short Insert a new component before an existing component
+    @param component Component to insert
+    @param before Component which this component should precede (use DEFAULT OBJECT to add the component to the beginning of the panel)
+    @param break_inbetween Insert a break after the newly created component */
+  PUBLIC MACRO InsertComponentBefore(OBJECT component, OBJECT before, BOOLEAN break_inbetween)
+  {
+    this->DoInsertComponent(component, before, break_inbetween, false);
+  }
+
+  /** @short Insert a new component after an existing component
+    @param component Component to insert
+    @param after Component which this component should follow (use DEFAULT OBJECT to add the component to the end of the panel)
+    @param break_inbetween Insert a break before the newly created component */
+  PUBLIC MACRO InsertComponentAfter(OBJECT component, OBJECT after, BOOLEAN break_inbetween)
+  {
+    this->DoInsertComponent(component, after, break_inbetween, true);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Return the given component if it exists, is enabled and visible and not read-only
+  OBJECT FUNCTION GetActiveComponent(OBJECT comp)
+  {
+    //ADDME: Does not work with dynamically updated components, so disabled right now
+    RETURN ObjectExists(comp) /*AND comp->enabled AND comp->visible AND NOT comp->readonly*/ ? comp : DEFAULT OBJECT;
+  }
+
+  RECORD FUNCTION GetComponentPosition(OBJECT component)
+  {
+    FOREVERY(RECORD line FROM this->lines)
+      FOREVERY(OBJECT item FROM line.items)
+        IF(item = component)
+          RETURN [ line := #line, pos := #item ];
+
+    RETURN DEFAULT RECORD;
+  }
+
+  OBJECT FUNCTION GetComponentAfter(OBJECT component)
+  {
+    BOOLEAN next := FALSE;
+    FOREVERY(RECORD line FROM this->lines)
+      FOREVERY(OBJECT item FROM line.items)
+      {
+        IF (next)
+          RETURN item;
+        ELSE IF(item = component)
+          next := TRUE;
+      }
+    RETURN DEFAULT OBJECT;
+  }
+
+  MACRO DoInsertComponent(OBJECT component, OBJECT insertpos, BOOLEAN break_inbetween, BOOLEAN doafter)
+  {
+    //PRINT("Inserting component '"||component->name||"' after:"||(doafter?"yes":"no")|| " break:"||(break_inbetween?"yes":"no")||"\n");
+    //IF(component->name="youtubecomponent$textedit") ABORT("!");
+
+    IF(component = DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "No component to insert has been specified");
+    IF(NOT (component EXTENDSFROM TolliumComponentBase))
+      THROW NEW TolliumException(this, "Only components deriving from TolliumComponentBase can be added to a panel");
+    IF(component->pvt_parent!=DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "The component '" || component->name || "' you are trying to insert as a child of " || this->name || " has already been inserted into " || component->pvt_parent->name);
+    IF(component->owner=DEFAULT OBJECT)
+      THROW NEW TolliumException(this, "The component you are trying to insert has already been deleted");
+    IF(component->owner!=this->owner)
+      THROW NEW TolliumException(this, "The component you are trying to insert is not owned by the same screen as the panel receiving it");
+
+    OBJECT old_insertpos := insertpos;
+
+    // Adding subcomponents has some restrictions -> can only use supercomponent or its direct subcomponents as insertpos
+    IF (component->supercomponent != DEFAULT OBJECT AND this = component->supercomponent->pvt_parent)
+    {
+      OBJECT supercomponent := component->supercomponent;
+
+      IF (insertpos = DEFAULT OBJECT)
+      {
+        // insertpos is default: use positioning relative to supercomponent ('insert before' inserts just after supercomponent, 'insert after' inserts after last subcomponent)
+        IF (doafter)
+        {
+          // after: insert after last subcomponent (and it's subcomponents, recursive)
+          insertpos := supercomponent;
+
+          // Return last component (starting at first after supercomponent) that is a (recursive) subcomponent. Insert after that one.
+          OBJECT ARRAY subs := supercomponent->GetSubcomponentsRecursive();
+          WHILE (TRUE)
+          {
+            OBJECT next := this->GetComponentAfter(insertpos);
+            IF (next = DEFAULT OBJECT OR next NOT IN subs)
+              BREAK;
+            insertpos := next;
+          }
+        }
+        ELSE
+        {
+          // Insert before default means insert just after the supercomponent.
+          doafter := TRUE;
+          insertpos := supercomponent;
+        }
+      }
+      ELSE
+      {
+        IF (insertpos != supercomponent AND
+                insertpos NOT IN supercomponent->subcomponents AND
+                this NOT IN supercomponent->subcomponents)
+          THROW NEW TolliumException(this, "When inserting subcomponents, you may only refer to the supercomponent or it's subcomponents as insert location");
+
+        IF (doafter)
+        {
+          // When inserting after a component, skip all of it's subcomponents.
+          OBJECT ARRAY subs := insertpos->GetSubcomponentsRecursive();
+          WHILE (TRUE)
+          {
+            OBJECT next := this->GetComponentAfter(insertpos);
+            IF (next = DEFAULT OBJECT OR next NOT IN subs)
+              BREAK;
+            insertpos := next;
+          }
+        }
+      }
+
+      // Record the new position of the subcomponent
+      supercomponent->SetSubcomponentPosition(component, insertpos, doafter, break_inbetween);
+    }
+    ELSE
+    {
+      // Not a subcomponent: skip all subcomponents of insertpos if inserting after
+      IF (insertpos != DEFAULT OBJECT AND doafter AND LENGTH(insertpos->subcomponents) > 0)
+      {
+        OBJECT ARRAY subs := insertpos->GetSubcomponentsRecursive();
+        WHILE (TRUE)
+        {
+          OBJECT next := this->GetComponentAfter(insertpos);
+          IF (next = DEFAULT OBJECT OR next NOT IN subs)
+            BREAK;
+          insertpos := next;
+        }
+      }
+    }
+
+//PRINT(" Supercomponent: " || (component->supercomponent != DEFAULT OBJECT ? "'"||component->supercomponent->name||"'": "none") || "\n");
+//PRINT(" Old insertpos: " || (old_insertpos != DEFAULT OBJECT ? "'"||old_insertpos->name||"'": "none") || "\n");
+//PRINT(" New insertpos: " || (insertpos != DEFAULT OBJECT ? "'"||insertpos->name||"'": "none") || "\n");
+//PRINT(" Current lines: \n");
+//FOREVERY (RECORD rec FROM this->lines)
+//{
+//  STRING ARRAY s;
+//  FOREVERY (OBJECT o FROM rec.items) INSERT o->name INTO s AT END;
+//  PRINT("  Line "||RIGHT("00"||#rec,3)||": Layout: "||rec.layout ||" items: "||Detokenize(s, ", ")||"\n");
+//}
+
+    INTEGER linenum, objpos;
+    IF(ObjectExists(insertpos))
+    {
+      RECORD pos := this->GetComponentPosition(insertpos);
+      IF(NOT RecordExists(pos))
+      {
+        IF (ObjectExists(insertpos->parentpanel))
+        {
+          IF (insertpos->parentpanel != this)
+            THROW NEW TolliumException(this, "Cannot insert component '" || component->name || "' into panel '" || this->name || "' at insert position '" || insertpos->name || "': the insert position is child of panel '" || insertpos->parentpanel->name || "')");
+          ELSE
+            THROW NEW TolliumException(this, "Cannot insert component '" || component->name || "' into panel '" || this->name || "' at insert position '" || insertpos->name || "': the insert component is not found in the panel lines'");
+        }
+        ELSE
+          THROW NEW TolliumException(this, "Component '" || insertpos->name || "' is not part of this panel (" || this->name || ")");
+      }
+
+      linenum := pos.line;
+      objpos := pos.pos;
+    }
+    ELSE IF(doafter AND Length(this->lines)>0) //there are lines..
+    {
+      linenum := Length(this->lines)-1;
+      objpos := Length(this->lines[linenum].items)-1;
+      IF(objpos<0)
+        objpos:=0;
+    }
+
+    IF(break_inbetween AND Length(this->lines)>0)
+    {
+      IF(doafter)
+      {
+        //Create a new line. All items following our insert position should be moved here too
+        RECORD orgline := this->lines[linenum];
+        RECORD newline := [ items := [component] CONCAT ArraySlice(orgline.items, objpos+1, Length(orgline.items) - (objpos+1))
+                          , linesettings := this->lines[linenum].linesettings
+                          ];
+        this->lines[linenum].items := ArraySlice(orgline.items, 0, objpos+1);
+        INSERT newline INTO this->lines AT linenum+1; //insert the new line behind the original line
+      }
+      ELSE
+      {
+        //Create a new line, all items before our insert position shuld be moved here too
+        RECORD orgline := this->lines[linenum];
+        RECORD newline := [ items := ArraySlice(orgline.items, 0, objpos) CONCAT [component]
+                          , linesettings := this->lines[linenum].linesettings
+                          ];
+        this->lines[linenum].items := ArraySlice(orgline.items, objpos);
+        INSERT newline INTO this->lines AT linenum; //insert the new line before the original line
+      }
+    }
+    ELSE
+    {
+      IF(Length(this->lines)=0)
+        INSERT [ items := DEFAULT OBJECT ARRAY
+               , linesettings := [ layout := this->layout
+                                 ]
+               ] INTO this->lines AT END;
+      INSERT component INTO this->lines[linenum].items AT (doafter AND Length(this->lines[linenum].items)>0) ? objpos + 1 : objpos;
+    }
+
+//PRINT(" New lines: \n");
+//FOREVERY (RECORD rec FROM this->lines)
+//{
+//  STRING ARRAY s;
+//  FOREVERY (OBJECT o FROM rec.items) INSERT o->name INTO s AT END;
+//  PRINT("  Line "||RIGHT("00"||#rec,3)||": Layout: "||rec.layout ||" items: "||Detokenize(s, ", ")||"\n");
+//}
+//PRINT("\n");
+
+    component->pvt_parent := this;
+    component->RecursiveUpdateIsNowVisible();
+
+    // Also insert all subcomponents (but not those already inserted or special once)
+    // Do that before init, it might insert the components again
+    FOREVERY (RECORD rec FROM component->pvt_subcomponents)
+      IF (NOT ObjectExists(rec.comp->pvt_parent) AND rec.comp NOT EXTENDSFROM TolliumSpecialComponent)
+        this->DoInsertComponent(rec.comp, DEFAULT OBJECT, rec.has_break, TRUE);
+
+    this->TolliumHandleAfterInsert();
+  }
+
+  MACRO DoInsertLines(RECORD ARRAY lines, OBJECT insertpos, BOOLEAN doafter)
+  {
+    INTEGER linenum;
+
+    IF(ObjectExists(insertpos))
+    {
+      RECORD pos := this->GetComponentPosition(insertpos);
+      IF(NOT RecordExists(pos))
+        IF(ObjectExists(insertpos->parentpanel))
+          THROW NEW TolliumException(this, "Component " || insertpos->name || " is part of panel " || insertpos->parentpanel->name || " , not part of this panel (" || this->name || ")");
+        ELSE
+          THROW NEW TolliumException(this, "Component " || insertpos->name || " is not part of this panel (" || this->name || ")");
+      linenum := pos.line + (doafter ? 1 : 0);
+    }
+    ELSE
+    {
+      linenum := doafter ? Length(this->lines) : 0;
+    }
+
+    FOREVERY(RECORD line FROM lines)
+    {
+      RECORD linesettings := [ layout := CellExists(line,'layout') ? line.layout : ""
+                             ];
+
+      IF(CellExists(line,'linesettings'))
+        line.linesettings := MakeUpdatedRecord(linesettings, line.linesettings);
+      ELSE
+        INSERT CELL linesettings := linesettings INTO line;
+
+      INSERT line INTO this->lines AT linenum + #line;
+    }
+
+    FOREVERY(RECORD line FROM lines)
+      FOREVERY(OBJECT item FROM line.items)
+      {
+        item->pvt_parent := this;
+        item->RecursiveUpdateIsNowVisible();
+      }
+
+    this->TolliumHandleAfterInsert();
+  }
+
+  /** DEPRECATED
+      @private */
+  PUBLIC RECORD ARRAY extendcomponents;
+
+  /** DEPRECATED
+      @private */
+  PUBLIC RECORD ARRAY extendhandlers;
+
+  /* TODO should we keep LoadFragment? it's still a special edge case
+
+      for now i'll mark it as private, let's consider if there are alternatives. or if we can give a cleaner API (ie not use extendcomponents/extendhnadlers...)\
+      there are a few external users but my experience has been that for one, LoadFragment using code is hard to refer from using testframework. so that's one issue
+      that might be much cleaner with eg replaceable contents?
+
+      @short Extend the panel
+      @long Extend the panel using a specified XML document.
+      @param extensionselement The extension node to load (must be a t:tabsextension)
+      @param uniquename Unique name for the screens file (used for caching)
+      @param modtime Modification date of the screen
+  */
+
+  /** @private */
+  PUBLIC RECORD FUNCTION LoadFragment(STRING resourcename, STRING fragmentname)
+  {
+    RECORD retval := [ components := DEFAULT OBJECT ARRAY
+                     ];
+
+    RECORD ARRAY offered_comps := this->extendcomponents;
+    RECORD ARRAY offered_handlers := this->extendhandlers;
+
+    RECORD result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, fragmentname, FALSE);
+    IF(Length(result.errors)>0) //then just throw the first..
+      THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
+
+    retval.components := result.components;
+    this->InsertComponentAfter(result.fragment, DEFAULT OBJECT, TRUE);
+    RETURN retval;
+  }
+>;
