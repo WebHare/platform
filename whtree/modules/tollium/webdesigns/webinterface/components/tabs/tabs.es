@@ -2,7 +2,6 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import ObjText from '../text/text.es';
 
-var $todd = require('@mod-tollium/web/ui/js/support');
 var menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
 import * as domscroll from 'dompack/browserfix/scroll';
 
@@ -58,22 +57,6 @@ export default class ObjTabs extends ComponentBase
       this.pages.push(item);
       pagecomp.parenttabsitem = item;
     });
-
-    this.line = null;
-    if (this.tabtype == "regular" && data.line.length)
-    {
-      var srcline = { layout: "tabs-space"
-                    , target: this.name + "#line"
-                    , destroywithparent: true
-                    };
-      this.line = new $todd.ObjPanelLine(this, srcline, null);
-      data.line.forEach(srcitem =>
-      {
-        var newcomp = this.owner.addComponent(this.line, srcitem);
-        if(newcomp)
-          this.line.items.push(newcomp);
-      });
-    }
 
     this.buildNode();
     if (this.tabtype == "regular")
@@ -405,12 +388,6 @@ export default class ObjTabs extends ComponentBase
         page.contentnode.classList.add("invisible");
       });
 
-      if (this.line)
-      {
-        this.line.buildNode();
-        this.line.getNode().classList.add("line");
-        this.nodes.root.appendChild(this.line.getNode());
-      }
       return;
     }
 
@@ -503,21 +480,10 @@ export default class ObjTabs extends ComponentBase
 /****************************************************************************************************************************
 * Dimensions
 */
-/*
-  isWidthDirty()
-  {
-    return this.width.dirty ||
-      this.pages.some(function(page)
-      {
-        return (page.titlecomp && page.titlecomp.isWidthDirty())
-          || (page.comp && page.comp.isWidthDirty());
-      }, this) ||
-      (this.line && this.line.isWidthDirty());
-  }
-*/
+
   getVisibleChildren()
   {
-    var comps = [this.line];
+    var comps = [];
     this.pages.forEach(function(page)
     {
       comps.push(page.titlecomp);
@@ -528,9 +494,6 @@ export default class ObjTabs extends ComponentBase
   calculateDimWidth()
   {
     this.width.min = 0;
-    if (this.line)
-      this.width.min += this.line.width.min;
-
     this.pages.forEach(page=>
     {
       this.width.min = Math.max(this.width.min, page.comp.width.min);
@@ -543,13 +506,6 @@ export default class ObjTabs extends ComponentBase
     var setwidth = Math.max(this.width.min, this.width.set);
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
 
-    this.navwidth = this.width.set;
-    if (this.line)
-    {
-      this.navwidth -= this.line.width.calc;
-      this.line.setWidth(this.line.width.calc);
-    }
-
     this.pages.forEach(page =>
     {
       if (page.titlecomp)
@@ -558,17 +514,6 @@ export default class ObjTabs extends ComponentBase
     });
   }
 
-/* isHeightDirty()
-  {
-    return this.height.dirty ||
-      this.pages.some(function(page)
-      {
-        return (page.titlecomp && page.titlecomp.isHeightDirty())
-          || (page.comp && page.comp.isHeightDirty());
-      }, this) ||
-      (this.line && this.line.isHeightDirty());
-  }
-*/
   calculateDimHeight()
   {
     this.debugLog("dimensions", "Recalculating height");
@@ -584,7 +529,6 @@ export default class ObjTabs extends ComponentBase
       contentminheight = Math.max(contentminheight, page.comp.height.min);
       contentheight = Math.max(contentheight, page.comp.height.calc);
     });
-    //ADDME: Maybe we should consider the line components' heights as well for our minimum height?
 
     switch (this.tabtype)
     {
@@ -620,9 +564,6 @@ export default class ObjTabs extends ComponentBase
       page.comp.setHeight(setheight);
     });
 
-    if (this.line)
-      this.line.setHeight(this.line.height.calc);
-
     if (this.tabtype == "stacked")
       this.contentheight = setheight;
   }
@@ -637,12 +578,9 @@ export default class ObjTabs extends ComponentBase
 
     if (this.nodes.nav)
     {
-      this.nodes.nav.parentNode.style.width = this.navwidth + 'px';
+      this.nodes.nav.parentNode.style.width = this.width.set + 'px';
       this.navscroll.left = this.nodes.nav.scrollLeft;
     }
-
-    if (this.line)
-      this.line.relayout();
 
     var tabswidth = 0;
     this.pages.forEach(page =>
