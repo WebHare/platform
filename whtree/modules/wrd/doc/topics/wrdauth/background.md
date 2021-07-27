@@ -19,7 +19,7 @@ by a space and then an encrypted dataset containing the user's id and session st
 This cookie is a session cookie and is not readable from JavaScript.
 
 ### Persistent cookie
-When a user indicates he wants to stay logged in, a persisent cookie is created. This cookie
+When a user indicates he wants to stay logged in, a persistent cookie is created. This cookie
 stores the same encrypted dataset as the login cookie, but it additionally contains the user's password hash
 so this cookie can be ignored if the user has changed his password.
 
