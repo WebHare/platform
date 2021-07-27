@@ -48,9 +48,6 @@ export default class SelectionInterface
   {
     this.node = node;
     this.doc = node.ownerDocument;
-
-    // Determine whether the node is in an iframe relative to the run-location of this code
-    this.isiframe = this.node.defaultView != window;
   }
 
   // ---------------------------------------------------------------------------

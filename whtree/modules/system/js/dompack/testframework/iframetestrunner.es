@@ -91,7 +91,7 @@ export default class IframeTestRunner
   }
   getWin()
   {
-    return this.getDoc().defaultView;
+    return this.testiframe.contentWindow;
   }
   handleSecurityError()
   {

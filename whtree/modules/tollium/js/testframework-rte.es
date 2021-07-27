@@ -132,7 +132,7 @@ export function setRTESelection(win, rte, domrange)
 
 export function getCompStyle(node, prop)
 {
-  return node.ownerDocument.defaultView.getComputedStyle(node).getPropertyValue(prop);
+  return getComputedStyle(node).getPropertyValue(prop);
 }
 
 export function testEqHTMLEx(unused, expect, node, locators)

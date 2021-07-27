@@ -346,17 +346,10 @@ class TestFramework
   */
   processTestIframe()
   {
-    if(this.scriptframe.contentDocument)
-    {
-      this.scriptframedoc = this.scriptframe.contentDocument;
-      this.scriptframewin = this.scriptframedoc.defaultView;
-    }
-    else if(this.scriptframe.contentWindow)
-    {
-      this.scriptframewin = this.scriptframe.contentWindow;
-      this.scriptframedoc = this.scriptframewin.document;
-    }
-    else
+    this.scriptframedoc = this.scriptframe.contentDocument;
+    this.scriptframewin = this.scriptframe.contentWindow;
+
+    if(!this.scriptframedoc || !this.scriptframewin)
       throw new Error("Unable to retrieve scriptframe window/document");
 
     this._recordAssetpacks(this.scriptframewin);
@@ -725,7 +718,7 @@ class TestFramework
   processLoadedTestFrame(pageframe, options)
   {
     this.pageframedoc = pageframe.contentDocument;
-    this.pageframewin = this.pageframedoc.defaultView;
+    this.pageframewin = pageframe.contentWindow;
     if (dompack.debugflags.testfw)
       console.log('[testfw] loaded page: ' + this.pageframewin.location.href);
 
