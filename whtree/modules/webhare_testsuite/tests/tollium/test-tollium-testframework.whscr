@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/components/radiobutton.whlib";
+
+ASYNC MACRO TestTTLookup()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <select name="select1" type="radio">
+        <option rowkey="option1" title="Option 1" />
+      </select>
+    </body>
+  </screen>`)));
+
+  OBJECT radiooption1 := TT(":Option 1");
+  TestEq(TRUE, ObjectExists(radiooption1));
+  TEstEQ(TRUE, radiooption1 EXTENDSFROM TolliumRadioButton);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework( [ PTR TestTTLookup
+                  ]);
