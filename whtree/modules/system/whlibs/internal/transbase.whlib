@@ -576,6 +576,13 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     RETURN this->pvt_numworks != 0;
   }
 
+  /** Returns TRUE when there is nested work open
+      @return TRUE if nested work is open (eg multiple PushWorks)
+  */
+  PUBLIC BOOLEAN FUNCTION IsNestedWorkOpen()
+  {
+    RETURN this->pvt_numworks > 1;
+  }
 
   /** Pushes a new work; if no work has been opened, it will be opened.
   */
