@@ -678,7 +678,7 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
 <
   OBJECT selectfield;
   PUBLIC PROPERTY value(this->selectfield->value, this->selectfield->value);
-  PUBLIC PROPERTY options(this->selectfield->options, this->selectfield->options);
+  PUBLIC PROPERTY options(GetOptions, this->selectfield->options);
   PUBLIC PROPERTY selection(this->selectfield->selection, this->selectfield->selection);
   PUBLIC PROPERTY type(this->selectfield->type, this->selectfield->type);
   PUBLIC PROPERTY placeholder(this->selectfield->placeholder, this->selectfield->placeholder);
@@ -702,6 +702,12 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
   UPDATE STRING FUNCTION GetConditionName()
   {
     RETURN this->selectfield->conditionname;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOptions()
+  {
+    //not directly connecting the property so others can override us
+    RETURN this->selectfield->options;
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
