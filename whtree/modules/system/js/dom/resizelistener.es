@@ -20,8 +20,8 @@ function resizeListener(e)
 }
 
 function objectLoad(e){
-  this.contentDocument.defaultView.__resizeTrigger__ = this.__resizeElement__;
-  this.contentDocument.defaultView.addEventListener('resize', resizeListener);
+  this.contentWindow.__resizeTrigger__ = this.__resizeElement__;
+  this.contentWindow.addEventListener('resize', resizeListener);
 }
 
 function enableResizeEvents(element)
@@ -58,8 +58,8 @@ function disableResizeEvents(element)
 
   if (attachEvent) element.detachEvent('onresize', resizeListener);
   else {
-    if(element.__resizeTrigger__.contentDocument && element.__resizeTrigger__.contentDocument.defaultView)
-      element.__resizeTrigger__.contentDocument.defaultView.removeEventListener('resize', resizeListener);
+    if(element.__resizeTrigger__.contentWindow)
+      element.__resizeTrigger__.contentWindow.removeEventListener('resize', resizeListener);
     element.removeChild(element.__resizeTrigger__);
   }
   element.__resizeTrigger__ = null;

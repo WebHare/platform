@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
 
+  <test script="test-tollium-testframework.whscr" />
   <test script="test-tollium-base.whscr" />
   <test script="communication.whscr" />
   <test script="tolliumwork.whscr" />
