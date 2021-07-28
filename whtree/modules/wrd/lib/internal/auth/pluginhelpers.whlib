@@ -41,8 +41,11 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
   RECORD wrdauthconfig :=
       CELL[ schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
+          //TODO various extra sanity checks on authdomainid are useless with domainless. do we need those checks back? feels like they should just entity GUIDs instead because some also use direct entityids
           , authdomainid := ObjectExists(wrdauth) ? wrdauth->id : 0
           , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
+          , wrdschema->accountpasswordtag
+          , wrdschema->accountpasswordisauthsettings
           ];
 
   IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemade ?

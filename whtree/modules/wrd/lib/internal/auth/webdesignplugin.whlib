@@ -69,9 +69,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /// Current Webcontext/webdesign
   OBJECT pvt_webcontext;
 
-  /// Cached authdomain api
-  OBJECT api;
-
   /// Cached user api
   OBJECT __userapi;
 
@@ -518,19 +515,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       this->__wrdauth->cookiedomain := this->pvt_config.cookiedomain;
     }
     RETURN this->__wrdauth;
-  }
-
-  /** Get the (cached) current authdomain object
-      @return(object legacy-api.whlib#WRDAuth)  WRD auth object
-  */
-  PUBLIC OBJECT FUNCTION GetWRDAuthDomain()
-  {
-    this->CheckNotFailed();
-    IF(NOT Objectexists(this->api))
-    {
-      this->api := OpenWRDAuthDomainById(this->wrdschema, this->wrdauthconfig.authdomainid);
-    }
-    RETURN this->api;
   }
 
   /** Get (cached) support object
@@ -1612,7 +1596,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC RECORD FUNCTION ParseAuthLoginProof(RECORD options)
   {
-    OBJECT authdomain := this->GetWRDAuthDomain();
+    this->CheckNotFailed();
 
     RECORD proof := DecryptWRDAuthData(this->wrdauthconfig, GetWebVariable("wrdauth_proof"), "");
     IF (IsWHDebugOptionSet("aut"))
@@ -1647,7 +1631,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         CASE "wrdauth"
         {
-          RECORD cookies := authdomain->__CreateLoginCookies(proof.entityid, [ "external" ]);
+          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, [ "external" ]);
           cookiedata := cookiedata || " " || cookies.external;
 
           result.user := this->userapi->GetTolliumUserFromEntityId(proof.entityid);
@@ -1685,8 +1669,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(cellrec.name NOT IN [ "RULEID", "USE_LIST", "USE_WRDAUTH", "RULEPATH" ])
         THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
 
-    OBJECT authdomain := this->GetWRDAuthDomain();
-
     // The domain id is added to the cookie name, so multiple logins are possible in a site
     STRING cookiename := this->cookiename || "-" || this->__GetWRDAuthIntegration()->id || "_e";
 
@@ -1716,7 +1698,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     STRING cookiedata := SubString(ext_cookie, SearchSubstring(ext_cookie, " ") + 1);
 
-    RECORD parsed := authdomain->__ParseCookie(cookiedata, "external");
+    RECORD parsed := this->__GetWRDAuthIntegration()->__ParseCookie(cookiedata, "external");
     IF (NOT RecordExists(parsed))
       this->__RedirectToLogin(options);
 
@@ -1789,8 +1771,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC MACRO __LogOutExternal()
   {
-    OBJECT authdomain := this->GetWRDAuthDomain();
-
     // The domain id is added to the cookie name, so multiple logins are possible in a site
     STRING cookiename := this->cookiename || "-" || this->__GetWRDAuthIntegration()->id || "_e";
 
@@ -1800,7 +1780,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     STRING cookiedata := SubString(ext_cookie, SearchSubstring(ext_cookie, " ") + 1);
 
-    RECORD parsed := authdomain->__ParseCookie(cookiedata, "external");
+    RECORD parsed := this->__GetWRDAuthIntegration()->__ParseCookie(cookiedata, "external");
     IF (NOT RecordExists(parsed))
       RETURN; // Not valid anyway
 
