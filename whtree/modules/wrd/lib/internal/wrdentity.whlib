@@ -474,6 +474,9 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   */
   PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
   {
+    IF(testvalue = "")
+      RETURN FALSE;
+
     // Find the current password of this entity, based on the attribute
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
     IF (NOT RecordExists(attr))

@@ -677,8 +677,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     OBJECT obj := this->GetLoggedinWRDEntity();
     IF (NOT ObjectExists(obj))
       RETURN FALSE;
-    IF (currentpwd = "")
-      RETURN FALSE;
+
     RETURN obj->VerifyPassword(this->wrdschema->accountpasswordtag, currentpwd);
   }
 
