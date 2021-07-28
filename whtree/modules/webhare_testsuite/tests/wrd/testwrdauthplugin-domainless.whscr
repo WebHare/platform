@@ -83,6 +83,7 @@ MACRO CreateMyTestSchema()
   schemaobj->^wrd_authdomain->DeleteSelf();
 
   OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;
+  persontype->CreateAttribute("LASTLOGIN",  "DATETIME");
 //  persontype->CreateAttribute("EMAIL", "Email address", "", "WRD_CONTACT_EMAIL", "");
 //  persontype->CreateAttribute("PASSWORD", "Password", "", "PASSWORD", "");
 
@@ -172,16 +173,8 @@ MACRO CreateMyTestSchema()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  //set up last login and last ip fields
-  testfw->BeginWork();
-  persontype->CreateAttribute("LASTLOGIN",  "DATETIME");
-  persontype->CreateAttribute("LASTIP",     "FREE");
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.lastloginfield", "LASTLOGIN");
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.lastipfield", "LASTIP");
+  DATETIME logginginat := GetCurrentDatetime();
 
-  testfw->CommitWork();
-
-  //failed login shouldn't set these fields
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
@@ -197,8 +190,7 @@ MACRO CreateMyTestSchema()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
-  TestEq("", entity->GetField("LASTIP"));
+  TestEq(TRUE, entity->GetField("LASTLOGIN") < logginginat, "Failed login shouldn't have updated LASTLOGIN");
 
   //neither should a 'master' (impersonated) login
   result := DoReq( [ action := "loginid", userid := ToString(entityid), impersonation := "1", browsertriplet := "mac-chrome-01" ]);
@@ -217,8 +209,7 @@ MACRO CreateMyTestSchema()
       , impersonator_login := "testaccount@test.invalid"
       ]);
 
-  TestEq(DEFAULT DATETIME, entity->GetField("LASTLOGIN"));
-  TestEq("", entity->GetField("LASTIP"));
+  TestEq(TRUE, entity->GetField("LASTLOGIN") < logginginat, "Neither should an impersonated login update LASTLOGIN");
 
   result := DoReq( [ action := "logout-checkstatus" ]);
   TestEq(TRUE, result.oldstatus.isloggedin);
@@ -235,12 +226,11 @@ MACRO CreateMyTestSchema()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  DATETIME now := GetCurrentDatetime();
+  logginginat := GetCurrentDatetime();
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestEq(TRUE, result.success);
 
-  TestEq(TRUE, entity->GetField("LASTLOGIN") >= now);
-  TestEq(TRUE, entity->GetField("LASTIP") LIKE "*.*.*.*" OR entity->GetField("LASTIP") LIKE "*::*");
+  TestEq(TRUE, entity->GetField("LASTLOGIN") >= logginginat, "succesful login, so update LASTLOGIN time");
 
   TestAuditEvent(
       [ entity := entityid

@@ -582,6 +582,7 @@
              api2017="true"
              loginpage="currentsite::/portal1-domainless/"
              supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend"
+             lastloginfield="LASTLOGIN"
              wrdschema="wrd:testschema" />
   </apply>
 

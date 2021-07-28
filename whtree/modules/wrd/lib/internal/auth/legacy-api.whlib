@@ -85,11 +85,6 @@ STATIC OBJECTTYPE WRDAuth
                       ];
     }
 
-    IF(configfields.wrdauth_lastloginfield = "")
-      configfields.wrdauth_lastloginfield := this->wrdschema->GetSchemaSetting("wrd:auth.lastloginfield", [fallback := ""]);
-    IF(configfields.wrdauth_lastipfield = "")
-      configfields.wrdauth_lastipfield := this->wrdschema->GetSchemaSetting("wrd:auth.lastipfield", [fallback := ""]);
-
     configfields := CELL
         [ ...configfields
         , wrdauth_accounttype :=    ObjectExists(this->wrdschema->accounttype)
@@ -920,19 +915,6 @@ STATIC OBJECTTYPE WRDAuth
     RETURN this->VerifyEntityPassword(the_entity, password);
   }
 >;
-
-PUBLIC OBJECT FUNCTION OpenWRDAuthDomain(OBJECT wrdschema, STRING domaintag)
-{
-  IF(domaintag = "")
-    RETURN NEW WRDAuth(wrdschema, 0);
-
-  OBJECT domaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
-  INTEGER domain := domaintype->Search("WRD_TAG", domaintag, [matchcase := FALSE]);
-  IF(domain != 0)
-    RETURN NEW WRDAuth(wrdschema, domain);
-  ELSE
-    RETURN DEFAULT OBJECT;
-}
 
 PUBLIC OBJECT FUNCTION OpenWRDAuthDomainById(OBJECT wrdschema, INTEGER domainid)
 {
