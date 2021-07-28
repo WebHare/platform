@@ -284,18 +284,6 @@ STATIC OBJECTTYPE WRDAuth
     this->RefreshMetadata();
   }
 
-  /** Verifies the password for an entity
-      @param the_entity Entity to check
-      @param password Password
-      @return FALSE: no match, TRUE: user password matched
-  */
-  BOOLEAN FUNCTION VerifyEntityPassword(OBJECT the_entity, STRING password)
-  {
-    IF(NOT ObjectExists(the_entity) OR password="")
-      RETURN FALSE;
-    RETURN the_entity->VerifyPassword(this->passwordfield.tag, password);
-  }
-
   /** Updates the last login date for an entity
       @param the_entity Entity
   */
@@ -398,24 +386,6 @@ STATIC OBJECTTYPE WRDAuth
     RETURN this->DoLookup(this->loginfield.tag, login);
   }
 
-  /** Looks up a user based on the email address. The user must have a non-default password.
-      @param email Email address
-      @return User id
-  */
-  PUBLIC INTEGER FUNCTION LookupEmail(STRING email)
-  {
-    RETURN this->DoLookup(this->emailfield.tag, email);
-  }
-
-  /** Looks up a user based on the guid
-      @param guid Entity GUID
-      @return User id
-  */
-  PUBLIC INTEGER FUNCTION LookupGUID(STRING guid)
-  {
-    RETURN this->DoLookup("WRD_GUID", guid);
-  }
-
   PUBLIC RECORD FUNCTION LoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent)
   {
     OBJECT the_entity := this->accounttype->GetEntity(entityid);
@@ -440,7 +410,7 @@ STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    IF(NOT skippasswordcheck AND NOT this->VerifyEntityPassword(the_entity, password))
+    IF(NOT skippasswordcheck AND NOT the_entity->VerifyPassword(this->wrdschema->accountpasswordtag, password))
       RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
 
     VARIANT authenticationsettings := "";
@@ -886,12 +856,6 @@ STATIC OBJECTTYPE WRDAuth
            , persistent := persistent
            ];
   }
-
-  PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(INTEGER entityid, STRING password)
-  {
-    OBJECT the_entity := this->accounttype->GetEntity(entityid);
-    RETURN this->VerifyEntityPassword(the_entity, password);
-  }
 >;
 
 PUBLIC OBJECT FUNCTION OpenWRDAuthDomainById(OBJECT wrdschema, INTEGER domainid)
@@ -1221,14 +1185,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
     RETURN res;
   }
 
-  /** @short Verify the password for the currently loggedin user (used for change password interactions) */
-  PUBLIC BOOLEAN FUNCTION VerifyCurrentPassword(STRING password)
-  {
-    INTEGER id := this->GetLoggedinEntity();
-    IF(id=0)
-      THROW NEW Exception("VerifyCurrentPassword requires a loggedin user");
-    RETURN this->service->VerifyCurrentPassword(id, password);
-  }
 
   /** @short Login
       @return A record
