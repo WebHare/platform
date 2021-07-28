@@ -263,7 +263,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RECORD challenge;
     IF (challenge_str != "")
     {
-      challenge := this->GetWRDAuthDomain()->DecryptData(challenge_str);
+      challenge := DecryptWRDAuthData(this->wrdauthconfig, challenge_str, "");
       IF (RecordExists(challenge))
         allow_shortcut := challenge.use_wrdauth;
     }
@@ -473,8 +473,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       }
     }
 
-    OBJECT authdomain := this->GetWRDAuthDomain();
-    STRING proofstr := authdomain->EncryptData(proof);
+    STRING proofstr := EncryptWRDAuthData(this->wrdauthconfig, proof, "");
 
     STRING returnurl := returnto;
     IF(CellExists(challenge,'ruleid') AND challenge.ruleid != 0) //We use importsession for access rules, because the returnpage might not be able to remove the wrdproof itself (eg static html, pdf)
@@ -761,7 +760,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING challengedata, STRING returnto)
   {
-    RECORD challenge := this->GetWRDAuthDomain()->DecryptData(challengedata);
+    RECORD challenge := DecryptWRDAuthData(this->wrdauthconfig, challengedata, "");
     IF(NOT challenge.use_wrdauth)
       THROW NEW Exception("This challenge cannot be resolved by wrdauth"); //TODO think we need to handle external logins ?
 
@@ -831,7 +830,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RECORD challenge;
     IF (options.challenge != "")
     {
-      challenge := this->GetWRDAuthDomain()->DecryptData(options.challenge);
+      challenge := DecryptWRDAuthData(this->wrdauthconfig, options.challenge, "");
       IF (RecordExists(challenge))
         allow_wrdlogin := challenge.use_wrdauth;
     }
@@ -1000,7 +999,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     RECORD challenge;
     IF (options.challenge != "")
-      challenge := this->GetWRDAuthDomain()->DecryptData(options.challenge);
+      challenge := DecryptWRDAuthData(this->wrdauthconfig, options.challenge, "");
 
     RECORD trylogin := this->__GetWRDAuthIntegration()->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip", "allowlogout" ]));
 
@@ -1122,7 +1121,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(RecordExists(options.secret))
       INSERT CELL s := options.secret INTO data;
 
-    STRING baselink := UpdateURLVariables(baseurl, [ _ed := this->GetWRDAuthDomain()->EncryptData(data) ]);
+    STRING baselink := UpdateURLVariables(baseurl, [ _ed := EncryptWRDAuthData(this->wrdauthconfig, data, "") ]);
     RETURN [ verifier := verifier
            , verifiedlink := UpdateURLVariables(baselink, ["verifier" := verifier ])
            , entrylink := baselink
@@ -1146,7 +1145,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC RECORD FUNCTION ProcessVerificationLink(STRING encrypted_data, STRING verifier)
   {
-    this->GetWRDAuthDomain();
+    this->CheckNotFailed();
 
     RECORD retval := [ creationdate := DEFAULT DATETIME
                      , expired := FALSE
@@ -1163,7 +1162,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     RECORD decrypted, userentity;
     IF(encrypted_data!="")
-      decrypted := this->api->DecryptData(encrypted_data);
+      decrypted := DecryptWRDAuthData(this->wrdauthconfig, encrypted_data, "");
 
     IF(RecordExists(decrypted))
     {
@@ -1340,7 +1339,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC RECORD FUNCTION GenerateSetupSecondFactorLink(STRING baseurl, INTEGER entityid)
   {
-    this->GetWRDAuthDomain();
+    this->CheckNotFailed();
 
     IF(NOT IsAbsoluteURL(baseurl, FALSE))
       baseurl := ResolveToAbsoluteURL(GetClientRequestURL(), baseurl);
@@ -1364,7 +1363,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         ];
 
     RETURN CELL
-        [ setuplink :=    UpdateURLVariables(baseurl, [ _sr := this->GetWRDAuthDomain()->EncryptData(data) ])
+        [ setuplink :=    UpdateURLVariables(baseurl, [ _sr := EncryptWRDAuthData(this->wrdauthconfig, data, "") ])
         , challenge
         ];
   }
@@ -1381,7 +1380,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC RECORD FUNCTION ProcessSetupSecondFactorLink(STRING encrypted_data)
   {
-    this->GetWRDAuthDomain();
+    this->CheckNotFailed();
 
     RECORD retval := [ expired := FALSE
                      , expireson := DEFAULT DATETIME
@@ -1391,7 +1390,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                      , failreason := ""
                      ];
 
-    RECORD decrypted := this->api->DecryptData(encrypted_data);
+    RECORD decrypted := DecryptWRDAuthData(this->wrdauthconfig, encrypted_data, "");
 
     RECORD verifybase := this->accounttype->GetEntityFields(decrypted.e, ["WRD_GUID", "WRD_LIMITDATE" ]);
     DATETIME now := GetCurrentDatetime();
@@ -1578,7 +1577,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     STRING encchallenge;
     IF (RecordExists(challenge))
     {
-      encchallenge := this->GetWRDAuthDomain()->EncryptData(challenge);
+      encchallenge := EncryptWRDAuthData(this->wrdauthconfig, challenge, "");
       INSERT CELL wrdauth_challenge := encchallenge INTO loginvars;
     }
 
@@ -1615,13 +1614,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC RECORD FUNCTION ParseAuthLoginProof(RECORD options)
   {
     OBJECT authdomain := this->GetWRDAuthDomain();
-    //STRING backurl := GetWebVariable("back");
 
-    RECORD proof := authdomain->DecryptData(GetWebVariable("wrdauth_proof"));
+    RECORD proof := DecryptWRDAuthData(this->wrdauthconfig, GetWebVariable("wrdauth_proof"), "");
     IF (IsWHDebugOptionSet("aut"))
       LogDebug("wrd:auth", "plugin importsession");// to " || backurl);
 
-    IF (NOT RecordExists(proof) OR authdomain->id != proof.dom)
+    IF (NOT RecordExists(proof) OR this->wrdauthconfig.authdomainid != proof.dom)
       THROW NEW Exception("Received authentication data is not valid for this page");
 
     IF (proof.until >= GetCurrentDateTime())

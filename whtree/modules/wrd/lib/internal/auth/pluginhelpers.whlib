@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
@@ -41,7 +42,11 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
       CELL[ schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
           , authdomainid := ObjectExists(wrdauth) ? wrdauth->id : 0
+          , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
           ];
+
+  IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemade ?
+    THROW NEW Exception(`wrd:auth.domainsecret has not been set on schema '${wrdschema->tag}'`);
 
   RETURN [ value := wrdauthconfig
          , ttl := 15 * 60 * 1000
@@ -53,4 +58,30 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
 PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema, STRING sitetag)
 {
   RETURN GetAdhocCached(CELL[ wrdschema, sitetag ], PTR GetCacheableWRDAuthConfig(wrdschema, sitetag));
+}
+
+
+/** Encrypts and signes data with the domain secret
+    @param indata Data to encrypt
+    @param type Type of data (also needed for decryption)
+    @return Encoded and encrypted data
+*/
+PUBLIC STRING FUNCTION EncryptWRDAuthData(RECORD wrdauthconfig, RECORD indata, STRING type)
+{
+  IF(NOT RecordExists(indata))
+    THROW NEW Exception("Trying to encrypt a default record");
+
+  STRING encrypteddata := EncryptAndSignData(EncodeHSON(indata), "SHA-1,BLOWFISH+CBC,8", wrdauthconfig.domainsecret || type);
+  RETURN encrypteddata;
+}
+
+/** Decodes previously encrypted data
+    @param encrypteddata Encrypted data
+    @param type Type of data (must match type used in EncryptData)
+    @return Decrypted data (DEFAULT RECORD if decryption or validation failed)
+*/
+PUBLIC RECORD FUNCTION DecryptWRDAuthData(RECORD wrdauthconfig, STRING encrypteddata, STRING type)
+{
+  STRING data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", wrdauthconfig.domainsecret || type);
+  RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
 }
