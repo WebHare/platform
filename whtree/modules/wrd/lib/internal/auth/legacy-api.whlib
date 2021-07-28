@@ -272,14 +272,6 @@ STATIC OBJECTTYPE WRDAuth
     RETURN RecordExists(data) ? data.userid : 0;
   }
 
-  /** Returns the tag of the password field
-      @return Tag of the password field
-  */
-  PUBLIC STRING FUNCTION GetPasswordFieldTag()
-  {
-    RETURN this->passwordfield.tag;
-  }
-
   /** Updates the metadata for this authentication domain
       @param newfields Fields to update
       @cell newfields.wrdauth_lastloginfield

@@ -562,14 +562,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN this->api;
   }
 
-  /** Returns the tag of the password field
-      @return Tag of the password field
-  */
-  PUBLIC STRING FUNCTION GetPasswordFieldTag()
-  {
-    RETURN this->GetWRDAuthDomain()->GetPasswordFieldTag();
-  }
-
   /** Get (cached) support object
       @return(object #WRDAuthSupportBase) Auth support object
   */
@@ -714,7 +706,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       RETURN FALSE;
     IF (currentpwd = "")
       RETURN FALSE;
-    RETURN obj->VerifyPassword(this->GetPasswordFieldTag(), currentpwd);
+    RETURN obj->VerifyPassword(this->wrdschema->accountpasswordtag, currentpwd);
   }
 
   OBJECT FUNCTION GetLoggedinWRDEntity()
