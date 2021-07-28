@@ -63,7 +63,7 @@ PUBLIC RECORD FUNCTION GetModuleDataFromFolder(STRING path, STRING name, BOOLEAN
 
   IF (archived)
   {
-    IF (name NOT LIKE "*.2???????T??????Z")
+    IF (name NOT LIKE "*.2???????T??????*Z")
     {
       PRINT("Strange module folder: " || path || "\n");
       RETURN DEFAULT RECORD;
@@ -76,7 +76,7 @@ PUBLIC RECORD FUNCTION GetModuleDataFromFolder(STRING path, STRING name, BOOLEAN
   IF (name LIKE "*.*")
   {
     result.name := Left(name, SearchSubString(name, "."));
-    IF (name LIKE "*.2???????T??????Z")
+    IF (name LIKE "*.2???????T??????*Z")
     {
       result.moduledate := MakeDateFromText(Right(name, 16));
       result.newformat := TRUE;
@@ -288,7 +288,8 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
   StoreDiskFile(source_path, module_source_blob);
   SetUNIXPermissions(source_path, (6*8*8 + 6*8 + 6) BITAND umask);
 
-  STRING datestamp := FormatISO8601DateTime(GetCurrentDateTime(), "", "", "", FALSE);
+  // Use milliseconds for timestamps in case, CI can probably install modules more than once per second
+  STRING datestamp := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE);
 
   finalmodulename := GetWebHareConfiguration().varroot || "installedmodules/" || importmodulename || "." || datestamp;
 
@@ -782,11 +783,17 @@ PUBLIC BOOLEAN FUNCTION ArchiveModuleVersionByPath(STRING modulefolderpath, DATE
   STRING archiveroot := GetWebHareConfiguration().varroot || "archivedmodules";
   CreateDiskDirectoryRecursive(archiveroot, TRUE);
 
-  // Calc the new old & new paths
-  STRING obsoletedatestamp := FormatISO8601DateTime(obsoletiondate, "", "", "", FALSE);
+  // Calc the new old & new paths. Use milliseconds for timestamps in case, CI can probably install modules more than once per second
+  STRING obsoletedatestamp := FormatISO8601DateTime(obsoletiondate, "", "milliseconds", "", FALSE);
   STRING targetpath := archiveroot || "/" || Tokenize(modulefolderpath,'/')[END-1]|| "." || obsoletedatestamp;
 
   BOOLEAN result := MoveDiskPath(modulefolderpath, targetpath);
+  IF(result = FALSE //looks like move failed
+     AND NOT RecordExists(GetDiskFileProperties(modulefolderpath))) //but it's still gone
+  {
+    result := TRUE; //then we thought the module was still there but it isn't? consider it a success anyway
+  }
+
   IF (result)
   {
     BroadcastEvent("system:modules.archivedmodule", DEFAULT RECORD);

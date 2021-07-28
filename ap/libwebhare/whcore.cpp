@@ -246,34 +246,19 @@ void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, boo
                 std::string currentfile = search.CurrentFile();
                 if (Blex::StrCaseLike(currentfile, "*.*"))
                 {
-                        if (!Blex::StrCaseLike(currentfile, "*.20??????T??????Z"))
+                        if (!Blex::StrCaseLike(currentfile, "*.20??????T??????*Z")) //also allow millseconds now..
                             continue;
 
-                        std::string::iterator pos = std::find(currentfile.begin(), currentfile.end(), '.');
-                        if (pos != currentfile.end() - 17)
-                        {
-                                // Name is like blabla.blabla.datetimestamp
-                                MODULESCAN_PRINT("Module name parse failure for " << currentfile << " " << std::distance(pos, currentfile.end() - 15));
-                                continue;
-                        }
-
-                        std::string datestr = std::string(pos + 1, currentfile.end());
-                        Blex::ToUppercase(datestr.begin(), datestr.end());
-
-                        // Create an xxxx-xx-xxTyy:yy:yyZ
-                        datestr.insert(13, ":");
-                        datestr.insert(11, ":");
-                        datestr.insert(6, "-");
-                        datestr.insert(4, "-");
-                        creationdate = Blex::DateTime::FromText(datestr);
+                        std::string::const_iterator pos = std::find(currentfile.begin(), currentfile.end(), '.');
+                        creationdate = Blex::DateTime::FromText(&pos[1], &*currentfile.end());
                         if (creationdate == Blex::DateTime::Invalid())
                         {
-                                MODULESCAN_PRINT("Module datetime parse failure for " << currentfile << " (" << datestr << ")");
+                                MODULESCAN_PRINT("Module datetime parse failure for " << currentfile);
                                 continue;
                         }
 
                         //Strip timestamp
-                        currentfile.resize(std::distance(currentfile.begin(), pos));
+                        currentfile.resize(pos - currentfile.begin());
                 }
 
                 mdata.creationdate = creationdate;

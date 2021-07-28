@@ -968,9 +968,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC MACRO DeleteTestModule()
   {
-    IF(IsModuleInstalled(testfw_testmodule))
-      IF(NOT DeleteModule(testfw_testmodule))
-        THROW NEW Exception(`Deletion of module '${testfw_testmodule} failed!`);
+    IF(IsModuleInstalled(testfw_testmodule) AND NOT DeleteModule(testfw_testmodule))
+      THROW NEW Exception(`Deletion of module '${testfw_testmodule}' failed!`);
 
     IF(this->usedatabase AND GetPrimary()->SchemaExists(testfw_testmodule))
     {

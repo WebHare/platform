@@ -126,14 +126,14 @@ PUBLIC OBJECTTYPE ModuleArchiveFS EXTEND VirtualModularFSBase
 
         IF (rec.is_archive)
         {
-          IF (name NOT LIKE "*.2???????T??????Z")
+          IF (name NOT LIKE "*.2???????T??????*Z")
             CONTINUE;
           name := Left(name, LENGTH(name) - 17);
         }
 
         IF (name LIKE "*.*")
         {
-          IF (name NOT LIKE "*.20??????T??????Z" OR name LIKE "*.*.*")
+          IF (name NOT LIKE "*.20??????T??????*Z" OR name LIKE "*.*.*")
             CONTINUE;
 
           STRING datestr := Right(name, 16);
