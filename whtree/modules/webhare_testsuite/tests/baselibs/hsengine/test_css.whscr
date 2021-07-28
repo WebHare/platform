@@ -26,13 +26,10 @@ html.ws2013 .applylinkbgtoggle a[href=\"#\"]:hover { text-decoration: none; }
 @font-face { font-family:"FF"; src:url(fontpath); src: url(../fontpath2) format("eot") url(../fontpath3); }
 `);
 
-// Test wether every token actually returns a valid token record:
-MACRO TestCSSTokenizer()
+RECORD ARRAY FUNCTION GetAllTokens(STRING data)
 {
-  OpenTest("TestCSSTokenizer");
-
   OBJECT tokenizer;
-  tokenizer := NEW CSSTokenizer(BlobToString(basertdcss));
+  tokenizer := NEW CSSTokenizer(data);
   RECORD ARRAY alltokens;
 
   WHILE(tokenizer->type != "eof")
@@ -42,6 +39,16 @@ MACRO TestCSSTokenizer()
     INSERT tokenizer->GetToken() INTO alltokens AT END;
   }
 
+  RETURN alltokens;
+}
+
+// Test wether every token actually returns a valid token record:
+MACRO TestCSSTokenizer()
+{
+  OpenTest("TestCSSTokenizer");
+
+  RECORD ARRAY alltokens := GetAllTokens(BlobToString(basertdcss));
+
   //DumpValue((SELECT value, pos := #alltokens FROM alltokens), "boxed"); // Use this to dump the tokens and positions
   TestEq("wh-rtd", alltokens[1].value);// ident token
   TestEq("dddddd", alltokens[38].value);// hash token
@@ -50,6 +57,57 @@ MACRO TestCSSTokenizer()
   TestEq("some/path/to/image2.png", alltokens[190].value);// url token
   TestEq("some/path/to/image3.png", alltokens[203].value);// url token
   TestEq("eof", alltokens[END-1].type);// eof token
+
+  // Test some error-prone scenarios
+  TestEqMembers(
+      [ [ type := "delim", value := "#" ]
+      , [ type := "delim", value := "\\" ]
+      , [ type := "ws" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("#\\\n"), "*");
+
+  TestEqMembers(
+      [ [ type := "#", value := "\n" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("#\\a"), "*");
+
+  TestEqMembers(
+      [ [ type := "number", value := '-1' ]
+      , [ type := "eof" ]
+      ], GetAllTokens("-1"), "*");
+
+  TestEqMembers(
+      [ [ type := "cdo" ]
+      , [ type := "delim" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("<!---"), "*");
+  TestEqMembers(
+      [ [ type := "cdc" ]
+      , [ type := "delim" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("-->-"), "*");
+
+  TestEqMembers(
+      [ [ type := "ident"
+      , value := "-a" ], [ type := "eof" ]
+      ], GetAllTokens("-a"), "*");
+
+  TestEqMembers(
+      [ [ type := "ident", value := "--a" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("--a"), "*");
+
+  TestEqMembers(
+      [ [ type := "delim", value := "-" ]
+      , [ type := "delim", value := "\\" ]
+      , [ type := "ws" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("-\\\n"), "*");
+
+  TestEqMembers(
+      [ [ type := "ident", value := "-\n" ]
+      , [ type := "eof" ]
+      ], GetAllTokens("-\\a"), "*");
 
   CloseTest("TestCSSTokenizer");
 }

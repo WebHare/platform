@@ -23,7 +23,7 @@ STRING unescaped_stringtokens := DecodeBase16("2021232425262728292A2B2C2D2E2F303
 STRING unescaped_identtokens := DecodeBase16("2D5F4142434445464748494A4B4C4D4E4F505152535455565758595A6162636465666768696A6B6C6D6E6F707172737475767778797A");
 
 // 0-9, a-z, A-Z, '-', '_', 0x80+
-STRING namecodepoints := DecodeBase16("4142434445464748494A4B4C4D4E4F505152535455565758595A5F6162636465666768696A6B6C6D6E6F707172737475767778797A808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9FA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF");
+STRING namecodepoints := DecodeBase16("2D303132333435363738394142434445464748494A4B4C4D4E4F505152535455565758595A5F6162636465666768696A6B6C6D6E6F707172737475767778797A808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9FA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF");
 
 STRING FUNCTION EncodeCharacterAsCodePoint(INTEGER codepoint, STRING next)
 {
@@ -551,7 +551,8 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
       */
       CASE '#' //number sign
       {
-        IF (this->IsNameCodePoint(this->strp->PeekN(1)) OR ( this->strp->PeekN(1) = "\\" AND this->strp->PeekN(2) != "\n" ) )
+        STRING nextchar := this->strp->PeekN(1);
+        IF (this->IsNameCodePoint(nextchar) OR ( nextchar = "\\" AND this->strp->PeekN(1, 2) != "\n" ) )
         {
           this->type := "#";
           this->strp->Next();
@@ -645,6 +646,8 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
           this->strp->Next(); // consume the '\'
           this->GetIdentLikeToken(this->ConsumeEscapedCodePoint());
         }
+        ELSE
+          this->ConsumeDelimToken();
       }
       CASE '/'
       {
@@ -716,10 +719,7 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
         {
           this->type := "cdo";
           this->value := "<!--";
-          this->strp->Next();
-          this->strp->Next();
-          this->strp->Next();
-          this->strp->Next();
+          this->strp->SkipN(4);
         }
         ELSE
           this->ConsumeDelimToken();
@@ -736,7 +736,13 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
       {
         IF(ToInteger(this->strp->PeekN(1), -1) != -1)//Numeric?
           this->GetNumericToken();
-        ELSE IF(this->strp->PeekN(1) != "-")
+        ELSE IF(this->strp->PeekN(2) = "->")
+        {
+          this->type := "cdc";
+          this->value := "-->";
+          this->strp->SkipN(3);
+        }
+        ELSE IF (this->CheckIfThreeCPStartIdentifier(0))
         {
           this->type := "ident";
           this->value := this->ConsumeName();
@@ -746,14 +752,6 @@ PUBLIC STATIC OBJECTTYPE CSSTokenizer
             this->ParseWhitespace(TRUE);//consume as much whitespace as possible while parsing the function name
             this->type := "function";
           }
-        }
-        ELSE IF(this->strp->PeekN(2) = "->")
-        {
-          this->type := "cdc";
-          this->value := "-->";
-          this->strp->Next();
-          this->strp->Next();
-          this->strp->Next();
         }
         ELSE
           this->ConsumeDelimToken();
@@ -1176,7 +1174,7 @@ Append the current input code point to the <string-token>’s value.
       */
       CASE '-'
       {
-        IF(this->IsNameStartCodePoint(this->strp->PeekN(1 + peek)) OR this->strp->PeekN(1 + peek) = '-' OR (this->strp->PeekN(1 + peek) = "\\" AND this->strp->PeekN(2 + peek) != "\n") )
+        IF(this->IsNameStartCodePoint(this->strp->PeekN(1 + peek)) OR this->strp->PeekN(1 + peek) = '-' OR (this->strp->PeekN(1 + peek) = "\\" AND this->strp->PeekN(1, 2 + peek) != "\n") )
           RETURN TRUE;
         ELSE
           RETURN FALSE;
