@@ -108,6 +108,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   PUBLIC STRING frontendid;
 
   INTEGER impersonatedentity;
+  STRING impersonatedtitle;
   OBJECT wrdauthplugin;
   OBJECT currentuser;
   RECORD launchuserinfo;
@@ -319,6 +320,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
         this->currentuser := res.userobject;
         this->impersonatedentity := res.impersonatedentity;
+        this->impersonatedtitle := res.impersonatedtitle ?? "#" || this->impersonatedentity;
         loggedin_name := this->currentuser->login;
       }
     }
@@ -704,8 +706,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     IF(this->impersonatedentity != 0) //no images, no layout title
     {
-      STRING username := this->wrdauthplugin->GetWRDAuthDomain()->GetUserLogin(this->impersonatedentity);
-      portalsettings.openinfo := GetTid("tollium:shell.openedas", username ?? "#" || this->impersonatedentity);
+      portalsettings.openinfo := GetTid("tollium:shell.openedas", this->impersonatedtitle);
     }
     ELSE
     {
@@ -731,7 +732,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   PUBLIC RECORD FUNCTION WDS_StartPortal(OBJECT webcontext, RECORD options, STRING browsertriplet)
   {
-    // ADDME   IF(ToUppercase(authplugin->GetWRDAuthDomain()->emailfieldtag) = ToUppercase(authplugin->GetWRDAuthDomain()->loginfieldtag))  emailadres ipv username tonen
     //this->SetupPortal(webcontext);  //no need to SetupPortal in a WDS_ ... PrepareForRendering has done it
 
     //FIXME Get the actual loginmethod and restrictions from the specified appservice

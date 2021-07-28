@@ -1134,15 +1134,18 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       @cell(object #TolliumUser) return.impersonatinguser Impersonating user
       @cell(object #TolliumUser) return.userobject Tollium user
       @cell(boolean) return.isimpersonation Whether this is a (failed) impersonation (generally not requiring a forced logout)
+      @cell(integer) return.impersonatedentity ID of user or role being impersonated
+      @cell(string) return.impersonatedtitle Logn of the user or title of the role being impersonated
       @cell(string) return.error Failure reason
   */
   PUBLIC RECORD FUNCTION GetTolliumUserByIdAndImpersonation(INTEGER entityid, STRING openas)
   {
+    RECORD retval := [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, impersonatedtitle := "", error := "" ];
     IF (entityid = 0)
-      RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "entityid=0" ];
+      RETURN CELL[ ...retval, error := "entityid=0" ];
 
     OBJECT userentity;
-    INTEGER userid, rightsauthobject;
+    INTEGER userid, impersonated_authobject;
     RECORD userinfo;
 
     IF(entityid = -1)
@@ -1159,7 +1162,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 
       userentity := this->wrdschema->accounttype->GetEntity(entityid);
       IF (NOT ObjectExists(userentity))
-        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "No such entity #" || entityid ];
+        RETURN CELL[ ...retval, error := "No such entity #" || entityid ];
 
       RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag ];
       IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
@@ -1168,22 +1171,22 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       userinfo := userentity->GetFields(getfields);
       DATETIME now := GetCurrentDatetime();
       IF(Cellexists(getfields, "WHUSER_DISABLED") AND userinfo.whuser_disabled)
-        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is disabled" ];
+        RETURN CELL[ ...retval, error := "User is disabled" ];
       IF(now < userinfo.wrd_creationdate)
-        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is not yet active" ];
+        RETURN CELL[ ...retval, error := "User is not yet active" ];
       IF(userinfo.wrd_limitdate <= now )
-        RETURN [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, error := "User is expired" ];
+        RETURN CELL[ ...retval, error := "User is expired" ];
 
       userid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = userinfo.wrd_guid;
     }
 
-    rightsauthobject := userid;
+    impersonated_authobject := userid;
 
     OBJECT impersonatinguser;
     INTEGER impersonatedentity;
     BOOLEAN impersonatingrole;
     STRING impersonationtarget := `user '${openas}'`;
-    STRING loginname, logintitle;
+    STRING loginname, logintitle, impersonatedtitle;
     IF(RecordExists(userinfo))
     {
       loginname := userinfo.login;
@@ -1193,14 +1196,14 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     IF(openas != "")
     {
       IF(ObjectExists(userentity))
-        impersonatinguser := this->GetTolliumUserObject(userentity, rightsauthobject, loginname, logintitle);
+        impersonatinguser := this->GetTolliumUserObject(userentity, impersonated_authobject, loginname, logintitle);
       ELSE
         impersonatinguser := NEW TolliumMagicSysopUserObject(userid);
 
       IF (NOT ObjectExists(impersonatinguser))
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := "Impersonating user #" || userid || " has no rights object" ];
       IF (NOT impersonatinguser->ExistsInDatabase())
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " does not exist in in the database" ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := "Impersonating user #" || userid || " does not exist in in the database" ];
 
       IF(openas LIKE "wrd:*")
       {
@@ -1220,30 +1223,30 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
         }
 
         IF(impersonatedentity = 0)
-          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not resolve to an entity` ];
+          RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not resolve to an entity` ];
 
-        rightsauthobject := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = openas;
+        impersonated_authobject := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = openas;
       }
       ELSE
       {
         RECORD lookup := this->LookupUserByLogin(openas);
         IF(NOT RecordExists(lookup))
-          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to any user` ];
+          RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to any user` ];
         IF(lookup.entityid = 0)
-          RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to an entity` ];
+          RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} did not resolve to an entity` ];
 
         impersonatedentity := lookup.entityid;
-        rightsauthobject := lookup.authobjectid;
+        impersonated_authobject := lookup.authobjectid;
       }
 
 
-      impersonationtarget := `${impersonationtarget} with entity #${rightsauthobject}`;
-      IF(rightsauthobject = 0)
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not have an authobject` ];
+      impersonationtarget := `${impersonationtarget} with entity #${impersonated_authobject}`;
+      IF(impersonated_authobject = 0)
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not have an authobject` ];
 
       IF(NOT impersonatingrole)
       {
-        userid := rightsauthobject;
+        userid := impersonated_authobject;
         userentity := this->wrdschema->accounttype->GetEntity(impersonatedentity);
         userinfo := userentity->GetFields(CELL["WRD_TITLE","WHUSER_UNIT", login := this->wrdschema->accountlogintag]);
         loginname := userinfo.login;
@@ -1251,16 +1254,17 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       }
       ELSE
       {
-        userinfo := this->wrdschema->^whuser_role->GetEntityFields(impersonatedentity, CELL[ whuser_unit := "WRD_LEFTENTITY" ]);
+        userinfo := this->wrdschema->^whuser_role->GetEntityFields(impersonatedentity, CELL[ "wrd_title", whuser_unit := "WRD_LEFTENTITY" ]);
+        impersonatedtitle := userinfo.wrd_title;
       }
 
-      OBJECT impersonateduser := GetWebhareRightsObject(rightsauthobject);
+      OBJECT impersonateduser := GetWebhareRightsObject(impersonated_authobject);
       IF (NOT ObjectExists(impersonateduser))
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} has no rights object` ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} has no rights object` ];
       IF (NOT impersonateduser->ExistsInDatabase())
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not exist in in the database` ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} does not exist in in the database` ];
       IF(entityid != -1 AND impersonateduser->HasRight("system:sysop"))
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} is a sysop and can only be impersonated using an overridetoken` ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := `Impersonated ${impersonationtarget} is a sysop and can only be impersonated using an overridetoken` ];
 
       //Look up the user's unit
       RECORD impersonatedunit;
@@ -1272,18 +1276,19 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
         dbunitid := SELECT AS INTEGER id FROM system.authobjects WHERE authobjects.guid = impersonatedunit.wrd_guid;
 
       IF(NOT impersonatinguser->HasRightOn("system:openas", dbunitid))
-        RETURN CELL[ impersonatinguser, userobject := DEFAULT OBJECT, isimpersonation := TRUE, error := "Impersonating user #" || userid || " is not allowed to impersonate users in unit " || impersonatedunit.wrd_guid || " (unit authobject #" || dbunitid || ")" ];
+        RETURN CELL[ ...retval, impersonatinguser, isimpersonation := TRUE, error := "Impersonating user #" || userid || " is not allowed to impersonate users in unit " || impersonatedunit.wrd_guid || " (unit authobject #" || dbunitid || ")" ];
     }
 
     OBJECT userobject;
     IF(ObjectExists(userentity))
-      userobject := this->GetTolliumUserObject(userentity, rightsauthobject, loginname, logintitle);
+      userobject := this->GetTolliumUserObject(userentity, impersonated_authobject, loginname, logintitle);
     ELSE
       userobject := NEW TolliumMagicSysopUserObject(userid);
 
     RETURN [ impersonatinguser := impersonatinguser
            , userobject := userobject
            , impersonatedentity := impersonatedentity
+           , impersonatedtitle := impersonatedtitle ?? logintitle
            , isimpersonation := impersonatedentity != 0
            ];
   }
