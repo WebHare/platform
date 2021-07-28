@@ -736,7 +736,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   {
     RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);
     IF(NOT RecordExists(hit))
-      THROW NEW Exception(`No extendcompontent '${objname}' available to this extension`);
+      THROW NEW Exception(`No extendcomponent '${objname}' available to this extension`);
     RETURN hit.component;
   }
 >;
