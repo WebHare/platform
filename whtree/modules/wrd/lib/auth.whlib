@@ -40,7 +40,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
   PUBLIC RECORD FUNCTION GetJSUserInfo()
   {
     IF(Length(this->plugin->cachefields) > 0)
-      RETURN this->plugin->GetWRDAuthDomain()->accounttype->GetEntityFields(this->plugin->GetLoggedinEntity(), this->plugin->cachefields);
+      RETURN this->plugin->accounttype->GetEntityFields(this->plugin->GetLoggedinEntity(), this->plugin->cachefields);
     RETURN DEFAULT RECORD;
   }
   //return a non-default record to block the login. this string is returned as the error code from the login functions
@@ -59,7 +59,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
   /** @short Lookup a login */
   PUBLIC INTEGER FUNCTION LookupLogin(STRING loginname)
   {
-    RETURN this->plugin->GetWRDAuthDomain()->LookupLogin(loginname);
+    RETURN this->plugin->accounttype->Search(this->plugin->wrdschema->accountlogintag, TrimWhitespace(loginname), [ matchcase := FALSE ]);
   }
   /** @short Login
       @return A record
