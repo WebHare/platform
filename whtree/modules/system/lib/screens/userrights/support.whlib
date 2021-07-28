@@ -356,10 +356,8 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
                     , wrd_guid :=     "WRD_GUID"
                     , unit :=         "WHUSER_UNIT"
                     , comment :=      "WHUSER_COMMENT"
+                    , lastlogin :=    "WHUSER_LASTLOGIN"
                     ];
-
-  IF(ObjectExists(controller->wrdauthplugin) AND controller->wrdauthplugin->GetWRDAuthDomain()->lastloginfieldtag != "")
-    INSERT CELL lastlogin := controller->wrdauthplugin->GetWRDAuthDomain()->lastloginfieldtag INTO outcols;
 
   RECORD ARRAY userlist := controller->userapi->wrdschema->accounttype->RunQuery(
         [ outputcolumns := outcols
@@ -387,7 +385,7 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
                    , authobjectid
                    , authobjectparentid
                    , disabled :=        disabled
-                   , lastlogin :=       CellExists(outcols, 'lastlogin') ? userlist.lastlogin : DEFAULT DATETIME
+                   , lastlogin
                    , online :=          disabled ? 5 : authobjectid IN onlineusers ? 3 : 0 //FIXME want to detect onlineusers by WRDID, not USERID
                    , fullname :=        realname
                    , comment :=         comment
