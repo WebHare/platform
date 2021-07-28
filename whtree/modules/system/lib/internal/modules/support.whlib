@@ -97,6 +97,7 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                              , description := ""
                              , aftermodulecreation := DEFAULT MACRO PTR
                              , moduledefinition := ""
+                             , timestampfolder := FALSE
                              ], options);
 
   IF(subpath != "" AND (NOT IsValidWHFSName(subpath, FALSE) OR ToLowercase(subpath) != subpath))
@@ -108,7 +109,11 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
   IF(IsModuleInstalled(modulename))
     THROW NEW Exception(`A module named '${modulename}' already exists`);
 
+  DATETIME creationdate := GetCurrentDatetime();
   STRING destpath := MergePath(IsPathAbsolute(subpath) ? subpath : GetWebHareConfiguration().varroot || "installedmodules/" || subpath, modulename);
+  IF(options.timestampfolder)
+    destpath := destpath || "." || GetModuleFolderTimestamp();
+
   IF(RecordExists(GetDiskFileProperties(destpath)))
     THROW NEW Exception(`The directory '${destpath}' already exists`);
 
@@ -116,7 +121,7 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                  , destpath := destpath || "/"
                  , defaultlanguage := options.defaultlanguage
                  , description := options.description
-                 , creationdate := FormatDatetime("%Y-%m-%d", GetCurrentDatetime())
+                 , creationdate := FormatDatetime("%Y-%m-%d", creationdate)
                  , servername := GetServerName()
                  ];
 

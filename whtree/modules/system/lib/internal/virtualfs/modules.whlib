@@ -133,16 +133,8 @@ PUBLIC OBJECTTYPE ModuleArchiveFS EXTEND VirtualModularFSBase
 
         IF (name LIKE "*.*")
         {
-          IF (name NOT LIKE "*.20??????T??????*Z" OR name LIKE "*.*.*")
-            CONTINUE;
-
-          STRING datestr := Right(name, 16);
-
-          datestr := SubString(datestr, 0, 4)||"-"||SubString(datestr, 4, 2)||"-"||SubString(datestr, 6, 2)||"T"||
-              SubString(datestr, 9, 2)||":"||SubString(datestr, 11, 2)||":"||SubString(datestr, 13, 2) || "Z";
-
+          STRING datestr := Substring(name, SearchSubstring(name,'.') + 1);
           moddate := MakeDateFromText(datestr);
-
           IF (moddate = DEFAULT DATETIME)
             CONTINUE;
         }

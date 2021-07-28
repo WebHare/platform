@@ -137,7 +137,8 @@ PUBLIC MACRO TestSiteProfilesNoErrors()
 PUBLIC MACRO SetupTestModuleToLoadBaseProfile(STRING profile)
 {
   testfw->DeleteTestModule();
-  testfw->SetupTestModule( [ moduledefinition :=
+  testfw->SetupTestModule( [ timestampfolder := TRUE
+                           , moduledefinition :=
     `<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
        <meta><version>0.1.0</version></meta>
        <publisher><siteprofile path="${EncodeValue(profile)}"/></publisher>

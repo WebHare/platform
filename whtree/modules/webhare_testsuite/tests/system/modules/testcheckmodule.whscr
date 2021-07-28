@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/internal/modules/checkmodule.whlib";
 
 MACRO TestCheckModule()
 {
-  testfw->SetupTestModule();
+  testfw->SetupTestModule( [ timestampfolder := TRUE ]);
   BroadcastEvent("system:clearcaches", DEFAULT RECORD); //FIXME shouldn't be needed but apparently the exclusion list is ignored without this
 
   STRING temproot := GetModuleInstallationRoot("webhare_testsuite_temp");
