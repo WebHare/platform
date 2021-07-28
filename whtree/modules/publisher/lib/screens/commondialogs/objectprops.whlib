@@ -1085,7 +1085,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     CATCH (OBJECT e)
     {
       LogHarescriptException(e);
-      PRINT("Got exception loading webcontext: " || e->what);
+      PRINT("Got exception loading webcontext: " || e->what || "\n");
     }
   }
 
@@ -1203,7 +1203,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
       CATCH (OBJECT<TolliumException> e)
       {
-        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e->what);
+        LogHarescriptException(e);
+        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e);
       }
       CATCH (OBJECT e)
       {
@@ -1229,7 +1230,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         }
         CATCH (OBJECT<TolliumException> e)
         {
-          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e->what);
+          LogHarescriptException(e);
+          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e);
         }
         CATCH (OBJECT e)
         {
@@ -1331,9 +1333,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
       CATCH (OBJECT e)
       {
+        LogHarescriptException(e);
         // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
         // the component, so we can skip this propertyeditor in the next initialization.
-        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name ?? propeditor.selector, e->what);
+        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name ?? propeditor.selector, e);
       }
     }
   }

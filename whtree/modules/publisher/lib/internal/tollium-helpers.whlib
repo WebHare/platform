@@ -24,14 +24,16 @@ LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
-PUBLIC OBJECTTYPE PropertyEditorException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE PropertyEditorException EXTEND Exception
 <
   PUBLIC STRING propertyeditor;
   PUBLIC STRING siteprofile;
+  PUBLIC OBJECT originalexception;
 
-  MACRO NEW(STRING siteprofile, STRING propertyeditor, STRING what)
-  : Exception(what)
+  MACRO NEW(STRING siteprofile, STRING propertyeditor, OBJECT originalexception)
+  : Exception(originalexception->what)
   {
+    this->originalexception := originalexception;
     this->siteprofile := siteprofile;
     this->propertyeditor := propertyeditor;
   }
@@ -696,7 +698,6 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
     }
     CATCH (OBJECT<PropertyEditorException> e)
     {
-      LogHarescriptException(e);
       // Exception is thrown when propertyeditor could not be loaded/initialized, try to create the dialog without this
       // propertyeditor
       RECORD fault := [ name := e->propertyeditor
@@ -704,6 +705,8 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
                       , error := e->what
                       ];
       Print("Property editor exception:\n" || AnyToString(fault,'boxed'));
+      DumpValue(e->originalexception->trace,'boxed');
+
       INSERT fault INTO faultypropeditors AT END;
     }
     // Don't catch unknown exceptions

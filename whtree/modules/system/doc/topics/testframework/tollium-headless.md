@@ -88,6 +88,23 @@ AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick(":Delete"));
 AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("import"), [ messagemask := "*5 changes*" ]);
 ```
 
+### Handling return values
+To get the return value of an opened dialog (eg when testing common dialogs) you can use `expectcallreturn`. Example:
+
+```
+// Create a 'normal folder' (type 0) in the repository (folder 1)
+RECORD screenchange := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), 1, [ type := 0, isfolder := TRUE ]));
+// Set a name
+TT(":Name")->value := "mysubfolder";
+// Dismiss the dialog
+AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+// Get the ID of the new folder
+INTEGER folderid := AWAIT result.expectcallreturn();
+TestEq(TRUE, folderid > 0);
+```
+
+(`expectcallreturn` is a function call so the testframework can detect that you're now waiting for the dialog call to return)
+
 ### Opening subapplications
 If an action triggers a new application, you can open this new app using %TTLaunchStartedApp. Example:
 

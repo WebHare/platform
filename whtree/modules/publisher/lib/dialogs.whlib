@@ -126,9 +126,9 @@ PUBLIC RECORD FUNCTION RunSelectNewFSObjectTypeDialog(OBJECT parentscreen, INTEG
     @param parentscreen Screen invoking us
     @param parentfolder Folder which will receive the new object
     @param options @includecelldef %RunSelectNewFSObjectTypeDialog.options
-    @cell options.template If not 0, duplicate this object. (isfolder and type options are ignored)
-    @cell options.issite If true, create a site
-    @cell options.type Type to create. If not set, this flow may launch a 'select type' dialog
+    @cell(integer) options.template If not 0, duplicate this object. (isfolder and type options are ignored)
+    @cell(boolean) options.issite If true, create a site
+    @cell(integer) options.type Type to create. If not set, this flow may launch a 'select type' dialog
     @return ID of the newly generated fsobject, 0 if creation was cancelled
 */
 PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
