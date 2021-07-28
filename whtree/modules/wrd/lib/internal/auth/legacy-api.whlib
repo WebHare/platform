@@ -1057,7 +1057,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
     RETURN RepeatText("x", Length(id) - 8) || Right(id,8);
   }
 
-  STRING FUNCTION __CheckSession(BOOLEAN autokill)
+  STRING FUNCTION __CheckSession()
   {
     //__CheckSession is only invoked if IsRequest() and if this->sessionid = ""
     RECORD cookieinfo := this->GetCachedCookies();
@@ -1089,20 +1089,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
       }
       IF(this->debug)
         this->AddDebugMessage("User identity was not proven");
-    }
-
-    IF(autokill AND (cookieinfo.pers != "" OR cookieinfo.sessionid != ""))
-    {
-      IF(this->debug)
-        this->AddDebugMessage("Closing webserver session and resetting session cookie");
-
-      //There's a session, but it's incorrect. Destroy it
-      CloseWebSession(cookieinfo.sessionid, "");
-      this->SetSessionCookie("");
-    }
-    IF(autokill AND GetWebCookie(this->cookiename || "_j") != "")
-    {
-      UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
     }
 
     RETURN "";
@@ -1192,7 +1178,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
     IF(this->sessionid != "" OR NOT IsRequest())
       RETURN this->sessionid;
 
-    this->sessionid := this->__CheckSession(FALSE);
+    this->sessionid := this->__CheckSession();
     IF(this->sessionid != "")
     {
       this->loggedinentity := -1; //clear cached loggedin info
