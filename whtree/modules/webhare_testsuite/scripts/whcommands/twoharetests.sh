@@ -51,5 +51,5 @@ $TH_EXEC2 webserver addbackend $TH_WEBINTERFACE2
 #$TH_EXEC1 run mod::webhare_testsuite/tests/system/twohare/prepare1.whscr
 $TH_EXEC1 registry set webhare_testsuite.tests.secondhareinterface $TH_WEBINTERFACE2 &&
   $TH_EXEC2 run mod::webhare_testsuite/tests/system/twohare/prepare-server2.whscr &&
-  $TH_EXEC1 runtest system.twohare.test_peerserver ||
+  $TH_EXEC1 runtest --outputdir /output system.twohare.test_peerserver ||
   die "tests failed"

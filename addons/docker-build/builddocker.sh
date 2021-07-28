@@ -255,7 +255,7 @@ fi
 # If building for CI, build artifccts to speed up the testsuite
 if [ -n "$BUILDING_INSIDE_CI" ]; then
 
-  echo "Creating assetpack $DESTDIR/build/webare_testsuite_assetpacks.tar.gz"
+  echo "Creating assetpack $DESTDIR/build/webhare_testsuite_assetpacks.tar.gz"
 
   CONTAINER=`$SUDO docker create -l webharecitype=testdocker -e WH_EXTRACTTESTSUITE=1 -e WEBHARE_ALLOWEPHEMERAL=1 $BUILD_IMAGE`
   echo "  (using container $CONTAINER)"
@@ -271,7 +271,7 @@ if [ -n "$BUILDING_INSIDE_CI" ]; then
     exit 1
   fi
 
-  ( cd $TMPPACK/ ; tar zcf $DESTDIR/build/webare_testsuite_assetpacks.tar.gz webhare_testsuite.basetest )
+  ( cd $TMPPACK/ ; tar zcf $DESTDIR/build/webhare_testsuite_assetpacks.tar.gz webhare_testsuite.basetest )
   rm -rf -- $TMPPACK
 fi
 

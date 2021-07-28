@@ -47,10 +47,10 @@ if [ -n "$WH_EXTRACTTESTSUITE" ]; then
   wh fixmodules webhare_testsuite #download deps for basetest
 
   # Extract compiled webhare_testsuite assetpack
-  if [ -f /build/webare_testsuite_assetpacks.tar.gz ]; then
-    echo `date` "Installing embedded assetpack from /build/webare_testsuite_assetpacks.tar.gz"
+  if [ -f /build/webhare_testsuite_assetpacks.tar.gz ]; then
+    echo `date` "Installing embedded assetpack from /build/webhare_testsuite_assetpacks.tar.gz"
     mkdir -p /opt/whdata/publisher.ap/
-    tar -C /opt/whdata/publisher.ap/ -xf /build/webare_testsuite_assetpacks.tar.gz
+    tar -C /opt/whdata/publisher.ap/ -xf /build/webhare_testsuite_assetpacks.tar.gz
     ls -l /opt/whdata/publisher.ap/
   fi
 

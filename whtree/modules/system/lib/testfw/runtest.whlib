@@ -53,20 +53,16 @@ PUBLIC STATIC OBJECTTYPE RunTests
   PUBLIC RECORD ARRAY cmdparams;
 
   STRING tempdir;
-  STRING outputdir;
+
   STRING installroot;
   STRING basetesturl;
 
-  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  MACRO NEW()
   {
     this->installroot := GetInstallationRoot();
     this->tempdir := GenerateTemporaryPathnameFromBasepath(GetTempDir() || "beta-" || FormatDatetime("%Y%m%d%H%M%S", GetCurrentDatetime()) || "-");
     IF (this->tempdir NOT LIKE "*/")
       this->tempdir := this->tempdir || "/";
-    IF (CellExists(options, "OUTPUTDIR") AND options.outputdir != "")
-      this->outputdir := options.outputdir;
-    ELSE
-      this->outputdir := this->tempdir;
 
     this->basetesturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/jstests/");
   }
@@ -82,7 +78,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
     arg := Substitute(arg, "$webhare_dir$", this->installroot);
     arg := Substitute(arg, "$testbasedir$", GetDirectoryFromPath(testfile));
     arg := Substitute(arg, "$temp_dir$", this->tempdir);
-    arg := Substitute(arg, "$output_dir$", this->outputdir);
     RETURN Substitute(arg, "$binary_extension$", "");
   }
 

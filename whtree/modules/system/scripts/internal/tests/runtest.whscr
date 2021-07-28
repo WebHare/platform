@@ -858,7 +858,7 @@ IF (NOT RecordExists(parsedargs))
 
 OpenPrimary();
 
-testrunner := NEW RunTests([ outputdir := parsedargs.outputdir ]);
+testrunner := NEW RunTests;
 
 STRING testgroup := "all";
 STRING testname := "all";
@@ -920,6 +920,7 @@ FOREVERY (STRING param FROM parsedargs.params)
 IF (parsedargs.testname = "")
   parsedargs.testname := "all";
 
+RECORD ARRAY alltests;
 WHILE (TRUE)
 {
   RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
@@ -938,6 +939,7 @@ WHILE (TRUE)
 
     // Top-level tests don't honor --type=break
     RECORD localresult := RunTest(test, "*", TRUE, parsedargs.skip);
+    INSERT localresult INTO alltests AT END;
 
     STRING ARRAY failed_tests_names :=
         SELECT AS STRING ARRAY COLUMN test
@@ -999,3 +1001,11 @@ WHILE (TRUE)
 
 IF (ObjectExists(jstestrunner))
   WaitForPromise(jstestrunner->Close());
+
+IF(parsedargs.outputdir != "")
+{
+  STRING testreportfile :=MergePath(parsedargs.outputdir, "testreport.json");
+  CreateDiskDirectoryRecursive(parsedargs.outputdir, TRUE);
+  StoreDiskFile(testreportfile, EncodeJSONBlob(CELL[ alltests ]), [ overwrite := TRUE ]);
+  Print(`Written test report to ${testreportfile}\n`);
+}

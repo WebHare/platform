@@ -29,6 +29,7 @@ builddocker:
     - schedules
   script:
     - whtree/bin/wh builddocker
+  # These artifacts contain the webhare_testsuite_assetpacks.tar.gz
   artifacts:
     paths:
       - build/
@@ -42,6 +43,7 @@ builddocker-scheduled:
     - schedules
   script:
     - whtree/bin/wh builddocker --no-cache
+  # These artifacts contain the webhare_testsuite_assetpacks.tar.gz
   artifacts:
     paths:
       - build/
@@ -57,8 +59,8 @@ testbaselibs:
     - whtree/bin/wh testdocker --tag=-external baselibs
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -68,8 +70,8 @@ testmodules:
     - whtree/bin/wh testdocker --tag=-external checkmodules
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -81,8 +83,8 @@ testversioning:
     - whtree/bin/wh testdocker --tag=-external publisher-versioning
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -94,8 +96,8 @@ testpublisher:
     - whtree/bin/wh testdocker --tag=-external,-forms publisher
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -107,8 +109,8 @@ testpublisher-forms:
     - whtree/bin/wh testdocker --tag=forms publisher
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -120,8 +122,8 @@ testsystem:
     - whtree/bin/wh testdocker --tag=-external system
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -133,8 +135,8 @@ testwebdesign:
     - whtree/bin/wh testdocker --tag=-external publisher-webdesign
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -146,8 +148,8 @@ testdatabase:
     - whtree/bin/wh testdocker --tag=-external wh.database
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -159,8 +161,8 @@ testdatabase_postgresql:
     - whtree/bin/wh testdocker --postgresql --tag=-external wh.database
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -172,8 +174,8 @@ testtollium:
     - whtree/bin/wh testdocker --tag=-external tollium
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -185,8 +187,8 @@ testconsilio:
     - whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -198,8 +200,8 @@ testelasticsearch:
     - TESTFW_SETUP_ELASTICSEARCH=1 whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -211,8 +213,8 @@ testcore:
     - whtree/bin/wh testdocker --tag=-external --generatexmltests wh.hscore
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -224,8 +226,8 @@ testwebserver:
     - whtree/bin/wh testdocker --tag=-external wh.webserver
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -237,8 +239,8 @@ testsocialite:
     - whtree/bin/wh testdocker --tag=-external socialite
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -250,8 +252,8 @@ testwrd:
     - whtree/bin/wh testdocker --tag=-external wrd
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -263,8 +265,8 @@ testjscomponents:
     - whtree/bin/wh testdocker --tag=-external wh.jscomponents
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -277,8 +279,8 @@ testexternal:
     - whtree/bin/wh testdocker --tag=external
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -291,8 +293,8 @@ testsftp:
     - whtree/bin/wh testdocker --tag=-external wh.sftp
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -304,8 +306,8 @@ testtwohares:
     - whtree/bin/wh testdocker --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
   artifacts:
     paths:
-      - artifacts
-    when: on_failure
+      - artifacts/
+    when: always
     expire_in: 1 week
   interruptible: true
 
@@ -318,7 +320,7 @@ calculatecoverage:
     - whtree/bin/wh testdocker --coverage --generatexmltests
   artifacts:
     paths:
-      - artifacts
+      - artifacts/
       - coverage.tar.gz
     when: always
     expire_in: 1 week
