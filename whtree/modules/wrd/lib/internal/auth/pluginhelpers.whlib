@@ -1,0 +1,56 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+
+
+RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
+{
+  OBJECT wrdschema := OpenWRDSchema(wrdschemaname);
+  IF(NOT ObjectExists(wrdschema))
+  {
+    RETURN [ value := CELL[ fatalerror := `No such schema '${wrdschemaname}'` ]
+           , ttl := 15 * 60 * 1000
+           , eventmasks := [ "wrd:schema.list" ]
+           ];
+  }
+
+  OBJECT wrdauth;
+  IF(sitetag != "") //did you have too.... ?
+  {
+    wrdauth := OpenWRDAuthIntegration(wrdschema, sitetag);
+    IF(NOT ObjectExists(wrdauth))
+    {
+      RETURN [ value := CELL[ fatalerror := `No such auth site '${sitetag}' in schema '${wrdschemaname}'` ]
+             , ttl := 15 * 60 * 1000
+             , eventmasks := wrdschema->GetEventMasks()
+             ];
+    }
+    IF(NOT ObjectExists(wrdschema->accounttype))
+    {
+      RETURN [ value := CELL[ fatalerror := `No accounttype defined for schema '${wrdschemaname}'` ]
+             , ttl := 15 * 60 * 1000
+             , eventmasks := wrdschema->GetEventMasks()
+             ];
+    }
+  }
+
+  RECORD wrdauthconfig :=
+      CELL[ schemaid := wrdschema->id
+          , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
+          , authdomainid := ObjectExists(wrdauth) ? wrdauth->id : 0
+          ];
+
+  RETURN [ value := wrdauthconfig
+         , ttl := 15 * 60 * 1000
+         , eventmasks := wrdschema->GetEventMasks()
+         ];
+    }
+
+//Get everything you need to know about WRDAuth's configuration, cachacble
+PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema, STRING sitetag)
+{
+  RETURN GetAdhocCached(CELL[ wrdschema, sitetag ], PTR GetCacheableWRDAuthConfig(wrdschema, sitetag));
+}
