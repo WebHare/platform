@@ -195,33 +195,6 @@ PUBLIC OBJECTTYPE LayoutTest_tabs EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE LayoutTest_gridLayout EXTEND TolliumScreenBase
-<
-  MACRO DoToggleProgress()
-  {
-    IF(this->progress->value = 5)
-    {
-      this->progress->value := 10;
-      this->progress->max := 10;
-    }
-    ELSE IF(this->progress->value = 10)
-    {
-      this->progress->value := 0;
-      this->progress->max := 0;
-    }
-    ELSE IF(this->progress->max = 0)
-    {
-      this->progress->value := 0;
-      this->progress->max := 10;
-    }
-    ELSE
-    {
-      this->progress->value := 5;
-      this->progress->max := 10;
-    }
-  }
->;
-
 PUBLIC OBJECTTYPE LayoutTest_grid EXTEND TolliumScreenBase
 <
   MACRO DoButtonAction()

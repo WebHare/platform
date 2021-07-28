@@ -14,7 +14,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
           more extensions, you need to invoke RunExtensionsPostInit on this component. During submission you should invoke
           SubmitExtensions to give all inserted extensions a chance to do their work */
 
-PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
+PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -33,9 +33,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 
   /// Currently selected page (invariant: pvt_selected_page->visible = TRUE && exists visible tab <-> ObjectExists(pvt_selected_page))
   OBJECT pvt_selected_page;
-
-  /// List of extra components
-  OBJECT ARRAY pvt_line;
 
   /** Currently loaded tabs extensions
       @cell(string) id Unique id for this load
@@ -65,6 +62,12 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
   */
   PUBLIC RECORD ARRAY insertpoints;
 
+  /// Extra components to offer to extensions
+  PUBLIC RECORD ARRAY extendcomponents;
+
+  /// Extra handlers to offer to extensions
+  PUBLIC RECORD ARRAY extendhandlers;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -78,10 +81,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
   */
   PUBLIC PROPERTY pages(pvt_pages, -);
 
-  /** List of extra components
-  */
-  PUBLIC PROPERTY line(pvt_line, -);
-
   /** Type of this component (possible values: "regular", "server", "stacked")
   */
   PUBLIC PROPERTY type(pvt_type, SetType);
@@ -93,9 +92,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 
   /// Callback called when the selected tab changes
   PUBLIC FUNCTION PTR onselect;
-
-  // Internal property used by TolliumLinesContainer
-  PROPERTY lines(GetLines, SetLines);
 
   // ---------------------------------------------------------------------------
   //
@@ -120,7 +116,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
   {
     TolliumComponentBase::StaticInit(def);
     this->pvt_pages := SELECT AS OBJECT ARRAY component FROM def.pages;
-    this->pvt_line := SELECT AS OBJECT ARRAY component FROM def.line;
     this->pvt_type := def.type;
     this->onselect := def.onselect;
     this->savestate := def.savestate;
@@ -160,7 +155,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 
   UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
   {
-    RETURN this->pvt_pages CONCAT this->pvt_line;
+    RETURN this->pvt_pages;
   }
 
   UPDATE RECORD FUNCTION GetExtraDirtyFlags()
@@ -182,18 +177,10 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 
     IF (this->dirtyflags.fully)
     {
-      RECORD line := this->TolliumWebDoLines();
-      STRING ARRAY lineitems;
-      IF (RecordExists(line))
-        lineitems := SELECT AS STRING ARRAY item
-                       FROM line.items
-                      WHERE CellExists(items, "item"); // Skip 'labelfor's
-
       RECORD compinfo := [ unmasked_events := GetUnmask(this,["select"])
                          , tabtype := this->type
                          , selected := GetComponentName(selectedpage)
                          , pages := GetVisibleComponentNames(this->pages)
-                         , line := lineitems
                          ];
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
     }
@@ -282,23 +269,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
       this->pvt_type := newtype;
       this->ExtUpdatedComponent();
     }
-  }
-
-  RECORD ARRAY FUNCTION GetLines()
-  {
-    RETURN [ [ items := this->pvt_line
-             , linesettings := [ layout := "left"
-                               ]
-             ]
-           ];
-  }
-
-  MACRO SetLines(RECORD ARRAY lines)
-  {
-    IF (Length(lines) > 1)
-      THROW NEW TolliumException(this, `Tabs component ${this->name} can contain at most one line`);
-
-    this->pvt_line := Length(lines) = 1 ? lines[0].items : DEFAULT OBJECT ARRAY;
   }
 
   // ---------------------------------------------------------------------------
@@ -700,7 +670,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
       IF (ObjectExists(rec.fragment))
         rec.fragment->ValidateValue(feedback);
 
-    TolliumExtendableLinesContainerBase::ValidateValue(feedback);
+    TolliumComponentBase::ValidateValue(feedback);
   }
 
   /** Request extensions to submit.
@@ -761,4 +731,12 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
     RETURN SELECT extension := fragment FROM this->loaded_extensions;
   }
 
+  /** @return The component. Can still be a DEFAULT OBJECT if nothing was inserted!  */
+  PUBLIC OBJECT FUNCTION GetExtendComponent(STRING objname)
+  {
+    RECORD hit := SELECT * FROM this->extendcomponents WHERE ToUppercase(name)=ToUppercase(objname);
+    IF(NOT RecordExists(hit))
+      THROW NEW Exception(`No extendcomponent '${objname}' available to this extension`);
+    RETURN hit.component;
+  }
 >;

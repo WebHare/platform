@@ -3656,12 +3656,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" objecttype="/lib/components/tabs.whlib#TolliumTabs" />
-        <tai:childcomponents field="line" target="./s:line/*" /><!-- Match all elements within <line> -->
         <tai:childcomponents field="pages" target="./s:tab" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
-      <xs:element ref="line" minOccurs="0" maxOccurs="1" /><!-- Only allows inline items -->
       <xs:element ref="tab" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
     <xs:attributeGroup ref="ComponentBase" />
