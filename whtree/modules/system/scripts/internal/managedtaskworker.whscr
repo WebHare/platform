@@ -67,6 +67,8 @@ MACRO Mainloop()
     CATCH(OBJECT e)
     {
       LogHarescriptException(e);
+      WHILE (trans->IsNestedWorkOpen())
+        trans->PopWork();
       IF(trans->IsWorkOpen())
         trans->RollbackWork();
 
