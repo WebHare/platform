@@ -193,7 +193,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(this->userobj->wrdentity->id);
       IF (usereditpolicy.passwordvalidationchecks != "")
       {
-        RECORD authsettings := this->userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->GetPasswordFieldTag());
+        RECORD authsettings := this->userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->wrdschema->accountpasswordtag);
 
         IF (IsValueSet(authsettings)
             AND IsValueSet(authsettings.passwords)

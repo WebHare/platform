@@ -620,17 +620,15 @@ fi
 
 # Can't use docker cp due to the volume at /opt/whdata/
 mkdir -p $ARTIFACTS/whdata
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
 $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json | tar -x -C $ARTIFACTS/
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   mkdir -p $ARTIFACTS/whdata2
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata2/
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata2/
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata2/
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
   $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/whdata2/
+  $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json | tar -x -C $ARTIFACTS/
 fi
 
 if [ -n "$COVERAGE" ]; then
