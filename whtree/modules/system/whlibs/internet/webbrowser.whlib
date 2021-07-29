@@ -1619,10 +1619,18 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     DELETE FROM this->pvt_cookies WHERE name=cookiename;
   }
 
+  /** Deletes cookies by wildcard mask
+      @param cookiemask Wildcard mask of the cookies to delete, case-insensitive
+  */
+  PUBLIC MACRO DeleteCookies(STRING cookiemask)
+  {
+    DELETE FROM this->pvt_cookies WHERE ToUppercase(name) LIKE ToUppercase(cookiemask);
+  }
+
   /// Clears the current list of cookies
   PUBLIC MACRO DeleteAllCookies()
   {
-    DELETE FROM this->pvt_cookies;
+    this->DeleteCookies("*");
   }
 
   /** Returns the current list of cookies

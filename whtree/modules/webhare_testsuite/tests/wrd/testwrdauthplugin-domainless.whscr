@@ -418,7 +418,7 @@ VARIANT ARRAY FUNCTION MakeVA(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 MACRO TestCrossDomainLogin()
 {
   OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
-  testfw->browser->DeleteAllCookies();
+  testfw->browser->DeleteCookies("webharelogin-*");
 
   STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
   STRING accessrulelogin := thirdpartybaseurl || "accessruleaccounts/";
@@ -671,7 +671,7 @@ MACRO TestWRDAuthRouter()
   TestEq(FALSE, testfw->browser->GotoWebPage(Substitute(wittydata.emailchangelink, "wrdauthtest-domainless-router-extended", "wrdauthtest-domainless-router")));
   TestEq(403, testfw->browser->GetHTTPStatusCode(), "should explicitly show emailchange as forbidden");
 
-  testfw->browser->DeleteAllCookies(); //force logout otherwise can't access the reset
+  testfw->browser->DeleteCookies("webharelogin-*"); //force logout otherwise can't access the reset
 
   //Let's get to the password reset. -broken truncates password lifetime to 0 minutes, giving us an invalid link to test
   TestEq(TRUE, testfw->browser->GotoWebPage(Substitute(wittydata.forgotpasswordlink, "wrdauthtest-domainless-router-extended", "wrdauthtest-domainless-router-broken")));
@@ -710,7 +710,7 @@ MACRO TestWRDAuthRouter()
       ]);
 
   // Password link should be expired now
-  testfw->browser->DeleteAllCookies(); //force logout otherwise can't access the reset
+  testfw->browser->DeleteCookies("webharelogin-*"); //force logout otherwise can't access the reset
   TestEq(TRUE, testfw->browser->GotoWebPage(passwordsetter.verifiedlink));
   TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-linkexpired")));
 
