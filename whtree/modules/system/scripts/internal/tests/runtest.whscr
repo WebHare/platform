@@ -932,7 +932,6 @@ WHILE (TRUE)
     IF (autotests AND test.skipauto) //still counts as a match for the purposes of detecting invalid wh runtest invocations
       CONTINUE;
 
-    // Top-level tests don't honor --type=break
     RECORD localresult := RunTest(test, "*", TRUE, parsedargs.skip);
     INSERT localresult INTO alltests AT END;
 
@@ -960,6 +959,9 @@ WHILE (TRUE)
     }
     IF (localresult.status = "none")
       THROW NEW Exception("Unexpected status 'none'");
+
+    IF(Length(failed_tests)>0 AND breakonerror)
+      BREAK;
   }
 
   IF (NOT seenanytest)
