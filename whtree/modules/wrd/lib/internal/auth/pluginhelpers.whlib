@@ -57,7 +57,7 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
          ];
     }
 
-//Get everything you need to know about WRDAuth's configuration, cachacble
+//Get everything you need to know about WRDAuth's configuration, cacheable
 PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema, STRING sitetag)
 {
   RETURN GetAdhocCached(CELL[ wrdschema, sitetag ], PTR GetCacheableWRDAuthConfig(wrdschema, sitetag));
