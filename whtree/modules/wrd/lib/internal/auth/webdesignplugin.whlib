@@ -1420,7 +1420,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     this->CheckNotFailed();
 
-    OBJECT wrd_sp := this->pvt_wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+    OBJECT wrd_sp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
     IF (NOT ObjectExists(wrd_sp))
       THROW NEW Exception("This authentication domain is not setup for SAML authentication");
 
