@@ -467,13 +467,16 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
     }
   }
 
-  /** Tests if a password is correct, can be used on password, free and authenticationsettings attributes
+  /** Tests if a password is correct, can be used on password and authenticationsettings attributes
       @param attrtag Tag of the attribute with the password
       @param testvalue Password to test
       @return TRUE if 'testvalue' is the correct password; can be used on password, free and authenticationsettings attributes.
   */
   PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
   {
+    IF(testvalue = "")
+      RETURN FALSE;
+
     // Find the current password of this entity, based on the attribute
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
     IF (NOT RecordExists(attr))
@@ -482,7 +485,6 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
     VARIANT data := this->GetField(attrtag);
     SWITCH (attr.attributetype)
     {
-      CASE wrd_attributetype_free                     { RETURN data = testvalue; }
       CASE wrd_attributetype_password                 { RETURN VerifyWebHarePasswordHash(testvalue, data); }
       CASE wrd_attributetype_authenticationsettings
       {
@@ -490,7 +492,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
       }
       DEFAULT
       {
-        THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetype}' and cannot store a password`);
+        THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetypename}' and cannot store a password`);
       }
     }
   }

@@ -701,7 +701,7 @@ MACRO TestAuthenticationAttrs()
 
   TestEq("AUTHENTICATIONSETTINGS",  persontype->GetAttribute("AUTHSETTINGS").attributetypename);
 
-  OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com" ]);
+  OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com", test_free := "MyPwd"]);
   TestEq(DEFAULT RECORD, testperson->GetField("AUTHSETTINGS"));
 
   TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
@@ -713,6 +713,8 @@ MACRO TestAuthenticationAttrs()
                         , doesnotexist := 1
                         ]
       ]));
+
+  TestThrowsLike("*TEST_FREE*'FREE'*cannot store*", PTR testperson->VerifyPassword("TEST_FREE", "MyPwd"));
 
   testperson->UpdatePassword("authsettings", "hi");
   TestEq(TRUE, testperson->VerifyPassword("authsettings", "hi"));

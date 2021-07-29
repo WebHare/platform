@@ -1,0 +1,90 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+
+
+RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
+{
+  OBJECT wrdschema := OpenWRDSchema(wrdschemaname);
+  IF(NOT ObjectExists(wrdschema))
+  {
+    RETURN [ value := CELL[ fatalerror := `No such schema '${wrdschemaname}'` ]
+           , ttl := 15 * 60 * 1000
+           , eventmasks := [ "wrd:schema.list" ]
+           ];
+  }
+
+  OBJECT wrdauth;
+  IF(sitetag != "") //did you have too.... ?
+  {
+    wrdauth := OpenWRDAuthIntegration(wrdschema, sitetag);
+    IF(NOT ObjectExists(wrdauth))
+    {
+      RETURN [ value := CELL[ fatalerror := `No such auth site '${sitetag}' in schema '${wrdschemaname}'` ]
+             , ttl := 15 * 60 * 1000
+             , eventmasks := wrdschema->GetEventMasks()
+             ];
+    }
+    IF(NOT ObjectExists(wrdschema->accounttype))
+    {
+      RETURN [ value := CELL[ fatalerror := `No accounttype defined for schema '${wrdschemaname}'` ]
+             , ttl := 15 * 60 * 1000
+             , eventmasks := wrdschema->GetEventMasks()
+             ];
+    }
+  }
+
+  RECORD wrdauthconfig :=
+      CELL[ schemaid := wrdschema->id
+          , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
+          //TODO various extra sanity checks on authdomainid are useless with domainless. do we need those checks back? feels like they should just entity GUIDs instead because some also use direct entityids
+          , authdomainid := ObjectExists(wrdauth) ? wrdauth->id : 0
+          , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
+          , wrdschema->accountpasswordtag
+          , wrdschema->accountpasswordisauthsettings
+          ];
+
+  IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef?
+    THROW NEW Exception(`wrd:auth.domainsecret has not been set on schema '${wrdschema->tag}'`);
+
+  RETURN [ value := wrdauthconfig
+         , ttl := 15 * 60 * 1000
+         , eventmasks := wrdschema->GetEventMasks()
+         ];
+    }
+
+//Get everything you need to know about WRDAuth's configuration, cacheable
+PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema, STRING sitetag)
+{
+  RETURN GetAdhocCached(CELL[ wrdschema, sitetag ], PTR GetCacheableWRDAuthConfig(wrdschema, sitetag));
+}
+
+
+/** Encrypts and signes data with the domain secret
+    @param indata Data to encrypt
+    @param type Type of data (also needed for decryption)
+    @return Encoded and encrypted data
+*/
+PUBLIC STRING FUNCTION EncryptWRDAuthData(RECORD wrdauthconfig, RECORD indata, STRING type)
+{
+  IF(NOT RecordExists(indata))
+    THROW NEW Exception("Trying to encrypt a default record");
+
+  STRING encrypteddata := EncryptAndSignData(EncodeHSON(indata), "SHA-1,BLOWFISH+CBC,8", wrdauthconfig.domainsecret || type);
+  RETURN encrypteddata;
+}
+
+/** Decodes previously encrypted data
+    @param encrypteddata Encrypted data
+    @param type Type of data (must match type used in EncryptData)
+    @return Decrypted data (DEFAULT RECORD if decryption or validation failed)
+*/
+PUBLIC RECORD FUNCTION DecryptWRDAuthData(RECORD wrdauthconfig, STRING encrypteddata, STRING type)
+{
+  STRING data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", wrdauthconfig.domainsecret || type);
+  RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
+}

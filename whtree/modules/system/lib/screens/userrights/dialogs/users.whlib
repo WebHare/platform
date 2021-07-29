@@ -66,11 +66,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
     ^username->cellname := this->contexts->userapi->wrdschema->accountlogintag;
 
-    ^lastlogin->cellname := this->tolliumcontroller->wrdauthplugin->GetWRDAuthDomain()->lastloginfieldtag;
-    ^lastlogin->visible := ^lastlogin->cellname != "";
-    IF(NOT ^lastlogin->visible)
-      ^lastlogin->composition := DEFAULT OBJECT;
-
     IF(this->contexts->wrdschema->accountemailtag = ""
        OR this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag)
     {

@@ -806,7 +806,7 @@ OBJECTTYPE SAMLConnectedEntity
   }
 >;
 
-PUBLIC OBJECTTYPE SAMLConnectedIdentityProvider EXTEND SAMLConnectedEntity
+PUBLIC STATIC OBJECTTYPE SAMLConnectedIdentityProvider EXTEND SAMLConnectedEntity
 < // ---------------------------------------------------------------------------
   //
   // Public API
@@ -822,7 +822,7 @@ PUBLIC OBJECTTYPE SAMLConnectedIdentityProvider EXTEND SAMLConnectedEntity
   }
 >;
 
-PUBLIC OBJECTTYPE SAMLConnectedServiceProvider EXTEND SAMLConnectedEntity
+PUBLIC STATIC OBJECTTYPE SAMLConnectedServiceProvider EXTEND SAMLConnectedEntity
 <
 >;
 
@@ -1089,7 +1089,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
 
 /** Implements a SAML SP that connects to a Webhare IDP
 */
-PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
+PUBLIC STATIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
 < // ---------------------------------------------------------------------------
   //
   // Helper functions
@@ -1128,13 +1128,12 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
     ELSE
       fullname := fullname || " (" || login || ")";
 
-    OBJECT authdomain := this->plugin->GetWRDAuthDomain();
     INTEGER userid;
 
     IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")
-      userid := authdomain->LookupGUID(statement.subject.nameid.value);
+      userid := this->plugin->accounttype->Search("WRD_GUID", statement.subject.nameid.value);
     ELSE
-      userid := authdomain->LookupLogin(statement.subject.nameid.value);
+      userid := this->plugin->LookupLogin(statement.subject.nameid.value);
 
     IF (userid = 0)
     {
@@ -1143,7 +1142,7 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
         OBJECT trans := GetPrimary();
         trans->BeginWork();
 
-        OBJECT wrdschema := authdomain->accounttype->wrdschema;
+        OBJECT wrdschema := this->plugin->wrdschema;
         INTEGER samlimportunit := wrdschema->^whuser_unit->Search("WRD_TAG", "WH_SAMLIMPORTUNIT"); //TODO should be configurable or even Smarter
         IF(samlimportunit = 0)
           samlimportunit := wrdschema->^whuser_unit->CreateEntity([ wrd_tag := "WH_SAMLIMPORTUNIT", wrd_title := "SAML Import unit" ])->id;
@@ -1158,13 +1157,13 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
         IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")
           INSERT CELL wrd_guid := statement.subject.nameid.value INTO fields;
 
-        IF (authdomain->emailfieldtag != "")
-          fields := CellInsert(fields, authdomain->emailfieldtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/email"));
-        IF (authdomain->loginfieldtag != "" AND authdomain->emailfieldtag != authdomain->loginfieldtag)
-          fields := CellInsert(fields, authdomain->loginfieldtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/login"));
+        IF (wrdschema->accountemailtag != "")
+          fields := CellInsert(fields, wrdschema->accountemailtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/email"));
+        IF (wrdschema->accountlogintag != "" AND wrdschema->accountemailtag != wrdschema->accountlogintag)
+          fields := CellInsert(fields, wrdschema->accountlogintag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/login"));
 
 
-        OBJECT entity := authdomain->accounttype->CreateEntity(fields);
+        OBJECT entity := this->plugin->accounttype->CreateEntity(fields);
 
         trans->CommitWork();
 
@@ -1194,7 +1193,7 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
 
 /** Implements a SAML IDP that exports Webhare data
 */
-PUBLIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
+PUBLIC STATIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
 < // ---------------------------------------------------------------------------
   //
   // overridden functions
@@ -1209,10 +1208,9 @@ PUBLIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
         , "WRD_LASTNAME"
         ];
 
-    OBJECT authdomain := this->plugin->GetWRDAuthDomain();
-    INSERT authdomain->loginfieldtag INTO getfields AT END;
-    IF (authdomain->emailfieldtag != "" AND authdomain->emailfieldtag NOT IN getfields)
-      INSERT authdomain->emailfieldtag INTO getfields AT END;
+    INSERT this->plugin->wrdschema->accountlogintag INTO getfields AT END;
+    IF (this->plugin->wrdschema->accountemailtag != "" AND this->plugin->wrdschema->accountemailtag NOT IN getfields)
+      INSERT this->plugin->wrdschema->accountemailtag INTO getfields AT END;
 
     RECORD fields := this->plugin->GetLoggedinEntityFields(getfields);
 
@@ -1227,15 +1225,15 @@ PUBLIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
           , value :=            fields.wrd_lastname
           ]
         , [ name :=             "http://b-lex.com/saml/attribute/login"
-          , value :=            GetCell(fields, authdomain->loginfieldtag)
+          , value :=            GetCell(fields, this->plugin->wrdschema->accountlogintag)
           ]
         ];
 
-    IF (authdomain->emailfieldtag != "")
+    IF (this->plugin->wrdschema->accountemailtag != "")
     {
       INSERT
           [ name :=             "http://b-lex.com/saml/attribute/email"
-          , value :=            GetCell(fields, authdomain->emailfieldtag)
+          , value :=            GetCell(fields, this->plugin->wrdschema->accountemailtag)
           ] INTO attributes AT END;
     }
 

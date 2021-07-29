@@ -3,7 +3,7 @@
 
 /** Base type for SAML SP configuration
 */
-PUBLIC OBJECTTYPE SAMLSPConfigBase
+PUBLIC STATIC OBJECTTYPE SAMLSPConfigBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -46,7 +46,7 @@ PUBLIC OBJECTTYPE SAMLSPConfigBase
 
 /** Base type for SAML IDP configuration
 */
-PUBLIC OBJECTTYPE SAMLIDPConfigBase
+PUBLIC STATIC OBJECTTYPE SAMLIDPConfigBase
 < // ---------------------------------------------------------------------------
   //
   // Variables

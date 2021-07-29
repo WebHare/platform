@@ -29,7 +29,7 @@
           </tab>
           <tab name="advanced">
             <datetime readonly="true" name="creationdate" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="wrd_creationdate"  />
-            <datetime readonly="true" name="lastlogin" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="" tid=".lastlogin" />
+            <datetime readonly="true" name="lastlogin" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="whuser_lastlogin" tid=".lastlogin" />
             <textedit readonly="true" name="lastip" enabled="false" tid=".lastip" visible="false" />
 
             <line layout="left">
