@@ -851,7 +851,7 @@ PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
 
 /** Generate a SAML login request. Returns a form instruction (redirect/form post)
     @param wrdauthplugin WRD auth plugin
-    @param sp_id Tag of SAML SP
+    @param sp_tag Tag of SAML SP
     @param redirectto Redirect to this URL after login
     @cell(boolean) options.forcelogin Set tot
     @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
@@ -860,12 +860,33 @@ PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
     @return @includecelldef #EncodeSAMLDocument.return
     @cell return.requestid Request ID
 */
-PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp_id, STRING redirectto, RECORD options)
+PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_tag, STRING redirectto, RECORD options)
 {
+  OBJECT wrd_sp := wrdauthplugin->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
+  IF (NOT ObjectExists(wrd_sp))
+    THROW NEW Exception("This authentication domain is not setup for SAML authentication");
+
+  RECORD ARRAY filters;
+
+  IF (sp_tag != "")
+    INSERT [ field := "WRD_TAG", value := sp_tag ] INTO filters AT END;
+
+  RECORD ARRAY spdata := wrd_sp->RunQuery(
+      [ filters := filters
+      , outputcolumns := [ "WRD_ID" ]
+      ]);
+
+  IF (NOT RecordExists(spdata))
+    THROW NEW Exception("No SAML service provider" || (sp_tag != "" ? " with tag '" || EncodeJava(sp_tag) || "' " : "") || "configured for this authentication domain");
+  ELSE IF (LENGTH(spdata) > 1)
+    THROW NEW Exception("Multiple SAML service providers are configured, please select one by tag");
+
+
   FOREVERY (RECORD rec FROM UnpackRecord(options))
     IF (rec.name NOT IN [ "FORCELOGIN", "PASSIVE", "ACTION", "ALLOWLOGOUT" ])
       THROW NEW Exception("Illegal option '" || rec.field || "' in options");
 
+  INTEGER sp_id := spdata[0].wrd_id;
   OBJECT sp := NEW SAMLServiceProvider(wrdauthplugin->wrdschema, sp_id);
   OBJECT idp := sp->GetConnectedIDP();
 
