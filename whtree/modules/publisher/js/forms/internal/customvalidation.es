@@ -94,9 +94,14 @@ export function setFieldError(field, error, options)
 
 export function setupValidator(node, checker)
 {
-  var check = () =>
+  var check = async () =>
   {
     let error = checker(node);
+
+    // If error is a thenable (Promise or something like it) await it. Stay synchronous if not.
+    if (typeof error === "object" && error && error.then)
+      error = await error;
+
     if(dompack.debugflags.fhv)
       console.log(`[fhv] Custom check ${error ? `setting error '${error}'` : 'clearing error'} for `,node);
 

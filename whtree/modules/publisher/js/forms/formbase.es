@@ -1329,7 +1329,7 @@ export default class FormBase
       alreadyfailed = true;
 
     if(!alreadyfailed && field.whFormsApiChecker && this._dovalidation)
-      field.whFormsApiChecker();
+      await field.whFormsApiChecker();
 
     return this._reportFieldValidity(field);
   }

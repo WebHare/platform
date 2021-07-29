@@ -1,4 +1,4 @@
-import { RPCFormBase, registerHandler } from "@mod-publisher/js/forms";
+import { RPCFormBase, registerHandler, setupValidator } from "@mod-publisher/js/forms";
 import * as dompack from "dompack";
 
 class CustomForm2 extends RPCFormBase
@@ -23,3 +23,17 @@ class CustomForm2 extends RPCFormBase
 }
 
 registerHandler("webhare_testsuite:customform2", node => new CustomForm2(node));
+
+// Add async validation via setupValidator
+dompack.register(`form[data-wh-form-handler="webhare_testsuite:customform2"] [name=textarea]`, node => setupValidator(node, async () =>
+  {
+    // make it async and really slow
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    if (node.value != "RPC ok")
+    {
+      return "RPC not called yet";
+    }
+
+    return null;
+  }));

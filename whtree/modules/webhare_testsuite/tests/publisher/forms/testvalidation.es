@@ -414,4 +414,18 @@ test.registerTests(
       test.true(test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
     }
 
+  , 'Test async validation with SetupValidator'
+  , async function()
+    {
+      let setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm',
+          { jshandler: "webhare_testsuite:customform2"
+          , which: "custom2"
+          });
+
+      await test.load(setupdata.url);
+
+      test.click('button[type=submit]');
+      await test.wait('ui');
+      test.eq('RPC not called yet', test.qS(`[name=textarea]`).closest('.wh-form__fieldgroup').querySelector(".wh-form__error").textContent);
+    }
   ]);
