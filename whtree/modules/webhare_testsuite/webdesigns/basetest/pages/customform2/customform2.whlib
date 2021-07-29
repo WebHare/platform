@@ -194,4 +194,9 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 
     RETURN DEFAULT RECORD;
   }
+
+  PUBLIC RECORD FUNCTION RPC_TestRPC()
+  {
+    RETURN [ textarea := "RPC ok" ];
+  }
 >;
