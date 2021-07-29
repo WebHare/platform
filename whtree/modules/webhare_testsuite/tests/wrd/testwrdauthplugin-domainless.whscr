@@ -35,7 +35,6 @@ INTEGER entityid;
 RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
 {
   STRING url := UpdateURLVariables(thirdparty ? thirdpartyurl : baseurl, vars);
-  LogDebug("wrd:testwrdauthplugin", "Invoking " || url);
   IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
   {
     SendBlobTo(0,testfw->browser->content);
