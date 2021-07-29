@@ -48,7 +48,7 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
           , wrdschema->accountpasswordisauthsettings
           ];
 
-  IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemade ?
+  IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef?
     THROW NEW Exception(`wrd:auth.domainsecret has not been set on schema '${wrdschema->tag}'`);
 
   RETURN [ value := wrdauthconfig

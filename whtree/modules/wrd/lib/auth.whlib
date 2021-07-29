@@ -97,7 +97,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
       @return Policy record
       @cell(boolean) return.haspassword Whether the user can set a password in WebHare (eg not synced to AD or LDAP)
       @cell(string) return.passwordvalidationchecks Password validation checks
-      @cell(record) return.searchablefields For every authorixation object (unit, role and person) the list of searchable fields
+      @cell(record) return.searchablefields For every authorisation object (unit, role and person) the list of searchable fields
       @cell(string array) return.searchablefields.unit List of searchable fields for a unit
       @cell(string array) return.searchablefields.role List of searchable fields for a role
       @cell(string array) return.searchablefields.person List of searchable fields for a person
