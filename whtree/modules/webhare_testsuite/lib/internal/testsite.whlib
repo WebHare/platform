@@ -1480,8 +1480,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
   testfw->BeginWork();
 
   testfw->GetWRDSchema()->^wrd_authdomain->CreateEntity([ wrd_tag := "MYBACKEND"
-                                                        , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
-                                                        , wrdauth_lastipfield := "WHUSER_LASTIP"
                                                         ]);
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"

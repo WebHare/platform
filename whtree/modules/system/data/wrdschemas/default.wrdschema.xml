@@ -10,22 +10,8 @@
   <object tag="WRD_PERSON">
     <attributes>
       <email tag="WRD_CONTACT_EMAIL" title="Email address" unique="1" required="1" />
-      <!-- <free tag="WHUSER_LOGIN" title="Login name" unique="1" /> -->
-      <free tag="WHUSER_LASTIP" title="Last login IP" />
-      <datetime tag="WHUSER_LASTLOGIN" title="Last login time" />
       <authenticationsettings tag="WHUSER_PASSWORD" title="User password hash" />
     </attributes>
-  </object>
-
-  <object tag="WRD_AUTHDOMAIN">
-    <values matchattribute="WRD_TAG">
-      <value>
-        <field tag="WRD_TAG">WEBHAREBACKEND</field>
-        <field tag="WRD_TITLE">Default WebHare backend login</field>
-        <field tag="WRDAUTH_LASTLOGINFIELD">WHUSER_LASTLOGIN</field>
-        <field tag="WRDAUTH_LASTIPFIELD">WHUSER_LASTIP</field>
-      </value>
-    </values>
   </object>
 
 </schemadefinition>

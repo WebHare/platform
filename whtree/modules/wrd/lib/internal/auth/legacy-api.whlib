@@ -73,15 +73,13 @@ STATIC OBJECTTYPE WRDAuth
     RECORD configfields;
     IF(this->domainid != 0)
       configfields := this->domaintype->GetEntityFields(this->domainid,
-                            [ "WRDAUTH_LASTLOGINFIELD", "WRD_GUID"
-                            , "WRD_TITLE", "WRDAUTH_LASTIPFIELD"
-                            , "WRDAUTH_DOMAINSECRET"
+                            [ "WRDAUTH_LASTLOGINFIELD"
+                            , "WRDAUTH_LASTIPFIELD"
                             ]);
     ELSE
     {
       configfields := [ wrdauth_lastloginfield := ""
                       , wrdauth_lastipfield := ""
-                      , wrd_title := ""
                       ];
     }
 
@@ -278,7 +276,6 @@ STATIC OBJECTTYPE WRDAuth
       @cell newfields.wrd_title
       @cell newfields.wrdauth_language
       @cell newfields.wrdauth_lastipfield
-      @cell newfields.wrdauth_domainsecret
   */
   PUBLIC MACRO UpdateMetadata(RECORD newfields)
   {
@@ -341,12 +338,6 @@ STATIC OBJECTTYPE WRDAuth
       the_entity->UpdateEntity(upd);
   }
 
-  /// Returns the domain secret for this authentication domain
-  STRING FUNCTION GetDomainSecret()
-  {
-    RETURN this->domainrec.wrdauth_domainsecret ?? this->domainrec.wrd_guid;
-  }
-
   /** Encrypts and signes data with the domain secret
       @param indata Data to encrypt
       @param type Type of data (also needed for decryption)
@@ -358,8 +349,9 @@ STATIC OBJECTTYPE WRDAuth
       THROW NEW Exception("Trying to encrypt a default record");
 
     STRING ds := this->wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]);
-    IF(ds = "")
-      ds := this->GetDomainSecret();
+    IF(ds = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef
+      THROW NEW Exception(`wrd:auth.domainsecret has not been set`);
+
     STRING encrypteddata := EncryptAndSignData(EncodeHSON(indata), "SHA-1,BLOWFISH+CBC,8", ds || type);
     RETURN encrypteddata;
   }
@@ -376,12 +368,6 @@ STATIC OBJECTTYPE WRDAuth
     IF(ds != "") //new wrdauth_domain-less secrets
       data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", ds || type);
 
-    IF(data = "" AND this->domainid != 0) //try domain secrets, if we actually have an auth domain
-    {
-      data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", this->GetDomainSecret() || type);
-      IF(data="")
-        data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+ECB,8", this->GetDomainSecret() || type); //fallback
-    }
     RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
   }
 

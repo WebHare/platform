@@ -109,8 +109,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /// @type(object legacy-api.whlib#WRDAuthIntegration)
   OBJECT __wrdauth;
 
-  BOOLEAN pvt_api2017;
-
   RECORD pvt_config;
 
   STRING cookiename;
@@ -155,7 +153,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     RECORD config :=
            [ wrdschema := node->GetAttribute("wrdschema")
-           , api2017 := ParseXSBoolean(node->GetAttribute("api2017")) OR NOT node->HasAttribute("api2017")
            , sitetag   := ToUppercase(node->GetAttribute("sitetag"))
            , supportobjectname := node->GetAttribute("supportobjectname")
            , passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
@@ -230,8 +227,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->pvt_webcontext := webdesign;
 
     STRING schemaname := webdesign->ExpandContextVariables(config.wrdschema);
-    this->pvt_api2017 := config.api2017;
-    this->pvt_wrdschema := this->pvt_api2017 ? OpenWRDSchema(schemaname) : OpenWRDSchemaByName(schemaname);
+    this->pvt_wrdschema := OpenWRDSchema(schemaname);
     this->cookiename := webdesign->ExpandContextVariables(config.cookiename);
 
     IF(this->cookiename = "")

@@ -102,7 +102,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
       , outputcolumns := [ "*" ]
       ]);
   TestEq(testpersonrec.wrd_fullname, testpersonrec4.wrd_title);
-  TestEq(38,Length(UnpackRecord(testpersonrec4)));
+  TestEq(37,Length(UnpackRecord(testpersonrec4)));
 
   //Verify the getentityfields counterpart
   RECORD testpersonrec5 := persontype->GetEntityFields(testpersonid, [ "*" ]);

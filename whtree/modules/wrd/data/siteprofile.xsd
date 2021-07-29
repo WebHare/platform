@@ -1,15 +1,64 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<!-- THESE ELEMENTS ARE DEPRECATED -->
-
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
-  targetNamespace="http://www.webhare.net/xmlns/wrd/siteprofile"
-  xmlns="http://www.webhare.net/xmlns/wrd/siteprofile"
+  targetNamespace="http://www.webhare.net/xmlns/wrd"
+  xmlns="http://www.webhare.net/xmlns/wrd"
   elementFormDefault="qualified"
   xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
 
+  <xs:element name="wrdauth">
+    <xs:complexType>
+      <xs:attribute name="api2017">
+        <xs:annotation>
+          <xs:documentation>If present, must be set to 1/true. The attribute may be removed, it has no more effect</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="1"/>
+            <xs:enumeration value="true"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="wrdschema" type="xs:string"/>
+      <xs:attribute name="cookiename" type="xs:string"/>
+      <xs:attribute name="supportobjectname" type="xs:string"/>
+      <xs:attribute name="sitetag" type="xs:string"/>
+      <xs:attribute name="loginpage" type="xs:string"/>
+      <xs:attribute name="authpageswitty" type="xs:string"/>
+      <xs:attribute name="routerfeatures" type="xs:string"/>
+      <xs:attribute name="spautocreate" type="xs:boolean"/>
+      <xs:attribute name="passwordresetlifetime" type="xs:string"/>
+      <xs:attribute name="cachefields" type="xs:string"/>
+      <xs:attribute name="firstloginfield" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>If set, attribute which will be set to the date of the first successful login</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="lastloginfield" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>If set, attribute which will be set to the date of the last successful login</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="samesitecookie" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Defaults to 'lax'</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="nohttponlycookies" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>Do not set the HttpOnly flag on the authentication cookies. (unsafe: this may expose the cookies to XSS vunerabilities)</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="formpayments">
+    <xs:complexType>
+      <xs:attribute name="wrdschema" use="required"/>
+      <xs:attribute name="providerfield" use="required"/>
+      <xs:attribute name="paymentfield" use="required"/>
+    </xs:complexType>
+  </xs:element>
 </xs:schema>

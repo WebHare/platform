@@ -53,11 +53,7 @@ MACRO Setup()
   //Create a unique/required email field
   persontype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE, isrequired := TRUE ]);
   persontype->CreateAttribute("C1", "FREE");
-/*  persontype->CreateAttribute("TEST_ARRAY",                       "ARRAY");
-  persontype->CreateAttribute("TEST_ARRAY.TEST_INT",              "INTEGER");
-  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2",           "ARRAY");
-  persontype->CreateAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", "INTEGER");
-*/
+
   //Add a domain field..
   OBJECT domtype1 := wrdschema->CreateDomain("DOMAINTYPE1");
   domtype1->CreateEntity([ wrd_tag := "ONE", wrd_title := "First value"]);

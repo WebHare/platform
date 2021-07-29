@@ -107,11 +107,12 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       IF (ObjectExists(this->pvt_user->entity))
       {
         ^wrd_guid->value := this->pvt_user->entity->GetField("WRD_GUID");
-        IF("WHUSER_LASTIP" IN SELECT AS STRING ARRAY localtag FROM this->contexts->userapi->wrdschema->accounttype->ListAttributes(0) WHERE attributetype = 2)
-        {
-          ^lastip->value := this->pvt_user->entity->GetField("WHUSER_LASTIP");
-          ^lastip->visible := TRUE;
-        }
+        //TODO we might want to extract lastip/lastlogin from the audit log ? Or just integrate the auditlog more directly!
+        //IF("WHUSER_LASTIP" IN SELECT AS STRING ARRAY localtag FROM this->contexts->userapi->wrdschema->accounttype->ListAttributes(0) WHERE attributetype = 2)
+        //{
+        //  ^lastip->value := this->pvt_user->entity->GetField("WHUSER_LASTIP");
+        //  ^lastip->visible := TRUE;
+        //}
       }
       ^wrd_guid->enabled := FALSE;
 
