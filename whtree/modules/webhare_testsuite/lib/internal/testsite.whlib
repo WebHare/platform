@@ -72,6 +72,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field names...
                               , emailfieldname := ""
                               , withpayment := STRING[]
+                              , jshandler := ""
                               ];
 
 MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
@@ -685,6 +686,9 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     gtmdayalayerhandler->SetAttribute("formname", options.addgtmdatalayer);
   }
 
+  IF (options.jshandler != "")
+    formdef->node->SetAttribute("jshandler", options.jshandler);
+
   OBJECT thankyoupage := formdef->GetPage(formdef->GetNumPages()-1);
 
   //Add a 'simple' thankyou - simple in quotes as we currently only have richtext
@@ -1174,7 +1178,9 @@ PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEF
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
 
   RECORD formoptions := CELL[...options, DELETE which];
-  RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions) : BuildWebtoolForm(formoptions);
+  RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions)
+      : options.which = "custom2" ? BuildCustomWebtoolForm2(formoptions)
+      : BuildWebtoolForm(formoptions);
   IF(Length(options.withpayment) > 0)
   {
     CreateWRDTestSchema(CELL[options.withpayment]);

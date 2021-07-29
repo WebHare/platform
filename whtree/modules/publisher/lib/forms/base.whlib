@@ -245,6 +245,8 @@ PUBLIC OBJECTTYPE FormBase
   /// Callbacks that may add to the form dataset
   FUNCTION PTR ARRAY __formattributescallbacks;
 
+  OBJECT __directhookobject;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties and variables
@@ -639,7 +641,7 @@ PUBLIC OBJECTTYPE FormBase
 
     IF(targetname = "")
     {
-      target := this;
+      target := this->__directhookobject ?? this;
     }
     ELSE
     {

@@ -44,4 +44,5 @@
   <jstest file="testmailconfirmation-online.es" />
   <test script="testformfile-editconditions.whscr"/>
   <jstest file="testvisibleconditions.es" />
+  <jstest file="testformfile-webtoolformhook-rpc.es" />
 </group>
