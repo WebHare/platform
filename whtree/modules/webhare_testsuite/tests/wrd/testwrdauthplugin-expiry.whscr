@@ -1,0 +1,205 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
+
+STRING baseurl;
+INTEGER entityid;
+
+MACRO UpdateAuthSettings(RECORD newsettings)
+{
+  testfw->BeginWork();
+
+  RECORD cursettings := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]);
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.localsettings", CELL[...cursettings, ...newsettings ]);
+
+  testfw->CommitWork();
+}
+
+RECORD FUNCTION ExplainWRDCookies()
+{
+  RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE name = "webharelogin-testsuite-portal1";
+  OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
+  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(Tokenize(DecodeURL(logincookie.data),' ')[1],"session");
+  RETURN CELL[ login := logincookie
+             , logindetails := logincookiedetails
+             ];
+}
+
+RECORD FUNCTION DebugReq(STRING action, RECORD vars DEFAULTSTO DEFAULT RECORD)
+{
+  STRING url := ResolveToAbsoluteURL(baseurl, "/.webhare_testsuite/tests/wrd/authdebug.shtml");
+  url := UpdateURLVariables(url, CELL[ forurl := baseurl, action, ...vars ]);
+
+  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
+  {
+    SendBlobTo(0,testfw->browser->content);
+    Abort("get failure on " || testfw->browser->url);
+  }
+
+  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
+}
+
+MACRO InvalidateWebhareLoginSession()
+{
+  //Invalidate the sessionid stored in the webhare login cookie. invalidating sessions may be tricky, but just randomizing the sessionid will have the same effect
+  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
+  testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", GenerateUFS128BitId() || " " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
+}
+
+MACRO TestHelpers()
+{
+  TestEq( MakeDateTime(2021,7,13,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,15,0,0)
+                                   , 86400 * 1000i64) // 1 day
+        , "Logging in at 17:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+
+  TestEq( MakeDateTime(2021,7,13,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,1,0,0)
+                                   , 86400 * 1000i64) // 1 day
+        , "Logging in at 01:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+
+  TestEq( MakeDateTime(2021,7,19,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,15,0,0)
+                                   , 7 * 86400 * 1000i64) // 7 day
+        , "Logging in at 17:00:00 CET with 7 day expiry should give a session until 7 days later 04:00:00 CET (02:00:00 UTC)");
+
+
+  TestEq( MakeDateTime(2021,7,12,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,15,0,0)
+                                   , 60 * 60 * 1000i64) // 1 hour
+        , "Logging in at 17:00:00 CET with 1 hour expiry should give a session until 18:00:00 CET (17:00:00 UTC)");
+
+  TestEq( MakeDateTime(2021,7,12,9,30,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration, roundup_longlogins_to := -1 ]
+                                   , MakeDateTime(2021,7,12, 9,15,0)
+                                   , 15 * 60 * 1000i64) // 15 minutes
+        , "Killing roundup_longlogins_to should stop any rounding up/down");
+}
+
+MACRO PrepareExpiryTests()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  OBJECT entity := schemaobj->^wrd_person->CreateEntity(
+      [ wrd_contact_email := "expirytests@beta.webhare.net"
+      , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
+      , whuser_unit := testfw->testunit
+      ]);
+
+  entityid := entity->id;
+  baseurl := OpenTestsuiteSite()->OpenByPath("staticlogin")->link;
+
+  testfw->CommitWork();
+}
+
+MACRO TestLoginAPIs()
+{
+  /* Whitebox tests for WRDAuth cookie integration. Some tests are sensitive to absolute wall clock time so running them through the RPCs will only
+     complicate things.
+
+     And it might heen help to keep the internal APIs a bit cleaner */
+
+  OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
+  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, ["session"], [ setcreationdate := MakeDateTime(2021,7,29,15,0,0) ]);
+
+  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.session,"session");
+  TestEq(MakeDateTime(2021,7,29,15,0,0), logincookiedetails.creationdate);
+  TestEq(MakeDateTime(2021,7,30,2,0,0), logincookiedetails.expires, "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
+}
+
+MACRO TestLoginCookies()
+{
+  RECORD cookies,result;
+
+  //////////
+  //
+  // STORY: Make sure plain logins with the default settings work
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl)); //to verify it's there and to initialize the href
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
+  TestEq(TRUE, result.success);
+
+  //inspect the cookies
+  cookies := ExplainWRDCookies();
+  TestEq(DEFAULT DATETIME, cookies.login.expires, "The login cookie is supposed to be a session cookie");
+  TestEq(TRUE, GetDatetimeDifference(cookies.logindetails.creationdate, GetCurrentDatetime()).msecs < 30000, "Cookie should be created less than 30 seconds in the past");
+  TestEq(0, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days, "Non-persistent sessions may not last longer than a day");
+
+  //sanity check, are we indeed logged in
+  result := DebugReq("checkstatus");
+  TestEq(TRUE, result.isloggedin);
+
+  //////////
+  //
+  // STORY: If we disable rounding and set logins to 1ms, we should be able to verify that expires actually works (blocks session renewal)
+
+  // Reset state (but don't accidentally delete wh-debug!).
+  testfw->browser->DeleteCookies("webharelogin-*");
+  UpdateAuthSettings([ roundup_longlogins_to := -1, expire_login := 1 ]);
+
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
+  TestEq(TRUE, result.success);
+
+  cookies := ExplainWRDCookies();
+  //dumpvalue(cookies);
+  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).msecs <= 1, "Cookie should be (about) expired!");
+
+  InvalidateWebhareLoginSession();
+
+  //Try to renew the session. Should FAIL due to expirys
+  result := DebugReq("checkstatus");
+  TestEq(FALSE, result.isloggedin);
+
+
+  //////////
+  //
+  // STORY: Verify that serverside session renewal (ReestablishSession / cookie base login) does not bump the expiry time.
+
+  // Reset state (but don't accidentally delete wh-debug!). Disable all rounding. Let sessions last 60 seconds
+  testfw->browser->DeleteCookies("webharelogin-*");
+  UpdateAuthSettings([ roundup_longlogins_to := -1, expire_login := 60000 ]);
+
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
+
+  cookies := ExplainWRDCookies();
+  dumpvalue(cookies);
+
+  DATETIME initial_creationdate := cookies.logindetails.creationdate;
+  DATETIME initial_expires := cookies.logindetails.expires;
+
+  InvalidateWebhareLoginSession();
+
+  //Try to renew the session. Should SUCCEEED
+  result := DebugReq("checkstatus");
+  TestEq(TRUE, result.isloggedin);
+
+  cookies := ExplainWRDCookies();
+  dumpvalue(cookies);
+  TestEq(initial_creationdate, cookies.logindetails.creationdate, "Creationdate should be unchanged");
+  TestEq(initial_expires, cookies.logindetails.expires, "Expiry should be unchanged");
+}
+
+
+Runtestframework( [ PTR TestHelpers
+                  , PTR PrepareExpiryTests
+                  , PTR TestLoginAPIS
+                  , PTR TestLoginCookies
+                  ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

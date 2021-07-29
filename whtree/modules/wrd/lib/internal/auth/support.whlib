@@ -12,11 +12,17 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
+PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
+  [ expire_login :=                 86400 * 1000i64 // 1 day
+  , expire_persistentlogin :=  30 * 86400 * 1000i64 //30 days
+  , expire_thirdpartylogin :=       86400 * 1000i64 // 1 day
+  , roundup_longlogins_to :=  4 * 60 * 60 * 1000    // 4 am
+  , roundup_longlogins_tz := "Europe/Amsterdam"     // default timezone for rounding up long logings if not set
+  ];
 
 PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
 {

@@ -11,6 +11,7 @@
   <test script="parenttype.whscr" />
   <test script="testwrdauthplugin.whscr" />
   <test script="testwrdauthplugin-domainless.whscr" />
+  <test script="testwrdauthplugin-expiry.whscr" />
   <test script="test_names.whscr" />
   <test script="consilio.whscr" />
   <test script="testtollium.whscr" />
