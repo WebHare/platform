@@ -90,6 +90,11 @@ wh testdocker --coverage <testname>
 
 ## Running tests locally
 
+Looping publisher test until one fails
+```bash
+wh runtest --loop --breakonerror publisher.*
+```
+
 Running frontend (Chrome) tests on Linux
 ```bash
 google-chrome --remote-debugging-port=9222 --user-data-dir=$HOME/.chrome-debugged --disk-cache-dir=/dev/null

@@ -36,10 +36,9 @@ RECORD ARRAY testdefs;
 BOOLEAN print_output;
 BOOLEAN print_errors;
 BOOLEAN quiet_mode;
-BOOLEAN break_on_error;
+BOOLEAN breakonerror;
 BOOLEAN use_jobs;
 BOOLEAN autotests;
-STRING runtype;
 OBJECT testrunner;
 BOOLEAN reduceverboseness;
 OBJECT jstestrunner;
@@ -142,7 +141,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         {
           result.status := "fail";
           result.failed := result.failed CONCAT localresult.failed;
-          IF (runtype = "BREAK")
+          IF (breakonerror)
             BREAK;
         }
         ELSE IF (localresult.status = "ok" AND result.status = "none")
@@ -442,7 +441,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   CATCH (OBJECT e)
   {
     Print("Could not start runscript: " || runner || "\n");
-    IF (runtype = "BREAK")
+    IF (breakonerror)
       RETURN FALSE;
     success := FALSE;
     RETURN FALSE;
@@ -594,7 +593,7 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
   IF (NOT ObjectExists(jobrec.job))
   {
     Print("Could not start job: " || script || "\n" || FormatHarescriptErrors(jobrec.errors));
-    IF (runtype = "BREAK")
+    IF (breakonerror)
       RETURN xfail;
 
     RETURN xfail;
@@ -760,7 +759,7 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
 MACRO PrintSyntax()
 {//     | <- The room between these pipe symbols is exactly 80 characters - - - - - - -> |
   Print("Usage: runtest [-deoqj] --installroot=path\n");
-  Print("               [--type=break|continue] [--loop] [--skip=mask]\n");
+  Print("               [--loop] [--breakonerror] [--skip=mask]\n");
   Print("               all|testname[.group] [params]\n");
   Print("\n");
   Print("  -d               Print test debug information\n");
@@ -772,9 +771,8 @@ MACRO PrintSyntax()
   Print("  --installroot    WebHare installation root (overrides automatically\n");
   Print("                   determined installation root)\n");
   Print("  --moduledir=..   Dynamic modules dir (default: <webhare>/lib)\n");
-  Print("  --type=break     Break on first failing test\n");
-  Print("  --type=continue  Continue with next test after failing test\n");
-  Print("  --loop           After all test are finished, start again with first test\n");
+  Print("  --breakonerror   Break on first failing test\n");
+  Print("  --loop           After all test are finished, start again with first test (often combined with --breakonerror\n");
   Print("  --tag=..         Specify tags to require or exclude (eg: --tag=forms,-external)\n");
   Print("  --skip=mask      Skip test that match the mask (can be used multiple times)\n");
   Print("  --outputdir      Save output files to this directory\n");
@@ -841,7 +839,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "chromeurl", type := "stringopt"]
                                     , [name := "moduledir", type := "stringopt"]
                                     , [name := "skip", type := "stringlist"]
-                                    , [name := "type", type := "stringopt"]
+                                    , [name := "breakonerror", type := "switch"]
                                     , [name := "tag", type := "stringopt"]
                                     , [name := "testtype", type := "stringlist"]
                                     , [name := "outputdir", type := "stringopt"]
@@ -865,15 +863,12 @@ STRING testname := "all";
 testtypes := parsedargs.testtype;
 IF ("all" IN testtypes OR Length(testtypes)=0)
   testtypes := [ ...testtypes, "frontend", "backend" ];
-runtype := ToUppercase(parsedargs.type);
-IF (runtype = "")
-  runtype := "CONTINUE";
 print_output := parsedargs.o;
 print_errors := parsedargs.e;
 testrunner->print_debug := parsedargs.d;
 quiet_mode := parsedargs.q;
 use_jobs := NOT parsedargs.p;
-break_on_error := runtype != "CONTINUE";
+breakonerror := parsedargs.breakonerror;
 moduledir := parsedargs.moduledir;
 autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
@@ -995,7 +990,7 @@ WHILE (TRUE)
     SetConsoleExitCode(1);
   }
 
-  IF (NOT parsedargs.loop OR (Length(failed_tests)>0 AND break_on_error))
+  IF (NOT parsedargs.loop OR (Length(failed_tests)>0 AND breakonerror))
     BREAK;
 }
 
