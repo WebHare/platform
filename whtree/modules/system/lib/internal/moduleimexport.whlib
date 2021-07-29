@@ -63,7 +63,7 @@ PUBLIC RECORD FUNCTION GetModuleDataFromFolder(STRING path, STRING name, BOOLEAN
 
   IF (archived)
   {
-    IF (name NOT LIKE "*.2???????T??????Z")
+    IF (name NOT LIKE "*.2???????T??????*Z")
     {
       PRINT("Strange module folder: " || path || "\n");
       RETURN DEFAULT RECORD;
@@ -76,7 +76,7 @@ PUBLIC RECORD FUNCTION GetModuleDataFromFolder(STRING path, STRING name, BOOLEAN
   IF (name LIKE "*.*")
   {
     result.name := Left(name, SearchSubString(name, "."));
-    IF (name LIKE "*.2???????T??????Z")
+    IF (name LIKE "*.2???????T??????*Z")
     {
       result.moduledate := MakeDateFromText(Right(name, 16));
       result.newformat := TRUE;
@@ -178,6 +178,12 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
 
   RETURN success;
+}
+
+PUBLIC STRING FUNCTION GetModuleFolderTimestamp()
+{
+  // Use milliseconds for timestamps in case, CI can probably install modules more than once per second
+  RETURN FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE);
 }
 
 /** Import a module
@@ -288,9 +294,7 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
   StoreDiskFile(source_path, module_source_blob);
   SetUNIXPermissions(source_path, (6*8*8 + 6*8 + 6) BITAND umask);
 
-  STRING datestamp := FormatISO8601DateTime(GetCurrentDateTime(), "", "", "", FALSE);
-
-  finalmodulename := GetWebHareConfiguration().varroot || "installedmodules/" || importmodulename || "." || datestamp;
+  finalmodulename := GetWebHareConfiguration().varroot || "installedmodules/" || importmodulename || "." || GetModuleFolderTimestamp();
 
   // Check whether all dependencies are present
   OBJECT moduledefinitionxml := MakeXMLDocument(mdef.data);
@@ -782,11 +786,16 @@ PUBLIC BOOLEAN FUNCTION ArchiveModuleVersionByPath(STRING modulefolderpath, DATE
   STRING archiveroot := GetWebHareConfiguration().varroot || "archivedmodules";
   CreateDiskDirectoryRecursive(archiveroot, TRUE);
 
-  // Calc the new old & new paths
-  STRING obsoletedatestamp := FormatISO8601DateTime(obsoletiondate, "", "", "", FALSE);
-  STRING targetpath := archiveroot || "/" || Tokenize(modulefolderpath,'/')[END-1]|| "." || obsoletedatestamp;
+  // Calc the new old & new paths.
+  STRING targetpath := archiveroot || "/" || Tokenize(modulefolderpath,'/')[END-1]|| "." || GetModuleFolderTimestamp();
 
   BOOLEAN result := MoveDiskPath(modulefolderpath, targetpath);
+  IF(result = FALSE //looks like move failed
+     AND NOT RecordExists(GetDiskFileProperties(modulefolderpath))) //but it's still gone
+  {
+    result := TRUE; //then we thought the module was still there but it isn't? consider it a success anyway
+  }
+
   IF (result)
   {
     BroadcastEvent("system:modules.archivedmodule", DEFAULT RECORD);

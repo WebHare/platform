@@ -22,12 +22,6 @@ PUBLIC OBJECTTYPE SystemFS EXTEND VirtualModularFSBase
           THROW NEW VirtualFSException("BADPATH", "No such data path");
         RETURN NEW ModuleFS();
       }
-    CASE "modules-archive"
-      {
-        IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
-          THROW NEW VirtualFSException("BADPATH", "No such data path");
-        RETURN NEW ModuleArchiveFS();
-      }
     CASE "logs"
       {
         IF (NOT GetEffectiveUser()->HasRight("system:sysop"))
@@ -51,10 +45,6 @@ PUBLIC OBJECTTYPE SystemFS EXTEND VirtualModularFSBase
 
     RECORD ARRAY list :=
         [ [ name :=   "modules"
-          , read :=   has_sysop
-          , write :=  has_sysop
-          ]
-        , [ name :=   "modules-archive"
           , read :=   has_sysop
           , write :=  has_sysop
           ]
