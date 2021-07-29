@@ -134,6 +134,12 @@ if [ "$TESTPOSTGRESQL" == "1" ]; then
   DOCKERARGS="$DOCKERARGS -e WEBHARE_INITIALDB=postgresql"
 fi
 
+if [ -n "$WHBUILD_CI_ARTIFACTS" ]; then
+  if [ -f "$WHBUILD_CI_ARTIFACTS/webhare_testsuite_assetpacks.tar.gz" ]; then
+    DOCKERARGS="$DOCKERARGS -v $WHBUILD_CI_ARTIFACTS:/build/"
+  fi
+fi
+
 if [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
@@ -502,7 +508,7 @@ HERE
     die "Container start failed"
   fi
 
-if [ -n "$ISMODULETEST" ]; then
+  if [ -n "$ISMODULETEST" ]; then
     echo "`date` fixup/chown modules (npm etc)"
     if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
       die "chown modules failed"
@@ -627,8 +633,7 @@ $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json | tar -
 if [ -n "$TESTFW_TWOHARES" ]; then
   mkdir -p $ARTIFACTS/whdata2
   $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
-  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/whdata2/
-  $SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /output/ testreport.json | tar -x -C $ARTIFACTS/
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
 fi
 
 if [ -n "$COVERAGE" ]; then
