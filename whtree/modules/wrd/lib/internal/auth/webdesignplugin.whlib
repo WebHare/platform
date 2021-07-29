@@ -495,12 +495,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** Get wrdauth, open if needed
   */
-  OBJECT FUNCTION __GetWRDAuthIntegration()
+  PUBLIC OBJECT FUNCTION __GetWRDAuthIntegration()
   {
     this->CheckNotFailed();
     IF(NOT Objectexists(this->__wrdauth))
     {
-      this->__wrdauth := OpenWRDAuthIntegration(this->GetWRDSchema(), this->pvt_config.sitetag);
+      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig);
       this->__wrdauth->securecookie := this->pvt_config.securecookie;// OR ;
       /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
          If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
