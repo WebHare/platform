@@ -1,0 +1,89 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/jwt.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
+
+
+STRING FUNCTION GetSecretKey(STRING keys, STRING kid)
+{
+  RECORD keyinfo := DecodeJSON(keys);
+  RECORD match := SELECT * FROM keyinfo.keys WHERE keys.kid = VAR kid;
+  IF(NOT RecordExists(match))
+    THROW NEW Exception(`Key '${kid}' not found`);
+
+  RETURN GetPEMPublicKeyFromJWK(match);
+}
+
+MACRO RunOpenIDAuth()
+{
+  //FIXME replay protections. we currently just keep accepting the URL
+
+  RECORD whyreason := DecryptForThisServer("wrd:oidcauth", GetWebVariable("why"), [ fallback := DEFAULT RECORD ]);
+  RECORD clientinfo := DescribeWRDEntity(whyreason.client);
+
+  OBJECT wrdschema := OpenWRDSchemaById(clientinfo.wrdschema);
+  RECORD spinfo := wrdschema->GetTypeById(clientinfo.wrdtype)->GetEntityFields(whyreason.client, ["WRD_ID","WRD_TAG","METADATAURL","CLIENTID","CLIENTSECRET"]);
+  OBJECT oauth2 := GetOIDCOauth2Connection(spinfo);
+
+  RECORD authres := oauth2->AuthorizeClient();
+  IF(NOT authres.success)
+    ABORT(authres);
+
+  RECORD loginconfig := GetOIDCMetadata(spinfo.metadataurl);
+  OBJECT tok := VerifyJSONWebToken(oauth2->token.id_token,
+      [ alg := [ "RS256" ]
+      , secret_callback := PTR GetSecretKey(loginconfig.keys, #1)
+      , iss := STRING[loginconfig.issuer]
+      ]);
+
+  LogDebug("wrd:auth-oidc", "Received JWT for oidc auth", tok->payload);
+
+  OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
+  IF(NOT ObjectExists(targetplugin))
+    THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
+
+  STRING trylogin; //TODO let wrdauthplugin hook into these. the plugin will need to receive ID + TAG for the current client
+  IF(CellExists(tok->payload, 'email') AND CellExists(tok->payload, 'email_verified') AND tok->payload.email_verified)
+    trylogin := tok->payload.email;
+  ELSE IF(CellExists(tok->payload, 'employeeid')) //FIXME is this common or should this be selected through a special rule? currently used for UT/Azure
+    trylogin := tok->payload.employeeid;
+  ELSE
+    trylogin := tok->payload.sub;
+
+  INTEGER targetuser := targetplugin->LookupLogin(trylogin);
+  IF(targetuser = 0)
+  {
+    //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)
+    //FIXME don't reveal this data over the URL.
+    Redirect(UpdateURLVariables(whyreason.redirect, [ "wrdauth-insecure-reason" := "unmappedlogin"
+                                                    , "wrdauth-insecure-trylogin" := trylogin
+                                                    ]));
+  }
+
+  //user is recognized. log him in
+  RECORD loginres :=  targetplugin->LoginById(targetuser, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
+                                                                                       , oidctag := spinfo.wrd_tag
+                                                                                       , oidclogin := trylogin
+                                                                                       ]]);
+  IF(loginres.success)
+    Redirect(whyreason.redirect);
+  ELSE
+   Redirect(UpdateURLVariables(whyreason.redirect, [ "wrdauth-insecure-reason" := "loginfailure"
+                                                   , "wrdauth-insecure-trylogin" := trylogin
+                                                   ]));
+}
+
+OpenPrimary();
+RunOpenIDAuth();

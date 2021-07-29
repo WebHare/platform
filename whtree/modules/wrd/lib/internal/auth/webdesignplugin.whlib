@@ -35,6 +35,7 @@ LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
@@ -1364,7 +1365,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** @short Generate a SAML SSO or OIDC authentication request
-      @param type Login type (allowed values: 'saml')
+      @param type Login type (either "saml" or "oidc")
       @param serviceprovidertag Tag of the SP (can be left empty when only one SP is present)
       @param redirectto URL to redirect to after the login
       @cell(boolean) options.forcelogin Set tot
@@ -1385,6 +1386,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(type = "saml")
     {
       RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, options);
+    }
+    ELSE IF(type="oidc")
+    {
+      RETURN GenerateOIDCLoginRequest(this, serviceprovidertag, redirectto, options);
     }
     ELSE
     {

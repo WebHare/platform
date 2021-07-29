@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+
+  <object tag="WRDAUTH_OIDC_CLIENT">
+    <attributes>
+      <free tag="WRD_TITLE" unique="true" required="true"/>
+      <free tag="METADATAURL" />
+      <free tag="CLIENTID" />
+      <free tag="CLIENTSECRET" />
+      <free tag="ADDITIONALSCOPES" />
+    </attributes>
+  </object>
+
+</schemadefinition>

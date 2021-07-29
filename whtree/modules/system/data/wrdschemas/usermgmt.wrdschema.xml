@@ -2,6 +2,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_saml.xml" />
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema_oidc.xml" />
 
   <attachment tag="WHUSER_ROLE" title="WebHare usermanagement role" linkfrom="WHUSER_UNIT">
     <attributes>
