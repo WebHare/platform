@@ -29,10 +29,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   OBJECT pvt_user;
 
-  OBJECT pvt_parent;
-
-  OBJECT pvt_orgparent;
-
   /// Whether the edited user is the current user
   BOOLEAN isself;
 
@@ -60,12 +56,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->pvt_user := this->tolliumuser;
-    IF (ObjectExists(this->pvt_user))
-      this->pvt_parent := this->contexts->userapi->GetUnitOf(this->pvt_user);
-    ELSE
-      this->pvt_parent := data.parent;
 
-    this->pvt_orgparent := this->pvt_parent;
     this->policy := GetPolicyForUser(this->contexts, this->pvt_user->entityid);
 
     this->ConfigurePrefsTab();
@@ -274,7 +265,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     {
       INTEGER oldentityid := this->userobj->entityid;
 
-      INTEGER id := this->userobj->StoreEntity(work, [ whuser_unit := this->pvt_parent->entityid ]);
+      INTEGER id := this->userobj->StoreEntity(work);
       IF (id != 0)
       {
         //FIXME why would we need to sync ? this->contexts->userapi->SyncUserAfterUpdate(id);
@@ -336,10 +327,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
     this->pvt_user := user;
 
-    BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
-    IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
-      BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
-
+    BroadcastEvent("system:unit.change." || this->pvt_user->GetParentUnitId(), DEFAULT RECORD);
     BroadcastEvent("tollium:userprefs." || userobj->id, DEFAULT RECORD);
     this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
 
