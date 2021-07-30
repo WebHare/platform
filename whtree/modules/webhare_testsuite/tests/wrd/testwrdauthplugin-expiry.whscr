@@ -116,11 +116,11 @@ MACRO TestLoginAPIs()
      And it might heen help to keep the internal APIs a bit cleaner */
 
   OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
-  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, ["session"], [ setcreationdate := MakeDateTime(2021,7,29,15,0,0) ]);
+  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, ["session"], [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
 
   RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.session,"session");
-  TestEq(MakeDateTime(2021,7,29,15,0,0), logincookiedetails.creationdate);
-  TestEq(MakeDateTime(2021,7,30,2,0,0), logincookiedetails.expires, "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
+  TestEq(MakeDateTime(2321,7,29,15,0,0), logincookiedetails.creationdate);
+  TestEq(MakeDateTime(2321,7,30,4,0,0), UTCToLocal(logincookiedetails.expires, "Europe/Amsterdam"), "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
 }
 
 MACRO TestLoginCookies()
