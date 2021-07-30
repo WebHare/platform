@@ -1097,6 +1097,22 @@ MACRO TestWRDAuthRouter()
   TestEq(TRUE, ObjectExists(testfw->browser->document->GetElement(".wh-wrdauth-setpassword")));
 }
 
+MACRO TestContextVariables()
+{
+  testfw->BeginWork();
+  OBJECT testfolder_for_siteslug := GetTestsuiteTempFolder()->CreateFolder([ name := "testfolder-for-siteslug" ]);
+  OBJECT testfolder_for_sitename := GetTestsuiteTempFolder()->CreateFolder([ name := "testfolder-for-sitename" ]);
+  testfw->CommitWork();
+
+  OBJECT plugin_siteslug := GetWRDAuthPlugin(testfolder_for_siteslug->objecturl);
+  Testeq("webharelogin-webhare-testsuite-site", plugin_siteslug->_GetConfig().cookiename);
+  Testeq("webhare_testsuite:webhare-testsuite-site", plugin_siteslug->_GetConfig().wrdschema);
+
+  OBJECT plugin_sitename := GetWRDAuthPlugin(testfolder_for_sitename->objecturl);
+  Testeq("webharelogin-webhare-testsuite-webhare-testsuite-site", plugin_sitename->_GetConfig().cookiename);
+  Testeq("webhare_testsuite:WebHare testsuite site", plugin_sitename->_GetConfig().wrdschema);
+}
+
 Runtestframework( [ PTR PrepareServer
                   , PTR CreateMyTestSchema
                   , PTR TestModuleDefIPRules
@@ -1107,6 +1123,7 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestPasswordValidation
                   , PTR TestSecondFactorLogin
                   , PTR TestWRDAuthRouter
+                  , PTR TestContextVariables
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

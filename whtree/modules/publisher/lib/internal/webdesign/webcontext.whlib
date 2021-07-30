@@ -298,24 +298,4 @@ PUBLIC STATIC OBJECTTYPE WebContext
     }
     RETURN FALSE;
   }
-  PUBLIC STRING FUNCTION ExpandContextVariables(STRING indata)
-  {
-    IF(indata NOT LIKE "*[*")
-      RETURN indata;
-
-    //TODO share with webserver config.whlib ?
-    STRING sitename := this->targetsite->name;
-    RECORD vars := CELL[ sitename
-                       , siteslug := Tolowercase(Substitute(sitename, " ", "-"))
-                       ];
-
-    FOREVERY (RECORD rec FROM UnpackRecord(vars))
-      indata := Substitute(indata, `[${ToLowercase(rec.name)}]`, rec.value);
-
-    //TODO fail if unexpected name
-    indata := Substitute(indata,'[[','['); //support simple escaping
-
-    RETURN indata;
-  }
-
 >;

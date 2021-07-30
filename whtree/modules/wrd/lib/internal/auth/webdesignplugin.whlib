@@ -223,8 +223,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     this->pvt_webcontext := webdesign;
 
-    STRING schemaname := webdesign->ExpandContextVariables(config.wrdschema);
-    this->cookiename := webdesign->ExpandContextVariables(config.cookiename) ?? "webharelogin-" || GetSafeName(schemaname, [ tohyphens := ":" ]);
+    config.wrdschema := ExpandContextVariables(webdesign, config.wrdschema);
+    this->cookiename := ExpandContextVariables(webdesign, config.cookiename) ?? "webharelogin-" || GetSafeName(config.wrdschema, [ tohyphens := ":" ]);
     this->wrdauthconfig := GetWRDAuthConfig(config.wrdschema, config.sitetag);
 
     this->supportobjectname := config.supportobjectname;
@@ -1868,5 +1868,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , type :=     "redirect"
         , url :=      AddVariableToURL(idpendpoint.url || "!/idpinitiatedlogin", "data", data)
         ];
+  }
+
+  PUBLIC RECORD FUNCTION _GetConfig()
+  {
+    RETURN CELL[ ...this->pvt_config, ...this->wrdauthconfig, this->cookiename ];
   }
 >;

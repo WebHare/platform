@@ -17,6 +17,7 @@ LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 
 INTEGER session_version := 6;
 
@@ -171,16 +172,21 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   /** Creates login cookies
       @param userid
       @param types List of "session", "external", "persistent"
-      @param extra
-      @cell extra.path Path to encode in external cookie (optional)
+      @param options
+      @cell options.path Path to encode in external cookie (optional)
+      @cell(datetime) options.setcreationdate Enforce this cookie creation date
+      @cell(boolean) options.thirdparty Set to TRUE if this is a third-party login, and use the expiry policy for that type of login. Defaults to FALSE.
       @return Encoded cookies
       @cell return.session Session cookie
       @cell return.persistent Persistent cookie
       @cell return.external External cookie
   */
-  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, STRING ARRAY types, RECORD extra DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, STRING ARRAY types, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    extra := ValidateOptions([ path := "" ], extra);
+    options := ValidateOptions([ path := ""
+                               , thirdparty := FALSE
+                               , setcreationdate := DEFAULT DATETIME
+                               ], options);
 
     RECORD cookies :=
         [ session :=    ""
@@ -193,15 +199,33 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT RecordExists(fields))
       THROW NEW Exception("Invalid account #" || userid);
 
-    RECORD cookiedata := [ v := 2, dom := this->id, user := userid, cs := GetCurrentDatetime(), wg := fields.wrd_guid ];
+    DATETIME now := GetCurrentDatetime();
+    DATETIME creationdate := options.setcreationdate ?? now;
+    INTEGER64 expirytime := options.thirdparty ? this->wrdauthconfig.expire_thirdpartylogin
+                            : "persistent" IN types ? this->wrdauthconfig.expire_persistentlogin
+                            : this->wrdauthconfig.expire_login;
+    IF(expirytime <= 0)
+      THROW NEW Exception(`Invalid expiry time configured`);
+
+    DATETIME expiry := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
+    IF(now >= expiry AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
+      THROW NEW Exception(`Attempting to create an already expired cookie`); //race or something bad happened to our caller
+
+    RECORD cookiedata := [ v := 2
+                         , dom := this->id
+                         , user := userid
+                         , cs := creationdate
+                         , exp := expiry
+                         , wg := fields.wrd_guid
+                         ];
 
     IF ("session" IN types)
       cookies.session := this->EncryptData(cookiedata, "session");
     IF ("external" IN types)
     {
       RECORD copy := cookiedata;
-      IF (CellExists(extra, "PATH"))
-        INSERT CELL pa := extra.path INTO copy;
+      IF (options.path != "")
+        INSERT CELL pa := options.path INTO copy;
       cookies.external := this->EncryptData(copy, "external");
     }
     IF ("persistent" IN types)
@@ -260,7 +284,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     RECORD cookiedata := [ userid := data.user
                          , creationdate := data.cs
+                         , expires := CellExists(data,'exp') ? data.exp : DEFAULT DATETIME
                          ];
+
     IF (CellExists(data, "PA"))
       INSERT CELL path := data.pa INTO cookiedata;
     RETURN cookiedata;
@@ -806,13 +832,17 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   PUBLIC RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
   {
+    /* TODO are we sure that every LoginByCookie should be updating last logindata (and perhaps it also auditlogs? auditlog knows about cookie
+       logins...)  or perhaps only for PERSISTENT logins if the session truly expired, or for the first login on the day? */
+
+    DATETIME now := GetCurrentDatetime();
     RECORD cookiedata := this->__ParseCookie(cookie, islogincookie ? "persistent" : "session");
-    IF(NOT RecordExists(cookiedata))
+    //FIXME also validate against *current* expiry rules. we need to know the login type though.. (external/persistent/session)
+    IF(NOT RecordExists(cookiedata) OR now >= cookiedata.expires)
       RETURN DEFAULT RECORD;
 
-    IF(logintime > 0) //there's a maximum cookie validity
+    IF(logintime > 0) //there's a maximum cookie validity FIXME remove,should be replaced wiith new expiry logic. logintime isn't actually settable!
     {
-      DATETIME now := GetCurrentDatetime();
       DATETIME cookieend := AddTimeToDate(logintime * 1000i64, cookiedata.creationdate);
       IF(NOT (cookiedata.creationdate <= now AND now < cookieend))
         RETURN DEFAULT RECORD; //expired cookie
@@ -822,7 +852,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN DEFAULT RECORD;
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata);
+    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata, [ setcreationdate := cookiedata.creationdate ]);
   }
 
   /** @param the_entity WRD entity of the user to log in
@@ -854,7 +884,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(isimpersonation) //impersonations NEVER persist
       persistent := FALSE;
 
-    RECORD cookies := this->__CreateLoginCookies(the_entity->id, persistent ? [ "session", "persistent" ] : [ "session" ]);
+    RECORD cookies := this->__CreateLoginCookies(the_entity->id, persistent ? [ "session", "persistent" ] : [ "session" ], PickCells(options, ["SETCREATIONDATE"]));
 
     RETURN [ success := TRUE
            , code := ""

@@ -570,6 +570,16 @@
   </apply>
 
   <apply>
+    <to type="folder" pathmask="/tmp/testfolder-for-siteslug/" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="webhare_testsuite:[siteslug]" cookiename="webharelogin-[siteslug]" />
+  </apply>
+
+  <apply>
+    <to type="folder" pathmask="/tmp/testfolder-for-sitename/" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="webhare_testsuite:[sitename]" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="/portal1/requiresysop/*" />
     <webdesign supportsaccessdenied="true" />
   </apply>

@@ -2,9 +2,10 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
 RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
@@ -43,8 +44,11 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
     }
   }
 
+  STRING ARRAY acceptable_configcells := SELECT AS STRING ARRAY name FROM UnpackRecord(wrdauth_defaultconfiguration);
   RECORD wrdauthconfig :=
-      CELL[ schemaid := wrdschema->id
+      CELL[ ...wrdauth_defaultconfiguration
+          , ...PickCells(wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]), acceptable_configcells)
+          , schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
           //TODO various extra sanity checks on authdomainid are useless with domainless. do we need those checks back? feels like they should just entity GUIDs instead because some also use direct entityids
           , authdomainid
@@ -58,7 +62,7 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
 
   RETURN [ value := wrdauthconfig
          , ttl := 15 * 60 * 1000
-         , eventmasks := wrdschema->GetEventMasks()
+         , eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->GetSettingsEventMasks()
          ];
     }
 
@@ -92,4 +96,46 @@ PUBLIC RECORD FUNCTION DecryptWRDAuthData(RECORD wrdauthconfig, STRING encrypted
 {
   STRING data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", wrdauthconfig.domainsecret || type);
   RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
+}
+
+PUBLIC DATETIME FUNCTION CalculateWRDSessionExpiry(RECORD wrdauthconfig, DATETIME now, INTEGER64 expirytime)
+{
+  IF(expirytime <= 0)
+    THROW NEW Exception(`Invalid expiry time configured`);
+
+  DATETIME expiry := AddTimeToDate(expirytime, now);
+
+  IF(wrdauthconfig.roundup_longlogins_to >= 0) //rounding is enabled (this is the defualt)
+  {
+    /* TODO short login periods (less than a day) probably shouldn't be extended to the 'rounding' time. but where should the (default) cutoff be ?
+            for now just recommend against logindurations < 1 day */
+    DATETIME localexpiry := UTCToLocal(expiry, wrdauthconfig.roundup_longlogins_tz);
+    BOOLEAN addday := GetMsecondCount(localexpiry) <= wrdauthconfig.roundup_longlogins_to;
+
+    //then we round it down
+    localexpiry := MakeDateFromParts(GetDaycount(localexpiry), wrdauthconfig.roundup_longlogins_to);
+    expiry := LocalToUTC(localexpiry, wrdauthconfig.roundup_longlogins_tz);
+  }
+
+  RETURN expiry;
+}
+
+PUBLIC STRING FUNCTION ExpandContextVariables(OBJECT webcontext, STRING indata)
+{
+  IF(indata NOT LIKE "*[*")
+    RETURN indata;
+
+  //TODO share with webserver config.whlib ?
+  STRING sitename := webcontext->targetsite->name;
+  RECORD vars := CELL[ sitename
+                     , siteslug := Tolowercase(Substitute(sitename, " ", "-"))
+                     ];
+
+  FOREVERY (RECORD rec FROM UnpackRecord(vars))
+    indata := Substitute(indata, `[${ToLowercase(rec.name)}]`, rec.value);
+
+  //TODO fail if unexpected name
+  indata := Substitute(indata,'[[','['); //support simple escaping
+
+  RETURN indata;
 }
