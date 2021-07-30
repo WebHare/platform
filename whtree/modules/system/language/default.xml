@@ -2422,6 +2422,7 @@
       <text tid="thousandsep">Thousand separator</text>
       <text tid="timezone">Timezone</text>
       <text tid="title">Title</text>
+      <text tid="unavailable">Your user preferences are currently available. Please retry later.</text>
       <text tid="username">Username</text>
       <text tid="userpreferences">Personal preferences</text>
       <text tid="warning_passwordexpired">Your password has expired, please change it.</text>

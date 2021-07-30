@@ -20,6 +20,7 @@ LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, T
 LOADLIB "mod::consilio/lib/internal/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -1408,6 +1409,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   {
     this->browser := NEW WebBrowser;
     this->browser->printnavigation := TRUE;
+    LogRPCForWebbrowser("webhare_testsuite:browser", "", this->browser);
 
     STRING ARRAY debugflags := (this->profile ? [ "apr", "etr" ] : [ "etr" ]) CONCAT this->options.debugflags;
     this->browser->SetSessionCookie("wh-debug", GetSignedWHDebugOptions(debugflags));

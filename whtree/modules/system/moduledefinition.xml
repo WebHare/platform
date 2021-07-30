@@ -96,7 +96,7 @@
       </accesscheck>
     </application>
 
-    <application name="personalsettings" screen="mod::system/screens/userrights/dialogs/userpreferences.xml#userpreferences">
+    <application name="personalsettings" startmacro="mod::system/lib/screens/userrights/dialogs/userpreferences.whlib#RunUserPreferences">
       <accesscheck>
       </accesscheck>
     </application>

@@ -518,8 +518,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   {
     IF (this->running)
       THROW NEW Exception("Concurrent requests are not allowed");
-    IF(this->printnavigation)
-      Print(`Navigation: ${method} ${url}\n`);
 
     this->running := TRUE;
 
@@ -545,6 +543,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
           url := Left(url, hashpos);
 
         this->pvt_url := url;
+        IF(this->printnavigation)
+          Print(`Navigation: ${method} ${url}\n`);
 
         RECORD unpacked := UnpackURL(url);
         STRING authurlspace := Left(url,SearchLastSubstring(url,'/')+1);
@@ -1619,10 +1619,18 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     DELETE FROM this->pvt_cookies WHERE name=cookiename;
   }
 
+  /** Deletes cookies by wildcard mask
+      @param cookiemask Wildcard mask of the cookies to delete, case-insensitive
+  */
+  PUBLIC MACRO DeleteCookies(STRING cookiemask)
+  {
+    DELETE FROM this->pvt_cookies WHERE ToUppercase(name) LIKE ToUppercase(cookiemask);
+  }
+
   /// Clears the current list of cookies
   PUBLIC MACRO DeleteAllCookies()
   {
-    DELETE FROM this->pvt_cookies;
+    this->DeleteCookies("*");
   }
 
   /** Returns the current list of cookies
@@ -1656,13 +1664,14 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
   MACRO MyErrorHandler(STRING errmsg)
   {
+    IF(this->printnavigation)
+      Print("Navigation error: " || EncodeJava(errmsg) || " on " || this->pvt_url || "\n");
+
     IF(__webbrowser_debugall OR this->debug)
       PRINT("** webbrowser error: " || errmsg || "\n");
     this->pvt_lasterror := errmsg;
     IF(this->pvt_connectingto != "")
       this->pvt_lasterror := this->pvt_lasterror || " (" || this->pvt_connectingto || ")";
-    IF(this->printnavigation)
-      Print("Navigation error: " || this->pvt_lasterror || "\n");
     IF(this->OnError != DEFAULT FUNCTION PTR)
       this->OnError(this->pvt_lasterror);
   }

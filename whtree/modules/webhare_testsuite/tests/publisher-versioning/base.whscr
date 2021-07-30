@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
@@ -96,6 +97,9 @@ ASYNC MACRO TestAccept()
 
   testfw->CommitWork();
 
+  // Give the file a chance to be published. If we race it, publication completion might undo our changes to the PUBLISHED status
+  WaitForPublishCompletion(testfile->parent);
+
   // Submit request and accept, see which files have changed. Only published should have changed, no public draft may be present anymore
   testfw->BeginWork();
   SubmitApprovalRequestForDraft(testfiledraft, [ userobject := testfw->GetUserObject("sysop"), message := "request publish" ]);
@@ -123,6 +127,9 @@ ASYNC MACRO TestAccept()
   TestEQ(TRUE, IsPublish(testfile->published));
   TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
   TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
+
+  // Give the file a chance to be published. If we race it, publication completion might undo our changes to the PUBLISHED status
+  WaitForPublishCompletion(testfile->parent);
 
   // ------
   // Test: applying of fields from draft: modifying published file
