@@ -198,7 +198,7 @@ class LoginApp
                 };
           }
 
-          var postfix = "_" + item.sp_tag.toLowerCase();
+          var postfix = "_" + item.tag.toLowerCase();
 
           screencomponents.samlpanel.lines.push(
               { layout: "left"
@@ -236,7 +236,7 @@ class LoginApp
 
           if (item.autologin)
           {
-            $shell.wrdauth.startSAMLLogin(item.sp_tag, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
+            $shell.wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
                 .then(this.handlePassiveSAMLLogin)
                 .catch(utilerror.reportException);
           }
@@ -473,7 +473,7 @@ class LoginApp
   {
     try
     {
-      let result = await $shell.wrdauth.startSAMLLogin(item.sp_tag, { action: 'redirect', allowlogout: item.allowlogout });
+      let result = await $shell.wrdauth.startLogin(item.type, item.tag, { action: 'redirect', allowlogout: item.allowlogout });
       whintegration.executeSubmitInstruction(result);
       return;
     }

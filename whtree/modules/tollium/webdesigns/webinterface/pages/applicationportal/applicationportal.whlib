@@ -211,12 +211,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
       {
         STRING gid := DetermineNodeGid(setting.siteprofile->name, loginmethod);
+        STRING type := loginmethod->GetAttribute("type");
 
-        SWITCH (loginmethod->GetAttribute("type"))
+        SWITCH (type)
         {
           CASE "password"
           {
-            DELETE FROM this->loginmethods WHERE type = "password";
+            DELETE FROM this->loginmethods WHERE loginmethods.type = "password";
             INSERT
                 [ type :=       "password"
                 , ordering :=   -1
@@ -226,13 +227,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
           }
           CASE "saml"
           {
-            STRING sp_tag := loginmethod->GetAttribute("tag");
-            IF (sp_tag != "")
+            STRING tag := loginmethod->GetAttribute("tag");
+            IF(tag != "")
             {
-              DELETE FROM this->loginmethods WHERE type = "saml" AND COLUMN sp_tag = VAR sp_tag;
+              DELETE FROM this->loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
               INSERT
-                  [ type :=       "saml"
-                  , sp_tag :=     sp_tag
+                  [ type :=       type
+                  , tag :=        tag
                   , ordering :=   ToInteger(loginmethod->GetAttribute("ordering"), 99999)
                   , autologin :=  loginmethod->GetAttribute("autologin") IN [ "true", "1" ]
                   , tid :=        ParseXMLTIDPtr(resourcename, gid, loginmethod, "title")
@@ -240,6 +241,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                   , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
                   , loginprompt := loginmethod->GetAttribute("loginprompt")
                   ] INTO this->loginmethods AT END;
+
             }
           }
         }

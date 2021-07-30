@@ -18,20 +18,25 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
            ];
   }
 
-  OBJECT wrdauth;
+  IF(NOT ObjectExists(wrdschema->accounttype))
+  {
+    RETURN [ value := CELL[ fatalerror := `No accounttype defined for schema '${wrdschemaname}'` ]
+           , ttl := 15 * 60 * 1000
+           , eventmasks := wrdschema->GetEventMasks()
+           ];
+  }
+
+  INTEGER authdomainid;
   IF(sitetag != "") //did you have too.... ?
   {
-    wrdauth := OpenWRDAuthIntegration(wrdschema, sitetag);
-    IF(NOT ObjectExists(wrdauth))
+    OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
+    IF(NOT ObjectExists(authdomaintype))
+      THROW NEW Exception(`The WRD schema '${wrdschema->tag}' does not have a type WRD_AUTHDOMAIN, needed to resolve sitetag '${sitetag}'`);
+
+    authdomainid := authdomaintype->Search("WRD_TAG", sitetag, [matchcase := FALSE]);
+    IF(authdomainid = 0)
     {
       RETURN [ value := CELL[ fatalerror := `No such auth site '${sitetag}' in schema '${wrdschemaname}'` ]
-             , ttl := 15 * 60 * 1000
-             , eventmasks := wrdschema->GetEventMasks()
-             ];
-    }
-    IF(NOT ObjectExists(wrdschema->accounttype))
-    {
-      RETURN [ value := CELL[ fatalerror := `No accounttype defined for schema '${wrdschemaname}'` ]
              , ttl := 15 * 60 * 1000
              , eventmasks := wrdschema->GetEventMasks()
              ];
@@ -42,7 +47,7 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
       CELL[ schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
           //TODO various extra sanity checks on authdomainid are useless with domainless. do we need those checks back? feels like they should just entity GUIDs instead because some also use direct entityids
-          , authdomainid := ObjectExists(wrdauth) ? wrdauth->id : 0
+          , authdomainid
           , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
           , wrdschema->accountpasswordtag
           , wrdschema->accountpasswordisauthsettings

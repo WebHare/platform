@@ -269,18 +269,22 @@ class WRDAuthenticationProvider
     this.logouturl = url;
   }
 
-  startSAMLLogin(sp_tag, options)
+  startLogin(type, sp_tag, options)
   {
     options = options || {};
     var defer = dompack.createDeferred();
 
-    this.loginservice.request('StartSAMLLogin'
-                              , [ location.href, sp_tag, options ]
+    this.loginservice.request('StartLogin'
+                              , [ type, sp_tag, location.href, options ]
                               , defer.resolve
                               , defer.reject //FIXME translate to exception
                               );
 
     return defer.promise;
+  }
+  startSAMLLogin(sp_tag, options)
+  {
+    return this.startLogin('saml', sp_tag, options);
   }
 
   //Setup the page with loginstate. automatically invoked on the default auth provider

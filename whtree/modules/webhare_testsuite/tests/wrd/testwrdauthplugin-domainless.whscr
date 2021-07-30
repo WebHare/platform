@@ -55,12 +55,12 @@ MACRO PrepareServer()
   thirdpartyurl := thirdpartybaseurl || "webhare_testsuite.shtml?";
 
   INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
-         VALUES(testport.webserverid, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+         VALUES(testport.webserverid, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "web/tests/wrd/authdebug.shtml");
 
   INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)
               VALUES(thirdpartytest.webservers[0].id,"/",1,6,"webhare_testsuite:securityheaders");
   INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
-         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "web/tests/wrd/authdebug.shtml");
 
   INSERT INTO system.access(description,webserver,path,matchtype,authtype,authrequirement) //apply source:OpenTestsuiteSite()->rootobject->OpenByPath("portal1-domainless")->id
          VALUES ("3rdparty access rule",thirdpartytest.webservers[0].id,"/wrd/authtest/accessruleaccounts/",1/*initial match*/,1/*any webhare user*/,TRUE);

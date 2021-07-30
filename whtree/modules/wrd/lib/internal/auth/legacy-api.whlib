@@ -22,13 +22,14 @@ INTEGER session_version := 6;
 
 CONSTANT INTEGER max_totp_attempts := 6;
 
-STATIC OBJECTTYPE WRDAuth
+PUBLIC STATIC OBJECTTYPE WRDAuth
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
   OBJECT wrdschema;
+  RECORD wrdauthconfig;
   OBJECT domaintype;
   INTEGER domainid;
   RECORD domainrec;
@@ -55,14 +56,23 @@ STATIC OBJECTTYPE WRDAuth
   // Constructor
   //
 
-  MACRO NEW(OBJECT wrdschema, INTEGER domainid)
+  MACRO NEW(OBJECT wrdschema, RECORD wrdauthconfig)
   {
     this->wrdschema := wrdschema;
+    this->wrdauthconfig := wrdauthconfig;
     this->domaintype := wrdschema->GetType("wrd_authdomain");
-    this->domainid := domainid;
+    this->domainid := this->wrdauthconfig.authdomainid;
     this->RefreshMetadata();
 
-    this->NEW_WRDAuthIntegration(wrdschema, domainid);
+    this->loggedinentity := -1;
+    this->authenticatewebsession := TRUE;
+    this->debugtoclient := IsRequest() AND IsWHDebugOptionSet("aut");
+    IF(this->debugtoclient)
+      this->debug := TRUE;
+
+    this->maxidle_minutes := 15;
+    this->cookiename := "webharelogin"; //ADDME Make webhare webserver optimize access checking for other cookie names
+    this->samesitecookie := "lax";
   }
 
   // ---------------------------------------------------------------------------
@@ -895,21 +905,6 @@ STATIC OBJECTTYPE WRDAuth
 
   PUBLIC BOOLEAN debug;
 
-  MACRO NEW_WRDAuthIntegration(OBJECT wrdschema, INTEGER id)
-  {
-    this->wrdschema := wrdschema;
-    this->loggedinentity := -1;
-    this->domainid := id;
-    this->authenticatewebsession := TRUE;
-    this->debugtoclient := IsRequest() AND IsWHDebugOptionSet("aut");
-    IF(this->debugtoclient)
-      this->debug := TRUE;
-
-    this->maxidle_minutes := 15;
-    this->cookiename := "webharelogin"; //ADDME Make webhare webserver optimize access checking for other cookie names
-    this->samesitecookie := "lax";
-  }
-
   MACRO AddDebugMessage(STRING text)
   {
     IF(this->debugtoclient)
@@ -1420,23 +1415,3 @@ STATIC OBJECTTYPE WRDAuth
     WriteWRDAuditEvent(this->accounttype, type, options);
   }
 >;
-
-PUBLIC OBJECT FUNCTION OpenWRDAuthIntegration(OBJECT wrdschema, STRING tag)
-{
-  IF(tag="") //no need to open a subdomain
-    RETURN NEW WRDAuth(wrdschema, 0);
-
-  OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
-  IF(NOT ObjectExists(authdomaintype))
-    THROW NEW Exception(`The WRD schema '${wrdschema->tag}' does not have a type WRD_AUTHDOMAIN, needed to resolve '${tag}'`);
-
-  INTEGER authid;
-  IF(tag != "")
-  {
-    authid := authdomaintype->Search("WRD_TAG", tag, [matchcase := FALSE]);
-    IF(authid=0)
-      RETURN DEFAULT OBJECT;
-  }
-
-  RETURN NEW WRDAuth(wrdschema, authid);
-}

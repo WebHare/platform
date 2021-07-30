@@ -495,12 +495,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** Get wrdauth, open if needed
   */
-  OBJECT FUNCTION __GetWRDAuthIntegration()
+  PUBLIC OBJECT FUNCTION __GetWRDAuthIntegration()
   {
     this->CheckNotFailed();
     IF(NOT Objectexists(this->__wrdauth))
     {
-      this->__wrdauth := OpenWRDAuthIntegration(this->GetWRDSchema(), this->pvt_config.sitetag);
+      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig);
       this->__wrdauth->securecookie := this->pvt_config.securecookie;// OR ;
       /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
          If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
@@ -1407,7 +1407,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN retval;
   }
 
-  /** @short Generate a SAML SSO authentication request
+  PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->GenerateLoginRequest("saml", serviceprovidertag, redirectto, options);
+  }
+
+  /** @short Generate a SAML SSO or OIDC authentication request
       @param serviceprovidertag Tag of the SP (can be left empty when only one SP is present)
       @param redirectto URL to redirect to after the login
       @cell(boolean) options.forcelogin Set tot
@@ -1416,30 +1421,23 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(boolean) options.allowlogout Whether to allow logout
       @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
   */
-  PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION GenerateLoginRequest(STRING type, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->CheckNotFailed();
 
-    OBJECT wrd_sp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
-    IF (NOT ObjectExists(wrd_sp))
-      THROW NEW Exception("This authentication domain is not setup for SAML authentication");
-
-    RECORD ARRAY filters;
-
-    IF (serviceprovidertag != "")
-      INSERT [ field := "WRD_TAG", value := serviceprovidertag ] INTO filters AT END;
-
-    RECORD ARRAY spdata := wrd_sp->RunQuery(
-        [ filters := filters
-        , outputcolumns := [ "WRD_ID" ]
-        ]);
-
-    IF (NOT RecordExists(spdata))
-      THROW NEW Exception("No SAML service provider" || (serviceprovidertag != "" ? " with tag '" || EncodeJava(serviceprovidertag) || "' " : "") || "configured for this authentication domain");
-    ELSE IF (LENGTH(spdata) > 1)
-      THROW NEW Exception("Multiple SAML service providers are configured, please select one by tag");
-
-    RETURN GenerateSAMLLoginRequest(this, spdata[0].wrd_id, redirectto, options);
+    options := ValidateOptions(CELL[ forcelogin := FALSE
+                                   , passive := FALSE
+                                   , action := "redirect"
+                                   , allowlogout := FALSE
+                                   ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]]]);
+    IF(type = "saml")
+    {
+      RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, options);
+    }
+    ELSE
+    {
+      THROW NEW Exception(`Unknown login type '${type}'`);
+    }
   }
 
   /** Returns the configuration object for a registered SAML SP

@@ -80,18 +80,10 @@ PUBLIC RECORD FUNCTION RPC_LoginSecondFactor(STRING url, STRING firstfactorproof
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION RPC_StartSAMLLogin(STRING url, STRING samlsptag, RECORD options)
+PUBLIC RECORD FUNCTION RPC_StartLogin(STRING type, STRING tag, STRING url, RECORD options)
 {
   OBJECT wrdauthplugin := GetWRDAuthPlugin(url, [ clientwebserver := GetClientWebserver() ] );
-  RECORD reqoptions :=
-      [ action :=       CellExists(options, "ACTION") ? options.action : "redirect"
-      , passive :=      CellExists(options, "PASSIVE") AND options.passive
-      , forcelogin :=   CellExists(options, "FORCELOGIN") AND options.forcelogin
-      , allowlogout :=  NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
-      ];
-
   // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
   STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
-
-  RETURN wrdauthplugin->GenerateSAMLLoginRequest(samlsptag, redirectto, reqoptions);
+  RETURN wrdauthplugin->GenerateLoginRequest(type, tag, redirectto, PickCells(options, [ "action", "passive", "forcelogin", "allowlogout" ]));
 }

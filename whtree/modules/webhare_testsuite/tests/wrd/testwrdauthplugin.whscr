@@ -53,10 +53,10 @@ MACRO PrepareServer()
   thirdpartyurl := thirdpartytest.webservers[0].url || "wrd/authtest/webhare_testsuite.shtml?";
 
   INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
-         VALUES(testport.webserverid, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+         VALUES(testport.webserverid, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "web/tests/wrd/authdebug.shtml");
 
   INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
-         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "tests/wrd/authplugin.shtml");
+         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "web/tests/wrd/authdebug.shtml");
 
   testfw->CommitWork();
 

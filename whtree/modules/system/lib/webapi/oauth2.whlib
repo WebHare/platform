@@ -168,6 +168,23 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     RETURN DEFAULT RECORD;
   }
 
+  /** @short Get the submitinstruction to start an authorziation flow
+      @param finalreturnurl URL to return
+      @cell(string array) options.scopes Requested scopes
+      @cell(string) options.access_type 'offline' to request a refresh_token. defaults to 'online'
+      @cell(record) options.extraparameters Any extra parameters, eg [ prompt := "consent" ]
+      @return Submit instruction to execute
+  */
+  PUBLIC RECORD FUNCTION StartAuthorizeClient(STRING finalreturnurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD authcontext := this->GetAuthorizeContext(options);
+    INSERT CELL finalreturnurl := finalreturnurl INTO authcontext.__oauth2_authflow.state;
+    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, 90, FALSE);
+    RETURN [ type := "redirect"
+           , url := UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ])
+           ];
+  }
+
   /** @short Start a redirecting authorization flow from the current page
       @long This function is designed to run the same webpage twice - first it will notice the oauthsession2= variable
             missing and redirect to the oauth pages. Oauth will then redirect back to the page, and we will return the token
@@ -191,10 +208,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
       RETURN [ success := FALSE ];
     }
 
-    RECORD authcontext := this->GetAuthorizeContext(options);
-    INSERT CELL finalreturnurl := GetRequestURL() INTO authcontext.__oauth2_authflow.state;
-    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, 90, FALSE);
-    Redirect(UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ]));
+    Redirect(this->StartAuthorizeClient(GetRequestURL(), options).url);
   }
 
   /** @short Is this token still usable?
