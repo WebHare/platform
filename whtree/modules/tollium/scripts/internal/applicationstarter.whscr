@@ -314,6 +314,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     RECORD launchuserinfo := this->GetMsgCell(invoke, "LAUNCHUSERINFO", TypeID(RECORD));
     INTEGER loggedin_entityid := this->GetMsgCell(launchuserinfo, "LOGGEDIN", TypeID(INTEGER));
     STRING loggedin_name := this->GetMsgCell(launchuserinfo, "LOGGEDIN_NAME", TypeID(STRING));
+    DATETIME loggedin_expires := this->GetMsgCell(launchuserinfo, "LOGGEDIN_EXPIRES", TypeID(DATETIME)) ?? MAX_DATETIME;
 
     // Create an application host
     RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr", "WEBHARE");
@@ -350,6 +351,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
               , eventidentifier := ""
               , wrdentityid :=    loggedin_entityid
               , authobjectid :=   0
+              , expires :=        loggedin_expires
               ]
         ] INTO authrec;
     jobrec.job->SetAuthenticationRecord(authrec);
@@ -430,6 +432,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         , frontendid :=   frontendid
         , app :=          app
         , invoke :=       message.invoke
+        , expires :=      loggedin_expires
         ];
 
     INSERT
@@ -499,6 +502,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
                              , lastactivity
                              , requestdata
                              , browsertriplet
+                             , expires :=       job->userdata.expires
                           FROM this->apps
                     ]
               ];
@@ -567,6 +571,11 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
       {
         RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
         this->apps[pos.position].lastactivity := GetCurrentDateTime();
+      }
+      CASE "sessionexpireschange"
+      {
+        RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
+        this->apps[pos.position].job->userdata.expires := rec.msg.sessionexpires;
       }
     }
   }

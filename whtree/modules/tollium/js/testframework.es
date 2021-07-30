@@ -237,11 +237,13 @@ function compByName(toddname)
   }
 export function compByTitle(title)
 {
-  let elts = getCurrentScreen().qSA('t-text.label').filter(label => (label.textContent === (title + ":") || label.textContent === title));
+  let elts = getCurrentScreen().qSA('t-text.label,t-button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
   if (elts.length == 0)
     throw new Error(`No component with title '${title}'`);
   if (elts.length > 1)
     throw new Error(`Multiple components with title '${title}'`);
+  if (elts[0].nodeName.toLowerCase() === "t-button")
+    return elts[0];
   return compByName(elts[0].dataset.labelfor || elts[0].for);
 }
 function getTestScreen(testscreen, whdebug)

@@ -1,0 +1,33 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+PUBLIC RECORD FUNCTION TestInvoke_SetupUsers()
+{
+  RunTestFramework(DEFAULT MACRO PTR ARRAY,
+        [ testusers :=
+              [[ login := "sysop", grantrights := ["system:sysop"]]]
+        , wrdauth := TRUE
+        ]); //just cleanup/reset stuff - note, implies OpenPrimary
+
+  RETURN
+      [ sysopuser     := testfw->GetUserLogin("sysop")
+      , sysoppassword := testfw->GetUserPassword("sysop")
+      ];
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_GetWRDAuthSessionExpiry(STRING url)
+{
+  OpenPrimary();
+  OBJECT plugin := GetWRDAuthPlugin(url);
+  RETURN
+      [ sessionexpires :=   FormatISO8601DateTime(plugin->sessionexpires, "", "milliseconds", "Europe/Amsterdam", FALSE)
+      ];
+}

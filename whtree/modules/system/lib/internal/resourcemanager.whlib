@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/semver.whlib";
 
@@ -84,8 +85,12 @@ PUBLIC STRING FUNCTION ReloadWebhareConfig(BOOLEAN authdata, BOOLEAN modules, RE
   RETURN ReloadWebhareConfig2(Detokenize(toks,' '), options);
 }
 
-PUBLIC MACRO SetApplicationAndUserInAuthRecord(RECORD app, RECORD data, OBJECT user)
+PUBLIC MACRO SetApplicationAndUserInAuthRecord(RECORD app, RECORD data, OBJECT user, RECORD options)
 {
+  options := ValidateOptions(
+      [ sessionexpires :=   MAX_DATETIME
+      ], options);
+
   RECORD authrec := GetAuthenticationRecord();
   IF (CellExists(authrec, "TOLLIUM"))
     DELETE CELL tollium FROM authrec;
@@ -104,6 +109,7 @@ PUBLIC MACRO SetApplicationAndUserInAuthRecord(RECORD app, RECORD data, OBJECT u
             , eventidentifier := user->GetUserEventIdentifier()
             , wrdentityid :=    user->entityid
             , authobjectid :=   user->authobjectid
+            , expires :=        options.sessionexpires
             ]
       ] INTO authrec;
 

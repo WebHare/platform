@@ -255,11 +255,15 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     STRING overridetoken := GetWebVariable('overridetoken');
     STRING openas := GetWebVariable("openas");
+
     STRING language := GetWebVariable("language");
 
+    DATETIME sessionexpires;
     IF(this->useexternalwebharelogin)
     {
+      // FIXME: this will return a user from the primary user API!
       this->currentuser := RequireLoggedinWebHareUser();
+      sessionexpires := GetPrimaryWebhareAuthPlugin()->sessionexpires;
     }
     ELSE
     {
@@ -272,6 +276,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
           this->currentuser := this->wrdauthplugin->RequireLoggedinUser();
         ELSE
           this->currentuser := this->wrdauthplugin->GetCurrentWebhareUser();
+        sessionexpires := this->wrdauthplugin->sessionexpires;
       }
     }
 
@@ -329,7 +334,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     this->runwebhareinstall := allowwebhareinstall AND ReadRegistryKey("system.backend.security.needsysop") AND NOT this->isoverriding;
 
-    this->launchuserinfo := [ loggedin := loggedin, loggedin_name := loggedin_name, openas := openas, forceprimaryuserapi := forceprimaryuserapi ];
+    this->launchuserinfo := CELL
+        [ loggedin
+        , loggedin_name
+        , loggedin_expires := sessionexpires
+        , openas
+        , forceprimaryuserapi
+        ];
 
     STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(webdesign->targetobject->id);
 

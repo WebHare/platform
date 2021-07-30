@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="lib">
   <jstest file="testdashboard.es" />
   <jstest file="testappbar.es" name="testappbar-sharedworker">
     <arg value="sharedworker"/>

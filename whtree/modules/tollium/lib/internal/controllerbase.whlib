@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -1398,6 +1399,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   OBJECT ARRAY notifiedwindows;
 
+  DATETIME _sessionexpires;
+
+  /// @type(object mod::system/lib/internal/asynctools.whlib#WaitableTimer) Timer for session expiry
+  OBJECT _sessionexpirytimer;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -1431,6 +1437,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   /// @type(object %WRDAuthPlugin) The WRD auth plugin (if available)
   PUBLIC PROPERTY wrdauthplugin(pvt_wrdauthplugin, -);
 
+  PUBLIC PROPERTY sessionexpires(_sessionexpires, SetSessionExpires);
 
   // ---------------------------------------------------------------------------
   //
@@ -1499,6 +1506,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     IF(this->reportissues)
       SetMissingTidCallback(PTR this->OnMissingTid(#1, GetMissingTidCallback()));
 
+    this->_sessionexpirytimer := NEW WaitableTimer;
+    this->_sessionexpirytimer->WaitSignalled()->Then(PTR this->GotSessionExpired);
+
     this->KeepStorageAlive();
   }
 
@@ -1540,6 +1550,22 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   BOOLEAN FUNCTION GetSecure()
   {
     RETURN this->baseurl LIKE "https://*";
+  }
+
+  MACRO SetSessionExpires(DATETIME newexpires, BOOLEAN initialset DEFAULTSTO FALSE)
+  {
+    this->_sessionexpires := newexpires;
+    this->_sessionexpirytimer->Reset(newexpires);
+
+    RECORD rec := GetAuthenticationRecord();
+    IF (CellExists(rec, "tollium"))
+    {
+      rec.tollium.user.expires := newexpires;
+      SetAuthenticationRecord(rec);
+    }
+
+    IF (NOT initialset AND IsValueSet(this->onsessionexpireschange))
+      this->onsessionexpireschange(newexpires);
   }
 
   // ---------------------------------------------------------------------------
@@ -1601,6 +1627,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     }
   }
 
+  MACRO GotSessionExpired()
+  {
+    this->RunSimpleScreen("error", GetTid("tollium:shell.controller.sessionexpired"));
+    TerminateScript();
+  }
 
   MACRO OnMissingTid(RECORD tidinfo, MACRO PTR prevcallback)
   {
@@ -2231,7 +2262,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       RETURN;
     }
 
-
     //Print("intialize app\n" || AnyToString(app, "tree"));
     //Print("xx^ authenticationinfo:\n" || AnyToString(GetAuthenticationRecord(), "tree"));
     STRING suggestedlanguage := GetBestLanguageFor(toks[0], GetTidLanguage());
@@ -2239,7 +2269,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       suggestedlanguage := app.supportedlanguages[0];
     SetTidLanguage(suggestedlanguage);
     this->tolliumuser->language := suggestedlanguage; //overwrite whatever the user has selected.
-    SetApplicationAndUserInAuthRecord(app, data, this->user);
+    SetApplicationAndUserInAuthRecord(app, data, this->user, CELL[ this->sessionexpires ]);
 
     RECORD switchres := ApplyAccessCheck(app.accesscheck, /*makeautotrans*/ TRUE, this->tolliumuser);
     IF(NOT switchres.success)
@@ -2642,6 +2672,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   /// Callback called when the user initiates activity
   PUBLIC FUNCTION PTR onuseractivity;
+
+  /// Callback called when the session expiry changes
+  PUBLIC FUNCTION PTR onsessionexpireschange;
 
   /// Fptr where initial startup message (with init & link data) will be sent to
   PUBLIC FUNCTION PTR pvt_sendinitialmessage;

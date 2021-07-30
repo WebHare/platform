@@ -270,6 +270,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
     this->profiling := options.profile ? 3 : options.memoryprofile ? 4 : 0;
     this->frontendid := this->options.frontendid;
     this->requestdata := this->options.requestdata;
+    this->SetSessionExpires(options.launchuserinfo.loggedin_expires, TRUE);
 
     this->controllertype := "todd";
 

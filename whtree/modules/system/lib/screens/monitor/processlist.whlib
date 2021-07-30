@@ -250,8 +250,6 @@ PUBLIC OBJECTTYPE ProcessList EXTEND DashboardPanelBase
     INSERT CELL time := GetCurrentDateTime() INTO current_status;
     this->current_locks := __HS_GETLOCALLOCKSTATUS();
 
-    PRINT(AnyToString(this->current_locks, "boxed"));
-
     DATETIME now := current_status.time;
 
     RECORD ARRAY lockrows :=
@@ -284,6 +282,7 @@ PUBLIC OBJECTTYPE ProcessList EXTEND DashboardPanelBase
              , total_running_txt :=   this->tolliumuser->FormatTime(total_running, "milliseconds", FALSE)
              , priorityicon :=        highpriority ? 1 : 0
              , requesturl :=          CellExists(authenticationrecord, "WEBSERVERREQUEST") ? authenticationrecord.webserverrequest.url : ""
+             , expires :=             CellExists(authenticationrecord, "TOLLIUM")? authenticationrecord.tollium.user.expires : DEFAULT DATETIME
              , script_show :=         this->GetScriptShow(authenticationrecord, script)
              , size_txt :=            size != 0 ? size || " KB" : "N/A"
              , cpu :=                 ""

@@ -37,6 +37,7 @@ RECORD FUNCTION GetStatus()
   RETURN [ isloggedin := isloggedin
          , loginname := (plugin->GetLoggedinEntityFields(["wrd_contact_email"]) ?? [wrd_contact_email:=""]).wrd_contact_email
          , entityid := plugin->GetLoggedinEntity()
+         , expires := plugin->sessionexpires
          ];
 }
 

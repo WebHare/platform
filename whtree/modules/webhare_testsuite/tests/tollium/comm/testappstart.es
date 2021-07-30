@@ -2,8 +2,7 @@ import * as test from "@mod-tollium/js/testframework";
 
 
 test.registerTests(
-  [
-    "Test startup focus steal"
+  [ "Test startup focus steal"
   , async function()
     {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
@@ -138,5 +137,38 @@ test.registerTests(
         test.eq(2, test.qSA('.t-apptab').length);
         test.eq(1, test.qSA('.t-apptab--activeapp').length);
       }
+    }
+
+  , "Session-expiry"
+  , async function()
+    {
+      let setupdata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#SetupUsers");
+      await test.load(test.getTestSiteRoot() + "portal1/?app=webhare_testsuite:appstarttest");
+      await test.wait('ui');
+
+      test.setTodd('loginname', setupdata.sysopuser);
+      test.setTodd('password', setupdata.sysoppassword);
+      test.clickToddButton('Login');
+
+      await test.wait('ui');
+
+      // Get the expiry date of the wrdauth session, compare to tollium value
+      let sessiondata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#GetWRDAuthSessionExpiry", test.getWin().location.href);
+      test.eq(sessiondata.sessionexpires, test.getCurrentScreen().getToddElement("expirydate").querySelector('input').value);
+
+      // Set the session expiry to now (causes immediate expiry)
+      test.click(test.getMenu(['X08']));
+
+      console.log('immediate session expiry requested, wait for notification screen');
+
+      // wait for screen change
+      await test.wait(() => test.getCurrentApp().getNumOpenScreens() == 2);
+
+      test.eq(true, !!/session has expired/.exec(test.getCurrentScreen().getToddElement("message").textContent));
+      test.click(test.compByTitle("OK"));
+
+      // wait for application to close completely
+      console.log('wait for application close');
+      await test.wait(() => test.getCurrentApp().getNumOpenScreens() == 0);
     }
   ]);

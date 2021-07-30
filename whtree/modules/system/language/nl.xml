@@ -291,6 +291,7 @@
       <text tid="databaseuser">Databasegebruiker</text>
       <text tid="debugprocess">Openen in debugger</text>
       <text tid="errors">Foutmeldingen</text>
+      <text tid="expires">Verloopt</text>
       <text tid="filename">Bestandsnaam</text>
       <text tid="finishdate">Beëindigingsdatum</text>
       <text tid="func">Functie</text>

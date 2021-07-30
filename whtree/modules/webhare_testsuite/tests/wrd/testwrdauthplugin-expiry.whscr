@@ -160,6 +160,9 @@ MACRO TestLoginCookies()
   //dumpvalue(cookies);
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).msecs <= 1, "Cookie should be (about) expired!");
 
+  result := DebugReq("checkstatus");
+  TestEQ(result.expires, cookies.logindetails.expires);
+
   InvalidateWebhareLoginSession();
 
   //Try to renew the session. Should FAIL due to expirys

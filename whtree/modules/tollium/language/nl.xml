@@ -821,6 +821,7 @@
     <textgroup gid="controller">   <!-- shell.controller -->
       <text tid="neededrights">De volgende rechten zijn benodigd: <param p="1"/></text>
       <text tid="rightsproblem">U heeft geen toegang tot deze applicatie (ingelogd als '<param p="1"/>')</text>
+      <text tid="sessionexpired">Uw inlogsessie is verlopen. U moet opnieuw inloggen in om deze applicatie te herstarten.</text>
       <text tid="untrustedparams">U mag deze applicatie niet openen met URL parameters.</text>
     </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
