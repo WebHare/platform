@@ -799,11 +799,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
            ];
   }
 
-  PUBLIC RECORD FUNCTION WCS_StartApplication(OBJECT webcontext, STRING appname, RECORD options, STRING browsertriplet, RECORD __unused) //for compat with unrecompiled developers, we can remove it soon
-  {
-    RETURN this->WCS_StartApp(webcontext, appname, CELL[ ...options, browser := browsertriplet, DELETE onappbar, DELETE fixedonappbar, DELETE container, DELETE inbackground ]);
-
-  }
   //marking params as unused as dropping them can give JS errors when updating, and webhareconnect doesn't make a material difference for anyone
   PUBLIC RECORD FUNCTION WCS_StartApp(OBJECT webcontext, STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
