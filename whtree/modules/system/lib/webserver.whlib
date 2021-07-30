@@ -393,11 +393,7 @@ PUBLIC STRING FUNCTION GetDecryptedWebCookie(STRING name, STRING secretkey DEFAU
 
   value:=Substring(value,2);
   IF(secretkey != "")
-  {
     value := DecryptSignedData(value, "SHA-1,BLOWFISH+CBC,8", secretkey);
-    IF(value="") //try fallback algorithm, but ECB is less safe
-      value := DecryptSignedData(value, "SHA-1,BLOWFISH+ECB,8", secretkey);
-  }
   ELSE
     value := DecryptForThisServer(ToLowercase("system:webserver-cookie:" || name), value);
 
@@ -409,7 +405,7 @@ PUBLIC STRING FUNCTION GetDecryptedWebCookie(STRING name, STRING secretkey DEFAU
     @param name Cookie name
     @param value Cookie value. If left empty, the existing cookie with the name will be deleted. Setting non-ASCII data is not recommended for unencrypted cookies
     @param options Cookie options
-    @cell(integer) options.lifetime Cookie lifetime in seconds. If 0, the cookie will be a session cookie (the default)
+    @cell(integer64) options.lifetime Cookie maximum age (Max-Age) in seconds. If 0, the cookie will be a session cookie (the default)
     @cell(string) options.domain Cookie domain. Defaults to empty, in which case the cookie will be valid for the current host only
     @cell(string) options.path Cookie path. Defaults to "/", making the cookie available for all URLs on this domain
     @cell(boolean) options.secure If true, mark a cookie to only be transferred over secure connections.
@@ -420,7 +416,7 @@ PUBLIC STRING FUNCTION GetDecryptedWebCookie(STRING name, STRING secretkey DEFAU
 */
 PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ lifetime := 0
+  options := ValidateOptions( [ lifetime := 0i64
                               , domain := ""
                               , path := "/"
                               , secure := FALSE
@@ -448,16 +444,11 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
   IF(value="")
     options.lifetime := -86400;
 
-  IF (value="" OR options.lifetime>0)
+  IF (value = "" OR options.lifetime > 0)
   {
-    // Calculate expiration date
-    INTEGER days := options.lifetime / (24*3600);
-    INTEGER secs := options.lifetime % (24*3600);
-    DATETIME expirationdate := AddTimeToDate(secs * 1000,GetCurrentDateTime());
-    expirationdate := AddDaysToDate(days, expirationdate);
-
-    cookieline := cookieline || ";Max-Age=" || options.lifetime
-                             || ";Expires=" || FormatHttpDateTime(expirationdate);
+    /* RFC 6265 specifies Max-Age takes precedence over Expires. It was pre-IE11 that didn't support Max-Age. So le'ts just
+       not use Expires, it can only break on clients with broken clocks and is otherwise ignored */
+    cookieline := cookieline || ";Max-Age=" || options.lifetime;
   }
 
   IF(options.path="")

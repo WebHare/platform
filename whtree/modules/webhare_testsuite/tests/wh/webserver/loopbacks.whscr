@@ -18,7 +18,6 @@ LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 
 STRING testfile_diskbase := GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/";
-STRING testfile_diskpath := testfile_diskbase || "webserver.shtml";
 RECORD mykeypair;
 
 STRING shorttext := "|This is a text 100 bytes in length. The quick brown fox jumped over the dodgy red beagle! Run Eddy|";
@@ -1190,35 +1189,38 @@ MACRO TestAutoFollow()
 
 MACRO TestCookies()
 {
+  //Allow us to run this step without going through Setup
+  STRING cookietestpath := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.webhare_testsuite/tests/webserver/cookies.shtml");
+
   //get a proper cookie, and one set by old webhare code
-  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie1" ]
-                                                      ], "multipart/form-data"));
+  TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setcookie1" ]
+                                                             ], "multipart/form-data"));
 
 
-  TestEq(" a;b,c,%,&,\" ", browser->GetCookie("cookietest"));
+  TestEq(" a;b,c,%,&,\" ", testfw->browser->GetCookie("cookietest"));
 
   //have our webbrowser loop the cookie back, and verify their values server-side
   //if this test fails, check errors.log
-  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie2" ]
-                                                      ], "multipart/form-data"));
+  TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setcookie2" ]
+                                                             ], "multipart/form-data"));
 
-  TestEq(1,Length(SELECT * FROM browser->responseheaders WHERE field = "Set-Cookie"));
+  TestEq(1,Length(SELECT * FROM testfw->browser->responseheaders WHERE field = "Set-Cookie"));
 
   //test ecnyrpted cookies proper cookie, and one set by old webhare code
-  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setencryptedcookie1" ]
-                                                      ], "multipart/form-data"));
+  TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setencryptedcookie1" ]
+                                                             ], "multipart/form-data"));
 
 
-  TestEq(TRUE, browser->GetCookie("cookietest") LIKE "X-*");
+  TestEq(TRUE, testfw->browser->GetCookie("cookietest") LIKE "X-*");
 
   //have our webbrowser loop the cookie back, and verify their values server-side
   //if this test fails, check errors.log
-  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setencryptedcookie2" ]
-                                                      ], "multipart/form-data"));
+  TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setencryptedcookie2" ]
+                                                             ], "multipart/form-data"));
 
   // Test overwriting behaviour of UpdateWebCookie
-  TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "setcookie3" ]
-                                                      ], "multipart/form-data"));
+  TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setcookie3" ]
+                                                             ], "multipart/form-data"));
 
   TestEQ(
       [ "sc3-test1=val1-overwrite;Path=/;HttpOnly"
@@ -1229,9 +1231,24 @@ MACRO TestCookies()
       , "sc3-test4=val4-nooverwrite2;Path=/blaah/;Domain=www.b-lex.com;HttpOnly"
       , "sc3-test4=val4-overwrite;Path=/blaah/;Domain=www.example.com;HttpOnly"
       ], SELECT AS STRING ARRAY value
-           FROM browser->responseheaders
+           FROM testfw->browser->responseheaders
           WHERE ToUppercase(field) = "SET-COOKIE"
        ORDER BY value);
+
+  //Test our Webbrowser cookie implementatie
+  TestEq(FALSE, RecordExists(SELECT FROM testfw->browser->GetAllCookies() WHERE name="testfwcookie")); //initial state check
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(cookietestpath, [ type := "updatewebcookie", value := "test1" ])));
+  Testeq("test1", testfw->browser->GetCookie("testfwcookie"));
+  TestEq(DEFAULT DATETIME, SELECT AS DATETIME expires FROM testfw->browser->GetAllCookies() WHERE name="testfwcookie");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(cookietestpath, [ type := "updatewebcookie", value := "test1", options := EncodeHSON([lifetime := 69]) ])));
+  Testeq("test1", testfw->browser->GetCookie("testfwcookie"));
+  TestEq(TRUE, (SELECT AS DATETIME expires FROM testfw->browser->GetAllCookies() WHERE name="testfwcookie") > GetcurrentDatetime());
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(cookietestpath, [ type := "updatewebcookie" ])));
+  Testeq("", testfw->browser->GetCookie("testfwcookie"));
+  TestEq(FALSE, RecordExists(SELECT FROM testfw->browser->GetAllCookies() WHERE name="testfwcookie"));
 }
 
 MACRO TestAuthenticateWebsession()

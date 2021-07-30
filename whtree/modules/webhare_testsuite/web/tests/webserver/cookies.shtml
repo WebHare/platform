@@ -1,0 +1,64 @@
+<?wh
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+STRING cookieteststr := ' abc%def"ghi&jkl ';
+
+SWITCH(GetWebVariable("type"))
+{
+  /* cookie tests */
+  CASE "setcookie1", "setencryptedcookie1"
+  {
+    BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
+    UpdateWebCookie("cookietest", " a;b,c,%,&,\" ", [ encrypt := encrypt ]);
+    AddHTTPHeader("Set-Cookie", "classic=\"" || encodeJava(Cookieteststr) || "\"; Path=/;Domain=", TRUE);
+  }
+  CASE "setcookie2", "setencryptedcookie2"
+  {
+    BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
+
+    //ensure first that webbrowser did it properly
+    IF(NOT encrypt)
+    {
+      STRING cookies := GetWebHeader("Cookie");
+      IF(cookies NOT LIKE '*cookietest=%20a%3Bb%2Cc%2C%25%2C%26%2C%22%20; classic="' || EncodeJAva(cookieteststr) || '"*')
+        ABORT("Unexpected cookie header [" || GetWebHeader("Cookie") || "]");
+    }
+
+    //that worked. verify that the first cookie was read properly
+    STRING firstcookie := encrypt ? GetDecryptedWebCookie("COOKIETEST") : GetWebCookie("COOKIETEST");
+    IF(firstcookie != " a;b,c,%,&,\" ")
+      ABORT("Unexpected cookietest result [" || firstcookie || "] " || GetWebCookie("COOKIETEST"));
+
+    //now verify that the old-style webhare cookie was read properly
+    IF(GetWebCookie("ClAssIC") != cookieteststr)
+      ABORT("Unexpected classic cookie result [" || GetWebCookie("ClAssIC") || "]");
+
+    UpdateWebCookie("cookie2", "ja");
+    UpdateWebCookie("COOKIE2", "oh nee toch niet");
+  }
+  CASE "setcookie3"
+  {
+    // Test overwrite
+    UpdateWebCookie("sc3-test1", "val1-org");
+    UpdateWebCookie("sc3-test1", "val1-overwrite");
+
+    UpdateWebCookie("sc3-test2", "val2-org", [ path := "/" ]);
+    UpdateWebCookie("sc3-test2", "val2-overwrite");
+
+    UpdateWebCookie("sc3-test3", "val3-org", [ path := "/blaah/" ]);
+    UpdateWebCookie("sc3-test3", "val3-nooverwrite1", [ path := "/blaah/meh/" ]);
+    UpdateWebCookie("sc3-test3", "val3-overwrite", [ path := "/blaah/" ]);
+
+    UpdateWebCookie("sc3-test4", "val4-org", [ path := "/blaah/", domain := "www.example.com" ]);
+    UpdateWebCookie("sc3-test4", "val4-nooverwrite1", [ path := "/blaah/" ]);
+    UpdateWebCookie("sc3-test4", "val4-nooverwrite2", [ path := "/blaah/", domain := "www.b-lex.com" ]);
+    UpdateWebCookie("sc3-test4", "val4-overwrite", [ path := "/blaah/", domain := "www.example.com" ]);
+  }
+  CASE "updatewebcookie"
+  {
+    RECORD options := GetWebVariable("options") != "" ? DecodeHSON(GetWebVariable("options")) : DEFAULT RECORD;
+    UpdateWebCookie("testfwcookie", GetWebVariable("value"), options);
+  }
+}
