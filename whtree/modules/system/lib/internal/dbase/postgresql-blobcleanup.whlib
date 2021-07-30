@@ -40,6 +40,9 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   /// Function ptr to override manifest access. Signature: RECORD FUNCTION func(RECORD newmanifest)
   PUBLIC FUNCTION PTR __debugmanifestaccess;
 
+  /// Function ptr to override getting the current datetime. Signature: DATETIME FUNCTION func()
+  PUBLIC FUNCTION PTR __debuggetcurrentdatetime;
+
   /** Creates a new blob analyzer for a PostgreSQL database
       @param trans PostgreSQL transaction
   */
@@ -49,6 +52,11 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     this->abandoned_upload_secs := 4 * 3600; // 4 hour
     this->unreferenced_period_secs := 2 * 3600; // 2 hour
     this->keep_removed_files_secs := 1 * 3600; // 1 hour
+  }
+
+  DATETIME FUNCTION GetCurrentDateTime()
+  {
+    RETURN IsValueSet(this->__debuggetcurrentdatetime) ? this->__debuggetcurrentdatetime() : GetCurrentDatetime();
   }
 
   /** Lists all blob parts in the tree
@@ -63,7 +71,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     STRING ARRAY new_disk_blobs;
     STRING ARRAY old_disk_blobs;
 
-    DATETIME new_cutoff := AddTimeToDate(-this->abandoned_upload_secs * 1000, GetCurrentDateTime());
+    DATETIME new_cutoff := AddTimeToDate(-this->abandoned_upload_secs * 1000, this->GetCurrentDateTime());
 
     BOOLEAN have_filter := IsValueSet(this->__filterids);
     STRING ARRAY filterblobpartids;
@@ -205,7 +213,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
     TRY
     {
-      STRING curdate := FormatISO8601DateTime(GetCurrentDateTime());
+      STRING curdate := FormatISO8601DateTime(this->GetCurrentDateTime());
 
       IF(options.debug)
         Print(`Gathering blob information from database\n`);
@@ -352,9 +360,9 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     TRY
     {
       RECORD manifest := this->ReadBlobManifest();
-      DATETIME now := GetCurrentDateTime();
+      DATETIME now := this->GetCurrentDateTime();
 
-      STRING curdate := FormatISO8601DateTime(GetCurrentDateTime());
+      STRING curdate := FormatISO8601DateTime(now);
 
       // Move abandoned blobs to the unlinked list, so they will be deleted after a grace period
       IF (IsValueSet(manifest.abandoned))
