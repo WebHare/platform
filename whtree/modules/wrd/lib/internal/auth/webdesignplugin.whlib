@@ -381,7 +381,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC STRING FUNCTION GetFailReason()
   {
-    RETURN CellExists(this->wrdauthconfig, 'fatalerror') ? this->wrdauthconfig.wrdauthconfig : "";
+    RETURN CellExists(this->wrdauthconfig, 'fatalerror') ? this->wrdauthconfig.fatalerror : "";
   }
 
   // ---------------------------------------------------------------------------
