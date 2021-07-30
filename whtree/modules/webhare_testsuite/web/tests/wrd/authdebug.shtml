@@ -36,7 +36,6 @@ ELSE
 }
 
 plugin->__GetWRDAuth()->persistentcookie := GetWebVariable("persistent") = "1"; //FIXME why isn't this an option to Login, mediated/validated by config ?
-plugin->__GetWRDAuth()->debug := TRUE;
 
 RECORD FUNCTION GetStatus()
 {

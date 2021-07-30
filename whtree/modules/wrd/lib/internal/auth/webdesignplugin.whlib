@@ -23,7 +23,6 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -465,25 +464,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       CASE "wrdauth", "wrdauth-nocookies"
       {
-        /* FIXME just sharing servers may not be enough proof if the sides use different cookies. who needs this? because test webserver.accessrules braeks
-        // Only allow direct redirect when wrdauth cookies have been set
-        IF (type = "wrdauth")
-        {
-          // Are the cookies enough?
-          IF (ResolveToAbsoluteURL(returnto,'/') = ResolveToAbsoluteURL(GetClientRequestURL(), "/"))
-          {
-            STRING returnurl := ReplaceVariableInUrl(returnto, "wrdauth_returned", "loggedin");
-            IF (IsWHDebugOptionSet("aut"))
-              returnurl := ReplaceVariableInUrl(returnurl, "wh-debug", "aut");
-
-            RETURN
-                [ type :=     "redirect"
-                , url :=      returnurl
-                ];
-          }
-        }
-        */
-
         proof :=
             [ type := "wrdauth"
             , dom := this->wrdauthconfig.authdomainid
@@ -514,8 +494,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       returnurl := ResolveToAbsoluteURL(returnurl, ".!wrd/auth/importsession.shtml");
       returnurl := ReplaceVariableInUrl(returnurl, "b", "/" || UnpackURL(returnto).urlpath);
-      IF (IsWHDebugOptionSet("aut"))
-        returnurl := ReplaceVariableInUrl(returnurl, "wh-debug", "aut");
     }
     returnurl := ReplaceVariableInUrl(returnurl, "wrdauth_proof", proofstr);
 
@@ -1630,8 +1608,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->CheckNotFailed();
 
     RECORD proof := DecryptWRDAuthData(this->wrdauthconfig, GetWebVariable("wrdauth_proof"), "");
-    IF (IsWHDebugOptionSet("aut"))
-      LogDebug("wrd:auth", "plugin importsession");// to " || backurl);
 
     IF (NOT RecordExists(proof) OR this->wrdauthconfig.authdomainid != proof.dom)
       THROW NEW Exception("Received authentication data is not valid for this page");
@@ -1764,8 +1740,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC MACRO __AuthenticateWebSession(RECORD authscriptres)
   {
-    LogDebug("wrd:auth", "authenticating websession " || authscriptres.sessionid);
-
     SWITCH (authscriptres.type)
     {
       CASE "wrdauth"

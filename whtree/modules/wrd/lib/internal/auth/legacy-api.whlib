@@ -9,13 +9,10 @@ LOADLIB "wh::util/otp.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 
@@ -68,9 +65,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->loggedinentity := -1;
     this->loggedinexpires := DEFAULT DATETIME;
     this->authenticatewebsession := TRUE;
-    this->debugtoclient := IsRequest() AND IsWHDebugOptionSet("aut");
-    IF(this->debugtoclient)
-      this->debug := TRUE;
 
     this->maxidle_minutes := 15;
     this->cookiename := "webharelogin"; //ADDME Make webhare webserver optimize access checking for other cookie names
@@ -907,8 +901,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   STRING sessionid;
   RECORD sessiondata;
-  BOOLEAN debugtoclient;
-  STRING debugmessages;
   INTEGER loggedinentity;
   DATETIME loggedinexpires;
 
@@ -940,25 +932,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   PUBLIC MACRO PTR loginfilter;
 
-  PUBLIC BOOLEAN debug;
-
-  MACRO AddDebugMessage(STRING text)
-  {
-    IF(this->debugtoclient)
-    {
-      IF(this->debugmessages="")
-      {
-        this->debugmessages := GetWebCookie("wh-wrdauth-debug"); //preserve existing debuglog
-        this->debugmessages := (this->debugmessages != "" ? this->debugmessages || "\t" : "") || "Debugging for " || GetrequestURL();
-      }
-      this->debugmessages := (this->debugmessages != "" ? this->debugmessages || "\t" : "") || text;
-      IF(Length(this->debugmessages) > 1000) //
-        this->debugmessages := "....." || Substring(this->debugmessages,1000);
-      UpdateWebCookie("wh-wrdauth-debug", this->debugmessages, this->GetCookieOpts(FALSE, FALSE));
-    }
-    LogDebug("wrd:auth", text);
-  }
-
   RECORD FUNCTION GetCachedCookies()
   {
     IF(NOT RecordExists(this->cookiecache))
@@ -972,17 +945,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
                            , sessionid := sessionid
                            , sessiondata := sessiondata
                            ];
-      IF(this->debug)
-        this->AddDebugMessage(`Cookie '${this->cookiename}' sessionid: [${this->MaskInternalId(this->cookiecache.sessionid)}]`);
     }
     RETURN this->cookiecache;
-  }
-
-  STRING FUNCTION MaskInternalId(STRING id)
-  {
-    IF(Length(id) <= 8)
-      RETURN RepeatText("x", Length(id));
-    RETURN RepeatText("x", Length(id) - 8) || Right(id,8);
   }
 
   STRING FUNCTION __CheckSession()
@@ -994,29 +958,19 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(cookieinfo.sessionid != "")
     {
       sessiondata := GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
-      IF(this->debug AND NOT RecordExists(sessiondata))
-        this->AddDebugMessage("No session found with that session id");
     }
 
     IF(RecordExists(sessiondata) AND CellExists(sessiondata, "session_version") AND sessiondata.session_version = session_version)
     {
-      IF(this->debug)
-        this->AddDebugMessage("Found webserver session with id: " || this->MaskInternalId(cookieinfo.sessionid));
-
       INTEGER userid := this->GetCookieEntityId(cookieinfo.sessiondata, FALSE);
       IF(userid = sessiondata.entityid)
       {
-        IF(this->debug)
-          this->AddDebugMessage("User identity proven" ||  (this->authenticatewebsession ? ", authenticating access rule" : ""));
-
         // ADDME: also calc authobjectid?
         AuthenticateWebSession(cookieinfo.sessionid, "wrd:authsession", sessiondata.login, TRUE, 0, sessiondata.entityid, this->authenticatewebsession); //this also skips this access rule for further checks for this session
         this->sessiondata := sessiondata;
         UpdateAuditContext(CELL[ user_entityid := sessiondata.entityid, user_login := sessiondata.login ]);
         RETURN cookieinfo.sessionid;
       }
-      IF(this->debug)
-        this->AddDebugMessage("User identity was not proven");
     }
 
     RETURN "";
@@ -1040,14 +994,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->loggedinexpires := DEFAULT DATETIME;
     IF(cookies.sessiondata != "")
     {
-      IF(this->debug)
-        this->AddDebugMessage("Trying to reestablish web session using session cookie: " || this->MaskInternalId(cookies.sessiondata));
-
       RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.sessiondata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
       IF(RecordExists(logindata))
       {
-        IF(this->debug)
-            this->AddDebugMessage("Session cookie accepted");
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
         {
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
@@ -1057,23 +1006,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
               ]);
         }
         RETURN;
-      }
-      ELSE
-      {
-        IF(this->debug)
-            this->AddDebugMessage("Session cookie REJECTED");
       }
     }
     IF(cookies.pers != "")
     {
-      IF(this->debug)
-        this->AddDebugMessage("Trying to reestablish web session using persistent cookie: " || this->MaskInternalId(cookies.pers));
-
       RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.pers, this->logintime*60, TRUE, TRUE), [ work := TRUE ]);
       IF(RecordExists(logindata))
       {
-        IF(this->debug)
-            this->AddDebugMessage("Persistent cookie accepted");
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
         {
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
@@ -1083,19 +1022,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
               ]);
         }
         RETURN;
-      }
-      ELSE
-      {
-        IF(this->debug)
-            this->AddDebugMessage("Persistent cookie REJECTED");
       }
     }
 
     IF(cookies.sessiondata != "" OR cookies.pers != "")
     {
-      IF(this->debug)
-        this->AddDebugMessage("Unable to reestablish a session, no persistent cookie");
-
       this->SetLoginTokenCookie("", "", FALSE);
     }
   }
@@ -1172,9 +1103,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   */
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->debug)
-      this->AddDebugMessage("LoginById: " || this->MaskInternalId(ToString(userid)));
-
     STRING remoteip := CellExists(options,"REMOTEIP") ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
 
     this->loggedinentity := -1;
@@ -1186,8 +1114,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       //    , remoteip := remoteip
       //    , isimpersonation := is_impersonation
       //    ]);
-      IF(this->debug)
-        this->AddDebugMessage("LoginById failed");
       RETURN trylogin;
     }
 
@@ -1346,13 +1272,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   */
   PUBLIC RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->debug)
-    {
-      this->AddDebugMessage("Completing user login, impersonation: " || (trylogin.isimpersonation ? "true" : "false")
-                            || ", setlogincookie: " || (setlogincookie ? "true" : "false")
-                            || ", sessioncookie: " || this->MaskInternalId(trylogin.sessioncookie));
-    }
-
     UpdateAuditContext([ user_entityid := trylogin.entityid, user_login := trylogin.login ]);
 
     IF(this->loginfilter != DEFAULT MACRO PTR)
@@ -1363,9 +1282,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
           ]);
       IF(RecordExists(errordata))
       {
-        IF(this->debug)
-          this->AddDebugMessage("Login filter refused this user");
-
         IF (NOT CellExists(errordata, "code"))
           THROW NEW Exception("Login denied without error code");
 
@@ -1396,22 +1312,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
                                          , this->maxidle_minutes
                                          , /*limit to server: */ FALSE);
 
-      IF(this->debug)
-        this->AddDebugMessage("Setting up user websession: " || this->MaskInternalId(this->sessionid));
       this->SetSessionCookie(this->sessionid || " " || trylogin.sessioncookie);
 
-      IF(this->debug)
-        this->AddDebugMessage("Authenticating the websession");
       //FIXME does this even work/show up anywhere at all? we seem to only show sessions with non-zero UIDs ?
       //TODO should probably also associate hostname with the session (we formerly used domaintitle but that wasn't necessarily set)
       AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login, TRUE, 0,0, this->authenticatewebsession);
 
       IF(setlogincookie)
-      {
-        IF(this->debug)
-          this->AddDebugMessage("Setting up login cookie (name: " || this->cookiename || ")");
         this->SetLoginTokenCookie(trylogin.sessioncookie, trylogin.persistentcookie, trylogin.persistent);
-      }
     }
 
     RETURN [ success := TRUE, code := "" ];
