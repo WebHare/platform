@@ -36,7 +36,8 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
 
   MACRO DoSetExpiryDateToNow()
   {
-    this->contexts->controller->sessionexpires := GetCurrentDateTime();
+    // add a bit of delay to make sure setting the expiry doesn't crash other stuff
+    this->contexts->controller->sessionexpires := AddTimeToDate(250, GetCurrentDateTime());
     this->UpdateExpiryDate();
   }
 

@@ -575,7 +575,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
       CASE "sessionexpireschange"
       {
         RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
-        this->apps[pos.position].expires := rec.msg.sessionexpires;
+        this->apps[pos.position].job->userdata.expires := rec.msg.sessionexpires;
       }
     }
   }
