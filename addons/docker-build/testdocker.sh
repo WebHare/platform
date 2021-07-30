@@ -23,7 +23,6 @@ TESTSUITEDIR=${MODULESDIR}/webhare_testsuite
 DOCKERARGS=
 TERSE=--terse
 ENTERSHELL=
-STOPONFAIL=
 RUNTESTARGS=
 PORTMAPPING=
 EXPLICITPORT=
@@ -68,10 +67,7 @@ while true; do
   elif [ "$1" == "--sh" ]; then
     ENTERSHELL=1
     shift
-  elif [ "$1" == "--stoponfail" ]; then
-    STOPONFAIL="--type=break"
-    shift
-  elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ]; then
+  elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ] || [ "$1" == "--breakonerror" ]; then
     RUNTESTARGS="$RUNTESTARGS $1"
     shift
   elif [ "$1" == "--env" ]; then # docker env
@@ -595,7 +591,7 @@ if [ -n "$TESTSCRIPT" ]; then
 else
   # When module testing, only run runtest if there actually appear to be any tests
   if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $STOPONFAIL $DEBUG $RUNTESTARGS $TESTLIST; then
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
       testfail "One or more tests failed"
     fi
   fi
