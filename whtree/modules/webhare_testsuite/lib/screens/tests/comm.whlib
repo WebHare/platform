@@ -1,5 +1,7 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/towl.whlib";
 
@@ -19,11 +21,23 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
     INTEGER my_targetid := RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0;
     this->targetval->value := my_targetid;
     this->UpdateTitle();
+    this->UpdateExpiryDate();
   }
 
   MACRO UpdateTitle()
   {
     this->frame->title := "app_" || (RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0) || "_" || this->incomingmsgcount;
+  }
+
+  MACRO UpdateExpiryDate()
+  {
+    ^expirydate->value := FormatISO8601DateTime(this->contexts->controller->sessionexpires, "", "milliseconds", "Europe/Amsterdam", FALSE);
+  }
+
+  MACRO DoSetExpiryDateToNow()
+  {
+    this->contexts->controller->sessionexpires := GetCurrentDateTime();
+    this->UpdateExpiryDate();
   }
 
   MACRO DoStartApp()

@@ -14,6 +14,7 @@
       <action name="opennoclose" onexecute="doopennoclose" title="open noclose X05"/>
       <action name="opencloseable" onexecute="doopencloseable" title="open closeable X06"/>
       <action name="toggleallowclose" onexecute="dotoggleallowclose" title="toggle allowclose X07"/>
+      <action name="setexpirydatetonow" onexecute="dosetexpirydatetonow" title="Set expirydate to now X08"/>
     </actions>
     <menus>
       <menu name="menu">
@@ -22,11 +23,13 @@
         <item action="opennoclose" />
         <item action="opencloseable" />
         <item action="toggleallowclose" />
+        <item action="setexpirydatetonow" />
       </menu>
     </menus>
     <body>
       <textedit name="targetval" valuetype="integer" />
       <textarea name="messages" height="1pr" />
+      <textedit name="expirydate" />
     </body>
   </screen>
 
