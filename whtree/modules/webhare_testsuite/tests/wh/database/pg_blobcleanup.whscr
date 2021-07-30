@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -59,6 +60,11 @@ STATIC OBJECTTYPE ManifestStore
   }
 >;
 
+DATETIME FUNCTION ReturnDateTime(DATETIME toreturn)
+{
+  RETURN toreturn;
+}
+
 MACRO TestBlobCleanup()
 {
   OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(GetPrimary());
@@ -66,10 +72,12 @@ MACRO TestBlobCleanup()
   beta_blobtests := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_testschema.beta_blobtests");
 
   analyzer->__filterids := [ "none" ];
-  analyzer->abandoned_upload_secs := 2;
-  analyzer->unreferenced_period_secs := 2;
-  analyzer->keep_removed_files_secs := 2;
+  analyzer->abandoned_upload_secs := 3600;
+  analyzer->unreferenced_period_secs := 3600;
+  analyzer->keep_removed_files_secs := 3600;
   analyzer->__debugmanifestaccess := PTR (NEW ManifestStore)->GetSetManifest;
+  DATETIME now := GetCurrentDatetime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(now);
 
   analyzer->UpdateBlobManifest();
   TestEQ(
@@ -109,7 +117,11 @@ MACRO TestBlobCleanup()
   analyzer->__filterids := [ "none", blob_deleted, blob_deletedreinserted, blob_kept, blob_failedupload ];
 
   // Initial situation - blob_failedupload is too new to register as failed upload yet
+
+  now := GetCurrentDateTime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(AddTimeToDate(1, now));
   analyzer->UpdateBlobManifest();
+
   TestEQ(
       [ unreferenced :=   RECORD[]
       , unlinked :=       RECORD[]
@@ -122,19 +134,24 @@ MACRO TestBlobCleanup()
   testfw->CommitWork();
 
   // blob_deleted, blob_deletedreinserted should be picked up as unreferenced now
+  now := GetCurrentDateTime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(AddTimeToDate(2, now));
   analyzer->UpdateBlobManifest();
+
   TestEQMembers(
       [ unreferenced :=   [ [ ids := GetSortedSet([ blob_deleted, blob_deletedreinserted ]) ] ]
       , unlinked :=       RECORD[]
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
 
-  // wait 3.010 secs, to make sure the disk modificationdate is 2 secs ago
-  Sleep(3010);
+  // up the time a little more than 60 seconds
 
-  // 3 secs later - blob_failedupload is now picked up as abandoned,
+  // blob_failedupload is now picked up as abandoned,
   // and blob_deleted, blob_deletedreinserted are confirmed as unreferenced
+  now := GetCurrentDateTime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(AddTimeToDate(65*60000, now));
   analyzer->UpdateBlobManifest();
+
   TestEQMembers(
       [ unreferenced :=   [ [ ids := GetSortedSet([ blob_deleted, blob_deletedreinserted ]) ] ]
       , unlinked :=       RECORD[]
@@ -148,7 +165,10 @@ MACRO TestBlobCleanup()
 
   // Execute remove, blob_deleted and blob_failedupload are scheduled for file delete
   // blob_deletedreinserted should be skipped due to being referenced again
+  now := GetCurrentDateTime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(AddTimeToDate(70*60000, now));
   RECORD res := analyzer->RemoveUnreferencedBlobs();
+
   TestEQ(
       [ scheduled_abandoned :=  STRING[ blob_failedupload_storageid ]
       , removed_unreferenced := GetSortedSet([ blob_deleted ])
@@ -162,11 +182,11 @@ MACRO TestBlobCleanup()
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
 
-  // Wait for keep_removed_files_secs seconds
-  Sleep(2010);
-
-  // 2 secs later, the pending deletes will be done
+  // up the time past the keep_removed_files_secs (another 60 secs), the pending deletes will be done
+  now := GetCurrentDateTime();
+  analyzer->__debuggetcurrentdatetime := PTR ReturnDateTime(AddTimeToDate(135 * 60000, now));
   analyzer->UpdateBlobManifest();
+
   TestEQMembers(
       [ unreferenced :=   RECORD[]
       , unlinked :=       [ [ blobpartids := GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ]) ] ]
