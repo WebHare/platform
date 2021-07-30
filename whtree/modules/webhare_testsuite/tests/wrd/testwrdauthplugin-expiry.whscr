@@ -38,7 +38,7 @@ RECORD FUNCTION ExplainWRDCookies()
 RECORD FUNCTION DebugReq(STRING action, RECORD vars DEFAULTSTO DEFAULT RECORD)
 {
   STRING url := ResolveToAbsoluteURL(baseurl, "/.webhare_testsuite/tests/wrd/authdebug.shtml");
-  url := UpdateURLVariables(url, CELL[ forurl := baseurl, action, ...vars ]);
+  url := UpdateURLVariables(url, CELL[ forurl := UnpackURL(baseurl).urlpath, action, ...vars ]);
 
   IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
   {
@@ -113,7 +113,7 @@ MACRO TestLoginAPIs()
   /* Whitebox tests for WRDAuth cookie integration. Some tests are sensitive to absolute wall clock time so running them through the RPCs will only
      complicate things.
 
-     And it might heen help to keep the internal APIs a bit cleaner */
+     And it might help to keep the internal APIs a bit cleaner */
 
   OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
   RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, ["session"], [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
@@ -125,7 +125,7 @@ MACRO TestLoginAPIs()
 
 MACRO TestLoginCookies()
 {
-  RECORD cookies,result;
+  RECORD initialcookie, cookies, result;
 
   //////////
   //
@@ -161,7 +161,7 @@ MACRO TestLoginCookies()
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).msecs <= 1, "Cookie should be (about) expired!");
 
   result := DebugReq("checkstatus");
-  TestEQ(result.expires, cookies.logindetails.expires);
+  TestEq(result.expires, cookies.logindetails.expires);
 
   InvalidateWebhareLoginSession();
 
@@ -174,17 +174,15 @@ MACRO TestLoginCookies()
   //
   // STORY: Verify that serverside session renewal (ReestablishSession / cookie base login) does not bump the expiry time.
 
-  // Reset state (but don't accidentally delete wh-debug!). Disable all rounding. Let sessions last 60 seconds
+  // Reset state. Disable all rounding. Let sessions last 60 seconds
   testfw->browser->DeleteCookies("webharelogin-*");
   UpdateAuthSettings([ roundup_longlogins_to := -1, expire_login := 60000 ]);
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
 
   cookies := ExplainWRDCookies();
-  dumpvalue(cookies);
 
-  DATETIME initial_creationdate := cookies.logindetails.creationdate;
-  DATETIME initial_expires := cookies.logindetails.expires;
+  initialcookie := cookies.logindetails;
 
   InvalidateWebhareLoginSession();
 
@@ -193,9 +191,9 @@ MACRO TestLoginCookies()
   TestEq(TRUE, result.isloggedin);
 
   cookies := ExplainWRDCookies();
-  dumpvalue(cookies);
-  TestEq(initial_creationdate, cookies.logindetails.creationdate, "Creationdate should be unchanged");
-  TestEq(initial_expires, cookies.logindetails.expires, "Expiry should be unchanged");
+  TestEq(initialcookie.creationdate, cookies.logindetails.creationdate, "Creationdate should be unchanged");
+  TestEq(initialcookie.expires, cookies.logindetails.expires, "Expiry should be unchanged");
+
 }
 
 

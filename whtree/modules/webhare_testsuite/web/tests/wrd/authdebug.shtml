@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::internet/urls.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -13,19 +15,27 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 OBJECT plugin;
-OBJECT myschema;
 OBJECT trans := OpenPrimary();
-myschema := OpenTestsuiteWRDSchema();
-IF(NOT ObjectExists(myschema))
-  THROW NEW Exception("No test schema");
 
-BOOLEAN hasdomaintype := ObjectExists(myschema->GetType("WRD_AUTHDOMAIN"));
-IF(hasdomaintype)
-  plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1/");
-ELSE //domainless test
-  plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1-domainless/");
+IF(UnpackURL(GetRequestURL()).urlpath LIKE "wrd/authtest/*")
+{
+  OBJECT myschema;
+  myschema := OpenTestsuiteWRDSchema();
+  IF(NOT ObjectExists(myschema))
+    THROW NEW Exception("No test schema");
 
-plugin->__GetWRDAuth()->persistentcookie := GetWebVariable("persistent") = "1";
+  BOOLEAN hasdomaintype := ObjectExists(myschema->GetType("WRD_AUTHDOMAIN"));
+  IF(hasdomaintype)
+    plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1/");
+  ELSE //domainless test
+    plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1-domainless/");
+}
+ELSE
+{
+  plugin := GetWRDAuthPlugin(UnpackURL(GetRequestURL()).origin || "/" || GetWebVariable("forurl"));
+}
+
+plugin->__GetWRDAuth()->persistentcookie := GetWebVariable("persistent") = "1"; //FIXME why isn't this an option to Login, mediated/validated by config ?
 plugin->__GetWRDAuth()->debug := TRUE;
 
 RECORD FUNCTION GetStatus()
