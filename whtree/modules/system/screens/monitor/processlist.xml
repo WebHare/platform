@@ -159,6 +159,7 @@
                       >
                   <column name="groupid" type="text" width="25x" />
                   <column name="script_show" tid=".script" type="text" />
+                  <column name="expires" type="datetime" precision="seconds" storeutc="true" width="18x" />
                   <column name="status" type="text" width="14x"  />
                   <column name="creationdate" type="datetime" precision="seconds" storeutc="true" width="18x" />
                   <column name="cpu" type="text" sortkeyname="cpu" width="7x" align="right" />

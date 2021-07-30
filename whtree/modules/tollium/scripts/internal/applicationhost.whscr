@@ -1,4 +1,6 @@
 ﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 
@@ -29,6 +31,11 @@ MACRO GotUserActivity()
     parentlink->SendMessage([ type := "useractivity" ]);
 }
 
+MACRO GotSessionExpiresChange(DATETIME sessionexpires)
+{
+  parentlink->SendMessage(CELL[ type := "sessionexpireschange", sessionexpires ]);
+}
+
 parentlink := GetIPCLinkToParent();
 IF(NOT ObjectExists(parentlink))
   ABORT("The application host cannot be directly invoked, it must run as a job");
@@ -48,6 +55,8 @@ RECORD firstmsg := parentlink->ReceiveMessage(DEFAULT DATETIME);
 RECORD appinfo := firstmsg.msg;
 
 OBJECT wrdauthplugin, userapi;
+
+DATETIME sessionexpires := appinfo.launchuserinfo.loggedin_expires;
 TRY
 {
   OBJECT currentuser;
@@ -74,6 +83,7 @@ TRY
     {
       RECORD res := userapi->GetTolliumUserByIdAndImpersonation(appinfo.launchuserinfo.loggedin, appinfo.launchuserinfo.openas);
       currentuser := ObjectExists(res.userobject) ? res.userobject : userapi->GetAnonymousUser();
+      sessionexpires := appinfo.launchuserinfo.loggedin_expires;
       IF (ObjectExists(res.impersonatinguser))
       {
         UpdateAuditContext(
@@ -123,6 +133,7 @@ SetTidLanguage(appinfo.lang);
 
 webcontroller->pvt_sendinitialmessage := PTR SendInitialMessage;
 webcontroller->onuseractivity := PTR GotUserActivity;
+webcontroller->onsessionexpireschange := PTR GotSessionExpiresChange;
 webcontroller->ActivateWebController();
 webcontroller->pvt_inapppath := appinfo.inapppath;
 

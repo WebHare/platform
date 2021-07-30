@@ -472,6 +472,7 @@
       <text tid="databaseuser">Database user</text>
       <text tid="debugprocess">Open in debugger</text>
       <text tid="errors">Errors</text>
+      <text tid="expires">Expires</text>
       <text tid="filename">Filename</text>
       <text tid="finishdate">Finish date</text>
       <text tid="func">Function</text>
