@@ -66,6 +66,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->RefreshMetadata();
 
     this->loggedinentity := -1;
+    this->loggedinexpires := DEFAULT DATETIME;
     this->authenticatewebsession := TRUE;
     this->debugtoclient := IsRequest() AND IsWHDebugOptionSet("aut");
     IF(this->debugtoclient)
@@ -192,6 +193,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         [ session :=    ""
         , persistent := ""
         , external :=   ""
+        , expires :=    DEFAULT DATETIME
         ];
 
     STRING ARRAY fieldnames := ["WRD_GUID", this->domainrec.wrdauth_passwordfield ];
@@ -207,15 +209,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(expirytime <= 0)
       THROW NEW Exception(`Invalid expiry time configured`);
 
-    DATETIME expiry := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
-    IF(now >= expiry AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
+    cookies.expires := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
+    IF(now >= cookies.expires AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
       THROW NEW Exception(`Attempting to create an already expired cookie`); //race or something bad happened to our caller
 
     RECORD cookiedata := [ v := 2
                          , dom := this->id
                          , user := userid
                          , cs := creationdate
-                         , exp := expiry
+                         , exp := cookies.expires
                          , wg := fields.wrd_guid
                          ];
 
@@ -852,7 +854,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN DEFAULT RECORD;
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata, [ setcreationdate := cookiedata.creationdate ]);
+    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata, CELL[ setcreationdate := cookiedata.creationdate ]);
   }
 
   /** @param the_entity WRD entity of the user to log in
@@ -863,6 +865,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param updatelogindata Whether to update the first/last login date
       @cell options.firstloginfield @includecelldef #UpdateLastLoginAndIp.options.firstloginfield
       @cell options.lastloginfield @includecelldef #UpdateLastLoginAndIp.options.lastloginfield
+      @cell(datetime) options.setcreationdate Override the creationdate of the cookie
       @return Result
       @cell(boolean) return.success Always TRUE
       @cell(string) return.code Always ""
@@ -875,6 +878,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @cell(string) return.persistentcookie Persistent cookie
       @cell(boolean) return.isimpersonation Whether this is an impersonation
       @cell(boolean) return.persistent Whether persistent login was requested
+      @cell(datetime) return.expires When the current session expires
   */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, BOOLEAN persistent, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -886,7 +890,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     RECORD cookies := this->__CreateLoginCookies(the_entity->id, persistent ? [ "session", "persistent" ] : [ "session" ], PickCells(options, ["SETCREATIONDATE"]));
 
-    RETURN [ success := TRUE
+    RETURN CELL
+           [ success := TRUE
            , code := ""
            , entityid := the_entity->id
            , entityguid :=  the_entity->guid
@@ -896,6 +901,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
            , persistentcookie := cookies.persistent
            , isimpersonation := isimpersonation
            , persistent := persistent
+           , cookies.expires
            ];
   }
 
@@ -904,6 +910,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   BOOLEAN debugtoclient;
   STRING debugmessages;
   INTEGER loggedinentity;
+  DATETIME loggedinexpires;
 
   /// Maximum idle time used for our session. Note that people will simply reestablish a session if they still have a login cookie.
   PUBLIC INTEGER maxidle_minutes;
@@ -1030,6 +1037,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RECORD cookies := this->GetCachedCookies();
 
     this->loggedinentity := -1;
+    this->loggedinexpires := DEFAULT DATETIME;
     IF(cookies.sessiondata != "")
     {
       IF(this->debug)
@@ -1103,6 +1111,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(this->sessionid != "")
     {
       this->loggedinentity := -1; //clear cached loggedin info
+      this->loggedinexpires := DEFAULT DATETIME;
       RETURN this->sessionid;
     }
 
@@ -1118,6 +1127,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       this->loggedinentity := RecordExists(sessdata) ? sessdata.entityid : 0;
     }
     RETURN this->loggedinentity;
+  }
+
+  PUBLIC DATETIME FUNCTION GetLoggedinExpires()
+  {
+    IF(this->loggedinexpires = DEFAULT DATETIME)
+    {
+      RECORD sessdata := this->GetCurrentSession();
+      this->loggedinexpires := RecordExists(sessdata) ? sessdata.expires : DEFAULT DATETIME;
+    }
+    RETURN this->loggedinexpires;
   }
 
   PUBLIC STRING FUNCTION GetLoggedinEntityLogin()
@@ -1366,6 +1385,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
                    , login := trylogin.login
                    , blockedmultisession := FALSE
                    , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
+                   , expires := trylogin.expires
                    ];
 
     this->sessiondata := data;
@@ -1404,6 +1424,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     INTEGER entityid := this->GetLoggedinEntity();
     STRING login := this->GetLoggedinEntityLogin();
     this->loggedinentity := -1;
+    this->loggedinexpires := DEFAULT DATETIME;
     IF(this->sessionid = "")
       this->sessionid := this->GetCachedCookies().pers;
 

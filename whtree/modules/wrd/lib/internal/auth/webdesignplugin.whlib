@@ -101,7 +101,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   OBJECT __wrdschema;
 
-  /// @type(object legacy-api.whlib#WRDAuthIntegration)
+  /// @type(object #WRDAuth)
   OBJECT __wrdauth;
 
   RECORD pvt_config;
@@ -135,6 +135,43 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /// @type(string) Resource with the Witty for the authentication pages
   PUBLIC PROPERTY authpageswitty(this->pvt_config.authpageswitty, -);
+
+  /// @type(integer) Entity ID of the currently logged in user
+  PUBLIC PROPERTY entityid(GetLoggedinEntity, -);
+
+  /// @type(datetime) Returns when the current session expires
+  PUBLIC PROPERTY sessionexpires(GetSessionExpires, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetWRDSchema()
+  {
+    this->CheckNotFailed();
+    IF(NOT ObjectExists(this->__wrdschema))
+      this->__wrdschema := OpenWRDSchemaById(this->wrdauthconfig.schemaid);
+
+    RETURN this->__wrdschema;
+  }
+
+  OBJECT FUNCTION GetUserAPI()
+  {
+    IF(NOT ObjectExists(this->__userapi))
+      this->__userapi := GetWRDAuthUserAPI(this->wrdschema);
+    RETURN this->__userapi;
+  }
+
+  OBJECT FUNCTION GetAccountType()
+  {
+    RETURN this->GetWRDSchema()->accounttype;
+  }
+
+  DATETIME FUNCTION GetSessionExpires()
+  {
+    RETURN this->__GetWRDAuthIntegration()->GetLoggedinExpires();
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -494,6 +531,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   //
 
   /** Get wrdauth, open if needed
+      @return(object #WRDAuth) WRDAuth object
   */
   PUBLIC OBJECT FUNCTION __GetWRDAuthIntegration()
   {
@@ -570,28 +608,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(CellExists(this->wrdauthconfig, 'fatalerror'))
       THROW NEW Exception(this->wrdauthconfig.fatalerror);
   }
-  OBJECT FUNCTION GetWRDSchema()
-  {
-    this->CheckNotFailed();
-    IF(NOT ObjectExists(this->__wrdschema))
-      this->__wrdschema := OpenWRDSchemaById(this->wrdauthconfig.schemaid);
 
-    RETURN this->__wrdschema;
-  }
   PUBLIC OBJECT FUNCTION __GetWRDAuth()
   {
     this->CheckNotFailed();
     RETURN this->__GetWRDAuthIntegration();
-  }
-  OBJECT FUNCTION GetUserAPI()
-  {
-    IF(NOT ObjectExists(this->__userapi))
-      this->__userapi := GetWRDAuthUserAPI(this->wrdschema);
-    RETURN this->__userapi;
-  }
-  OBJECT FUNCTION GetAccountType()
-  {
-    RETURN this->GetWRDSchema()->accounttype;
   }
 
   /** Returns whether a user is currently logged in
@@ -697,7 +718,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell options.allowlogout Whether to allow logout (defaults to TRUE)
       @cell options.setcookies Set cookies (defaults to TRUE)
       @cell options.browsertriplet Browser triplet
-      @return @includecelldef legacy-api.whlib#WRDAuthIntegration::LoginById.return
+      @return @includecelldef #WRDAuth::LoginById.return
+      @cell return.submitinstruction Submit instruction (used to return a SAML IdP login response)
   */
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1056,7 +1078,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** @short Log a custom audit event
       @param type The event type (e.g. "MYSITE:MYEVENT")
-      @param options @includecelldef legacy-api.whlib#WRDAuthIntegration::WriteAuditEvent.options
+      @param options @includecelldef #WRDAuth::WriteAuditEvent.options
   */
   PUBLIC MACRO LogCustomAuditEvent(STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1299,7 +1321,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /** Set the password for a user
       @param userid User whose password we're updating
       @param newpassword New password
-      */
+      @param options Options (none for now)
+  */
   PUBLIC MACRO UpdateUserPassword(INTEGER userid, STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(CELL[], options);
@@ -1407,12 +1430,22 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN retval;
   }
 
+  /** @short Generate a SAML authentication request
+      @param serviceprovidertag Tag of the SP (can be left empty when only one SP is present)
+      @param redirectto URL to redirect to after the login
+      @cell(boolean) options.forcelogin Set tot
+      @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
+      @cell options.action 'redirect' / 'postmessage'
+      @cell(boolean) options.allowlogout Whether to allow logout
+      @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
+  */
   PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     RETURN this->GenerateLoginRequest("saml", serviceprovidertag, redirectto, options);
   }
 
   /** @short Generate a SAML SSO or OIDC authentication request
+      @param type Login type (allowed values: 'saml')
       @param serviceprovidertag Tag of the SP (can be left empty when only one SP is present)
       @param redirectto URL to redirect to after the login
       @cell(boolean) options.forcelogin Set tot
@@ -1795,7 +1828,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /** Returns the user edit policy for a user
       @param user User
-      @cell options.atsubmit @includecelldef legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.atsubmit
+      @cell options.atsubmit @includecelldef #WRDAuthSupportBase::GetUserEditPolicy.atsubmit
       @cell options.defaultunit Unit to use when the user could not be found (eg for new users)
       @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
   */
