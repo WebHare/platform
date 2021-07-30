@@ -40,7 +40,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   /// Function ptr to override manifest access. Signature: RECORD FUNCTION func(RECORD newmanifest)
   PUBLIC FUNCTION PTR __debugmanifestaccess;
 
-  /// Function ptr to override gettung the current datetime. Signature: DATETIME FUNCTION func()
+  /// Function ptr to override getting the current datetime. Signature: DATETIME FUNCTION func()
   PUBLIC FUNCTION PTR __debuggetcurrentdatetime;
 
   /** Creates a new blob analyzer for a PostgreSQL database
