@@ -174,7 +174,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param types List of "session", "external", "persistent"
       @param options
       @cell options.path Path to encode in external cookie (optional)
-      @cell optinos.setcreationdate Enforce this cookie creation date
+      @cell(datetime) options.setcreationdate Enforce this cookie creation date
+      @cell(boolean) options.thirdparty Set to TRUE if this is a third-party login, and use the expiry policy for that type of login. Defaults to FALSE.
       @return Encoded cookies
       @cell return.session Session cookie
       @cell return.persistent Persistent cookie
@@ -207,7 +208,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       THROW NEW Exception(`Invalid expiry time configured`);
 
     DATETIME expiry := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
-    IF(now >= expiry AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someon testing) then do not create cookies that expire immediately
+    IF(now >= expiry AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
       THROW NEW Exception(`Attempting to create an already expired cookie`); //race or something bad happened to our caller
 
     RECORD cookiedata := [ v := 2
