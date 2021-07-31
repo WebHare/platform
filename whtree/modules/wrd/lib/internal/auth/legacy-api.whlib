@@ -1140,9 +1140,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     INTEGER userid;
     BOOLEAN skippasswordcheck := CellExists(options,'SKIPPASSWORDCHECK') AND options.skippasswordcheck;
 
-    STRING auditusername := CellExists(options,'auditloginname') AND options.auditloginname != "" ? options.auditloginname : loginname;
-    RECORD auditmessage := CellExists(options,'auditmessage') ? options.auditmessage : DEFAULT RECORD;
-
     IF(CellExists(options,"REMOTEIP"))
       remoteip := options.remoteip;
     ELSE
@@ -1161,27 +1158,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->loggedinentity := -1;
     RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLogin(loginname, password, this->persistentcookie, remoteip, userid, FALSE, skippasswordcheck, options));
     IF(NOT trylogin.success)
-    {
-      //this->WriteAuditEvent("wrd:" || trylogin.code,
-      //    [ account := userid ?? this->LookupLogin(loginname)
-      //    , remoteip := remoteip
-      //    , login := auditusername
-      //    , message := auditmessage
-      //    ]);
       RETURN trylogin;
-    }
 
     RECORD res := this->CompleteLogin(trylogin, TRUE, options);
-    IF (res.success)
-    {
-      //this->WriteAuditEvent("wrd:login",
-      //    [ account := trylogin.entityid
-      //    , remoteip := remoteip
-      //    , login := auditusername
-      //    , isimpersonation := trylogin.isimpersonation
-      //    , message := auditmessage
-      //    ]);
-    }
     RETURN res;
   }
 
@@ -1199,9 +1178,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     STRING loginname;
 
-    //STRING auditusername := CellExists(options,'auditloginname') AND options.auditloginname != "" ? options.auditloginname : loginname;
-    //RECORD auditmessage := CellExists(options,'auditmessage') ? options.auditmessage : DEFAULT RECORD;
-
     STRING remoteip := options.remoteip ?? (IsRequest() ? GetClientRemoteIp() : "");
 
     this->loggedinentity := -1;
@@ -1210,27 +1186,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
           ]);
 
     IF(NOT trylogin.success)
-    {
-      //this->WriteAuditEvent("wrd:" || trylogin.code,
-      //    [ account := userid ?? this->LookupLogin(loginname)
-      //    , remoteip := remoteip
-      //    , login := auditusername
-      //    , message := auditmessage
-      //    ]);
       RETURN trylogin;
-    }
 
     RECORD res := this->CompleteLogin(trylogin, TRUE, options);
-    IF (res.success)
-    {
-      //this->WriteAuditEvent("wrd:login",
-      //    [ account := trylogin.entityid
-      //    , remoteip := remoteip
-      //    , login := auditusername
-      //    , isimpersonation := trylogin.isimpersonation
-      //    , message := auditmessage
-      //    ]);
-    }
 
     res := CELL
         [ ...res
