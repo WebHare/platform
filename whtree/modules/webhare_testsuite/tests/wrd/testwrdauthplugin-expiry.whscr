@@ -66,9 +66,27 @@ MACRO TestHelpers()
 
   TestEq( MakeDateTime(2021,7,13,2,0,0)
         , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
-                                   , MakeDateTime(2021,7,12,1,0,0)
+                                   , MakeDateTime(2021,7,12,22,0,0)
                                    , 86400 * 1000i64) // 1 day
-        , "Logging in at 01:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+        , "Logging in at midnight CET should give a session until 04:00:00 CET (02:00:00 UTC) the same day");
+
+  TestEq( MakeDateTime(2021,7,13,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,22,59,59)
+                                   , 86400 * 1000i64) // 1 day
+        , "Logging in at 00:59:59 CET should give a session until 04:00:00 CET (02:00:00 UTC) the same day (just outside round_minduration)");
+
+  TestEq( MakeDateTime(2021,7,14,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,12,23,0,0)
+                                   , 86400 * 1000i64) // 1 day
+        , "Logging in at 01:00:00 CET should give a session until 04:00:00 CET (02:00:00 UTC) the NEXT day (within round_minduration)");
+
+  TestEq( MakeDateTime(2021,7,14,2,0,0)
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
+                                   , MakeDateTime(2021,7,13,0,0,0)
+                                   , 86400 * 1000i64) // 1 day
+        , "Logging in at 02:00:00 CET should give a session until 04:00:00 CET (02:00:00 UTC) the NEXT day");
 
   TestEq( MakeDateTime(2021,7,19,2,0,0)
         , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration ]
@@ -84,10 +102,10 @@ MACRO TestHelpers()
         , "Logging in at 17:00:00 CET with 1 hour expiry should give a session until 18:00:00 CET (17:00:00 UTC)");
 
   TestEq( MakeDateTime(2021,7,12,9,30,0)
-        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration, roundup_longlogins_to := -1 ]
+        , CalculateWRDSessionExpiry(CELL[ ...wrdauth_defaultconfiguration, round_longlogins_to := -1 ]
                                    , MakeDateTime(2021,7,12, 9,15,0)
                                    , 15 * 60 * 1000i64) // 15 minutes
-        , "Killing roundup_longlogins_to should stop any rounding up/down");
+        , "Killing round_longlogins_to should stop any rounding up/down");
 }
 
 MACRO PrepareExpiryTests()
@@ -151,7 +169,7 @@ MACRO TestLoginCookies()
 
   // Reset state (but don't accidentally delete wh-debug!).
   testfw->browser->DeleteCookies("webharelogin-*");
-  UpdateAuthSettings([ roundup_longlogins_to := -1, expire_login := 1 ]);
+  UpdateAuthSettings([ round_longlogins_to := -1, expire_login := 1 ]);
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
   TestEq(TRUE, result.success);
@@ -176,7 +194,7 @@ MACRO TestLoginCookies()
 
   // Reset state. Disable all rounding. Let sessions last 60 seconds
   testfw->browser->DeleteCookies("webharelogin-*");
-  UpdateAuthSettings([ roundup_longlogins_to := -1, expire_login := 60000 ]);
+  UpdateAuthSettings([ round_longlogins_to := -1, expire_login := 60000 ]);
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
 

@@ -20,8 +20,9 @@ PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   [ expire_login :=                 86400 * 1000i64 // 1 day
   , expire_persistentlogin :=  30 * 86400 * 1000i64 //30 days
   , expire_thirdpartylogin :=       86400 * 1000i64 // 1 day
-  , roundup_longlogins_to :=  4 * 60 * 60 * 1000    // 4 am
-  , roundup_longlogins_tz := "Europe/Amsterdam"     // default timezone for rounding up long logings if not set
+  , round_longlogins_to :=  4 * 60 * 60 * 1000      // 4 am (set to -1 to disable rounding)
+  , round_longlogins_tz := "Europe/Amsterdam"       // default timezone for rounding
+  , round_minduration := 3 * 60 * 60 * 1000         // sessions last at least 3 hours
   ];
 
 PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
