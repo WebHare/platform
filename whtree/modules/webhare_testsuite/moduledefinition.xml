@@ -166,6 +166,12 @@
       <webrule path="/" match="initial" wrdschema="wrd:testschema"/>
     </webruleset>
     <webrule match="initial" path="root:/betatesting/testset/" applyruleset="webhare_testsuite:testset"/>
+
+    <webruleset name="thirdpartytest" title="Testsuite: testwrdauthplugin thirdpartytest">
+      <webrule path="/wrd/authtest/webhare_testsuite.shtml" match="exact" handlebyscript="web/tests/wrd/authdebug.shtml" />
+      <webrule path="/wrd/authtest/accessruleaccounts/" authmode="ipandaccess" match="initial" authscript="webdesigns/basetest/lib/webhare-auth-portal1.whscr" requirewhaccount="true" handlebydir="web/tests/" />
+    </webruleset>
+
     <webruleset name="securityheaders" title="Testsuite: security headers">
       <webrule path="/" match="initial">
         <addheader header="X-Frame-Options" value="SAMEORIGIN"/>

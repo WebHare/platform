@@ -1672,7 +1672,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(cellrec.name NOT IN [ "RULEID", "USE_LIST", "USE_WRDAUTH", "RULEPATH" ])
         THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
 
-    // The domain id is added to the cookie name, so multiple logins are possible in a site
+    // The schemaid is added to the cookie name, so multiple logins are possible in a site
     STRING cookiename := this->cookiename || "-" || this->wrdschema->id || "_e";
 
     // Did we just arrive from a login page?
