@@ -1017,7 +1017,7 @@
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="allowwidgettype" />
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="videowidget" />
 
-    <versioningpolicy name="default" library="lib/internal/versioning/defaultpolicy.whlib" objectname="DefaultVersioningPolicy" />
+    <versioningpolicy name="default" objectname="lib/internal/versioning/defaultpolicy.whlib#DefaultVersioningPolicy" />
 
     <filemgrextension>
       <accesscheck />

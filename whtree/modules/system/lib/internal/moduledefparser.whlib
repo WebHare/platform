@@ -1441,10 +1441,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         }
         CASE "versioningpolicy"
         {
+          STRING objectname;
+          IF(subchild->HasAttribute("library"))
+            objectname := "module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname");
+          ELSE
+            objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname"));
+
           RECORD policy := [ name := subchild->GetAttribute("name")
-                           , library := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("library"))
-                           , objectname := subchild->GetAttribute("objectname")
+                           , objectname := objectname
                            ];
+
           INSERT policy INTO this->moduledef.versioningpolicies AT END;
         }
         CASE "indexfield"
