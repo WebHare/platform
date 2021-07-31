@@ -188,11 +188,10 @@ PUBLIC RECORD ARRAY FUNCTION GetSuitableAccountAttributes(OBJECT wrdtype)
 {
   RECORD ARRAY candidates:=
          SELECT *
-              , allowforlogin    := attributetype IN [ 2, 4 ] AND isunique
-              , allowforemail    := attributetype = 4
-              , allowforpassword := attributetype = 7
-           FROM wrdtype->ListAttributes(0)
-          WHERE attributetype IN [2,4,7];
+              , allowforlogin    := attributetypename IN [ "FREE", "EMAIL" ] AND isunique
+              , allowforemail    := attributetypename = "EMAIL"
+              , allowforpassword := attributetypename IN [ "PASSWORD", "AUTHENTICATIONSETTINGS"]
+           FROM wrdtype->ListAttributes(0);
 
   RETURN SELECT * FROM candidates WHERE allowforlogin OR allowforemail OR allowforpassword;
 }
