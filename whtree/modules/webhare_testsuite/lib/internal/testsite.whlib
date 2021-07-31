@@ -1245,13 +1245,6 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
                                                                      ]);
   OBJECT wrdschema2_unit := wrdschema2->^whuser_unit->CreateEntity([wrd_title := "Testunit"]);
 
-  wrdschema2->^wrd_authdomain->CreateEntity(
-      [ wrd_tag :=                "MYBACKEND2"
-      , wrd_title :=              "Our custom 2nd WebHare backend login"
-      , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
-      , wrdauth_lastipfield :=    "WHUSER_LASTIP"
-      ]);
-
   wrdschema2->^wrd_person->CreateEntity(
       [ wrd_contact_email :=      "test-portal2@example.com"
       , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
@@ -1485,8 +1478,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
 
   testfw->BeginWork();
 
-  testfw->GetWRDSchema()->^wrd_authdomain->CreateEntity([ wrd_tag := "MYBACKEND"
-                                                        ]);
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"
     , wrd_lastname := "Tester"

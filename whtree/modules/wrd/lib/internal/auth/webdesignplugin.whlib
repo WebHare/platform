@@ -80,9 +80,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /// Lifetime of password reset links, in minutes
   INTEGER passwordresetlifetime;
 
-  /// Site tag
-  STRING pvt_sitetag;
-
   /// Resource URI for service email
   STRING servicemailtemplate;
 
@@ -122,9 +119,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   /// Account type
   PUBLIC PROPERTY accounttype(GetAccountType, -);
-
-  /// Site tag
-  PUBLIC PROPERTY sitetag(pvt_sitetag, -);
 
   /// Current webcontext/webdesign
   PUBLIC PROPERTY webcontext(pvt_webcontext, -);
@@ -186,7 +180,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   {
     RECORD config :=
            [ wrdschema := node->GetAttribute("wrdschema")
-           , sitetag   := ToUppercase(node->GetAttribute("sitetag"))
            , supportobjectname := node->GetAttribute("supportobjectname")
            , passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
            , cachefields := ParseXSList(node->GetAttribute("cachefields"))
@@ -261,12 +254,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     config.wrdschema := ExpandContextVariables(webdesign, config.wrdschema);
     this->cookiename := ExpandContextVariables(webdesign, config.cookiename) ?? "webharelogin-" || GetSafeName(config.wrdschema, [ tohyphens := ":" ]);
-    this->wrdauthconfig := GetWRDAuthConfig(config.wrdschema, config.sitetag);
+    this->wrdauthconfig := GetWRDAuthConfig(config.wrdschema);
 
     this->supportobjectname := config.supportobjectname;
     this->passwordresetlifetime := config.passwordresetlifetime;
     this->cachefields := config.cachefields;
-    this->pvt_sitetag := config.sitetag;
     this->servicemailtemplate := config.servicemailtemplate;
     this->spautocreate := config.spautocreate;
     this->__loginpage := config.loginpage;
@@ -317,7 +309,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       RETURN;
 
     RECORD config :=
-        [ returnid :=   this->HasFailed() ? "true" : ToString(this->wrdauthconfig.authdomainid) //used by designfiles wrdauth, not by the modern code
+        [ returnid :=   this->HasFailed() ? "true" : "0"//used by designfiles wrdauth, not by the modern code
         , cookiename := this->cookiename
         ];
 
@@ -466,7 +458,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         proof :=
             [ type := "wrdauth"
-            , dom := this->wrdauthconfig.authdomainid
             , entityid := this->GetLoggedinEntity()
             , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
             ];
@@ -475,7 +466,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         proof :=
             [ type := "external"
-            , dom := this->wrdauthconfig.authdomainid
             , ruleid := data.ruleid
             , username := data.username
             , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
@@ -709,6 +699,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->CheckNotFailed();
     this->GetSupportObject(); // initialize loginfilter
 
+   IF(NOT CellExists(options,"firstloginfield"))
+      INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
+    IF(NOT CellExists(options,"lastloginfield"))
+      INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
+
     RECORD trylogin := this->__GetWRDAuthIntegration()->LoginById(userid, is_impersonation, options);
 
     IF(NOT trylogin.success)
@@ -802,10 +797,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(NOT IsDatabaseWritable())
       RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 
-    IF(NOT CellExists(options,"firstloginfield") AND this->pvt_config.firstloginfield != "")
+    IF(NOT CellExists(options,"firstloginfield"))
       INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
-    IF(NOT CellExists(options,"lastloginfield") AND this->pvt_config.lastloginfield != "")
-      INSERT CELL lastloginfield := this->pvt_config.lastloginfield INTO options;
+    IF(NOT CellExists(options,"lastloginfield"))
+      INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
 
     INSERT CELL lookuplogin := PTR this->LookupLogin INTO options;
 
@@ -975,10 +970,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(NOT IsDatabaseWritable())
       RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 
-    IF(NOT CellExists(options,"firstloginfield") AND this->pvt_config.firstloginfield != "")
+    IF(NOT CellExists(options,"firstloginfield"))
       INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
-    IF(NOT CellExists(options,"lastloginfield") AND this->pvt_config.lastloginfield != "")
-      INSERT CELL lastloginfield := this->pvt_config.lastloginfield INTO options;
+    IF(NOT CellExists(options,"lastloginfield"))
+      INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
 
     RECORD challenge;
     IF (options.challenge != "")
@@ -1554,7 +1549,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC MACRO __RedirectToLogin(RECORD challenge DEFAULTSTO DEFAULT RECORD)
   {
-    IF(GetWebVariable("wrdauth_returned") IN [ "true", "1", ToString(this->__GetWRDAuthIntegration()->id), "loggedin" ])
+    IF(GetWebVariable("wrdauth_returned") IN [ "true", "1", "0", "loggedin" ])
       THROW NEW Exception("Returned to the page requiring a login but still no credentials available (expected cookie: " || this->cookiename || ")");
 
     STRING backurl := UpdateURLVariables(GetClientRequestURL(), [ wrdauth_returned := ""]);
@@ -1609,7 +1604,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     RECORD proof := DecryptWRDAuthData(this->wrdauthconfig, GetWebVariable("wrdauth_proof"), "");
 
-    IF (NOT RecordExists(proof) OR this->wrdauthconfig.authdomainid != proof.dom)
+    IF (NOT RecordExists(proof))
       THROW NEW Exception("Received authentication data is not valid for this page");
 
     IF (proof.until >= GetCurrentDateTime())
@@ -1677,7 +1672,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         THROW NEW Exception("Unrecognized option '" || cellrec.name || "'");
 
     // The domain id is added to the cookie name, so multiple logins are possible in a site
-    STRING cookiename := this->cookiename || "-" || this->__GetWRDAuthIntegration()->id || "_e";
+    STRING cookiename := this->cookiename || "-" || this->wrdschema->id || "_e";
 
     // Did we just arrive from a login page?
     IF (GetWebVariable("wrdauth_proof") != "")
@@ -1769,7 +1764,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC MACRO __ClearAuthSession()
   {
-    STRING cookiename := this->cookiename || "-" || this->__GetWRDAuthIntegration()->id || "_e";
+    STRING cookiename := this->cookiename || "-" || this->wrdschema->id || "_e";
     STRING sessionid := Tokenize(GetWebCookie(cookiename),' ')[0];
     CloseWebSession(sessionid, "wrd:authlogin");
   }
@@ -1777,7 +1772,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC MACRO __LogOutExternal()
   {
     // The domain id is added to the cookie name, so multiple logins are possible in a site
-    STRING cookiename := this->cookiename || "-" || this->__GetWRDAuthIntegration()->id || "_e";
+    STRING cookiename := this->cookiename || "-" || this->wrdschema->id || "_e";
 
     STRING ext_cookie := GetWebCookie(cookiename);
     IF (ext_cookie = "" OR ext_cookie NOT LIKE "* *")

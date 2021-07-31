@@ -8,7 +8,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
-RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
+RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
 {
   OBJECT wrdschema := OpenWRDSchema(wrdschemaname);
   IF(NOT ObjectExists(wrdschema))
@@ -27,49 +27,47 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname, STRING sitetag)
            ];
   }
 
-  INTEGER authdomainid;
-  IF(sitetag != "") //did you have too.... ?
-  {
-    OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
-    IF(NOT ObjectExists(authdomaintype))
-      THROW NEW Exception(`The WRD schema '${wrdschema->tag}' does not have a type WRD_AUTHDOMAIN, needed to resolve sitetag '${sitetag}'`);
-
-    authdomainid := authdomaintype->Search("WRD_TAG", sitetag, [matchcase := FALSE]);
-    IF(authdomainid = 0)
-    {
-      RETURN [ value := CELL[ fatalerror := `No such auth site '${sitetag}' in schema '${wrdschemaname}'` ]
-             , ttl := 15 * 60 * 1000
-             , eventmasks := wrdschema->GetEventMasks()
-             ];
-    }
-  }
-
   STRING ARRAY acceptable_configcells := SELECT AS STRING ARRAY name FROM UnpackRecord(wrdauth_defaultconfiguration);
   RECORD wrdauthconfig :=
       CELL[ ...wrdauth_defaultconfiguration
           , ...PickCells(wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]), acceptable_configcells)
           , schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
-          //TODO various extra sanity checks on authdomainid are useless with domainless. do we need those checks back? feels like they should just entity GUIDs instead because some also use direct entityids
-          , authdomainid
           , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
           , wrdschema->accountpasswordtag
           , wrdschema->accountpasswordisauthsettings
+          , fallback_lastloginfield := ""
           ];
 
   IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef?
     THROW NEW Exception(`wrd:auth.domainsecret has not been set on schema '${wrdschema->tag}'`);
 
+  STRING ARRAY eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->GetSettingsEventMasks();
+
+  // temporary fallback so users can migrate to lastloginfield= setting
+  OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
+  IF(ObjectExists(authdomaintype) AND RecordExists(authdomaintype->GetAttribute("WRDAUTH_LASTLOGINFIELD")))
+  {
+    eventmasks := eventmasks CONCAT authdomaintype->GetEventMasks();
+    FOREVERY(RECORD domain FROM  authdomaintype->RunQuery(
+        [ outputcolumns := CELL[ "WRDAUTH_LASTLOGINFIELD" ]
+        ]))
+    {
+      IF(domain.WRDAUTH_LASTLOGINFIELD != "" AND RecordExists(wrdschema->accounttype->GetAttribute(domain.WRDAUTH_LASTLOGINFIELD)))
+        wrdauthconfig.fallback_lastloginfield := domain.WRDAUTH_LASTLOGINFIELD;
+    }
+  }
+
   RETURN [ value := wrdauthconfig
          , ttl := 15 * 60 * 1000
-         , eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->GetSettingsEventMasks()
+         , eventmasks := eventmasks
          ];
     }
 
 //Get everything you need to know about WRDAuth's configuration, cacheable
-PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema, STRING sitetag)
+PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema)
 {
-  RETURN GetAdhocCached(CELL[ wrdschema, sitetag ], PTR GetCacheableWRDAuthConfig(wrdschema, sitetag));
+  RETURN GetAdhocCached(CELL[ wrdschema ], PTR GetCacheableWRDAuthConfig(wrdschema));
 }
 
 

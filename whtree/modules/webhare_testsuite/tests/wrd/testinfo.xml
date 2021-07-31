@@ -9,7 +9,6 @@
   <test script="import.whscr" />
   <test script="testmetadata.whscr" />
   <test script="parenttype.whscr" />
-  <test script="testwrdauthplugin.whscr" />
   <test script="testwrdauthplugin-domainless.whscr" />
   <test script="testwrdauthplugin-expiry.whscr" />
   <test script="test_names.whscr" />

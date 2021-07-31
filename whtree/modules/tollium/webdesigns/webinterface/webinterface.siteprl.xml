@@ -42,7 +42,6 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              cookiename="webharelogin-testportal"
              loginpage="currentsite::/testportal"
-             sitetag=""
              wrdschema="wrd:testschema" />
   </apply>
 

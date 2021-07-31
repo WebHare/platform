@@ -28,26 +28,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   OBJECT wrdschema;
   RECORD wrdauthconfig;
-  OBJECT domaintype;
-  INTEGER domainid;
-  RECORD domainrec;
-  RECORD loginfield;
-  RECORD passwordfield;
-  RECORD emailfield;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public properties
-  //
-
-  /// @type integer ID of the WRD_AUTHDOMAIN entity
-  PUBLIC PROPERTY id(domainid,-);
-
-  PUBLIC PROPERTY accounttype(this->wrdschema->accounttype,-);
-  PUBLIC PROPERTY loginfieldtag(this->loginfield.tag,-);
-  PUBLIC PROPERTY passwordfieldtag(this->passwordfield.tag,-);
-  PUBLIC PROPERTY emailfieldtag(this->emailfield.tag,-);
-  PUBLIC PROPERTY lastloginfieldtag(this->domainrec.wrdauth_lastloginfield,-);
 
   // ---------------------------------------------------------------------------
   //
@@ -58,9 +38,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     this->wrdschema := wrdschema;
     this->wrdauthconfig := wrdauthconfig;
-    this->domaintype := wrdschema->GetType("wrd_authdomain");
-    this->domainid := this->wrdauthconfig.authdomainid;
-    this->RefreshMetadata();
 
     this->loggedinentity := -1;
     this->loggedinexpires := DEFAULT DATETIME;
@@ -76,64 +53,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   // Helper functions
   //
 
-  RECORD FUNCTION GetCacheableDomainRec()
-  {
-    RECORD configfields;
-    IF(this->domainid != 0)
-      configfields := this->domaintype->GetEntityFields(this->domainid,
-                            [ "WRDAUTH_LASTLOGINFIELD"
-                            , "WRDAUTH_LASTIPFIELD"
-                            ]);
-    ELSE
-    {
-      configfields := [ wrdauth_lastloginfield := ""
-                      , wrdauth_lastipfield := ""
-                      ];
-    }
-
-    configfields := CELL
-        [ ...configfields
-        , wrdauth_accounttype :=    ObjectExists(this->wrdschema->accounttype)
-                                        ? this->wrdschema->accounttype->tag
-                                        : ""
-        , wrdauth_loginfield :=     this->wrdschema->accountlogintag
-        , wrdauth_emailfield :=     this->wrdschema->accountemailtag
-        , wrdauth_passwordfield :=  this->wrdschema->accountpasswordtag
-        ];
-
-    RETURN
-        [ ttl :=        60 * 1000
-        , eventmasks := ObjectExists(this->domaintype) ? this->domaintype->GetEventMasks() : this->wrdschema->GetEventMasks()
-        , value :=      configfields
-        ];
-  }
-
-  MACRO RefreshMetadata()
-  {
-    this->domainrec := GetAdhocCached(
-        [ wrdschemaid := this->wrdschema->id
-        , domaintype := Objectexists(this->domaintype) ? this->domaintype->id : 0
-        , domainid := this->domainid
-        ], PTR this->GetCacheableDomainRec);
-
-    IF(NOT RecordExists(this->domainrec))
-      THROW NEW Exception("No such authentication domain #" || this->domainid);
-
-    this->loginfield :=    this->accounttype->GetAttribute(this->domainrec.wrdauth_loginfield);
-    IF(NOT RecordExists(this->loginfield))
-      THROW NEW Exception("The login name field '" || this->domainrec.wrdauth_loginfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
-
-    this->passwordfield := this->accounttype->GetAttribute(this->domainrec.wrdauth_passwordfield);
-    IF(NOT RecordExists(this->passwordfield))
-      THROW NEW Exception("The password field '" || this->domainrec.wrdauth_passwordfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
-
-    IF(this->domainrec.wrdauth_emailfield!="")
-    {
-      this->emailfield := this->accounttype->GetAttribute(this->domainrec.wrdauth_emailfield);
-      IF(NOT RecordExists(this->emailfield))
-        THROW NEW Exception("The email field '" || this->domainrec.wrdauth_emailfield || "' does not exist in account type '" || this->domainrec.wrdauth_accounttype || "'");
-    }
-  }
 
   /** Lookup a user based on field and contents of that field
       @param field to search. If field isn't WRD_GUID and you haven't switched to authentication settings yet, the password field must be filled for the lookup to succeed (this behaviour is now deprecated!)
@@ -145,15 +64,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RECORD ARRAY filters := [ [ field := field, value := TrimWhitespace(value), matchcase := FALSE ] ];
 
     RECORD outputcolumns := [ id := "WRD_ID" ];
-    IF (field != "WRD_GUID")
-      INSERT CELL auth := this->passwordfield.tag INTO outputcolumns;
+    IF (field != "WRD_GUID" AND NOT this->wrdschema->accountpasswordisauthsettings)
+      INSERT CELL auth := this->wrdschema->accountpasswordtag INTO outputcolumns;
 
-    RECORD ARRAY q := this->accounttype->RunQuery( CELL
+    RECORD ARRAY q := this->wrdschema->accounttype->RunQuery( CELL
         [ outputcolumns
         , filters
         ]);
 
-    IF (field != "WRD_GUID" AND this->passwordfield.attributetype = wrd_attributetype_password)
+    IF (field != "WRD_GUID" AND NOT this->wrdschema->accountpasswordisauthsettings)
       DELETE FROM q WHERE auth = "";
 
     RETURN Length(q)=1 ? q[0].id : 0;
@@ -190,8 +109,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         , expires :=    DEFAULT DATETIME
         ];
 
-    STRING ARRAY fieldnames := ["WRD_GUID", this->domainrec.wrdauth_passwordfield ];
-    RECORD fields := this->accounttype->GetEntityFields(userid, fieldnames, [ historymode := "now" ]);
+    STRING ARRAY fieldnames := ["WRD_GUID", this->wrdschema->accountpasswordtag ];
+    RECORD fields := this->wrdschema->accounttype->GetEntityFields(userid, fieldnames, [ historymode := "now" ]);
     IF(NOT RecordExists(fields))
       THROW NEW Exception("Invalid account #" || userid);
 
@@ -208,7 +127,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       THROW NEW Exception(`Attempting to create an already expired cookie`); //race or something bad happened to our caller
 
     RECORD cookiedata := [ v := 2
-                         , dom := this->id
                          , user := userid
                          , cs := creationdate
                          , exp := cookies.expires
@@ -228,8 +146,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     {
       RECORD copy := cookiedata;
 
-      VARIANT authdata := GetCell(fields, this->domainrec.wrdauth_passwordfield);
-      STRING passwordhash := this->passwordfield.attributetype != wrd_attributetype_authenticationsettings
+      VARIANT authdata := GetCell(fields, this->wrdschema->accountpasswordtag);
+      STRING passwordhash := NOT this->wrdschema->accountpasswordisauthsettings
           ? STRING(authdata)
           : RecordExists(authdata) AND RecordExists(authdata.passwords)
               ? authdata.passwords[END-1].passwordhash
@@ -256,11 +174,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       THROW NEW Exception("Illegal cookie type '" || type || "'");
 
     RECORD data := this->DecryptData(cookie, type);
-    IF(NOT Recordexists(data) OR data.v != 2 OR data.dom != this->id)
+    IF(NOT Recordexists(data) OR data.v != 2)
       RETURN DEFAULT RECORD;
 
-    STRING ARRAY fieldnames := ["WRD_GUID", this->domainrec.wrdauth_passwordfield ];
-    RECORD fields := this->accounttype->GetEntityFields(data.user, fieldnames, [ historymode := "now" ]);
+    STRING ARRAY fieldnames := ["WRD_GUID", this->wrdschema->accountpasswordtag ];
+    RECORD fields := this->wrdschema->accounttype->GetEntityFields(data.user, fieldnames, [ historymode := "now" ]);
     IF(NOT RecordExists(fields))
       RETURN DEFAULT RECORD;
 
@@ -268,8 +186,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RETURN DEFAULT RECORD;
     IF(type = "persistent")
     {
-      VARIANT authdata := GetCell(fields, this->domainrec.wrdauth_passwordfield);
-      STRING passwordhash := this->passwordfield.attributetype != wrd_attributetype_authenticationsettings
+      VARIANT authdata := GetCell(fields, this->wrdschema->accountpasswordtag);
+      STRING passwordhash := NOT this->wrdschema->accountpasswordisauthsettings
           ? STRING(authdata)
           : RecordExists(authdata) AND RecordExists(authdata.passwords)
               ? authdata.passwords[END-1].passwordhash
@@ -304,35 +222,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN RecordExists(data) ? data.userid : 0;
   }
 
-  /** Updates the metadata for this authentication domain
-      @param newfields Fields to update
-      @cell newfields.wrdauth_lastloginfield
-      @cell newfields.wrd_title
-      @cell newfields.wrdauth_language
-      @cell newfields.wrdauth_lastipfield
-  */
-  PUBLIC MACRO UpdateMetadata(RECORD newfields)
-  {
-    this->domaintype->UpdateEntity(this->domainid, newfields);
-    BroadcastEvent("wrd:auth.domain.change." || this->domainid, DEFAULT RECORD);
-    this->RefreshMetadata();
-  }
-
-  /** Updates the last login date for an entity
-      @param the_entity Entity
-  */
-  PUBLIC MACRO UpdateLastLogin(OBJECT the_entity)
-  {
-    IF(NOT ObjectExists(the_entity)
-       OR this->domainrec.wrdauth_lastloginfield = ""
-       OR NOT RecordExists(this->accounttype->GetAttribute(this->domainrec.wrdauth_lastloginfield))
-       )
-      RETURN;
-
-    RECORD upd := CellInsert(DEFAULT RECORD, this->domainrec.wrdauth_lastloginfield, GetCurrentDatetime());
-    the_entity->UpdateEntity(upd);
-  }
-
   /** Updates the last login date and ip address for an entity
       @param the_entity Entity
       @param ip IP address
@@ -345,16 +234,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RETURN;
 
     RECORD upd;
-    STRING firstloginfield := CellExists(options,'FIRSTLOGINFIELD') ? options.firstloginfield : "";
+    STRING firstloginfield := options.firstloginfield;
     IF(firstloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(firstloginfield)) AND the_entity->GetField(firstloginfield) = DEFAULT DATETIME)
       upd := CellInsert(upd, firstloginfield, GetCurrentDatetime());
 
-    STRING lastloginfield := CellExists(options,'LASTLOGINFIELD') ? options.lastloginfield : this->domainrec.wrdauth_lastloginfield;
+    STRING lastloginfield :=  options.lastloginfield;
     IF(lastloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(lastloginfield)))
       upd := CellInsert(upd, lastloginfield, GetCurrentDatetime());
-
-    IF(this->domainrec.wrdauth_lastipfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(this->domainrec.wrdauth_lastipfield)))
-      upd := CellInsert(upd, this->domainrec.wrdauth_lastipfield, ip);
 
     IF(RecordExists(upd))
       the_entity->UpdateEntity(upd);
@@ -393,40 +279,22 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
   }
 
-  /** Returns the login name of a user
-      @param id Id of user
-      @return Login name
-  */
-  PUBLIC STRING FUNCTION GetUserLogin(INTEGER id)
-  {
-    RECORD fields := this->accounttype->GetEntityFields(id, [ login := this->domainrec.wrdauth_loginfield ] );
-
-    IF(NOT RecordExists(fields)) //try as role..
-    {
-      OBJECT roletype := this->wrdschema->GetType("WHUSER_ROLE");
-      IF(ObjectExists(roletype))
-        fields := roletype->GetEntityFields(id, [ login := "WRD_TITLE" ]);
-    }
-
-    RETURN RecordExists(fields) ? fields.login : "";
-  }
-
   /** Looks up a user based on the login name. The user must have a non-default password.
       @param login Login name
       @return User id
   */
   PUBLIC INTEGER FUNCTION LookupLogin(STRING login)
   {
-    RETURN this->DoLookup(this->loginfield.tag, login);
+    RETURN this->DoLookup(this->wrdschema->accountlogintag, login);
   }
 
-  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent)
+  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent, RECORD options)
   {
-    OBJECT the_entity := this->accounttype->GetEntity(entityid);
+    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(entityid);
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    RETURN this->FinalizeLogin(the_entity, impersonate, persistent, "", "", TRUE);
+    RETURN this->FinalizeLogin(the_entity, impersonate, persistent, "", "", TRUE, options);
   }
 
   STRING FUNCTION GenerateSecondFactorLoginChallenge()
@@ -440,7 +308,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(requiremasterpassword)
       THROW NEW Exception("We no longer support master passwords"); //parameter is hard to remove with all the defaults - at least its an internal api
     INTEGER entityid := userid ?? this->LookupLogin(login);
-    OBJECT the_entity := this->accounttype->GetEntity(entityid);
+    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(entityid);
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
@@ -448,8 +316,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
 
     VARIANT authenticationsettings := "";
-    IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings OR CellExists(options, "checkpassword"))
-      authenticationsettings := the_entity->GetField(this->passwordfield.tag);
+    IF (this->wrdschema->accountpasswordisauthsettings OR CellExists(options, "checkpassword"))
+      authenticationsettings := the_entity->GetField(this->wrdschema->accountpasswordtag);
 
     IF (CellExists(options, "checkpassword"))
     {
@@ -466,7 +334,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       }
     }
 
-    IF (this->passwordfield.attributetype = wrd_attributetype_authenticationsettings)
+    IF (this->wrdschema->accountpasswordisauthsettings)
     {
       // TOTP needs to be enabled for second factor login
       IF (RecordExists(authenticationsettings) AND RecordExists(authenticationsettings.totp))
@@ -625,10 +493,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RECORD response;
       DATETIME now := GetCurrentDatetime();
 
-      IF (this->passwordfield.attributetype != wrd_attributetype_authenticationsettings)
+      IF (NOT this->wrdschema->accountpasswordisauthsettings)
         RETURN [ success := FALSE, code := "INVALIDDATA" ];
 
-      RECORD settings := entity->GetField(this->passwordfield.tag);
+      RECORD settings := entity->GetField(this->wrdschema->accountpasswordtag);
       IF (NOT RecordExists(settings))
         RETURN [ success := FALSE, code := "INVALIDDATA" ];
       IF (NOT RecordExists(settings.totp))
@@ -704,7 +572,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
           IF (updatesettings)
           {
             GetPrimary()->BeginWork();
-            entity->UpdateEntity(CellInsert(CELL[], this->passwordfield.tag, settings));
+            entity->UpdateEntity(CellInsert(CELL[], this->wrdschema->accountpasswordtag, settings));
             GetPrimary()->CommitWork();
           }
         }
@@ -750,7 +618,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF (logindata.validuntil < now)
       RETURN [ success := FALSE, code := "INVALIDDATA", entityid := 0, login := "" ];
 
-    OBJECT the_entity := this->accounttype->GetEntity(logindata.entityid);
+    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(logindata.entityid);
     IF (NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "INVALIDDATA", entityid := 0, login := "" ];
 
@@ -844,11 +712,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         RETURN DEFAULT RECORD; //expired cookie
     }
 
-    OBJECT the_entity := this->accounttype->GetEntity(cookiedata.userid);
+    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(cookiedata.userid);
     IF(NOT ObjectExists(the_entity))
       RETURN DEFAULT RECORD;
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", updatelogindata, CELL[ setcreationdate := cookiedata.creationdate ]);
+    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", FALSE, CELL[ setcreationdate := cookiedata.creationdate ]);
   }
 
   /** @param the_entity WRD entity of the user to log in
@@ -889,8 +757,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
            , code := ""
            , entityid := the_entity->id
            , entityguid :=  the_entity->guid
-           , domain := this->id
-           , login := the_entity->GetField(this->loginfieldtag)
+           , login := the_entity->GetField(this->wrdschema->accountlogintag)
            , sessioncookie := cookies.session
            , persistentcookie := cookies.persistent
            , isimpersonation := isimpersonation
@@ -1106,7 +973,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     STRING remoteip := CellExists(options,"REMOTEIP") ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND this->persistentcookie));
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND this->persistentcookie, options));
     IF(NOT trylogin.success)
     {
       //this->WriteAuditEvent("WRD:" || trylogin.code,
@@ -1255,7 +1122,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     //Set up a login session
     RECORD data := [ session_version := session_version
                    , entityid := trylogin.entityid
-                   , domain := trylogin.domain
                    , login := trylogin.login
                    , blockedmultisession := FALSE
                    , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
@@ -1325,10 +1191,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     {
       options := CELL
           [ ...options
-          , login := this->accounttype->GetEntityField(options.account, this->loginfieldtag)
+          , login := this->wrdschema->accounttype->GetEntityField(options.account, this->wrdschema->accountlogintag)
           ];
     }
 
-    WriteWRDAuditEvent(this->accounttype, type, options);
+    WriteWRDAuditEvent(this->wrdschema->accounttype, type, options);
   }
 >;
