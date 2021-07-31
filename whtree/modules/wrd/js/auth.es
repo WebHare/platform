@@ -172,7 +172,6 @@ class WRDAuthenticationProvider
       return this.loginservice.request('LoginSecondFactor'
                                        , [ location.href
                                          , loginproof
-                                         , Boolean(options.persistent)
                                          , type
                                          , { ...data}
                                          , opts

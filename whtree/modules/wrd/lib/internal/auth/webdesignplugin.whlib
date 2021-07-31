@@ -267,8 +267,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(webdesign EXTENDSFROM WebDesignBase AND webdesign->IsDynamicPublication() AND NOT this->HasFailed())
     {
       IF(GetWebCookie(this->cookiename || "_j") = "" //missing javascript state
-         AND (GetWebCookie(this->cookiename || "_p") != ""
-              OR GetWebCookie(this->cookiename) != ""))
+         AND GetWebCookie(this->cookiename) != "")
       {
         this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
       }
@@ -694,6 +693,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ allowlogout := TRUE
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
+                               , persistent := FALSE
                                ], options);
 
     this->CheckNotFailed();
@@ -791,6 +791,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , firstloginfield := ""
                                , lastloginfield := ""
                                , browsertriplet := ""
+                               , persistent := FALSE
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
@@ -1633,7 +1634,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         CASE "wrdauth"
         {
-          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, [ "external" ]);
+          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, cookietype_external );
           cookiedata := cookiedata || " " || cookies.external;
 
           result.user := this->userapi->GetTolliumUserFromEntityId(proof.entityid);

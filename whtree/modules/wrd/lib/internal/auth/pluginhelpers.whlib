@@ -7,6 +7,11 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
+PUBLIC CONSTANT INTEGER cookietype_session := 0;    //direct login (usually username+password)
+PUBLIC CONSTANT INTEGER cookietype_thirdparty := 1; //session cookie authorized by a third party
+PUBLIC CONSTANT INTEGER cookietype_persistent := 2; //direct login with 'remember me' enabled
+PUBLIC CONSTANT INTEGER cookietype_external := 3;   //cross-domain logins on the same webhare
+
 
 RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
 {

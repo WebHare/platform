@@ -16,8 +16,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 
-INTEGER session_version := 6;
-
+CONSTANT INTEGER cookie_version := 2;
 CONSTANT INTEGER max_totp_attempts := 6;
 
 PUBLIC STATIC OBJECTTYPE WRDAuth
@@ -85,67 +84,57 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** Creates login cookies
       @param userid
-      @param types List of "session", "external", "persistent"
+      @param cookietype cookietype_session, cookietype_persisent, cookietype_external
       @param options
       @cell options.path Path to encode in external cookie (optional)
       @cell(datetime) options.setcreationdate Enforce this cookie creation date
       @cell(boolean) options.thirdparty Set to TRUE if this is a third-party login, and use the expiry policy for that type of login. Defaults to FALSE.
-      @return Encoded cookies
+      @return Encoded cookies, or default record if cookie is already expired
       @cell return.session Session cookie
       @cell return.persistent Persistent cookie
       @cell return.external External cookie
   */
-  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, STRING ARRAY types, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, INTEGER cookietype, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ path := ""
-                               , thirdparty := FALSE
                                , setcreationdate := DEFAULT DATETIME
                                ], options);
 
     RECORD cookies :=
-        [ session :=    ""
-        , persistent := ""
+        [ logincookie := ""
+        , logincookielifetime := 0i64
         , external :=   ""
         , expires :=    DEFAULT DATETIME
         ];
+
+    DATETIME now := GetCurrentDatetime();
+    DATETIME creationdate := options.setcreationdate ?? now;
+    INTEGER64 expirytime := cookietype = cookietype_thirdparty ? this->wrdauthconfig.expire_thirdpartylogin
+                            : cookietype = cookietype_persistent ? this->wrdauthconfig.expire_persistentlogin
+                            : this->wrdauthconfig.expire_login;
+    IF(expirytime <= 0)
+      THROW NEW Exception(`Invalid expiry time configured`);
+
+    cookies.expires := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
+    IF(options.setcreationdate != DEFAULT DATETIME AND now >= cookies.expires) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
+      RETURN DEFAULT RECORD; //the cookie has already expired
 
     STRING ARRAY fieldnames := ["WRD_GUID", this->wrdschema->accountpasswordtag ];
     RECORD fields := this->wrdschema->accounttype->GetEntityFields(userid, fieldnames, [ historymode := "now" ]);
     IF(NOT RecordExists(fields))
       THROW NEW Exception("Invalid account #" || userid);
 
-    DATETIME now := GetCurrentDatetime();
-    DATETIME creationdate := options.setcreationdate ?? now;
-    INTEGER64 expirytime := options.thirdparty ? this->wrdauthconfig.expire_thirdpartylogin
-                            : "persistent" IN types ? this->wrdauthconfig.expire_persistentlogin
-                            : this->wrdauthconfig.expire_login;
-    IF(expirytime <= 0)
-      THROW NEW Exception(`Invalid expiry time configured`);
-
-    cookies.expires := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
-    IF(now >= cookies.expires AND expirytime > 60000) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
-      THROW NEW Exception(`Attempting to create an already expired cookie`); //race or something bad happened to our caller
-
-    RECORD cookiedata := [ v := 2
+    RECORD cookiedata := [ v := cookie_version
                          , user := userid
                          , cs := creationdate
                          , exp := cookies.expires
                          , wg := fields.wrd_guid
                          ];
+    IF(cookietype != 0)
+      INSERT CELL t := cookietype INTO cookiedata;
 
-    IF ("session" IN types)
-      cookies.session := this->EncryptData(cookiedata, "session");
-    IF ("external" IN types)
+    IF (cookietype = cookietype_persistent)
     {
-      RECORD copy := cookiedata;
-      IF (options.path != "")
-        INSERT CELL pa := options.path INTO copy;
-      cookies.external := this->EncryptData(copy, "external");
-    }
-    IF ("persistent" IN types)
-    {
-      RECORD copy := cookiedata;
-
       VARIANT authdata := GetCell(fields, this->wrdschema->accountpasswordtag);
       STRING passwordhash := NOT this->wrdschema->accountpasswordisauthsettings
           ? STRING(authdata)
@@ -153,8 +142,21 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
               ? authdata.passwords[END-1].passwordhash
               : "";
 
-      INSERT CELL p := passwordhash INTO copy; //FIXME shouldn't we still hash the password someway, even though encrypte?
-      cookies.persistent := this->EncryptData(copy, "persistent");
+      //FIXME shouldn't we still hash the password someway, even though encrypte? .. and FIXME shouldn't any password change invalidate your cookies (but how to safely deal with changes during a session?)
+      INSERT CELL p := passwordhash INTO cookiedata;
+    }
+
+    IF (cookietype = cookietype_external)
+    {
+      RECORD copy := cookiedata;
+      IF (options.path != "")
+        INSERT CELL pa := options.path INTO copy;
+      cookies.external := this->EncryptData(copy, "external");
+    }
+    ELSE
+    {
+      cookies.logincookie := this->EncryptData(cookiedata, "session");
+      cookies.logincookielifetime :=  cookietype = cookietype_persistent ? (expirytime + 999) / 1000 : 0i64;
     }
 
     RETURN cookies;
@@ -199,6 +201,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RECORD cookiedata := [ userid := data.user
                          , creationdate := data.cs
                          , expires := CellExists(data,'exp') ? data.exp : DEFAULT DATETIME
+                         , cookietype := CellExists(data,'t') ? data.t : 0
                          ];
 
     IF (CellExists(data, "PA"))
@@ -294,7 +297,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    RETURN this->FinalizeLogin(the_entity, impersonate, persistent, "", "", TRUE, options);
+    RETURN this->FinalizeLogin(the_entity, impersonate, persistent ? cookietype_persistent : cookietype_session, "", "", TRUE, options);
   }
 
   STRING FUNCTION GenerateSecondFactorLoginChallenge()
@@ -303,7 +306,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN EncodeBase64(GenerateRandomBinaryValue(16));
   }
 
-  RECORD FUNCTION serviceLogin(STRING login, STRING password, BOOLEAN persistent, STRING ip, INTEGER userid DEFAULTSTO 0, BOOLEAN requiremasterpassword DEFAULTSTO FALSE, BOOLEAN skippasswordcheck DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
+  RECORD FUNCTION serviceLogin(STRING login, STRING password, INTEGER cookietype, STRING ip, INTEGER userid DEFAULTSTO 0, BOOLEAN requiremasterpassword DEFAULTSTO FALSE, BOOLEAN skippasswordcheck DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(requiremasterpassword)
       THROW NEW Exception("We no longer support master passwords"); //parameter is hard to remove with all the defaults - at least its an internal api
@@ -359,7 +362,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
                                             , login
                                             , remoteip :=         ip
                                             , browsertriplet :=   CellExists(options, "browsertriplet") ? options.browsertriplet : ""
-                                            , persistent
+                                            , cookietype :=       cookietype
                                             , validuntil :=       AddTimeToDate(5*60*1000, now)
                                             ], "wrd:2faloginproof")
                   ]
@@ -367,7 +370,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       }
     }
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, persistent, login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
+    RETURN this->FinalizeLogin(the_entity, FALSE, cookietype, login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
   }
 
   /** Returns second factor state
@@ -636,7 +639,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         TRY
         {
           GetPrimary()->BeginWork();
-          response := this->FinalizeLogin(response.entity, logindata.isimpersonation, logindata.persistent, logindata.login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
+          response := this->FinalizeLogin(response.entity, logindata.isimpersonation, logindata.cookietype, logindata.login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
 
           RETURN CELL
               [ ...response
@@ -700,9 +703,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
        logins...)  or perhaps only for PERSISTENT logins if the session truly expired, or for the first login on the day? */
 
     DATETIME now := GetCurrentDatetime();
-    RECORD cookiedata := this->__ParseCookie(cookie, islogincookie ? "persistent" : "session");
-    //FIXME also validate against *current* expiry rules. we need to know the login type though.. (external/persistent/session)
-    IF(NOT RecordExists(cookiedata) OR now >= cookiedata.expires)
+    RECORD cookiedata := this->__ParseCookie(cookie, "session");
+    IF(NOT RecordExists(cookiedata))// OR (cookiedata.expires != DEFAULT DATETIME AND now >= cookiedata.expires)) //old cookies may not contain expires. and perhaps we should only encode it if its shorter than default?
       RETURN DEFAULT RECORD;
 
     IF(logintime > 0) //there's a maximum cookie validity FIXME remove,should be replaced wiith new expiry logic. logintime isn't actually settable!
@@ -716,7 +718,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN DEFAULT RECORD;
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, islogincookie, "", "", FALSE, CELL[ setcreationdate := cookiedata.creationdate ]);
+    RETURN this->FinalizeLogin(the_entity, FALSE, cookiedata.cookietype, "", "", FALSE, CELL[ setcreationdate := cookiedata.creationdate ]);
   }
 
   /** @param the_entity WRD entity of the user to log in
@@ -736,33 +738,31 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @cell(integer) return.domain Authentication domain id
       @cell(string) return.login Login name of the logged in entity
       @cell(string) return.domaintitle Title of the authentication domain
-      @cell(string) return.sessioncookie Session cookie
+      @cell(string) return.logincookie Login cookie
+
       @cell(string) return.persistentcookie Persistent cookie
       @cell(boolean) return.isimpersonation Whether this is an impersonation
       @cell(boolean) return.persistent Whether persistent login was requested
       @cell(datetime) return.expires When the current session expires
   */
-  RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, BOOLEAN persistent, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, INTEGER cookietype, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT isimpersonation AND updatelogindata)
       this->UpdateLastLoginAndIp(the_entity, ip, options);
 
-    IF(isimpersonation) //impersonations NEVER persist
-      persistent := FALSE;
-
-    RECORD cookies := this->__CreateLoginCookies(the_entity->id, persistent ? [ "session", "persistent" ] : [ "session" ], PickCells(options, ["SETCREATIONDATE"]));
+    RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, PickCells(options, ["SETCREATIONDATE"]));
+    IF(NOT RecordExists(cookies))
+      RETURN DEFAULT RECORD;
 
     RETURN CELL
-           [ success := TRUE
+           [ ...cookies
+           , success := TRUE
            , code := ""
            , entityid := the_entity->id
            , entityguid :=  the_entity->guid
            , login := the_entity->GetField(this->wrdschema->accountlogintag)
-           , sessioncookie := cookies.session
-           , persistentcookie := cookies.persistent
            , isimpersonation := isimpersonation
-           , persistent := persistent
-           , cookies.expires
+           //, persistent := persistent
            ];
   }
 
@@ -788,8 +788,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   PUBLIC INTEGER logintime;
   /// Set whether to autoextend the logintime whenever we see the cookie
   PUBLIC BOOLEAN autoextend;
-  /// Set whether to set a cookie that will persist afer browser close
-  PUBLIC BOOLEAN persistentcookie;
   /// Set to make the cookies secure (only transferrable over https)
   PUBLIC BOOLEAN securecookie;
   /// Set the samesite value of the cookie
@@ -806,10 +804,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       STRING sessioncookie := GetWebCookie(this->cookiename);
       STRING sessionid := Tokenize(sessioncookie,' ')[0];
       STRING sessiondata := Substring(sessioncookie,Length(sessionid)+1);
-      STRING persistentcookie := GetWebCookie(this->cookiename || "_p");
 
-      this->cookiecache := [ pers := persistentcookie
-                           , sessionid := sessionid
+      this->cookiecache := [ sessionid := sessionid
                            , sessiondata := sessiondata
                            ];
     }
@@ -827,7 +823,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       sessiondata := GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
     }
 
-    IF(RecordExists(sessiondata) AND CellExists(sessiondata, "session_version") AND sessiondata.session_version = session_version)
+    IF(RecordExists(sessiondata))
     {
       INTEGER userid := this->GetCookieEntityId(cookieinfo.sessiondata, FALSE);
       IF(userid = sessiondata.entityid)
@@ -866,6 +862,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       {
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
         {
+          //FIXME isn't this just noise?
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
               [ account := logindata.entityid
               , login := logindata.login
@@ -874,27 +871,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         }
         RETURN;
       }
-    }
-    IF(cookies.pers != "")
-    {
-      RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.pers, this->logintime*60, TRUE, TRUE), [ work := TRUE ]);
-      IF(RecordExists(logindata))
-      {
-        IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
-        {
-          this->WriteAuditEvent("WRD:LOGINCOOKIE",
-              [ account := logindata.entityid
-              , login := logindata.login
-              , isimpersonation := logindata.isimpersonation
-              ]);
-        }
-        RETURN;
-      }
-    }
 
-    IF(cookies.sessiondata != "" OR cookies.pers != "")
-    {
-      this->SetLoginTokenCookie("", "", FALSE);
+      this->SetLoginCookie("", 0);
+      this->SetLoginTokenCookie("");
     }
   }
 
@@ -971,9 +950,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     STRING remoteip := CellExists(options,"REMOTEIP") ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
+    BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND this->persistentcookie, options));
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND persistent, options));
     IF(NOT trylogin.success)
     {
       //this->WriteAuditEvent("WRD:" || trylogin.code,
@@ -1007,6 +987,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     INTEGER userid;
     BOOLEAN skippasswordcheck := CellExists(options,'SKIPPASSWORDCHECK') AND options.skippasswordcheck;
 
+    BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
+
     IF(CellExists(options,"REMOTEIP"))
       remoteip := options.remoteip;
     ELSE
@@ -1023,7 +1005,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     }
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLogin(loginname, password, this->persistentcookie, remoteip, userid, FALSE, skippasswordcheck, options));
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLogin(loginname, password, persistent ? cookietype_persistent : cookietype_session, remoteip, userid, FALSE, skippasswordcheck, options));
     IF(NOT trylogin.success)
       RETURN trylogin;
 
@@ -1074,9 +1056,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
            ];
   }
 
-  MACRO SetSessionCookie(STRING value)
+  MACRO SetLoginCookie(STRING value, INTEGER64 lifetime)
   {
-    UpdateWebCookie(this->cookiename, value, this->GetCookieOpts(TRUE, FALSE));
+    UpdateWebCookie(this->cookiename, value, CELL[...this->GetCookieOpts(TRUE, FALSE) , lifetime := lifetime ]);
   }
 
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
@@ -1084,11 +1066,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN this->logintime > 0 ? this->logintime * 60 : 365*86400;
   }
 
-  MACRO SetLoginTokenCookie(STRING sessionvalue, STRING persistentvalue, BOOLEAN persistent)
+  MACRO SetLoginTokenCookie(STRING sessionvalue)
   {
-    IF(persistent)
-      UpdateWebCookie(this->cookiename || "_p", persistentvalue, this->GetCookieOpts(TRUE, TRUE));
-    UpdateWebCookie(this->cookiename || "_j", sessionvalue != "" ? EncodeUFS(GetMD5Hash(sessionvalue)) || "." : "", this->GetCookieOpts(FALSE,FALSE)); //_j = javascript user info
+    STRING value;
+    IF(sessionvalue != "")
+      value := sessionvalue != "" ? EncodeUFS(GetMD5Hash(sessionvalue)) || "." : "";
+    UpdateWebCookie(this->cookiename || "_j", value, this->GetCookieOpts(FALSE,FALSE)); //_j = javascript user info
   }
 
   /** @param trylogin
@@ -1120,8 +1103,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     }
 
     //Set up a login session
-    RECORD data := [ session_version := session_version
-                   , entityid := trylogin.entityid
+    RECORD data := [ entityid := trylogin.entityid
                    , login := trylogin.login
                    , blockedmultisession := FALSE
                    , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
@@ -1136,14 +1118,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
                                          , this->maxidle_minutes
                                          , /*limit to server: */ FALSE);
 
-      this->SetSessionCookie(this->sessionid || " " || trylogin.sessioncookie);
+      this->SetLoginCookie(this->sessionid || " " || trylogin.logincookie, trylogin.logincookielifetime);
 
       //FIXME does this even work/show up anywhere at all? we seem to only show sessions with non-zero UIDs ?
       //TODO should probably also associate hostname with the session (we formerly used domaintitle but that wasn't necessarily set)
       AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login, TRUE, 0,0, this->authenticatewebsession);
 
       IF(setlogincookie)
-        this->SetLoginTokenCookie(trylogin.sessioncookie, trylogin.persistentcookie, trylogin.persistent);
+        this->SetLoginTokenCookie(trylogin.logincookie);
     }
 
     RETURN [ success := TRUE, code := "" ];
@@ -1158,13 +1140,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->loggedinentity := -1;
     this->loggedinexpires := DEFAULT DATETIME;
     IF(this->sessionid = "")
-      this->sessionid := this->GetCachedCookies().pers;
+      this->sessionid := this->GetCachedCookies().sessionid;
 
     CloseWebSession(this->sessionid, "wrd:authsession");
     this->sessiondata := DEFAULT RECORD;
-    this->SetSessionCookie("");
-    this->SetLoginTokenCookie("", "", FALSE);
-    this->SetLoginTokenCookie("", "", TRUE);
+    this->SetLoginCookie("", 0);
     UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
 
     this->sessionid := "";

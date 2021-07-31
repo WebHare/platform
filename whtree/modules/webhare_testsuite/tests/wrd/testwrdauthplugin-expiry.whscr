@@ -15,13 +15,10 @@ LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 STRING baseurl;
 INTEGER entityid;
 
-MACRO UpdateAuthSettings(RECORD newsettings)
+MACRO SetAuthSettings(RECORD newsettings)
 {
   testfw->BeginWork();
-
-  RECORD cursettings := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]);
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.localsettings", CELL[...cursettings, ...newsettings ]);
-
+  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.localsettings", CELL[...wrdauth_defaultconfiguration, ...newsettings ]);
   testfw->CommitWork();
 }
 
@@ -134,9 +131,9 @@ MACRO TestLoginAPIs()
      And it might help to keep the internal APIs a bit cleaner */
 
   OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
-  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, ["session"], [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
+  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, cookietype_session, [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
 
-  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.session,"session");
+  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.logincookie, "session");
   TestEq(MakeDateTime(2321,7,29,15,0,0), logincookiedetails.creationdate);
   TestEq(MakeDateTime(2321,7,30,4,0,0), UTCToLocal(logincookiedetails.expires, "Europe/Amsterdam"), "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
 }
@@ -157,7 +154,7 @@ MACRO TestLoginCookies()
   cookies := ExplainWRDCookies();
   TestEq(DEFAULT DATETIME, cookies.login.expires, "The login cookie is supposed to be a session cookie");
   TestEq(TRUE, GetDatetimeDifference(cookies.logindetails.creationdate, GetCurrentDatetime()).msecs < 30000, "Cookie should be created less than 30 seconds in the past");
-  TestEq(0, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days, "Non-persistent sessions may not last longer than a day");
+  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days IN [0,1], "Non-persistent sessions are valid for at most a day");
 
   //sanity check, are we indeed logged in
   result := DebugReq("checkstatus");
@@ -169,17 +166,18 @@ MACRO TestLoginCookies()
 
   // Reset state (but don't accidentally delete wh-debug!).
   testfw->browser->DeleteCookies("webharelogin-*");
-  UpdateAuthSettings([ round_longlogins_to := -1, expire_login := 1 ]);
+  SetAuthSettings([ round_longlogins_to := -1, expire_login := 1 ]);
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
   TestEq(TRUE, result.success);
 
   cookies := ExplainWRDCookies();
-  //dumpvalue(cookies);
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).msecs <= 1, "Cookie should be (about) expired!");
+  TestEq(cookietype_session, cookies.logindetails.cookietype);
 
   result := DebugReq("checkstatus");
   TestEq(result.expires, cookies.logindetails.expires);
+  TestEq(cookietype_session, cookies.logindetails.cookietype);
 
   InvalidateWebhareLoginSession();
 
@@ -194,7 +192,7 @@ MACRO TestLoginCookies()
 
   // Reset state. Disable all rounding. Let sessions last 60 seconds
   testfw->browser->DeleteCookies("webharelogin-*");
-  UpdateAuthSettings([ round_longlogins_to := -1, expire_login := 60000 ]);
+  SetAuthSettings([ round_longlogins_to := -1, expire_login := 60000 ]);
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
 
@@ -211,7 +209,59 @@ MACRO TestLoginCookies()
   cookies := ExplainWRDCookies();
   TestEq(initialcookie.creationdate, cookies.logindetails.creationdate, "Creationdate should be unchanged");
   TestEq(initialcookie.expires, cookies.logindetails.expires, "Expiry should be unchanged");
+}
 
+MACRO TestPersistentLoginCookies()
+{
+  RECORD initialcookie, cookies, result;
+
+  //////////
+  //
+  // STORY: Verify persistent session renewal
+
+  testfw->browser->DeleteCookies("webharelogin-*");
+  SetAuthSettings(CELL[]); //reset
+
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret", persistent := "1" ]);
+  TestEq(TRUE, result.success);
+
+  cookies := ExplainWRDCookies();
+  TestEq(TRUE, cookies.login.expires > GetCurrentDatetime(), "The login cookie is supposed to be a persistent cookie");
+  TestEq(cookietype_persistent, cookies.logindetails.cookietype);
+
+  initialcookie := cookies.logindetails;
+  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days IN [29,30], "Standard persisent cookies are up to 30 days valid");
+
+  InvalidateWebhareLoginSession();
+
+  //Try to renew the session. Should SUCCEEED
+  result := DebugReq("checkstatus");
+  TestEq(TRUE, result.isloggedin);
+
+  cookies := ExplainWRDCookies();
+  TestEq(initialcookie.creationdate, cookies.logindetails.creationdate, "Creationdate should be unchanged");
+  TestEq(initialcookie.expires, cookies.logindetails.expires, "Expiry should be unchanged");
+  TestEq(cookietype_persistent, cookies.logindetails.cookietype);
+
+
+  //////////
+  //
+  // STORY: Verify persistent session cannot be renewed after expiry
+
+  testfw->browser->DeleteCookies("webharelogin-*");
+  SetAuthSettings(CELL[ expire_persistentlogin := 1, round_longlogins_to := -1 ]);
+
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret", persistent := "1" ]);
+  TestEq(TRUE, result.success);
+
+  cookies := ExplainWRDCookies();
+  TestEq(cookietype_persistent, cookies.logindetails.cookietype);
+
+  InvalidateWebhareLoginSession();
+
+  //Try to renew the session. Should FAIL
+  result := DebugReq("checkstatus");
+  TestEq(FALSE, result.isloggedin);
 }
 
 
@@ -219,6 +269,7 @@ Runtestframework( [ PTR TestHelpers
                   , PTR PrepareExpiryTests
                   , PTR TestLoginAPIS
                   , PTR TestLoginCookies
-                  ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
+                  , PTR TestPersistentLoginCookies
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

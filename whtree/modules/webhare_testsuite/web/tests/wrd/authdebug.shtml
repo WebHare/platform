@@ -35,8 +35,6 @@ ELSE
   plugin := GetWRDAuthPlugin(UnpackURL(GetRequestURL()).origin || "/" || GetWebVariable("forurl"));
 }
 
-plugin->__GetWRDAuth()->persistentcookie := GetWebVariable("persistent") = "1"; //FIXME why isn't this an option to Login, mediated/validated by config ?
-
 RECORD FUNCTION GetStatus()
 {
   BOOLEAN isloggedin := plugin->IsLoggedIn();
@@ -59,12 +57,12 @@ RECORD FUNCTION ProcessReq()
   {
     CASE "login"
     {
-      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"));
+      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), [ persistent := GetWebVariable("persistent") = "1" ]);
       RETURN res;
     }
     CASE "loginid"
     {
-      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1");
+      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", [ persistent := GetWebVariable("persistent") = "1" ]);
       RETURN res;
     }
     CASE "logout-checkstatus"

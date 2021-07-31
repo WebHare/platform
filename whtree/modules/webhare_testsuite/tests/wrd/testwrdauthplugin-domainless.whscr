@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -42,6 +44,23 @@ RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
   }
   RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
 }
+
+MACRO InvalidateWebhareLoginSession()
+{
+  //Invalidate the sessionid stored in the webhare login cookie. invalidating sessions may be tricky, but just randomizing the sessionid will have the same effect
+  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
+  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", GenerateUFS128BitId() || " " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+}
+
+MACRO InvalidateExternalLoginSessions()
+{
+  //Find the _e cookie
+  STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
+  //change the sessionid, simulating a lost _e session
+  TestEq(TRUE, e_cookiename != "", "Cannot locate the webhare external access cookie");
+  testfw->browser->SetSessionCookie(e_cookiename, "V_DFv-saZMPa5TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie(e_cookiename),' ')[1]);
+}
+
 
 MACRO PrepareServer()
 {
@@ -301,8 +320,7 @@ MACRO TestPersistentLogin()
   TestEQ(DEFAULT DATETIME, logincookie.expires);
 
   //Invalidate the sessionid stored in the webhare login cookie
-  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
-  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", "d_VFv-saZMPc0TyZ7Wi1Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+  InvalidateWebhareLoginSession();
 
   //Should autorestore because of the data in the cookie
   result := DoReq( [ action := "checkstatus" ]);
@@ -327,8 +345,7 @@ MACRO TestPersistentLogin()
 
 //testfw->browser->debug:=TRUE;
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-01" ]);
-  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
-  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", "d_VFv-saZMPc0TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+  InvalidateWebhareLoginSession();
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:login:ok"
@@ -355,8 +372,7 @@ MACRO TestPersistentLogin()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  //Completely clear the session
-  testfw->browser->DeleteCookie("webharelogin-wrd-testschema");
+  InvalidateWebhareLoginSession();
 
   //Should now also recover from this.
   result := DoReq( [ action := "checkstatus" ]);
@@ -372,8 +388,7 @@ MACRO TestPersistentLogin()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  //Completely clear the session
-  testfw->browser->DeleteCookie("webharelogin-wrd-testschema");
+  InvalidateWebhareLoginSession();
 
   //Should now also recover from this if checkstatus runs in work
   result := DoReq( [ action := "checkstatus-work" ]);
@@ -472,11 +487,7 @@ MACRO TestCrossDomainLogin()
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
   TestEq(loginrequiringurl, testfw->browser->href);
 
-  //Find the _e cookie
-  STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
-  TestEq(TRUE, e_cookiename != "", "Cannot locate the webhare external access cookie");
-  //change the sessionid, simulating a lost _e session
-  testfw->browser->SetSessionCookie(e_cookiename, "V_DFv-saZMPa5TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie(e_cookiename),' ')[1]);
+  InvalidateExternalLoginSessions();
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl)); //should still work
   TestEq(200, testfw->browser->GetHTTPStatusCode());
