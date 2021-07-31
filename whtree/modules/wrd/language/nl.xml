@@ -62,6 +62,7 @@
         <text tid="addlink">Voeg link toe</text>
         <text tid="anonymize">Schema anonimiseren</text>
         <text tid="auditlog">Inlog-events</text>
+        <text tid="authsettings">Inlog instellingen</text>
         <text tid="deleteentity">Verwijderen</text>
         <text tid="deletelink">Koppeling verwijderen</text>
         <text tid="editentity">Bewerken</text>
@@ -961,6 +962,18 @@
     <text tid="loginpage">Standaard inlogpagina</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="auth">   <!-- tolliumapps.auth -->
+      <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="expire_login">Login verloopt na</text>
+        <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
+        <text tid="expiry">Verloopinstellingen</text>
+        <text tid="round_longlogins_to">Afronden naar</text>
+        <text tid="round_longlogins_tz">Volgens tijdzone</text>
+        <text tid="round_minduration">Minimum duur</text>
+        <text tid="roundlogins">Rond de verlooptijd af naar een specifiek momemt</text>
+        <text tid="wrdauthsettings">Authenticatie en inlog instellingen</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="common">   <!-- tolliumapps.common -->
       <text tid="attrtype">Attribuuttype</text>
       <text tid="entity">Entiteit</text>

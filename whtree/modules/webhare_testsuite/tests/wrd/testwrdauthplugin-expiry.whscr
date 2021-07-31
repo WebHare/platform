@@ -5,6 +5,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -264,12 +266,49 @@ MACRO TestPersistentLoginCookies()
   TestEq(FALSE, result.isloggedin);
 }
 
+ASYNC MACRO TestWRDSettings()
+{
+  SetAuthSettings(CELL[ expire_login := 15*60000 //15 minutes
+                      ]);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[ testfw->GetWRDSchema()->tag ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authsettings"));
+
+  TestEq(15i64, TT("expire_login")->value);
+  TestEq("minutes", TT("expire_login_unit")->value);
+
+  TestEq(30i64, TT("expire_persistentlogin")->value);
+  TestEq("days", TT("expire_persistentlogin_unit")->value);
+
+  TestEq(TRUE, TT("roundlogins")->value);
+  TestEq(4 * 60 * 60 * 1000, TT("round_longlogins_to")->value);
+  TestEq("Europe/Amsterdam", TT("round_longlogins_tz")->value);
+  TestEq(3i64, TT("round_minduration")->value);
+  TestEq("hours", TT("round_minduration_unit")->value);
+
+  TT("expire_login")->value := 2;
+  TT("expire_login_unit")->value := "hours";
+
+  TT("roundlogins")->value := FALSE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  RECORD settings := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.localsettings");
+  TestEq(2*3600*1000i64, settings.expire_login);
+  TestEq(-1, settings.round_longlogins_to);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("authsettings"));
+  TestEq(FALSE, TT("roundlogins")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
 Runtestframework( [ PTR TestHelpers
                   , PTR PrepareExpiryTests
                   , PTR TestLoginAPIS
                   , PTR TestLoginCookies
                   , PTR TestPersistentLoginCookies
+                  , PTR TestWRDSettings
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);
