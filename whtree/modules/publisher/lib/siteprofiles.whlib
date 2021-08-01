@@ -175,7 +175,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
       IF(design.istemplate != gettemplates)
         CONTINUE;
 
-      INSERT [ title := design.title ?? mod.name || ":" || design.name
+      INSERT [ title := design.title ?? `:${mod.name}:${design.name}` //our callers expected a tid, so prefix with :
              , rowkey := mod.name || ":" || design.name
              , siteprofiles := design.siteprofile != "" ? STRING[design.siteprofile] : STRING[]
              , designroot := design.designroot
@@ -200,7 +200,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebFeatures()
   FOREVERY(RECORD mod FROM GetWebHareModules())
     FOREVERY(RECORD design FROM mod.webfeatures)
     {
-      INSERT [ title := design.title ?? mod.name || ":" || design.name
+      INSERT [ title := design.title ?? `:${mod.name}:${design.name}` //our callers expected a tid, so prefix with :
              , rowkey := mod.name || ":" || design.name
              , siteprofile := design.siteprofile
              , webdesignmasks := design.webdesignmasks ?? ["*"]
