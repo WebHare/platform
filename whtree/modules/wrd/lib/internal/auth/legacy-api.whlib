@@ -803,10 +803,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     {
       STRING sessioncookie := GetWebCookie(this->cookiename);
       STRING sessionid := Tokenize(sessioncookie,' ')[0];
-      STRING sessiondata := Substring(sessioncookie,Length(sessionid)+1);
+      STRING enclogindata := Substring(sessioncookie,Length(sessionid)+1);
 
       this->cookiecache := [ sessionid := sessionid
-                           , sessiondata := sessiondata
+                           , enclogindata := enclogindata
                            ];
     }
     RETURN this->cookiecache;
@@ -825,7 +825,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     IF(RecordExists(sessiondata))
     {
-      INTEGER userid := this->GetCookieEntityId(cookieinfo.sessiondata, FALSE);
+      INTEGER userid := this->GetCookieEntityId(cookieinfo.enclogindata, FALSE);
       IF(userid = sessiondata.entityid)
       {
         // ADDME: also calc authobjectid?
@@ -855,9 +855,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     this->loggedinentity := -1;
     this->loggedinexpires := DEFAULT DATETIME;
-    IF(cookies.sessiondata != "")
+    IF(cookies.enclogindata != "")
     {
-      RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.sessiondata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
+      RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.enclogindata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
       IF(RecordExists(logindata))
       {
         IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
@@ -1148,7 +1148,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
 
     this->sessionid := "";
-    this->cookiecache := [ pers := "", sessionid := "", sessiondata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies
+    this->cookiecache := [ sessionid := "", enclogindata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies
 
     IF(entityid != 0 AND options.logauditevent)
     {
