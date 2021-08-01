@@ -4,11 +4,13 @@
 */
 
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formedit-tollium.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT GetTid;
 
 
-PUBLIC OBJECTTYPE FormEditorExtensionBase
+
+PUBLIC STATIC OBJECTTYPE FormEditorExtensionBase
 <
   //save storage for our API and Contexts objects so derived classes can't accidentaly modify them
   RECORD pvt_options;
@@ -36,7 +38,7 @@ PUBLIC OBJECTTYPE FormEditorExtensionBase
 >;
 
 
-PUBLIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
+PUBLIC STATIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
 < // ---------------------------------------------------------------------------
   //
   // Functions to override
@@ -69,7 +71,7 @@ PUBLIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
 >;
 
 
-PUBLIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
+PUBLIC STATIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
 < // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -139,5 +141,20 @@ PUBLIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
   STRING FUNCTION GetGUID()
   {
     RETURN this->node->GetAttribute("guid");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // APIs
+  //
+
+  PUBLIC MACRO ReadTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    ReadFormNodeTidAttribute(this->node, field, fieldname);
+  }
+
+  PUBLIC MACRO WriteTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    WriteFormNodeTidAttribute(this->node, field, fieldname);
   }
 >;

@@ -26,13 +26,13 @@ STATIC OBJECTTYPE FormPageBase EXTEND FormComponentExtensionBase
   UPDATE PUBLIC MACRO PostInitExtension()
   {
     IF (this->showpagetitle)
-      this->owner->ReadTidField(^pagetitle);
+      this->ReadTidAttribute(^pagetitle);
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
   {
     IF (this->showpagetitle AND NOT work->HasFailed())
-      this->owner->WriteTidField(^pagetitle);
+      this->WriteTidAttribute(^pagetitle);
   }
 >;
 
