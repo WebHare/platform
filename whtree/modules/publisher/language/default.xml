@@ -1014,6 +1014,9 @@
     </textgroup>
   </textgroup>
   <textgroup gid="formcomponents" limitlanguages="en nl">   <!-- formcomponents -->
+    <text tid="editemailmask">Email mask properties</text>
+    <text tid="emailmask">Email mask</text>
+    <text tid="emailmask-placeholder">eg. *@webare.com</text>
     <textgroup gid="address">   <!-- formcomponents.address -->
       <text tid="countries">Countries</text>
       <text tid="description">An address</text>
@@ -1152,11 +1155,13 @@
       <text tid="validationchecks-url-plus-relative">Relative url</text>
     </textgroup>
     <textgroup gid="textedit">   <!-- formcomponents.textedit -->
+      <text tid="acceptableemailmasks">Acceptable email masks</text>
       <text tid="characters">characters</text>
       <text tid="description">Open-ended question with a short answer field (single line)</text>
       <text tid="description-email">Email</text>
       <text tid="description-numeric">Open-ended question with a numeric answer field</text>
       <text tid="emptyvalue">'Empty' value</text>
+      <text tid="limitacceptableemails">Limit acceptable email addresses</text>
       <text tid="maxlength">Maximum answer length</text>
       <text tid="maxvalue">Maximum value</text>
       <text tid="minvalue">Minimum value</text>
@@ -1164,6 +1169,7 @@
       <text tid="name-email">Email</text>
       <text tid="name-numeric">Number</text>
       <text tid="none">None</text>
+      <text tid="unacceptableemailerror">Overwrite errormessage</text>
       <text tid="validationchecks">Validation checks</text>
       <text tid="validationchecks-emails">Multiple email addresses</text>
       <text tid="validationchecks-http-url">HTTP url</text>
@@ -1636,6 +1642,7 @@
         <text tid="required">This value is required.</text>
         <text tid="step1mismatch">The value must be a whole number</text>
         <text tid="stepmismatch">The value should be a multiple of <param p="1"/>.</text>
+        <text tid="unacceptableemail">This email address is not acceptable here</text>
         <text tid="url">This value should be a valid url.</text>
       </textgroup>
     </textgroup>

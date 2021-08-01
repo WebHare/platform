@@ -560,8 +560,9 @@
             tid="formcomponents.textedit.name-email"
             descriptiontid="formcomponents.textedit.description-email"
             editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
+            editextension="/screens/formcomponents.xml#formemail"
             supportedvaluesfunc="/lib/webtools/formcomponents/textedit.whlib#getformtexteditsupportedvalues"
-            parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformtextedit"
+            parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformemail"
             fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
             ordering="3"
             />
@@ -590,11 +591,24 @@
       <xs:attribute name="maxlength" type="xs:integer" />
       <xs:attribute name="emptyvalue" />
       <xs:attribute name="value" type="xs:string" />
+      <xs:attribute name="acceptableemailmasks">
+        <xs:annotation>
+          <xs:documentation>Space separated list of wildcard masks of accepted emails</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="unacceptableemailerror">
+        <xs:annotation>
+          <xs:documentation>Custom error message to show if email address is not on the acceptable list</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="unacceptableemailerrortid" type="sc:Tid">
+        <xs:annotation>
+          <xs:documentation>Tid for custom error message to show if email address is not on the acceptable list</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="validationchecks" type="sc:ValidationChecks">
         <xs:annotation>
-          <xs:documentation>
-            <html:p>A list of checks the entered value must pass.</html:p>
-          </xs:documentation>
+          <xs:documentation>A list of checks the entered value must pass.</xs:documentation>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>

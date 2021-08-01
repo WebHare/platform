@@ -1014,6 +1014,9 @@
     </textgroup>
   </textgroup>
   <textgroup gid="formcomponents">   <!-- formcomponents -->
+    <text tid="editemailmask">Email masker eigenschappen</text>
+    <text tid="emailmask">Email masker</text>
+    <text tid="emailmask-placeholder">bv. *@webhare.nl</text>
     <textgroup gid="address">   <!-- formcomponents.address -->
       <text tid="countries">Landen</text>
       <text tid="description">Een adres</text>
@@ -1152,11 +1155,13 @@
       <text tid="validationchecks-url-plus-relative">Relatieve url</text>
     </textgroup>
     <textgroup gid="textedit">   <!-- formcomponents.textedit -->
+      <text tid="acceptableemailmasks">Toegestaande email maskers</text>
       <text tid="characters">tekens</text>
       <text tid="description">Open vraag met kort antwoordveld (één regel)</text>
       <text tid="description-email">E-mail</text>
       <text tid="description-numeric">Open vraag met numeriek antwoordveld</text>
       <text tid="emptyvalue">'Lege' waarde</text>
+      <text tid="limitacceptableemails">Beperk toegestaande emailadressen</text>
       <text tid="maxlength">Maximale antwoordlengte</text>
       <text tid="maxvalue">Maximale waarde</text>
       <text tid="minvalue">Minimale waarde</text>
@@ -1164,6 +1169,7 @@
       <text tid="name-email">E-mail</text>
       <text tid="name-numeric">Aantal</text>
       <text tid="none">Geen</text>
+      <text tid="unacceptableemailerror">Overschrijf foutmelding</text>
       <text tid="validationchecks">Antwoordcontrole</text>
       <text tid="validationchecks-emails">Meerdere e-mailadressen</text>
       <text tid="validationchecks-http-url">HTTP-url</text>
@@ -1636,6 +1642,7 @@
         <text tid="required">Dit veld is verplicht.</text>
         <text tid="step1mismatch">De waarde moet een geheel getal zijn</text>
         <text tid="stepmismatch">De waarde moet een meervoud zijn van <param p="1"/>.</text>
+        <text tid="unacceptableemail">Dit email adres is hier niet toegestaan</text>
         <text tid="url">Dit is geen geldige URL.</text>
       </textgroup>
     </textgroup>
