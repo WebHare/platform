@@ -161,14 +161,15 @@ MACRO TestLoginCookies()
   //sanity check, are we indeed logged in
   result := DebugReq("checkstatus");
   TestEq(TRUE, result.isloggedin);
+  TestEq("expirytests@beta.webhare.net", result.loginname);
 
   //////////
   //
   // STORY: If we disable rounding and set logins to 1ms, we should be able to verify that expires actually works (blocks session renewal)
 
   // Reset state (but don't accidentally delete wh-debug!).
-  testfw->browser->DeleteCookies("webharelogin-*");
   SetAuthSettings([ round_longlogins_to := -1, expire_login := 1 ]);
+  testfw->browser->DeleteCookies("webharelogin-*");
 
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
   TestEq(TRUE, result.success);
@@ -177,9 +178,16 @@ MACRO TestLoginCookies()
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).msecs <= 1, "Cookie should be (about) expired!");
   TestEq(cookietype_session, cookies.logindetails.cookietype);
 
+  //Check the session contents. Should fail because we're already expired
   result := DebugReq("checkstatus");
-  TestEq(result.expires, cookies.logindetails.expires);
-  TestEq(cookietype_session, cookies.logindetails.cookietype);
+  TestEq(FALSE, result.isloggedin);
+  TestEq(0, result.entityid);
+
+  //Relogin in case checkstatus triggered a cookie clear.
+  testfw->browser->DeleteCookies("webharelogin-*");
+  result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
+  TestEq(TRUE, result.success);
+  TestEq(entityid, result.plugin_entityid, "Verify we're logged in (can't checkstatus!)");
 
   InvalidateWebhareLoginSession();
 

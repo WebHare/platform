@@ -58,12 +58,16 @@ RECORD FUNCTION ProcessReq()
     CASE "login"
     {
       RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), [ persistent := GetWebVariable("persistent") = "1" ]);
-      RETURN res;
+      RETURN CELL[ ...res
+                 , plugin_entityid := plugin->entityid
+                 ];
     }
     CASE "loginid"
     {
       RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", [ persistent := GetWebVariable("persistent") = "1" ]);
-      RETURN res;
+      RETURN CELL[ ...res
+                 , plugin_entityid := plugin->entityid
+                 ];
     }
     CASE "logout-checkstatus"
     {

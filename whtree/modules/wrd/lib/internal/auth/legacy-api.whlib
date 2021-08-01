@@ -823,7 +823,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       sessiondata := GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
     }
 
-    IF(RecordExists(sessiondata))
+    IF(RecordExists(sessiondata) AND sessiondata.expires > GetCurrentDatetime())
     {
       INTEGER userid := this->GetCookieEntityId(cookieinfo.enclogindata, FALSE);
       IF(userid = sessiondata.entityid)
