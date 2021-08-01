@@ -374,37 +374,53 @@ jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
   TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "other", "third" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
 
   // Check expiration date
-  DATETIME now := GetCurrentDateTime();
+  RECORD verifyparams := [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ];
+  DATETIME now := GetRoundedDatetime(GetCurrentDateTime(), 1000); //encoding/decodindg drops ms, so round our DT for safer comparisons
   jwt_token->payload := [ exp := AddDaysToDate(-1, now) ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddTimeToDate(-1000, AddDaysToDate(-1, now)), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestThrowsLike('*expired*',PTR VerifyJSONWebToken(authvalue, verifyparams));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-1000, AddDaysToDate(-1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000, AddDaysToDate(-1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-30000, AddDaysToDate(-1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(30000, AddDaysToDate(-1, now)) ])));
+  TestThrowsLike('*expired*',PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(31000, AddDaysToDate(-1, now)) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(31000, AddDaysToDate(-1, now)), grace_period := 31000 ])));
 
   // Check not valid before
   jwt_token->payload := [ nbf := AddDaysToDate(1, now) ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddDaysToDate(1, now), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestThrowsLike('*not valid before*',PTR VerifyJSONWebToken(authvalue, verifyparams));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddDaysToDate(1, now) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(30000,AddDaysToDate(1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(31000,AddDaysToDate(1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-30000,AddDaysToDate(1, now)) ])));
+  TestThrowsLike('*not valid before*',PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000, AddDaysToDate(-1, now)) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000,AddDaysToDate(1, now)), grace_period := 31000 ])));
 
-  // Check issued before today
+  // Check issued before today. iat = issued at
   jwt_token->payload := [ iat := AddDaysToDate(1, now) ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddDaysToDate(1, now), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestThrowsLike('*issued in the future*',PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddDaysToDate(1, now) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(31000, AddDaysToDate(1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(30000, AddDaysToDate(1, now)) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-30000, AddDaysToDate(1, now)) ])));
+  TestThrowsLike('*issued in the future*',PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000, AddDaysToDate(1, now)) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, verify_at := AddTimeToDate(-31000, AddDaysToDate(1, now)), grace_period := 31000 ])));
 
   // Check JWT ID
   TestThrows(PTR jwt_token->SetPayload([ jti := "" ])); // cannot be empty when specified
   jwt_token->payload := [ jti := "abcdef01" ];
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "test", secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "ABCDEF01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "abcdef01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "test" ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "ABCDEF01" ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "abcdef01" ])));
   jwt_token->payload := DEFAULT RECORD;
   authvalue := jwt_token->GetAuthorizationValue();
-  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "abcdef01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // missing jti
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
-  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "abcdef01" ])); // missing jti
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, CELL[ ...verifyparams, jti := "" ])));
 }
 
 STRING FUNCTION GetSecretKey(STRING keys, STRING kid)
