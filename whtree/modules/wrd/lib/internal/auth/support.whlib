@@ -20,8 +20,9 @@ PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   [ expire_login :=                 86400 * 1000i64 // 1 day
   , expire_persistentlogin :=  30 * 86400 * 1000i64 //30 days
   , expire_thirdpartylogin :=       86400 * 1000i64 // 1 day
-  , roundup_longlogins_to :=  4 * 60 * 60 * 1000    // 4 am
-  , roundup_longlogins_tz := "Europe/Amsterdam"     // default timezone for rounding up long logings if not set
+  , round_longlogins_to :=       4 * 3600 * 1000    // 4 am (set to -1 to disable rounding)
+  , round_longlogins_tz :=       "Europe/Amsterdam" // default timezone for rounding
+  , round_minduration :=         3 * 3600 * 1000i64 // sessions last at least 3 hours
   ];
 
 PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
@@ -45,10 +46,10 @@ PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
     userinfo := plugin->GetUserInfo();
     value := "." || (RecordExists(userinfo) ? EncodeJSON(userinfo) : "");
 
-    STRING persisthash := EncodeUFS(GetMD5Hash(GetWebCookie(wrdauth->cookiename || "_p")));
+    STRING persisthash := EncodeUFS(GetMD5Hash(GetWebCookie(wrdauth->cookiename)));
     UpdateWebCookie(wrdauth->cookiename || "_c", value != "" ? persisthash || value : "", opts);
 
-    opts.lifetime := wrdauth->GetPersistentCookieLifetime();
+    opts.lifetime := wrdauth->GetPersistentCookieLifetime(); //FIXME we shouldn't be recalculating/redoing this? wrdauthplugin knows the proper lifetimes and we should be reusing the code there.
     UpdateWebCookie(wrdauth->cookiename || "_j", value != "" ? persisthash || "." : "", opts);
   }
   ELSE
@@ -56,7 +57,6 @@ PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
     UpdateWebCookie(wrdauth->cookiename, "");
     UpdateWebCookie(wrdauth->cookiename || "_j", "", opts);
     UpdateWebCookie(wrdauth->cookiename || "_c", "", opts);
-    UpdateWebCookie(wrdauth->cookiename || "_p", "");
   }
 }
 

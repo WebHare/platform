@@ -62,6 +62,7 @@
         <text tid="addlink">Add link</text>
         <text tid="anonymize">Anonymize schema</text>
         <text tid="auditlog">Login events</text>
+        <text tid="authsettings">Login settings</text>
         <text tid="deleteentity">Delete</text>
         <text tid="deletelink">Delete link</text>
         <text tid="editentity">Edit</text>
@@ -961,6 +962,18 @@
     <text tid="loginpage">Default login page</text>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
+    <textgroup gid="auth">   <!-- tolliumapps.auth -->
+      <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="expire_login">Expire login after</text>
+        <text tid="expire_persistentlogin">"Remember me" expires after</text>
+        <text tid="expiry">Expiry settings</text>
+        <text tid="round_longlogins_to">Round to</text>
+        <text tid="round_longlogins_tz">In timezone</text>
+        <text tid="round_minduration">Minimum duration</text>
+        <text tid="roundlogins">Round login expiry to a specific time</text>
+        <text tid="wrdauthsettings">Authentication/login settings</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="common">   <!-- tolliumapps.common -->
       <text tid="attrtype">Attribute type</text>
       <text tid="entity">Entity</text>

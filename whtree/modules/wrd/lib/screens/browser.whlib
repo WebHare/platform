@@ -408,6 +408,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->InitOpenSchema(0);
     }
   }
+  MACRO DoAuthSettings()
+  {
+    RunWRDAuthenticationSettings(this);
+  }
 
 
   ////////////////////////////////////////////////////////

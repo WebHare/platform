@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -43,6 +45,23 @@ RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
   RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
 }
 
+MACRO InvalidateWebhareLoginSession()
+{
+  //Invalidate the sessionid stored in the webhare login cookie. invalidating sessions may be tricky, but just randomizing the sessionid will have the same effect
+  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
+  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", GenerateUFS128BitId() || " " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+}
+
+MACRO InvalidateExternalLoginSessions()
+{
+  //Find the _e cookie
+  STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
+  //change the sessionid, simulating a lost _e session
+  TestEq(TRUE, e_cookiename != "", "Cannot locate the webhare external access cookie");
+  testfw->browser->SetSessionCookie(e_cookiename, "V_DFv-saZMPa5TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie(e_cookiename),' ')[1]);
+}
+
+
 MACRO PrepareServer()
 {
   RECORD testport := testfw->GetLocalhostWebinterface();
@@ -59,11 +78,8 @@ MACRO PrepareServer()
 
   INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)
               VALUES(thirdpartytest.webservers[0].id,"/",1,6,"webhare_testsuite:securityheaders");
-  INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
-         VALUES(thirdpartytest.webservers[0].id, "/wrd/authtest/webhare_testsuite.shtml", 0/*exact*/, 3/*exact file*/, GetModuleInstallationRoot("webhare_testsuite") || "web/tests/wrd/authdebug.shtml");
-
-  INSERT INTO system.access(description,webserver,path,matchtype,authtype,authrequirement) //apply source:OpenTestsuiteSite()->rootobject->OpenByPath("portal1-domainless")->id
-         VALUES ("3rdparty access rule",thirdpartytest.webservers[0].id,"/wrd/authtest/accessruleaccounts/",1/*initial match*/,1/*any webhare user*/,TRUE);
+  INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)
+              VALUES(thirdpartytest.webservers[0].id,"/",1,6,"webhare_testsuite:thirdpartytest");
 
   testfw->CommitWork();
 
@@ -301,8 +317,7 @@ MACRO TestPersistentLogin()
   TestEQ(DEFAULT DATETIME, logincookie.expires);
 
   //Invalidate the sessionid stored in the webhare login cookie
-  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
-  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", "d_VFv-saZMPc0TyZ7Wi1Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+  InvalidateWebhareLoginSession();
 
   //Should autorestore because of the data in the cookie
   result := DoReq( [ action := "checkstatus" ]);
@@ -327,8 +342,7 @@ MACRO TestPersistentLogin()
 
 //testfw->browser->debug:=TRUE;
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-01" ]);
-  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-wrd-testschema") != "");
-  testfw->browser->SetSessionCookie("webharelogin-wrd-testschema", "d_VFv-saZMPc0TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie("webharelogin-wrd-testschema"),' ')[1]);
+  InvalidateWebhareLoginSession();
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:login:ok"
@@ -355,8 +369,7 @@ MACRO TestPersistentLogin()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  //Completely clear the session
-  testfw->browser->DeleteCookie("webharelogin-wrd-testschema");
+  InvalidateWebhareLoginSession();
 
   //Should now also recover from this.
   result := DoReq( [ action := "checkstatus" ]);
@@ -372,8 +385,7 @@ MACRO TestPersistentLogin()
       , bylogin := "testaccount@test.invalid"
       ]);
 
-  //Completely clear the session
-  testfw->browser->DeleteCookie("webharelogin-wrd-testschema");
+  InvalidateWebhareLoginSession();
 
   //Should now also recover from this if checkstatus runs in work
   result := DoReq( [ action := "checkstatus-work" ]);
@@ -414,7 +426,7 @@ VARIANT ARRAY FUNCTION MakeVA(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
   RETURN args;
 }
 
-MACRO TestCrossDomainLogin()
+MACRO TestRequireExternalLoggedinUser()
 {
   OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
   testfw->browser->DeleteCookies("webharelogin-*");
@@ -432,11 +444,6 @@ MACRO TestCrossDomainLogin()
   TestEQ("", testfw->browser->GetResponseHeader("X-Frame-Options"));
   TestEQ(`script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, testfw->browser->GetResponseHeader("Content-Security-Policy"));
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin || "?__whpub_clock_=1"));
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "should show us a JS loginpage as this page requires a remote challenge #2");
-  TestEQ("", testfw->browser->GetResponseHeader("X-Frame-Options"));
-  TestEQ(`script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, testfw->browser->GetResponseHeader("Content-Security-Policy"));
-
   TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl || "?__whpub_clock_=1", [ headers := [[ field := "Accept-Encoding", value := "gzip" ]]]));
   TestEq(200, testfw->browser->GetHTTPStatusCode(), "should be redirect to login page as we have no session");
 
@@ -448,12 +455,12 @@ MACRO TestCrossDomainLogin()
 
   //We should be seeing the tollium page above. Do a WRD login
 //  testfw->browser->debug:=TRUE;
-  STRING loginpage := testfw->browser->href;
+  STRING loginpage := testfw->browser->url;
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  MakeVA(testfw->browser->href, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-01" ]));
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-01" ]]);
 
   TestEq(TRUE, rec.success);
-  TestEq('reload', rec.result.submitinstruction.type);
+
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("mysysop")
       , type := "wrd:login:ok"
@@ -465,18 +472,16 @@ MACRO TestCrossDomainLogin()
       , bylogin := "mysysop@beta.webhare.net"
       ]);
 
+  TestEq('reload', rec.result.submitinstruction.type);
   TestEq(FALSE, testfw->browser->GotoWebPage(UpdateURLvariables(loginpage, [ wrdauth_returnto := "https://www.example.nl/" ])));
   TestEq(400, testfw->browser->GetHTTPStatusCode(), "Should not be allowed to point wrdauth_returnto to a non-WebHare URL");
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage));
+  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
-  TestEq(loginrequiringurl, testfw->browser->href);
+  TestEq(loginrequiringurl, testfw->browser->url, "Should be redirected back to the original location, but now we should see things here");
+  TestEq("mysysop@beta.webhare.net", DecodeHSONBLob(testfw->browser->content).login);
 
-  //Find the _e cookie
-  STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
-  TestEq(TRUE, e_cookiename != "", "Cannot locate the webhare external access cookie");
-  //change the sessionid, simulating a lost _e session
-  testfw->browser->SetSessionCookie(e_cookiename, "V_DFv-saZMPa5TyZ7Wi2Gg " || Tokenize(testfw->browser->GetCookie(e_cookiename),' ')[1]);
+  InvalidateExternalLoginSessions();
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl)); //should still work
   TestEq(200, testfw->browser->GetHTTPStatusCode());
@@ -502,6 +507,52 @@ MACRO TestCrossDomainLogin()
       ]);
 }
 
+MACRO TestCrossDomainLogin()
+{
+  OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
+  testfw->browser->DeleteCookies("webharelogin-*");
+
+  STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
+  STRING accessrulelogin := thirdpartybaseurl || "accessruleaccounts/";
+
+  testfw->browser->autofollow := FALSE;
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
+  TestEq(303, testfw->browser->GetHTTPStatusCode(), "should be redirect us to the login");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin || "?__whpub_clock_=1"));
+  TestEq(200, testfw->browser->GetHTTPStatusCode(), "should show us a JS loginpage as this page requires a remote challenge #2");
+  TestEQ("", testfw->browser->GetResponseHeader("X-Frame-Options"));
+  TestEQ(`script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, testfw->browser->GetResponseHeader("Content-Security-Policy"));
+
+  testfw->browser->autofollow := TRUE;
+  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
+  TesteqLike("*wh-tollium--app*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
+
+  //We should be seeing the tollium page above. Do a WRD login
+//  testfw->browser->debug:=TRUE;
+  STRING loginpage := testfw->browser->url;
+  RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-01" ]]);
+
+  TestEq(TRUE, rec.success);
+  TestEq('reload', rec.result.submitinstruction.type);
+  TestAuditEvent(
+      [ entity := testfw->GetUserWRDId("mysysop")
+      , type := "wrd:login:ok"
+      , login := "mysysop@beta.webhare.net"
+      , impersonated := FALSE
+      , data := ""
+      , browsertriplet := "mac-chrome-01"
+      , byentity := testfw->GetUserWRDId("mysysop")
+      , bylogin := "mysysop@beta.webhare.net"
+      ]);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
+  TestEq(accessrulelogin, testfw->browser->url, "Should be redirected back to the original location, but now we should see things");
+  TestEqLike("*WebHare testsuite /web/tests/ root*", BlobToString(testfw->browser->content));
+}
+
 RECORD onshowdata;
 MACRO RecordOnShowData(RECORD data)
 {
@@ -515,7 +566,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
     , accountid := testfw->GetUserWRDId("mysysop")
     , onshow := PTR RecordOnShowData
     ]));
-  TestEq(2, Length(topscreen->events->rows));
+  TestEq(3, Length(topscreen->events->rows));
 
   topscreen->events->selection := (SELECT * FROM topscreen->events->rows ORDER BY wrd_creationdate)[0];
   TestEq(FALSE, RecordExists(onshowdata));
@@ -723,6 +774,7 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestWRDAuthPlugin
                   , PTR TestModuleDefIPRules
                   , PTR TestPersistentLogin
+                  , PTR TestRequireExternalLoggedinUser
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
                   , PTR TestLoginDenied

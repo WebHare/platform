@@ -332,14 +332,8 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              api2017="true"
              cookiename="webharelogin-wrdauth"
-             sitetag="MYBACKEND"
              supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport"
              wrdschema="wrd:testschema" />
-  </apply>
-
-  <apply>
-    <to type="file" pathmask="/testpages/wrdauthtest-domainless*" />
-    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" sitetag="" />
   </apply>
 
   <apply>
@@ -564,7 +558,6 @@
              api2017="true"
              cookiename="webharelogin-testsuite-portal1"
              loginpage="currentsite::/portal1/"
-             sitetag="MYBACKEND"
              supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend"
              wrdschema="wrd:testschema" />
   </apply>
@@ -609,7 +602,6 @@
              api2017="true"
              cookiename="webharelogin-testsuite-portal2"
              loginpage="currentsite::/portal2/"
-             sitetag="MYBACKEND2"
              wrdschema="webhare_testsuite:backend2" />
   </apply>
 

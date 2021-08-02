@@ -12,7 +12,7 @@
     <xs:complexType>
       <xs:attribute name="api2017">
         <xs:annotation>
-          <xs:documentation>If present, must be set to 1/true. The attribute may be removed, it has no more effect</xs:documentation>
+          <xs:documentation>If present, must be set to 1/true. The attribute may be removed, it no longer has any effect</xs:documentation>
         </xs:annotation>
         <xs:simpleType>
           <xs:restriction base="xs:string">
@@ -24,7 +24,11 @@
       <xs:attribute name="wrdschema" type="xs:string"/>
       <xs:attribute name="cookiename" type="xs:string"/>
       <xs:attribute name="supportobjectname" type="xs:string"/>
-      <xs:attribute name="sitetag" type="xs:string"/>
+      <xs:attribute name="sitetag">
+        <xs:annotation>
+          <xs:documentation>The attribute may be removed, it no longer has any effect since WebHare 4.32</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="loginpage" type="xs:string"/>
       <xs:attribute name="authpageswitty" type="xs:string"/>
       <xs:attribute name="routerfeatures" type="xs:string"/>

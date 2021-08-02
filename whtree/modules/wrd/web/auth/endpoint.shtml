@@ -60,9 +60,6 @@ ELSE IF (urlpath LIKE ".wrd/auth/restoresession.shtml*")
 {
   SetCurrentStateCookie(authplugin->__GetWRDAUth(), authplugin);
 
-  IF (IsWHDebugOptionSet("aut"))
-    LogDebug("wrd:auth", "restoresession to " || "/" || claimedbackurl);
-
   Redirect("/" || claimedbackurl);
 }
 ELSE IF (urlpath LIKE ".wrd/auth/importsession.shtml*")
@@ -72,6 +69,4 @@ ELSE IF (urlpath LIKE ".wrd/auth/importsession.shtml*")
   Redirect("/" || claimedbackurl);
 }
 
-// No crash needed here, just ignore
-IF("aut" IN Tokenize(GetWebCookie("wh-debug"),'.'))
-  THROW NEW Exception("Unknown WRD auth endpoint action");
+AbortWithHTTPError(400);

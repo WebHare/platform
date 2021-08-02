@@ -183,3 +183,15 @@ PUBLIC MACRO RunWRDHistoryDialog(OBJECT owner, OBJECT entity, RECORD options DEF
 {
   owner->contexts->opener->RunScreen("mod::wrd/screens/changes.xml#entitychanges", CELL[ entity, ...options ]);
 }
+
+/** Configure authentication and login settings */
+PUBLIC MACRO RunWRDAuthenticationSettings(OBJECT owner, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ wrdschema := DEFAULT OBJECT ], options);
+
+  RECORD contexts;
+  IF(options.wrdschema != DEFAULT OBJECT)
+    contexts := [ wrdschema := options.wrdschema ];
+
+  owner->contexts->opener->RunScreen("mod::wrd/tolliumapps/auth/settings.xml", DEFAULT RECORD, CELL[contexts]);
+}

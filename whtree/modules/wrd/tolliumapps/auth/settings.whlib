@@ -1,0 +1,90 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+
+MACRO SetTimeUnit(OBJECT textedit, OBJECT unitpulldown, INTEGER64 setvalue)
+{
+  unitpulldown->options := [[ rowkey := "days", title := GetTid("~units.days") ]
+                           ,[ rowkey := "hours", title := GetTid("~units.hours") ]
+                           ,[ rowkey := "minutes", title := GetTid("~units.minutes") ]
+                           ,[ rowkey := "seconds", title := GetTid("~units.seconds") ]
+                           ];
+
+  IF((setvalue % (86400*1000)) = 0)
+  {
+    unitpulldown->value := "days";
+    textedit->value := setvalue / (86400*1000);
+  }
+  ELSE IF((setvalue % (3600*1000)) = 0)
+  {
+    unitpulldown->value := "hours";
+    textedit->value := setvalue / (3600*1000);
+  }
+  ELSE IF((setvalue % (60*1000)) = 0)
+  {
+    unitpulldown->value := "minutes";
+    textedit->value := setvalue / (60*1000);
+  }
+  ELSE //round up anything ms to 1 second
+  {
+    unitpulldown->value := "seconds";
+    textedit->value := (setvalue + 999) / (1000);
+  }
+}
+
+INTEGER64 FUNCTION GetTimeUnit(OBJECT textedit, OBJECT unitpulldown)
+{
+  IF(unitpulldown->value = "days")
+    RETURN textedit->value * (86400 * 1000i64);
+  IF(unitpulldown->value = "hours")
+    RETURN textedit->value * (3600 * 1000i64);
+  IF(unitpulldown->value = "minutes")
+    RETURN textedit->value * (60 * 1000i64);
+  RETURN textedit->value * 1000i64;
+}
+
+/*
+    Direct access: https://my.webhare.dev/?app=wrd(system:usermgmt)/authsettings
+*/
+
+PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //get settings, coerce them to the proper types
+    RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, this->contexts->wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]));
+    SetTimeUnit(^expire_login, ^expire_login_unit, settings.expire_login);
+    SetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit, settings.expire_persistentlogin);
+
+    IF(settings.round_longlogins_to >= 0)
+    {
+      ^roundlogins->value := TRUE;
+      ^round_longlogins_to->value := settings.round_longlogins_to;
+    }
+    ^round_longlogins_tz->value := settings.round_longlogins_tz;
+    SetTimeUnit(^round_minduration, ^round_minduration_unit, settings.round_minduration);
+    this->OnRoundLoginsChange();
+  }
+
+  MACRO OnRoundLoginsChange()
+  {
+    ^round_longlogins_to->enabled := ^roundlogins->value;
+    ^round_longlogins_tz->enabled := ^roundlogins->value;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    this->contexts->wrdschema->SetSchemaSetting("wrd:auth.localsettings",
+      CELL[ ...this->contexts->wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ])
+          , expire_login := GetTimeUnit(^expire_login, ^expire_login_unit)
+          , expire_persistentlogin := GetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit)
+          , round_minduration := GetTimeUnit(^round_minduration, ^round_minduration_unit)
+          , round_longlogins_to := ^roundlogins->value ? ^round_longlogins_to->value : -1
+          , round_longlogins_tz := ^round_longlogins_tz->value
+          ]);
+    RETURN work->Finish();
+  }
+>;

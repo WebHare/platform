@@ -622,13 +622,17 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
                                , data :=       cookiedata
                                , expires :=    DEFAULT DATETIME
                                ];
+
               FOREVERY(STRING cookietok FROM ArraySlice(cookietoks,1))
               {
-                IF(ToUppercase(cookietok) LIKE "EXPIRES=*")
+                cookietok := TrimWhitespace(cookietok);
+                IF(ToUppercase(cookietok) LIKE "MAX-AGE=*")
+                  cookie.expires := AddTimeToDate(ToInteger64(Substring(cookietok, 8), 0), GetCurrentDatetime());
+                ELSE IF(ToUppercase(cookietok) LIKE "EXPIRES=*" AND cookie.expires = DEFAULT DATETIME) //don't overwrite max-age set expires.,.
                   cookie.expires := MakeDateFromText(Substring(cookietok,8));
               }
 
-              IF(cookiedata!="")
+              IF(cookiedata != "")
                 INSERT cookie INTO this->pvt_cookies AT END;
             }
           }

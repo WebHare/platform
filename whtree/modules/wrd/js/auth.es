@@ -38,7 +38,7 @@ class WRDAuthenticationProvider
     this.isloggedin = false;
     this.userinfo = null;
     this.logouturl = "";
-    this.loginservice = new JSONRPC( { url: '/wh_services/wrd/auth' + (dompack.debugflags.aut ? "?wh-debug=aut" : "" )});
+    this.loginservice = new JSONRPC( { url: '/wh_services/wrd/auth' });
 
     var jsstate = domcookie.read(this.cookiename + '_j');
     var currentstate = domcookie.read(this.cookiename + '_c');
@@ -172,7 +172,6 @@ class WRDAuthenticationProvider
       return this.loginservice.request('LoginSecondFactor'
                                        , [ location.href
                                          , loginproof
-                                         , Boolean(options.persistent)
                                          , type
                                          , { ...data}
                                          , opts
@@ -299,14 +298,6 @@ WRDAuthenticationProvider.getDefaultAuth = function()
 {
   return defaultauth;
 };
-
-if(dompack.debugflags.aut)
-{
-  var debuginfo = domcookie.read("wh-wrdauth-debug");
-  if(debuginfo)
-    debuginfo.split('\t').forEach( msg => console.warn("[aut] server: " + msg));
-  domcookie.remove("wh-wrdauth-debug");
-}
 
 if(window.$wh && window.$wh.WRDAuthenticationProvider)
 {

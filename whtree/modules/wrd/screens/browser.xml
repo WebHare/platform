@@ -20,7 +20,7 @@
 
   <screen name="main"
           allowresize="true"
-          flags="can_back can_forward can_edit_entity can_search_free right_schemacreate right_metadata right_readwrite right_readany right_superuser has_accounts has_usermgmt"
+          flags="can_back can_forward can_edit_entity can_search_free right_metadata right_readwrite has_accounts has_usermgmt"
           menubar="menubar"
           gid=".main"
           tid=".title"
@@ -49,7 +49,8 @@
       <action name="addtostartmenu" tid="tollium:common.actions.addtostartmenu" onexecute="doaddtostartmenu" />
 
       <action name="newfree" frameflags="right_readwrite" onexecute="donewfree" />
-      <action name="schemaprops"  onexecute="doschemaprops" frameflags="right_metadata" />
+      <action name="schemaprops" onexecute="doschemaprops" frameflags="right_metadata" />
+      <action name="authsettings" onexecute="doauthsettings" frameflags="right_metadata" />
       <action name="auditlog"  onexecute="doauditlog" frameflags="has_accounts" />
       <action name="samlauth"  onexecute="dosamlauth" frameflags="has_usermgmt" />
 
@@ -96,6 +97,7 @@
         <divider />
         <item tid=".schema">
           <item action="schemaprops" />
+          <item action="authsettings" />
           <item action="anonymize" />
           <item action="auditlog" />
           <item action="samlauth" />

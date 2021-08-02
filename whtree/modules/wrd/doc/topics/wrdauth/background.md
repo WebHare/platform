@@ -13,17 +13,11 @@ also the reason for wrdauth cookies always atarting with 'webharelogin'.
 The wrdauth cookie name (eg `webharelogin-backend`) is used as the a base name for various related cookies
 
 ### Login cookie
-The actual login cookie has no suffix. It stores the sessionid, followed
-by a space and then an encrypted dataset containing the user's id and session start time.
+The actual login cookie has no suffix. It stores the sessionid, followedby a space and then an encrypted dataset containing
+the user's id and the login session parameters. This cookie will have a set expiry date if a persistent login was requested
+and will otherwise be a session-only cookie.
 
 This cookie is a session cookie and is not readable from JavaScript.
-
-### Persistent cookie
-When a user indicates he wants to stay logged in, a persistent cookie is created. This cookie
-stores the same encrypted dataset as the login cookie, but it additionally contains the user's password hash
-so this cookie can be ignored if the user has changed his password.
-
-This cookie has `_p` suffix, eg `webharelogin-backend_p`. This cookie has a configurable lifetime.
 
 ### JavaScript cookies
 Some information about the loggedin user is made visible to JavaScript so static pages can eg. show
