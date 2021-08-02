@@ -11,9 +11,10 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 ASYNC MACRO TestMetadata()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
-  AWAIT ExpectScreenChange(+1, PTR topscreen->schemaprops->TolliumClick());
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(+1, PTR TTClick("schemaprops"));
+  TestEq(testfw->GetWRDSchema()->^wrd_person->GetAttribute("WHUSER_PASSWORD").id, TT(":Password field")->selection.rowkey, "Make sure the authsettings field is visible too");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestTypesAttrs()

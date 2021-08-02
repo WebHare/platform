@@ -490,7 +490,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/tagfile"
             kind="datafile"
             tid="publisher:filetypes.tagfile"
-            tolliumicon="tollium:mailclient/label">
+            tolliumicon="tollium:files/application_x-webhare-tag">
     <members>
       <whfsrefarray name="belongstorepos" />
     </members>

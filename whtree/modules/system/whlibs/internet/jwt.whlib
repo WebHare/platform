@@ -491,7 +491,7 @@ PUBLIC STRING FUNCTION GetPEMPublicKeyFromJWK(RECORD jwk)
     @cell(string array) options.aud Accepted audiences
     @cell(string) options.jti Expected JWT ID
     @cell(datetime) options.verify_at Reference date for expiration (defaults to %GetCurrentDateTime)
-    @cell(integer) options.grace_period Accepted difference between `verify_at` and token dates in seconds
+    @cell(integer) options.grace_period Accepted difference between `verify_at` and token dates in milliseconds. Defaults to 30 secs
     @cell(record) options.translations Translation to use when JSON encoding/decoding the token payload
     @cell(function ptr) options.secret_callback This function is called to retrieve the secret or public/private key based on
         the key identifier (`kid`) from the header
@@ -507,7 +507,7 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
       , aud := STRING[]
       , jti := ""
       , verify_at := GetCurrentDateTime()
-      , grace_period := 0
+      , grace_period := 30000
       , translations := DEFAULT RECORD
       , secret_callback := DEFAULT FUNCTION PTR
       ], options,
@@ -568,11 +568,12 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
       IF (aud NOT IN options.aud)
         THROW NEW Exception(`Invalid value '${aud}' for field 'aud', expected one of '${Detokenize(options.aud, "', '")}'`);
   }
-  IF (CellExists(payload, "exp") AND payload.exp <= AddTimeToDate(options.grace_period * 1000, options.verify_at))
+
+  IF (CellExists(payload, "exp") AND payload.exp < AddTimeToDate(options.grace_period * -1, options.verify_at))
     THROW NEW Exception(`JWT token expired at ${FormatISO8601DateTime(payload.exp)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
-  IF (CellExists(payload, "nbf") AND payload.nbf > AddTimeToDate(options.grace_period * -1000, options.verify_at))
+  IF (CellExists(payload, "nbf") AND payload.nbf > AddTimeToDate(options.grace_period, options.verify_at))
     THROW NEW Exception(`JWT token not valid before ${FormatISO8601DateTime(payload.nbf)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
-  IF (CellExists(payload, "iat") AND payload.iat > AddTimeToDate(options.grace_period * -1000, options.verify_at))
+  IF (CellExists(payload, "iat") AND payload.iat > AddTimeToDate(options.grace_period, options.verify_at))
     THROW NEW Exception(`JWT token issued in the future at ${FormatISO8601DateTime(payload.iat)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
   IF (options.jti != "" AND NOT CellExists(payload, "jti"))
     THROW NEW Exception(`Missing value for field 'jti'`);
