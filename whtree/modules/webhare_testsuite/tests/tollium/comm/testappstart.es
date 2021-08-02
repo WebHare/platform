@@ -156,19 +156,21 @@ test.registerTests(
       let sessiondata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#GetWRDAuthSessionExpiry", test.getWin().location.href);
       test.eq(sessiondata.sessionexpires, test.getCurrentScreen().getToddElement("expirydate").querySelector('input').value);
 
+      // Update a textedit to detect reloaded app
+      test.setTodd('targetval', "1");
+
       // Set the session expiry to now (causes immediate expiry)
       test.click(test.getMenu(['X08']));
-
-      console.log('immediate session expiry requested, wait for notification screen');
 
       // wait for screen change
       await test.wait(() => test.getCurrentApp().getNumOpenScreens() == 2);
 
-      test.eq(true, !!/session has expired/.exec(test.getCurrentScreen().getToddElement("message").textContent));
+      test.eq(true, !!/session has expired/.exec(test.getCurrentScreen().getToddElement("text").textContent));
       test.click(test.compByTitle("OK"));
 
-      // wait for application to close completely
-      console.log('wait for application close');
-      await test.wait(() => test.getCurrentApp().getNumOpenScreens() == 0);
+      // Should reload the webpage, test if the targetval is reset to 0
+      await test.wait('load');
+      await test.wait('ui');
+      test.eq("0", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
     }
   ]);

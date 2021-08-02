@@ -433,6 +433,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         , app :=          app
         , invoke :=       message.invoke
         , expires :=      loggedin_expires
+        , expired :=      FALSE
         ];
 
     INSERT
@@ -538,9 +539,9 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     ELSE IF (log_appstarter)
       this->LogDebug("Application " || appname || " with id " || job->userdata.appid || " has terminated without errors");
 
-    // Send error message
+    // Send error/expired message
     job->userdata.msgqueue->QueueMessage(
-        [ type :=     "error"
+        [ type :=     job->userdata.expired ? "expired" : "error"
         , appid :=    "A:" || job->userdata.appid
         , errors :=   errors
         , debugtimeout := this->debugconfig.keep_errorterminated_msecs
@@ -574,8 +575,12 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
       }
       CASE "sessionexpireschange"
       {
-        RECORD pos := RecordLowerBound(this->apps, [ appid := job->userdata.appid ], [ "APPID" ]);
-        this->apps[pos.position].job->userdata.expires := rec.msg.sessionexpires;
+        job->userdata.expires := rec.msg.sessionexpires;
+      }
+      CASE "sessionexpired"
+      {
+        // Job has expired and will terminate soon
+        job->userdata.expired := TRUE;
       }
     }
   }

@@ -721,6 +721,13 @@ $todd.handleApplicationErrors = async function(app,data)
       location.reload(true);
     return;
   }
+  if(data.type === "expired") //StartApp error
+  {
+    await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    app.getBusyLock();
+    location.reload(true);
+    return;
+  }
 
   if(!data.errors.length)
   {

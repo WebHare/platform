@@ -36,6 +36,11 @@ MACRO GotSessionExpiresChange(DATETIME sessionexpires)
   parentlink->SendMessage(CELL[ type := "sessionexpireschange", sessionexpires ]);
 }
 
+MACRO GotSessionExpired()
+{
+  parentlink->SendMessage(CELL[ type := "sessionexpired" ]);
+}
+
 parentlink := GetIPCLinkToParent();
 IF(NOT ObjectExists(parentlink))
   ABORT("The application host cannot be directly invoked, it must run as a job");
@@ -134,6 +139,7 @@ SetTidLanguage(appinfo.lang);
 webcontroller->pvt_sendinitialmessage := PTR SendInitialMessage;
 webcontroller->onuseractivity := PTR GotUserActivity;
 webcontroller->onsessionexpireschange := PTR GotSessionExpiresChange;
+webcontroller->onsessionexpired := PTR GotSessionExpired;
 webcontroller->ActivateWebController();
 webcontroller->pvt_inapppath := appinfo.inapppath;
 
