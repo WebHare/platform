@@ -210,7 +210,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         INSERT forceapp->GetAttribute("name") INTO this->apps AT END;
 
       IF (setting.node->GetAttribute("forceappfunction") != "")
-        INSERT setting.node->GetAttribute("forceappfunction") INTO this->forceappfuncs AT END;
+        INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("forceappfunction")) INTO this->forceappfuncs AT END;
 
       FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
       {
