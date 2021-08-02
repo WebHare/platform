@@ -731,6 +731,7 @@ export class BackendApplication extends ApplicationBase
     switch (data.type)
     {
       case "error":
+      case "expired":
       {
         if (data.appid != this.whsid)
           return; // this message is for an old app (we've restarted since then)
@@ -1064,7 +1065,7 @@ export class BackendApplication extends ApplicationBase
     // Won't be referred by our whsid anymore
     this.whsid = null;
 
-    if (!metamessage || !metamessage.errors.length)
+    if (!metamessage || (metamessage.type === "error" && !metamessage.errors.length))
     {
       //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
       this.terminateApplication();
