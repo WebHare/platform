@@ -722,8 +722,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** @param the_entity WRD entity of the user to log in
       @param isimpersonation Whether this is an impersonation
-      @param persistent Whether this should be an persistent login
-      @param cookietype The type of cookei: cookietype_session, cookietype_thirdparty, cookietype_persisent or cookietype_external  
+      @param cookietype The type of cookie: cookietype_session, cookietype_thirdparty, cookietype_persistent or cookietype_external  
       @param login Unused
       @param ip Remote IP of the request
       @param updatelogindata Whether to update the first/last login date
