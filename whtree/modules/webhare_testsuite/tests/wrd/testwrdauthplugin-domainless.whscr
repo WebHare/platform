@@ -549,7 +549,7 @@ MACRO TestCrossDomainLogin()
       ]);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
-  TestEq(accessrulelogin, testfw->browser->url, "Should be redirected back to the original location, but now we sohuld see things");
+  TestEq(accessrulelogin, testfw->browser->url, "Should be redirected back to the original location, but now we should see things");
   TestEqLike("*WebHare testsuite /web/tests/ root*", BlobToString(testfw->browser->content));
 }
 

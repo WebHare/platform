@@ -23,7 +23,7 @@ You need to update your wrdschema definition to import the authentication schema
 ```xml
 <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
          wrdschema="YOURSCHEMA"
-         cookiename="webharelogin-YOURCOKIE"
+         cookiename="webharelogin-YOURCOOKIE"
          lastloginfield="LASTLOGIN" />
 ```
 cookiename must be a string starting with webharelogin- and not contain any underscores

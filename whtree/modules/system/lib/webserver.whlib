@@ -446,7 +446,7 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
 
   IF (value = "" OR options.lifetime > 0)
   {
-    /* RFC 6265 specifies Max-Age takes precedence over Expires. It was pre-IE11 that didn't support Max-Age. So le'ts just
+    /* RFC 6265 specifies Max-Age takes precedence over Expires. It was pre-IE11 that didn't support Max-Age. So let's just
        not use Expires, it can only break on clients with broken clocks and is otherwise ignored */
     cookieline := cookieline || ";Max-Age=" || options.lifetime;
   }

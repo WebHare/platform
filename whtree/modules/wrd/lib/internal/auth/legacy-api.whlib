@@ -84,7 +84,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** Creates login cookies
       @param userid
-      @param cookietype cookietype_session, cookietype_persisent, cookietype_external
+      @param cookietype cookietype_session, cookietype_persistent, cookietype_external
       @param options
       @cell options.path Path to encode in external cookie (optional)
       @cell(datetime) options.setcreationdate Enforce this cookie creation date
@@ -116,7 +116,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       THROW NEW Exception(`Invalid expiry time configured`);
 
     cookies.expires := CalculateWRDSessionExpiry(this->wrdauthconfig, creationdate, expirytime);
-    IF(options.setcreationdate != DEFAULT DATETIME AND now >= cookies.expires) //if the expiry time isn't ridiculously short (because thats probably someone testing) then do not create cookies that expire immediately
+    IF(options.setcreationdate != DEFAULT DATETIME AND now >= cookies.expires) //if the expiry time isn't ridiculously short (because that's probably someone testing) then do not create cookies that expire immediately
       RETURN DEFAULT RECORD; //the cookie has already expired
 
     STRING ARRAY fieldnames := ["WRD_GUID", this->wrdschema->accountpasswordtag ];
@@ -142,7 +142,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
               ? authdata.passwords[END-1].passwordhash
               : "";
 
-      //FIXME shouldn't we still hash the password someway, even though encrypte? .. and FIXME shouldn't any password change invalidate your cookies (but how to safely deal with changes during a session?)
+      //FIXME shouldn't we still hash the password someway, even though encrypted? .. and FIXME shouldn't any password change invalidate your cookies (but how to safely deal with changes during a session?)
       INSERT CELL p := passwordhash INTO cookiedata;
     }
 
@@ -156,7 +156,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     ELSE
     {
       cookies.logincookie := this->EncryptData(cookiedata, "session");
-      cookies.logincookielifetime :=  cookietype = cookietype_persistent ? (expirytime + 999) / 1000 : 0i64;
+      cookies.logincookielifetime := cookietype = cookietype_persistent ? (expirytime + 999) / 1000 : 0i64;
     }
 
     RETURN cookies;
@@ -704,7 +704,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     DATETIME now := GetCurrentDatetime();
     RECORD cookiedata := this->__ParseCookie(cookie, "session");
-    IF(NOT RecordExists(cookiedata))// OR (cookiedata.expires != DEFAULT DATETIME AND now >= cookiedata.expires)) //old cookies may not contain expires. and perhaps we should only encode it if its shorter than default?
+    IF(NOT RecordExists(cookiedata))// OR (cookiedata.expires != DEFAULT DATETIME AND now >= cookiedata.expires)) //old cookies may not contain expires. and perhaps we should only encode it if it's shorter than default?
       RETURN DEFAULT RECORD;
 
     IF(logintime > 0) //there's a maximum cookie validity FIXME remove,should be replaced wiith new expiry logic. logintime isn't actually settable!
@@ -1058,7 +1058,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   MACRO SetLoginCookie(STRING value, INTEGER64 lifetime)
   {
-    UpdateWebCookie(this->cookiename, value, CELL[...this->GetCookieOpts(TRUE, FALSE) , lifetime := lifetime ]);
+    UpdateWebCookie(this->cookiename, value, CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ]);
   }
 
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()

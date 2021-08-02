@@ -15,7 +15,7 @@ The wrdauth cookie name (eg `webharelogin-backend`) is used as the a base name f
 ### Login cookie
 The actual login cookie has no suffix. It stores the sessionid, followedby a space and then an encrypted dataset containing
 the user's id and the login session parameters. This cookie will have a set expiry date if a persistent login was requested
-and will otherwise be a session-only cookie
+and will otherwise be a session-only cookie.
 
 This cookie is a session cookie and is not readable from JavaScript.
 

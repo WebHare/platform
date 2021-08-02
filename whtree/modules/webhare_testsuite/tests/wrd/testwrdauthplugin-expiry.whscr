@@ -240,11 +240,11 @@ MACRO TestPersistentLoginCookies()
   TestEq(cookietype_persistent, cookies.logindetails.cookietype);
 
   initialcookie := cookies.logindetails;
-  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days IN [29,30], "Standard persisent cookies are up to 30 days valid");
+  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days IN [29,30], "Standard persistent cookies are up to 30 days valid");
 
   InvalidateWebhareLoginSession();
 
-  //Try to renew the session. Should SUCCEEED
+  //Try to renew the session. Should SUCCEED
   result := DebugReq("checkstatus");
   TestEq(TRUE, result.isloggedin);
 
