@@ -2679,7 +2679,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   /// Callback called when the session expiry changes
   PUBLIC FUNCTION PTR onsessionexpireschange;
 
-/// Callback called when the session has expured
+  /// Callback called when the session has expired
   PUBLIC FUNCTION PTR onsessionexpired;
 
   /// Fptr where initial startup message (with init & link data) will be sent to
