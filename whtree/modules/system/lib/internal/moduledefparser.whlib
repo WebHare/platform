@@ -1443,7 +1443,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         {
           STRING objectname;
           IF(subchild->HasAttribute("library"))
-            objectname := "module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname");
+            objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname");
           ELSE
             objectname := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname"));
 
