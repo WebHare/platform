@@ -125,6 +125,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   BOOLEAN disablenotifications;
 
   RECORD ARRAY loginmethods;
+  STRING ARRAY forceappfuncs;
   STRING ARRAY apps;
   RECORD ARRAY initialinstructions;
   RECORD rundata;
@@ -207,6 +208,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
       FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
         INSERT forceapp->GetAttribute("name") INTO this->apps AT END;
+
+      IF (setting.node->GetAttribute("forceappfunction") != "")
+        INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("forceappfunction")) INTO this->forceappfuncs AT END;
 
       FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
       {
@@ -423,6 +427,21 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       }
 
       RECORD ARRAY appinstructions;
+
+      FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
+      {
+        FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
+        TRY
+        {
+          STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
+          FOREVERY (STRING app FROM forceapps)
+            INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+        }
+        CATCH (OBJECT e)
+          LogHarescriptException(e);
+      }
+
+
       FOREVERY(STRING app FROM this->apps)
         INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
 
