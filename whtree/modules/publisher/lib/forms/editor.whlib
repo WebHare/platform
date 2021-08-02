@@ -148,11 +148,23 @@ PUBLIC STATIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionB
   // APIs
   //
 
+  /** Read title/tid combination attributes into a textedit
+      @long Reads the tid/title attribute and sets the textedit. It will read the normal matching pairs eg title/tid
+            or label/labeltid. If the field is set by a tid, modifications will be blocked (these can currently only
+            be edited in the form source code)
+      @param field A <textedit>
+      @param fieldname Field to read. If not specified, it will use the field's name
+  */
   PUBLIC MACRO ReadTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
   {
     ReadFormNodeTidAttribute(this->node, field, fieldname);
   }
 
+  /** Write title/tid combination attributes back from a textedit
+      @long Set the tid/title attributes based on a textedit
+      @param field A <textedit>
+      @param fieldname Field to read. If not specified, it will use the field's name
+  */
   PUBLIC MACRO WriteTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
   {
     WriteFormNodeTidAttribute(this->node, field, fieldname);
