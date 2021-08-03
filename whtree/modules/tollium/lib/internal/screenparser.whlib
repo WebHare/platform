@@ -2089,8 +2089,6 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
         , hinttp           := curpageparser->ParseTP(option, "hint")
         , tolliuminitial   := ReadBoolAttr(option, "selected", FALSE)
         , enabled          := ReadBoolAttr(option, "enabled", TRUE)
-        , icon             := ReadIconAttr(option, "icon", "")
-        , hint             := ReadStringAttr(option, "hint", "")
         , enablecomponents := ParseXSList(option->GetAttribute("enablecomponents"))
         , invalidselection := ReadBoolAttr(option, "invalidselection", FALSE)
         , lineitems        := DEFAULT STRING ARRAY

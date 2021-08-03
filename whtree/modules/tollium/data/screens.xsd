@@ -4760,11 +4760,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="selected" type="xs:boolean" />
     <xs:attribute name="flags" type="tc:Flags" />
     <xs:attribute name="enabled" type="xs:boolean" />
-    <xs:attributeGroup ref="Icon" />
     <xs:attribute name="indent" type="xs:integer" />
     <xs:attribute name="enablecomponents" type="ComponentRefList" />
-    <xs:attribute name="hint" type="xs:string" />
-    <xs:attribute name="hinttid" type="Tid" />
     <xs:attribute name="invalidselection" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
