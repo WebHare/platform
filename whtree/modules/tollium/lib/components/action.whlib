@@ -22,7 +22,7 @@ PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
 
   PUBLIC PROPERTY ellipsis(pvt_ellipsis, SetEllipsis);
 
-  /** @short Icon specified from tollium. Findable in documentation - common images.
+  /** @short Icon specified from tollium.
       @example icon="tollium:folders/normal"
   */
   PUBLIC PROPERTY icon(pvt_icon, SetIcon);
@@ -138,7 +138,6 @@ PUBLIC STATIC OBJECTTYPE TolliumActionForwardBase EXTEND TolliumSpecialComponent
 
   MACRO SetIcon(STRING newicon)
   {
-    newicon := this->owner->frame->ParseIconPointer(newicon);
     IF (this->pvt_icon != newicon)
     {
       this->pvt_icon := newicon;

@@ -631,17 +631,6 @@ PUBLIC STRING FUNCTION GetDateFormatString(STRING datestr, BOOLEAN shortformat, 
   RETURN format;
 }
 
-PUBLIC STRING FUNCTION ParseIconPointer(STRING defaultmodule, STRING icon)
-{
-  IF (icon = "")
-    RETURN icon;
-  STRING ARRAY subicons := Tokenize(icon, "+");
-  FOREVERY (STRING subicon FROM subicons)
-    IF (SearchSubstring(subicon,':') = -1)
-      subicons[#subicon] := defaultmodule || ':' || subicon;
-  RETURN Detokenize(subicons, "+");
-}
-
 PUBLIC INTEGER FUNCTION ParseRowKeyType(STRING rowkeytype)
 {
   SWITCH (ToUppercase(rowkeytype))

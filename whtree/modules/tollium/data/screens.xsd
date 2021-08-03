@@ -4903,7 +4903,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="icons" type="StringList">
+    <xs:attribute name="icons" type="sc:ImageSrcList">
       <xs:annotation>
         <xs:documentation>
           <html:p>

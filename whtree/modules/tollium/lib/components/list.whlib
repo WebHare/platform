@@ -2402,6 +2402,10 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
       }
 
+      //Web_RenderRows first, it may change list state (eg GetIcon calls invoked by OnMapValue)
+      VARIANT ARRAY rows := this->Web_RenderRows(this->rows, TRUE);
+      VARIANT ARRAY footerrows := this->Web_RenderRows(this->footerrows, FALSE);
+
       RECORD listinfo := [ selectmode        := this->storage->selectmode
                          , columnselectmode  := this->columnselectmode
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
@@ -2414,14 +2418,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , selectableflags   := Detokenize(this->selectableflags," ")
                          , unmasked_events   := unmask
                          //, rowiconname       := this->rowiconname
-                         , dragsingleicon    := ParseIconPointer(this->owner->frame->module, this->dragsingleicon)
-                         , dragmultipleicon  := ParseIconPointer(this->owner->frame->module, this->dragmultipleicon)
+                         , dragsingleicon    := this->dragsingleicon
+                         , dragmultipleicon  := this->dragmultipleicon
                          , columns           := this->Web_ListColumns()
                          , rowlayout         := rowlayout
                          , dragrowlayout     := dragrowlayout
                          , colheaders        := colheaders
-                         , rows              := this->Web_RenderRows(this->rows, TRUE)
-                         , footerrows        := this->Web_RenderRows(this->footerrows, FALSE)
+                         , rows              := rows
+                         , footerrows        := footerrows
                          , acceptdrops       := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
                          , borders           := this->borders
                          , highlightidx      := this->highlightname != "" ? 4 : -1
@@ -2429,14 +2433,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , sortcolumn        := this->pvt_sortcolumn
                          , debugactions      := this->debugactions
                          , class             := this->class
+                         , icons             := this->icons
                          ];
-
-      // Parse icons AFTER webrenderrows, allow onmapvalue to add icons
-      STRING ARRAY icons;
-      FOREVERY(STRING icon FROM this->icons)
-        INSERT ParseIconPointer(this->owner->frame->module, icon) INTO icons AT END;
-
-      INSERT CELL icons := icons INTO listinfo;
 
       this->owner->tolliumcontroller->SendComponent(this, listinfo);
     }
@@ -2478,11 +2476,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       // Send icons after webrenderrows, allow onmapvalue to add icons
       IF (this->dirtyflags.icons)
       {
-        STRING ARRAY icons;
-        FOREVERY(STRING icon FROM this->icons)
-          INSERT ParseIconPointer(this->owner->frame->module, icon) INTO icons AT END;
-
-        this->ToddUpdate([ type:="icons", icons := icons ]);
+        this->ToddUpdate([ type:="icons", icons := this->icons ]);
       }
       IF (this->dirtyflags.selection)
       {

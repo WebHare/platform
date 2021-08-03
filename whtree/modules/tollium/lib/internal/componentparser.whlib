@@ -157,6 +157,18 @@ RECORD FUNCTION ParseAttributeType(OBJECT decl)
   RETURN ParseAttributeTypeDef(attrtype, decl->name, defaultval, GetModuleNameFromResourcePath(decl->xsdfilename));
 }
 
+PUBLIC STRING FUNCTION ReadIconRef(STRING module, STRING iconref)
+{
+  IF (iconref = "")
+    RETURN iconref;
+
+  STRING ARRAY subicons := Tokenize(iconref, "+");
+  FOREVERY (STRING subicon FROM subicons)
+    IF (SearchSubstring(subicon,':') = -1)
+      subicons[#subicon] := module || ':' || subicon;
+
+  RETURN Detokenize(subicons, "+");
+}
 PUBLIC RECORD FUNCTION ParseBordersSpacers(STRING celldata)
 {
   RECORD border := tolliumdefaultborderspacer;
@@ -221,16 +233,21 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     {
       RETURN [ defaultvalue := ToMoney(defaultval,0.0), finaltype := TYPEID(MONEY) ];
     }
+    IF(attrtype->name = "ImageSrcList")
+    {
+      STRING ARRAY defval := SELECT AS STRING ARRAY ReadIconRef(module, val) FROM ToRecordArray(ParseXSList(defaultval), "val");
+      RECORD retval := [ defaultvalue := defval
+                       , recordtype := "iconpointerlist"
+                       , finaltype := TYPEID(STRING ARRAY)
+                       ];
+      RETURN retval;
+    }
     IF(attrtype->name = "ImageSrc")
     {
-      RECORD retval := [ defaultvalue := "", recordtype := "iconpointer", finaltype := TYPEID(STRING) ];
-      IF(defaultval!="")
-      {
-        IF(defaultval NOT LIKE "*:*")
-          defaultval := module || ":" || defaultval;
-
-        retval.defaultvalue := defaultval;
-      }
+      RECORD retval := [ defaultvalue := ReadIconRef(module, defaultval)
+                       , recordtype := "iconpointer"
+                       , finaltype := TYPEID(STRING)
+                       ];
       RETURN retval;
     }
     IF(attrtype->name = "ComponentRef")

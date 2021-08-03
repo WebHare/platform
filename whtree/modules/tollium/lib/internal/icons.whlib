@@ -396,7 +396,6 @@ RECORD FUNCTION GetCacheableImage(STRING name, INTEGER width, INTEGER height, ST
               ];
 
   RECORD ARRAY available := GetAvailableModuleIcons(name, width, height, color);
-
   IF(Length(available) > 0 AND available[0].type="text/xml")
   {
     RECORD ARRAY layers := ResolveXMLIcon(available[0].respath, width, height, color, options, status);
