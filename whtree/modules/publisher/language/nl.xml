@@ -1161,7 +1161,7 @@
       <text tid="description-email">E-mail</text>
       <text tid="description-numeric">Open vraag met numeriek antwoordveld</text>
       <text tid="emptyvalue">'Lege' waarde</text>
-      <text tid="limitacceptableemails">Beperk toegestaande emailadressen</text>
+      <text tid="limitacceptableemails">Beperk toegestane emailadressen</text>
       <text tid="maxlength">Maximale antwoordlengte</text>
       <text tid="maxvalue">Maximale waarde</text>
       <text tid="minvalue">Minimale waarde</text>

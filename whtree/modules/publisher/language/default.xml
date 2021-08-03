@@ -1016,7 +1016,7 @@
   <textgroup gid="formcomponents" limitlanguages="en nl">   <!-- formcomponents -->
     <text tid="editemailmask">Email mask properties</text>
     <text tid="emailmask">Email mask</text>
-    <text tid="emailmask-placeholder">eg. *@webare.com</text>
+    <text tid="emailmask-placeholder">eg. *@webhare.com</text>
     <textgroup gid="address">   <!-- formcomponents.address -->
       <text tid="countries">Countries</text>
       <text tid="description">An address</text>
