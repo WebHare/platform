@@ -3,6 +3,7 @@
     @topic forms/standardcomponents
 */
 
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -11,6 +12,8 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
 PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
@@ -29,6 +32,10 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 
   /// Trim whitespace on incoming data?
   BOOLEAN trimwhitespace;
+
+  STRING ARRAY acceptableemailmasks;
+
+  STRING unacceptableemailerror;
 
   // ---------------------------------------------------------------------------
   //
@@ -77,6 +84,10 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
       this->minlength := field.minlength;
     IF(CellExists(field,'maxlength'))
       this->maxlength := field.maxlength;
+    IF(CellExists(field,'acceptableemailmasks'))
+      this->acceptableemailmasks := field.acceptableemailmasks;
+    IF(CellExists(field,'unacceptableemailerror'))
+      this->unacceptableemailerror := GetTid(field.unacceptableemailerror);
   }
 
   // ---------------------------------------------------------------------------
@@ -178,18 +189,21 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
           FOREVERY(RECORD tocheck FROM emailstocheck)
           {
             RECORD correction := GetEmailAutocorrection(tocheck.email);
-            IF(NOT RecordExists(correction))
-              CONTINUE;
-
-            IF(correction.blocked)
+            IF(RecordExists(correction) AND correction.blocked)
             {
               STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
               work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.email_baddomain", domain));
               RETURN;
             }
 
-            IF(correction.force)
+            IF(RecordExists(correction) AND correction.force)
               emailstocheck[#tocheck].email := correction.suggestion;
+
+            IF(Length(this->acceptableemailmasks) > 0 AND NOT __MatchesAnyMask(emailstocheck[#tocheck].email, this->acceptableemailmasks))
+            {
+              work->AddErrorFor(this, this->unacceptableemailerror ?? GetTid("publisher:site.forms.commonerrors.unacceptableemail"));
+              RETURN;
+            }
           }
           this->textvalue := Detokenize((SELECT AS STRING ARRAY email FROM emailstocheck),", ");
         }
@@ -208,7 +222,7 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
         IF(correction.blocked)
         {
           STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
-          RETURN [ blocked := GetTid("publisher:site.forms.commonerrors.email_baddomain", domain) ?? "blocked"
+          RETURN [ blocked := GetTid("publisher:site.forms.commonerrors.email_baddomain", domain)
                  ];
         }
         IF(correction.force) //TODO work properly with multiple emails, but these don't get passed to the RPC anyway (we only get triggered for type=email)
@@ -256,6 +270,34 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   }
 >;
 
+PUBLIC OBJECTTYPE FormEmail EXTEND FormComponentExtensionBase
+<
+  MACRO OnChangeEmails()
+  {
+    ^unacceptableemailerror->placeholder := GetTidForLanguage(this->contexts->formcomponentapi->languagecode, "publisher:site.forms.commonerrors.unacceptableemail");
+  }
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    ^acceptableemailmasks->value := ToRecordArray(ParseXSList(this->node->GetAttribute("acceptableemailmasks")), "emailmask");
+    ^limitacceptableemails->value := Length(^acceptableemailmasks->value) > 0;
+    this->ReadTidAttribute(^unacceptableemailerror);
+    this->onchangeemails();
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF(this->^limitacceptableemails->value)
+        this->node->SetAttribute("acceptableemailmasks", Detokenize((SELECT AS STRING ARRAY emailmask FROM ^acceptableemailmasks->value ORDER BY emailmask), " "));
+      ELSE
+        this->node->RemoveAttribute("acceptableemailmasks");
+
+      this->WriteTidAttribute(^unacceptableemailerror);
+    }
+  }
+>;
 
 PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
 <
@@ -336,6 +378,15 @@ PUBLIC OBJECTTYPE FormTextEdit EXTEND FormComponentExtensionBase
     }
   }
 >;
+
+PUBLIC RECORD FUNCTION ParseFormEmail(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...ParseFormTextedit(fielddef, node, parsecontext)
+                  , acceptableemailmasks := ParseXSList(node->GetAttribute("acceptableemailmasks"))
+                  , unacceptableemailerror := parsecontext.parsexmltidptr(node, "unacceptableemailerror")
+                  ];
+  RETURN fielddef;
+}
 
 PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {

@@ -5,3 +5,39 @@ PUBLIC CONSTANT STRING ARRAY condition_fields := [ "requiredcondition", "enabled
 PUBLIC CONSTANT STRING ARRAY advanced_fields := [ "name", "enabled", "groupclasses", "comment", "pins" ];
 PUBLIC CONSTANT STRING ARRAY default_fields := [ "name", "title", "hidetitle", "required", "enabled", "groupclasses", "label", "placeholder", "prefix", "suffix" ];
 
+RECORD FUNCTION GetTidAttributesForField(OBJECT field, STRING fieldname)
+{
+  fieldname := fieldname ?? Tokenize(field->name, "!")[END - 1];
+  STRING fieldtid := fieldname LIKE "*title" ? Left(fieldname, Length(fieldname) - 5) || "tid" : fieldname || "tid";
+  RETURN CELL[ fieldname, fieldtid ];
+}
+
+PUBLIC MACRO ReadFormNodeTidAttribute(OBJECT node, OBJECT field, STRING fieldname)
+{
+  RECORD attrnames := GetTidAttributesForField(field, fieldname);
+
+  // If tid is defined, title cannot be set
+  IF (node->GetAttribute(attrnames.fieldtid) != "")
+  {
+    field->value := node->GetAttribute(attrnames.fieldtid);
+    field->enabled := FALSE;
+  }
+  ELSE
+  {
+    field->value := node->GetAttribute(attrnames.fieldname);
+  }
+}
+
+PUBLIC MACRO WriteFormNodeTidAttribute(OBJECT node, OBJECT field, STRING fieldname)
+{
+  RECORD attrnames := GetTidAttributesForField(field, fieldname);
+
+  // Only if tid is not defined, title can be set
+  IF (node->GetAttribute(attrnames.fieldtid) = "")
+  {
+    IF (field->value != "")
+      node->SetAttribute(attrnames.fieldname, field->value);
+    ELSE
+      node->RemoveAttribute(attrnames.fieldname);
+  }
+}

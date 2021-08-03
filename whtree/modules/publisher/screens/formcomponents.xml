@@ -66,6 +66,35 @@
     </insert>
   </tabsextension>
 
+  <tabsextension name="formemail" gid=".textedit" implementation="lib" lib="webtools/formcomponents/textedit.whlib">
+    <insert position="validation" where="after">
+      <!-- Using -1000000001 as emptyvalue so users can explicitly these values to 0 -->
+      <heading name="limitacceptableemails" checkbox="true" enablecomponents="acceptableemailmasks unacceptableemailerror" />
+      <arrayedit name="acceptableemailmasks" height="1pr" minheight="6gr" minrows="1" roweditscreen="#editemailmask" errorlabeltid=".acceptableemailmasks">
+        <column name="emailmask" type="text" tid="~email" />
+      </arrayedit>
+      <textedit name="unacceptableemailerror" width="1pr" />
+    </insert>
+    <insert position="advanced" where="after">
+      <textedit name="emptyvalue"
+                width="12x"
+                minvalue="-1000000000"
+                maxvalue="1000000000"
+                emptyvalue="-1000000001"
+                valuetype="integer" />
+    </insert>
+  </tabsextension>
+
+  <screen name="editemailmask" footerbuttons="ok cancel" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row" cellname="emailmask" width="1pr" minwidth="30x" required="true" placeholdertid=".emailmask-placeholder" />
+    </body>
+  </screen>
+
   <tabsextension
       name="formtextedit"
       gid=".textedit"

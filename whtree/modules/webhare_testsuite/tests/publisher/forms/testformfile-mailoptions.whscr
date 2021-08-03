@@ -14,8 +14,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 
-STRING emailfieldname;
-
 MACRO TestMailAtParsingAndCalculation()
 {
   //test the lower level secheduling/calculation APIs
@@ -66,27 +64,23 @@ MACRO AddExtraHandlers(RECORD forminfo)
   delayedhandler->SetAttribute("mailwaitat", "23:29:59");
 }
 
-PUBLIC MACRO BuildForm()
+MACRO BuildForm()
 {
   BuildWebtoolForm([ customformedits := PTR AddExtraHandlers
                    , addfeedbackattachments := TRUE
+                   , addmailrestrictions := TRUE
+                   , emailfieldname := "email"
                    ]);
 }
 
-PUBLIC ASYNC MACRO TestMailOptions()
+MACRO TestMailDelay()
 {
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
 
-  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
-  OBJECT webtoolresults := OpenFormFileResults(customformfile);
-
-  RECORD ARRAY fields := webtoolform->ListFields();
-
-  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
-  TestEq(TRUE, emailfieldname != "", "Email field not found");
-  RECORD submitrec := [ firstname := "Pietje & Henkie" ];
-  submitrec := CellInsert(submitrec, emailfieldname, "testmails@beta.webhare.net");
+  RECORD submitrec := [ firstname := "Pietje & Henkie"
+                      , email := "testmails@beta.webhare.net"
+                      ];
 
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
   RECORD res := tester->SubmitForm(submitrec);
@@ -109,8 +103,24 @@ PUBLIC ASYNC MACRO TestMailOptions()
   TestEq("Delayed mail", feedbackmail[0].subject);
 }
 
+MACRO TestMailRestrictions()
+{
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+
+  RECORD submitrec := [ firstname := "MailRestriction"
+                      , email := "unacceptable@example.net"
+                      ];
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+  TestEqMembers([[ name := "email", message := "This email address is not acceptable here" ]], res.errors, "*");
+}
+
 RunTestframework([ PTR TestMailAtParsingAndCalculation
                  , PTR BuildForm
-                 , PTR TestMailOptions
+                 , PTR TestMailDelay
+                 , PTR TestMailRestrictions
                  ], [ testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
                     ]);

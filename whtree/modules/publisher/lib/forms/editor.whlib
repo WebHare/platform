@@ -4,11 +4,13 @@
 */
 
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/formedit-tollium.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT GetTid;
 
 
-PUBLIC OBJECTTYPE FormEditorExtensionBase
+
+PUBLIC STATIC OBJECTTYPE FormEditorExtensionBase
 <
   //save storage for our API and Contexts objects so derived classes can't accidentaly modify them
   RECORD pvt_options;
@@ -36,7 +38,7 @@ PUBLIC OBJECTTYPE FormEditorExtensionBase
 >;
 
 
-PUBLIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
+PUBLIC STATIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
 < // ---------------------------------------------------------------------------
   //
   // Functions to override
@@ -69,7 +71,7 @@ PUBLIC OBJECTTYPE FormSettingsExtensionBase EXTEND TolliumTabsExtensionBase
 >;
 
 
-PUBLIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
+PUBLIC STATIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
 < // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -139,5 +141,32 @@ PUBLIC OBJECTTYPE FormComponentExtensionBase EXTEND TolliumTabsExtensionBase
   STRING FUNCTION GetGUID()
   {
     RETURN this->node->GetAttribute("guid");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // APIs
+  //
+
+  /** Read title/tid combination attributes into a textedit
+      @long Reads the tid/title attribute and sets the textedit. It will read the normal matching pairs eg title/tid
+            or label/labeltid. If the field is set by a tid, modifications will be blocked (these can currently only
+            be edited in the form source code)
+      @param field A <textedit>
+      @param fieldname Field to read. If not specified, it will use the field's name
+  */
+  PUBLIC MACRO ReadTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    ReadFormNodeTidAttribute(this->node, field, fieldname);
+  }
+
+  /** Write title/tid combination attributes back from a textedit
+      @long Set the tid/title attributes based on a textedit
+      @param field A <textedit>
+      @param fieldname Field to read. If not specified, it will use the field's name
+  */
+  PUBLIC MACRO WriteTidAttribute(OBJECT field, STRING fieldname DEFAULTSTO "")
+  {
+    WriteFormNodeTidAttribute(this->node, field, fieldname);
   }
 >;

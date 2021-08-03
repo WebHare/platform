@@ -41,6 +41,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addcustompaymenthandler := FALSE
                               , addpaymenthandler := FALSE
                               , addintegerfield := FALSE
+                              , addmailrestrictions := FALSE
                               , addmoneyfield := FALSE
                               , addpulldown := FALSE
                               , adddatecondition := FALSE
@@ -229,6 +230,11 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   emailfield->SetAttribute("required","1");
   emailfield->SetAttribute("validationchecks","email");
   emailfield->SetAttribute("autocomplete","email");
+
+  IF(options.addmailrestrictions)
+  {
+    emailfield->SetAttribute("acceptableemailmasks", "*@beta.webhare.net user@example.com");
+  }
 
   OBJECT simpleformgroup := formpage->AppendComponent("group");
   simpleformgroup->SetAttribute("title", "Groups & stuff"); //test ampersand
