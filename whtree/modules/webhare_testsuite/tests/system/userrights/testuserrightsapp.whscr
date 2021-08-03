@@ -405,6 +405,18 @@ ASYNC MACRO TestExport()
         ]
       ], SELECT * FROM rows ORDER BY username);
 
+  TTFillByTitle("unittree->unitlist", "visibleunit");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unittree->exportusersinunit"));
+  rec := AWAIT ExpectSentWebFile(PTR TTClick("download"));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  rows := GetOOXMLSpreadsheetRows(rec.file.data);
+  TestEqMembers([ [ username := 'testuser@beta.webhare.net' , unit := "visibleunit" ]
+                , [ username := 'visibleuser1@beta.webhare.net' , unit := "visibleunit" ]
+                , [ username := 'visibleuser2@beta.webhare.net' , unit := "visibleunit" ]
+                , [ username := 'visibleuser3@beta.webhare.net' , unit := "visibleunit" ]
+                ], rows, "*");
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Undelete 'visiblerole' for the next test to work
