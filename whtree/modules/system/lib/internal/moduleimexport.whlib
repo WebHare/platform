@@ -63,20 +63,32 @@ PUBLIC RECORD FUNCTION GetModuleDataFromFolder(STRING path, STRING name, BOOLEAN
 
   IF (archived)
   {
-    IF (name NOT LIKE "*.2???????T??????*Z")
+    IF (name LIKE "*.2???????T??????.???Z") //msecond precision
+    {
+      result.obsoletiondate := MakeDateFromText(Right(name, 20));
+      name := Left(name, LENGTH(name) - 21);
+    }
+    ELSE IF (name LIKE "*.2???????T??????Z")
+    {
+      result.obsoletiondate := MakeDateFromText(Right(name, 16));
+      name := Left(name, LENGTH(name) - 17);
+    }
+    ELSE
     {
       PRINT("Strange module folder: " || path || "\n");
       RETURN DEFAULT RECORD;
     }
-
-    result.obsoletiondate := MakeDateFromText(Right(name, 16));
-    name := Left(name, LENGTH(name) - 17);
   }
 
   IF (name LIKE "*.*")
   {
     result.name := Left(name, SearchSubString(name, "."));
-    IF (name LIKE "*.2???????T??????*Z")
+    IF (name LIKE "*.2???????T??????.???Z")
+    {
+      result.moduledate := MakeDateFromText(Right(name, 20));
+      result.newformat := TRUE;
+    }
+    IF (name LIKE "*.2???????T??????Z")
     {
       result.moduledate := MakeDateFromText(Right(name, 16));
       result.newformat := TRUE;

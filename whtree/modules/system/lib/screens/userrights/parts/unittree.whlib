@@ -273,11 +273,13 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                                 , fullname := "WRD_TITLE"
                                 , email := this->contexts->userapi->wrdschema->accountemailtag
                                 , password := this->contexts->userapi->wrdschema->accountpasswordtag
+                                , unit := "whuser_unit"
                                 ];
 
     RECORD ARRAY columns := [ [ name := "username",   title := GetTid("system:userrights.exports.csvcolumns.username"),   type := "text" ]
                             , [ name := "fullname",   title := GetTid("system:userrights.exports.csvcolumns.fullname"),   type := "text" ]
                             , [ name := "email",      title := GetTid("~email"),                                          type := "text" ]
+                            , [ name := "unit",       title := GetTid("system:userrights.columns.unit"),                  type := "text" ]
                             , [ name := "created",    title := GetTid("system:userrights.exports.csvcolumns.created"),    type := "datetime", storeutc := TRUE ]
                             ];
 
@@ -304,6 +306,8 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
         , filters := [ [ field := "WHUSER_UNIT", value := relevantunits ]
                      ]
         ]);
+
+    users := unittype->Enrich(users, "UNIT", [ unit := "WRD_TITLE" ], [ rightouterjoin := TRUE ]);
 
     users :=
         SELECT *

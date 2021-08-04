@@ -1266,7 +1266,6 @@ PRINT("\n === Running TestInternet\n");
 UrlTest();
 AbsRelTest();
 InvalidBase_AbsTest();
-UrlTest();
 TestDataURL();
 InternetTest();
 IPTest();
