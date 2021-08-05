@@ -305,11 +305,16 @@ ASYNC MACRO TestWorkListMgmt()
 
   topscreen->frame->focused := TT("filelist");
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "TESTFW - Second Work List";
+  INSERT TT("foldertree")->value INTO TT("foldertree")->expanded AT END; //open worklist list
+  TestEq([ "TESTFW - Second Work List" ], SELECT AS STRING ARRAY name FROM TT("foldertree")->rows WHERE name LIKE "TESTFW - *" ORDER BY name);
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage worklist", [ menuitem := TRUE ]));
   TestEq("TESTFW - Second Work List", TT(":Name")->value);
   TT(":Name")->value := "TESTFW - 2nd Work List";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("TESTFW - 2nd Work List", TT("filelist")->selection.name);
+  TestEq([ "TESTFW - 2nd Work List" ], SELECT AS STRING ARRAY name FROM TT("foldertree")->rows WHERE name LIKE "TESTFW - *" ORDER BY name);
 
   //A filter screen should appear in the worklist itself
   TT("filelist")->openaction->TolliumClick();
@@ -322,6 +327,22 @@ ASYNC MACRO TestWorkListMgmt()
   filterscreen->^toshow->value := "some";
   TTClick(":Filter");
   TestEq([[ name := "workfile1" ]], SELECT name FROM TT("filelist")->rows ORDER BY name);
+
+  //Switch away (out of all the worklists) and back. triggered a crash ? but can't reproduce it anymore
+  TT("foldertree")->value := lisaresolveroot->id;
+  //Verify we switched
+  TestEq(["workfile1", "workfile2", "workfile3", "workfolder5"], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
+
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "TESTFW - 2nd Work List";
+  TestEq(TRUE, RecordExists(TT("foldertree")->selection));
+
+  filterscreen := TT("filelist")->folderfilter->contents;
+  TestEq(TRUE, ObjectExists(filterscreen));
+  TestEq("none", filterscreen->^toshow->value);
+
+  filterscreen->^toshow->value := "all";
+  TTClick(":Filter");
+  TestEq([ "workfile1", "workfile2" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows ORDER BY name);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
