@@ -151,7 +151,7 @@
               indexfile="contentlisting"
               protectindexfile="true"
               tid="publisher:foldertypes.photoalbum"
-              tolliumicon="tollium:folders/photoalbum"
+              icon="tollium:folders/photoalbum"
               webhare_builtintypeid="3">
     <members>
       <string name="rows" />
@@ -199,7 +199,7 @@
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.msword"
-            tolliumicon="tollium:files/application_msword"
+            icon="tollium:files/application_msword"
             webhare_builtintypeid="4">
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile" />
   </filetype>
@@ -211,7 +211,7 @@
             needstemplate="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.html"
-            tolliumicon="tollium:files/text_html"
+            icon="tollium:files/text_html"
             webhare_builtintypeid="5">
     <setobjecteditor name="publisher:texteditor" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
@@ -452,7 +452,7 @@
             extensions=".rtd"
             searchcontentprovider="publisher:rtd"
             tid="publisher:filetypes.richdocumentfile"
-            tolliumicon="tollium:files/application_x-webhare-richdocument">
+            icon="tollium:files/application_x-webhare-richdocument">
     <members>
       <file name="original" />
       <richdocument name="data" />
@@ -467,7 +467,7 @@
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.msworddownload"
-            tolliumicon="tollium:files/application_msword" />
+            icon="tollium:files/application_msword" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
             blobiscontent="false"
@@ -490,7 +490,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/tagfile"
             kind="datafile"
             tid="publisher:filetypes.tagfile"
-            tolliumicon="tollium:files/application_x-webhare-tag">
+            icon="tollium:files/application_x-webhare-tag">
     <members>
       <whfsrefarray name="belongstorepos" />
     </members>
@@ -499,7 +499,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/tagrepository"
             kind="datafile"
             tid="publisher:filetypes.tagrepository"
-            tolliumicon="tollium:folders/repository">
+            icon="tollium:folders/repository">
     <members>
       <whfsrefarray name="tags" />
     </members>

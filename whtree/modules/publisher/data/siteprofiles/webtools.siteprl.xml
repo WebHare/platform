@@ -23,7 +23,7 @@
               renderobjectname="mod::publisher/lib/webtools/internal/renderpoll.whlib#PollWidget"
               searchcontentprovider="publisher:webtoolform"
               tid="filetypes.webtool-poll"
-              tolliumicon="tollium:messageboxes/question"
+              icon="tollium:messageboxes/question"
               wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll">
     <members>
       <member name="allowvotestill" type="datetime" />  <!-- ADDME: implement this option -->

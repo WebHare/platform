@@ -8,7 +8,7 @@ Siteprofile:
   <filetype typedef="http://www.example.net/xmlns/customform"
             extensions=".customform"
             title="WebHare testsuite customform type"
-            tolliumicon="tollium:files/application_x-webhare-survey"
+            icon="tollium:files/application_x-webhare-survey"
             blobiscontent="false"
             needstemplate="true"
             isacceptableindex="true"

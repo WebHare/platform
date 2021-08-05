@@ -295,7 +295,7 @@
         </xs:documentation>
         <xs:appinfo>
           <fai:formhandler
-            tolliumicon="tollium:actions/send"
+            icon="tollium:actions/send"
             tid="formhandlers.mailresults.name"
             descriptiontid="formhandlers.mailresults.description"
             editextension="/screens/formhandlers.xml#mailresultseditor"
@@ -347,7 +347,7 @@
         </xs:documentation>
         <xs:appinfo>
           <fai:formhandler
-            tolliumicon="tollium:mailclient/replied"
+            icon="tollium:mailclient/replied"
             tid="formhandlers.mailfeedback.name"
             descriptiontid="formhandlers.mailfeedback.description"
             editextension="/screens/formhandlers.xml#mailfeedbackeditor"
@@ -378,7 +378,7 @@
         </xs:documentation>
         <xs:appinfo>
           <fai:formhandler
-            tolliumicon="tollium:objects/envelope+tollium:status/checked"
+            icon="tollium:objects/envelope+tollium:status/checked"
             tid="formhandlers.mailconfirmation.name"
             descriptiontid="formhandlers.mailconfirmation.description"
             editextension="/screens/formhandlers.xml#mailconfirmationeditor"
@@ -439,7 +439,7 @@
           <fai:formcomponent
             matchattribute="hson:{'role':''}"
             linecomponent="false"
-            tolliumicon="tollium:files/normal"
+            icon="tollium:files/normal"
             tid="formcomponents.page.name"
             editextension="/screens/formcomponents.xml#formpage"
             editdefaults=""
@@ -448,7 +448,7 @@
           <fai:formcomponent
             matchattribute="hson:{'role':'overview'}"
             linecomponent="false"
-            tolliumicon="tollium:files/normal"
+            icon="tollium:files/normal"
             tid="formcomponents.page.name-overview"
             editextension="/screens/formcomponents.xml#formoverviewpage"
             editdefaults=""
@@ -457,7 +457,7 @@
           <fai:formcomponent
             matchattribute="hson:{'role':'thankyou'}"
             linecomponent="false"
-            tolliumicon="tollium:files/normal"
+            icon="tollium:files/normal"
             tid="formcomponents.page.name-thankyou"
             editextension="/screens/formcomponents.xml#formthankyoupage"
             editdefaults=""
@@ -491,7 +491,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:folders/normal"
+            icon="tollium:folders/normal"
             tid="formcomponents.group.name"
             editextension="/screens/formcomponents.xml#formgroup"
             editdefaults="title hidetitle"
@@ -543,7 +543,7 @@
           <fai:formcomponent
             matchattribute="hson:{'valuetype':sa['integer','money','float']}"
             linecomponent="true"
-            tolliumicon="tollium:forms/numeric"
+            icon="tollium:forms/numeric"
             tid="formcomponents.textedit.name-numeric"
             descriptiontid="formcomponents.textedit.description-numeric"
             editextension="/screens/formcomponents.xml#formnumerictextedit"
@@ -556,7 +556,7 @@
           <fai:formcomponent
             matchattribute="hson:{'validationchecks':sa['email']}"
             linecomponent="true"
-            tolliumicon="tollium:forms/email"
+            icon="tollium:forms/email"
             tid="formcomponents.textedit.name-email"
             descriptiontid="formcomponents.textedit.description-email"
             editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
@@ -568,7 +568,7 @@
             />
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/textedit"
+            icon="tollium:forms/textedit"
             tid="formcomponents.textedit.name"
             descriptiontid="formcomponents.textedit.description"
             editextension="/screens/formcomponents.xml#formtextedit"
@@ -623,7 +623,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/textarea"
+            icon="tollium:forms/textarea"
             tid="formcomponents.textarea.name"
             descriptiontid="formcomponents.textarea.description"
             editextension="/screens/formcomponents.xml#formtextarea"
@@ -658,7 +658,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="false"
-            tolliumicon="tollium:forms/rtd"
+            icon="tollium:forms/rtd"
             tid="formcomponents.rtd.name"
             descriptiontid="formcomponents.rtd.description"
             editextension="/screens/formcomponents.xml#formrtd"
@@ -683,7 +683,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="false"
-            tolliumicon="tollium:forms/image"
+            icon="tollium:forms/image"
             tid="formcomponents.imgedit.name"
             descriptiontid="formcomponents.imgedit.description"
             editdefaults="name title hidetitle required groupclasses infotext"
@@ -706,7 +706,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/password"
+            icon="tollium:forms/password"
             tid="formcomponents.password.name"
             descriptiontid="formcomponents.password.description"
             editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
@@ -730,7 +730,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/date"
+            icon="tollium:forms/date"
             tid="formcomponents.date.name"
             descriptiontid="formcomponents.date.description"
             editextension="/screens/formcomponents.xml#formdate"
@@ -759,7 +759,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/time"
+            icon="tollium:forms/time"
             tid="formcomponents.time.name"
             descriptiontid="formcomponents.time.description"
             editextension="/screens/formcomponents.xml#formtime"
@@ -793,7 +793,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/upload"
+            icon="tollium:forms/upload"
             tid="formcomponents.upload.name"
             descriptiontid="formcomponents.upload.description"
             editdefaults="name title hidetitle required groupclasses infotext"
@@ -825,7 +825,7 @@
           <fai:formcomponent
             matchattribute="hson:{'type':'pulldown'}"
             linecomponent="true"
-            tolliumicon="tollium:forms/pulldown"
+            icon="tollium:forms/pulldown"
             tid="formcomponents.select.name-pulldown"
             descriptiontid="formcomponents.select.description-pulldown"
             editextension="/screens/formcomponents.xml#formselectpulldown"
@@ -838,7 +838,7 @@
           <fai:formcomponent
             matchattribute="hson:{'type':'radio'}"
             linecomponent="true"
-            tolliumicon="tollium:forms/radio"
+            icon="tollium:forms/radio"
             tid="formcomponents.select.name-radio"
             descriptiontid="formcomponents.select.description-radio"
             editextension="/screens/formcomponents.xml#formselectradio"
@@ -851,7 +851,7 @@
           <fai:formcomponent
             matchattribute="hson:{'type':'checkbox'}"
             linecomponent="true"
-            tolliumicon="tollium:forms/checkboxes"
+            icon="tollium:forms/checkboxes"
             tid="formcomponents.select.name-checkbox"
             descriptiontid="formcomponents.select.description-checkbox"
             editextension="/screens/formcomponents.xml#formselectmultiple"
@@ -923,7 +923,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/checkbox"
+            icon="tollium:forms/checkbox"
             tid="formcomponents.checkbox.name"
             descriptiontid="formcomponents.checkbox.description"
             editdefaults="name title hidetitle label required groupclasses infotext"
@@ -949,7 +949,7 @@
       <xs:appinfo>
         <fai:formcomponent
           linecomponent="false"
-          tolliumicon="tollium:forms/richtext"
+          icon="tollium:forms/richtext"
           tid="formcomponents.richtext.name"
           descriptiontid="formcomponents.richtext.description"
           editdefaults="groupclasses noenabled"
@@ -994,7 +994,7 @@
       <xs:appinfo>
         <fai:formcomponent
           linecomponent="false"
-          tolliumicon="tollium:forms/address"
+          icon="tollium:forms/address"
           tid="formcomponents.address.name"
           descriptiontid="formcomponents.address.description"
           editdefaults="name title groupclasses"
@@ -1053,7 +1053,7 @@
       <xs:appinfo>
         <fai:formcomponent
           linecomponent="false"
-          tolliumicon="tollium:forms/array"
+          icon="tollium:forms/array"
           tid="formcomponents.array.name"
           descriptiontid="formcomponents.array.description"
           editdefaults="name title"
