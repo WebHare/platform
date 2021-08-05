@@ -4,30 +4,13 @@
   </div>
 </header>
 
-<div class="hserror__body">
+<div class="hserror__body" style="margin:20px">
   <div>
     [errors]
   </div>
 
   <hr>
   <p>
-    You are seeing this page because a HareScript error occured and you specifically enabled error stracktraces in the <a id="debuglink" href="/.publisher/common/debug/">debug</a> settings. Only users with supervisor rights or above can toggle that setting.
+    You are seeing this page because a HareScript error occured and you specifically enabled error stracktraces in the <a href="[debuglink]">debug</a> settings. Only users with supervisor rights or above can toggle that setting.
   </p>
 </div>
-
-<style>[embed csscode]</style>
-<script type="text/javascript">
-  [embed jscode]
-</script>
-
-[rawcomponent csscode]
-  .hserror__body
-  {
-    margin: 20px;
-  }
-[/rawcomponent]
-
-[rawcomponent jscode]
-  var debuglink = document.getElementById('debuglink');
-  debuglink.href += '?back=' + encodeURIComponent(location.href);
-[/rawcomponent]

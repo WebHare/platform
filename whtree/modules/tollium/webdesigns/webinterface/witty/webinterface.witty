@@ -52,23 +52,7 @@
     <div class="text">
       WebHare is initializing, please wait<span class="firstdot dot">.</span><span class="dot">.</span><span class="dot">.</span>
     </div>
-    <script>
-      var steps=0;
-      function showsteps()
-      {
-        if(++steps>5)
-        {
-          steps = 0;
-          document.documentElement.className='';
-        }
-        if(steps >= 1 && steps <= 3)
-        {
-          document.documentElement.className+= ' dots' + steps;
-        }
-      }
-      setInterval(showsteps,600);
-      setInterval(function() { location.reload(true) },10000);
-    </script>
+    <script src="/.tollium/ui/direct/applicationportal.js" ></script>
   </body>
 </html>
 [/component]
