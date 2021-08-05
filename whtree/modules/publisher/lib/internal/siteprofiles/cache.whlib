@@ -130,20 +130,18 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
   STRING ns := ismissing ? RecordExists(fstype) ? fstype.namespace : "#" || id : type.namespace;
   RETURN [ id := id
          , namespace := ns
-         , ispublishable := RecordExists(type.fstype) AND type.fstype.ispublishable
-         , needstemplate := RecordExists(type.fstype) AND type.fstype.needstemplate
-         , title := ismissing ? ":"||ns : RecordExists(type.filetype) ? type.filetype.title : RecordExists(type.foldertype) ? type.foldertype.title : ":"||ns
-         , tolliumicon := RecordExists(type.filetype) ? type.filetype.tolliumicon ?? whconstant_publisher_fileiconfallback
-                         : RecordExists(type.foldertype) ? type.foldertype.tolliumicon ?? whconstant_publisher_foldericonfallback
-                         : whconstant_publisher_fileiconfallback
-         , dynamicexecution := RecordExists(type.filetype) ? type.filetype.dynamicexecution : RecordExists(type.foldertype) ? type.foldertype.dynamicexecution : DEFAULT RECORD
-         , isacceptableindex := RecordExists(type.fstype) AND type.fstype.isacceptableindex
+         , ispublishable := RecordExists(type.filetype) AND type.filetype.ispublishable
+         , needstemplate := RecordExists(type.filetype) AND type.filetype.needstemplate
+         , title := ismissing ? ":"||ns : type.title
+         , tolliumicon := type.tolliumicon ?? (RecordExists(type.foldertype) ? whconstant_publisher_foldericonfallback : whconstant_publisher_fileiconfallback)
+         , dynamicexecution := type.dynamicexecution
+         , isacceptableindex := RecordExists(type.filetype) AND type.filetype.isacceptableindex
          , extensions := RecordExists(type.filetype) ? type.filetype.extensions : STRING[]
          , searchcontentprovider := RecordExists(type.filetype) ? type.filetype.searchcontentprovider : ""
          , indexversion := RecordExists(type.filetype) ? type.filetype.indexversion : ""
          , blobiscontent := RecordExists(type.filetype) AND type.filetype.blobiscontent
          , ishidden := RecordExists(type.foldertype) AND type.foldertype.ishidden
-         , capturesubpaths := RecordExists(type.fstype) AND type.fstype.capturesubpaths
+         , capturesubpaths := RecordExists(type.filetype) AND type.filetype.capturesubpaths
          , siteprofile := ismissing ? "" : type.siteprofile
          , line := ismissing ? 0 : type.line
 
@@ -168,5 +166,5 @@ PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
 {
   RETURN SELECT AS INTEGER ARRAY id
            FROM GetCachedSiteProfiles().contenttypes
-          WHERE RecordExists(foldertype) AND RecordExists(foldertype.dynamicexecution);
+          WHERE RecordExists(foldertype) AND RecordExists(dynamicexecution);
 }

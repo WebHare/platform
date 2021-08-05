@@ -51,8 +51,6 @@ MACRO TestParsing()
   TestEq(test3resname, test3type.siteprofile);
   Testeq(5, test3type.line);
   TestEq(TRUE, RecordExists(test3type.foldertype));
-  TestEq(test3resname, test3type.foldertype.siteprofile);
-  TestEq(7, test3type.foldertype.line);
   TestEq(FALSE, RecordExists(test3type.filetype));
 
   res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml");

@@ -90,7 +90,7 @@ PUBLIC STRING FUNCTION __GetSubpageBaseUrl(RECORD typeinfo, RECORD fileinfo)
   IF(TestFlagFromPublished(fileinfo.published, PublishedFlag_StripExtension))
     usefilename := GetBasenameFromPath(usefilename);
 
-  IF(typeinfo.fstype.ispublishedassubdir)
+  IF(typeinfo.filetype.ispublishedassubdir)
   {
     //An indexlink goes to file.url, others to a file.name/subpage
     IF(fileinfo.isindex)
@@ -167,7 +167,7 @@ RECORD ARRAY FUNCTION GatherPages(INTEGER startfolder, INTEGER ARRAY limitobject
     IF(NOT RecordExists(typeinfo) OR NOT RecordExists(typeinfo.filetype))
       CONTINUE;
 
-    pagelistprovider := __MakePagelistProvider(typeinfo.filetype.pagelistprovider, [ isdynamic := RecordExists(typeinfo.filetype.dynamicexecution) ]);
+    pagelistprovider := __MakePagelistProvider(typeinfo.filetype.pagelistprovider, [ isdynamic := RecordExists(typeinfo.dynamicexecution) ]);
 
     RECORD ARRAY files := SELECT *
                                , subpagebaseurl := __GetSubpageBaseUrl(typeinfo, files)

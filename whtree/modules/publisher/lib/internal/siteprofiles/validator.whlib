@@ -40,7 +40,7 @@ STATIC OBJECTTYPE Validating
   {
     RETURN [ filename := ctype.siteprofile
            , line := ctype.line
-           , col := ctype.col
+           , col := 0
            ];
   }
 

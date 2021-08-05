@@ -174,7 +174,7 @@ PUBLIC OBJECTTYPE WidgetBase
     IF(RecordExists(ctypeinfo.editor) AND ctypeinfo.editor.type NOT IN ["function","extension"])
       RETURN "";
 
-    RETURN GetTid(ctypeinfo.filetype.title);
+    RETURN GetTid(ctypeinfo.title);
   }
 
   /** @short Render a block from GetSharedBlocks/ResolveLocalSharedBlocks as a widget */

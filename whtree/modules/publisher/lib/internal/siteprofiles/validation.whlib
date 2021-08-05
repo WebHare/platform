@@ -46,7 +46,7 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
       IF(RecordExists(type.filetype) AND type.filetype.searchcontentprovider != "")
       {
         TRY GetSearchContentProvider(type.filetype.searchcontentprovider);
-        CATCH (OBJECT e) this->AddErrorForLine(type.filetype.line, e->what);
+        CATCH (OBJECT e) this->AddErrorForLine(type.line, e->what);
       }
     }
 
