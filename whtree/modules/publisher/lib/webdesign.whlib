@@ -438,7 +438,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     {
       STRING header :=
         '<!DOCTYPE html>\n'
-        || '<html lang="' || EncodeValue(this->languagecode) || '"';
+        || '<html lang="' || EncodeValue(this->languagecode || (this->languagecountry != "" ? "-" || this->languagecountry : "")) || '"';
 
       STRING ARRAY html_classes := this->pvt_htmlclasses;
       IF (this->pvt_renderwidgetpreview)
@@ -623,6 +623,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , bodyopening := PTR this->__PrintBodyOpening
                    , bodyfinale := DEFAULT MACRO PTR
                    , languagecode := this->languagecode
+                   , languagecountry := this->languagecountry
                    , pagetitle := this->pagetitle
                    , pagedescription := this->pagedescription
                    , pagekeywords := this->pagekeywords

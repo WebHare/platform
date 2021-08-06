@@ -110,8 +110,10 @@ PUBLIC STATIC OBJECTTYPE WebContext
 
   ///The base URL for this page
   PUBLIC STRING baseurl;
-  ///The language to use (eg 'en', 'nl')
+  ///The language to use (eg 'en', 'nl'), lowercase
   PUBLIC STRING languagecode;
+  ///The country code for the language (eg 'GB', 'US'), uppercase, if set.
+  PUBLIC STRING languagecountry;
   /// The object being published/displayed
   PUBLIC PROPERTY targetobject(pvt_targetobject, -);
   /// @type(object %WHFSFolder) The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
@@ -222,7 +224,11 @@ PUBLIC STATIC OBJECTTYPE WebContext
     this->pvt_targetfolder := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->isfolder ? this->pvt_targetobject : this->pvt_targetobject->parentobject : DEFAULT OBJECT;
     this->pvt_targetsite := ObjectExists(this->pvt_targetobject) ? OpenSite(this->pvt_targetobject->parentsite) : DEFAULT OBJECT;
     this->pvt_targetapplytester := applytester;
-    this->languagecode := this->pvt_targetapplytester->GetSiteLanguage();
+
+    STRING ARRAY sitelanguage := Tokenize(this->pvt_targetapplytester->GetSiteLanguage(),'-');
+    this->languagecode := sitelanguage[0];
+    IF(Length(sitelanguage) > 1)
+      this->languagecountry := sitelanguage[1];
 
     IF(ObjectExists(this->pvt_targetobject))
     {

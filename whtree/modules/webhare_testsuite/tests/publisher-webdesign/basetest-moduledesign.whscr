@@ -24,14 +24,31 @@ MACRO TestTestSite()
 
   TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-en'));
   TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));
-  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-xyz'));
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-ps'));
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage-xyz"));
+  contentdiv := testfw->browser->document->GetElementById("content");
+  TestEq("en", contentdiv->GetAttribute('data-languagecode'));
+  TestEq("", contentdiv->GetAttribute('data-languagecountry'));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage-ps-af"));
   contentdiv := testfw->browser->document->GetElementById("content");
 
   TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-en'));
   TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));
-  TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-xyz'));
+  TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-ps'));
+  TestEq("ps-AF", testfw->browser->document->documentelement->GetAttribute("lang"));
+  TestEq("ps", contentdiv->GetAttribute('data-languagecode'));
+  TestEq("AF", contentdiv->GetAttribute('data-languagecountry'));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage-en-gb"));
+  contentdiv := testfw->browser->document->GetElementById("content");
+  TestEq("en-GB", testfw->browser->document->documentelement->GetAttribute("lang"));
+  TestEq("en", contentdiv->GetAttribute('data-languagecode'));
+  TestEq("GB", contentdiv->GetAttribute('data-languagecountry'));
+
+  TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-en'));
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));
+  TestEq(FALSe, contentdiv->HasAttribute('data-sitelanguage-ps'));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/simpletest"));
   TestEq("simpletest.rtd", testfw->browser->QS(`meta[name="description"]`)->GetAttribute("content"));

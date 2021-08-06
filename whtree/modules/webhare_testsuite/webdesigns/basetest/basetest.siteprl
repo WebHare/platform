@@ -530,8 +530,13 @@
   </apply>
 
   <apply>
-    <to type="file" pathmask="/testpages/staticpage-xyz" />
-    <sitelanguage lang="xyz-blabla" />
+    <to type="file" pathmask="/testpages/staticpage-ps-af" />
+    <sitelanguage lang="ps-AF" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/testpages/staticpage-en-gb" />
+    <sitelanguage lang="en-GB" />
   </apply>
 
   <!-- folderindex test -->

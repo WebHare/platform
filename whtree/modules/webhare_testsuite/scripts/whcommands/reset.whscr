@@ -237,7 +237,8 @@ FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
 }
 
 OBJECT staticpage := testpages->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
-testpages->CreateFile( [ name := "staticpage-xyz", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 
 OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", type := prebuilttype->id, publish := TRUE ] );
 prebuilttype->SetInstanceData(dynamicpage->id, [ prebuilttag := "dynamicpage" ]);
