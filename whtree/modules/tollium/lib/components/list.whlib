@@ -2471,6 +2471,10 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
           this->ToddUpdate([type:="partialrows", rows := newrows]);
         }
       }
+      IF (this->dirtyflags.footerrows)
+      {
+        this->ToddUpdate([ type:= "footerrows", footerrows := this->Web_RenderRows(this->footerrows, FALSE) ]);
+      }
       // Send icons after webrenderrows, allow onmapvalue to add icons
       IF (this->dirtyflags.icons)
       {
@@ -2479,10 +2483,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
           INSERT ParseIconPointer(this->owner->frame->module, icon) INTO icons AT END;
 
         this->ToddUpdate([ type:="icons", icons := icons ]);
-      }
-      IF (this->dirtyflags.footerrows)
-      {
-        this->ToddUpdate([ type:= "footerrows", footerrows := this->Web_RenderRows(this->footerrows, FALSE) ]);
       }
       IF (this->dirtyflags.selection)
       {
