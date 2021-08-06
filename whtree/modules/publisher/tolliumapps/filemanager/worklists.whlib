@@ -361,9 +361,9 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
           , icon := "tollium:actions/checklist"
           , type := worklist.type
           ];
-     INSERT item INTO newworklistcache AT END;
-   }
-   this->worklistcache := newworklistcache;
+      INSERT item INTO newworklistcache AT END;
+    }
+    this->worklistcache := newworklistcache;
   }
 
   // Get the work list id from an object id
