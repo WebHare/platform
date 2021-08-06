@@ -11,6 +11,7 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
@@ -431,7 +432,17 @@ OBJECTTYPE WebConfigBuilder
 
     FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name))
     {
-      OBJECT xmlfile := GetModuleDefinitionXML(mod.name);
+      OBJECT xmlfile;
+      TRY
+      {
+        xmlfile := GetModuleDefinitionXML(mod.name);
+      }
+      CATCH(OBJECT e)
+      {
+        //don't fail webserver config generation just because one module broke down.. (TODO but can we record the error so dashboard/check can show things are badly broken?)
+        LogHarescriptException(e);
+        CONTINUE;
+      }
       STRING filename := GetModuleDefinitionXMLResourceName(mod.name);
 
       //Create a virtual dir for the module itself
