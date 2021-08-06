@@ -578,8 +578,8 @@ MACRO TestReferences()
 
   OBJECT direct_whfsref := folder_haswhfsref->CreateFile([name:="direct_whfsref.html",publish:=TRUE,type:=22]);
   OBJECT indirect_whfsref := folder_haswhfsref->CreateFile([name:="indirect_whfsref.html",publish:=TRUE,type:=22]);
-  refstype->SetInstanceData(direct_whfsref->id, [ whfsref := direct_referred->id ]);
-  refstype->SetInstanceData(indirect_whfsref->id, [ whfsref := indirect_referred->id ]);
+  refstype->SetInstanceData(direct_whfsref->id, [ fsref := direct_referred->id ]);
+  refstype->SetInstanceData(indirect_whfsref->id, [ fsref := indirect_referred->id ]);
 
   OBJECT direct_haslink := folder_haslink->CreateFile([name:="direct_haslink.html",publish:=TRUE, type:=20, filelink := direct_referred->id]);
   OBJECT indirect_haslink := folder_haslink->CreateFile([name:="indirect_haslink.html",publish:=TRUE, type:=20, filelink := indirect_referred->id]);

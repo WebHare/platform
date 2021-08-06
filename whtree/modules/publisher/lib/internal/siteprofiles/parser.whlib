@@ -461,13 +461,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
         IF(ToUppercase(memberinfo.name) LIKE "WHFS*")
         {
-          //Some names are grandfathered in, hopefully they can go away at some point
-          IF(namespace||"#"||memberinfo.name NOT IN
-             ["http://www.pthu.nl/v2/mainmenu#whfsitem"
-             ])
-          {
-            this->AddWarning(node, `Member names starting with 'WHFS' are reserved and should not be used`);
-          }
+          this->AddError(node, `Member names starting with 'WHFS' are reserved and should not be used`);
+          CONTINUE;
         }
         IF(memberinfo.type<1)
         {

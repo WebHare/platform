@@ -23,8 +23,8 @@
   </apply>
 
   <contenttype namespace="http://www.webhare.net/xmlns/beta/referencestest">
-    <member name="whfsref" type="whfsref" />
-    <member name="whfsrefarray" type="whfsrefarray" />
+    <member name="fsref" type="whfsref" />
+    <member name="fsrefarray" type="whfsrefarray" />
   </contenttype>
 
   <apply>
