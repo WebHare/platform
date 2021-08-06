@@ -244,8 +244,7 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
                              , status
                              , status_icon := GetStatusIcon(status, this->links)
                              , status_hint := GetStatusText(status)
-                          FROM GetLinksForFSObject(this->fs_object_id)
-                         WHERE url LIKE "http*://*"; // Only show http(s) links
+                          FROM GetLinksForFSObject(this->fs_object_id);
       this->alllinks := SELECT *
                              , referrer_sort := referrer//(referrer = "[index]" ? "0" : "1" || ToLowercase(referrer)) || "/" || ToLowercase(url)
                              , url_sort := ToLowercase(url) || "/" || (referrer = "[index]" ? "0" : "1" || ToLowercase(referrer))
@@ -266,8 +265,7 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
                              , wrd.entities
                          WHERE links.referrer = attrs.tag
                                AND attrs.type = entities.type
-                               AND entities.id = this->wrd_entity_id
-                               AND url LIKE "http*://*"; // Only show http(s) links
+                               AND entities.id = this->wrd_entity_id;
       this->alllinks := SELECT *
                              , referrer_sort := ToLowercase(referrer) || "/" || ToLowercase(url)
                              , url_sort := ToLowercase(url) || "/" || ToLowercase(referrer)
@@ -289,7 +287,7 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
     ELSE
     {
       this->links->empty := GetTid("publisher:commondialogs.objectprops.nobrokenlinks");
-      this->links->rows := SELECT * FROM this->alllinks WHERE status < 200 OR status > 299;
+      this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http:*//*" AND (status < 200 OR status > 299);
     }
   }
 >;

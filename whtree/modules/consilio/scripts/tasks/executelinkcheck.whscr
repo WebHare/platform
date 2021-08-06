@@ -1,6 +1,12 @@
 ﻿<?wh
-/** @short Checks links and stores the results
-    @long This is the script that actually checks links. It will
+/*
+
+Debug link check:
+wh run mod::consilio/scripts/tasks/executelinkcheck.whscr --debug --force --urlmask '*example.com*'
+
+         Checks links and stores the results
+
+         This is the script that actually checks links. It will
           - check all links that have to be checked (link.nextcheck <= now)
             - get link info
             - check link
@@ -136,6 +142,8 @@ FOREVERY (RECORD link_to_check FROM links_to_check)
   {
     IF (debug)
       PRINT("Skipping mailto link #" || #link_to_check || ": " || url || "\n");
+    response := [ code := 0
+                ];
   }
   ELSE IF(NOT IsValidPlainHTTPURL(url))
   {
@@ -195,7 +203,7 @@ FOREVERY (RECORD link_to_check FROM links_to_check)
   DATETIME now := GetCurrentDateTime();
   linkdata.checked := now;
   linkdata.checktime := GetMsecsDifference(link_to_check.nextcheck, now);
-  IF (RecordExists(response) AND response.code > 0)
+  IF (RecordExists(response))
     linkdata.status := response.code;
 
   INSERT linkdata INTO checked_links AT END;

@@ -6,6 +6,7 @@ LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -245,7 +246,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     }
 
     // Enrich the incoming items
-    RETURN JoinArrays(items, "id", enrichments,
+    items := JoinArrays(items, "id", enrichments,
         [ custom_listid := 0
         , custom_itemid := 0
         , custom_comments := ""
@@ -256,6 +257,8 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         , custom_canresolve := FALSE
         , custom_cancleanup := FALSE
         ], [ rightouterjoin := TRUE ]);
+
+    RETURN items;
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
@@ -339,33 +342,28 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   // The synced work list maintains the object id <-> work list id mapping
   MACRO SyncWorkLists()
   {
-    INTEGER ARRAY curids := SELECT AS INTEGER ARRAY custom_listid FROM this->worklistcache;
+    RECORD ARRAY newworklistcache;
     FOREVERY (RECORD worklist FROM this->api->GetAllWorkLists())
     {
-      IF (worklist.id NOT IN curids)
-      {
-        RECORD item :=
-            [ id := this->GetNextId()
-            , custom_listid := worklist.id
-            , contentmode := "searchresults" //enabled "open in publisher"
-            , name := worklist.name
-            , title := ""
-            , isfolder := TRUE
-            , modificationdate := worklist.creationdate
-            , creationdate := worklist.creationdate
-            , iseditor := worklist.iseditor
-            , canwrite := FALSE
-            , candelete := worklist.iseditor
-            , custom_canresolve := FALSE
-            , icon := "tollium:actions/checklist"
-            , type := worklist.type
-            ];
-        INSERT item INTO this->worklistcache AT END;
-      }
-      ELSE
-        DELETE FROM curids AT SearchElement(curids, worklist.id);
+      RECORD item :=
+          [ id := (SELECT AS INTEGER worklistcache.id FROM this->worklistcache WHERE custom_listid = worklist.id) ?? this->GetNextId()
+          , custom_listid := worklist.id
+          , contentmode := "searchresults" //enabled "open in publisher"
+          , name := worklist.name
+          , title := ""
+          , isfolder := TRUE
+          , modificationdate := worklist.creationdate
+          , creationdate := worklist.creationdate
+          , iseditor := worklist.iseditor
+          , canwrite := FALSE
+          , candelete := worklist.iseditor
+          , custom_canresolve := FALSE
+          , icon := "tollium:actions/checklist"
+          , type := worklist.type
+          ];
+      INSERT item INTO newworklistcache AT END;
     }
-    DELETE FROM this->worklistcache WHERE custom_listid IN curids;
+    this->worklistcache := newworklistcache;
   }
 
   // Get the work list id from an object id
@@ -429,7 +427,9 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
 
+    //TODO should there be an API for this? which also implies broadcastoncommit (but for now we just rely on 'addworklistusers' to do it..)
     UPDATE publisher.worklists SET name := ^name->value WHERE id = this->worklistid;
+
     RECORD ARRAY curusers :=
         SELECT id := user->authobjectid
              , obj := user

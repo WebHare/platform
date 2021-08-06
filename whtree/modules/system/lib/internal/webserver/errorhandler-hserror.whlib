@@ -1,10 +1,13 @@
 <?wh
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -53,6 +56,7 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
       getresourceinfo := PTR this->GetResourceRef;
     RECORD wittydata := CELL[ ...this->harescriptinfo
                             , errors := PTR PrintHSErrors(this->harescriptinfo.allerrors, getresourceinfo)
+                            , debuglink := "/.publisher/common/debug/?back=/" || EncodeURL(UnpackURL(GetRequestURL()).urlpath)
                             ];
     LoadWittylibrary(Resolve("mod::publisher/lib/internal/builtinpages/harescripterror.witty"),"HTML-NI")->Run(wittydata);
   }
