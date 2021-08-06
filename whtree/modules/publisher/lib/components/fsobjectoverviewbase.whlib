@@ -30,7 +30,7 @@ RECORD FUNCTION GetCacheableFSObjectOverviewInfo()
                                , foldertype := RecordExists(foldertype)
                                , tolliumicon
                                , candownload := RecordExists(filetype) AND filetype.blobiscontent
-                               , ispublishable := RecordExists(fstype) AND fstype.ispublishable
+                               , ispublishable := RecordExists(filetype) AND filetype.ispublishable
                             FROM csp.contenttypes
                            WHERE RecordExists(filetype) OR RecordExists(foldertype)
                         ORDER BY id, RecordExists(foldertype);
@@ -183,7 +183,6 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , modulekey
                   , contentshandler
                FROM objects;
-
 
   objects := SELECT TEMPORARY posinfo := RecordLowerBound(overinfo.typemap, CELL[ id := type, foldertype := isfolder ], ["ID", "FOLDERTYPE"])
                   , TEMPORARY typeinfo := posinfo.found ? overinfo.typemap[posinfo.position] : DEFAULT RECORD

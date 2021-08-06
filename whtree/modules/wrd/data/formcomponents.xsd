@@ -43,7 +43,7 @@
       <xs:annotation>
         <xs:appinfo>
           <f:formhandler
-            tolliumicon="tollium:actions/confirm"
+            icon="tollium:actions/confirm"
             tid="forms.wrdauthprefill.name"
             descriptiontid="forms.wrdauthprefill.description"
             handlerobject="/lib/webtools/formhandlers.whlib#wrdauthprefillhandler"

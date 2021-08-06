@@ -25,7 +25,7 @@ Select a namespace, for example 'http://www.mysite.net/xmlns/forms'. In the modu
       <xs:annotation>
         <xs:appinfo>
           <forms:formcomponent
-            tolliumicon="tollium:forms/textedit"
+            icon="tollium:forms/textedit"
             tid="module.forms.myhandler"
             descriptiontid="module.forms.myhandlerdesc"
             editdefaults="name title hidetitle required groupclasses"

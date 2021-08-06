@@ -45,34 +45,31 @@ PUBLIC STRING FUNCTION GetFSMemberTypeName(INTEGER membertypeid)
     RETURN "";
 }
 
-PUBLIC RECORD FUNCTION GetFSTypeBase()
-{
-  RETURN CELL [ cloneoncopy := TRUE, isfiletype := FALSE, isfoldertype := FALSE, orphan := FALSE
-              , isacceptableindex := FALSE
-              , needstemplate := FALSE, ispublishable := FALSE, ispublishedassubdir := FALSE
-              , generatepreview := FALSE, previewobjectname:="", previewlibrary := ""
-              , isdynamicexecution := FALSE, capturesubpaths := FALSE
-              ];
-}
 /* basic types */
 PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
 {
-  RETURN [ tolliumicon := ""
-         , title := ""
-         , extensions := DEFAULT STRING ARRAY
+  RETURN [ extensions := DEFAULT STRING ARRAY
          , blobiscontent := FALSE
          , pagelistprovider := ""
          , requirescontent := FALSE
-         , isdevelopertype := FALSE
-         , dynamicexecution := DEFAULT RECORD
-         , isembeddedobjecttype := FALSE
          , generatepreview := FALSE
          , previewlibrary := ""
          , previewobjectname := ""
          , searchcontentprovider := ""
          , indexversion := ""
-         , siteprofile := ""
-         , line := 0
+         , isacceptableindex := FALSE
+         , needstemplate := FALSE
+         , ispublishable := FALSE
+         , ispublishedassubdir := FALSE
+         , capturesubpaths := FALSE
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord()
+{
+  RETURN [ indexfile := ""
+         , protectindexfile := FALSE
+         , ishidden := FALSE
          ];
 }
 
@@ -102,7 +99,6 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , type := type
          , siteprofile :=        ""
          , line := 0
-         , col := 0
          , title := ""
          , tolliumicon := ""
          , groupmemberships := DEFAULT RECORD ARRAY
@@ -110,9 +106,12 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , isrtdtype := type = "rtdtype"
          , wittycomponent := ""
          , previewcomponent := ""
-         , fstype := GetFSTypeBase()
          , filetype := DEFAULT RECORD
          , foldertype := DEFAULT RECORD
+         , orphan := FALSE
+         , cloneoncopy := TRUE
+         , isdevelopertype := FALSE //TODO can we deprecate this and just have 'ishidden' and allowfiletype/allowfoldertype deal with this?
+         , dynamicexecution := DEFAULT RECORD
          ];
 }
 

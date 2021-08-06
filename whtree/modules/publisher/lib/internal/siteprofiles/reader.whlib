@@ -635,7 +635,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
     {
       IF(result.badtype)
       {
-        STRING ns := SELECT AS STRING " (" || namespace || ") " FROM system.fs_types WHERE id = result.type;
+        STRING ns := SELECT AS STRING " (" || namespace || ")" FROM system.fs_types WHERE id = result.type;
         RETURN [ success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - its type #" || result.type || ns || " is not a dynamicexecution type" ];
       }
       ELSE
@@ -1594,7 +1594,7 @@ STATIC OBJECTTYPE ApplyRuleTester
         contenttype := LookupContentTypeById(this->__Deprecated_GetObjInfo().obj.type);
       IF (RecordExists(contenttype)
           AND RecordExists(contenttype.filetype)
-          AND (RecordExists(contenttype.filetype.dynamicexecution)
+          AND (RecordExists(contenttype.dynamicexecution)
                OR contenttype.namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
                OR (haswebdesign AND contenttype.namespace IN ["http://www.webhare.net/xmlns/publisher/shtmlfile"])))
       {
@@ -1701,18 +1701,10 @@ STATIC OBJECTTYPE ApplyRuleTester
     IF(finaltype != 0)
       contenttype := LookupContentTypeById(finaltype);
 
-    RECORD typeinfo;
-    IF(RecordExists(contenttype))
-      typeinfo := contenttype.foldertype ?? contenttype.filetype;
-    IF(NOT RecordExists(typeinfo) OR NOT RecordExists(typeinfo.dynamicexecution))
-    {
+    IF(NOT RecordExists(contenttype) OR NOT RecordExists(contenttype.dynamicexecution))
       RETURN [ success := FALSE, badtype := TRUE, type := finaltype ];
-    }
-    ELSE
-    {
-      dyn := typeinfo.dynamicexecution;
-    }
 
+    dyn := contenttype.dynamicexecution;
     IF(RecordExists(dyn))
       RETURN [ success := TRUE, dyn := dyn ];
 

@@ -108,15 +108,14 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
       IF (RecordExists(typeinfo) AND RecordExists(typeinfo.filetype))
       {
-        RECORD typedetails := [ isdynamic := RecordExists(typeinfo.filetype.dynamicexecution) ];
+        RECORD typedetails := [ isdynamic := RecordExists(typeinfo.dynamicexecution) ];
 
         OBJECT pagelistprovider;
         IF (typeinfo.filetype.pagelistprovider != "")
           pagelistprovider := __MakePagelistProvider(typeinfo.filetype.pagelistprovider, typedetails);
 
         typeinfo := CELL
-            [ typeinfo.id
-            , typeinfo.fstype
+            [ ...typeinfo
             , pagelistprovider
             , pagelistprovidername := typeinfo.filetype.pagelistprovider
             ];

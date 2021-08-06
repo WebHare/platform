@@ -732,10 +732,10 @@ PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagec
   /* Select applicable folder types. We select at least the currently selected type.
      The 'standard' list and any added custom types are subject to the 'remove_folders' list */
   RECORD ARRAY folderTypes := SELECT id
-                                   , title := foldertype.title
+                                   , title
                                    , namespace
-                                   , tolliumicon := foldertype.tolliumicon
-                                   , isdevelopertype := foldertype.isdevelopertype
+                                   , tolliumicon
+                                   , isdevelopertype
                                    , __visible := FALSE
                                    , newonlytemplate := FALSE
                                 FROM csp.contenttypes
@@ -764,11 +764,11 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
   /* Select applicable file types. We select at least the currently selected type.
      The 'standard' list and any added custom types are subject to the 'remove_files' list */
   RECORD ARRAY fileTypes := SELECT id
-                                 , title := filetype.title
+                                 , title
                                  , namespace
-                                 , tolliumicon := filetype.tolliumicon
-                                 , isdevelopertype := filetype.isdevelopertype
-                                 , iswidgettype := filetype.isembeddedobjecttype
+                                 , tolliumicon
+                                 , isdevelopertype
+                                 , iswidgettype := isembeddedobjecttype
                                  , requirescontent := filetype.requirescontent
                                  , __visible := FALSE
                                  , newonlytemplate := FALSE

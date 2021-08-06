@@ -269,15 +269,8 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     RETURN sitedesignprofiles;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION PreprocessContentTypes(RECORD ARRAY suppliedcontenttypes, RECORD ARRAY currentcontenttypes)
+  PUBLIC RECORD ARRAY FUNCTION PreprocessContentTypes(RECORD ARRAY suppliedcontenttypes, RECORD ARRAY currentcontenttypes) //public for test_compiler
   {
-    RECORD defaultrec := [ ...GetFSTypeBase(), id := 0, orphan := FALSE ];
-    currentcontenttypes := currentcontenttypes
-                           CONCAT
-                           [[ ...defaultrec, namespace := "http://www.webhare.net/xmlns/publisher/unknownfile",  isfiletype := TRUE ]
-                           ,[ ...defaultrec, namespace := "http://www.webhare.net/xmlns/publisher/normalfolder", isfoldertype := TRUE ]
-                           ];
-
     currentcontenttypes := SELECT * FROM currentcontenttypes ORDER BY namespace;
     suppliedcontenttypes := SELECT * FROM suppliedcontenttypes ORDER BY namespace;
 
@@ -296,6 +289,45 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
         }
       }
 
+      // These two types are both #0 and will never be inserted into the database, so just put them on the finallist and be done with it
+      IF(ctype.namespace IN [ "http://www.webhare.net/xmlns/publisher/unknownfile", "http://www.webhare.net/xmlns/publisher/normalfolder" ])
+      {
+        INSERT ctype INTO finalcontenttypes AT END;
+        CONTINUE;
+      }
+
+      /* We originally had GetFSTypeBase which was simply a list of fields that went to the database, triggering a lot of
+         field duplication:
+
+      PUBLIC RECORD FUNCTION GetFSTypeBase()
+      {
+        RETURN CELL [ cloneoncopy := TRUE, isfiletype := FALSE, isfoldertype := FALSE, orphan := FALSE
+                    , isacceptableindex := FALSE
+                    , needstemplate := FALSE, ispublishable := FALSE, ispublishedassubdir := FALSE
+                    , generatepreview := FALSE, previewobjectname:="", previewlibrary := ""
+                    , isdynamicexecution := FALSE, capturesubpaths := FALSE
+                    ];
+      }
+
+      I think a lot of these fields don't need to be in the database anymore. But to limit this refactor we'll simply rebuild this this structure
+
+      Look at MakeBasicTypeInfo, GetBaseFolderTypeRecord and GetBaseFiletypeRecord to find out where these fields are in suppliedcontenttypes
+      */
+      RECORD fstype := CELL[ ctype.cloneoncopy
+                           , isfiletype := RecordExists(ctype.filetype)
+                           , isfoldertype := RecordExists(ctype.foldertype)
+                           , isdynamicexecution := RecordExists(ctype.dynamicexecution)
+                           , orphan := FALSE //TODO isn't this always false? can the parser/compiler return orphans ?
+                           , isacceptableindex := RecordExists(ctype.filetype) AND ctype.filetype.isacceptableindex
+                           , needstemplate := RecordExists(ctype.filetype) AND ctype.filetype.needstemplate
+                           , ispublishable := RecordExists(ctype.filetype) AND ctype.filetype.ispublishable
+                           , ispublishedassubdir := RecordExists(ctype.filetype) AND ctype.filetype.ispublishedassubdir
+                           , generatepreview := RecordExists(ctype.filetype) AND ctype.filetype.generatepreview
+                           , previewobjectname := RecordExists(ctype.filetype) ? ctype.filetype.previewobjectname : ""
+                           , previewlibrary := RecordExists(ctype.filetype) ? ctype.filetype.previewlibrary : ""
+                           , capturesubpaths := RecordExists(ctype.filetype) AND ctype.filetype.capturesubpaths
+                           ];
+
       RECORD existing := RecordLowerBound(currentcontenttypes, ctype, ["NAMESPACE"]);
       RECORD toupdate;
 
@@ -311,42 +343,42 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
         //FIXME PREVENT loss of isfoldertype if folders still exist
 
         ctype.id := match.id;
-        FOREVERY(RECORD fld FROM UnpackRecord(ctype.fstype))
+        FOREVERY(RECORD fld FROM UnpackRecord(fstype))
           IF(fld.value != GetCell(match, fld.name))
             toupdate := CellInsert(toupdate, fld.name, fld.value);
+
+        INSERT CELL toupdate := toupdate INTO ctype;
       }
       ELSE
       {
         ctype.id := -1;
+        INSERT CELL toupdate := fstype INTO ctype;
       }
-      INSERT CELL toupdate := toupdate INTO ctype;
       INSERT ctype INTO finalcontenttypes AT END;
     }
     RETURN finalcontenttypes;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION ApplyContentTypes(RECORD ARRAY contenttypes)
+  RECORD ARRAY FUNCTION ApplyContentTypes(RECORD ARRAY contenttypes)
   {
     RECORD ARRAY outtypes;
     FOREVERY(RECORD ctype FROM contenttypes)
     {
       IF(ctype.id != 0) //this type lives in the database
       {
-        IF(ctype.id=-1)
+        IF(ctype.id = -1) //desires creation
         {
           ctype.id := MakeAutonumber(system.fs_types,'id');
-          INSERT CELL[... ctype.fstype
-                     , id := ctype.id
-                     , namespace := ctype.namespace
+          INSERT CELL[ ...ctype.toupdate
+                     , ctype.id
+                     , ctype.namespace
                      ] INTO system.fs_types;
         }
         ELSE IF(RecordExists(ctype.toupdate))
         {
-          IF(ctype.id=0)
-            THROW NEW Exception("Trying to update ctype id #0 with " || EncodEHSON(ctype.toupdate));
-          ELSE
-            UPDATE system.fs_types SET RECORD ctype.toupdate WHERE id = ctype.id;
+          UPDATE system.fs_types SET RECORD ctype.toupdate WHERE id = ctype.id;
         }
+
         RECORD updres := ApplyCTMembersRecurse(ctype.members, ctype.id, 0, FALSE, this->GetMembersFor(ctype.id));
         this->seen_members := this->seen_members CONCAT updres.seenmembers;
       }
@@ -365,7 +397,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     //                                  , applysiteprofiles := siteprofile.applysiteprofiles
     //                                  , sites := siteids
     //                               FROM this->siteprofiles;
-    this->result.contenttypes := this->ApplyContentTypes(compileresult.allcontenttypes);
+    this->result.contenttypes := SELECT *, DELETE toupdate FROM this->ApplyContentTypes(compileresult.allcontenttypes);
     this->result.grouptypes := this->grouptypes;
     this->result.hiddenfoldertypes := compileresult.hiddenfoldertypes;
     this->result.profilerefs := gathersp.profilerefs;
@@ -451,7 +483,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     }
   }
 
-  PUBLIC RECORD FUNCTION ApplyStandardPostProcessing(RECORD compileresult)
+  PUBLIC RECORD FUNCTION ApplyStandardPostProcessing(RECORD compileresult) //public for test_compiler
   {
     compileresult.allcontenttypes := this->PreprocessContentTypes(compileresult.allcontenttypes, GetCurrentFSTypes());
     INSERT CELL hiddenfoldertypes := (SELECT AS INTEGER ARRAY id

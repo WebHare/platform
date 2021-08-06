@@ -39,7 +39,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/password"
+            icon="tollium:forms/password"
             title="TS Line Comp"
             fieldobject="../lib/testformcomponents.whlib#TSLineCompField"
             />
@@ -57,7 +57,7 @@
         <xs:appinfo>
           <fai:formcomponent
             linecomponent="true"
-            tolliumicon="tollium:forms/password"
+            icon="tollium:forms/password"
             title="TS Custom Comp"
             fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#TSCustomCompField"
             />
@@ -141,7 +141,7 @@
         <xs:annotation>
         <xs:appinfo>
           <fai:formcomponent
-            tolliumicon="tollium:forms/pulldown"
+            icon="tollium:forms/pulldown"
             title="Pulldown Field With Extra Data"
             editdefaults="name title hidetitle required groupclasses"
             fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#ExtraDataField"
@@ -159,7 +159,7 @@
         <xs:annotation>
         <xs:appinfo>
           <fai:formcomponent
-            tolliumicon="tollium:forms/textedit"
+            icon="tollium:forms/textedit"
             title="Custom Form Field"
             editdefaults="name title hidetitle required groupclasses"
             fieldobject="mod::webhare_testsuite/webdesigns/basetest/pages/customform/customform.whlib#multimergefield"
@@ -175,7 +175,7 @@
         <xs:annotation>
         <xs:appinfo>
           <fai:formcomponent
-            tolliumicon="tollium:forms/textedit"
+            icon="tollium:forms/textedit"
             title="Custom Form Field"
             editdefaults="name title hidetitle required groupclasses"
             fieldobject="mod::webhare_testsuite/webdesigns/basetest/pages/customform/customform2.whlib#multimergefield2"

@@ -268,8 +268,23 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     }
   }
 
+  RECORD FUNCTION ReadFileOrFolderType(RECORD ctype, OBJECT ftype)
+  {
+    ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
+    ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
+    ctype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
+
+    OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
+    IF(ObjectExists(dyninfo))
+      ctype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
+
+    RETURN ctype;
+  }
+
   RECORD FUNCTION ReadFileType(RECORD ctype, OBJECT ftype)
   {
+    ctype := this->ReadFileOrFolderType(ctype, ftype);
+
     ctype.filetype := GetBaseFiletypeRecord();
     if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
       this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
@@ -281,58 +296,46 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       CASE "rawfile"
       {
         ctype.filetype.blobiscontent := TRUE;
-        ctype.fstype.ispublishable := TRUE;
+        ctype.filetype.ispublishable := TRUE;
       }
       CASE "virtualfile"
       {
-        ctype.fstype.needstemplate := TRUE;
-        ctype.fstype.ispublishable := TRUE;
-        ctype.fstype.ispublishedassubdir := TRUE;
-        ctype.fstype.isacceptableindex := TRUE;
+        ctype.filetype.needstemplate := TRUE;
+        ctype.filetype.ispublishable := TRUE;
+        ctype.filetype.ispublishedassubdir := TRUE;
+        ctype.filetype.isacceptableindex := TRUE;
       }
     }
 
-    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    ctype.filetype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
     IF(ftype->HasAttribute("blobiscontent"))
      ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
     ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
     IF(ftype->HasAttribute("needstemplate"))
-      ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
+      ctype.filetype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
     IF(ftype->HasAttribute("needsprofile"))
       this->AddWarning(ftype, "The needsprofile= attribute is obsolete and can be removed");
     ctype.filetype.requirescontent := ParseXSBoolean(ftype->GetAttribute("requirescontent"));
-    ctype.filetype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
-    ctype.filetype.siteprofile := this->filename;
-    ctype.filetype.line := ftype->linenum;
     IF(ftype->HasAttribute("isacceptableindex"))
-      ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
+      ctype.filetype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
     IF(ftype->HasAttribute("ispublishedassubdir"))
-      ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
+      ctype.filetype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
     IF(ftype->HasAttribute("ispublishable"))
-      ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
-    ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
-    ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
+      ctype.filetype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
+    ctype.filetype.previewlibrary := ftype->GetAttribute("previewlibrary");
+    ctype.filetype.previewobjectname := ftype->GetAttribute("previewobjectname");
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
-    ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
-    ctype.fstype.isfiletype := TRUE;
+    ctype.filetype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
 
-    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "dynamicexecution")->Item(0);
-
-    IF(ObjectExists(dyninfo))
-      ctype.filetype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
-
-    IF (RecordExists(ctype.filetype.dynamicexecution))
+    IF (RecordExists(ctype.dynamicexecution))
     {
-      ctype.fstype.ispublishedassubdir := TRUE;
-      ctype.fstype.ispublishable := TRUE;
-      ctype.fstype.isdynamicexecution := TRUE;
+      ctype.filetype.ispublishedassubdir := TRUE;
+      ctype.filetype.ispublishable := TRUE;
     }
 
-    IF (ctype.fstype.capturesubpaths AND NOT ctype.fstype.ispublishedassubdir)
+    IF (ctype.filetype.capturesubpaths AND NOT ctype.filetype.ispublishedassubdir)
     {
-      ctype.fstype.capturesubpaths := FALSE;
+      ctype.filetype.capturesubpaths := FALSE;
       this->AddError(ftype, "The option 'capturesubpaths' can only be enabled when 'ispublishedassubdir' is also enabled.");
     }
 
@@ -350,24 +353,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ReadFolderType(RECORD ctype, OBJECT ftype)
   {
-    STRING tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    IF(tolliumicon NOT LIKE '*:*')
-      tolliumicon := "tollium:folders/normal";
+    ctype := this->ReadFileOrFolderType(ctype, ftype);
 
     //Now construct the final folder type information record
-    ctype.foldertype := [ tolliumicon := tolliumicon
-                        , title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace
-                        , isdevelopertype := ftype->GetAttribute("isdevelopertype") IN [ "true", "1" ]
-                        , indexfile := ""
-                        , protectindexfile := ftype->GetAttribute("protectindexfile") IN [ "true", "1" ]
-                        , requirescontent := FALSE
-                        , ishidden := ftype->GetAttribute("ishidden") IN [ "true", "1" ]
-                        , dynamicexecution := DEFAULT RECORD
-
-                        , siteprofile := this->filename
-                        , line := ftype->linenum
-                        ];
-
+    ctype.foldertype := GetBaseFolderTypeRecord();
+    ctype.foldertype.protectindexfile := ParseXSBoolean(ftype->GetAttribute("protectindexfile"));
+    ctype.foldertype.ishidden := ParseXSBoolean(ftype->GetAttribute("ishidden"));
 
     IF (ftype->HasAttribute('indextype'))
     {
@@ -381,19 +372,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting";
     }
 
-    OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
-    IF(ObjectExists(dyninfo))
-      ctype.foldertype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
-
-    IF (RecordExists(ctype.foldertype.dynamicexecution)
+    IF (RecordExists(ctype.dynamicexecution)
         AND
-        (ctype.foldertype.dynamicexecution.webpageobjectname != "" OR ctype.foldertype.dynamicexecution.startmacro != "" OR ctype.foldertype.dynamicexecution.routerfunction != ""))
+        (ctype.dynamicexecution.webpageobjectname != "" OR ctype.dynamicexecution.startmacro != "" OR ctype.dynamicexecution.routerfunction != ""))
     {
       ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/dynamicfoldercontents";
       ctype.foldertype.protectindexfile := TRUE;
-      ctype.fstype.isdynamicexecution := TRUE;
     }
-    ctype.fstype.isfoldertype := TRUE;
     RETURN ctype;
   }
   PUBLIC STRING FUNCTION ExpandWittyComponent(OBJECT node, STRING attrname)
@@ -532,11 +517,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.namespace := ns;
     typeinfo.siteprofile := this->filename;
     typeinfo.line := ctype->linenum;
-    typeinfo.col := 0;
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || ns;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.groupmemberships := newmembers.groupmemberships;
-    typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
+    typeinfo.cloneoncopy := set_cloneoncopy;
     INSERT CELL members := newmembers.members INTO typeinfo;
 
     IF (nodename = "widgettype")
@@ -547,25 +531,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 , requiremergefieldscontext := ParseXSBoolean(ctype->GetAttribute("requiremergefieldscontext"))
              INTO typeinfo;
 
-      RECORD filetypeinfo := GetBaseFiletypeRecord();
-      filetypeinfo.siteprofile := this->filename;
-      filetypeinfo.line := ctype->linenum;
+      IF(typeinfo.tolliumicon = "")
+        typeinfo.tolliumicon := "tollium:files/widget";
 
-      filetypeinfo.isembeddedobjecttype := typeinfo.isembeddedobjecttype;
-      filetypeinfo.tolliumicon := typeinfo.tolliumicon;
-      IF(filetypeinfo.tolliumicon = "" AND filetypeinfo.isembeddedobjecttype)
-        filetypeinfo.tolliumicon := "tollium:files/widget";
-
-      filetypeinfo.title := typeinfo.title;
-      typeinfo.fstype.needstemplate := nodename!="widgettype";
-      typeinfo.fstype.isfiletype := TRUE;
-      typeinfo.fstype.ispublishedassubdir := nodename!="widgettype";
-      typeinfo.fstype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
-      typeinfo.fstype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
+      typeinfo.filetype :=  GetBaseFiletypeRecord();
+      typeinfo.filetype.needstemplate := nodename!="widgettype";
+      typeinfo.filetype.ispublishedassubdir := nodename!="widgettype";
+      typeinfo.filetype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
+      typeinfo.filetype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
 
       typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
       typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
-      typeinfo.filetype := filetypeinfo;
 
       typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ?? "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
     }
