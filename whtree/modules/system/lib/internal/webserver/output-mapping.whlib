@@ -3,6 +3,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC STRING FUNCTION GetWebserverBaseOutputFolder()
 {
@@ -60,3 +61,46 @@ PUBLIC STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
   }
   RETURN "";
 }
+
+PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder) //TODO we strongly overlap with above GetFSObjectDiskOutputPath and should probably merge
+{
+  STRING webserver_diskroot;
+  STRING outputextension := ".html";
+
+  IF(siteid = whconstant_whfsid_webharebackend)
+  {
+    //Force the backend site to the proper location - this ensures we can still publish the applicationportal file for use by the Rescue port before the primary output is configured
+    webserver_diskroot := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+  }
+  ELSE
+  {
+    RECORD primaryoutput := SELECT outputweb, outputfolder
+                              FROM system.sites
+                             WHERE id = siteid;
+
+    IF(primaryoutput.outputweb=0) //unpublished?
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY webinfos := SELECT id, diskfolder, webservers.outputextension, type
+                               FROM system.webservers
+                              WHERE id = primaryoutput.outputweb;
+
+    webinfos := EnrichWebserversWithOutputFolder(webinfos); //This may still return system.webharebackend. It often does for testfw-sites
+    webserver_diskroot := webinfos[0].outputfolder;
+    IF(webserver_diskroot = "")
+      RETURN DEFAULT RECORD; //rule-only webserver?
+
+    outputextension := webinfos[0].outputextension;
+    webserver_diskroot := MergePath(webserver_diskroot, primaryoutput.outputfolder);
+  }
+
+  STRING diskfolder;
+  IF(webserver_diskroot = "")
+    RETURN DEFAULT RECORD;
+
+  diskfolder := MergePath(webserver_diskroot, subfolder);
+  RETURN CELL[ outputextension
+             , outputfolder := diskfolder
+             ];
+}
+
