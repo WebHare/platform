@@ -573,11 +573,11 @@ MACRO TestReferences()
   OBJECT folder_haslink := testsite->rootobject->CreateFolder([name:="haslink"]);
   OBJECT folder_referred := testsite->rootobject->CreateFolder([name:="referred"]);
 
-  OBJECT direct_referred := folder_referred->CreateFile([name:="direct_referred.html",publish:=TRUE,type:=22]);
-  OBJECT indirect_referred := folder_referred->CreateFile([name:="indirect_haslink.html",publish:=TRUE,type:=22]);
+  OBJECT direct_referred := folder_referred->CreateFile([name:="direct_referred.html",publish:=TRUE,type:=5]);
+  OBJECT indirect_referred := folder_referred->CreateFile([name:="indirect_haslink.html",publish:=TRUE,type:=5]);
 
-  OBJECT direct_whfsref := folder_haswhfsref->CreateFile([name:="direct_whfsref.html",publish:=TRUE,type:=22]);
-  OBJECT indirect_whfsref := folder_haswhfsref->CreateFile([name:="indirect_whfsref.html",publish:=TRUE,type:=22]);
+  OBJECT direct_whfsref := folder_haswhfsref->CreateFile([name:="direct_whfsref.html",publish:=TRUE,type:=5]);
+  OBJECT indirect_whfsref := folder_haswhfsref->CreateFile([name:="indirect_whfsref.html",publish:=TRUE,type:=5]);
   refstype->SetInstanceData(direct_whfsref->id, [ fsref := direct_referred->id ]);
   refstype->SetInstanceData(indirect_whfsref->id, [ fsref := indirect_referred->id ]);
 

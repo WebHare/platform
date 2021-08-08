@@ -334,7 +334,7 @@ PUBLIC RECORD FUNCTION GetFileTypeProps(INTEGER gettype)
   IF(RecordExists(fsinfo))
   {
     //FIXME Get from siteprofiles
-    INSERT CELL isbaseable := gettype IN [5,7,16,21,22,23,25,26,27,28,29,30,31] INTO fsinfo;
+    INSERT CELL isbaseable := gettype IN [5,7,16,21,23,25,26,27,28,29,30,31] INTO fsinfo;
     INSERT CELL islinkable := gettype NOT IN [16,18,19,26,27,28,29] INTO fsinfo;
     INSERT CELL iswithrealcontent := gettype NOT IN[18,19,20,24] INTO fsinfo;
     INSERT CELL extensions := Gettypeextension(gettype) INTO fsinfo;

@@ -45,8 +45,7 @@ PUBLIC MACRO __RepublishFolder(INTEGER folderid, BOOLEAN toplevel, BOOLEAN non_t
                      AND (mask = "*" ? TRUE : ToUppercase(fs_objects.name) LIKE ToUppercase(mask))
                      AND publish = TRUE
                      AND (non_template_too ? TRUE :
-                                (fs_objects.type=22 /*standalone*/
-                                 OR fs_objects.lastpublishdate < fs_objects.modificationdate
+                                (fs_objects.lastpublishdate < fs_objects.modificationdate
                                  OR GetErrorFromPublished(published)!=0
                                  OR TestFlagFromPublished(published, PublishedFlag_HasWebDesign)
                                 )

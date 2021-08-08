@@ -152,7 +152,6 @@ STATIC OBJECTTYPE PublicationRun
   PUBLIC RECORD FUNCTION GetTemplateInfo()
   {
     RECORD retval := [ has_webdesign := FALSE
-                     , templateid := 0
                      , templatescript := ""
                      , webdesign := DEFAULT RECORD
                      , usetempl := DEFAULT RECORD
@@ -160,13 +159,6 @@ STATIC OBJECTTYPE PublicationRun
                      ];
 
     BOOLEAN found_template;
-    IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 22) // StandaloneTemplate
-    {
-      found_template := TRUE;
-      retval.has_webdesign := TRUE; //we assume that any explicit standalone template also has a webdesign dependency
-      retval.templateid := this->contentfileid;
-      RETURN retval;
-    }
 
     //First verify if there is a design node
     OBJECT applytester := GetApplyTesterForObject(this->filedata.fileid);
@@ -215,16 +207,7 @@ STATIC OBJECTTYPE PublicationRun
     }
     ELSE
     {
-      OBJECT templ := OpenWHFSObjectByPath(usetempl.script);
-      IF(ObjectExists(templ) AND NOT templ->isfolder)
-      {
-        found_template := TRUE;
-        retval.templateid := templ->id;
-      }
-      ELSE
-      {
-        retval.notfound := usetempl.script;
-      }
+      retval.notfound := usetempl.script;
     }
     RETURN retval;
   }
@@ -274,15 +257,13 @@ STATIC OBJECTTYPE PublicationRun
       RETURN 0;
     }
     this->has_webdesign := info.has_webdesign;
-    IF(info.templateid != 0)
-      this->templatejob := this->LoadWHFSTemplate(info.templateid);
-    ELSE IF(info.templatescript != "")
+    IF(info.templatescript != "")
       this->templatejob := this->LoadScriptTemplate(info.templatescript);
 
     IF (NOT ObjectExists(this->templatejob))
     {
       // If a template was found but the job doesn't exist, the errors have already been set.
-      IF (info.templateid = 0 AND info.templatescript = "")
+      IF (info.templatescript = "")
       {
         this->errordata := "";
         this->errorcode := 107;

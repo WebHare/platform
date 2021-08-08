@@ -1574,10 +1574,6 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
     //translate indexobjects to compatible docobjects
     __publisher_docobjects := SELECT id, toclevel := 0, hidden := false, filtersplit := false, splitbefore := newpage FROM __publisher_docobjects;
   }
-  ELSE IF (contentfile.type = 22) //a standalone template
-  {
-    __publisher_initial_html_stylesheets := FALSE;
-  }
   ELSE IF(contentfiletypeprops.namespace = "http://www.webhare.net/xmlns/publisher/richdocumentfile")
   {
     OBJECT doc := __OpenWHFSRichDocument(OpenWHFSObject(file.id), DEFAULT OBJECT);

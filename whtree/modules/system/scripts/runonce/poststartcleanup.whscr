@@ -57,4 +57,11 @@ IF(trans->ColumnExists("SYSTEM","FS_OBJECTS","ID"))
 
 DELETE FROM system.fs_history WHERE type IN [1,2,3]; //"3" was found in actual use up to 2016, to be sure we will just remove 1 t/m 3
 
+/* 4.32 to prevent old standalone TPLs (type 22, http://www.webhare.net/xmlns/publisher/standalonetemplatefile)
+   from leaking their code when published as a simple file, we'll convert them to unpublishable WHLIBs */
+
+RECORD ARRAY fix_standalone_templates := SELECT id FROM system.fs_objects WHERE type = 22;
+FOREVERY(RECORD tpl FROM fix_standalone_templates)
+  OpenWHFSObject(tpl.id)->UpdateMetadata([ type := 16, publish := FALSE ]);
+
 trans->CommitWork();

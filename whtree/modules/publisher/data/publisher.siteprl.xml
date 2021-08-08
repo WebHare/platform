@@ -353,14 +353,6 @@
             tid="publisher:filetypes.plaintext"
             webhare_builtintypeid="21" />
 
-  <filetype namespace="http://www.webhare.net/xmlns/publisher/standalonetemplatefile"
-            kind="rawfile"
-            icon="tollium:files/application_x-webhare-serverparsed"
-            isacceptableindex="true"
-            isdevelopertype="true"
-            tid="publisher:filetypes.standalonetemplate"
-            webhare_builtintypeid="22" />
-
   <filetype namespace="http://www.webhare.net/xmlns/publisher/xmlfile"
             kind="rawfile"
             extensions=".xml"
