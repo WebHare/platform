@@ -7,12 +7,11 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_basic.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_alternate.whlib";
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 INTEGER clone_ctr;
 
@@ -144,33 +143,15 @@ MACRO RecompileInvalidationTest()
   STRING whlib_data2 := whlib_data ||
       "PRINT('-whlib_data2');\n";
 
-  testfw->BeginWork();
-  testfw->SetupTestWebsite(DEFAULT BLOB);
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT testfile := testsite->rootobject->CreateFile(
-      [ name :=       "test.shtml"
-      , data :=       StringToBlob(whlib_data)
-      , publish :=    TRUE
-      ]);
-
-  testfw->CommitWork();
-
-  testfw->RefreshWebserverConfig(); //fixme combine this all into setuptestwebsite?
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
-
-  testfw->browser->GotoWebPage(testfile->url || "?value=1");
+  StoreDiskFile(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/temp/invalidationtest.shtml", StringToBlob(whlib_data), [ overwrite := TRUE ]);
+  STRING baseurl := GetPrimaryWebhareInterfaceURL() || ".webhare_testsuite/tests/temp/invalidationtest.shtml";
+  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?value=1"));
   TestEQ("1", BlobToString(testfw->browser->content), testfw->browser->href);
 
-  testfw->browser->GotoWebPage(testfile->url || "?value=2");
+  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?value=2"));
   TestEQ("1", BlobToString(testfw->browser->content));
 
-  DATETIME now := GetCurrentDatetime();
-  testfw->BeginWork();
-  testfile->UpdateMetadata([ data := StringToBlob(whlib_data2) ]);
-  testfw->CommitWork();
-
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+  StoreDiskFile(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/temp/invalidationtest.shtml", StringToBlob(whlib_data2), [ overwrite := TRUE ]);
 
   // Wait a little time for the up-to-date caches in the hs engine to expire
   DATETIME max_wait := AddTimeToDate(20000, GetCurrentDatetime());
@@ -179,10 +160,10 @@ MACRO RecompileInvalidationTest()
     IF (max_wait < GetCurrentDatetime())
       THROW NEW Exception("Webserver did not pick up file update");
 
-    testfw->browser->GotoWebPage(testfile->url || "?value=3");
+    testfw->browser->GotoWebPage(baseurl || "?value=3");
     IF (BlobToString(testfw->browser->content, -1) = "1")
     {
-      Sleep(1000);
+      Sleep(100);
       CONTINUE;
     }
 

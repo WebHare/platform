@@ -1531,21 +1531,15 @@
     <textgroup gid="errors">   <!-- publicationstatus.errors -->
       <text tid="abort">The file could not be published. Template aborted with error message:<br/><param p="1"/></text>
       <text tid="conflictingfile">The file could not be published, because it would be confused with the similarly named file '<param p="1"/>' in this folder.<br/><br/>Please verify that this file is not actually a duplicate, and consider renaming it if you still need to publish it.</text>
-      <text tid="corruptedprofile">The profile associated with this document is damaged and unusable.</text>
-      <text tid="disabledowner">The account of the owner of this file is disabled.</text>
-      <text tid="disabledtemplateowner">The file could not be published because the account of the owner of the template used to publish this file is disabled.</text>
-      <text tid="encrypted">The document could not be published, because it has been encrypted.</text>
       <text tid="hserror">One or more HareScript errors occurred.</text>
       <text tid="internalerror">The document could not be published because of an internal error.<br/><br/>Please contact your system administrator if this problem persists.<br/><br/>This error is likely to be caused by an unknown document element. Unfortunately, republishing is not likely to resolve the problem.<br/><br/>The error was:<br/><br/><param p="1"/></text>
       <text tid="ioerror">The file could not be published because an I/O error occurred.<br/><br/>This may just be a temporary problem. WebHare will retry publishing this file later, or you can decide to republish this file yourself. If the problem persists, you should contact your system administrator.</text>
       <text tid="nofirstpage">The file could nog be published because the template used to publish this file does not create a first output page.</text>
-      <text tid="noowner">This file could not be published because it has no owner.</text>
       <text tid="noparts">The file could not be published because no parts were opened. You need to open at least one part, to which the objects can be send.</text>
       <text tid="noprofile">The document could not be published because there is no profile associated with this document.</text>
       <text tid="notemplate">The file could not be published because there is no template associated with this document.</text>
       <text tid="notemplateowner">The file could not be published because the template used to publish this file has no owner.</text>
       <text tid="sitelocked">The file could not be published because the site containing this file has been locked.</text>
-      <text tid="templatehasbeendeleted">The file could not be published because the template used to publish this file has been deleted.</text>
       <text tid="templatenotfound">The file could not be published because the used template '<param p="1"/>' does not exist.</text>
       <text tid="unknowntype">The document could not be published because this version of WebHare does not recognize the document type.</text>
       <text tid="unsupportedtype">The document could not be published because this version of WebHare can not publish documents of type '<param p="1"/>'.</text>
