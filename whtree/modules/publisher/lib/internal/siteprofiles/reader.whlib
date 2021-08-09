@@ -1881,6 +1881,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
 
   OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
   allsites := sitesettingstype->Enrich(allsites, "ID", ["SITEDESIGN","WEBFEATURES"]);
+  UPDATE allsites SET sitedesign := "publisher:nodesign" WHERE sitedesign = "";
 
   FOREVERY(RECORD site FROM allsites)
   {

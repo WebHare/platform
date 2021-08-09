@@ -30,7 +30,10 @@ MACRO TestBasics()
   TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);
   IF(testfw->debug)
     Print(`Testing page: ${emptyfile->url}\n`);
+
   TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url));
+  RECORD bundle := ExtractBundleOutputTag(testfw->browser->document);
+  TestEq("webhare_testsuite_temp:testdesign", bundle.outputtag, "Verify we got the right webdesign");
 }
 
 RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE])

@@ -2145,10 +2145,6 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
     retval.runtimeerror := TRUE;
     retval.error := "Runtime error";
   }
-  ELSE IF(outputrun->errorcode = 107)
-  {
-    retval.error := "Publication did not create a first output file";
-  }
   ELSE IF(outputrun->errorcode = 0)
   {
     retval.success := TRUE;

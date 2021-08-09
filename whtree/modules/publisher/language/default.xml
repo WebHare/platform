@@ -1537,10 +1537,7 @@
       <text tid="nofirstpage">The file could nog be published because the template used to publish this file does not create a first output page.</text>
       <text tid="noparts">The file could not be published because no parts were opened. You need to open at least one part, to which the objects can be send.</text>
       <text tid="noprofile">The document could not be published because there is no profile associated with this document.</text>
-      <text tid="notemplate">The file could not be published because there is no template associated with this document.</text>
-      <text tid="notemplateowner">The file could not be published because the template used to publish this file has no owner.</text>
       <text tid="sitelocked">The file could not be published because the site containing this file has been locked.</text>
-      <text tid="templatenotfound">The file could not be published because the used template '<param p="1"/>' does not exist.</text>
       <text tid="unknowntype">The document could not be published because this version of WebHare does not recognize the document type.</text>
       <text tid="unsupportedtype">The document could not be published because this version of WebHare can not publish documents of type '<param p="1"/>'.</text>
     </textgroup>
