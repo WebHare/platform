@@ -66,8 +66,9 @@ PUBLIC STATIC OBJECTTYPE Reader
     {
       this->process := NEW PublicationProcess(fileid);
     }
-    CATCH
+    CATCH(OBJECT e)
     {
+      LogHarescriptException(e);
       this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
       retval := 0;
       RETURN 0;
@@ -81,26 +82,19 @@ PUBLIC STATIC OBJECTTYPE Reader
     /* Discover outputs */
     OBJECT outputrun;
     RECORD ARRAY dbfiles;
-    RECORD ARRAY outputs := this->process->GetOutputs();
-
-    FOREVERY(RECORD output FROM outputs)
+    RECORD output := this->process->GetOutput();
+    IF(RecordExists(output))
     {
-      IF(#output>0) //second or later run....
-      {
-        IF(outputrun->errorcode!=0 OR retval!=0)
-          BREAK; //Abort!
-        outputrun->Finish(); //finish current output manager
-      }
-
       outputrun := this->process->CreatePublicationRun(this->localfs, output, measure);
-      IF(#output=0 AND this->process->stripextension)
+      IF(this->process->stripextension)
       {
         STRING conflictfile := GetConflictingOutputFile(fileid);
         IF(conflictfile != "")
         {
           outputrun->errorcode  := 115;
           outputrun->errordata := conflictfile;
-          BREAK;
+          this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
+          RETURN 0;
         }
       }
 
@@ -117,6 +111,7 @@ PUBLIC STATIC OBJECTTYPE Reader
       }
       dbfiles := dbfiles CONCAT outputrun->dbfiles;
       this->allpubssize := this->allpubssize + outputrun->totalsize;
+
     }
 
     INTEGER finishretval := this->FinishPublishing(outputrun, fileid, this->allpubssize, dbfiles, this->process->stripextension);

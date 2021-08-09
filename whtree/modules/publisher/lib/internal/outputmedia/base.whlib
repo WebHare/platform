@@ -10,7 +10,6 @@ PUBLIC OBJECTTYPE OutputMediaBase
                                                 BOOLEAN all_subdir,
                                                 BOOLEAN is_index,
                                                 BOOLEAN capturesubpaths,
-                                                STRING ARRAY _defaultpages,
                                                 STRING _outputroot,
                                                 BOOLEAN _stripextension)
   {

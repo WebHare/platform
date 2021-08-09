@@ -21,11 +21,10 @@ PUBLIC OBJECTTYPE LocalFSOutputMedia EXTEND OutputMediaBase
                                                         BOOLEAN all_subdir,
                                                         BOOLEAN is_index,
                                                         BOOLEAN capturesubpaths,
-                                                        STRING ARRAY _defaultpages,
                                                         STRING _outputroot,
                                                         BOOLEAN _stripextension)
   {
-    RETURN NEW LocalSiteWriter(_filename, all_subdir, is_index, capturesubpaths, _defaultpages, _outputroot, _stripextension);
+    RETURN NEW LocalSiteWriter(_filename, all_subdir, is_index, capturesubpaths, _outputroot, _stripextension);
   }
 >;
 
@@ -35,9 +34,6 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
 
   ///The name of the file we are publishing
   PUBLIC STRING outputname;
-
-  ///Acceptable default page names
-  PUBLIC STRING ARRAY defaultpages;
 
   ///List of files we created
   PUBLIC STRING ARRAY createdfiles;
@@ -84,7 +80,6 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       BOOLEAN all_subdir,
       BOOLEAN is_index,
       BOOLEAN capturesubpaths,
-      STRING ARRAY _defaultpages,
       STRING _outputroot,
       BOOLEAN _stripextension)
   {
@@ -95,9 +90,6 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     this->publish_as_index := is_index;
     this->capturesubpaths := capturesubpaths;
     this->stripextension := _stripextension;
-
-    //Generate a list of default pages
-    this->defaultpages := _defaultpages;
 
     if (NOT IsPathAbsolute(this->outputroot))
     {
@@ -278,7 +270,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
         name := GetBasenameFromPath(this->outputname);
       }
 
-      IF(firstfile_outside_subdir AND ToLowercase(name) = ToLowercase(this->defaultpages[0]))
+      IF(firstfile_outside_subdir AND ToLowercase(name) = ToLowercase(whconstant_webserver_indexpages[0]))
         localsubdir :=  "^" || name;
       ELSE
         localsubdir :=  name;
@@ -577,7 +569,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     //Remove any other existing default pages, if this was an index
     IF (this->publish_as_index)
     {
-      FOREVERY (STRING page FROM this->defaultpages)
+      FOREVERY (STRING page FROM whconstant_webserver_indexpages)
         IF (ToUppercase(page) != ToUppercase(this->final_firstfilename))
           DeleteDiskFile(MergePath(this->outputroot, page));
     }

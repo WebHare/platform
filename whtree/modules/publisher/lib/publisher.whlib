@@ -513,27 +513,38 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
   RECORD best_match;
   INTEGER findwebserver := webserver.id;
   IF(webserver.isinterface) //all interface websites are actually aliases for the webserver hosting the webhare backend
-    findwebserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id=16;
+    findwebserver := SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend;
 
-  STRINg lookup := DecodeURL("/" || up.urlpath);
+  STRING lookup := DecodeURL("/" || up.urlpath);
   IF(debugurllookup) Print("lookup [" || lookup || "] on webserver #" || webserver.id || "\n");
 
-  best_match := SELECT *
-                  FROM system.sites
-                 WHERE outputweb = VAR findwebserver
-                       AND ToUppercase(lookup) LIKE ToUppercase(outputfolder || "*")
-                 ORDER BY Length(outputfolder) DESC LIMIT 1;
-  IF(NOT RecordExists(best_match))
-    RETURN result;
+  IF(findwebserver != 0)
+  {
+    best_match := SELECT id, webroot
+                    FROM system.sites
+                   WHERE outputweb = VAR findwebserver
+                         AND ToUppercase(lookup) LIKE ToUppercase(outputfolder || "*")
+                   ORDER BY Length(outputfolder) DESC LIMIT 1;
+  }
 
-  // Ignore host parts, they may differ (ports, http vs https)
   url := up.urlpath;
-  best_match.webroot := UnpackURL(best_match.webroot).urlpath;
 
-  result.site := best_match.id;
-  url := DecodeURL(Substring(url, Length(best_match.webroot)));
+  IF(RecordExists(best_match))
+  {
+    // Ignore host parts, they may differ (ports, http vs https)
+    url := DecodeURL(Substring(url, Length(UnpackURL(best_match.webroot).urlpath)));
+    result.site := best_match.id;
+  }
+  ELSE
+  {
+    IF(NOT webserver.isinterface)
+      RETURN result; //giving up
 
-  RETURN CELL[...result, ...LookupPublisherURLByPath(best_match.id, url, up.urlpath) ];
+    //If we can't find a matching site but we know it's an interface webserver, assume the WebHare backend site is the proper match.
+    result.site := whconstant_whfsid_webharebackend;
+  }
+
+  RETURN CELL[...result, ...LookupPublisherURLByPath(result.site, url, up.urlpath) ];
 }
 
 RECORD FUNCTION LookupPublisherURLByPath(INTEGER startroot, STRING url, STRING origurlpath)

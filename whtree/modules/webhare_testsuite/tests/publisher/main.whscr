@@ -6,12 +6,25 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+
+MACRO TestRescueWithoutWebservers()
+{
+  //it's important for lookuppublisherurl to work with the rescue port. even if, or especially if, the backend site is not connected to a URL
+
+  INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
+  testfw->BeginWork();
+  DELETE FROM system_internal.webservers;
+  TestEq(16, LookupPublisherURL(`http://127.0.0.1:${rescueport}/`, [ clientwebserver := whwebserverconfig_rescuewebserverid ]).site);
+  testfw->RollbackWork();
+}
 
 MACRO TestPreview()
 {
@@ -219,6 +232,7 @@ MACRO LookupTest()
   testfw->EndTrans();
 }
 
-RunTestFramework([ PTR TestPreview
+RunTestFramework([ PTR TestRescueWithoutWebservers
+                 , PTR TestPreview
                  , PTR LookupTest
                  ]);

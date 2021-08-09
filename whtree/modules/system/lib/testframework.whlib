@@ -38,6 +38,7 @@ LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
@@ -2117,14 +2118,8 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
 
   OBJECT process := NEW PublicationProcess(fileid);
   OBJECT memory := NEW MemoryOutputMedia;
-  RECORD ARRAY outputs := process->GetOutputs();
 
-  IF(Length(outputs)=0)
-    THROW NEW Exception("No output generated");
-
-  RECORD output := SELECT * FROM outputs;
-  IF(NOT RecordExists(output))
-    THROW NEW Exception("No such output");
+  RECORD output := DescribeDiskOutput(SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=fileid,"");
 
   OBJECT outputrun := process->CreatePublicationRun(memory, output, profile);
   INTEGER runresult := outputrun->Run();

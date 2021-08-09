@@ -2,12 +2,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 RECORD ARRAY capturedmessages;
@@ -187,13 +188,10 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
   IF (site.locked)
     RETURN; //We never analyze the output of unpublished sites
 
-  RECORD ARRAY outputs := GetOutputs(folder.id, folder.fullpath);
-  FOREVERY(RECORD output FROM outputs)
-    ValidateFolderForOutput(site, folder, output);
-}
+  RECORD output := DescribeDiskOutput(site.id, folder.fullpath);
+  IF(NOT RecordExists(output))
+    RETURN;
 
-MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
-{
   STRING outputpath := output.outputfolder;
   IF(NOT IsPathAbsolute(outputpath)) //dangerous to use non absolute paths (it is probably caused by moving databases between Linux and Windows)
   {
@@ -242,7 +240,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
   RECORD subitem_index;
 
   //Do some basic sanity checks
-  IF (NOT CheckFolderSanity(folder, subitems_folders, subitems_files, output.defaultpages))
+  IF (NOT CheckFolderSanity(folder, subitems_folders, subitems_files, whconstant_webserver_indexpages))
     RETURN;
 
   //Does this folder have an indexdoc?
@@ -257,7 +255,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
   }
   ELSE
   {
-    subitem_index := SELECT * FROM subitems_files WHERE IsIndexName(COLUMN name, output.defaultpages);
+    subitem_index := SELECT * FROM subitems_files WHERE IsIndexName(COLUMN name, whconstant_webserver_indexpages);
     IF (RecordExists(subitem_index))
     {
       onanalyzerissue("LOG", "Folder " || folder.id || " has file #" || subitem_index.id || " named after the index file. Making it the index document.");
@@ -283,7 +281,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
       IF (outputitem.modified < AddTimeToDate(-(1000*60*60), GetcurrentDatetime()))
       {
         onanalyzerissue("LOG", "Deleting stale temp file " || thispath);
-        RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+        RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
       }
       CONTINUE;
     }
@@ -300,7 +298,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
     {
       //find its associated file
       STRING associated_name := Substring(outputitem.name,1,255);
-      BOOLEAN output_is_index := IsIndexName(associated_name, output.defaultpages);
+      BOOLEAN output_is_index := IsIndexName(associated_name, whconstant_webserver_indexpages);
       RECORD associated_file :=
           SELECT *
             FROM subitems_files
@@ -319,7 +317,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
           IF(RecordExists(SELECT FROM outputfiles WHERE name = proper_outputname))
           {
             onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry with mis-cased name " || thispath || " because the properly named version also exists");
-            RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+            RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
             CONTINUE;
           }
           ELSE
@@ -339,7 +337,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
     {
       // Is the associated name an index? If so, the associated file is the index file.
       STRING associated_name := Left(outputitem.name, LENGTH(outputitem.name) - 3);
-      BOOLEAN output_is_index := IsIndexName(associated_name, output.defaultpages);
+      BOOLEAN output_is_index := IsIndexName(associated_name, whconstant_webserver_indexpages);
       RECORD associated_file :=
           SELECT *
             FROM subitems_files
@@ -358,7 +356,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
           proper_outputname :=
               SELECT AS STRING ToFSCase(TRUE, name)
                 FROM outputfiles
-               WHERE IsIndexName(name, output.defaultpages);
+               WHERE IsIndexName(name, whconstant_webserver_indexpages);
 
           IF (proper_outputname != "")
             proper_outputname := proper_outputname || ".gz";
@@ -370,13 +368,13 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
         {
           // No index file found. Missing index file will trigger republish, so don't have anything to do here
           onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting compressed file for missing index file");
-          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
         }
         ELSE IF (outputitem.name != proper_outputname)
         {
           // Improperly named compressed file, just delete
           onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting improperly named compressed file (got " || EncodeJava(outputitem.name) || ", wanted " || EncodeJava(proper_outputname));
-          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
         }
         CONTINUE; //This is a recognized compressed file version, leave it alone
       }
@@ -392,7 +390,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
     BOOLEAN is_index;
 
     //Pick the first case-insenstive match, but prefer a case-sensitive match to any insensitive match
-    FOREVERY(STRING indexdocname FROM output.defaultpages)
+    FOREVERY(STRING indexdocname FROM whconstant_webserver_indexpages)
       IF (outputitem.name = indexdocname
           OR (matching_indexname="" AND ToUppercase(outputitem.name) = ToUppercase(indexdocname)))
     {
@@ -445,7 +443,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
       //ADDME: Start logging this as a NOTE whenever webhare learns to immediately delete removed and unscheduled files
       //       or perhaps a move/delete in a file or folder should just trigger a fast-rescan of that folder?
       onanalyzerissue("DEBUG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry not (any longer?) in site " || thispath);
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -482,7 +480,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
     IF (outputitem.type NOT IN [0,1]) //not a file, not a dir, not protected by Foreign
     {
       onanalyzerissue("LOG", "Deleting odd directory entry " || thispath);
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -493,7 +491,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
       IF (RecordExists(SELECT FROM outputfiles WHERE name = matching_subitem.ondiskname))
       {
         onanalyzerissue("LOG", "Removing name with duplicate name but different case: " || thispath);
-        RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+        RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
         CONTINUE;
       }
       ELSE
@@ -513,7 +511,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
       ELSE
         onanalyzerissue("LOG", "Deleting folder " || thispath || " which should have been a file");
 
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -595,7 +593,7 @@ MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
       DEBUGPRINT("Deleting unpublished but still existing file "
                  << Blex::MergePath(analyzestate.fullpath, itr->first));
       */
-      RemoveDiskItem(folder.url || item.ondiskname, outputpath || "/" || item.ondiskname, pushevents, output.defaultpages);
+      RemoveDiskItem(folder.url || item.ondiskname, outputpath || "/" || item.ondiskname, pushevents, whconstant_webserver_indexpages);
       // If this is the index document, delete the index file as well
       IF (item.isindex)
         RemoveDiskFile(folder.url, outputpath || "/" || folder_indexname, pushevents, TRUE);

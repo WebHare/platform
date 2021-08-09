@@ -2,6 +2,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -16,6 +17,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF(NOT ReadRegistryKey("system.backend.security.needsysop"))
     {
       //FIXME only if userapi reports no users or at least no sysops yet ?
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    IF(NOT ObjectExists(this->contexts->userapi))
+    {
+      this->RunSimpleScreen("error","An internal error has occured, this->contexts->userapi is unset. Cannot continue initialization.");
       this->tolliumresult := "cancel";
       RETURN;
     }

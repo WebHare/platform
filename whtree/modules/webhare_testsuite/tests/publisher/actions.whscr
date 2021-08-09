@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 MACRO Setup()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite();
+  OBJECT testsite := testfw->SetupTestWebdesignWebsite();
   testfw->CommitWork();
 }
 
@@ -681,6 +681,16 @@ MACRO TestReferences()
   testfw->EndTrans();
 }
 
+MACRO TestPublishRegression()
+{
+  //verify that WaitForPublishCompletion doesn't get stuck when a site has no output
+  testfw->BeginWork();
+  OBJECT testsite := testfw->SetupTestWebdesignWebsite([ enableoutput := FALSE, sitename := "webhare_testuiste.nooutput"]);
+  OBJECT testhtml := testsite->rootobject->CreateFile([name:="test.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
+  testfw->CommitWork();
+  WaitForPublishCompletion(testsite->id);
+}
+
 
 RunTestframework( [ PTR Setup
                   , PTR CopyMoveTest
@@ -691,6 +701,7 @@ RunTestframework( [ PTR Setup
                   , PTR SiteOutputContainTest //deletetest must appear before siteoutput tes
                   , PTR SiteOutputForeignTest //deletetest must appear before siteoutput tes
                   , PTR TestReferences
+                  , PTR TestPublishRegression
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "deleter"]
                                     ]

@@ -171,8 +171,8 @@ PUBLIC MACRO PrintTrustedCodeTo(INTEGER outputid, STRING code)
 
 PUBLIC BOOLEAN FUNCTION IsDefaultPagename(STRING filename)
 {
-  FOREVERY(STRING page FROM cached_publish_info.outputsettings.defaultpages)
-    IF(ToUppercase(filename)=ToUppercase(page))
+  FOREVERY(STRING page FROM whconstant_webserver_indexpages)
+    IF(ToUppercase(filename) = ToUppercase(page))
       RETURN TRUE;
   RETURN FALSE;
 }
@@ -257,7 +257,7 @@ IF(ObjectExists(publishingbackendlink) AND cached_publish_info.istemplaterun)
   {
     //Find a match with the same extension
     STRING myext := ToUppercase(GetExtensionFromPath(file.name));
-    FOREVERY(STRING page FROM cached_publish_info.outputsettings.defaultpages)
+    FOREVERY(STRING page FROM whconstant_webserver_indexpages)
       IF (ToUppercase(GetExtensionFromPath(page)) = myext)
       {
         firstpagename := page;

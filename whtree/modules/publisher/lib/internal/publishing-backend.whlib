@@ -3,14 +3,13 @@ LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::files.whlib";
@@ -20,70 +19,6 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 PUBLIC BOOLEAN publishing_debug;
-
-RECORD FUNCTION OutputsIntercept(RECORD hookinfo)
-{
-  RECORD primaryoutput := SELECT tag := "", outputweb, outputfolder, folder := root
-                            FROM system.sites
-                           WHERE root = hookinfo.foldertreeids[0];
-
-  RECORD ARRAY outputs;
-  IF(RecordExists(primaryoutput))
-  {
-    INSERT primaryoutput INTO outputs AT END;
-  }
-
-  INTEGER ARRAY interesting_webservers := SELECT AS INTEGER ARRAY outputweb FROM outputs;
-  RECORD ARRAY webinfos := SELECT id, diskfolder, outputextension, type
-                             FROM system.webservers
-                            WHERE id IN interesting_webservers;
-  webinfos := EnrichWebserversWithOutputFolder(webinfos);
-
-  FOREVERY(RECORD outp FROM outputs)
-  {
-    IF(outp.outputweb=0) //unpublished?
-      CONTINUE;
-
-    RECORD webinfo := SELECT * FROM webinfos WHERE id = outp.outputweb;
-
-    //how deep the output is hooked (eg, folderdepth == 2 means: cut 2 levels). grab the local part.
-    INTEGER folderdepth := SearchElement(hookinfo.foldertreeids, outp.folder);
-    STRING localfolder := Detokenize( ArraySlice( Tokenize(hookinfo.folderpath,"/"), folderdepth+1 ), "/");
-
-    STRING diskfolder;
-
-    STRING localpart := MergePath(outp.outputfolder, localfolder);
-    localpart := ToLowercase(localpart);
-
-    IF(webinfo.outputfolder != "")
-      diskfolder := MergePath(webinfo.outputfolder, localpart);
-
-    RECORD final := [ tag := outp.tag
-                    , outputextension := webinfo.outputextension
-                    , outputfolder := diskfolder
-                    , defaultpages := whconstant_webserver_indexpages
-                    , type := "publisher:output"
-                    , folder := outp.folder
-                    , extradata := DEFAULT RECORD
-                    ];
-    INSERT final INTO hookinfo.outputs AT END;
-
-  }
-  RETURN hookinfo;
-}
-
-PUBLIC RECORD ARRAY FUNCTION Getoutputs(INTEGER folderid, STRING folderfullpath)
-{
-  INTEGER ARRAY folderpath := GetFolderTreeIds(folderid);
-  RECORD outputinfo := [ folderid := folderid
-                       , foldertreeids := folderpath
-                       , folderpath := folderfullpath
-                       , outputs := DEFAULT RECORD ARRAY
-                       ];
-  outputinfo := OutputsIntercept(outputinfo);
-
-  RETURN outputinfo.outputs;
-}
 
 RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
 {
@@ -123,7 +58,7 @@ RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
 PUBLIC STATIC OBJECTTYPE PublicationProcess
 <
   PUBLIC RECORD basedata;
-  RECORD ARRAY outputs;
+  RECORD output;
   INTEGER fileid;
   PUBLIC BOOLEAN stripextension;
 
@@ -134,7 +69,7 @@ PUBLIC STATIC OBJECTTYPE PublicationProcess
     IF(NOT RecordExists(this->basedata))
       THROW NEW Exception("Unable to retrieve base publication settings for #" || this->fileid);
 
-    this->outputs := getoutputs(this->basedata.folderid, this->basedata.folderfullpath);
+    this->output := DescribeDiskOutput(this->basedata.siteid, this->basedata.folderfullpath);
 
     //FIXME Looking up publish-as-subdir and the contenttype is a bit redundant, but we'll need a lot of refactoring to get each individual output slave to stop looking up that data
     RECORD config := GetPublisherConfiguration();
@@ -146,10 +81,9 @@ PUBLIC STATIC OBJECTTYPE PublicationProcess
     this->stripextension := assubdir AND ToUppercase(GetExtensionFromPath(this->basedata.filename)) IN config.stripextensions;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetOutputs()
+  PUBLIC RECORD FUNCTION GetOutput()
   {
-    RETURN SELECT tag, outputextension, outputfolder, defaultpages, type, extradata, folder
-             FROM this->outputs;
+    RETURN this->output;
   }
 /*  PUBLIC OBJECT FUNCTION CreatePublicationRunBase(RECORD output) //used by blex_alpha trace.shtml
   {
@@ -481,12 +415,11 @@ STATIC OBJECTTYPE PublicationRun
       IF (GetURLEventsSettings(this->filedata.fileid).enabled)
       {
         //ADDME perhaps we can use CalculateFSObjectFullPathAndURL here
-        STRING ARRAY defaultpages := whconstant_webserver_indexpages;
         STRING baseurl := this->filedata.folderurl;
         FOREVERY (RECORD subfile FROM this->outputmedia->generatedfiles)
         {
           STRING fullurl := baseurl || subfile.path;
-          IF(ToLowercase(GetNameFromPath(fullurl)) IN defaultpages)
+          IF(ToLowercase(GetNameFromPath(fullurl)) IN whconstant_webserver_indexpages)
             fullurl := GetDirectoryFromPath(fullurl);
 
           DEBUGPRINT("BroadcaseURLEvent '" || fullurl || "' published (if needed)");
@@ -681,7 +614,6 @@ STATIC OBJECTTYPE PublicationRun
             this->publish_as_subdir,
             this->publish_as_index,
             capturesubpaths,
-            this->outputsettings.defaultpages,
             this->outputsettings.outputfolder,
             this->outputsettings.stripextension);
 
