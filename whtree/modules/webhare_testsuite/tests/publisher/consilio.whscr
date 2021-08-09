@@ -50,15 +50,15 @@ MACRO ConsilioTest()
                                  || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
                                  || '<p class="normal"><br/></p>'
                                  || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break. Check deze afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
-                                   || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>' //FIXME should have class="tabletag" but we lack tabletyping
-                                      || '<tr>'
-                                        || '<td><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
-                                        || '<td><p class="normal">Cell 2 para 1</p></td>'
-                                      || '</tr><tr>'
-                                        || '<td><p class="normal">Cell 3</p></td>'
-                                        || '<td><p class="normal">Cell 4</p></td>'
-                                      || '</tr>'
-                                   || '</tbody></table>'
+                                 || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>'
+                                    || '<tr>'
+                                      || '<td><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
+                                      || '<td><p class="normal">Cell 2 para 1</p></td>'
+                                    || '</tr><tr>'
+                                      || '<td><p class="normal">Cell 3</p></td>'
+                                      || '<td><p class="normal">Cell 4</p></td>'
+                                    || '</tr>'
+                                 || '</tbody></table>'
                                  || '</body></html>')
                  , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);;
@@ -74,7 +74,6 @@ MACRO ConsilioTest()
 
   testfw->CommitWork();
 
-  testfw->RefreshWebserverConfig();
   testfw->WaitForPublishCompletion(siteroot->id);
   WaitForPromise(CreatePromiseAll(fileevents));
   testfw->WaitConsilioQueueEmpty();
