@@ -155,17 +155,15 @@ test.registerTests(
       }
     }
 
-    // UT CampusApp login requires that a portal honors the wrdauth_returnto variable
+    // UT CampusApp login requires that a portal honors the wrdauth_logincontrol variable
   , { name: "test wrdauth_returnto functions on login page"
-    , loadpage: function()
+    , test: async function(doc, win)
       {
         let returnurl = webroot + 'test-saml/portal-sp/';
-        return webroot + 'test-saml/portal-idp/?wrdauth_returnto=' + encodeURIComponent(returnurl);
-      }
-    }
-  , { name: "test redirect worked"
-    , test: function(doc, win)
-      {
+        let { logincontrol } = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildLoginRedirectToken', webroot + 'test-saml/portal-idp/', returnurl);
+        await test.load(webroot + 'test-saml/portal-idp/?wrdauth_logincontrol=' + encodeURIComponent(logincontrol));
+
+        // test redirect worked
         test.true(/test-saml\/portal-sp/.exec(win.location.href), "Should have redirected to portal-sp site");
       }
     }

@@ -473,8 +473,6 @@ MACRO TestRequireExternalLoggedinUser()
       ]);
 
   TestEq('reload', rec.result.submitinstruction.type);
-  TestEq(FALSE, testfw->browser->GotoWebPage(UpdateURLvariables(loginpage, [ wrdauth_returnto := "https://www.example.nl/" ])));
-  TestEq(400, testfw->browser->GetHTTPStatusCode(), "Should not be allowed to point wrdauth_returnto to a non-WebHare URL");
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location

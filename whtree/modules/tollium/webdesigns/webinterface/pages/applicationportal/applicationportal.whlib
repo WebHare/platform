@@ -950,7 +950,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   PUBLIC RECORD FUNCTION WCS_ExecuteLoginChallenge(OBJECT webcontext, RECORD data)
   {
-    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.challenge, data.returnto);
+    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.logincontrol);
   }
 >;
 

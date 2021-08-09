@@ -183,26 +183,12 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
         ExecuteSubmitInstruction(samlaction);
       }
 
-      STRING enc_samlreq := EncryptForThisServer("wrd:samlauth", authrequest_data);
-
       STRING target := wrdauthplugin->__GetLoginPageURL();
       IF(target="")
         THROW NEW Exception("Need to redirect to the login page, but no login URL was configured");
 
-      RECORD submitinstr;
-      IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect")
-        submitinstr := [ type := "redirect", url := AddVariableToURL(target, "samllogin", enc_samlreq) ];
-      ELSE
-      {
-        submitinstr :=
-            [ type := "form"
-            , form :=
-                  [ method :=   "POST"
-                  , action :=   target
-                  , vars :=     [ [ name := "samlidpreq", value := enc_samlreq ] ]
-                  ]
-            ];
-      }
+      STRING enc_logincontrol := wrdauthplugin->__GenerateSAMLLoginControlToken(authrequest_data);
+      RECORD submitinstr := [ type := "redirect", url := AddVariableToURL(target, "wrdauth_logincontrol", enc_logincontrol) ];
 
       LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), transid, submitinstr);
 

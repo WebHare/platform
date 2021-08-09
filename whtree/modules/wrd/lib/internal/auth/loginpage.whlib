@@ -17,9 +17,7 @@ PUBLIC OBJECTTYPE Loginpage EXTEND DynamicPageBase
     RECORD forminfo :=
           [ feedbackurl :=  GetRequestURL()
           , login :=        GetWebVariable("login")
-          , samlidpreq :=   GetWebVariable("samlidpreq")
-          , challenge :=    GetWebVariable("wrdauth_challenge")
-          , returnto :=     GetWebVariable("wrdauth_returnto")
+          , logincontrol := GetWebVariable("wrdauth_logincontrol")
           ];
 
     IF(IsRequestPost() AND GetWebVariable("login") != "")
@@ -27,9 +25,7 @@ PUBLIC OBJECTTYPE Loginpage EXTEND DynamicPageBase
       RECORD result := authplugin->Login(
           forminfo.login,
           GetWebVariable("password"),
-          [ samlidpreq := GetWebVariable("samlidpreq")
-          , challenge :=  GetWebVariable("wrdauth_challenge")
-          , returnto :=   GetWebVariable("wrdauth_returnto")
+          [ logincontrol := GetWebVariable("wrdauth_logincontrol")
           ]);
 
       IF(result.success)
