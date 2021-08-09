@@ -1372,6 +1372,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
   {
     BOOLEAN titlematch := ToUppercase(obj->title ?? obj->errorlabel) = ToUppercase(text)
                           OR (MemberExists(obj,"label") AND ToUppercase(obj->label) = ToUppercase(text))
+                          OR (MemberExists(obj,"hint") AND ToUppercase(obj->hint) = ToUppercase(text))
                           OR text = "*";
 
     IF(matchelementtype != "")
