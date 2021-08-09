@@ -540,7 +540,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
     IF(NOT webserver.isinterface)
       RETURN result; //giving up
 
-    //The interface is still unconfigured? mocki
+    //If we can't find a matching site but we know it's an interface webserver, assume the WebHare backend site is the proper match.
     result.site := whconstant_whfsid_webharebackend;
   }
 
