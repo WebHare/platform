@@ -1531,21 +1531,15 @@
     <textgroup gid="errors">   <!-- publicationstatus.errors -->
       <text tid="abort">Het bestand kon niet gepubliceerd worden. Het sjabloon is gestopt met foutmelding:<br/><param p="1"/></text>
       <text tid="conflictingfile">Dit bestand kon niet gepubliceerd worden, omdat het verward kan worden met het vergelijkbaar genoemde bestand '<param p="1"/>' in deze map.<br/><br/>Controleer alstublieft of het hier geen dubbel bestand betreft, en overweeg dit bestand te hernoemen als u het toch wilt publiceren.</text>
-      <text tid="corruptedprofile">Het conversieprofiel dat aan dit document gekoppeld is, is beschadigd en onbruikbaar.</text>
-      <text tid="disabledowner">Het inlogaccount van de eigenaar van dit bestand is uitgeschakeld.</text>
-      <text tid="disabledtemplateowner">Het bestand kon niet gepubliceerd worden omdat het inlogaccount van de eigenaar van het sjabloon dat gebruikt wordt om dit bestand te publiceren is uitgeschakeld.</text>
-      <text tid="encrypted">Het document kon niet gepubliceerd worden omdat het versleuteld is.</text>
       <text tid="hserror">Er zijn één of meerdere HareScript fouten opgetreden.</text>
       <text tid="internalerror">Het document kon niet worden gepubliceerd vanwege een interne fout.<br/><br/>Neem a.u.b. contact op met uw systeembeheerder als dit probleem zich voor blijft doen.<br/><br/>Deze fout is hoogstwaarschijnlijk veroorzaakt door een onbekend element in dit document. Opnieuw publiceren van het document zal het probleem waarschijnlijk niet oplossen.<br/><br/>De foutmelding was:<br/><br/><param p="1"/></text>
       <text tid="ioerror">Het bestand kon niet worden gepubliceerd vanwege een 'I/O fout'.<br/><br/>Dit zou een tijdelijk probleem kunnen zijn. WebHare zal proberen om dit bestand later nogmaals te publiceren, of u kunt ervoor kiezen om dit bestand zelf te herpubliceren. Neem contact op met uw systeembeheerder als het probleem zich blijft voordoen.</text>
       <text tid="nofirstpage">Het bestand kon niet worden gepubliceerd omdat het sjabloon dat gebruikt wordt voor de publicatie geen eerste uitvoer pagina aanmaakt.</text>
-      <text tid="noowner">Het bestand kon niet worden gepubliceerd omdat het geen eigenaar heeft.</text>
       <text tid="noparts">Het bestand kon niet worden gepubliceerd omdat er zijn geen delen geopend zijn. U dient tenminste één deel te openen waar de objecten naartoe gestuurd kunnen worden.</text>
       <text tid="noprofile">Het document kon niet worden gepubliceerd omdat er geen conversieprofiel aan het document gekoppeld is.</text>
       <text tid="notemplate">Het bestand kon niet worden gepubliceerd omdat er geen sjabloon aan het document gekoppeld is.</text>
       <text tid="notemplateowner">Het bestand kon niet gepubliceerd worden omdat het sjabloon dat gebruikt wordt om dit bestand te publiceren geen eigenaar heeft.</text>
       <text tid="sitelocked">Het bestand kon niet worden gepubliceerd omdat de site waarin dit bestand zich bevindt is geblokkeerd.</text>
-      <text tid="templatehasbeendeleted">Het bestand kon niet worden gepubliceerd omdat het sjabloon dat gebruikt wordt om dit bestand te publiceren verwijderd is.</text>
       <text tid="templatenotfound">Het bestand kon niet worden gepubliceerd omdat het gebruikte sjabloon '<param p="1"/>' niet bestaat.</text>
       <text tid="unknowntype">Het document kon niet gepubliceerd worden omdat deze versie van WebHare het type document niet herkent.</text>
       <text tid="unsupportedtype">Het document kon niet gepubliceerd worden omdat deze versie van WebHare geen documenten van type '<param p="1"/>' kan publiceren.</text>

@@ -490,17 +490,14 @@ PUBLIC STRING FUNCTION GetPublicationErrorMsg(INTEGER published, STRING errordat
   {
     CASE 101 { RETURN GetTid("publisher:publicationstatus.errors.hserror"); }
     CASE 102 { RETURN GetTid("publisher:publicationstatus.errors.abort"); }
-    CASE 105 { RETURN GetTid("publisher:publicationstatus.errors.encrypted"); }
     CASE 106 { RETURN GetTid("publisher:publicationstatus.errors.nofirstpage"); }
     CASE 107 { RETURN errordata = "" ? GetTid("publisher:publicationstatus.errors.notemplate") : GetTid("publisher:publicationstatus.errors.templatenotfound", errordata); }
     CASE 108 { RETURN GetTid("publisher:publicationstatus.errors.noparts"); }
     CASE 109 { RETURN GetTid("publisher:publicationstatus.errors.noprofile"); }
     CASE 112 { RETURN GetTid("publisher:publicationstatus.errors.sitelocked"); }
-    CASE 114 { RETURN GetTid("publisher:publicationstatus.errors.templatehasbeendeleted"); }
     CASE 115 { RETURN GetTid("publisher:publicationstatus.errors.conflictingfile", errordata); }
 
     CASE 2001 { RETURN GetTid("publisher:publicationstatus.errors.unknowntype"); }
-    /*CASE 3001 { RETURN GetTid("publisher:publicationstatus.errors.internalerror"); }*/
   }
   IF(errorcode >= 1001 AND errorcode <= 2000)
     RETURN GetTid("publisher:publicationstatus.errors.ioerror");
