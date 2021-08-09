@@ -50,7 +50,7 @@ AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
 ## TT pattern matching
 The `TT` function can find elements by their name or by their title. If an element has no title, TT will look at its
-errorlabel and then its label (for radiobuttons/checkboxes).
+errorlabel and then its label (for radiobuttons/checkboxes) or hint (for actions/images)
 
 ```harescript
 // Find an element named 'tabs' in the current toplevel screen

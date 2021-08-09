@@ -1,5 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="consilio.whscr"/>
   <test name="rtd"       path="rtd/" />
   <test name="blit"       path="blit/" />
   <test name="components" path="components/" />
@@ -7,6 +6,7 @@
   <test name="contentlibraries" path="contentlibraries/" />
 
   <test script="actions.whscr"/>
+  <test script="consilio.whscr"/>
   <test script="main.whscr" flaky="1" />
   <test script="recyclebin.whscr"/>
   <test script="test-lifecycle.whscr"/>
