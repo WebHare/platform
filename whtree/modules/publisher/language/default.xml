@@ -83,26 +83,6 @@
       <text tid="ordering-up">Ascending</text>
       <text tid="screentitle">Quick set ordering</text>
     </textgroup>
-    <textgroup gid="propsshared">   <!-- commondialogs.propsshared -->
-      <text tid="contenttypes">Contenttype data</text>
-      <text tid="deleted">Deleted</text>
-      <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
-      <text tid="developers">Developers</text>
-      <text tid="display">Display</text>
-      <text tid="drafts">Drafts</text>
-      <text tid="formtitle">General settings</text>
-      <text tid="info">Properties</text>
-      <text tid="linkcheck">Link Check</text>
-      <text tid="load">Load</text>
-      <text tid="maintab">General</text>
-      <text tid="modified">Modified</text>
-      <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
-      <text tid="originallocation">Original location</text>
-      <text tid="owner">Owner</text>
-      <text tid="size">Size</text>
-      <text tid="type">Type</text>
-      <text tid="versioning">History</text>
-    </textgroup>
     <textgroup gid="selectsitedialog">   <!-- commondialogs.selectsitedialog -->
       <text tid="filter">Search</text>
       <text tid="name">Site</text>
@@ -340,8 +320,10 @@
         <text tid="applyindex">Index</text>
         <text tid="applyrules">&lt;apply&gt;</text>
         <text tid="approved">Approved</text>
+        <text tid="contenttypes">Contenttype data</text>
         <text tid="data">Data</text>
         <text tid="denied">Denied</text>
+        <text tid="drafts">Drafts</text>
         <text tid="dynamicexecution">Dynamic execution</text>
         <text tid="dynamicexecution_cached">Cached</text>
         <text tid="dynamicexecution_startmacro">Start macro</text>
@@ -2178,13 +2160,20 @@
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
         <text tid="created">(Created</text>
+        <text tid="deleted">Deleted</text>
+        <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
         <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
         <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
         <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
         <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
         <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
+        <text tid="info">Properties</text>
         <text tid="link">Link</text>
+        <text tid="linkcheck">Link Check</text>
+        <text tid="maintab">General</text>
         <text tid="makeindex">Use this file as the index document for this folder</text>
+        <text tid="modified">Modified</text>
+        <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
         <text tid="newfile-name">New <param p="1"/></text>
         <text tid="newfile-title">New file</text>
         <text tid="newfolder-title">New folder</text>

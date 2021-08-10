@@ -31,8 +31,8 @@
         <text name="versioningmovemessage" title="" value="" />
       </panel>
       <tabs name="maintabs" height="1pr">
-        <tab name="maintab" tid="commondialogs.propsshared.maintab">
-          <!-- FIXME do we need this? heading tid="commondialogs.propsshared.formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
+        <tab name="maintab" tid=".maintab">
+          <!-- FIXME do we need this? heading tid=".formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
 
           <!-- general fields -->
           <textedit tid="~name" name="name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
@@ -50,18 +50,18 @@
 
 
           <!-- box name=settings endewd here -->
-          <heading tid="commondialogs.propsshared.info" name="typeh"/>
+          <heading tid=".info" name="typeh"/>
           <line>
             <text name="type"/>
-            <text name="size"  title=""/> <!--tid="commondialogs.propsshared.size"-->
+            <text name="size"  title=""/> <!--tid=".size"-->
           </line>
           <line>
-            <text name="modified" tid="commondialogs.propsshared.modified" />
+            <text name="modified" tid=".modified" />
             <!--datetime name="creationdate" tid=".created" type="datetime" precision="minutes" storeutc="true" readonly="true" title=""/-->
             <text name="creationdatebrackets" tid=".created" visible="false" />
           </line>
 
-          <text name="deleted" tid="commondialogs.propsshared.deleted" visible="false" />
+          <text name="deleted" tid=".deleted" visible="false" />
           <text name="originallocation" visible="false" />
 
           <spacer name="properties" visible="false" /> <!-- this is just an insertion point -->
@@ -116,7 +116,7 @@
             </row>
           </grid>
         </tab>
-        <tab name="linkcheck" layout="left" tid="commondialogs.propsshared.linkcheck" visible="false">
+        <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
           <includefragment fragment="consilio:report.objectreport" name="objectreport" />
         </tab>
       </tabs>

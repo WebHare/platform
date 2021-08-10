@@ -83,26 +83,6 @@
       <text tid="ordering-up">Oplopend</text>
       <text tid="screentitle">Volgorde baseren op</text>
     </textgroup>
-    <textgroup gid="propsshared">   <!-- commondialogs.propsshared -->
-      <text tid="contenttypes">Contenttype data</text>
-      <text tid="deleted">Verwijderd</text>
-      <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
-      <text tid="developers">Ontwikkelaars</text>
-      <text tid="display">Weergeven</text>
-      <text tid="drafts">Conceptversies</text>
-      <text tid="formtitle">Algemene instellingen</text>
-      <text tid="info">Eigenschappen</text>
-      <text tid="linkcheck">Linkcontrole</text>
-      <text tid="load">Terugzetten</text>
-      <text tid="maintab">Algemeen</text>
-      <text tid="modified">Gewijzigd</text>
-      <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
-      <text tid="originallocation">Originele locatie</text>
-      <text tid="owner">Eigenaar</text>
-      <text tid="size">Grootte</text>
-      <text tid="type">Type</text>
-      <text tid="versioning">Geschiedenis</text>
-    </textgroup>
     <textgroup gid="selectsitedialog">   <!-- commondialogs.selectsitedialog -->
       <text tid="filter">Zoeken</text>
       <text tid="name">Website</text>
@@ -340,8 +320,10 @@
         <text tid="applyindex">Index</text>
         <text tid="applyrules">&lt;apply&gt;</text>
         <text tid="approved">Goedgekeurd</text>
+        <text tid="contenttypes">Contenttype data</text>
         <text tid="data">Data</text>
         <text tid="denied">Afgekeurd</text>
+        <text tid="drafts">Conceptversies</text>
         <text tid="dynamicexecution">Dynamische uitvoering</text>
         <text tid="dynamicexecution_cached">Gecached</text>
         <text tid="dynamicexecution_startmacro">Startmacro</text>
@@ -2178,13 +2160,20 @@
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
         <text tid="created">(Aangemaakt</text>
+        <text tid="deleted">Verwijderd</text>
+        <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
         <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
         <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
         <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
         <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
         <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
+        <text tid="info">Eigenschappen</text>
         <text tid="link">Link</text>
+        <text tid="linkcheck">Linkcontrole</text>
+        <text tid="maintab">Algemeen</text>
         <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
+        <text tid="modified">Gewijzigd</text>
+        <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
         <text tid="newfile-name">Nieuw <param p="1"/></text>
         <text tid="newfile-title">Nieuw bestand</text>
         <text tid="newfolder-title">Nieuwe map</text>

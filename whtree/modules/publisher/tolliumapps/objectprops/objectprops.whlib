@@ -703,7 +703,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         modifiedname := this->contexts->userapi->GetUserDisplayName(this->draftitem->modifiedby);
 
       IF(ObjectExists(this->draftitem))
-        modifiedinfo := GetTid("publisher:commondialogs.propsshared.modifiedtext"
+        modifiedinfo := this->GetTid(".modifiedtext"
                                    ,this->tolliumuser->FormatDateTime(this->draftitem->modificationdate, "minutes", TRUE, FALSE)
                                    ,modifiedname);
     }
@@ -785,7 +785,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       STRING deletionuser := this->contexts->userapi->GetUserDisplayName(info.deletionuser);
       this->isdeleted := TRUE;
 
-      STRING deletioninfo := GetTid("publisher:commondialogs.propsshared.deletedtext"
+      STRING deletioninfo := this->GetTid(".deletedtext"
                                    ,this->tolliumuser->FormatDateTime(info.deletiondate, "minutes", TRUE, FALSE)
                                    ,deletionuser);
       ^deleted->value := deletioninfo;
