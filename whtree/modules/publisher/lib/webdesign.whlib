@@ -41,6 +41,15 @@ LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib" EXPORT WebPageBase;
 
+CONSTANT RECORD initialrobotstag := [ noindex := FALSE
+                                    , nofollow := FALSE
+                                    , noarchive := FALSE
+                                    , unavailable_after := DEFAULT DATETIME
+                                    , noimageindex := FALSE
+                                    , nosnippet := FALSE
+                                    , custom := ""
+                                    ];
+
 VARIANT FUNCTION CleanupWittyData(VARIANT indata)
 {
   IF(IsTypeIDArray(TYPEID(indata)))
@@ -129,6 +138,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   STRING ARRAY resourcedeps;
   /// Already generated anchors
   STRING ARRAY __seenanchors;
+  /// Full tree to current target
+  INTEGER ARRAY _targetobject_fulltree;
+  /// Current robots tag
+  RECORD _robotstag;
 
   // ---------------------------------------------------------------------------
   //
@@ -181,6 +194,15 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC PROPERTY jssiteconfig(__jssiteconfig, SetJSSiteConfig);
   ///Obj-specific js settings
   PUBLIC PROPERTY jsobjconfig(__jsobjconfig, SetJSObjConfig);
+  /** Robot meta tag
+      @cell(boolean) noindex Prevent indexing
+      @cell(boolean) nofollow Prevent links form being followed
+      @cell(boolean) noarchive Prevent archiving/caching
+      @cell(datetime) unavailable_after Specify that this document will no longer be available after this date/time
+      @cell(boolean) noimageindex Prevent images from being indexes
+      @cell(boolean) nosnippet Prevent snippet generating
+      @cell(string) custom Custom additional robot features */
+  PUBLIC PROPERTY robotstag(_robotstag, _SetRobotsTag);
   ///Are we in the rendering phase? (too late to add anything but footers)
   PUBLIC PROPERTY startedrendering(pvt_startedrendering, -);
   ///Witty encoding to use
@@ -231,6 +253,11 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF (ObjectExists(__webdesign_config.applytester))
       this->__SetObjectId(__webdesign_config.applytester->__Deprecated_GetObjInfo().obj.id, __webdesign_config.applytester);
 
+    OBJECT tree_end := ObjectExists(this->targetobject) AND this->targetobject->id != this->targetfolder->indexdoc ? this->targetobject : this->targetfolder;
+    IF(ObjectExists(tree_end))
+      this->_targetobject_fulltree := tree_end->GetFullTree();
+
+    this->_InitRobotsTag();
     this->relativelinksscope := "protocol";
 
     IF(ObjectExists(this->pvt_targetobject))
@@ -296,6 +323,23 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(ObjectExists(this->__config.applytester))
     {
       this->__SetAvailablePlugins(this->__config.applytester->GetWebDesignPlugins());
+    }
+  }
+
+  MACRO _InitRobotsTag()
+  {
+    this->_robotstag := initialrobotstag;
+
+    CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
+    INTEGER ARRAY parents := this->_targetobject_fulltree;
+    RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", lockablefields CONCAT ["customrobots"]);
+    FOREVERY(RECORD parent FROM seoitems)
+    {
+      FOREVERY(STRING field FROM lockablefields)
+        IF(GetCell(parent, field))
+          this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
+      IF(parent.customrobots != "")
+        this->_robotstag.custom := parent.customrobots;
     }
   }
 
@@ -587,15 +631,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC RECORD ARRAY FUNCTION GetStructuredBreadcrumb()
   {
     // TODO move path generation to a free or WHFS function, with options... so users can invoke an efficient implementation when the standard one doesn't do
-    OBJECT tree_end := this->targetobject->id = this->targetfolder->indexdoc ? this->targetfolder : this->targetobject;
-    INTEGER ARRAY tree := tree_end->GetFullTree();
     RECORD ARRAY crumbs := SELECT title := title ?? name
                                 , link
                              FROM system.fs_objects
-                            WHERE id IN tree
+                            WHERE id IN this->_targetobject_fulltree
                                   AND link != ""
                                   AND id != this->targetfolder->indexdoc
-                         ORDER BY SearchElement(tree,id);
+                         ORDER BY SearchElement(this->_targetobject_fulltree, id);
     RETURN crumbs;
   }
 
@@ -1033,6 +1075,34 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     IF(Length(this->structuredbreadcrumb) > 0)
       this->__PrintStructuredData();
+
+    this->_PrintRobotTag();
+  }
+
+  MACRO _PrintRobotTag()
+  {
+    STRING ARRAY tagparts;
+    FOREVERY(STRING usualprop FROM [ "noindex", "nofollow", "noarchive", "noimageindex", "nosnippet" ])
+      IF(GetCell(this->_robotstag, usualprop))
+        INSERT usualprop INTo tagparts AT END;
+
+    IF(this->_robotstag.noindex AND NOT this->_robotstag.nofollow)
+      INSERT "follow" INTO tagparts AT END; //various sources seem to recommend explicitly setting follow/nofollow after a noindex, and it shouldn't do harm
+
+    IF(this->_robotstag.unavailable_after != DEFAULT DATETIME)
+      INSERT "unavailable_after: " || FormatISO8601Datetime(this->_robotstag.unavailable_after) INTO tagparts AT END;
+
+    STRING tag := Detokenize(tagparts, ",") || (this->_robotstag.custom != "" ? "," || this->_robotstag.custom : "");
+    IF(tag != "")
+      Print(`<meta name="robots" content="${EncodeValue(tag)}">`);
+  }
+
+  MACRO _SetRobotsTag(RECORD newsetting)
+  {
+    IF(this->pvt_startedrendering)
+      THROW NEW Exception("The robot tag cannot be modified anymore when the page is being rendered");
+    ValidateOptions(initialrobotstag, newsetting);
+    this->_robotstag := CELL[ ...this->_robotstag, ...newsetting];
   }
 
   MACRO __PrintStructuredData()

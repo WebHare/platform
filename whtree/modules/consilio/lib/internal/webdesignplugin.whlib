@@ -4,14 +4,11 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 PUBLIC STATIC OBJECTTYPE RobotsPlugin EXTEND WebDesignPluginBase
 <
-  BOOLEAN pvt_rendered;
-  BOOLEAN pvt_noindex;
-  BOOLEAN pvt_nofollow;
-  BOOLEAN pvt_noarchive;
+  OBJECT webdesign;
 
-  PUBLIC PROPERTY noindex(pvt_noindex, SetNoIndex);
-  PUBLIC PROPERTY nofollow(pvt_nofollow, SetNoFollow);
-  PUBLIC PROPERTY noarchive(pvt_noarchive, SetNoArchive);
+  PUBLIC PROPERTY noindex(GetNoIndex, SetNoIndex);
+  PUBLIC PROPERTY nofollow(GetNoFollow, SetNoFollow);
+  PUBLIC PROPERTY noarchive(GetNoArchive, SetNoArchive);
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
@@ -23,50 +20,44 @@ PUBLIC STATIC OBJECTTYPE RobotsPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
   {
-    this->noindex := mergedconfiguration.noindex;
-    this->nofollow := mergedconfiguration.nofollow;
-    this->noarchive := mergedconfiguration.noarchive;
+    this->webdesign := webcontext;
+
+    //Only set these if they're actually disabled, gives us some protection against weird init ordering (at least prevents us from incorrectly resetting)
+    IF(mergedconfiguration.noindex)
+      this->noindex := mergedconfiguration.noindex;
+    IF(mergedconfiguration.nofollow)
+      this->nofollow := mergedconfiguration.nofollow;
+    IF(mergedconfiguration.noarchive)
+      this->noarchive := mergedconfiguration.noarchive;
   }
 
-  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  BOOLEAN FUNCTION GetNoIndex()
   {
-    // Don't render directly, so webdesign and pages have a chance to update the values
-    webdesign->InsertWithCallback(PTR this->RenderMetaTag, "dependencies-top");
+    RETURN this->webdesign->robotstag.noindex;
   }
 
-  MACRO RenderMetaTag()
+  BOOLEAN FUNCTION GetNoArchive()
   {
-    STRING ARRAY content;
-    IF (this->noindex) INSERT "noindex" INTO content AT END;
-    IF (this->nofollow) INSERT "nofollow" INTO content AT END;
-    IF (this->noarchive) INSERT "noarchive" INTO content AT END;
+    RETURN this->webdesign->robotstag.noarchive;
+  }
 
-    // Only print a meta tag if there are restrictions
-    // See also: http://noarchive.net/meta/
-    IF (Length(content) > 0)
-      Print('<meta name="robots" content="' || Detokenize(content, ", ") || '">\n');
-
-    this->pvt_rendered := TRUE;
+  BOOLEAN FUNCTION GetNoFollow()
+  {
+    RETURN this->webdesign->robotstag.nofollow;
   }
 
   MACRO SetNoIndex(BOOLEAN noindex)
   {
-    IF (this->pvt_rendered)
-      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
-    this->pvt_noindex := noindex;
+    this->webdesign->robotstag.noindex := noindex;
   }
 
   MACRO SetNoArchive(BOOLEAN noarchive)
   {
-    IF (this->pvt_rendered)
-      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
-    this->pvt_noarchive := noarchive;
+    this->webdesign->robotstag.noarchive := noarchive;
   }
 
   MACRO SetNoFollow(BOOLEAN nofollow)
   {
-    IF (this->pvt_rendered)
-      THROW NEW Exception("Robots values cannot be updated after the <meta> tag has been rendered");
-    this->pvt_nofollow := nofollow;
+    this->webdesign->robotstag.nofollow := nofollow;
   }
 >;

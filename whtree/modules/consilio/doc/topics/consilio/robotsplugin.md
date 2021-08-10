@@ -3,6 +3,8 @@ This plugin adds a `<meta name="robots">` tag to the pages on which the plugin i
 The value of the tag is controlled statically by the 'noindex' and 'nofollow' attributes
 on the plugin tag or dynamically in the webdesign.
 
+This plugin has been deprecated in WebHare 4.32.
+
 ## INTEGRATION
 To activate the plugin for all pages, add the following to the global site settings:
 

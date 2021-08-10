@@ -47,7 +47,7 @@
 
     <body layout="form" height="1pr" spacers="none">
       <tabs name="maintabs" height="1pr" savestate="selectedtab">
-        <tab name="contenttypes" layout="left" tid="commondialogs.propsshared.contenttypes">
+        <tab name="contenttypes" layout="left" tid=".contenttypes">
           <panel height="1pr">
             <list name="dbinfo"
                   selectmode="single"
@@ -61,7 +61,7 @@
             </list>
           </panel>
         </tab>
-        <tab name="draftcontenttypes" layout="left" tid="commondialogs.propsshared.drafts">
+        <tab name="draftcontenttypes" layout="left" tid=".drafts">
           <split type="horizontal" splitter="transparent">
             <part width="1pr">
               <list name="drafts"

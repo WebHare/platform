@@ -24,7 +24,6 @@
     <messagebox name="foldercontainsnosites" icon="error" buttons="ok" />
     <messagebox name="surerepublishfolderoutsidesite" icon="question" buttons="yes no" />
     <messagebox name="confirmconverttosite" icon="question" buttons="yes no" />
-    <messagebox name="sitealreadyexists" tid="commondialogs.errors.objectprops.sitealreadyexists" icon="error" buttons="ok" />
     <messagebox name="confirmconverttofolder" icon="question" buttons="yes no" />
     <messagebox name="sitedoesnotexist" icon="error" buttons="ok" />
     <messagebox name="cannotrevertversioned" icon="error" buttons="ok" />

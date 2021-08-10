@@ -132,7 +132,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
 
       this->SetupSiteOptions();
 
-      this->frame->title := GetTid("publisher:commondialogs.objectprops.newsite-title");
+      this->frame->title := this->GetTid(".newsite-title");
       ^sitedesign->value := "publisher:nodesign";
 
       IF (NOT ObjectExists(this->parentfolder) AND data.parentfolder != 0)
@@ -162,7 +162,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
         this->parentfolder := OpenWHFSRootObject();
 
       this->SetupSiteOptions();
-      this->frame->title := GetTid("publisher:commondialogs.objectprops.sitesettings-title", this->curitem->name);
+      this->frame->title := this->GetTid(".sitesettings-title", this->curitem->name);
 
       // Retrieve the site profiles
       OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
@@ -234,7 +234,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
     // Check site name uniqueness - they need to be globally unique as site::<sitename> whfs paths are a thing
     OBJECT othersite := OpenSiteByName(^name->value);
     IF (ObjectExists(othersite) AND othersite->id != this->itemid)
-      work->AddErrorFor(^name, GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", ^name->value));
+      work->AddErrorFor(^name, this->GetTid(".sitealreadyexists", ^name->value));
 
 
     RECORD metadata := [ name := ^name->value
@@ -261,12 +261,12 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       IF(analyze_new_location.siteonlocation != 0)
       {
         STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.siteonlocation;
-        work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.outputfolderused", sitename));
+        work->AddErrorFor(^outputfolder, this->GetTid(".outputfolderused", sitename));
       }
       ELSE IF(analyze_new_location.sitecontaininglocation != 0)
       {
         STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.sitecontaininglocation;
-        work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.outputfolderused", sitename));
+        work->AddErrorFor(^outputfolder, this->GetTid(".outputfolderused", sitename));
       }
       ELSE
       {
@@ -278,7 +278,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
           STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = conflict.site;
           STRING destfolder := SELECT AS STRING fullpath FROM system.fs_objects WHERE id = conflict.parent;
 
-          work->AddErrorFor(^outputfolder, GetTid("publisher:commondialogs.errors.objectprops.createoutputfolder", sitename, conflict.name, destfolder));
+          work->AddErrorFor(^outputfolder, this->GetTid(".createoutputfolder", sitename, conflict.name, destfolder));
         }
       }
     }

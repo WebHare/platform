@@ -1,0 +1,24 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.objectprops.seotab"
+         library="seotab.whlib">
+
+  <tabsextension name="seosettings" implementation="lib">
+    <newtab title="SEO">
+      <heading tid=".indexing" />
+      <lines layout="left">
+        <checkbox composition="contentdata" cellname="noindex" name="noindex" labeltid=".noindex" title="" />
+        <checkbox composition="contentdata" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
+        <checkbox composition="contentdata" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
+      </lines>
+      <textedit composition="contentdata" cellname="customrobots" name="customrobots" width="1pr" />
+<!--
+      <heading name="canonicalheading" tid=".canonical" />
+      <lines layout="left">
+        <p:intextlink composition="contentdata" cellname="canonical" name="canonical" errorlabeltid=".canonical" title="" />
+      </lines>
+ -->
+    </newtab>
+  </tabsextension>
+
+</screens>

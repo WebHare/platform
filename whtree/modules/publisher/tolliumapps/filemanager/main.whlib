@@ -1485,12 +1485,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     IF(Length(GetContainedSites([ INTEGER(obj.id) ])) > 0)
     {
-      this->RunSimpleScreen("error", GetTid("publisher:commondialogs.messageboxes.containssite"));
+      this->RunSimpleScreen("error", this->GetTid(".containssite"));
       RETURN;
     }
     IF(ObjectExists(OpenSiteByName(obj.name)))
     {
-      this->RunSimpleScreen("error", GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", obj.name));
+      this->RunSimpleScreen("error", GetTid("publisher:common.errors.sitealreadyexists", obj.name));
       RETURN;
     }
     OBJECT confirm := this->LoadScreen(".converttositedialog", [ site := obj.name ]);

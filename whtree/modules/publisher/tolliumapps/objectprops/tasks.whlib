@@ -1,0 +1,108 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STRING FUNCTION GetTaskTitle(RECORD task)
+{
+  SWITCH (task.event)
+  {
+    CASE 1
+    {
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-start");
+    }
+    CASE 2
+    {
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-end");
+    }
+    CASE 3
+    {
+      OBJECT folder := OpenWHFSObject(task.folder);
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-movefolder", (ObjectExists(folder) ? folder->name : ""));
+    }
+    CASE 4
+    {
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-delete");
+    }
+    CASE 5
+    {
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-setindexdoc");
+    }
+    CASE 6
+    {
+      OBJECT replacewith := OpenWHFSObject(task.folder);
+      RETURN GetTid("publisher:tolliumapps.objectprops.tasks.event-replacewithtarget", (ObjectExists(replacewith) ? replacewith->name : ""));
+    }
+  }
+  RETURN "";
+}
+
+
+PUBLIC STATIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
+< INTEGER siteroot;
+
+  PUBLIC PROPERTY task(GetTask, -);
+
+  MACRO Init(RECORD data)
+  {
+    IF (data.why = "new")
+    {
+      this->frame->title := this->GetTid(".addtask");
+      ^event->value := "1";
+      ^when->value := GetCurrentDateTime();
+    }
+    ELSE IF (data.why = "edit")
+    {
+      this->frame->title := this->GetTid(".edittask");
+      ^event->value := ToString(data.event);
+      ^folder->value := data.event = 3 ? data.folder : 0;
+      ^when->value := data.when;
+      ^replacewith->value := data.event = 6 ? data.folder : 0;
+    }
+    ELSE
+      ABORT("Unknown 'why'");
+
+    IF(data.isfolder)
+    {
+      ^start->label := this->GetTid(".event-startrecurse");
+      ^"end"->label := this->GetTid(".event-endrecurse");
+      ^button_replacewith->enabled := FALSE;
+    }
+    ELSE
+    {
+      ^replacewith->accepttypes := STRING[ this->contexts->applytester->objtypens ];
+    }
+
+    this->siteroot := data.siteroot;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    INTEGER event := ToInteger(^event->value, 0);
+    IF (event < 1 OR event > 6)
+      work->AddError(GetTid("tollium:common.errors.field_required", ^start->title));
+
+    IF (NOT work->HasFailed() AND event = 3 AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", ^folder->value))
+    {
+      work->AddErrorFor(^folder, this->GetTid(".norightstomovetofolder", ^curfolder->name));
+    }
+
+    IF (^when->value < AddTimeToDate(-(5 * 60 * 1000),GetCurrentDateTime())) //only warn if more than 5 minutes in the past
+      work->AddError(this->GetTid(".taskinpast"));
+
+    RETURN work->Finish();
+  }
+
+  RECORD FUNCTION GetTask()
+  {
+    RETURN [ event := ToInteger(^event->value, 0)
+           , folder := ^event->value = "3" ? ^folder->value : ^event->value = "6" ? ^replacewith->value : 0
+           , when := ^when->value
+           ];
+  }
+>;

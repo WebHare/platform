@@ -516,6 +516,13 @@
     <boolean name="show_linkstatus" />
   </contenttype>
 
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/seosettings" cloneoncopy="false">
+    <boolean name="noindex" />
+    <boolean name="nofollow" />
+    <boolean name="noarchive" />
+    <string name="customrobots" />
+  </contenttype>
+
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/sitesettings">
     <string name="sitedesign" />
     <stringarray name="webfeatures" />

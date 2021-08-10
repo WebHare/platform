@@ -1,28 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/commondialogs/objectprops.whlib"
-         gid="commondialogs">
+         library="objectprops.whlib"
+         gid="tolliumapps.objectprops.objectprops">
 
-  <messageboxes gid=".messageboxes">
-    <messagebox name="siteprofileerrors" icon="warning" buttons="ok" />
-    <messagebox name="deletetaskconfirm" icon="question" buttons="yes no" />
-    <messagebox name="deleteoldindexconfirm" icon="warning" buttons="yes no" />
-    <messagebox name="replaceindexconfirm" icon="question" buttons="yes no" />
-    <messagebox name="indexnotpublished" icon="warning" buttons="ok" />
-    <messagebox name="deletemultiplerightsconfirm" icon="warning" buttons="yes no" />
-    <messagebox name="folderwithoutindex" icon="warning" buttons="ok" />
-    <messagebox name="unpinconfirm" icon="question" buttons="yes no" dontshowagain="yes" />
-    <messagebox name="cannotreplacepinnedindex" icon="error" buttons="ok" />
-    <messagebox name="contentlinkpointstononindex" icon="error" buttons="ok" />
-    <messagebox name="noversionedfieldswerechanged" icon="information" buttons="ok" />
-    <messagebox name="confirmrestore" icon="question" buttons="yes no" />
-    <messagebox name="draftcancelled" buttons="close" />
-    <messagebox name="requestcancelled" buttons="close" />
-    <messagebox name="noindexhtmlinversionedfolderwithindex" icon="error" buttons="ok" />
-    <messagebox name="submitversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
-  </messageboxes>
-
-  <screen name="objectprops" gid=".objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
+  <screen name="objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
     <actions>
       <action name="addtask" tid="tollium:common.actions.add" onexecute="doaddtask" frameflags="!ispinned" />
       <action name="edittask" tid="tollium:common.actions.edit" onexecute="doedittask" frameflags="!ispinned">
@@ -50,8 +31,8 @@
         <text name="versioningmovemessage" title="" value="" />
       </panel>
       <tabs name="maintabs" height="1pr">
-        <tab name="maintab" tid="commondialogs.propsshared.maintab">
-          <!-- FIXME do we need this? heading tid="commondialogs.propsshared.formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
+        <tab name="maintab" tid=".maintab">
+          <!-- FIXME do we need this? heading tid=".formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
 
           <!-- general fields -->
           <textedit tid="~name" name="name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
@@ -69,18 +50,18 @@
 
 
           <!-- box name=settings endewd here -->
-          <heading tid="commondialogs.propsshared.info" name="typeh"/>
+          <heading tid=".info" name="typeh"/>
           <line>
             <text name="type"/>
-            <text name="size"  title=""/> <!--tid="commondialogs.propsshared.size"-->
+            <text name="size"  title=""/> <!--tid=".size"-->
           </line>
           <line>
-            <text name="modified" tid="commondialogs.propsshared.modified" />
+            <text name="modified" tid=".modified" />
             <!--datetime name="creationdate" tid=".created" type="datetime" precision="minutes" storeutc="true" readonly="true" title=""/-->
             <text name="creationdatebrackets" tid=".created" visible="false" />
           </line>
 
-          <text name="deleted" tid="commondialogs.propsshared.deleted" visible="false" />
+          <text name="deleted" tid=".deleted" visible="false" />
           <text name="originallocation" visible="false" />
 
           <spacer name="properties" visible="false" /> <!-- this is just an insertion point -->
@@ -135,7 +116,7 @@
             </row>
           </grid>
         </tab>
-        <tab name="linkcheck" layout="left" tid="commondialogs.propsshared.linkcheck" visible="false">
+        <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
           <includefragment fragment="consilio:report.objectreport" name="objectreport" />
         </tab>
       </tabs>
@@ -146,30 +127,6 @@
         <button name="ok_button" tid="tollium:common.actions.ok" tolliumresult="ok" />
         <button name="cancel_button" tid="tollium:common.actions.cancel" tolliumresult="cancel" />
       </line>
-    </footer>
-  </screen>
-
-  <screen name="taskprops" gid=".taskprops" title="">
-    <compositions>
-      <radiogroup name="event" />
-    </compositions>
-    <body>
-      <radiobutton name="start" group="event" rowkey="1" tid=".event" labeltid=".event-start" />
-      <radiobutton name="end" group="event" rowkey="2" title="" labeltid=".event-end" />
-      <line>
-        <radiobutton name="move" group="event" rowkey="3" title="" labeltid=".event-move" enablecomponents="folder" />
-        <publisher:browseforobject name="folder" acceptfiles="false" required="true" errorlabeltid=".event-move" title="" showclear="false"/>
-      </line>
-      <radiobutton name="delete" group="event" rowkey="4" title="" labeltid=".event-delete" />
-      <radiobutton name="setindexdoc" group="event" rowkey="5" title="" labeltid=".event-setindexdoc" />
-      <line>
-        <radiobutton name="button_replacewith" group="event" rowkey="6" title="" labeltid=".event-replacewith" enablecomponents="replacewith" />
-        <publisher:browseforobject name="replacewith" acceptfolders="false" required="true" errorlabeltid=".event-replacewith" title="" showclear="false"/>
-      </line>
-      <datetime name="when" type="datetime" precision="minutes" required="true" storeutc="true" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 
