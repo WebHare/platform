@@ -1,28 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/commondialogs/objectprops.whlib"
-         gid="commondialogs">
+         library="objectprops.whlib"
+         gid="tolliumapps.objectprops.objectprops">
 
-  <messageboxes gid=".messageboxes">
-    <messagebox name="siteprofileerrors" icon="warning" buttons="ok" />
-    <messagebox name="deletetaskconfirm" icon="question" buttons="yes no" />
-    <messagebox name="deleteoldindexconfirm" icon="warning" buttons="yes no" />
-    <messagebox name="replaceindexconfirm" icon="question" buttons="yes no" />
-    <messagebox name="indexnotpublished" icon="warning" buttons="ok" />
-    <messagebox name="deletemultiplerightsconfirm" icon="warning" buttons="yes no" />
-    <messagebox name="folderwithoutindex" icon="warning" buttons="ok" />
-    <messagebox name="unpinconfirm" icon="question" buttons="yes no" dontshowagain="yes" />
-    <messagebox name="cannotreplacepinnedindex" icon="error" buttons="ok" />
-    <messagebox name="contentlinkpointstononindex" icon="error" buttons="ok" />
-    <messagebox name="noversionedfieldswerechanged" icon="information" buttons="ok" />
-    <messagebox name="confirmrestore" icon="question" buttons="yes no" />
-    <messagebox name="draftcancelled" buttons="close" />
-    <messagebox name="requestcancelled" buttons="close" />
-    <messagebox name="noindexhtmlinversionedfolderwithindex" icon="error" buttons="ok" />
-    <messagebox name="submitversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
-  </messageboxes>
-
-  <screen name="objectprops" gid=".objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
+  <screen name="objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
     <actions>
       <action name="addtask" tid="tollium:common.actions.add" onexecute="doaddtask" frameflags="!ispinned" />
       <action name="edittask" tid="tollium:common.actions.edit" onexecute="doedittask" frameflags="!ispinned">

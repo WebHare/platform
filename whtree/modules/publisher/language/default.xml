@@ -32,6 +32,7 @@
       <text tid="fileorfolderexists">A file or folder with name '<param p="1"/>' already exists in folder '<param p="2"/>'.</text>
       <text tid="hiddenfolderexists">A hidden folder with namer '<param p="1"/>' already exists in folder '<param p="2"/>'.</text>
       <text tid="illegalfilename">'<param p="1"/>' is not a valid file or folder name. A name cannot be longer than 256 characters, it may not end with a dot and the following characters may not be used:<br/>/ \ : * ? " &lt; &gt; |</text>
+      <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
       <text tid="typecannotbeversioned">Files of type '<param p="1"/>' cannot be submitted for approval.</text>
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
@@ -50,111 +51,24 @@
         <text tid="title">Choose object type</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="errors">   <!-- commondialogs.errors -->
-      <textgroup gid="objectprops">   <!-- commondialogs.errors.objectprops -->
-        <text tid="createoutputfolder">The site '<param p="1"/>' already uses a subfolder of the specified path and conflicts. This may be resolved by creating a foreign folder named '<param p="2"/>' in this site at '<param p="3"/>'</text>
-        <text tid="outputfolderused">Site '<param p="1"/>' already uses (an ancestor of) the new output folder.</text>
-        <text tid="renamesiteerror">The site could not be renamed.</text>
-        <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="cannotfindobjecteditor">The '<param p="1"/>' object editor should be used for this object, but it could not be found or invoked.</text>
-      <text tid="cannotopen">The publisher is unable to offer an editor for this type of file.<br/><br/>To edit this file, download it and make the necessary modifications on your computer. After saving the file on your computer, use the 'Replace' action to put this modified document on the server.</text>
       <text tid="cannotopencontentlisting">A content listing has no contents that can be modified or downloaded.</text>
       <text tid="cannotopenlink">A link file has no contents that can be modified or downloaded. Use the Properties button to change the link destination</text>
-      <text tid="cannotreplacepinnedindex">This document cannot be set as the index for the folder, as the current index has been protected.</text>
-      <text tid="confirmcanceldraft">Are you sure you want to revert the draft document to the last published version?</text>
-      <text tid="confirmcancelrequest">Are you sure you want to withdraw the publication request for this draft document?</text>
-      <text tid="confirmrestore">Are you sure you want to restore this document?</text>
-      <text tid="confirmslavedelete">Are you sure you want to delete this secondary output location?</text>
-      <text tid="containssite">Can't convert to site: The selected folder already contains a site.</text>
-      <text tid="contentlinkpointstononindex">This content link cannot be set as the index for the folder, as the file it points to is not of an acceptable filetype for an index.</text>
       <text tid="deleteconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Are you sure you want to permanently delete the folder '<param p="3"/>'?<else/>Are you sure you want to permanently delete the file '<param p="2"/>'?</ifparam><else/>Are you sure you want to permanently delete these <param p="1"/> items?</ifparam></text>
       <text tid="deletefsobjects">Are you sure you want to delete <ifparam p="1" value="1"> the selected item<else/>the <param p="1"/> items you've selected</ifparam>?</text>
-      <text tid="deletemultiplerightsconfirm">Are you sure you want to remove the selected rights?</text>
-      <text tid="deleteoldindexconfirm">If you set this document as index file, the current index file '<param p="1"/>' will have to be deleted. Are you sure you want to make '<param p="2"/>' the index document?</text>
       <text tid="deletesitesconfirm">Your selection contains the following sites, which would be deleted:\n<param p="1"/>\n\nAre you sure you want to delete the selection?</text>
-      <text tid="deletetaskconfirm">Are you sure you want to delete this task?</text>
-      <text tid="download">Download</text>
-      <text tid="draftcancelled">The draft version has been cancelled - the document is reverted to the latest published version.</text>
       <text tid="editordoesnotsupportversionedsites">The editor for this file does not support versioned sites. Please contact your system administrator.</text>
-      <text tid="faildeleteforotheroutputsites">You cannot delete the current selection, because it contains the output of other sites in one or more foreign folders.</text>
       <text tid="failrecycleforotheroutputsites">You cannot recycle the current selection, because it contains the output of other sites in one or more foreign folders.</text>
       <text tid="failrecyclefortheseoutputsites">You cannot recycle the current selection, because it contains the output of the following sites in one or more foreign folders:<br/><param p="1"/></text>
-      <text tid="filecannotbenamedasindex">This filename is not permitted because this type of file cannot be used as an index document.</text>
-      <text tid="folderwithoutindex">The current folder does not have an index document anymore.</text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">This file already exists in the list. Are you sure you want to add it again?<else/>Multiple of the files you chose were already in the list. Are you sure you want to add those again?</ifparam></text>
-      <text tid="indexnotpublished">This document is the current index document, but it is not being published.</text>
       <text tid="movetotrashconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Are you sure you want to move the folder '<param p="3"/>' to the trash?<else/>Are you sure you want to move the file '<param p="2"/>' to the trash?</ifparam><else/>Are you sure you want to move these <param p="1"/> items to the trash?</ifparam></text>
-      <text tid="noindexhtmlinversionedfolderwithindex">This filename is not permitted since it would automatically replace the index document.</text>
       <text tid="norightsforpublisher">You don't have enough rights to open this object in the Publisher</text>
       <text tid="norightstoeditfile">You don't have enough rights to edit this file.</text>
       <text tid="norightstoviewfile">You don't have enough rights to open this file.</text>
-      <text tid="noversionedfieldswerechanged">No data was changed that needs approval - the fields have been updated automatically</text>
       <text tid="privilegeslost">You no longer have access to this document</text>
       <text tid="recyclesitesconfirm">Your selection contains the following sites, which will be recycled:<br/> <param p="1"/> <br/>Are you sure you want to move the selection to the recycle bin?</text>
       <text tid="replace_file_with_other_type">The uploaded file seems to be of a different file type than the original file. Are you sure you want to use the uploaded file to replace the current file?</text>
-      <text tid="replaceindexconfirm">The document '<param p="1"/>' is the current index document for this folder. Are you sure you want to make '<param p="2"/>' the index document?</text>
-      <text tid="requestcancelled">The publication request has been cancelled - the document is reverted to the latest draft version.</text>
-      <text tid="siteprofileerrors">The following errors occured processing the site profiles:<br/><br/><param p="1"/></text>
-      <text tid="submitversionedfiletoapplychanges">Your changes are not yet visible online: they need to be submitted (and approved) first.</text>
-      <text tid="unpinconfirm">Are you sure you want to remove the object protection?</text>
-    </textgroup>
-    <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
-      <text tid="created">(Created</text>
-      <text tid="data">Value</text>
-      <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
-      <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
-      <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
-      <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
-      <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
-      <text tid="link">Link</text>
-      <text tid="local">in this folder</text>
-      <text tid="lockreason">Reason for locking:</text>
-      <text tid="locksite">Lock the site</text>
-      <text tid="makeindex">Use this file as the index document for this folder</text>
-      <text tid="multiple-title">Properties of <param p="1"/> items</text>
-      <text tid="newfile-name">New <param p="1"/></text>
-      <text tid="newfile-title">New file</text>
-      <text tid="newfolder-title">New folder</text>
-      <text tid="newsite">New Site</text>
-      <text tid="newsite-title">New site</text>
-      <text tid="nobrokenlinks">No broken links found</text>
-      <text tid="nolinks">No links found</text>
-      <text tid="originallocation">Original location</text>
-      <text tid="output">Output</text>
-      <text tid="outputfolder">Subfolder in output URL</text>
-      <text tid="outputweb">Output URL</text>
-      <text tid="owner">Owner</text>
-      <text tid="path">Path</text>
-      <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
-      <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
-      <text tid="publicationsettings">Publication settings</text>
-      <text tid="publish">Publish this file</text>
-      <text tid="publishedurl">URL</text>
-      <text tid="publishtab">Publication</text>
-      <text tid="requestapproval">Submit for approval</text>
-      <text tid="restrictions">Restrictions</text>
-      <text tid="rights">Rights</text>
-      <text tid="showapplyrules">Show &lt;apply&gt; rules</text>
-      <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
-      <text tid="sitesettings-title">Settings for site '<param p="1"/>'</text>
-      <text tid="sitetab">Site</text>
-      <text tid="tasksettings">Tasks</text>
-      <text tid="taskstab">Tasks</text>
-      <text tid="trashnotpublished">Deleted files cannot be published</text>
-      <text tid="trustedsiteprofilesbox">Trusted site profiles</text>
-      <text tid="type">Type</text>
-      <text tid="typenotpublished">Files of type '<param p="1"/>' cannot be published</text>
-      <text tid="unknown">&lt;Unknown&gt;</text>
-      <text tid="viewurl">View</text>
-      <text tid="whfspath">Site profile</text>
-      <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
-        <text tid="notasks">No tasks have been scheduled</text>
-        <text tid="task">Task</text>
-        <text tid="when">Time</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="orderbasedon">   <!-- commondialogs.orderbasedon -->
       <text tid="base_on">Base on</text>
@@ -196,19 +110,23 @@
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
       <text tid="cdnbaseurl">CDN base URL</text>
+      <text tid="createoutputfolder">The site '<param p="1"/>' already uses a subfolder of the specified path and conflicts. This may be resolved by creating a foreign folder named '<param p="2"/>' in this site at '<param p="3"/>'</text>
       <text tid="feature">Feature</text>
       <text tid="locksite">Lock the site</text>
       <text tid="module">Module</text>
+      <text tid="newsite-title">New site</text>
       <text tid="nowebfeatures">No 'webfeatures' available</text>
       <text tid="output">Output</text>
       <text tid="outputfolder">Subfolder in output URL</text>
+      <text tid="outputfolderused">Site '<param p="1"/>' already uses (an ancestor of) the new output folder.</text>
       <text tid="outputweb">Output URL</text>
       <text tid="productionurl">Production URL</text>
+      <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
       <text tid="sitedesign">Sitedesign</text>
-      <text tid="sitedesign-none">(none)</text>
       <text tid="sitedesignbox">Website design</text>
       <text tid="sitedesigntab">Design</text>
       <text tid="siteprops">Site-settings</text>
+      <text tid="sitesettings-title">Settings for site '<param p="1"/>'</text>
       <text tid="sitesettingstab">Settings</text>
       <text tid="webfeatures">Web features</text>
     </textgroup>
@@ -460,6 +378,7 @@
       <text tid="idnotfound">Could not find the ID</text>
       <textgroup gid="app">   <!-- filemanager.main.app -->
         <text tid="apptitle">Publisher</text>
+        <text tid="containssite">Can't convert to site: The selected folder already contains a site.</text>
         <text tid="edittab">Edit</text>
         <text tid="enablesortingbutton">Change order</text>
         <text tid="filelistmulti">Multi-row layout</text>
@@ -2255,6 +2174,52 @@
           <text tid="deletioncannotbeinpast">Deletion date cannot be in the past</text>
           <text tid="ispermanent">(no trash, deletion cannot be undone)</text>
           <text tid="lifecycle">Lifecycle</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="created">(Created</text>
+        <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
+        <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
+        <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
+        <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
+        <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
+        <text tid="link">Link</text>
+        <text tid="makeindex">Use this file as the index document for this folder</text>
+        <text tid="newfile-name">New <param p="1"/></text>
+        <text tid="newfile-title">New file</text>
+        <text tid="newfolder-title">New folder</text>
+        <text tid="originallocation">Original location</text>
+        <text tid="path">Path</text>
+        <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
+        <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
+        <text tid="publish">Publish this file</text>
+        <text tid="requestapproval">Submit for approval</text>
+        <text tid="restrictions">Restrictions</text>
+        <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
+        <text tid="tasksettings">Tasks</text>
+        <text tid="trashnotpublished">Deleted files cannot be published</text>
+        <text tid="type">Type</text>
+        <text tid="typenotpublished">Files of type '<param p="1"/>' cannot be published</text>
+        <textgroup gid="messageboxes">   <!-- tolliumapps.objectprops.objectprops.messageboxes -->
+          <text tid="cannotreplacepinnedindex">This document cannot be set as the index for the folder, as the current index has been protected.</text>
+          <text tid="confirmrestore">Are you sure you want to restore this document?</text>
+          <text tid="contentlinkpointstononindex">This content link cannot be set as the index for the folder, as the file it points to is not of an acceptable filetype for an index.</text>
+          <text tid="deleteoldindexconfirm">If you set this document as index file, the current index file '<param p="1"/>' will have to be deleted. Are you sure you want to make '<param p="2"/>' the index document?</text>
+          <text tid="deletetaskconfirm">Are you sure you want to delete this task?</text>
+          <text tid="draftcancelled">The draft version has been cancelled - the document is reverted to the latest published version.</text>
+          <text tid="filecannotbenamedasindex">This filename is not permitted because this type of file cannot be used as an index document.</text>
+          <text tid="folderwithoutindex">The current folder does not have an index document anymore.</text>
+          <text tid="indexnotpublished">This document is the current index document, but it is not being published.</text>
+          <text tid="noversionedfieldswerechanged">No data was changed that needs approval - the fields have been updated automatically</text>
+          <text tid="replaceindexconfirm">The document '<param p="1"/>' is the current index document for this folder. Are you sure you want to make '<param p="2"/>' the index document?</text>
+          <text tid="siteprofileerrors">The following errors occured processing the site profiles:<br/><br/><param p="1"/></text>
+          <text tid="submitversionedfiletoapplychanges">Your changes are not yet visible online: they need to be submitted (and approved) first.</text>
+          <text tid="unpinconfirm">Are you sure you want to remove the object protection?</text>
+        </textgroup>
+        <textgroup gid="tasks">   <!-- tolliumapps.objectprops.objectprops.tasks -->
+          <text tid="notasks">No tasks have been scheduled</text>
+          <text tid="task">Task</text>
+          <text tid="when">Time</text>
         </textgroup>
       </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->

@@ -975,7 +975,7 @@
     <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" />
     <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" />
     <objecteditor name="webtoolforum" screen="tolliumapps/forum/forum.xml#editforum" />
-    <objecteditor name="propertydialog" library="screens/commondialogs/objectprops.whlib" startmacro="runpropertydialog" />
+    <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlibrunpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" screen="texteditor.main" />
     <objecteditor name="adaptivecontent_beacon" screen="/tolliumapps/filemanager/adaptivecontent.xml#beaconprops" />

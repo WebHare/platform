@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -324,8 +324,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       ^modified->visible := FALSE;
       this->CalculateNameForNewObject();
 
-      this->frame->title := this->isfolder ? GetTid("publisher:commondialogs.objectprops.newfolder-title")
-                                           : GetTid("publisher:commondialogs.objectprops.newfile-title");
+      this->frame->title := this->isfolder ? this->GetTid(".newfolder-title")
+                                           : this->GetTid(".newfile-title");
 
       IF (NOT this->isfolder)
       {
@@ -345,7 +345,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
             AND NOT ObjectExists(this->objectpolicy);
 
         ^notpublished->visible := NOT cansetpublish;
-        ^notpublishedtext->value := this->curtype.ispublishable ? GetTid("publisher:commondialogs.objectprops.sitenotpublished") : GetTid("publisher:commondialogs.objectprops.typenotpublished", ^type->value);
+        ^notpublishedtext->value := this->curtype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
         ^publish->visible := cansetpublish;
         //ADDME introduce 'initialpublish' or something like that for all file types. or it should somehow be linked to the use of the editdocument app, i can image editdocument to be more internalized than 'just an editor app'
         ^publish->value := initialpublish;
@@ -377,9 +377,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
 
       this->frame->title := RecordExists(this->cursite)
-                               ? GetTid("publisher:commondialogs.objectprops.editsite-title", this->sourceitem->name)
-                               : this->isfolder ? GetTid("publisher:commondialogs.objectprops.editfolder-title", this->sourceitem->name)
-                                                : GetTid("publisher:commondialogs.objectprops.editfile-title",   this->sourceitem->name);
+                               ? this->GetTid(".editsite-title", this->sourceitem->name)
+                               : this->isfolder ? this->GetTid(".editfolder-title", this->sourceitem->name)
+                                                : this->GetTid(".editfile-title",   this->sourceitem->name);
 
     }
     ELSE
@@ -427,7 +427,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       BOOLEAN cansetpublish := canschedule OR (this->sourceitem->publish AND (NOT inittype.ispublishable OR NOT IsValidWHFSName(this->sourceitem->name,FALSE)));
 
       ^notpublished->visible := NOT cansetpublish;
-      ^notpublishedtext->value := NOT this->sourceitem->isactive ? GetTid("publisher:commondialogs.objectprops.trashnotpublished") : inittype.ispublishable ? GetTid("publisher:commondialogs.objectprops.sitenotpublished") : GetTid("publisher:commondialogs.objectprops.typenotpublished", ^type->value);
+      ^notpublishedtext->value := NOT this->sourceitem->isactive ? this->GetTid(".trashnotpublished") : inittype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
       ^publish->visible := cansetpublish;
       IF(this->startdata.why = "edit")
       {
@@ -657,7 +657,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           newname := newname || this->curtype.extensions[0];
         //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
         //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
-        newname := this->parentfolder->GenerateUniqueName(ToLowercase(GetTid("publisher:commondialogs.objectprops.newfile-name", newname)));
+        newname := this->parentfolder->GenerateUniqueName(ToLowercase(this->GetTid(".newfile-name", newname)));
       }
       ^name->value := newname;
     }
@@ -715,12 +715,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     IF(this->showpinning)
     {
       ^pinobject->visible := TRUE;
-      ^pinobject->label := this->isfolder ? GetTid("publisher:commondialogs.objectprops.pinfolder") : GetTid("publisher:commondialogs.objectprops.pinfile");
+      ^pinobject->label := this->isfolder ? this->GetTid(".pinfolder") : this->GetTid(".pinfile");
     }
     ELSE IF (^pinobject->value)
     {
       ^objectpinned->visible := TRUE;
-      ^objectpinned->value := this->isfolder ? GetTid("publisher:commondialogs.objectprops.folderispinned") : GetTid("publisher:commondialogs.objectprops.fileispinned");
+      ^objectpinned->value := this->isfolder ? this->GetTid(".folderispinned") : this->GetTid(".fileispinned");
     }
     ELSE
     {
@@ -732,7 +732,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       IF(Length(this->pending_errors)>0)
       {
         Print("The following errors occured processing the site profiles:\n"||Detokenize(this->pending_errors,"\n"));
-        this->RunMessagebox(".siteprofileerrors", Detokenize(this->pending_errors,"\n\n"));
+        this->RunSimpleScreen("warning", this->GetTid(".messageboxes.siteprofileerrors", Detokenize(this->pending_errors,"\n\n")));
       }
     }
 
@@ -1386,7 +1386,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoDeleteTask()
   {
-    IF (RecordExists(^tasks->selection) AND this->RunMessageBox(".deletetaskconfirm") = "yes")
+    IF (RecordExists(^tasks->selection) AND this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.deletetaskconfirm")) = "yes")
       DELETE FROM ^tasks->rows WHERE rowkey = ^tasks->selection.rowkey;
   }
 
@@ -1446,31 +1446,31 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       {
         CASE "contentlinkpointstononindex"
         {
-          feedback := this->RunMessageBox(".contentlinkpointstononindex");
+          feedback := this->RunSimpleScreen("error", this->GetTid(".messageboxes.contentlinkpointstononindex"));
         }
         CASE "cannotreplacepinnedindex"
         {
-          feedback := this->RunMessageBox(".cannotreplacepinnedindex", rec.params[0]);
+          feedback := this->RunSimpleScreen("error", this->GetTid(".messageboxes.cannotreplacepinnedindex", rec.params[0]));
         }
         CASE "indexnotpublished"
         {
-          feedback := this->RunMessageBox(".indexnotpublished");
+          feedback := this->RunSimpleScreen("warning", this->GetTid(".messageboxes.indexnotpublished"));
         }
         CASE "deleteoldindexconfirm"
         {
-          feedback := this->RunMessageBox(".deleteoldindexconfirm", rec.params[0], rec.params[1]);
+          feedback := this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.deleteoldindexconfirm", rec.params[0], rec.params[1]));
         }
         CASE "replaceindexconfirm"
         {
-          feedback := this->RunMessageBox(".replaceindexconfirm", rec.params[0], rec.params[1]);
+          feedback := this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.replaceindexconfirm", rec.params[0], rec.params[1]));
         }
         CASE "unpinconfirm"
         {
-          feedback := this->RunMessageBox(".unpinconfirm");
+          feedback := this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.unpinconfirm"), [ dontshowbuttons := ["yes"], dontshowkey := "publisher:objectprops.unpinconfirm" ]);
         }
         CASE "folderwithoutindex"
         {
-          feedback := this->RunMessageBox(".folderwithoutindex");
+          feedback := this->RunSimpleScreen("warning", this->GetTid(".messageboxes.folderwithoutindex"));
         }
         CASE "submitchangesforapproval"
         {
@@ -1482,7 +1482,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         }
         CASE "filecannotbenamedasindex"
         {
-          feedback := this->ShowMessageBox(GetTid("publisher:commondialogs.messageboxes.filecannotbenamedasindex"), [ icon := "error", buttons := [ "close" ] ]);
+          feedback := this->RunSimpleScreen("error", this->GetTid(".messageboxes.filecannotbenamedasindex"));
         }
         DEFAULT
         {
@@ -1717,7 +1717,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
       IF (work->Finish())
       {
-        this->RunMessageBox(".draftcancelled");
+        this->RunSimpleScreen("info", this->GetTid(".messageboxes.draftcancelled"));
         this->tolliumresult := "ok";
       }
     }
@@ -1757,7 +1757,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoRestore()
   {
-    IF (this->RunMessageBox(".confirmrestore") = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.confirmrestore")) = "yes")
     {
       // files in recyclebin only have objectpolicy when in versionarchive
       IF (ObjectExists(this->objectpolicy))
@@ -1835,7 +1835,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         OBJECT othersite := OpenSiteByName(name);
         IF(ObjectExists(othersite) AND othersite->id != this->sourceitem->id)
         {
-          work->AddError(GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", name));
+          work->AddError(GetTid("publisher:common.errors.sitealreadyexists", name));
           RETURN work->Finish();
         }
       }
@@ -2235,9 +2235,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
       this->itemid := objid;
       IF (execute_approval_request AND NOT have_draft)
-        this->RunMessagebox(".noversionedfieldswerechanged");
+        this->RunSimpleScreen("info", this->GetTid(".messageboxes.noversionedfieldswerechanged"));
       ELSE IF (have_draft AND NOT execute_approval_request)
-        this->RunMessagebox(".submitversionedfiletoapplychanges");
+        this->RunSimpleScreen("info", this->GetTid(".messageboxes.submitversionedfiletoapplychanges"));
 
       RETURN TRUE;
     } //while(TRUE)

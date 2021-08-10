@@ -63,14 +63,14 @@ PUBLIC INTEGER FUNCTION RunNewFileInteractive(OBJECT parentscreen, INTEGER paren
 */
 PUBLIC OBJECT FUNCTION CreateNewFileDialog(OBJECT parent, INTEGER parentfolder, INTEGER type) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
 {
-  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfile", parentfolder := parentfolder, type := type ], "publisher:commondialogs/objectprops.objectprops");
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfile", parentfolder := parentfolder, type := type ], "mod::publisher/tolliumapps/objectprops/objectprops.xml");
 }
 
 /** @short "Create a new folder" dialog
 */
 PUBLIC OBJECT FUNCTION CreateNewFolderDialog(OBJECT parent, INTEGER parentfolder, INTEGER type) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
 {
-  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfolder", parentfolder := parentfolder, type := type ], "publisher:commondialogs/objectprops.objectprops");
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "newfolder", parentfolder := parentfolder, type := type ], "mod::publisher/tolliumapps/objectprops/objectprops.xml");
 }
 
 /** @short "Create a new site" dialog
@@ -84,10 +84,7 @@ PUBLIC OBJECT FUNCTION CreateNewSiteDialog(OBJECT parent, INTEGER parentfolder, 
 */
 PUBLIC OBJECT FUNCTION CreateWHFSObjectPropsDialog(OBJECT parent, INTEGER fsobj) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunFSObjectPropertiesDialog")
 {
-  //IF(Length(SELECT * FROM system.fs_objects WHERE id = fsobj AND parentsite = fsobj) = 1)
-  //  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj], "publisher:commondialogs/objectprops.siteprops");
-
-  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj ], "publisher:commondialogs/objectprops.objectprops");
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj ], "mod::publisher/tolliumapps/objectprops/objectprops.xml");
 }
 
 /** @short Create a "WHFS Site properties" dialog
@@ -101,7 +98,7 @@ PUBLIC OBJECT FUNCTION CreateWHFSSitePropsDialog(OBJECT parent, INTEGER fsobj)
 */
 PUBLIC OBJECT FUNCTION CreateWHFSDuplicateObjectDialog(OBJECT parent, INTEGER parentfolder, INTEGER sourceobj) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
 {
-  RETURN __CreateHistoryPropsDialog(parent, [ why := "duplicate", parentfolder := parentfolder, fsobj := sourceobj ], "publisher:commondialogs/objectprops.objectprops");
+  RETURN __CreateHistoryPropsDialog(parent, [ why := "duplicate", parentfolder := parentfolder, fsobj := sourceobj ], "mod::publisher/tolliumapps/objectprops/objectprops.xml");
 }
 
 

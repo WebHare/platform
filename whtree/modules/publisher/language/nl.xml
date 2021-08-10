@@ -32,6 +32,7 @@
       <text tid="fileorfolderexists">Er bestaat al een bestand of map met de naam '<param p="1"/>' in de map '<param p="2"/>'.</text>
       <text tid="hiddenfolderexists">Een bestaat al een verborgen map met de naam '<param p="1"/>' in de map '<param p="2"/>'</text>
       <text tid="illegalfilename">'<param p="1"/>' is geen geldige naam voor een map of bestand. Een naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt:<br/>/ \ : * ? " &lt; &gt; |</text>
+      <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
       <text tid="typecannotbeversioned">Files van type '<param p="1"/>' kunnen niet worden ingediend voor goedkeuring.</text>
     </textgroup>
     <textgroup gid="fsobjects">   <!-- common.fsobjects -->
@@ -50,111 +51,24 @@
         <text tid="title">Kies het objecttype</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="errors">   <!-- commondialogs.errors -->
-      <textgroup gid="objectprops">   <!-- commondialogs.errors.objectprops -->
-        <text tid="createoutputfolder">Site '<param p="1"/>' gebruikt al een submap van het opgegeven pad en veroorzaakt een conflict. Dit kan opgelost worden door een externe map genaamd '<param p="2"/>' in deze site aan te maken op '<param p="3"/>'</text>
-        <text tid="outputfolderused">Site '<param p="1"/>' gebruikt al (een voorouder van) de nieuwe uitvoermap.</text>
-        <text tid="renamesiteerror">De site kon niet hernoemd worden.</text>
-        <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
       <text tid="cannotfindobjecteditor">De objecteditor '<param p="1"/>' zou gebruikt moeten worden voor dit object, maar deze kon niet gevonden of gestart worden.</text>
-      <text tid="cannotopen">De publisher kan u geen applicatie bieden om dit type bestand te bewerken.<br/><br/>U kunt het bestand downloaden en op uw eigen computer bewerken. Nadat u de wijzigingen heeft opgeslagen kunt u het met de optie 'Vervang' weer op de server plaatsen.</text>
       <text tid="cannotopencontentlisting">Een contentopsomming heeft geen inhoud die gewijzigd of gedownload kan worden.</text>
       <text tid="cannotopenlink">Een linkbestand heeft geen inhoud die gewijzigd of gedownload kan worden. Gebruik de 'Eigenschappen' knop als u de bestemming van de link wilt wijzigen.</text>
-      <text tid="cannotreplacepinnedindex">Dit document kan niet worden ingesteld als index voor deze map, omdat de huidige index beschermd is.</text>
-      <text tid="confirmcanceldraft">Weet u zeker dat u de conceptversie wilt annuleren en de laatst gepubliceerde versie wilt terugzetten?</text>
-      <text tid="confirmcancelrequest">Weet u zeker dat u het publicatieverzoek voor de conceptversie wilt intrekken?</text>
-      <text tid="confirmrestore">Weet u zeker dat u dit document wilt herstellen?</text>
-      <text tid="confirmslavedelete">Weet u zeker dat u deze secundaire uitvoerlocatie wil verwijderen?</text>
-      <text tid="containssite">Kan niet converteren naar site: De geselecteerde map bevat al een site.</text>
-      <text tid="contentlinkpointstononindex">Deze contentlink kan niet ingesteld worden als index van deze map, omdat het bestand waarnaar verwezen wordt een filetype heeft dat niet toegestaan is voor een index.</text>
       <text tid="deleteconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Weet u zeker dat u de map '<param p="3"/>' permanent wilt verwijderen?<else/>Weet u zeker dat u het bestand '<param p="2"/>' permanent wilt verwijderen?</ifparam><else/>Weet u zeker dat u de <param p="1"/>  geselecteerde onderdelen permanent wilt verwijderen?</ifparam></text>
       <text tid="deletefsobjects">Weet u zeker dat u <ifparam p="1" value="1">het geselecteerde item<else/>de <param p="1"/> geselecteerde items</ifparam> wilt verwijderen?</text>
-      <text tid="deletemultiplerightsconfirm">Weet u zeker dat u de geselecteerde rechten wilt verwijderen?</text>
-      <text tid="deleteoldindexconfirm">Als u dit document het indexbestand maakt, zal het huidige index bestand '<param p="1"/>' moeten worden verwijderd. Weet u zeker dat u van '<param p="2"/>' het indexdocument wilt maken?</text>
       <text tid="deletesitesconfirm">Uw selectie bevat de volgende sites, die verwijderd zullen worden:<br/><param p="1"/><br/><br/>Weet u zeker dat u de selectie wilt verwijderen?</text>
-      <text tid="deletetaskconfirm">Weet u zeker dat u deze taak wilt verwijderen?</text>
-      <text tid="download">Downloaden</text>
-      <text tid="draftcancelled">De conceptversie is geannuleerd - het document is teruggezet naar de laatste gepubliceerde versie.</text>
       <text tid="editordoesnotsupportversionedsites">De applicatie om dit bestand te bewerken ondersteunt geen versiebeheer. Neem a.u.b. contact op met uw systeembeheerder.</text>
-      <text tid="faildeleteforotheroutputsites">De huidige selectie kan niet verwijderd worden, omdat het de uitvoer van andere sites in een of meerdere externe mappen bevat.</text>
       <text tid="failrecycleforotheroutputsites">De huidige selectie kan niet naar de prullenbak verplaatst worden, omdat het de uitvoer van andere sites in een of meerdere externe mappen bevat.</text>
       <text tid="failrecyclefortheseoutputsites">De huidige selectie kan niet naar de prullenbak verplaatst worden, omdat het de uitvoer van de volgende sites in een of meerdere externe mappen bevat:<br/><param p="1"/></text>
-      <text tid="filecannotbenamedasindex">De gekozen naam is niet toegestaan omdat dit bestandstype niet als indexdocument kan worden gebruikt.</text>
-      <text tid="folderwithoutindex">De huidige map heeft geen indexdocument meer.</text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">Dit betand komt al een keer voor in de lijst. Weet u zeker dat u het nog een keer wilt toevoegen?<else/>Meerdere van de gekozen bestanden komen al voor in de lijst. Weet u zeker dat u deze nog een keer wilt toevoegen?</ifparam></text>
-      <text tid="indexnotpublished">Dit document is het huidige indexdocument, maar wordt niet gepubliceerd.</text>
       <text tid="movetotrashconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Weet u zeker dat u de map '<param p="3"/>' naar de prullenbak wilt verplaatsen?<else/>Weet u zeker dat u het bestand '<param p="2"/>' naar de prullenbak wilt verplaatsen?</ifparam><else/>Weet u zeker dat u de <param p="1"/> geselecteerde onderdelen naar de prullenbak wilt verplaatsen?</ifparam></text>
-      <text tid="noindexhtmlinversionedfolderwithindex">De gekozen naam is niet toegestaan omdat deze automatisch het bestaande indexdocument zou vervangen.</text>
       <text tid="norightsforpublisher">U heeft onvoldoende rechten om dit object in de Publisher te openen</text>
       <text tid="norightstoeditfile">U heeft niet genoeg rechten om dit bestand te bewerken.</text>
       <text tid="norightstoviewfile">U heeft niet genoeg rechten om dit bestand te openen.</text>
-      <text tid="noversionedfieldswerechanged">Er zijn geen wijzigingen gevonden die goedkeuring vereisen - uw aanpassingen zijn direct doorgevoerd.</text>
       <text tid="privilegeslost">U heeft geen toegang meer tot dit document</text>
       <text tid="recyclesitesconfirm">Uw selectie bevat de volgende sites, die weggegooid zullen worden:<br/><param p="1"/><br/><br/>Weet u zeker dat u de selectie in de prullenbak wilt plaatsen?</text>
       <text tid="replace_file_with_other_type">Het opgegeven bestand lijkt van een ander bestandstype te zijn dan het bestaande bestand. Weet u zeker dat u het originele bestand wilt vervangen door het opgegeven bestand?</text>
-      <text tid="replaceindexconfirm">Het document '<param p="1"/>' is het huidige indexdocument in deze map. Weet u zeker dat u van '<param p="2"/>' het indexdocument wilt maken?</text>
-      <text tid="requestcancelled">Het publicatieverzoek is geannuleerd - het document is teruggezet naar de conceptversie.</text>
-      <text tid="siteprofileerrors">De volgende fouten zijn opgetreden bij het uitvoeren van de site profielen:<br/><br/><param p="1"/></text>
-      <text tid="submitversionedfiletoapplychanges">De wijzigingen zijn nog niet online zichtbaar: u dient het bestand nog in te dienen voor beoordeling.</text>
-      <text tid="unpinconfirm">Weet u zeker dat u de bescherming op dit object wilt opheffen?</text>
-    </textgroup>
-    <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
-      <text tid="created">(Aangemaakt</text>
-      <text tid="data">Waarde</text>
-      <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
-      <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
-      <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
-      <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-      <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-      <text tid="link">Link</text>
-      <text tid="local">in deze map</text>
-      <text tid="lockreason">Reden voor vergrendeling:</text>
-      <text tid="locksite">Vergrendel de site</text>
-      <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
-      <text tid="multiple-title">Eigenschappen van <param p="1"/> onderdelen</text>
-      <text tid="newfile-name">Nieuw <param p="1"/></text>
-      <text tid="newfile-title">Nieuw bestand</text>
-      <text tid="newfolder-title">Nieuwe map</text>
-      <text tid="newsite">Nieuwe website</text>
-      <text tid="newsite-title">Nieuwe website</text>
-      <text tid="nobrokenlinks">Er zijn geen kapotte links</text>
-      <text tid="nolinks">Geen links gevonden</text>
-      <text tid="originallocation">Oorspronkelijke locatie</text>
-      <text tid="output">Uitvoer</text>
-      <text tid="outputfolder">Submap in uitvoer-URL</text>
-      <text tid="outputweb">Uitvoer-URL</text>
-      <text tid="owner">Eigenaar</text>
-      <text tid="path">Pad</text>
-      <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
-      <text tid="pinfolder">Bescherm deze map (verbied hernoemen en verwijderen)</text>
-      <text tid="publicationsettings">Publicatie-instellingen</text>
-      <text tid="publish">Publiceer dit bestand</text>
-      <text tid="publishedurl">URL</text>
-      <text tid="publishtab">Publicatie</text>
-      <text tid="requestapproval">Indienen</text>
-      <text tid="restrictions">Beperkingen</text>
-      <text tid="rights">Rechten</text>
-      <text tid="showapplyrules">Toon &lt;apply&gt; regels</text>
-      <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
-      <text tid="sitesettings-title">Instellingen van site '<param p="1"/>'</text>
-      <text tid="sitetab">Site</text>
-      <text tid="tasksettings">Taken</text>
-      <text tid="taskstab">Taken</text>
-      <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
-      <text tid="trustedsiteprofilesbox">Vertrouwde siteprofielen</text>
-      <text tid="type">Type</text>
-      <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
-      <text tid="unknown">&lt;Onbekend&gt;</text>
-      <text tid="viewurl">Bekijken</text>
-      <text tid="whfspath">Siteprofiel</text>
-      <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
-        <text tid="notasks">Er zijn geen taken ingesteld</text>
-        <text tid="task">Taak</text>
-        <text tid="when">Tijdstip</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="orderbasedon">   <!-- commondialogs.orderbasedon -->
       <text tid="base_on">Baseren op</text>
@@ -196,19 +110,23 @@
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
       <text tid="cdnbaseurl">CDN basis URL</text>
+      <text tid="createoutputfolder">Site '<param p="1"/>' gebruikt al een submap van het opgegeven pad en veroorzaakt een conflict. Dit kan opgelost worden door een externe map genaamd '<param p="2"/>' in deze site aan te maken op '<param p="3"/>'</text>
       <text tid="feature">Feature</text>
       <text tid="locksite">Vergrendel de site</text>
       <text tid="module">Module</text>
+      <text tid="newsite-title">Nieuwe website</text>
       <text tid="nowebfeatures">Geen 'webfeatures' beschikbaar</text>
       <text tid="output">Uitvoer</text>
       <text tid="outputfolder">Submap in uitvoer-URL</text>
+      <text tid="outputfolderused">Site '<param p="1"/>' gebruikt al (een voorouder van) de nieuwe uitvoermap.</text>
       <text tid="outputweb">Uitvoer-URL</text>
       <text tid="productionurl">Productie URL</text>
+      <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
       <text tid="sitedesign">Sitedesign</text>
-      <text tid="sitedesign-none">(geen)</text>
       <text tid="sitedesignbox">Website design</text>
       <text tid="sitedesigntab">Design</text>
       <text tid="siteprops">Site-eigenschappen</text>
+      <text tid="sitesettings-title">Instellingen van site '<param p="1"/>'</text>
       <text tid="sitesettingstab">Instellingen</text>
       <text tid="webfeatures">Web features</text>
     </textgroup>
@@ -460,6 +378,7 @@
       <text tid="idnotfound">Het ID kon niet gevonden worden</text>
       <textgroup gid="app">   <!-- filemanager.main.app -->
         <text tid="apptitle">Publisher</text>
+        <text tid="containssite">Kan niet converteren naar site: De geselecteerde map bevat al een site.</text>
         <text tid="edittab">Bewerken</text>
         <text tid="enablesortingbutton">Volgorde aanpassen</text>
         <text tid="filelistmulti">Dubbele-rij indeling</text>
@@ -2255,6 +2174,52 @@
           <text tid="deletioncannotbeinpast">De verwijderingsdatum mag niet in het verleden liggen</text>
           <text tid="ispermanent">(geen prullenbak, verwijdering kan niet ongedaan worden gemaakt)</text>
           <text tid="lifecycle">Levenscyclus</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="created">(Aangemaakt</text>
+        <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
+        <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
+        <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
+        <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
+        <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
+        <text tid="link">Link</text>
+        <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
+        <text tid="newfile-name">Nieuw <param p="1"/></text>
+        <text tid="newfile-title">Nieuw bestand</text>
+        <text tid="newfolder-title">Nieuwe map</text>
+        <text tid="originallocation">Oorspronkelijke locatie</text>
+        <text tid="path">Pad</text>
+        <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
+        <text tid="pinfolder">Bescherm deze map (verbied hernoemen en verwijderen)</text>
+        <text tid="publish">Publiceer dit bestand</text>
+        <text tid="requestapproval">Indienen</text>
+        <text tid="restrictions">Beperkingen</text>
+        <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
+        <text tid="tasksettings">Taken</text>
+        <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
+        <text tid="type">Type</text>
+        <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
+        <textgroup gid="messageboxes">   <!-- tolliumapps.objectprops.objectprops.messageboxes -->
+          <text tid="cannotreplacepinnedindex">Dit document kan niet worden ingesteld als index voor deze map, omdat de huidige index beschermd is.</text>
+          <text tid="confirmrestore">Weet u zeker dat u dit document wilt herstellen?</text>
+          <text tid="contentlinkpointstononindex">Deze contentlink kan niet ingesteld worden als index van deze map, omdat het bestand waarnaar verwezen wordt een filetype heeft dat niet toegestaan is voor een index.</text>
+          <text tid="deleteoldindexconfirm">Als u dit document het indexbestand maakt, zal het huidige index bestand '<param p="1"/>' moeten worden verwijderd. Weet u zeker dat u van '<param p="2"/>' het indexdocument wilt maken?</text>
+          <text tid="deletetaskconfirm">Weet u zeker dat u deze taak wilt verwijderen?</text>
+          <text tid="draftcancelled">De conceptversie is geannuleerd - het document is teruggezet naar de laatste gepubliceerde versie.</text>
+          <text tid="filecannotbenamedasindex">De gekozen naam is niet toegestaan omdat dit bestandstype niet als indexdocument kan worden gebruikt.</text>
+          <text tid="folderwithoutindex">De huidige map heeft geen indexdocument meer.</text>
+          <text tid="indexnotpublished">Dit document is het huidige indexdocument, maar wordt niet gepubliceerd.</text>
+          <text tid="noversionedfieldswerechanged">Er zijn geen wijzigingen gevonden die goedkeuring vereisen - uw aanpassingen zijn direct doorgevoerd.</text>
+          <text tid="replaceindexconfirm">Het document '<param p="1"/>' is het huidige indexdocument in deze map. Weet u zeker dat u van '<param p="2"/>' het indexdocument wilt maken?</text>
+          <text tid="siteprofileerrors">De volgende fouten zijn opgetreden bij het uitvoeren van de site profielen:<br/><br/><param p="1"/></text>
+          <text tid="submitversionedfiletoapplychanges">De wijzigingen zijn nog niet online zichtbaar: u dient het bestand nog in te dienen voor beoordeling.</text>
+          <text tid="unpinconfirm">Weet u zeker dat u de bescherming op dit object wilt opheffen?</text>
+        </textgroup>
+        <textgroup gid="tasks">   <!-- tolliumapps.objectprops.objectprops.tasks -->
+          <text tid="notasks">Er zijn geen taken ingesteld</text>
+          <text tid="task">Taak</text>
+          <text tid="when">Tijdstip</text>
         </textgroup>
       </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
