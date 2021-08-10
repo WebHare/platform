@@ -1,10 +1,5 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- WRD login page -->
-  <filetype namespace="http://www.webhare.net/xmlns/wrd/loginpage" kind="datafile" tid="wrd:siteprofiles.loginpage">
-    <dynamicexecution webpageobjectname="mod::wrd/lib/internal/auth/loginpage.whlib#LoginPage" />
-  </filetype>
-
   <!-- SAML IDP -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
             blobiscontent="false"
