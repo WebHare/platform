@@ -114,10 +114,7 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   {
     OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type) AND ObjectExists(loc))
-    {
-      RECORD setvalue := this->value;
-      loc->SetInstanceDataByType(this->type, setvalue);
-    }
+      loc->SetInstanceDataByType(this->type, this->GetUpdateValue());
   }
 
   MACRO SetBaseFSObject(OBJECT obj)
