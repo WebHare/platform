@@ -77,9 +77,9 @@ PUBLIC OBJECTTYPE LinkCheck EXTEND TolliumScreenBase
   MACRO RefreshLinks()
   {
     IF (this->showalllinks->value)
-      this->links->empty := GetTid("publisher:commondialogs.objectprops.nolinks");
+      this->links->empty := GetTid("consilio:report.linkcheck.nolinks");
     ELSE
-      this->links->empty := GetTid("publisher:commondialogs.objectprops.nobrokenlinks");
+      this->links->empty := GetTid("consilio:report.linkcheck.nobrokenlinks");
 
     this->links->rows := SELECT *
                               , status_icon := GetStatusIcon(status, this->links)
@@ -281,12 +281,12 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
   {
     IF (this->showalllinks->value)
     {
-      this->links->empty := GetTid("publisher:commondialogs.objectprops.nolinks");
+      this->links->empty := GetTid("consilio:report.linkcheck.nolinks");
       this->links->rows := this->alllinks;
     }
     ELSE
     {
-      this->links->empty := GetTid("publisher:commondialogs.objectprops.nobrokenlinks");
+      this->links->empty := GetTid("consilio:report.linkcheck.nobrokenlinks");
       this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http:*//*" AND (status < 200 OR status > 299);
     }
   }

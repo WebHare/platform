@@ -5,9 +5,6 @@
          gid="report"
          >
 
-  <messageboxes gid=".messageboxes">
-  </messageboxes>
-
   <screen name="linkcheck" gid=".linkcheck"
           allowresize="true" savestate="size"
           width="120x" height="40x">
@@ -26,7 +23,6 @@
         <list name="links"
               selectmode="single"
               openaction="fileview"
-              emptytid=".nolinks"
               width="1pr" height="1pr">
           <column name="filepath" type="text" width="2pr" />
           <column name="url" type="url" width="3pr" />
