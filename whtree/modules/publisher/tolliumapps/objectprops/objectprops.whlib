@@ -133,20 +133,23 @@ OBJECTTYPE ObjectPropsAPI
   // Public API
   //
 
+  /** Add a tabsextension
+      @param extension Path to tabs extension
+      @param whfstype WHFS type managed by the extension
+      @param taboptions Extra options which will be passed as extensionoptions to the loaded tab */
+
   PUBLIC MACRO AddTabsExtension(STRING extension, STRING whfstype, RECORD taboptions DEFAULTSTO DEFAULT RECORD)
   {
     STRING extensionsname := GetScreenNameFromScreenPath(extension);
-    this->objectprops->__DoAddTab( [ contenttype := whfstype
-                                   , extension := extensionsname
-                                   , isundo := FALSE
-                                   , mask := ""
-                                   , name := extensionsname
-                                   , requireright := ""
-                                   , requirewebdesign := FALSE
-                                   , selector := extensionsname
-                                   , siteprofile := GetResourceNameFromScreenPath(extension)
-                                   , taboptions := taboptions
-                                   ]);
+    this->objectprops->__DoAddTab( CELL[ contenttype := whfstype
+                                       , extension := extensionsname
+                                       , isundo := FALSE
+                                       , mask := ""
+                                       , name := extensionsname
+                                       , selector := extensionsname
+                                       , siteprofile := GetResourceNameFromScreenPath(extension)
+                                       , taboptions := taboptions
+                                       ]);
   }
 
   PUBLIC MACRO AddOnPinnedListener(MACRO PTR newlistener)

@@ -891,7 +891,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               RECORD applynode := [ isundo := node->localname = "undoextendproperties"
                                   , contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
-                                  , requirewebdesign := ParseXSBoolean(node->GetAttribute("requirewebdesign"))
                                   , name := node->GetAttribute("name")
                                   , extension := extension
                                   , mask := node->GetAttribute("mask")
