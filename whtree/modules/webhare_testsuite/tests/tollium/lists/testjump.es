@@ -47,6 +47,7 @@ test.registerTests(
         dompack.dispatchDomEvent(list, 'scroll');
         let listview = test.compByName("staticlist").propTodd.list;
         test.eq(10, listview.getFirstVisibleRow());
+        test.true(test.canClick(test.getCurrentScreen().getListRow('staticlist','Row #017')));
 
         test.click(test.getMenu(['M01','M11']));
         await test.wait("ui");
@@ -56,6 +57,8 @@ test.registerTests(
         listview = test.compByName("staticlist").propTodd.list;
         test.eq(250, list.scrollTop);
         test.eq(10, listview.getFirstVisibleRow());
+
+        await test.wait( () => test.getCurrentScreen().getListRow('staticlist','Row #017')); //wait for the row to actually appear. scroll events may take some time to reshow the row
         test.true(test.canClick(test.getCurrentScreen().getListRow('staticlist','Row #017')));
       }
     }
