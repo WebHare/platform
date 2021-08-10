@@ -2216,6 +2216,14 @@
         <text tid="url">URL</text>
         <text tid="whfspath">Path</text>
       </textgroup>
+      <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
+        <text tid="canonical">Canonical URL</text>
+        <text tid="customrobots">Custom meta robot tags</text>
+        <text tid="indexing">External search engine indexing</text>
+        <text tid="noarchive">Do not archive/cache (noarchive)</text>
+        <text tid="nofollow">Don't follow links (nofollow)</text>
+        <text tid="noindex">Don't store in index (noindex)</text>
+      </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Add task</text>
         <text tid="edittask">Edit taak</text>

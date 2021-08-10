@@ -2216,6 +2216,14 @@
         <text tid="url">URL</text>
         <text tid="whfspath">Pad</text>
       </textgroup>
+      <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
+        <text tid="canonical">Canonieke URL</text>
+        <text tid="customrobots">Eigen meta robot tags</text>
+        <text tid="indexing">Externe zoekmachine indexering</text>
+        <text tid="noarchive">Niet archiveren/cachen (noarchive)</text>
+        <text tid="nofollow">Volg geen links (nofollow)</text>
+        <text tid="noindex">Niet opslaan in index (noindex)</text>
+      </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Voeg taak toe</text>
         <text tid="edittask">Bewerk taak</text>

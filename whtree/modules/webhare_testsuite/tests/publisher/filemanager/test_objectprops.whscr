@@ -43,6 +43,9 @@ ASYNC MACRO ObjectProps()
   TestEQ(TRUE, TT("filesthumbs")->__test_preinitdone, "The preinit for the thumbnail view was not invoked");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
+  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab isn't enabled in propstest so shouldn't appear");
+  TestEq(FALSE, ObjectExists(topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex")));
+
   OBJECT betatab := TT(":Beta test tab");
   TestEQ(TRUE, ObjectExists(betatab));
 

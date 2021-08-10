@@ -280,11 +280,18 @@
 
   <!-- SEO tab -->
   <apply>
-    <to type="all" />
+    <not>
+      <to type="all" pathmask="*seotab*" />
+    </not>
     <seotab xmlns="http://www.webhare.net/xmlns/socialite" features="canonicalurl" />
   </apply>
   <apply>
-    <to type="index"/>
+    <and>
+      <to type="index"/>
+      <not>
+        <to type="index" pathmask="*seotab*" />
+      </not>
+    </and>
     <robots xmlns="http://www.webhare.net/xmlns/consilio" />
     <seotab xmlns="http://www.webhare.net/xmlns/socialite" features="robots canonicalurl" />
   </apply>
@@ -350,6 +357,11 @@
   <apply>
     <to type="all" pathmask="*infotext*" />
     <formintegration enableinfotexts="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*seotab*" />
+    <baseproperties seotab="true" />
   </apply>
 
   <!-- RTDType and widget testing -->

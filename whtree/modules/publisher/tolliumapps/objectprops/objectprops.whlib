@@ -614,7 +614,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
 
     //configure settings that depend on the applytester
-    this->basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE ]);
+    this->basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -1212,7 +1212,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors, INTEGER tab_insert_pos)
   {
-    ^maintabs->extendposition := tab_insert_pos;
     ^maintabs->insertpoints := [ [ name := "name", component := ^name ]
                                , [ name := "title", component := ^title ]
                                , [ name := "description", component := ^description ]
@@ -1222,6 +1221,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                , [ name := "settings", component := ^settings ]
                                , [ name := "properties", component := ^properties ]
                                ];
+
+    ^maintabs->extendposition := tab_insert_pos;
+
+    IF(this->basesettings.seotab AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate()))
+      this->contexts->objectpropsapi->AddTabsExtension(Resolve("seotab.xml#seosettings"), "http://www.webhare.net/xmlns/publisher/seosettings");
 
     IF (ObjectExists(this->webcontext))
     {
@@ -1278,8 +1282,18 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
         ^maintabs->extendcomponents := extendcomponents;
 
+        //ugly hack to load seotab into its proper position..
+        BOOLEAN isseotab := propeditor.contenttype = "http://www.webhare.net/xmlns/publisher/seosettings";
+        INTEGER currentinsertposition := ^maintabs->extendposition;
+        IF(isseotab)
+          ^maintabs->extendposition := 1;
+
         RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.siteprofile || "#" || propeditor.selector
                                                               ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
+
+        IF(isseotab)
+          ^maintabs->extendposition := currentinsertposition + 1;
+
         FOREVERY(OBJECT comp FROM loadresult.compositions)
           IF (comp EXTENDSFROM WHFSInstance AND comp->typens != "")
           {

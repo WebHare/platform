@@ -138,6 +138,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   STRING ARRAY resourcedeps;
   /// Already generated anchors
   STRING ARRAY __seenanchors;
+  /// Full tree to current target
+  INTEGER ARRAY _targetobject_fulltree;
   /// Current robots tag
   RECORD _robotstag;
 
@@ -251,6 +253,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF (ObjectExists(__webdesign_config.applytester))
       this->__SetObjectId(__webdesign_config.applytester->__Deprecated_GetObjInfo().obj.id, __webdesign_config.applytester);
 
+    OBJECT tree_end := ObjectExists(this->targetobject) AND this->targetobject->id != this->targetfolder->indexdoc ? this->targetobject : this->targetfolder;
+    IF(ObjectExists(tree_end))
+      this->_targetobject_fulltree := tree_end->GetFullTree();
+
     this->_InitRobotsTag();
     this->relativelinksscope := "protocol";
 
@@ -323,6 +329,18 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   MACRO _InitRobotsTag()
   {
     this->_robotstag := initialrobotstag;
+
+    CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
+    INTEGER ARRAY parents := this->_targetobject_fulltree;
+    RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", lockablefields CONCAT ["customrobots"]);
+    FOREVERY(RECORD parent FROM seoitems)
+    {
+      FOREVERY(STRING field FROM lockablefields)
+        IF(GetCell(parent, field))
+          this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
+      IF(parent.customrobots != "")
+        this->_robotstag.custom := parent.customrobots;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -613,15 +631,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC RECORD ARRAY FUNCTION GetStructuredBreadcrumb()
   {
     // TODO move path generation to a free or WHFS function, with options... so users can invoke an efficient implementation when the standard one doesn't do
-    OBJECT tree_end := this->targetobject->id = this->targetfolder->indexdoc ? this->targetfolder : this->targetobject;
-    INTEGER ARRAY tree := tree_end->GetFullTree();
     RECORD ARRAY crumbs := SELECT title := title ?? name
                                 , link
                              FROM system.fs_objects
-                            WHERE id IN tree
+                            WHERE id IN this->_targetobject_fulltree
                                   AND link != ""
                                   AND id != this->targetfolder->indexdoc
-                         ORDER BY SearchElement(tree,id);
+                         ORDER BY SearchElement(this->_targetobject_fulltree, id);
     RETURN crumbs;
   }
 

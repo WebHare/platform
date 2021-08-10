@@ -1,0 +1,161 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestSeoSettings()
+{
+  testfw->SetTestUser("lisa");
+
+  testfw->BeginWork();
+
+  OBJECT tt_noindex, tt_nofollow, tt_customrobots;
+  OBJECT root := OpenTestsuiteSite()->rootobject;
+  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
+  OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
+
+  OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
+  noindexfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [noindex := TRUE]);
+  OBJECT noindexsubfolder := noindexfolder->CreateFolder([name := "noindexsub"]);
+  OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
+
+  OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
+  nofollowfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [nofollow := TRUE]);
+  OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
+  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowwsubfile", type := rtdtype->id, publish := TRUE ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindeximage->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should appear!");
+  TestEq("SEO", TT("maintabs")->pages[1]->title);
+
+  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
+  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+
+  TestEq(TRUE, tt_noindex->value);
+  TestEq(TRUE, tt_noindex->enabled);
+  TestEq(FALSE, tt_nofollow->value);
+  TestEq(TRUE, tt_nofollow->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexsubfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
+  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+
+  TestEq(TRUE, ObjectExists(tt_noindex));
+  TestEq(TRUE, tt_noindex->value);
+  TestEq(FALSE, tt_noindex->enabled);
+  TestEq(FALSE, tt_nofollow->value);
+  TestEq(TRUE, tt_nofollow->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  //Should not have modified the noindex setting
+  TestEq(FALSE, noindexsubfolder->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings").noindex);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
+  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+
+  TestEq(TRUE, ObjectExists(tt_noindex));
+  TestEq(FALSE, tt_noindex->value);
+  TestEq(TRUE, tt_noindex->enabled);
+  TestEq(TRUE, tt_nofollow->value);
+  TestEq(FALSE, tt_nofollow->enabled);
+
+  TestEq(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots")->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  ///////////////////////////////////
+  //
+  // Open nofollow/nofollowsub as sysop, set a customrobots value
+  //
+  testfw->SetTestUser("sysop");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_customrobots := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots");
+
+  TestEq(TRUE, tt_customrobots->visible);
+  tt_customrobots->value := "ZwoBot";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  ///////////////////////////////////
+  //
+  // Open nofollow/nofollowsub/nofollowsubfile as sysop, check the customrobots value is there as a placeceholder
+  //
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_customrobots := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots");
+
+  TestEq(TRUE, tt_customrobots->visible);
+  TestEq(TRUE, tt_customrobots->enabled);
+  TestEq("ZwoBot", tt_customrobots->placeholder);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  ///////////////////////////////////
+  //
+  // Check the output of all these files
+  //
+  OBJECT metarobots;
+  WaitForPublishCompletion(root->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(noindexsubfile->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,follow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(nofollowsubfile->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("nofollow,ZwoBot", metarobots->GetAttribute("content"));
+}
+
+RunTestframework([ PTR PrepIt
+                 , PTR TestSeoSettings
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);
