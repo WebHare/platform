@@ -6,7 +6,6 @@ LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 

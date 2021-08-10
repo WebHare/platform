@@ -1,8 +1,8 @@
 <?wh
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";

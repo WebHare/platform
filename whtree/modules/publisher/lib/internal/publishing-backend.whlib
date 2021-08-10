@@ -1,14 +1,12 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
