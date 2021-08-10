@@ -165,7 +165,7 @@ STATIC OBJECTTYPE PublicationRun
 
     retval.webdesign := webdesign;
 
-    RECORD usetempl := applytester->GetUsePublishTemplate(RecordExists(retval.webdesign)); //usetempl.script can never be empty
+    RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
     IF(ObjectExists(this->contentfiletype)
       AND (this->contentfiletype->isdynamicexecution
            OR this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
