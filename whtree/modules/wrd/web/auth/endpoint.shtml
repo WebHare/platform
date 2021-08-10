@@ -3,9 +3,7 @@
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
@@ -27,9 +25,9 @@ IF (urlpath LIKE ".wrd/auth/gologin?*")
   STRING logintarget := ResolveToAbsoluteURL(GetRequestURL(), gotourl);
   OBJECT authplugin := GetWRDAuthPlugin(logintarget);
 
-  //If we get here, 'logintarget' is a locally hosted url, prevents us from being an open redirect
+  //If we get here, 'logintarget' is a locally hosted url (because it has an auth plugin), prevents us from being an open redirect
   //ProcessReturnTo will immediately redirect the user, with a proof, if he's logged in AND the wrdauth_challenge has a flag allowing us to shortcut back to the page (ie not force a login)
-  authplugin->ProcessReturnTo(GetVariableFromURL(logintarget, "wrdauth_returnto"), GetVariableFromURL(logintarget, "wrdauth_challenge"));
+  authplugin->ProcessReturnTo(GetVariableFromURL(logintarget, "wrdauth_logincontrol"));
 
   //If we get here, ensure that the user has to log in
   authplugin->Logout();
@@ -60,12 +58,6 @@ ELSE IF (urlpath LIKE ".wrd/auth/restoresession.shtml*")
 {
   SetCurrentStateCookie(authplugin->__GetWRDAUth(), authplugin);
 
-  Redirect("/" || claimedbackurl);
-}
-ELSE IF (urlpath LIKE ".wrd/auth/importsession.shtml*")
-{
-  // The authentication script will have picked up authentication. If we arrive here, the client is authenticated
-  // for this url, so we can redirect to the backurl
   Redirect("/" || claimedbackurl);
 }
 

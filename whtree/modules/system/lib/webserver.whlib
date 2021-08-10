@@ -584,17 +584,15 @@ PUBLIC RECORD ARRAY FUNCTION GetWebAcceptLanguage()
 }
 
 /** @short Execute a submit instruction
-    @long Executes a reload, redirect, form submission or a message to the parent window<br>
-    <br>
-    Types of instruction:<br>
-    <ul>
-      <li><em>reload</em><br>Reloads the current page (redirect to GetRequestURL())</li>
-      <li><em>redirect</em><br>Redirect to a specific target URL</li>
-      <li><em>form</em><br>Submits a form to an URL (client-side)</li>
-      <li><em>postmessage</em><br>Posts a message to the window.parent</li>
-    </ul>
+    @long Executes a reload, redirect, form submission or a message to the parent window
+    Types of instruction:
+    - "reload": Reloads the current page (redirect to GetRequestURL())
+    - "redirect": Redirect to a specific target URL
+    - "form": Submits a form to an URL (client-side)
+    - "postmessage": Posts a message to the window.parent
+    - "close": Close the current page
     @param instr Submitinstruction
-    @cell(string) instr.type Instruction type ('reload', 'redirect', 'form', 'postmessage')
+    @cell(string) instr.type Instruction type ('reload', 'redirect', 'form', 'postmessage', 'close')
     @cell(string) instr.url Redirect URL (only for type 'redirect')
     @cell(record) instr.form Form data (only for type 'form')
     @cell(string) instr.form.method Form method (allowed values: 'GET', 'POST')
@@ -649,11 +647,11 @@ PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
       OBJECT witty := NEW WittyTemplate("HTML");
       witty->LoadCodeDirect(
           '<html><body>' ||
-          '<script type="text/javascript">' || target || '.postMessage([message:none], "*");' ||
+          '<script nonce="[nonce]">' || target || '.postMessage([message:none], "*");' ||
           (target = "opener" ? "window.close();" : "") ||
           '</script></body></html>');
 
-      BLOB data := witty->RunToBlob([ message := EncodeJSON(instr.message) ]);
+      BLOB data := witty->RunToBlob(CELL[ message := EncodeJSON(instr.message), nonce ]);
       SendWebFile(data);
     }
     CASE "close"

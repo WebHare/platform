@@ -127,7 +127,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   RECORD ARRAY loginmethods;
   STRING ARRAY forceappfuncs;
   STRING ARRAY apps;
-  RECORD ARRAY initialinstructions;
   RECORD rundata;
   STRING ARRAY applicationmasks;
   STRING ARRAY dashboardmenuupdaters;
@@ -151,7 +150,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RECORD config :=
       [ toddroot         := this->toddroot
       , toddservice      := "/wh_services/tollium/todd"
-      , initialinstructions := this->initialinstructions
       , appserviceparams := this->appserviceparams
       , shortunknowntids := IsWHDebugOptionSet('sut')
       , profiling        := this->profiling
@@ -352,6 +350,61 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     webdesign->languagecode := lang;
   }
 
+  RECORD ARRAY FUNCTION CalculateInitialInstructions(OBJECT webcontext)
+  {
+    RECORD ARRAY initialinstructions;
+    IF(this->runwebhareinstall)
+    {
+      initialinstructions := [ GetRawAppLaunchInstruction("system:needsysop") ];
+    }
+    ELSE
+    {
+      // Starting with single ?app=manualname? Then redirect to that manual
+      STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
+      IF (LENGTH(apps) = 1)
+      {
+        FOREVERY (RECORD grp FROM this->GetApplications())
+        {
+          RECORD app := SELECT * FROM grp.apps WHERE name = VAR apps[0] AND (apprec.ismanual OR apprec.iswindowopen);
+          IF (RecordExists(app))
+          {
+            Redirect(app.apprec.iswindowopen
+                ? app.apprec.link
+                : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webcontext->languagecode, app.apprec.supportedlanguages));
+          }
+        }
+      }
+
+      RECORD ARRAY appinstructions;
+
+      FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
+      {
+        FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
+        TRY
+        {
+          STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
+          FOREVERY (STRING app FROM forceapps)
+            INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+        }
+        CATCH (OBJECT e)
+          LogHarescriptException(e);
+      }
+
+
+      FOREVERY(STRING app FROM this->apps)
+        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+      FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
+        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+      appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
+
+      initialinstructions := initialinstructions CONCAT appinstructions;
+    }
+
+    RETURN initialinstructions;
+  }
+
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
@@ -403,55 +456,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     this->appserviceparams.overridetoken := GetWebVariable('overridetoken');
     this->appserviceparams.openas := GetWebVariable("openas");
-
-    IF(this->runwebhareinstall)
-    {
-      this->initialinstructions := [ GetRawAppLaunchInstruction("system:needsysop") ];
-    }
-    ELSE
-    {
-      // Starting with single ?app=manualname? Then redirect to that manual
-      STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
-      IF (LENGTH(apps) = 1)
-      {
-        FOREVERY (RECORD grp FROM this->GetApplications())
-        {
-          RECORD app := SELECT * FROM grp.apps WHERE name = VAR apps[0] AND (apprec.ismanual OR apprec.iswindowopen);
-          IF (RecordExists(app))
-          {
-            Redirect(app.apprec.iswindowopen
-                ? app.apprec.link
-                : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webdesign->languagecode, app.apprec.supportedlanguages));
-          }
-        }
-      }
-
-      RECORD ARRAY appinstructions;
-
-      FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
-      {
-        FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
-        TRY
-        {
-          STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
-          FOREVERY (STRING app FROM forceapps)
-            INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-        }
-        CATCH (OBJECT e)
-          LogHarescriptException(e);
-      }
-
-
-      FOREVERY(STRING app FROM this->apps)
-        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-
-      FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
-        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-
-      appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
-
-      this->initialinstructions := this->initialinstructions CONCAT appinstructions;
-    }
 
     STRING filekey := GetAdhocCached([type := "uifileskey"], PTR GetCacheableUIFilesKey());
     this->toddstaticroot := "/.tollium/ui/!" || filekey || "/";
@@ -734,6 +738,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                                        : GetWebVariable("notifications") = "browser" ? "browser"
                                        : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
             , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? "tollium:webharebackend" : ""
+            , initialinstructions := this->CalculateInitialInstructions(webcontext)
             ];
 
     IF(this->impersonatedentity != 0) //no images, no layout title
@@ -945,7 +950,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   PUBLIC RECORD FUNCTION WCS_ExecuteLoginChallenge(OBJECT webcontext, RECORD data)
   {
-    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.challenge, data.returnto);
+    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.logincontrol);
   }
 >;
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-link="[link]" data-challenge="[challenge]" data-returnto="[returnto]">
+<html data-link="[link]" data-logincontrol="[logincontrol]">
   <head>
     <script src="[loginscript]"></script>
   </head>

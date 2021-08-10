@@ -1277,8 +1277,11 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
   GetWRDAuthPlugin(testsite->OpenByPath("portal1")->url)->LogOut();
   GetWRDAuthPlugin(testsite->OpenByPath("portal2")->url)->LogOut();
   GetWRDAuthPlugin(testsite->OpenByPath("staticlogin")->url)->__LogOutExternal();
-  GetWRDAuthPlugin(testsite->OpenByPath("staticlogin")->url)->__LogOutExternal();
   GetWRDAuthPlugin(testsite->OpenByPath("staticlogin")->url)->LogOut();
+
+  // Clear external access rules referring old WRD schemas
+  FOREVERY (RECORD rec FROM SELECT * FROM GetAllWebCookies() WHERE name LIKE "webharelogin-testsuite-portal?-*_e")
+    UpdateWebCookie(rec.name, "", [ httponly := TRUE, secure := GetClientRequestURL() LIKE "https://*" ]);
 }
 
 PUBLIC MACRO TestInvoke_LogoutPortal2Path()
@@ -1390,6 +1393,15 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
   }
 
   RETURN GetOrExtendOverrideURL(15 * 60 * 1000, DEFAULT DATETIME); //15 minutes is still pretty minimal for debugging..
+}
+
+PUBLIC RECORD FUNCTION TestInvoke_BuildLoginRedirectToken(STRING url, STRING returnto)
+{
+  OpenPrimary();
+  OBJECT authplugin := GetWRDAuthPlugin(url);
+  RETURN
+      [ logincontrol :=   authplugin->__GenerateAccessRuleLoginControlToken(returnto, DEFAULT RECORD)
+      ];
 }
 
 PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)

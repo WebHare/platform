@@ -15,7 +15,7 @@ function runLoginPage()
       });
 
       var publisherwindow = window.parent.parent;
-      publisherwindow.postMessage({type: "wrd:loginrequest", link: data.link, challenge: data.challenge, returnto: data.returnto }, "*");
+      publisherwindow.postMessage({type: "wrd:loginrequest", link: data.link, logincontrol: data.logincontrol }, "*");
       return;
     }
   }

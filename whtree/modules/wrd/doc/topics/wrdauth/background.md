@@ -42,9 +42,10 @@ are handled by `webhare-auth.whscr`. The actual flow when accessing a site on an
 
 1. User requests a login-protected page, eg `https://www.example.com/`
 2. webhare-auth.whscr is invoked and does not see any cookie for the local domain.
-   The user is redirect to `https://webhare.example.com/.wrd/auth/gologin` with a challenge
-3. gologin checks whether the user is logged in on `webhare.example.com`. If so,
-   it will complete the challenge and continu from step 5. If not, it will clear
+   The user is redirected to `https://webhare.example.net/.wrd/auth/gologin` with a logincontrol token containing
+   instructions to redirect back to `https://www.example.com/` after login.
+3. gologin checks whether the user is logged in on `webhare.example.net`. If so,
+   it will execute the afterlogin redirection and continues from step 5. If not, it will clear
    the login cookies and redirect the user to the WebHare interface to login
 4. The user is requested to login.
 5. The user is redirected back to the original url, with a proof as URL variable

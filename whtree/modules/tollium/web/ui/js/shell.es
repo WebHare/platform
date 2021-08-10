@@ -339,7 +339,7 @@ class IndyShell
     if(!this.dashboardapp && data.settings.dashboard)
       this.dashboardapp = this.startFrontendApplication('tollium:builtin.dashboard', null, { src: '/.tollium/ui/js/dashboard.js', fixedonappbar: true } );
 
-    whintegration.config.obj.initialinstructions.forEach(instr => this.executeInstruction(instr));
+    data.settings.initialinstructions.forEach(instr => this.executeInstruction(instr));
 
     if(this.placeholderapp) //we can close it now
     {

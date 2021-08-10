@@ -28,7 +28,6 @@ class WRDAuthenticationProvider
       options={};
 
     this.cookiename = 'cookiename' in options ? options.cookiename : "webharelogin";
-    this.samlidpreq = 'samlidpreq' in options ? options.samlidpreq : '';
 
     this.refresh();
   }
@@ -133,9 +132,7 @@ class WRDAuthenticationProvider
       var url = new URL(location.href);
 
       var opts =
-        { challenge:    url.searchParams.get("wrdauth_challenge") || ""
-        , returnto:     url.searchParams.get("wrdauth_returnto") || ""
-        , samlidpreq:   this.samlidpreq
+        { logincontrol:   url.searchParams.get("wrdauth_logincontrol") || ""
         };
 
       return this.loginservice.request('Login'
@@ -164,9 +161,7 @@ class WRDAuthenticationProvider
       var url = new URL(location.href);
 
       var opts =
-        { challenge:    url.searchParams.get("wrdauth_challenge") || ""
-        , returnto:     url.searchParams.get("wrdauth_returnto") || ""
-        , samlidpreq:   this.samlidpreq
+        { logincontrol:   url.searchParams.get("wrdauth_logincontrol") || ""
         };
 
       return this.loginservice.request('LoginSecondFactor'

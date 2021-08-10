@@ -275,28 +275,23 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Handles a return to an original page
-      @param returnto Contents of `wrdauth_returnto` webvariable
-      @param challenge_str Contents of `wrdauth_challenge` webvariable
+      @param logincontroltoken Contents of `wrdauth_logincontrol` webvariable
   */
-  PUBLIC MACRO ProcessReturnTo(STRING returnto, STRING challenge_str)
+  PUBLIC MACRO ProcessReturnTo(STRING logincontroltoken)
   {
     IF (this->HasFailed() OR NOT this->IsLoggedIn())
       RETURN;
 
-    BOOLEAN allow_shortcut := TRUE;
-    RECORD challenge;
-    IF (challenge_str != "")
-    {
-      challenge := DecryptWRDAuthData(this->wrdauthconfig, challenge_str, "");
-      IF (RecordExists(challenge))
-        allow_shortcut := challenge.use_wrdauth;
-    }
+    RECORD logincontrol := this->DecryptLoginControlToken(logincontroltoken);
 
-    IF (allow_shortcut)
-    {
-      RECORD redir := this->__GenerateLoginProofRedirect(returnto, "wrdauth", DEFAULT RECORD, challenge);
-      Redirect(redir.url);
-    }
+    // External login requires a login box, so no redirects
+    // Only prompt modes "" and "none" allow immediate backredirection
+    IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none" ])
+      RETURN;
+
+    RECORD submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
+    IF (RecordExists(submitinstruction))
+      ExecuteSubmitInstruction(submitinstruction);
   }
 
   /** Prepares this plugin for rendering
@@ -315,15 +310,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(IsRequest())
     {
       // Shortcut authentication if already logged in.
-      STRING returnto := GetWebVariable("wrdauth_returnto");
-      IF(returnto != "")
-      {
-        RECORD up := UnpackURL(returnto);
-        IF(NOT RecordExists(LookupWebserver(GetHostedSites(), up.host, up.port)))
-          AbortWithHTTPError(400, "Unknown hostname in wrdauth_returno");
-
-        this->ProcessReturnTo(returnto, GetWebVariable("wrdauth_challenge"));
-      }
+      STRING logincontroltoken := GetWebVariable("wrdauth_logincontrol");
+      IF (logincontroltoken != "")
+        this->ProcessReturnTo(logincontroltoken);
 
       IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
         INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
@@ -440,15 +429,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Generates a submitinstruction to execute with a proof that a user is logged in (via wrdauth or via external users of access rule)
-      @param returnto Return URL
+      @param logincontrol Login control data @includecelldef #DecryptLoginControlToken.return
       @param type Proof type ("wrdauth", "wrdauth-nocookies", "external")
       @param data Proof data for external login
-      @cell data.ruleid Access rule id that requied login
       @cell data.username User name
-      @param challenge Challenge data
       @return Redirect submit instruction to return url with login proof attached
   */
-  PUBLIC RECORD FUNCTION __GenerateLoginProofRedirect(STRING returnto, STRING type, RECORD data, RECORD challenge)
+  PUBLIC RECORD FUNCTION __GenerateLoginProofRedirect(RECORD logincontrol, STRING type, RECORD data)
   {
     RECORD proof;
     SWITCH (type)
@@ -465,7 +452,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         proof :=
             [ type := "external"
-            , ruleid := data.ruleid
+            , ruleid := logincontrol.ruleid
             , username := data.username
             , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
             ];
@@ -478,12 +465,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     STRING proofstr := EncryptWRDAuthData(this->wrdauthconfig, proof, "");
 
-    STRING returnurl := returnto;
-    IF(CellExists(challenge,'ruleid') AND challenge.ruleid != 0) //We use importsession for access rules, because the returnpage might not be able to remove the wrdproof itself (eg static html, pdf)
-    {
-      returnurl := ResolveToAbsoluteURL(returnurl, ".!wrd/auth/importsession.shtml");
-      returnurl := ReplaceVariableInUrl(returnurl, "b", "/" || UnpackURL(returnto).urlpath);
-    }
+    STRING returnurl := logincontrol.returnto;
     returnurl := ReplaceVariableInUrl(returnurl, "wrdauth_proof", proofstr);
 
     RETURN
@@ -736,14 +718,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN trylogin;
   }
 
-  PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING challengedata, STRING returnto)
+  PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING logincontroltoken)
   {
-    RECORD challenge := DecryptWRDAuthData(this->wrdauthconfig, challengedata, "");
-    IF(NOT challenge.use_wrdauth)
+    RECORD logincontrol := this->DecryptLoginControlToken(logincontroltoken);
+
+    IF ("wrdauth" NOT IN logincontrol.logintypes)
       THROW NEW Exception("This challenge cannot be resolved by wrdauth"); //TODO think we need to handle external logins ?
 
-    RECORD result := this->__GenerateLoginProofRedirect(returnto, "wrdauth", DEFAULT RECORD, challenge);
-    RETURN result;
+    RETURN this->__GenerateLoginProofRedirect(logincontrol, "wrdauth", DEFAULT RECORD);
   }
 
   STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
@@ -768,9 +750,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @param password Password
       @param options Options (passed to support object / wrdauth)
       @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
-      @cell options.samlidpreq Encrypted SAML idp request (pass as posted to login page in webvariable 'samlidpreq')
-      @cell options.challenge Login challenge string (encrypted)
-      @cell options.returnto Return URL
+      @cell options.logincontrol Encrypted logincontrol token (passed in webvariable 'wrdauth_logincontrol')
       @cell options.browsertriplet Browser triplet
       @return Login result
       @cell return.success Whether the user was logged in successfully
@@ -780,9 +760,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ rawlogin := FALSE
-                               , samlidpreq := ""
-                               , challenge := ""
-                               , returnto := ""
+                               , logincontrol := ""
                                , skippasswordcheck := FALSE
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
@@ -805,19 +783,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     INSERT CELL lookuplogin := PTR this->LookupLogin INTO options;
 
-    BOOLEAN allow_wrdlogin := TRUE;
-    RECORD challenge;
-    IF (options.challenge != "")
-    {
-      challenge := DecryptWRDAuthData(this->wrdauthconfig, options.challenge, "");
-      IF (RecordExists(challenge))
-        allow_wrdlogin := challenge.use_wrdauth;
-    }
+
+    RECORD logincontrol := this->DecryptLoginControlToken(options.logincontrol);
 
     RECORD trylogin := [ success := FALSE ];
     RECORD submitinstruction;
 
-    IF (allow_wrdlogin)
+    BOOLEAN allowexternaluserlogin := "externaluser" IN logincontrol.logintypes;
+    IF ("wrdauth" IN logincontrol.logintypes)
     {
       IF(options.rawlogin)
         trylogin := this->__GetWRDAuthIntegration()->Login(loginname, password, options);
@@ -892,16 +865,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           THROW NEW Exception("Logged in, but no WRD user found");
         this->UpdateUserInfo();
 
-        IF (options.samlidpreq != "")
-        {
-          RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
-          submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
-          LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
-        }
-        ELSE IF (options.returnto != "")
-          submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);
-        ELSE
-          submitinstruction := [ type := "reload" ];
+        submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
       }
       ELSE IF (loginresultcode = "failedvalidationchecks")
       {
@@ -913,13 +877,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
       // only allow external login if the login returned code 'failed'
       IF (loginresultcode != "failed")
-        challenge := DEFAULT RECORD;
+        allowexternaluserlogin := FALSE;
     }
 
-    IF (NOT trylogin.success AND RecordExists(challenge) AND challenge.use_list != 0)
+    IF (NOT trylogin.success AND "externaluser" IN logincontrol.logintypes)
     {
       //we use DownloadWebserverConfig as the easiest way to ALSO access accounts in moduledefinition rules
-      RECORD ARRAY accounts := GetAdhocCached([ getuserlist := challenge.use_list ], PTR GetCacheableExternalUserAccounts(challenge.use_list));
+      RECORD ARRAY accounts := GetAdhocCached([ getuserlist := logincontrol.ruleid ], PTR GetCacheableExternalUserAccounts(logincontrol.ruleid));
       IF (RecordExists(SELECT FROM accounts WHERE accounts.username = loginname AND accounts.password = password))
       {
         trylogin :=
@@ -927,10 +891,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
             , code :=     "EXTERNAL"
             ];
 
-        submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "external",
-            [ ruleid :=   challenge.use_list
-            , username := loginname
-            ], challenge);
+        submitinstruction := this->HandleAfterLogin(logincontrol, "externaluser", [ username := loginname ]);
       }
     }
 
@@ -945,9 +906,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(string) data.code TOTP code
       @param options Options (passed to support object / wrdauth)
       @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
-      @cell options.samlidpreq Encrypted SAML idp request (pass as posted to login page in webvariable 'samlidpreq')
-      @cell options.challenge Login challenge string (encrypted)
-      @cell options.returnto Return URL
+      @cell options.logincontrol Encrypted logincontrol token (passed in webvariable 'wrdauth_logincontrol')
       @cell options.browsertriplet Browser triplet
       @return Login result
       @cell return.success Whether the user was logged in successfully
@@ -956,9 +915,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   */
   PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ samlidpreq := ""
-                               , challenge := ""
-                               , returnto := ""
+    options := ValidateOptions([ logincontrol := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
                                , allowlogout := TRUE
@@ -976,10 +933,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(NOT CellExists(options,"lastloginfield"))
       INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
 
-    RECORD challenge;
-    IF (options.challenge != "")
-      challenge := DecryptWRDAuthData(this->wrdauthconfig, options.challenge, "");
-
+    RECORD logincontrol := this->DecryptLoginControlToken(options.logincontrol);
     RECORD trylogin := this->__GetWRDAuthIntegration()->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip", "allowlogout" ]));
 
     IF(NOT trylogin.success)
@@ -1019,18 +973,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         THROW NEW Exception("Logged in, but no WRD user found");
       this->UpdateUserInfo();
 
-      IF (options.samlidpreq != "")
-      {
-        RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
-        submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
-
-        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
-      }
-      ELSE IF (options.returnto != "")
-        submitinstruction := this->__GenerateLoginProofRedirect(options.returnto, "wrdauth", DEFAULT RECORD, challenge);
-      ELSE
-        submitinstruction := [ type := "reload" ];
-
+      submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
       DELETE CELL secondfactordata FROM trylogin;
     }
 
@@ -1548,6 +1491,50 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN loginpage;
   }
 
+  /** Create a logincontrol token for external site login
+      @param returnto Return to this URL
+      @param accessruledata Data describing the accessrule requiring the login
+      @cell accessruledata.ruleid Access rule ID
+      @cell accessruledata.use_list Allow external users from the system.access_externalusers list
+      @cell accessruledata.use_wrdauth Allow WRD auth login
+      @cell accessruledata.rulepath Path to save to authentication cookie for
+      @return Logincontrol token
+  */
+  PUBLIC STRING FUNCTION __GenerateAccessRuleLoginControlToken(STRING returnto, RECORD accessruledata)
+  {
+    accessruledata := accessruledata ??
+        [ use_wrdauth := TRUE
+        , use_list := 0
+        ];
+
+    RECORD data := CELL
+        [ afterlogin :=   "siteredirect"
+        , logintypes :=   STRING
+                          [ ...(accessruledata.use_wrdauth ? [ "wrdauth" ] : STRING[])
+                          , ...(accessruledata.use_list != 0 ? [ "externaluser" ] : STRING[])
+                          ]
+        , ruleid :=       accessruledata.use_list
+        , returnto
+        ];
+
+    RETURN EncryptForThisServer("wrd:authplugin.logincontroltoken", data);
+  }
+
+  /** Create a logincontrol token for SAML IdP login
+      @param samlrequest SAML request data
+      @return Logincontrol token
+  */
+  PUBLIC STRING FUNCTION __GenerateSAMLLoginControlToken(RECORD samlrequest)
+  {
+    RECORD data := CELL
+        [ afterlogin :=   "samlresponse"
+        , logintypes :=   [ "wrdauth" ]
+        , samlrequest
+        ];
+
+    RETURN EncryptForThisServer("wrd:authplugin.logincontroltoken", data);
+  }
+
   PUBLIC MACRO __RedirectToLogin(RECORD challenge DEFAULTSTO DEFAULT RECORD)
   {
     IF(GetWebVariable("wrdauth_returned") IN [ "true", "1", "0", "loggedin" ])
@@ -1558,16 +1545,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(loginpage="")
       THROW NEW Exception("Need to redirect to the login page, but no login URL was configured");
 
-    RECORD loginvars :=
-        [ wrdauth_returnto := backurl
-        ];
+    STRING logincontrol := this->__GenerateAccessRuleLoginControlToken(backurl, challenge);
 
-    STRING encchallenge;
-    IF (RecordExists(challenge))
-    {
-      encchallenge := EncryptWRDAuthData(this->wrdauthconfig, challenge, "");
-      INSERT CELL wrdauth_challenge := encchallenge INTO loginvars;
-    }
+    RECORD loginvars :=
+        [ wrdauth_logincontrol :=   logincontrol
+        ];
 
     loginpage := ResolveToAbsoluteURL(this->pvt_webcontext->targetsite->webroot, loginpage);
     loginpage := UpdateURLVariables(loginpage, loginvars);
@@ -1580,8 +1562,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       //Give a loginscript link relative to the WebHare UI... that one should be reachable if you have a preview cookie...
       RECORD wittydata := [ link := loginpage
-                          , challenge := encchallenge
-                          , returnto := backurl
+                          , logincontrol := logincontrol
                           , loginscript := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.webhare/direct/publisher/publisher_login.js")
                           ];
       SendHTMLPage("mod::wrd/lib/internal/auth/publisher_login.witty", wittydata);
@@ -1590,7 +1571,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Parses login proof
-      @cell options.rulepath Path to save to authentication cookie for
       @return Login result
       @cell return.type Proof type
       @cell return.sessionid ID of websession created for this login
@@ -1599,7 +1579,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell return.backurl Current URL with login proof removed
       @cell return.cookiedata Login cookie data
   */
-  PUBLIC RECORD FUNCTION ParseAuthLoginProof(RECORD options)
+  PUBLIC RECORD FUNCTION ParseAuthLoginProof()
   {
     this->CheckNotFailed();
 
@@ -1610,7 +1590,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     IF (proof.until >= GetCurrentDateTime())
     {
-      //STRING rulepath := CellExists(options, "RULEPATH") ? ResolveToAbsoluteURL("http://example.com/", options.rulepath) : backurl;
       STRING sessionid := CreateWebSession(
           "wrd:authlogin",
           [ exists := TRUE ],
@@ -1659,7 +1638,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       If the user isn't logged in, he/she is redirected to the login page
       @cell options.ruleid Access rule ID
       @cell options.use_list Allow external users from the system.access_externalusers list
-      @cell options.use_wrdauth ???
+      @cell options.use_wrdauth Allow WRD auth login
       @cell options.rulepath Path to save to authentication cookie for
       @return Returns if the user is logged in
       @cell return.sessionid Session ID for authentication purposes
@@ -1678,7 +1657,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     // Did we just arrive from a login page?
     IF (GetWebVariable("wrdauth_proof") != "")
     {
-      RECORD parseresult := this->ParseAuthLoginProof(options);
+      RECORD parseresult := this->ParseAuthLoginProof();
       IF (RecordExists(parseresult))
       {
         BOOLEAN secure := GetClientRequestURL() LIKE "https://*";
@@ -1876,5 +1855,98 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC RECORD FUNCTION _GetConfig()
   {
     RETURN CELL[ ...this->pvt_config, ...this->wrdauthconfig, this->cookiename ];
+  }
+
+  /** Decodes the logincontrol token
+      @param webvar_logincontrol Logincontrol token
+      @return Logincontrol data
+      @cell(string array) return.logintypes Allowed types of login
+        - "externaluser" Login via user/password list in access rule
+        - "wrdauth": Login via WRD auth login
+      @cell(string) return.afterlogin After login do the following action
+        - "": reload the page
+        - "siteredirect": Redirect back to URL that requested authentication
+        - "samlresponse": Send a response to a SAML authentication request
+      @cell(string) return.prompt Mode of asking for authentication
+        - "": Only ask for authentication when not logged in
+        - "none": Never ask for authentication
+      @cell(string) return.returnto URL to return to (for afterlogin mode "siteredirect")
+      @cell(integer) return.ruleid Access rule id for external login
+      @cell(record) return.samlrequest SAML request data (to generate the SAML response)
+  */
+  RECORD FUNCTION DecryptLoginControlToken(STRING webvar_logincontrol)
+  {
+    RECORD data := webvar_logincontrol != ""
+        ? DecryptForThisServer("wrd:authplugin.logincontroltoken", webvar_logincontrol)
+        : DEFAULT RECORD;
+
+    RETURN EnforceStructure(
+          [ logintypes :=     STRING[] // "externaluser", "wrdauth"
+          , afterlogin :=     "" // "siteredirect", "samlresponse"
+          , prompt :=         "" // "", "none" ("" means don't prompt when already logged in)
+          , ruleid :=         0 // rule id for external login user list
+          , returnto :=       "" // URL to return to for siteredirect
+          , samlrequest :=    DEFAULT RECORD // Data needed to generate the SAML response after login
+          ], CELL // default values:
+          [ logintypes :=     [ "wrdauth" ]
+          , ...data
+          ]);
+  }
+
+  /** Generates a submitinstruction to execute based on the actions specified in the webvariable 'wrdauth_logincontrol'
+      @param logincontrol Login control data @includecelldef #DecryptLoginControlToken.return
+      @param logintype Login type @includecelldef #DecryptLoginControlToken.return.logintypes
+      @cell(string) options.username User name (for external (access rule user list) logins)
+      @return Submitinstruction @includecelldef %ExecuteSubmitInstruction.instr
+  */
+  RECORD FUNCTION HandleAfterLogin(RECORD logincontrol, STRING logintype, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ username :=     ""
+        ], options);
+
+    SWITCH (logintype)
+    {
+      CASE "externaluser"
+      {
+        IF (logincontrol.afterlogin != "siteredirect")
+          THROW NEW Exception(`Expected afterlogin action "siteredirect" after an externaluser login`);
+
+        RETURN this->__GenerateLoginProofRedirect(logincontrol, "external", CELL
+            [ options.username
+            ]);
+      }
+      CASE "wrdauth"
+      {
+        SWITCH (logincontrol.afterlogin)
+        {
+          CASE ""
+          {
+            // Default action after login is reload
+            RETURN [ type := "reload" ];
+          }
+          CASE "siteredirect"
+          {
+            // Redirect back to external site that needed login via central login page
+            RETURN this->__GenerateLoginProofRedirect(logincontrol, "wrdauth", DEFAULT RECORD);
+          }
+          CASE "samlresponse"
+          {
+            // Return SAML response to the SAML SP after the SAML IdP code required a login
+            RECORD submitinstruction := GenerateSAMLLoginResponse(this, logincontrol.samlrequest);
+            LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), logincontrol.samlrequest.ti, submitinstruction);
+            RETURN submitinstruction;
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Unhandled afterlogin action ${EncodeJSON(logincontrol.afterlogin)}`);
+          }
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unhandled logintype ${EncodeJSON(logintype)}`);
+      }
+    }
   }
 >;
