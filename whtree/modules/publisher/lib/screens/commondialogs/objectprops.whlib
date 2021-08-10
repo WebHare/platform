@@ -29,6 +29,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::publisher/tolliumapps/objectprops/tasks.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -53,40 +54,6 @@ RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
           , originalpath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id=historyinfo.currentparent)
           , origname :=     historyinfo.currentname
           ];
-}
-
-STRING FUNCTION GetTaskTitle(RECORD task)
-{
-  SWITCH (task.event)
-  {
-    CASE 1
-    {
-      RETURN GetTid("publisher:commondialogs.taskprops.event-start");
-    }
-    CASE 2
-    {
-      RETURN GetTid("publisher:commondialogs.taskprops.event-end");
-    }
-    CASE 3
-    {
-      OBJECT folder := OpenWHFSObject(task.folder);
-      RETURN GetTid("publisher:commondialogs.taskprops.event-movefolder", (ObjectExists(folder) ? folder->name : ""));
-    }
-    CASE 4
-    {
-      RETURN GetTid("publisher:commondialogs.taskprops.event-delete");
-    }
-    CASE 5
-    {
-      RETURN GetTid("publisher:commondialogs.taskprops.event-setindexdoc");
-    }
-    CASE 6
-    {
-      OBJECT replacewith := OpenWHFSObject(task.folder);
-      RETURN GetTid("publisher:commondialogs.taskprops.event-replacewithtarget", (ObjectExists(replacewith) ? replacewith->name : ""));
-    }
-  }
-  RETURN "";
 }
 
 OBJECTTYPE ObjectPropsAPI
@@ -1367,7 +1334,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoAddTask()
   {
-    OBJECT taskdlg := this->LoadScreen(".taskprops", [ why := "new"
+    OBJECT taskdlg := this->LoadScreen("mod::publisher/tolliumapps/objectprops/tasks.xml#taskprops", [ why := "new"
                                                      , siteroot := this->parentsite.root
                                                      , isfolder := this->isfolder
                                                      ]);
@@ -1392,7 +1359,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     IF (RecordExists(^tasks->selection))
     {
       RECORD seltask := ^tasks->selection;
-      OBJECT taskdlg := this->LoadScreen(".taskprops", [ why := "edit"
+      OBJECT taskdlg := this->LoadScreen("mod::publisher/tolliumapps/objectprops/tasks.xml#taskprops", [ why := "edit"
                                                        , siteroot := this->parentsite.root
                                                        , event := seltask.event
                                                        , folder := seltask.folder
@@ -2336,71 +2303,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 // Add/edit task dialog
 //
 
-PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
-< INTEGER siteroot;
-
-  PUBLIC PROPERTY task(GetTask, -);
-
-  MACRO Init(RECORD data)
-  {
-    IF (data.why = "new")
-    {
-      this->frame->title := GetTid("publisher:commondialogs.taskprops.addtask");
-      this->event->value := "1";
-      this->when->value := GetCurrentDateTime();
-    }
-    ELSE IF (data.why = "edit")
-    {
-      this->frame->title := GetTid("publisher:commondialogs.taskprops.edittask");
-      this->event->value := ToString(data.event);
-      this->folder->value := data.event = 3 ? data.folder : 0;
-      this->when->value := data.when;
-      ^replacewith->value := data.event = 6 ? data.folder : 0;
-    }
-    ELSE
-      ABORT("Unknown 'why'");
-
-    IF(data.isfolder)
-    {
-      this->start->label := GetTid("publisher:commondialogs.taskprops.event-startrecurse");
-      this->"end"->label := GetTid("publisher:commondialogs.taskprops.event-endrecurse");
-      ^button_replacewith->enabled := FALSE;
-    }
-    ELSE
-    {
-      ^replacewith->accepttypes := STRING[ this->contexts->applytester->objtypens ];
-    }
-
-    this->siteroot := data.siteroot;
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-
-    INTEGER event := ToInteger(this->event->value, 0);
-    IF (event < 1 OR event > 6)
-      work->AddError(GetTid("tollium:common.errors.field_required", this->start->title));
-
-    IF (NOT work->HasFailed() AND event = 3 AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->folder->value))
-    {
-      work->AddErrorFor(this->folder, GetTid("publisher:commondialogs.taskprops.messages.norightstomovetofolder", this->curfolder->name));
-    }
-
-    IF (this->when->value < AddTimeToDate(-(5 * 60 * 1000),GetCurrentDateTime())) //only warn if more than 5 minutes in the past
-      work->AddError(GetTid("publisher:commondialogs.taskprops.messages.taskinpast"));
-
-    RETURN work->Finish();
-  }
-
-  RECORD FUNCTION GetTask()
-  {
-    RETURN [ event := ToInteger(this->event->value, 0)
-           , folder := this->event->value = "3" ? ^folder->value : this->event->value = "6" ? ^replacewith->value : 0
-           , when := this->when->value
-           ];
-  }
->;
 
 PUBLIC MACRO RunPropertyDialog(OBJECT parent, RECORD target)
 {

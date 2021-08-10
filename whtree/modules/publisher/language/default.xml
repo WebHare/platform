@@ -212,26 +212,6 @@
       <text tid="sitesettingstab">Settings</text>
       <text tid="webfeatures">Web features</text>
     </textgroup>
-    <textgroup gid="taskprops">   <!-- commondialogs.taskprops -->
-      <text tid="addtask">Add task</text>
-      <text tid="edittask">Edit taak</text>
-      <text tid="event">Task</text>
-      <text tid="event-delete">Delete (move to recycle bin)</text>
-      <text tid="event-end">End publication</text>
-      <text tid="event-endrecurse">End publication of all files in this folder and all subfolders</text>
-      <text tid="event-move">Move to</text>
-      <text tid="event-movefolder">Move to folder '<param p="1"/>'</text>
-      <text tid="event-replacewith">Replace contents</text>
-      <text tid="event-replacewithtarget">Replace contents from '<param p="1"/>'</text>
-      <text tid="event-setindexdoc">Set as index document</text>
-      <text tid="event-start">Start publication</text>
-      <text tid="event-startrecurse">Start publication of all files in this folder and all subfolders</text>
-      <text tid="when">Start at</text>
-      <textgroup gid="messages">   <!-- commondialogs.taskprops.messages -->
-        <text tid="norightstomovetofolder">You have insufficient rights to move files to folder '<param p="1"/>'.</text>
-        <text tid="taskinpast">The date and/or time you specified lies in the past. Tasks can only be scheduled on future dates/times.</text>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="components" limitlanguages="en nl">   <!-- components -->
     <text tid="browseaction">Browse</text>
@@ -2281,6 +2261,24 @@
         <text tid="references">References</text>
         <text tid="url">URL</text>
         <text tid="whfspath">Path</text>
+      </textgroup>
+      <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
+        <text tid="addtask">Add task</text>
+        <text tid="edittask">Edit taak</text>
+        <text tid="event">Task</text>
+        <text tid="event-delete">Delete (move to recycle bin)</text>
+        <text tid="event-end">End publication</text>
+        <text tid="event-endrecurse">End publication of all files in this folder and all subfolders</text>
+        <text tid="event-move">Move to</text>
+        <text tid="event-movefolder">Move to folder '<param p="1"/>'</text>
+        <text tid="event-replacewith">Replace contents</text>
+        <text tid="event-replacewithtarget">Replace contents from '<param p="1"/>'</text>
+        <text tid="event-setindexdoc">Set as index document</text>
+        <text tid="event-start">Start publication</text>
+        <text tid="event-startrecurse">Start publication of all files in this folder and all subfolders</text>
+        <text tid="norightstomovetofolder">You have insufficient rights to move files to folder '<param p="1"/>'.</text>
+        <text tid="taskinpast">The date and/or time you specified lies in the past. Tasks can only be scheduled on future dates/times.</text>
+        <text tid="when">Start at</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

@@ -212,26 +212,6 @@
       <text tid="sitesettingstab">Instellingen</text>
       <text tid="webfeatures">Web features</text>
     </textgroup>
-    <textgroup gid="taskprops">   <!-- commondialogs.taskprops -->
-      <text tid="addtask">Voeg taak toe</text>
-      <text tid="edittask">Bewerk taak</text>
-      <text tid="event">Taak</text>
-      <text tid="event-delete">Verwijderen (verplaats naar prullenbak)</text>
-      <text tid="event-end">Beëindig publicatie</text>
-      <text tid="event-endrecurse">Beëindig publicatie van alle bestanden in deze map en alle submappen</text>
-      <text tid="event-move">Verplaats naar</text>
-      <text tid="event-movefolder">Verplaats naar map '<param p="1"/>'</text>
-      <text tid="event-replacewith">Vervang inhoud</text>
-      <text tid="event-replacewithtarget">Vervang inhoud door '<param p="1"/>'</text>
-      <text tid="event-setindexdoc">Maak indexbestand</text>
-      <text tid="event-start">Start publicatie</text>
-      <text tid="event-startrecurse">Start publicatie van alle bestanden in deze map en alle submappen</text>
-      <text tid="when">Start op</text>
-      <textgroup gid="messages">   <!-- commondialogs.taskprops.messages -->
-        <text tid="norightstomovetofolder">U heeft onvoldoende rechten om bestanden te verplaatsen naar map '<param p="1"/>'.</text>
-        <text tid="taskinpast">De door u ingevoerde tijd/datum ligt in het verleden. U kunt alleen toekomstige taken inplannen.</text>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="components">   <!-- components -->
     <text tid="browseaction">Selecteren</text>
@@ -2281,6 +2261,24 @@
         <text tid="references">Referenties</text>
         <text tid="url">URL</text>
         <text tid="whfspath">Pad</text>
+      </textgroup>
+      <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
+        <text tid="addtask">Voeg taak toe</text>
+        <text tid="edittask">Bewerk taak</text>
+        <text tid="event">Taak</text>
+        <text tid="event-delete">Verwijderen (verplaats naar prullenbak)</text>
+        <text tid="event-end">Beëindig publicatie</text>
+        <text tid="event-endrecurse">Beëindig publicatie van alle bestanden in deze map en alle submappen</text>
+        <text tid="event-move">Verplaats naar</text>
+        <text tid="event-movefolder">Verplaats naar map '<param p="1"/>'</text>
+        <text tid="event-replacewith">Vervang inhoud</text>
+        <text tid="event-replacewithtarget">Vervang inhoud door '<param p="1"/>'</text>
+        <text tid="event-setindexdoc">Maak indexbestand</text>
+        <text tid="event-start">Start publicatie</text>
+        <text tid="event-startrecurse">Start publicatie van alle bestanden in deze map en alle submappen</text>
+        <text tid="norightstomovetofolder">U heeft onvoldoende rechten om bestanden te verplaatsen naar map '<param p="1"/>'.</text>
+        <text tid="taskinpast">De door u ingevoerde tijd/datum ligt in het verleden. U kunt alleen toekomstige taken inplannen.</text>
+        <text tid="when">Start op</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

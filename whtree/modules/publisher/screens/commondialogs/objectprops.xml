@@ -149,28 +149,4 @@
     </footer>
   </screen>
 
-  <screen name="taskprops" gid=".taskprops" title="">
-    <compositions>
-      <radiogroup name="event" />
-    </compositions>
-    <body>
-      <radiobutton name="start" group="event" rowkey="1" tid=".event" labeltid=".event-start" />
-      <radiobutton name="end" group="event" rowkey="2" title="" labeltid=".event-end" />
-      <line>
-        <radiobutton name="move" group="event" rowkey="3" title="" labeltid=".event-move" enablecomponents="folder" />
-        <publisher:browseforobject name="folder" acceptfiles="false" required="true" errorlabeltid=".event-move" title="" showclear="false"/>
-      </line>
-      <radiobutton name="delete" group="event" rowkey="4" title="" labeltid=".event-delete" />
-      <radiobutton name="setindexdoc" group="event" rowkey="5" title="" labeltid=".event-setindexdoc" />
-      <line>
-        <radiobutton name="button_replacewith" group="event" rowkey="6" title="" labeltid=".event-replacewith" enablecomponents="replacewith" />
-        <publisher:browseforobject name="replacewith" acceptfolders="false" required="true" errorlabeltid=".event-replacewith" title="" showclear="false"/>
-      </line>
-      <datetime name="when" type="datetime" precision="minutes" required="true" storeutc="true" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
 </screens>
