@@ -1537,10 +1537,7 @@
       <text tid="nofirstpage">Het bestand kon niet worden gepubliceerd omdat het sjabloon dat gebruikt wordt voor de publicatie geen eerste uitvoer pagina aanmaakt.</text>
       <text tid="noparts">Het bestand kon niet worden gepubliceerd omdat er zijn geen delen geopend zijn. U dient tenminste één deel te openen waar de objecten naartoe gestuurd kunnen worden.</text>
       <text tid="noprofile">Het document kon niet worden gepubliceerd omdat er geen conversieprofiel aan het document gekoppeld is.</text>
-      <text tid="notemplate">Het bestand kon niet worden gepubliceerd omdat er geen sjabloon aan het document gekoppeld is.</text>
-      <text tid="notemplateowner">Het bestand kon niet gepubliceerd worden omdat het sjabloon dat gebruikt wordt om dit bestand te publiceren geen eigenaar heeft.</text>
       <text tid="sitelocked">Het bestand kon niet worden gepubliceerd omdat de site waarin dit bestand zich bevindt is geblokkeerd.</text>
-      <text tid="templatenotfound">Het bestand kon niet worden gepubliceerd omdat het gebruikte sjabloon '<param p="1"/>' niet bestaat.</text>
       <text tid="unknowntype">Het document kon niet gepubliceerd worden omdat deze versie van WebHare het type document niet herkent.</text>
       <text tid="unsupportedtype">Het document kon niet gepubliceerd worden omdat deze versie van WebHare geen documenten van type '<param p="1"/>' kan publiceren.</text>
     </textgroup>

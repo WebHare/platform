@@ -24,9 +24,7 @@
         </tab>
         <tab tid=".sitedesigntab">
           <heading tid=".sitedesignbox" />
-          <select name="sitedesign" type="pulldown" onchange="onsitedesignchange">
-            <option rowkey="" tid=".sitedesign-none" />
-          </select>
+          <select name="sitedesign" type="pulldown" onchange="onsitedesignchange" />
           <heading tid=".webfeatures" />
           <list name="webfeatures" emptytid=".nowebfeatures" width="1pr" height="1pr" rowkeytype="string">
             <column name="feature" type="text" checkboxname="featurechecked" />

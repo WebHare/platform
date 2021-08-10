@@ -84,7 +84,6 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_modify := 5;
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
   [  7 //semidynamic
   , 16 //whlib
-  , 22 //standalone tpl
   , 25 //shtml
   , 28 //template
   ];

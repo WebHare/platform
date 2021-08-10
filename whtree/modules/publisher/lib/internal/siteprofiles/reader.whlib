@@ -1579,7 +1579,7 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, passthrough := ["utm_*"] ]);
   }
 
-  PUBLIC RECORD FUNCTION GetUsePublishTemplate(BOOLEAN haswebdesign)
+  PUBLIC RECORD FUNCTION GetUsePublishTemplate()
   {
     RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"
                        , skipnormalrepublish := TRUE //no need to depend on templates
@@ -1593,10 +1593,10 @@ STATIC OBJECTTYPE ApplyRuleTester
       IF(this->__Deprecated_GetObjInfo().obj.type != 0)
         contenttype := LookupContentTypeById(this->__Deprecated_GetObjInfo().obj.type);
       IF (RecordExists(contenttype)
-          AND RecordExists(contenttype.filetype)
           AND (RecordExists(contenttype.dynamicexecution)
-               OR contenttype.namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
-               OR (haswebdesign AND contenttype.namespace IN ["http://www.webhare.net/xmlns/publisher/shtmlfile"])))
+               OR contenttype.namespace IN [ "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
+                                           , "http://www.webhare.net/xmlns/publisher/shtmlfile"
+                                           ]))
       {
         usetempl.script := "mod::publisher/scripts/internal/publishsystemredirect.whscr";
         usetempl.isdefault := FALSE;
@@ -1881,6 +1881,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
 
   OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
   allsites := sitesettingstype->Enrich(allsites, "ID", ["SITEDESIGN","WEBFEATURES"]);
+  UPDATE allsites SET sitedesign := "publisher:nodesign" WHERE sitedesign = "";
 
   FOREVERY(RECORD site FROM allsites)
   {

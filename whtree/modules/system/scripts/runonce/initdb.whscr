@@ -37,7 +37,6 @@ MACRO InitializeFileTypes()
                             , [ id := 19, namespace := "http://www.webhare.net/xmlns/publisher/internallink",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 20, namespace := "http://www.webhare.net/xmlns/publisher/contentlink",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 21, namespace := "http://www.webhare.net/xmlns/publisher/plaintextfile",  isfoldertype := FALSE, isfiletype := TRUE ]
-                            , [ id := 22, namespace := "http://www.webhare.net/xmlns/publisher/standalonetemplatefile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 23, namespace := "http://www.webhare.net/xmlns/publisher/xmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 24, namespace := "http://www.webhare.net/xmlns/publisher/contentlisting",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 25, namespace := "http://www.webhare.net/xmlns/publisher/shtmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]

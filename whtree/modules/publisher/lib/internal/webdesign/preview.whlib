@@ -71,7 +71,7 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
   OBJECT contentfiletype := OpenWHFSTypeById(openobj->type);
   IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
   {
-    RECORD usetempl := applytester->GetUsePublishTemplate(FALSE);
+    RECORD usetempl := applytester->GetUsePublishTemplate();
     SendFileDirect(openobj, source, NOT usetempl.isdefault );
     RETURN;
   }

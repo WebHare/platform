@@ -491,7 +491,6 @@ PUBLIC STRING FUNCTION GetPublicationErrorMsg(INTEGER published, STRING errordat
     CASE 101 { RETURN GetTid("publisher:publicationstatus.errors.hserror"); }
     CASE 102 { RETURN GetTid("publisher:publicationstatus.errors.abort"); }
     CASE 106 { RETURN GetTid("publisher:publicationstatus.errors.nofirstpage"); }
-    CASE 107 { RETURN errordata = "" ? GetTid("publisher:publicationstatus.errors.notemplate") : GetTid("publisher:publicationstatus.errors.templatenotfound", errordata); }
     CASE 108 { RETURN GetTid("publisher:publicationstatus.errors.noparts"); }
     CASE 109 { RETURN GetTid("publisher:publicationstatus.errors.noprofile"); }
     CASE 112 { RETURN GetTid("publisher:publicationstatus.errors.sitelocked"); }

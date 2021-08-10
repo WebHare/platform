@@ -955,14 +955,22 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "usepublishtemplate"
             {
-              apply.usepublishtemplate := [ script := this->ParseFSPath(node, "script")
-                                          , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
-                                          ];
+              RECORD usepublishtemplate := [ script := this->ParseFSPath(node, "script")
+                                           , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
+                                           ];
 
-              IF(apply.usepublishtemplate.script = "")
+              IF(usepublishtemplate.script = "")
               {
-                apply.usepublishtemplate.script := this->siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
+                usepublishtemplate.script := this->siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
                 this->AddWarning(node, `<usepublishtemplate/> should use script=, not site=/fullpath=`);
+              }
+              IF(usepublishtemplate.script = "") //still unset
+              {
+                this->AddError(node, `<usepublishtemplate/> must set a script=`);
+              }
+              ELSE
+              {
+                apply.usepublishtemplate := usepublishtemplate;
               }
               CONTINUE;
             }

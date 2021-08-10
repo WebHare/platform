@@ -152,38 +152,25 @@ STATIC OBJECTTYPE PublicationRun
   PUBLIC RECORD FUNCTION GetTemplateInfo()
   {
     RECORD retval := [ has_webdesign := FALSE
-                     , templateid := 0
                      , templatescript := ""
                      , webdesign := DEFAULT RECORD
                      , usetempl := DEFAULT RECORD
-                     , notfound := ""
                      ];
-
-    BOOLEAN found_template;
-    IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 22) // StandaloneTemplate
-    {
-      found_template := TRUE;
-      retval.has_webdesign := TRUE; //we assume that any explicit standalone template also has a webdesign dependency
-      retval.templateid := this->contentfileid;
-      RETURN retval;
-    }
 
     //First verify if there is a design node
     OBJECT applytester := GetApplyTesterForObject(this->filedata.fileid);
     RECORD webdesign := applytester->GetWebDesignObjinfo();
+    IF(NOT RecordExists(webdesign))
+      RETURN retval;
+
     retval.webdesign := webdesign;
 
-    RECORD site := __FindSite(this->filedata.siteid);
-    RECORD folder := __FindFolder(this->filedata.folderid);
-    RECORD file := __FindFile(this->filedata.fileid);
-    RECORD usetempl := applytester->GetUsePublishTemplate(RecordExists(retval.webdesign));
-
+    RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
     IF(ObjectExists(this->contentfiletype)
       AND (this->contentfiletype->isdynamicexecution
            OR this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
            OR (RecordExists(retval.webdesign) AND this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/shtmlfile")))
     {
-      found_template := TRUE;
       retval.has_webdesign := FALSE;
       retval.templatescript := "mod::publisher/scripts/internal/publishsystemredirect.whscr";
       RETURN retval;
@@ -194,11 +181,7 @@ STATIC OBJECTTYPE PublicationRun
       IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->needstemplate)
       {
         retval.has_webdesign := TRUE;
-        IF(RecordExists(webdesign))
-        {
-          found_template := TRUE;
-          retval.templatescript := "mod::publisher/scripts/internal/publishwebdesign.whscr";
-        }
+        retval.templatescript := "mod::publisher/scripts/internal/publishwebdesign.whscr";
         RETURN retval;
       }
     }
@@ -207,25 +190,7 @@ STATIC OBJECTTYPE PublicationRun
 
     retval.has_webdesign := NOT usetempl.skipnormalrepublish;
     retval.usetempl := usetempl;
-
-    IF(usetempl.script LIKE "mod::*" OR usetempl.script LIKE "modulescript::*") //ADDME allow other namespaces? it'll require validation...
-    {
-      found_template := TRUE;
-      retval.templatescript := usetempl.script;
-    }
-    ELSE
-    {
-      OBJECT templ := OpenWHFSObjectByPath(usetempl.script);
-      IF(ObjectExists(templ) AND NOT templ->isfolder)
-      {
-        found_template := TRUE;
-        retval.templateid := templ->id;
-      }
-      ELSE
-      {
-        retval.notfound := usetempl.script;
-      }
-    }
+    retval.templatescript := usetempl.script;
     RETURN retval;
   }
 
@@ -267,28 +232,10 @@ STATIC OBJECTTYPE PublicationRun
     }
 
     RECORD info  := this->GetTemplateInfo();
-    IF(info.notfound != "")
-    {
-      this->errordata := info.notfound;
-      this->errorcode := 107;
-      RETURN 0;
-    }
     this->has_webdesign := info.has_webdesign;
-    IF(info.templateid != 0)
-      this->templatejob := this->LoadWHFSTemplate(info.templateid);
-    ELSE IF(info.templatescript != "")
-      this->templatejob := this->LoadScriptTemplate(info.templatescript);
-
-    IF (NOT ObjectExists(this->templatejob))
-    {
-      // If a template was found but the job doesn't exist, the errors have already been set.
-      IF (info.templateid = 0 AND info.templatescript = "")
-      {
-        this->errordata := "";
-        this->errorcode := 107;
-      }
+    this->templatejob := this->LoadScriptTemplate(info.templatescript);
+    IF (NOT ObjectExists(this->templatejob)) //If the job doesn't exist, the errorcode has been set by LoadScriptTemplate
       RETURN 0;
-    }
 
     this->joboutput := this->templatejob->CaptureOutput();
     this->templatejob->Start();
@@ -461,18 +408,6 @@ STATIC OBJECTTYPE PublicationRun
     RETURN TRUE;
   }
 
-  PUBLIC OBJECT FUNCTION LoadWHFSTemplate(INTEGER fileid)
-  {
-    RECORD templaterec := SELECT parentsite,fullpath FROM system.fs_objects WHERE id = fileid AND isactive;
-    IF (NOT RecordExists(templaterec))
-    {
-      // Template has been removed
-      this->errorcode:=114;
-      this->errordata:="Template has been deleted";
-      RETURN DEFAULT OBJECT;
-    }
-    RETURN this->LoadTemplate(GetDirectResourceName(fileid));
-  }
   PUBLIC OBJECT FUNCTION LoadScriptTemplate(STRING scriptname)
   {
     RETURN this->LoadTemplate(scriptname);

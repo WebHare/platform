@@ -133,6 +133,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       this->SetupSiteOptions();
 
       this->frame->title := GetTid("publisher:commondialogs.objectprops.newsite-title");
+      ^sitedesign->value := "publisher:nodesign";
 
       IF (NOT ObjectExists(this->parentfolder) AND data.parentfolder != 0)
         THROW NEW Exception("No such file/folder " || data.parentfolder);
@@ -170,7 +171,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       IF (sitesettings.sitedesign != "" AND NOT RecordExists(SELECT FROM sitedesigns WHERE rowkey=sitesettings.sitedesign))
         INSERT [ rowkey := sitesettings.sitedesign, title := sitesettings.sitedesign ] INTO ^sitedesign->options AT END;
 
-      ^sitedesign->value := sitesettings.sitedesign;
+      ^sitedesign->value := sitesettings.sitedesign ?? "publisher:nodesign";
 
       IF (this->cursite.versioningpolicy!="")
       {
