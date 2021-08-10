@@ -1087,7 +1087,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
         INSERT usualprop INTo tagparts AT END;
 
     IF(this->_robotstag.noindex AND NOT this->_robotstag.nofollow)
-      INSERT "follow" INTO tagparts AT END; //various sources seem to recommend explicitly setting follow/nofollow after a noindex, and it shoudln't do harm
+      INSERT "follow" INTO tagparts AT END; //various sources seem to recommend explicitly setting follow/nofollow after a noindex, and it shouldn't do harm
 
     IF(this->_robotstag.unavailable_after != DEFAULT DATETIME)
       INSERT "unavailable_after: " || FormatISO8601Datetime(this->_robotstag.unavailable_after) INTO tagparts AT END;

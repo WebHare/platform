@@ -22,7 +22,7 @@ PUBLIC STATIC OBJECTTYPE RobotsPlugin EXTEND WebDesignPluginBase
   {
     this->webdesign := webcontext;
 
-    //Only set these if they're actually disabled, gives us some protection againt weird init ordering (at least prevents us from incorrectly resetting)
+    //Only set these if they're actually disabled, gives us some protection against weird init ordering (at least prevents us from incorrectly resetting)
     IF(mergedconfiguration.noindex)
       this->noindex := mergedconfiguration.noindex;
     IF(mergedconfiguration.nofollow)
