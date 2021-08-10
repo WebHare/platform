@@ -521,6 +521,8 @@
     <boolean name="nofollow" />
     <boolean name="noarchive" />
     <string name="customrobots" />
+    <whfsref name="canonical" />
+    <string name="comments" />
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/sitesettings">

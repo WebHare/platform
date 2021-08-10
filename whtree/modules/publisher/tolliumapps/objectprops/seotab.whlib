@@ -40,6 +40,8 @@ PUBLIC STATIC OBJECTTYPE SeoSettings EXTEND TolliumTabsExtensionBase
 
     IF(NOT this->contexts->user->HasRight("system:supervisor"))
       ^customrobots->visible := FALSE;
+
+    ^canonical->visible := NOT this->contexts->applytester->objisfolder;
     IF(NOT this->contexts->applytester->objisfolder)
     {
       //Then fields can also be locked through the siteprofile

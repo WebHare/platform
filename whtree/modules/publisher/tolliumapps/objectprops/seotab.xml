@@ -12,12 +12,8 @@
         <checkbox composition="contentdata" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
       </lines>
       <textedit composition="contentdata" cellname="customrobots" name="customrobots" width="1pr" />
-<!--
-      <heading name="canonicalheading" tid=".canonical" />
-      <lines layout="left">
-        <p:intextlink composition="contentdata" cellname="canonical" name="canonical" errorlabeltid=".canonical" title="" />
-      </lines>
- -->
+      <p:browseforobject composition="contentdata" cellname="canonical" name="canonical" acceptfolders="false" />
+      <textarea composition="contentdata" cellname="comments" width="1pr" tid="~comments" />
     </newtab>
   </tabsextension>
 
