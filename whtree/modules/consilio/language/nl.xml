@@ -232,7 +232,8 @@
       <text tid="fileurl">Bestands URL</text>
       <text tid="fileview">Bekijk bestand</text>
       <text tid="linkcheck">Linkcontrole</text>
-      <text tid="nolinks">Er zijn geen kapotte links</text>
+      <text tid="nobrokenlinks">Er zijn geen kapotte links</text>
+      <text tid="nolinks">Geen links gevonden</text>
       <text tid="showalllinks">Toon alle links</text>
       <text tid="status">Statuscode</text>
       <text tid="statushint">Status</text>

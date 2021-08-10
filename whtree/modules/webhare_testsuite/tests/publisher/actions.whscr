@@ -469,7 +469,8 @@ MACRO CopyMoveTest()
 
   //Create a siteprofile to repub everything whenever a file named "test.html" is changed (and a move sounds like a change)
   testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
-  testfw->Commit(); //flush the siteprofile updates, since the siteprofiles cache uses a weblet, which doesn't live in our transaction :(  FIXME fix that! weblet should SHARE our tranasction
+  testfw->Commit(); //flush the siteprofile updates
+  WaitForPublishCompletion(testsite->id);
 
   testfw->StartTrans("~webhare",FALSE);
 

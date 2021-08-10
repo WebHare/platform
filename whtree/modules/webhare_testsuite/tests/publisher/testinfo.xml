@@ -7,7 +7,7 @@
 
   <test script="actions.whscr"/>
   <test script="consilio.whscr"/>
-  <test script="main.whscr" flaky="1" />
+  <test script="main.whscr" />
   <test script="recyclebin.whscr"/>
   <test script="test-lifecycle.whscr"/>
   <test script="tagmanager.whscr"/>

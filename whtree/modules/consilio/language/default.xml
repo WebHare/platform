@@ -232,7 +232,8 @@
       <text tid="fileurl">File URL</text>
       <text tid="fileview">View File</text>
       <text tid="linkcheck">Link check</text>
-      <text tid="nolinks">There are no broken links</text>
+      <text tid="nobrokenlinks">There are no broken links</text>
+      <text tid="nolinks">No links found</text>
       <text tid="showalllinks">Show all links</text>
       <text tid="status">Status Code</text>
       <text tid="statushint">Status</text>

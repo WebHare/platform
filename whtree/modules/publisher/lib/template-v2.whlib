@@ -8,7 +8,6 @@
 LOADLIB "mod::publisher/lib/internal/link-fixer.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "mod::publisher/lib/common-v2.whlib" EXPORT file, folder, site, NotAPublishingContextException;
 LOADLIB "mod::system/lib/database.whlib";

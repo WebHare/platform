@@ -12,7 +12,6 @@ LOADLIB "wh::xml/xsd.whlib";
 
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";
-LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 

@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::filetypes/css.whlib";
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
