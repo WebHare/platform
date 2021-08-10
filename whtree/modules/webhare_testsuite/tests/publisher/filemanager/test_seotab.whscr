@@ -15,6 +15,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
+  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
   testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
 }
@@ -31,6 +32,7 @@ ASYNC MACRO TestSeoSettings()
 
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
   OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
   noindexfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [noindex := TRUE]);
@@ -56,6 +58,14 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be invisible to Lisa");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -110,6 +120,19 @@ ASYNC MACRO TestSeoSettings()
   TestEq(FALSE, tt_nofollow->enabled);
 
   TestEq(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots")->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  ///////////////////////////////////
+  //
+  // As Marge, we can see the protected seo tab Lisa couldn't see
+  //
+  testfw->SetTestUser("marge");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be visible to Marge");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -212,4 +235,6 @@ RunTestframework([ PTR PrepIt
                  , PTR TestSeoSettings
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
-                                   ]]);
+                                   ,[ login := "marge", grantrights := ["system:supervisor"] ]
+                                   ]
+                    ]);

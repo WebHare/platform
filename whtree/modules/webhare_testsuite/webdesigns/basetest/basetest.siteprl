@@ -365,6 +365,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*protected-seotab*" />
+    <baseproperties seotabrequireright="system:supervisor" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*noindex*" />
     <baseproperties noindex="true" />
   </apply>

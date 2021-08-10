@@ -14,7 +14,8 @@ override these settings.
 You may want to consider disabling the seotab property on dynamic pages, especially if they will take care
 of these properties themselves or expand to multiple pages for which a single canonical URL won't make sense.
 You can also use the `<baseproperties` noindex/nofollow/noarchive settings to enforce these settings on
-certain files (eg 'noindex' on search pages)
+certain files (eg 'noindex' on search pages). Alternatively, you can use the `seotabrequireright` attribute
+to limit the access to the SEO tab.
 
 ## Migrating away from the consilio robots plugin
 The consilio `<robots xmlns="http://www.webhare.net/xmlns/consilio" />` has been deprecated
