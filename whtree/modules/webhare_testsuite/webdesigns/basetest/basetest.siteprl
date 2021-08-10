@@ -364,6 +364,27 @@
     <baseproperties seotab="true" />
   </apply>
 
+  <apply>
+    <to type="all" pathmask="*noindex*" />
+    <baseproperties noindex="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*nofollow*" />
+    <baseproperties nofollow="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*noarchive*" />
+    <baseproperties noarchive="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*yesfollow*" />
+    <baseproperties nofollow="false" />
+  </apply>
+
+
   <!-- RTDType and widget testing -->
   <widgettype editextension="#editlevel1"
               namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"

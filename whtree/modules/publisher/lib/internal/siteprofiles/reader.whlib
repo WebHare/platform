@@ -790,6 +790,9 @@ STATIC OBJECTTYPE ApplyRuleTester
   /// @type(integer) The site of the current object
   PUBLIC PROPERTY objsite(this->objinfo.obj.parentsite, -);
 
+  /// @type(boolean) Are we applied to a folder?
+  PUBLIC PROPERTY objisfolder(this->objinfo.obj.isfolder, -);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -1958,3 +1961,11 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 
   RETURN [ siteprofileids := INTEGER[], roottype := 0 ];
 }
+
+PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applyteser)
+{
+  RETURN applyteser->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE
+                                                         , noindex := FALSE, nofollow := FALSE, noarchive := FALSE
+                                                         ]);
+}
+

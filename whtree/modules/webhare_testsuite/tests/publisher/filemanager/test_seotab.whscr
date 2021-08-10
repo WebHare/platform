@@ -43,6 +43,12 @@ ASYNC MACRO TestSeoSettings()
   OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
   OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowwsubfile", type := rtdtype->id, publish := TRUE ]);
 
+  OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := rtdtype->id, publish := TRUE ]);
+
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindeximage->whfspath ] ]));
@@ -140,6 +146,25 @@ ASYNC MACRO TestSeoSettings()
 
   ///////////////////////////////////
   //
+  // Open robots-noindex-nofollow-yesfollow as sysop, check that noindex is locked and nofollow isn't
+  //
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ forced_noindex_nofollow_yesfollow_file->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
+  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+
+  TestEq(TRUE, tt_noindex->value);
+  TestEq(FALSE, tt_noindex->enabled);
+  TestEq(FALSE, tt_nofollow->value);
+  TestEq(TRUE, tt_nofollow->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+
+  ///////////////////////////////////
+  //
   // Check the output of all these files
   //
   OBJECT metarobots;
@@ -152,6 +177,26 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, testfw->browser->GotoWebPage(nofollowsubfile->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
   TestEq("nofollow,ZwoBot", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,follow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_nofollow_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("nofollow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noarchive_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noarchive", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_nofollow_noarchive_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,nofollow,noarchive", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_nofollow_yesfollow_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,follow", metarobots->GetAttribute("content"));
 }
 
 RunTestframework([ PTR PrepIt

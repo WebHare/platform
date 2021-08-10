@@ -341,6 +341,11 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       IF(parent.customrobots != "")
         this->_robotstag.custom := parent.customrobots;
     }
+
+    RECORD baseprops := GetBaseProperties(this->targetapplytester);
+    FOREVERY(STRING field FROM lockablefields)
+      IF(GetCell(baseprops, field))
+        this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
   }
 
   // ---------------------------------------------------------------------------

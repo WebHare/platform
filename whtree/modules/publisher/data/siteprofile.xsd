@@ -1077,6 +1077,21 @@
           <xs:documentation>Strip .rtd extension from newly created files</xs:documentation>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="noindex" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'noindex' robot setting</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="nofollow" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'nofollow' robot setting</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="noarchive" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'noarchive' robot setting</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 

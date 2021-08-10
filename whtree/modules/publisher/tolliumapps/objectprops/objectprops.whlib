@@ -617,7 +617,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
 
     //configure settings that depend on the applytester
-    this->basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE ]);
+    this->basesettings := GetBaseProperties(this->contexts->applytester);
   }
 
   // ---------------------------------------------------------------------------

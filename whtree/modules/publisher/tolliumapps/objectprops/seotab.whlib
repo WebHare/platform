@@ -4,26 +4,34 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+
+CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
 
 PUBLIC STATIC OBJECTTYPE SeoSettings EXTEND TolliumTabsExtensionBase
 <
+  MACRO ApplyAnyLocks(RECORD settings)
+  {
+    FOREVERY(STRING field FROM lockablefields)
+      IF(GetCell(settings, field) AND GetMember(this, "^" || field)->enabled = TRUE) //still enabled...
+      {
+        GetMember(this, "^" || field)->enabled := FALSE;
+        GetMember(this, "^" || field)->value := TRUE;
+      }
+  }
+
   UPDATE PUBLIC MACRO PostInitExtension()
   {
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
     {
       //we are contained in a site, and need to check parents for forced noindex/nofollow
       INTEGER ARRAY tree := this->contexts->objectpropsapi->targetfolder->GetFullTree();
-      CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
 
       RECORD ARRAY curseosettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(tree,"ID"), "ID", STRING[...lockablefields, "customrobots" ]);
       FOREVERY(RECORD setting FROM curseosettings)
       {
-        FOREVERY(STRING field FROM lockablefields)
-          IF(GetCell(setting, field) AND GetMember(this, "^" || field)->enabled = TRUE) //still enabled...
-          {
-            GetMember(this, "^" || field)->enabled := FALSE;
-            GetMember(this, "^" || field)->value := TRUE;
-          }
+        this->ApplyAnyLocks(setting);
 
         IF(setting.customrobots != "")
           ^customrobots->placeholder := setting.customrobots;
@@ -32,5 +40,12 @@ PUBLIC STATIC OBJECTTYPE SeoSettings EXTEND TolliumTabsExtensionBase
 
     IF(NOT this->contexts->user->HasRight("system:supervisor"))
       ^customrobots->visible := FALSE;
+    IF(NOT this->contexts->applytester->objisfolder)
+    {
+      //Then fields can also be locked through the siteprofile
+      //TODO share GetBaseProperties with objectprops screen?
+      RECORD baseprops := GetBaseProperties(this->contexts->applytester);
+      this->ApplyAnyLocks(baseprops);
+    }
   }
 >;
