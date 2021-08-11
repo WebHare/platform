@@ -524,7 +524,13 @@ MACRO TestExportImport()
   OBJECT exporter := MakeWRDSchemaExporter(testfw->GetWRDSchema());
   BLOB result := exporter->RunExport();
   testfw->BeginWork();
-  DELETE FROM wrd.schemas WHERE id = testfw->GetWRDSchema()->id; //sync delete so we can be sure we can't reference it
+  testfw->GetWRDSchema()->DeleteSelf();
+  testfw->CommitWork();
+
+  // wait for full delete so we can be sure we can't reference it
+  testfw->FlushTasks([ "wrd:deletetask" ]);
+
+  testfw->BeginWork();
 
   OBJECT importedschema := CreateWRDSchemaFromImport(result);
   OBJECT persontype := importedschema->^wrd_person;
