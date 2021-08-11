@@ -64,6 +64,9 @@ while true; do
   elif [ "$1" == "--nocleanup" ]; then
     NOCLEANUP=1
     shift
+  elif [ "$1" == "--nocleanuponerror" ]; then
+    NOCLEANUPONERROR=1
+    shift
   elif [ "$1" == "--sh" ]; then
     ENTERSHELL=1
     shift
@@ -243,6 +246,15 @@ TESTENV_CONTAINER1=
 
 function cleanup()
 {
+  if [ -n "$NOCLEANUPONERROR" -a "$TESTFAIL" != "0" ]; then
+    NOCLEANUP=1
+  fi
+
+  SUDOCMD=""
+  if [ -n "$SUDO" ]; then # build a version with space for nicer alignment of our output
+    SUDOCMD="$SUDO "
+  fi
+
   if [ -n "$TESTENV_CONTAINER1" ]; then
     if [ -z "$NOCLEANUP" ]; then
       echo "`date` Cleanup: stop container $TESTENV_CONTAINER1"
@@ -250,7 +262,7 @@ function cleanup()
       # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
       $SUDO docker rm $TESTENV_CONTAINER1
     else
-      echo "Not cleaning up, so don't forget to: $SUDO docker stop $TESTENV_CONTAINER1"
+      echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER1"
     fi
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
@@ -260,7 +272,7 @@ function cleanup()
       # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
       $SUDO docker rm $TESTENV_CONTAINER2
     else
-      echo "Not cleaning up, so don't forget to: $SUDO docker stop $TESTENV_CONTAINER2"
+      echo "Not cleaning up, so don't forget to: ${SUDOCMD}docker rm -f $TESTENV_CONTAINER2"
     fi
   fi
   if [ -n "$TEMPBUILDROOT" ]; then

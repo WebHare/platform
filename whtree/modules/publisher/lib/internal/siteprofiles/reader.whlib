@@ -1500,9 +1500,6 @@ STATIC OBJECTTYPE ApplyRuleTester
           CONTINUE;
         }
 
-        IF(extendprops.requirewebdesign AND NOT RecordExists(this->GetWebDesignObjinfo()))
-          CONTINUE;
-
         TRY
         {
           IF(NOT TestRequiredRight(user, extendprops.requireright, this->__Deprecated_GetObjInfo().obj.id))

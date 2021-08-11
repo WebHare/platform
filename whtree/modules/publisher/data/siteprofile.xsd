@@ -1086,13 +1086,6 @@
       <xs:attribute name="extension" type="xs:string" />
       <xs:attribute name="contenttype" type="xs:anyURI" />
       <xs:attribute name="requireright" type="xs:string" />
-      <xs:attribute name="requirewebdesign" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>
-            Only apply these extensions if a webdesign rule applies
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
