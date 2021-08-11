@@ -21,7 +21,7 @@ to limit the access to the SEO tab.
 The consilio `<robots xmlns="http://www.webhare.net/xmlns/consilio" />` has been deprecated
 and is no longer needed to add a meta-robots tag. To migrate away from this tag:
 - Check your code for `webdesign->GetPlugin("http://www.webhare.net/xmlns/consilio", "robots")` calls
-  and rewrite the code to update`webdesign->robotstag>
+  and rewrite the code to update `webdesign->robotstag`
 - Add or update the `<baseproperties />` and set the attribute `seotab="true"`
 - Replace any `<robots xmlns="http://www.webhare.net/xmlns/consilio" />` references in your siteprofiles
   that were setting noindex, nofollow or noarchive with a `<baseproperties />`

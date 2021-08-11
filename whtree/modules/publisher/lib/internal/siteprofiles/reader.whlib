@@ -1957,9 +1957,9 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
   RETURN [ siteprofileids := INTEGER[], roottype := 0 ];
 }
 
-PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applyteser)
+PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
 {
-  RETURN applyteser->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE
+  RETURN applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE
                                                          , noindex := FALSE, nofollow := FALSE, noarchive := FALSE, seotabrequireright := ""
                                                          ]);
 }
