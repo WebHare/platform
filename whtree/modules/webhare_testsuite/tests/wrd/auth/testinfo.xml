@@ -1,0 +1,9 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="authtest.whlib">
+  <test script="testwrdauthplugin-domainless.whscr" />
+  <test script="testwrdauthplugin-expiry.whscr" />
+  <jstest file="testwrdauth-frontend.es" tags="wrdauth" />
+  <jstest file="testwrdauth-authpages.es" tags="wrdauth" />
+  <group skipautotests="true">
+    <jstest file="testwrdauth-framelogin.es" tags="wrdauth" />
+  </group>
+</group>

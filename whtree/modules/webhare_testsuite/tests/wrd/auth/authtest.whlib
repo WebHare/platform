@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+STRING baseurl;
+
+MACRO EnsureBaseURL()
+{
+  IF(baseurl = "")
+    baseurl := OpenTestsuiteSite()->OpenByPath("staticlogin")->link;
+}
+
+PUBLIC OBJECT FUNCTION GetTestPlugin()
+{
+  EnsureBaseURL();
+  RETURN GetWRDAuthPlugin(baseurl);
+}
+
+PUBLIC RECORD FUNCTION DebugReq(STRING action, RECORD vars DEFAULTSTO DEFAULT RECORD)
+{
+  EnsureBaseURL();
+
+  STRING url := ResolveToAbsoluteURL(baseurl, "/.webhare_testsuite/tests/wrd/authdebug.shtml");
+  url := UpdateURLVariables(url, CELL[ forurl := UnpackURL(baseurl).urlpath, action, ...vars ]);
+
+  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
+  {
+    SendBlobTo(0,testfw->browser->content);
+    Abort("get failure on " || testfw->browser->url);
+  }
+
+  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
+}
+
+PUBLIC RECORD FUNCTION ExplainWRDCookies()
+{
+  EnsureBaseURL();
+
+  RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE name = "webharelogin-testsuite-portal1";
+  OBJECT wrdplugin := GetTestPlugin();
+  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(Tokenize(DecodeURL(logincookie.data),' ')[1],"session");
+  RETURN CELL[ login := logincookie
+             , logindetails := logincookiedetails
+             ];
+}
+

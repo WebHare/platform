@@ -11,10 +11,11 @@ LOADLIB "mod::wrd/lib/auth.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/tests/wrd/auth/authtest.whlib";
+
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 
-STRING baseurl;
 INTEGER entityid;
 
 MACRO SetAuthSettings(RECORD newsettings)
@@ -22,30 +23,6 @@ MACRO SetAuthSettings(RECORD newsettings)
   testfw->BeginWork();
   testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.localsettings", CELL[...wrdauth_defaultconfiguration, ...newsettings ]);
   testfw->CommitWork();
-}
-
-RECORD FUNCTION ExplainWRDCookies()
-{
-  RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE name = "webharelogin-testsuite-portal1";
-  OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
-  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(Tokenize(DecodeURL(logincookie.data),' ')[1],"session");
-  RETURN CELL[ login := logincookie
-             , logindetails := logincookiedetails
-             ];
-}
-
-RECORD FUNCTION DebugReq(STRING action, RECORD vars DEFAULTSTO DEFAULT RECORD)
-{
-  STRING url := ResolveToAbsoluteURL(baseurl, "/.webhare_testsuite/tests/wrd/authdebug.shtml");
-  url := UpdateURLVariables(url, CELL[ forurl := UnpackURL(baseurl).urlpath, action, ...vars ]);
-
-  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
-  {
-    SendBlobTo(0,testfw->browser->content);
-    Abort("get failure on " || testfw->browser->url);
-  }
-
-  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
 }
 
 MACRO InvalidateWebhareLoginSession()
@@ -128,7 +105,6 @@ MACRO PrepareExpiryTests()
       ]);
 
   entityid := entity->id;
-  baseurl := OpenTestsuiteSite()->OpenByPath("staticlogin")->link;
 
   testfw->CommitWork();
 }
@@ -140,7 +116,7 @@ MACRO TestLoginAPIs()
 
      And it might help to keep the internal APIs a bit cleaner */
 
-  OBJECT wrdplugin := GetWRDAuthPlugin(baseurl);
+  OBJECT wrdplugin := GetTestPlugin();
   RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, cookietype_session, [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
 
   RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.logincookie, "session");
@@ -156,7 +132,6 @@ MACRO TestLoginCookies()
   //
   // STORY: Make sure plain logins with the default settings work
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl)); //to verify it's there and to initialize the href
   result := DebugReq("login", [ username := "expirytests@beta.webhare.net", pwd := "secret" ]);
   TestEq(TRUE, result.success);
 
