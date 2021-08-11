@@ -42,12 +42,13 @@ STATIC OBJECTTYPE BlobPartStorageBase
   }
 
   /** List all stored blob parts
+      @cell options.filterids Only return these ids if present
       @return List of all stored blob parts
       @cell return.blobpartid Storage id
       @cell return.moddate Last modification date
       @cell return.size Size of the blob part
   */
-  PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  PUBLIC RECORD ARRAY FUNCTION ListBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     THROW NEW Exception(`Override this function`);
   }
@@ -210,12 +211,27 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
 
     RECORD ARRAY topdirs := ReadDiskDirectory(MergePath(this->blobfolder, "blob"), "*");
 
+    // with large directories taking forevery to query, filter on prefixes first
+    IF (have_filter)
+    {
+      STRING ARRAY prefixes := SELECT AS STRING ARRAY DISTINCT Left(id, 2) FROM ToRecordArray(filterids, "ID");
+      DELETE FROM topdirs WHERE name NOT IN prefixes;
+    }
+
     RECORD ARRAY retval;
     FOREVERY (RECORD subfolder FROM topdirs)
     {
       IF (LENGTH(subfolder.name) = 2 AND ToInteger(subfolder.name, -1, 16) >= 0)
       {
-        FOREVERY (RECORD blobfile FROM ReadDiskDirectory(subfolder.path, "*"))
+        STRING mask := "*";
+        IF (have_filter)
+        {
+          STRING ARRAY matches := SELECT AS STRING ARRAY id FROM ToRecordArray(filterids, "ID") WHERE id LIKE `${subfolder.name}*`;
+          IF (LENGTH(matches) = 1)
+            mask := matches[0];
+        }
+
+        FOREVERY (RECORD blobfile FROM ReadDiskDirectory(subfolder.path, mask))
         {
           IF (have_filter AND blobfile.name NOT IN filterids)
             CONTINUE;
@@ -389,8 +405,12 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
     }
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(
+        [ filterids :=    STRING[]
+        ], options);
+
     RECORD ARRAY retval;
 
     STRING marker := "";
@@ -413,6 +433,10 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
 
       marker := res.nextmarker;
     }
+
+    IF (IsValueSet(options.filterids))
+      DELETE FROM retval WHERE name NOT IN options.filterids;
+
     RETURN SELECT * FROM retval ORDER BY blobpartid;
   }
 
@@ -535,14 +559,15 @@ PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
   }
 
   /** List all stored blob parts
+      @cell options.filterids Only return these ids if present
       @return List of all blob parts
       @cell(string) return.blobpartid Blob part id
       @cell(datetime) return.moddate Last modification date
       @cell(integer64) return.size Size of the blob part
   */
-  PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  PUBLIC RECORD ARRAY FUNCTION ListBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN this->blobpartstorage->ListBlobParts();
+    RETURN this->blobpartstorage->ListBlobParts(options);
   }
 
   /** Deletes blob storage

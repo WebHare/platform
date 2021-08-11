@@ -35,7 +35,7 @@ BOOLEAN FUNCTION GetBlobStorageExists(STRING dbid)
 {
   STRING ARRAY storageids := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ dbid ]);
 
-  STRING ARRAY exists := SELECT AS STRING ARRAY blobpartid FROM GetPrimary()->blobhandler->ListBlobParts();
+  STRING ARRAY exists := SELECT AS STRING ARRAY blobpartid FROM GetPrimary()->blobhandler->ListBlobParts([ filterids := storageids ]);
 
   BOOLEAN any_missing, any_found;
   FOREVERY (STRING id FROM storageids)
