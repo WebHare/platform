@@ -1,4 +1,4 @@
-# Search engine optimalization
+# Search engine optimization
 
 You can control the meta robots tag rendered by WebHare by setting the webdesign's
 `robotstag` property. The robot properties can only be updated in the preparation phase

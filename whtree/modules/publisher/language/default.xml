@@ -40,6 +40,18 @@
       <text tid="filetitle">File title</text>
       <text tid="widgetname">Widget name</text>
     </textgroup>
+    <textgroup gid="publisherfields">   <!-- common.publisherfields -->
+      <text tid="filefoldertype">File/Folder</text>
+      <text tid="filefoldertype-file">File</text>
+      <text tid="filefoldertype-folder">Folder</text>
+      <text tid="fullpath">Site path</text>
+      <text tid="whfsid">Object ID</text>
+    </textgroup>
+    <textgroup gid="seosettings">   <!-- common.seosettings -->
+      <text tid="canonical">Canonical URL</text>
+      <text tid="customrobots">Additional robot tags</text>
+      <text tid="customrobots-placeholder">Example: "nosnippet, notranslate" (comma separated).</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
@@ -416,6 +428,7 @@
           <text tid="editsite">Site Settings</text>
           <text tid="emptytrash">Empty Trash</text>
           <text tid="emptytrash_menuaction">Empty Trash</text>
+          <text tid="exportseoreport">SEO settings report</text>
           <text tid="extract">Extract</text>
           <text tid="gotoanything">Go to site or URL</text>
           <text tid="gotoid">Object With ID</text>
@@ -1893,6 +1906,11 @@
           <text tid="urlhistoryfor">URL history for <param p="1"/></text>
         </textgroup>
       </textgroup>
+      <textgroup gid="seoreport">   <!-- tolliumapps.filemanager.seoreport -->
+        <text tid="exporttitle">SEO report for <param p="1"/></text>
+        <text tid="isinheritedfrom">Is set from <param p="1"/></text>
+        <text tid="isset">Is set</text>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Synchronized folder</text>
         <text tid="externalfoldersadded">External folders added</text>
@@ -2217,12 +2235,12 @@
         <text tid="whfspath">Path</text>
       </textgroup>
       <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
-        <text tid="canonical">Canonical URL</text>
-        <text tid="customrobots">Custom meta robot tags</text>
+        <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
         <text tid="indexing">External search engine indexing</text>
         <text tid="noarchive">Do not archive/cache (noarchive)</text>
         <text tid="nofollow">Don't follow links (nofollow)</text>
         <text tid="noindex">Don't store in index (noindex)</text>
+        <text tid="robottags">Robot tags</text>
       </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Add task</text>

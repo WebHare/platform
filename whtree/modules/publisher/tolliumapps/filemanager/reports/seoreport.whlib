@@ -1,0 +1,100 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+RECORD ARRAY FUNCTION ApplyInheritance(RECORD ARRAY rows, STRING forfield)
+{
+  STRING setting_inheritance, setting_inheritance_from;
+  FOREVERY(RECORD row FROM rows)
+  {
+    IF(setting_inheritance_from != "" AND row.fullpath LIKE setting_inheritance_from || "*") //this is 'deeper' and insite the inheriting tree
+    {
+      rows[#row] := CellUpdate(rows[#row], forfield, setting_inheritance);
+      CONTINUE;
+    }
+
+    setting_inheritance_from := "";
+    IF(row.isfolder AND GetCell(row, forfield) != "") //non emty = set
+    {
+      //All rows whose whfspath is deeper than ours, will be overwritten
+      setting_inheritance_from := row.fullpath;
+      setting_inheritance := GetTid("publisher:tolliumapps.filemanager.seoreport.isinheritedfrom", row.fullpath);
+    }
+  }
+  RETURN rows;
+}
+
+PUBLIC MACRO RunSEOReport(OBJECT parentscreen, INTEGER startingfolderid)
+{
+  OBJECT startingfolder := OpenWHFSObject(startingfolderid);
+  INTEGER ARRAY allfolderids := INTEGER[ startingfolderid, ...startingfolder->GetDescendantFolderIds() ];
+  STRING filefoldertype_file := GetTid("publisher:common.publisherfields.filefoldertype-file");
+  STRING filefoldertype_folder := GetTid("publisher:common.publisherfields.filefoldertype-folder");
+
+  RECORD ARRAY folders := SELECT id
+                               , parent
+                               , fullpath
+                               , title
+                               , description := ""
+                               , link := objecturl //make sure we don't show a redircting url
+                               , filefoldertype := filefoldertype_folder
+                               , isfolder := TRUE
+                            FROM system.fs_objects
+                           WHERE id IN allfolderids;
+
+  RECORD ARRAY files := SELECT id
+                             , fullpath
+                             , title
+                             , description
+                             , link
+                             , filefoldertype := filefoldertype_file
+                             , isfolder := FALSE
+                          FROM system.fs_objects
+                         WHERE parent IN allfolderids
+                               AND isfolder = FALSE
+                               AND publish = TRUE;
+
+  RECORD ARRAY rows := SELECT * FROM (files CONCAT folders) ORDER BY fullpath;
+  STRING robotprop_isset := GetTid("publisher:tolliumapps.filemanager.seoreport.isset");
+  rows := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(rows, "id", [ "noindex", "nofollow", "noarchive", "customrobots", "canonical", "comments" ]);
+  rows := SELECT *
+               , noindex := noindex ? robotprop_isset : ""
+               , nofollow := nofollow ? robotprop_isset : ""
+               , noarchive := noarchive ? robotprop_isset : ""
+               , canonical := canonical = id ? 0 : canonical
+            FROM rows;
+
+  //Apply inherited noindex/nofollow/noarchive
+  rows := ApplyInheritance(rows, 'noindex');
+  rows := ApplyInheritance(rows, 'nofollow');
+  rows := ApplyInheritance(rows, 'noarchive');
+
+  INTEGER ARRAY lookup_canonicals := SELECT AS INTEGER ARRAY DISTINCT canonical FROM rows WHERE canonical != 0;
+  RECORD ARRAY canonicalpaths := SELECT id, url FROM system.fs_objects WHERE id IN lookup_canonicals;
+
+  rows := SELECT *
+               , canonical := canonical != 0 ? (SELECT AS STRING url FROM canonicalpaths WHERE canonicalpaths.id = rows.canonical) : ""
+            FROM rows;
+
+  RECORD ARRAY columns := [[ name := "id", type := "integer", title := GetTid("publisher:common.publisherfields.whfsid") ]
+                          ,[ name := "fullpath", type := "string", title := GetTid("publisher:common.publisherfields.fullpath") ]
+                          ,[ name := "link", type := "string", title := GetTid("~url") ]
+                          ,[ name := "filefoldertype", type := "string", title := GetTid("publisher:common.publisherfields.filefoldertype") ]
+                          ,[ name := "noindex", type := "string", title := "noindex" ]
+                          ,[ name := "nofollow", type := "string", title := "nofollow" ]
+                          ,[ name := "noarchive", type := "string", title := "noarchive" ]
+                          ,[ name := "canonical", type := "string", title := GetTid("publisher:common.seosettings.canonical") ]
+                          ,[ name := "customrobots", type := "string", title := GetTid("publisher:common.seosettings.customrobots") ]
+                          ,[ name := "comments", type := "string", title := GetTid("~comments") ]
+                          ];
+
+  STRING name := startingfolder->id = startingfolder->parentsite ? startingfolder->name : startingfolder->fullpath;
+  RunColumnFileExportDialog(parentscreen, CELL[ rows
+                                              , columns
+                                              , exporttitle := GetTid("publisher:tolliumapps.filemanager.seoreport.exporttitle", name)
+                                              ]);
+}

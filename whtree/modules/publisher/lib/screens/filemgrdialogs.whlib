@@ -628,7 +628,7 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
   {
     RunColumnFileExportDialog(this,
             [ columns := [ [ title := GetTid("publisher:main.showmodifications.export.modificationdate"), name := "modificationdate", type := "datetime",  storeutc := TRUE ]
-                         , [ title := GetTid("publisher:main.showmodifications.export.fullpath"), name := "fullpath", type := "text" ]
+                         , [ title := GetTid("publisher:common.publisherfields.fullpath"), name := "fullpath", type := "text" ]
                          , [ title := GetTid("publisher:main.showmodifications.export.site"), name := "sitename", type := "text" ]
                          , [ title := GetTid("publisher:main.showmodifications.export.modifiedby"), name := "modifiedby", type := "text" ]
                          ]

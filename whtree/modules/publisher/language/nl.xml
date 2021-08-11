@@ -40,6 +40,18 @@
       <text tid="filetitle">Bestandstitel</text>
       <text tid="widgetname">Widgetnaam</text>
     </textgroup>
+    <textgroup gid="publisherfields">   <!-- common.publisherfields -->
+      <text tid="filefoldertype">Bestand/Map</text>
+      <text tid="filefoldertype-file">Bestand</text>
+      <text tid="filefoldertype-folder">Map</text>
+      <text tid="fullpath">Pad in site</text>
+      <text tid="whfsid">Object ID</text>
+    </textgroup>
+    <textgroup gid="seosettings">   <!-- common.seosettings -->
+      <text tid="canonical">Canonieke URL</text>
+      <text tid="customrobots">Aanvullende robot-tags</text>
+      <text tid="customrobots-placeholder">Bijvoorbeeld "nosnippet, notranslate" (kommagescheiden).</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
@@ -416,6 +428,7 @@
           <text tid="editsite">Site-instellingen</text>
           <text tid="emptytrash">Prullenbak leegmaken</text>
           <text tid="emptytrash_menuaction">Prullenbak leegmaken</text>
+          <text tid="exportseoreport">SEO instellingen rapportage</text>
           <text tid="extract">Uitpakken</text>
           <text tid="gotoanything">Ga naar site of URL</text>
           <text tid="gotoid">Object met ID</text>
@@ -1893,6 +1906,11 @@
           <text tid="urlhistoryfor">URL geschiedenis voor <param p="1"/></text>
         </textgroup>
       </textgroup>
+      <textgroup gid="seoreport">   <!-- tolliumapps.filemanager.seoreport -->
+        <text tid="exporttitle">SEO rapportage voor <param p="1"/></text>
+        <text tid="isinheritedfrom">Is ingeschakeld vanaf <param p="1"/></text>
+        <text tid="isset">Is ingeschakeld</text>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Gesynchroniseerde map</text>
         <text tid="externalfoldersadded">Externe mappen toegevoegd</text>
@@ -2217,12 +2235,12 @@
         <text tid="whfspath">Pad</text>
       </textgroup>
       <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
-        <text tid="canonical">Canonieke URL</text>
-        <text tid="customrobots">Eigen meta robot tags</text>
+        <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
         <text tid="indexing">Externe zoekmachine indexering</text>
         <text tid="noarchive">Niet archiveren/cachen (noarchive)</text>
         <text tid="nofollow">Volg geen links (nofollow)</text>
         <text tid="noindex">Niet opslaan in index (noindex)</text>
+        <text tid="robottags">Robot-tags</text>
       </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Voeg taak toe</text>

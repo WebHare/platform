@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 
@@ -188,6 +189,25 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, tt_nofollow->enabled);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Create a SEO report
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE rowkey = seotestroot->id;
+  AWAIT ExpectScreenChange(+1, PTR TTClick("exportseoreport"));
+  RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  RECORD ARRAY exprows := SELECT * FROM GetOOXMLSpreadsheetRows(file.data);
+  dumpvalue(exprows,'boxed');
+
+  TestEq(seotestroot->objecturl, exprows[0].url, "First link should be the export root");
+  Testeq("", (SELECT AS STRING link FROM system.fs_objects WHERE id = seotestroot->id), "Check that we reported objecturl even though seotestroot still has no 'link'");
+  TestEq("Is set", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/");
+  TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/");
+  TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+  TestEq("> ", SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/noindex/noindexsub/noindexsubfile");
+  TEstEq("> " || noindexsubfile->link, SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+
+  //TestEqMembers([ maincategory := "TEST: another of my categories", sub1 := "TEST: A Subcategory" ], testrows[2],"*");
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 
 
