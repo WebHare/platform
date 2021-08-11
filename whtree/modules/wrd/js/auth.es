@@ -183,6 +183,31 @@ class WRDAuthenticationProvider
     });
   }
 
+  /** Get the afterlogin submitinstruction from the wrdauth_logincontrol webvariable
+      @cell(string) opts.logincontrol Override wrdauth_logincontrol variable from the url
+      @return Submit instruction. The defult instruction is { "type": "reload" }.
+  */
+  getAfterLoginSubmitInstruction(opts = {})
+  {
+    const url = new URL(location.href);
+    const logincontrol = opts.logincontrol || url.searchParams.get("wrdauth_logincontrol") || "";
+
+    return new Promise( (resolve, reject) =>
+    {
+      this.loginservice.request('getAfterLoginSubmitInstruction',
+                                [ location.href, logincontrol ],
+                                function(response)
+                                  { //success handler
+                                    resolve(response);
+                                  }
+                                , function(error)
+                                  {
+                                    reject(error);//FIXME translate to exception
+                                  }
+                                );
+    });
+  }
+
   //ADDME do we have direct callers or can we _tryLogin this?
   //FIXME be more wh-form like, at least BEM the 'submitting' class
   _tryLogin(form, login, password, options)

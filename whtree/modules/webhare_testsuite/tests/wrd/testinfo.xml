@@ -9,8 +9,6 @@
   <test script="import.whscr" />
   <test script="testmetadata.whscr" />
   <test script="parenttype.whscr" />
-  <test script="testwrdauthplugin-domainless.whscr" />
-  <test script="testwrdauthplugin-expiry.whscr" />
   <test script="test_names.whscr" />
   <test script="consilio.whscr" />
   <test script="testtollium.whscr" />
@@ -19,11 +17,6 @@
   <test script="test_personaldata.whscr" />
   <test script="testkeephistory.whscr" />
   <test script="testpasswordpolicy.whscr" />
-  <jstest file="testwrdauth-frontend.es" tags="wrdauth" />
-  <jstest file="testwrdauth-authpages.es" tags="wrdauth" />
-  <group skipautotests="true">
-    <jstest file="testwrdauth-framelogin.es" tags="wrdauth" />
-  </group>
   <test name="api" path="api/" />
   <test name="payments" path="payments/" />
   <test name="address" path="address/" />
@@ -31,4 +24,5 @@
   <test name="demoapp" path="demoapp/" />
   <test name="saml" path="saml/" />
   <test name="dialogs" path="dialogs/" />
+  <test name="auth" path="auth/" />
 </group>

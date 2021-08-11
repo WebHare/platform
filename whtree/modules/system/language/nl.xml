@@ -729,6 +729,7 @@
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Volgende poging op</text>
           <text tid="notbefore">(niet voor <param p="1"/>)</text>
+          <text tid="retrynow">Nu opnieuw proberen</text>
           <text tid="returnvaluetab">Teruggeven waarde</text>
           <text tid="tasktype">Taaktype</text>
           <text tid="timeout">Tijdslimiet</text>

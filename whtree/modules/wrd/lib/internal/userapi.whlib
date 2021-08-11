@@ -610,7 +610,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       TRY
       {
         entity->UpdateEntity(data);
-        this->ResyncToSystemTables();
+        this->SyncRoleAfterUpdate(id);
       }
       FINALLY
       {

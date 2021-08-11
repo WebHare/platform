@@ -527,14 +527,28 @@ MACRO TestCrossDomainLogin()
   TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
   TesteqLike("*wh-tollium--app*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
 
+  STRING logincontrol := GetVariableFromURL(testfw->browser->url, "wrdauth_logincontrol");
+
   //We should be seeing the tollium page above. Do a WRD login
 //  testfw->browser->debug:=TRUE;
   STRING loginpage := testfw->browser->url;
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-01" ]]);
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
 
   TestEq(TRUE, rec.success);
-  TestEq('reload', rec.result.submitinstruction.type);
+  TestEq("redirect", rec.result.submitinstruction.type);
+  TestEq(TRUE, GetVariableFromURL(rec.result.submitinstruction.url, "wrdauth_proof") != "");
+  TestEq(accessrulelogin, DeleteVariableFromUrl(rec.result.submitinstruction.url, "wrdauth_proof"));
+
+  // Test if GetAfterLoginSubmitInstruction returns a similar submitinstruction
+  RECORD rec2 := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "GetAfterLoginSubmitInstruction",
+      VARIANT[ loginpage, logincontrol ]);
+
+  TestEQ("redirect", rec2.result.submitinstruction.type);
+  TestEq(TRUE, GetVariableFromURL(rec2.result.submitinstruction.url, "wrdauth_proof") != "");
+  TestEQ(accessrulelogin, DeleteVariableFromUrl(rec2.result.submitinstruction.url, "wrdauth_proof"));
+
+  //TestEq('reload', rec.result.submitinstruction.type);
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("mysysop")
       , type := "wrd:login:ok"
@@ -546,7 +560,7 @@ MACRO TestCrossDomainLogin()
       , bylogin := "mysysop@beta.webhare.net"
       ]);
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submitinstruction");
   TestEq(accessrulelogin, testfw->browser->url, "Should be redirected back to the original location, but now we should see things");
   TestEqLike("*WebHare testsuite /web/tests/ root*", BlobToString(testfw->browser->content));
 }

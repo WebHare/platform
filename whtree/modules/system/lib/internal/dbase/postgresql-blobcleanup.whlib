@@ -66,8 +66,6 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   */
   RECORD FUNCTION GetDiskBlobInfo()
   {
-    RECORD ARRAY blobs := this->trans->blobhandler->ListBlobParts();
-
     STRING ARRAY new_disk_blobs;
     STRING ARRAY old_disk_blobs;
 
@@ -78,10 +76,10 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     IF (have_filter)
       filterblobpartids := GetSortedSet(this->trans->blobhandler->GetBlobPartIdsFromBlobIds(this->__filterids));
 
+    RECORD ARRAY blobs := this->trans->blobhandler->ListBlobParts([ filterids := filterblobpartids ]);
+
     FOREVERY (RECORD rec FROM blobs)
     {
-      IF (have_filter AND NOT LowerBound(filterblobpartids, rec.blobpartid).found)
-        CONTINUE;
 
       IF (rec.modified < new_cutoff)
       {

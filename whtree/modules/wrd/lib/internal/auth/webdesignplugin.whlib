@@ -282,14 +282,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF (this->HasFailed() OR NOT this->IsLoggedIn())
       RETURN;
 
-    RECORD logincontrol := this->DecryptLoginControlToken(logincontroltoken);
+    RECORD logincontrol := this->__DecryptLoginControlToken(logincontroltoken);
 
     // External login requires a login box, so no redirects
     // Only prompt modes "" and "none" allow immediate backredirection
     IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none" ])
       RETURN;
 
-    RECORD submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
+    RECORD submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
     IF (RecordExists(submitinstruction))
       ExecuteSubmitInstruction(submitinstruction);
   }
@@ -582,12 +582,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN IsRequest() AND this->__GetWRDAuthIntegration()->IsLogoutAllowed();
   }
 
-  /** Returns a link that logs out the user, then returns to the baseurl of the current webcontext
+  /** Returns a link that logs out the user and then returns to the current page
       @return Link to redirect to which logs out the current user
   */
   PUBLIC STRING FUNCTION GetLogoutLink()
   {
-    RETURN "/.wrd/auth/logout.shtml?b=" || EncodeURL(UnpackURL(this->webcontext->baseurl).urlpath);
+    STRING returnbaseurl := IsRequest() ? GetFormRequestURL() : this->webcontext->baseurl; //fallback to webdesign calculated URL, generally works for static pages
+    RETURN "/.wrd/auth/logout.shtml?b=" || EncodeURL(UnpackURL(returnbaseurl).urlpath); //strip origin to prevent open redirect
   }
 
   /** Log the user out.
@@ -720,7 +721,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING logincontroltoken)
   {
-    RECORD logincontrol := this->DecryptLoginControlToken(logincontroltoken);
+    RECORD logincontrol := this->__DecryptLoginControlToken(logincontroltoken);
 
     IF ("wrdauth" NOT IN logincontrol.logintypes)
       THROW NEW Exception("This challenge cannot be resolved by wrdauth"); //TODO think we need to handle external logins ?
@@ -784,7 +785,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     INSERT CELL lookuplogin := PTR this->LookupLogin INTO options;
 
 
-    RECORD logincontrol := this->DecryptLoginControlToken(options.logincontrol);
+    RECORD logincontrol := this->__DecryptLoginControlToken(options.logincontrol);
 
     RECORD trylogin := [ success := FALSE ];
     RECORD submitinstruction;
@@ -796,7 +797,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         trylogin := this->__GetWRDAuthIntegration()->Login(loginname, password, options);
       ELSE
       {
-        INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
+        IF(NOT options.skippasswordcheck)
+          INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
         trylogin := this->GetSupportObject()->Login(loginname, password, options);
       }
 
@@ -865,7 +867,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           THROW NEW Exception("Logged in, but no WRD user found");
         this->UpdateUserInfo();
 
-        submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
+        submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
       }
       ELSE IF (loginresultcode = "failedvalidationchecks")
       {
@@ -891,7 +893,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
             , code :=     "EXTERNAL"
             ];
 
-        submitinstruction := this->HandleAfterLogin(logincontrol, "externaluser", [ username := loginname ]);
+        submitinstruction := this->__HandleAfterLogin(logincontrol, "externaluser", [ username := loginname ]);
       }
     }
 
@@ -933,7 +935,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(NOT CellExists(options,"lastloginfield"))
       INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
 
-    RECORD logincontrol := this->DecryptLoginControlToken(options.logincontrol);
+    RECORD logincontrol := this->__DecryptLoginControlToken(options.logincontrol);
     RECORD trylogin := this->__GetWRDAuthIntegration()->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip", "allowlogout" ]));
 
     IF(NOT trylogin.success)
@@ -973,7 +975,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         THROW NEW Exception("Logged in, but no WRD user found");
       this->UpdateUserInfo();
 
-      submitinstruction := this->HandleAfterLogin(logincontrol, "wrdauth");
+      submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
       DELETE CELL secondfactordata FROM trylogin;
     }
 
@@ -1874,7 +1876,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(integer) return.ruleid Access rule id for external login
       @cell(record) return.samlrequest SAML request data (to generate the SAML response)
   */
-  RECORD FUNCTION DecryptLoginControlToken(STRING webvar_logincontrol)
+  PUBLIC RECORD FUNCTION __DecryptLoginControlToken(STRING webvar_logincontrol)
   {
     RECORD data := webvar_logincontrol != ""
         ? DecryptForThisServer("wrd:authplugin.logincontroltoken", webvar_logincontrol)
@@ -1899,7 +1901,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(string) options.username User name (for external (access rule user list) logins)
       @return Submitinstruction @includecelldef %ExecuteSubmitInstruction.instr
   */
-  RECORD FUNCTION HandleAfterLogin(RECORD logincontrol, STRING logintype, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION __HandleAfterLogin(RECORD logincontrol, STRING logintype, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
         [ username :=     ""

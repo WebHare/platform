@@ -103,7 +103,7 @@ class JSONRPC extends InternetRequester
   request(method, params, onsuccess, onfailure, options)
   {
     if(!params || typeof params != "object" || params.length === undefined)
-      throw "The parameters passed to request must be an Array";
+      throw new Error("The parameters passed to request must be an Array");
 
     var id = ++this.lastid;
 

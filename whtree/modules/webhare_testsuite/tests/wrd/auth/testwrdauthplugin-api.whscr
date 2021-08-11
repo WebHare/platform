@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/tests/wrd/auth/authtest.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+INTEGER entityid;
+
+
+MACRO PrepareAPITests()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  OBJECT entity := schemaobj->^wrd_person->CreateEntity(
+      [ wrd_contact_email := "apitests@beta.webhare.net"
+      , whuser_password := CreateAuthenticationSettingsFromPasswordHash("PLAIN:A")
+      , whuser_unit := testfw->testunit
+      ]);
+
+  entityid := entity->id;
+  testfw->CommitWork();
+}
+
+MACRO TestLoginAPIs()
+{
+  RECORD result;
+  result := DebugReq("login", [ username := "apitests@beta.webhare.net", pwd := "A", browsertriplet := "mac-chrome-01" ]);
+
+  testfw->BeginWork();
+  DELETE FROM wrd.auditevents WHERE entity = VAR entityid AND type="wrd:getresetlink";
+  Print(`FIXME: shouldn't have to delete wrd:getresetlink - failedvalidationchecks should not even generate it`);
+  testfw->CommitWork();
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:failedvalidationchecks"
+      , login := "apitests@beta.webhare.net"
+      , impersonated := FALSE
+      , browsertriplet := "mac-chrome-01"
+      , byentity := entityid
+      , bylogin := "apitests@beta.webhare.net"
+      , data := EncodeHSON([ failedvalidationchecks := ["complexity"], failurecode := "FAILEDVALIDATIONCHECKS" ])
+      ]);
+
+  result := DebugReq("login", [ username := "apitests@beta.webhare.net", pwd := "", browsertriplet := "mac-chrome-01", skippasswordcheck := "1" ]);
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:login:ok"
+      , login := "apitests@beta.webhare.net"
+      , impersonated := FALSE
+      , data := ""
+      , browsertriplet := "mac-chrome-01"
+      , byentity := entityid
+      , bylogin := "apitests@beta.webhare.net"
+      ]);
+}
+
+
+Runtestframework( [ PTR PrepareAPITests
+                  , PTR TestLoginAPIs
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

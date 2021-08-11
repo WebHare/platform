@@ -782,8 +782,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                                                  ];
         IF(link_to_us)
         {
-          INSERT [ field := attr.tag, matchtype := attr.attributetypename = "DOMAINARRAY" ? "CONTAINS" : attr.parent = 0 ? "=" : "MENTIONS", value := this->current_entity ]
-                 INTO lq.query.sources[0].filters AT END;
+          INSERT [ field := attr.tag
+                 , matchtype := attr.parent = 0 ? attr.attributetypename = "DOMAINARRAY" ? "CONTAINS" : "=" : "MENTIONS"
+                 , value := this->current_entity
+                 ] INTO lq.query.sources[0].filters AT END;
         }
         ELSE
         {
