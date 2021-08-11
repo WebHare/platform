@@ -77,6 +77,28 @@ PUBLIC RECORD FUNCTION RPC_LoginSecondFactor(STRING url, STRING firstfactorproof
   RETURN result;
 }
 
+/** Returns the after-login redirect from logincontrol. Only for wrdauth logins, not for external.
+    @param url URL to find the wrdauth plugin
+    @param logincontroltoken Login control
+    @cell(string) options.browsertriplet Browser triplet
+    @return Submitinstruction
+    @cell return.submitinstruction @includecelldef %ExecuteSubmitInstruction.instr
+*/
+PUBLIC RECORD FUNCTION RPC_GetAfterLoginSubmitInstruction(STRING url, STRING logincontroltoken, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ browsertriplet := ""
+      ], options);
+
+  OBJECT wrdauthplugin := GetWRDAuthPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
+  UpdateAuditContext(CELL[ options.browsertriplet ]);
+
+  RECORD logincontrol := wrdauthplugin->__DecryptLoginControlToken(logincontroltoken);
+  RECORD submitinstruction := wrdauthplugin->__HandleAfterLogin(logincontrol, "wrdauth");
+
+  RETURN CELL[ submitinstruction ];
+}
+
 PUBLIC RECORD FUNCTION RPC_StartLogin(STRING type, STRING tag, STRING url, RECORD options)
 {
   OBJECT wrdauthplugin := GetWRDAuthPlugin(url, [ clientwebserver := GetClientWebserver() ] );
