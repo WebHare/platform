@@ -78,38 +78,52 @@
     </body>
   </screen>
 
-  <screen name="managedtask" gid=".managedtask" allowresize="true" savestate="size" width="90x" height="25x">
+  <screen name="managedtask" gid=".managedtask" allowresize="true" savestate="size" width="90x" height="25x" flags="canreschedule">
+    <actions>
+      <action name="retrynow" onexecute="DoReschedule" frameflags="canreschedule" />
+    </actions>
     <compositions>
       <eventlistener name="listener" onevents="OnChangeEvents" />
     </compositions>
     <body spacers="none">
-      <panel spacers="all">
-        <text name="id" />
-        <text name="tasktype" />
-        <datetime name="creationdate" readonly="true" storeutc="true" type="datetime" precision="seconds" />
-        <line>
-          <datetime name="nextattempt" readonly="true" storeutc="true" type="datetime" precision="seconds" />
-          <text name="notbefore" title="" />
-        </line>
-        <datetime name="finished" readonly="true" storeutc="true" type="datetime" precision="seconds" />
-        <text name="timeout" />
-        <textedit name="manualcall" enabled="false" width="1pr" />
-        <textarea name="lasterrors" enabled="false" />
-      </panel>
-      <tabs height="1pr">
-        <tab tid=".datatab" spacers="none">
-          <hsvalue name="data" />
-        </tab>
-        <tab tid=".returnvaluetab"  spacers="none">
-          <hsvalue name="retval" />
-        </tab>
-        <tab tid=".metadatatab" spacers="none">
-          <hsvalue name="metadata" />
-        </tab>
-      </tabs>
+      <split type="vertical">
+        <part spacers="all">
+          <text name="id" />
+          <text name="tasktype" />
+          <datetime name="creationdate" readonly="true" storeutc="true" type="datetime" precision="seconds" />
+          <line>
+            <datetime name="nextattempt" readonly="true" storeutc="true" type="datetime" precision="seconds" />
+            <text name="notbefore" title="" />
+          </line>
+          <datetime name="finished" readonly="true" storeutc="true" type="datetime" precision="seconds" />
+          <text name="timeout" />
+          <textedit name="manualcall" enabled="false" width="1pr" />
+          <textarea name="lasterrors" enabled="false" height="1pr" />
+        </part>
+        <part>
+          <tabs height="1pr">
+            <tab tid=".datatab" spacers="none">
+              <hsvalue name="data" />
+            </tab>
+            <tab tid=".returnvaluetab"  spacers="none">
+              <hsvalue name="retval" />
+            </tab>
+            <tab tid=".metadatatab" spacers="none">
+              <hsvalue name="metadata" />
+            </tab>
+          </tabs>
+        </part>
+      </split>
     </body>
     <footer>
-      <defaultformbuttons buttons="close" />
+      <grid>
+        <cell width="1pr">
+          <button action="retrynow" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
     </footer>
   </screen>
 

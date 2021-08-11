@@ -214,5 +214,15 @@ PUBLIC STATIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
     ^manualcall->value := "wh tasks run m" || this->taskid;
     ^metadata->value := task.metadata;
     ^timeout->value := task.timeout = 0 ? GetTid("tollium:common.labels.none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
+
+    ^frame->flags.canreschedule := task.finished = DEFAULT DATETIME AND task.nextattempt > GetCurrentDatetime();
+  }
+
+  MACRO DoReschedule()
+  {
+    OBJECT work := this->BeginWork();
+    RetryPendingManagedTasksByIds([ this->taskid ]);
+    work->Finish();
+    this->Refresh();
   }
 >;
