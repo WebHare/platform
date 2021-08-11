@@ -4,7 +4,10 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -12,12 +15,13 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
 <
+  OBJECT currentuser;
   BOOLEAN issupervisor;
 
   MACRO NEW()
   {
-    OBJECT currentuser := RequireLoggedinWebHareUser();
-    this->issupervisor := currentuser->HasRight("system:supervisor");
+    this->currentuser := RequireLoggedinWebHareUser();
+    this->issupervisor :=this->currentuser->HasRight("system:supervisor");
   }
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
   {
@@ -120,12 +124,43 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
 
     STRING ARRAY extraopts := SELECT AS STRING ARRAY val FROM ToRecordArray(currentopts,"val") WHERE val NOT IN knownopts AND val NOT LIKE "sig=*";
     STRING feedbackurl := UpdateURLVariables( GetClientRequestURL(), [ back := "", b := UnpackURL(fromurl).urlpath ]);
-    EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/debug.witty:debugoptions", [ settingssaved := FALSE
-                                        , optgroups := optionspergroup
-                                        , extraoptions := Detokenize(extraopts," ")
-                                        , feedbackurl := feedbackurl
-                                        , userwarning := userwarning
-                                        ]);
+    RECORD wittydata := CELL[ optgroups := optionspergroup
+                            , extraoptions := Detokenize(extraopts," ")
+                            , feedbackurl := feedbackurl
+                            , userwarning := userwarning
+                            , wrdauthpluginerror := ""
+                            , wrdauthplugin := DEFAULT RECORD
+                            ];
+
+    IF(GetWebVariable("debug_wrdauthaction") = "forcelogout")
+    {
+      OBJECT wrdauthplugin := GetWebContextForURL(fromurl)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+      wrdauthplugin->Logout();
+      Redirect("/" || UnpackURL(fromurl).urlpath);
+    }
+
+    //Are we logged in to WRD?
+    TRY
+    {
+      OBJECT wrdauthplugin := GetWebContextForURL(fromurl)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+      IF(ObjectExists(wrdauthplugin))
+      {
+        wittydata.wrdauthplugin := [ entityid := wrdauthplugin->entityid
+                                   , entitylink := wrdauthplugin->entityid != 0 AND this->currentuser->HasRightOn("wrd:read", wrdauthplugin->wrdschema->id)
+                                                    ? GetPrimaryWebhareInterfaceURL() || "?app=wrd(" || wrdauthplugin->entityid || ")"
+                                                    : ""
+                                   , wrdschema := wrdauthplugin->wrdschema->tag
+                                   , logoutlink := UpdateURLVariables(GetRequestURL(), [ debug_wrdauthaction := "forcelogout" ])
+                                   ];
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      wittydata.wrdauthpluginerror := e->what;
+    }
+
+    EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/debug.witty:debugoptions", wittydata);
   }
 >;
 

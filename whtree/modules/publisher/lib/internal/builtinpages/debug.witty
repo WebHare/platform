@@ -71,9 +71,24 @@
       <label>Extra options: <input name="extraoptions" value="[extraoptions]" style="width:300px;border:1px solid #ccc;"/> (space separated)<br/></label><br/>
       <input name="submit" type="submit" value="Save" />
       <input name="resetall" type="submit" value="Reset all" />
-      <br/>
-      <br/>
-      Please note that the debug tags can be overridden using a ?wh-debug=opt,opt,opt variable...
+      <p>
+        <br> [! tollium default styling needs a nicer <p> ? !]
+        Please note that the debug tags can be overridden using a ?wh-debug=opt,opt,opt variable...
+      </p>
+      [if wrdauthpluginerror]
+        <p><br>WRD Authentication plugin error: [wrdauthpluginerror]</p>
+      [/if]
+      [if wrdauthplugin]
+        <p><br>WRD Authentication plugin status:</p>
+        <ul>
+          [if entityid]
+            <li>Logged in as entity [if entitylink]<a href="[entitylink]" target="_blank">#[entityid]</a>[else]#[entityid][/if] (WRD Schema [wrdschema])</li>
+            <li><a href="[logoutlink]">Force logout</a></li>
+          [else]
+            <li>Not logged in (WRD Schema [wrdschema])</li>
+          [/if]
+        </ul>
+      [/if]
     </div>
   </form>
 [/component]
