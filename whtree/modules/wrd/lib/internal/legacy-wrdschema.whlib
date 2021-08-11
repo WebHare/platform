@@ -262,17 +262,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
     RETURN this->GetType(entityrec.type_id)->GetEntity(entityrec.entity_id);
   }
 
-  /** Runs a stored query
-      @param entity Owner of the stored query, 0 for global queries
-      @param query_tag Tag of the stored query
-      @param parameters Optional parameters for the query
-      @return Results of the stored query
-  */
-  PUBLIC RECORD ARRAY FUNCTION RunStoredQueryByTag(INTEGER entity, STRING query_tag, RECORD parameters DEFAULTSTO DEFAULT RECORD)
-  {
-    RETURN this->RunStoredQuery(query_tag, [ parameters := parameters ]);
-  }
-
 
   /** Returns a stored query object
       @param entity Owner of the stored query, 0 for global queries
