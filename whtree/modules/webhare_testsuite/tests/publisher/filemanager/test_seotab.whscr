@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 
@@ -15,6 +16,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
+  testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
   testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
 }
@@ -25,12 +27,13 @@ ASYNC MACRO TestSeoSettings()
 
   testfw->BeginWork();
 
-  OBJECT tt_noindex, tt_nofollow, tt_customrobots;
+  OBJECT tt_noindex, tt_nofollow, tt_customrobots, tt_canonical;
   OBJECT root := OpenTestsuiteSite()->rootobject;
   OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
 
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
   OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
   noindexfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [noindex := TRUE]);
@@ -41,7 +44,14 @@ ASYNC MACRO TestSeoSettings()
   OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
   nofollowfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [nofollow := TRUE]);
   OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
-  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowwsubfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := rtdtype->id, publish := TRUE ]);
+  nofollowsubfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ canonical := noindexsubfile->id ]);
+
+  OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := rtdtype->id, publish := TRUE ]);
 
   testfw->CommitWork();
 
@@ -49,6 +59,14 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be invisible to Lisa");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -61,11 +79,13 @@ ASYNC MACRO TestSeoSettings()
 
   tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
   tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+  tt_canonical := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "canonical");
 
   TestEq(TRUE, tt_noindex->value);
   TestEq(TRUE, tt_noindex->enabled);
   TestEq(FALSE, tt_nofollow->value);
   TestEq(TRUE, tt_nofollow->enabled);
+  TestEq(FALSE, tt_canonical->visible,"Should not be visible on a folder");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -107,6 +127,19 @@ ASYNC MACRO TestSeoSettings()
 
   ///////////////////////////////////
   //
+  // As Marge, we can see the protected seo tab Lisa couldn't see
+  //
+  testfw->SetTestUser("marge");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be visible to Marge");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  ///////////////////////////////////
+  //
   // Open nofollow/nofollowsub as sysop, set a customrobots value
   //
   testfw->SetTestUser("sysop");
@@ -130,32 +163,98 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   tt_customrobots := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots");
+  tt_canonical := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "canonical");
 
   TestEq(TRUE, tt_customrobots->visible);
   TestEq(TRUE, tt_customrobots->enabled);
   TestEq("ZwoBot", tt_customrobots->placeholder);
+  TestEq(TRUE, tt_canonical->visible, "Canonical should be visible on files");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 
   ///////////////////////////////////
   //
+  // Open robots-noindex-nofollow-yesfollow as sysop, check that noindex is locked and nofollow isn't
+  //
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ forced_noindex_nofollow_yesfollow_file->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
+  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+
+  TestEq(TRUE, tt_noindex->value);
+  TestEq(FALSE, tt_noindex->enabled);
+  TestEq(FALSE, tt_nofollow->value);
+  TestEq(TRUE, tt_nofollow->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Create a SEO report
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE rowkey = seotestroot->id;
+  AWAIT ExpectScreenChange(+1, PTR TTClick("exportseoreport"));
+  RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  RECORD ARRAY exprows := SELECT * FROM GetOOXMLSpreadsheetRows(file.data);
+  dumpvalue(exprows,'boxed');
+
+  TestEq(seotestroot->objecturl, exprows[0].url, "First link should be the export root");
+  Testeq("", (SELECT AS STRING link FROM system.fs_objects WHERE id = seotestroot->id), "Check that we reported objecturl even though seotestroot still has no 'link'");
+  TestEq("Is set", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/");
+  TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/");
+  TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+  TestEq("> ", SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/noindex/noindexsub/noindexsubfile");
+  TEstEq("> " || noindexsubfile->link, SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+
+  //TestEqMembers([ maincategory := "TEST: another of my categories", sub1 := "TEST: A Subcategory" ], testrows[2],"*");
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+
+  ///////////////////////////////////
+  //
   // Check the output of all these files
   //
-  OBJECT metarobots;
+  OBJECT metarobots, linkcanonical;
   WaitForPublishCompletion(root->id);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(noindexsubfile->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
   TestEq("noindex,follow", metarobots->GetAttribute("content"));
+  linkcanonical := testfw->browser->document->QuerySelector("link[rel='canonical']");
+  TestEq(noindexsubfile->link, linkcanonical->GetAttribute("href"), "Static files consider themselves their own canonical by default");
 
   TestEq(TRUE, testfw->browser->GotoWebPage(nofollowsubfile->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
   TestEq("nofollow,ZwoBot", metarobots->GetAttribute("content"));
+  linkcanonical := testfw->browser->document->QuerySelector("link[rel='canonical']");
+  TestEq(noindexsubfile->link, linkcanonical->GetAttribute("href"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,follow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_nofollow_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("nofollow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noarchive_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noarchive", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_nofollow_noarchive_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,nofollow,noarchive", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_nofollow_yesfollow_file->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,follow", metarobots->GetAttribute("content"));
 }
 
 RunTestframework([ PTR PrepIt
                  , PTR TestSeoSettings
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
-                                   ]]);
+                                   ,[ login := "marge", grantrights := ["system:supervisor"] ]
+                                   ]
+                    ]);

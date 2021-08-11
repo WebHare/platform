@@ -5,19 +5,23 @@
 
   <tabsextension name="seosettings" implementation="lib">
     <newtab title="SEO">
-      <heading tid=".indexing" />
-      <lines layout="left">
-        <checkbox composition="contentdata" cellname="noindex" name="noindex" labeltid=".noindex" title="" />
-        <checkbox composition="contentdata" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
-        <checkbox composition="contentdata" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
-      </lines>
-      <textedit composition="contentdata" cellname="customrobots" name="customrobots" width="1pr" />
-<!--
-      <heading name="canonicalheading" tid=".canonical" />
-      <lines layout="left">
-        <p:intextlink composition="contentdata" cellname="canonical" name="canonical" errorlabeltid=".canonical" title="" />
-      </lines>
- -->
+      <checkbox composition="contentdata" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags"/>
+      <checkbox composition="contentdata" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
+      <checkbox composition="contentdata" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
+      <textedit composition="contentdata"
+                cellname="customrobots"
+                name="customrobots"
+                width="1pr"
+                tid="common.seosettings.customrobots"
+                placeholdertid="common.seosettings.customrobots-placeholder"/>
+
+      <p:browseforobject composition="contentdata"
+                         cellname="canonical"
+                         name="canonical"
+                         width="1pr"
+                         acceptfolders="false"
+                         tid="common.seosettings.canonical" />
+      <textarea composition="contentdata" cellname="comments" width="1pr" tid="~comments" placeholdertid=".comments-placeholder" height="3gr"/>
     </newtab>
   </tabsextension>
 

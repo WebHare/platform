@@ -25,6 +25,7 @@ LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/virtualfs-publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/reports/seoreport.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -2335,8 +2336,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoReportIssues()
   {
-    RECORD obj := ^foldertree->selection;
     this->tolliumcontroller->SendApplicationMessage("publisher:reportissues", DEFAULT RECORD, DEFAULT RECORD, TRUE);
+  }
+
+  MACRO DoExportSEOReport()
+  {
+    RunSEOReport(this, ^foldertree->value);
   }
 
   MACRO DoObjectHistory()

@@ -1072,9 +1072,29 @@
           <xs:documentation>Enable the SEO tab (noindex, nofollow, canonical)</xs:documentation>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="seotabrequireright" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Require this right to see the SEO tab</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="striprtdextension" type="xs:boolean">
         <xs:annotation>
           <xs:documentation>Strip .rtd extension from newly created files</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="noindex" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'noindex' robot setting</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="nofollow" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'nofollow' robot setting</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="noarchive" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>If true for a file, enforces the 'noarchive' robot setting</xs:documentation>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>

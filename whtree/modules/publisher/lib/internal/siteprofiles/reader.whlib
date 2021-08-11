@@ -274,17 +274,6 @@ RECORD FUNCTION GetFakeBaseInfoForApplyCheck(INTEGER parentfolder, BOOLEAN isfil
          ];
 }
 
-BOOLEAN FUNCTION TestRequiredRight(OBJECT user, STRING rightname, INTEGER fsobject)
-{
-  IF (rightname = "")
-    RETURN TRUE;
-
-  IF (rightname IN [ "system:fs_fullaccess", "system:fs_browse" ])
-    RETURN user->HasRightOn(rightname, fsobject);
-
-  RETURN IsRightGlobal(rightname) ? user->HasRight(rightname) : user->HasRightOn(rightname, 0);
-}
-
 PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
 {
   RECORD webdesign := [ objectname      := "mod::publisher/lib/webdesign.whlib#WebDesignBase"
@@ -789,6 +778,9 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   /// @type(integer) The site of the current object
   PUBLIC PROPERTY objsite(this->objinfo.obj.parentsite, -);
+
+  /// @type(boolean) Are we applied to a folder?
+  PUBLIC PROPERTY objisfolder(this->objinfo.obj.isfolder, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -1482,6 +1474,20 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN CombinePartialNodes(plugin.datas);
   }
 
+  /** Test whether the user has the requested right
+      @param rightname Right to check. Must either be granted globally or for system:fs_fullaccess/system:fs_browse, on the fsobject or any of its parents
+      @return True if the user has the right, or if rightname is empty*/
+  PUBLIC BOOLEAN FUNCTION HasRequiredRight(OBJECT user, STRING rightname)
+  {
+    IF (rightname = "")
+      RETURN TRUE;
+
+    IF (rightname IN [ "system:fs_fullaccess", "system:fs_browse" ]) //TODO look at the target of the right, so custom rights can also apply to fsobjects
+      RETURN user->HasRightOn(rightname, this->objinfo.obj.id ?? this->objinfo.obj.parent);
+
+    RETURN IsRightGlobal(rightname) ? user->HasRight(rightname) : user->HasRightOn(rightname, 0);
+  }
+
   //Tollium Publisher version of GetCustomFields
   PUBLIC RECORD FUNCTION GetCustomFields(OBJECT user, STRING langcode)
   {
@@ -1500,16 +1506,8 @@ STATIC OBJECTTYPE ApplyRuleTester
           CONTINUE;
         }
 
-        TRY
-        {
-          IF(NOT TestRequiredRight(user, extendprops.requireright, this->__Deprecated_GetObjInfo().obj.id))
-            CONTINUE;
-        }
-        CATCH(OBJECT e)
-        {
-          INSERT "Error checking rights for property editor '" || EncodeJava(extendprops.name) || "': " || e->what INTO retval.errors AT END;
+        IF(NOT this->HasRequiredRight(user, extendprops.requireright))
           CONTINUE;
-        }
 
         STRING selector;
         IF (extendprops.extension != "")
@@ -1958,3 +1956,11 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 
   RETURN [ siteprofileids := INTEGER[], roottype := 0 ];
 }
+
+PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
+{
+  RETURN applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE
+                                                         , noindex := FALSE, nofollow := FALSE, noarchive := FALSE, seotabrequireright := ""
+                                                         ]);
+}
+

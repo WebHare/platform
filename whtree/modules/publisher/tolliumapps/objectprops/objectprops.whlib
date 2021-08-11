@@ -617,7 +617,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
 
     //configure settings that depend on the applytester
-    this->basesettings := this->contexts->applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := FALSE, seotab := FALSE ]);
+    this->basesettings := GetBaseProperties(this->contexts->applytester);
   }
 
   // ---------------------------------------------------------------------------
@@ -1227,8 +1227,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
     ^maintabs->extendposition := tab_insert_pos;
 
-    IF(this->basesettings.seotab AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate()))
+    IF(this->basesettings.seotab
+       AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate())
+       AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright)))
+    {
       this->contexts->objectpropsapi->AddTabsExtension(Resolve("seotab.xml#seosettings"), "http://www.webhare.net/xmlns/publisher/seosettings");
+    }
 
     IF (ObjectExists(this->webcontext))
     {

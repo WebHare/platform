@@ -257,6 +257,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(ObjectExists(tree_end))
       this->_targetobject_fulltree := tree_end->GetFullTree();
 
+    IF(this->IsStaticPublication())
+      this->canonicalurl := this->pvt_targetobject->url;
+
     this->_InitRobotsTag();
     this->relativelinksscope := "protocol";
 
@@ -281,11 +284,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     ELSE IF(IsRequest())
       this->baseurl := GetRequestURL();
     ELSE
-      this->baseurl := this->targetobject->url;
+      this->baseurl := this->pvt_targetobject->url;
 
     IF(this->IsStaticPublication() AND RecordExists(this->__config.renderinfo))
     {
-      this->canonicalurl := this->pvt_targetobject->url;
       IF(this->__config.renderinfo.objectname != "")
       {
         DELETE CELL pagefolder FROM __pageinfo;
@@ -332,15 +334,28 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
     INTEGER ARRAY parents := this->_targetobject_fulltree;
-    RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", lockablefields CONCAT ["customrobots"]);
-    FOREVERY(RECORD parent FROM seoitems)
+    RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", STRING[ ...lockablefields, "customrobots", "canonical"]);
+    FOREVERY(RECORD seoitem FROM seoitems)
     {
       FOREVERY(STRING field FROM lockablefields)
-        IF(GetCell(parent, field))
+        IF(GetCell(seoitem, field))
           this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
-      IF(parent.customrobots != "")
-        this->_robotstag.custom := parent.customrobots;
+
+      IF(seoitem.customrobots != "")
+        this->_robotstag.custom := seoitem.customrobots;
+
+      IF(ObjectExists(this->targetobject) AND #seoitem = Length(seoitems) - 1 AND seoitem.canonical != 0)
+      {
+        STRING canonicaltarget := SELECT AS STRING link FROM system.fs_objects WHERE id = seoitem.canonical;
+        IF(canonicaltarget != "")
+          this->canonicalurl := canonicaltarget;
+      }
     }
+
+    RECORD baseprops := GetBaseProperties(this->targetapplytester);
+    FOREVERY(STRING field FROM lockablefields)
+      IF(GetCell(baseprops, field))
+        this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
   }
 
   // ---------------------------------------------------------------------------
