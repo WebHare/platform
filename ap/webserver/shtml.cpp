@@ -737,7 +737,11 @@ void Shtml::WebHareAccessHandler(WebServer::Connection *webcon, WebServer::Acces
 
                         Session *sess = lock->OpenSessionNochecks(cleanedwebharelogin, true);
                         if (sess && context->shtml->TrySession(webcon, *sess, rule))
-                            return;
+                        {
+                                if (webcon->GetRequest().header_debugging)
+                                    webcon->AddHeader("X-WH-AccessRule-Auth", "rule " + Blex::AnyToString(rule.id) + " authenticated by cookie " + itr->first + " with session " + cleanedwebharelogin, true);
+                                return;
+                        }
                 }
 
                 // First, consider the access_token. Either as authentication: Bearer token, or from URL (as fallback)
@@ -982,6 +986,8 @@ bool ConnectionWorkTask::OnExecute(WebServer::Connection *webcon)
                         Session* sess = lock->OpenSessionNochecks(sessionid, false);
                         if (sess)
                         {
+                                if (shtmlcontext->accessruleid && webcon->GetRequest().header_debugging)
+                                    webcon->AddHeader("X-WH-AccessRule-Auth", "rule " + Blex::AnyToString(shtmlcontext->accessruleid) + " authentication complete, authenticates session " + sessionid, true);
                                 lock->SetSessionAuth(sess, username, canclose, userid, userentityid, shtmlcontext->request->remoteaddress, authaccesrule ? shtmlcontext->accessruleid : 0);
                                 if (userid != 0 || userentityid != 0)
                                 {
