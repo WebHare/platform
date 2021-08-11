@@ -54,12 +54,10 @@ PUBLIC STATIC OBJECTTYPE RunTests
 
   STRING tempdir;
 
-  STRING installroot;
   STRING basetesturl;
 
   MACRO NEW()
   {
-    this->installroot := GetInstallationRoot();
     this->tempdir := GenerateTemporaryPathnameFromBasepath(GetTempDir() || "beta-" || FormatDatetime("%Y%m%d%H%M%S", GetCurrentDatetime()) || "-");
     IF (this->tempdir NOT LIKE "*/")
       this->tempdir := this->tempdir || "/";
@@ -67,15 +65,9 @@ PUBLIC STATIC OBJECTTYPE RunTests
     this->basetesturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.system/jstests/");
   }
 
-  STRING FUNCTION GetRunscript()
-  {
-    STRING runscript := this->installroot || "bin/runscript";
-    RETURN runscript;
-  }
-
   STRING FUNCTION SubstituteArg(STRING testfile, STRING arg)
   {
-    arg := Substitute(arg, "$webhare_dir$", this->installroot);
+    arg := Substitute(arg, "$webhare_dir$", GetInstallationRoot());
     arg := Substitute(arg, "$testbasedir$", GetDirectoryFromPath(testfile));
     arg := Substitute(arg, "$temp_dir$", this->tempdir);
     RETURN Substitute(arg, "$binary_extension$", "");
@@ -124,8 +116,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
 
       IF (arg->nodename = "arg")
         INSERT value INTO args AT END;
-      ELSE IF (arg->nodename = "runscriptarg")
-        INSERT value INTO runscriptargs AT END;
     }
     RETURN [ args:=args
            , runscriptargs := runscriptargs
@@ -337,8 +327,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
     OBJECT root := dom->documentelement;
 
     RECORD ARRAY root_parameters :=
-      [ [ name := "runscript", value := this->GetRunscript() ]
-      , [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
+      [ [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
       ];
 
     tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, exclusive, validationconfig);
