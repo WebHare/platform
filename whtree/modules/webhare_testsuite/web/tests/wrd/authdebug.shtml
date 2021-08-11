@@ -53,18 +53,25 @@ RECORD FUNCTION ProcessReq()
   STRING browsertriplet := GetWebVariable("browsertriplet");
   UpdateAuditContext(CELL[ browsertriplet ]);
 
+  RECORD loginopts := CELL[ persistent := GetWebVariable("persistent") = "1"
+                          ];
+
   SWITCH(GetWebVariable("action"))
   {
     CASE "login"
     {
-      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), [ persistent := GetWebVariable("persistent") = "1" ]);
+      loginopts := CELL[ ...loginopts
+                       , skippasswordcheck := GetWebVariable("skippasswordcheck") = "1"
+                       ];
+
+      RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), loginopts);
       RETURN CELL[ ...res
                  , plugin_entityid := plugin->entityid
                  ];
     }
     CASE "loginid"
     {
-      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", [ persistent := GetWebVariable("persistent") = "1" ]);
+      RECORD res := plugin->LoginById(ToInteger(GetWebVariable("userid"), 0), GetWebVariable("impersonation") = "1", loginopts);
       RETURN CELL[ ...res
                  , plugin_entityid := plugin->entityid
                  ];

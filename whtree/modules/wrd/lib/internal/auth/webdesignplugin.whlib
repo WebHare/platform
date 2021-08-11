@@ -582,12 +582,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN IsRequest() AND this->__GetWRDAuthIntegration()->IsLogoutAllowed();
   }
 
-  /** Returns a link that logs out the user, then returns to the baseurl of the current webcontext
+  /** Returns a link that logs out the user and then returns to the current page
       @return Link to redirect to which logs out the current user
   */
   PUBLIC STRING FUNCTION GetLogoutLink()
   {
-    RETURN "/.wrd/auth/logout.shtml?b=" || EncodeURL(UnpackURL(this->webcontext->baseurl).urlpath);
+    STRING returnbaseurl := IsRequest() ? GetFormRequestURL() : this->webcontext->baseurl; //fallback to webdesign calculated URL, generally works for static pages
+    RETURN "/.wrd/auth/logout.shtml?b=" || EncodeURL(UnpackURL(returnbaseurl).urlpath); //strip origin to prevent open redirect
   }
 
   /** Log the user out.
@@ -796,7 +797,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         trylogin := this->__GetWRDAuthIntegration()->Login(loginname, password, options);
       ELSE
       {
-        INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
+        IF(NOT options.skippasswordcheck)
+          INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
         trylogin := this->GetSupportObject()->Login(loginname, password, options);
       }
 
