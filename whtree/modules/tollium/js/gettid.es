@@ -285,7 +285,7 @@ function getTidLanguage()
 
   // Read the document's language, if there is a DOM context
   if (typeof document != "undefined")
-    curLang = document.documentElement.lang;
+    curLang = (document.documentElement.lang||'').substr(0,2);
 
   return curLang;
 }
