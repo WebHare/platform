@@ -455,9 +455,11 @@ MACRO TestRequireExternalLoggedinUser()
 
   //We should be seeing the tollium page above. Do a WRD login
 //  testfw->browser->debug:=TRUE;
+  STRING logincontrol := GetVariableFromURL(testfw->browser->url, "wrdauth_logincontrol");
   STRING loginpage := testfw->browser->url;
+
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, [ browsertriplet := "mac-chrome-01" ]]);
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
 
   TestEq(TRUE, rec.success);
 
@@ -472,9 +474,9 @@ MACRO TestRequireExternalLoggedinUser()
       , bylogin := "mysysop@beta.webhare.net"
       ]);
 
-  TestEq('reload', rec.result.submitinstruction.type);
+  TestEq('redirect', rec.result.submitinstruction.type);
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginpage), "Execute the reload");
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submit instruction");
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
   TestEq(loginrequiringurl, testfw->browser->url, "Should be redirected back to the original location, but now we should see things here");
   TestEq("mysysop@beta.webhare.net", DecodeHSONBLob(testfw->browser->content).login);

@@ -307,17 +307,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , cookiename := this->cookiename
         ];
 
-    IF(IsRequest())
-    {
-      // Shortcut authentication if already logged in.
-      STRING logincontroltoken := GetWebVariable("wrdauth_logincontrol");
-      IF (logincontroltoken != "")
-        this->ProcessReturnTo(logincontroltoken);
-
-      IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
-        INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
-    }
-
     webdesign->SetJSPluginConfig("wrd:auth", config);
   }
 
