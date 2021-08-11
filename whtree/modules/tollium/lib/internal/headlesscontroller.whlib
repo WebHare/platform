@@ -104,6 +104,11 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
     TerminateScript();
   }
 
+  UPDATE MACRO TerminateAfterConnectionLoss()
+  {
+    // No need to terminate without client contact in headless conditions
+  }
+
   UPDATE PUBLIC MACRO RunModalScreen(OBJECT screen)
   {
     IF (this->debugging)
