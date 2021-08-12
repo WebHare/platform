@@ -74,6 +74,7 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(recycleherid)], target := DEFAULT RECORD ]));
   TestEq(TRUE, RecordExists(TT("foldertree")->selection));
   TestEq("Trash", TT("foldertree")->selection.name);
+  TestEq("tollium:folders/trash", TT("foldertree")->icons[TT("foldertree")->selection.icon-1]);
 
   RECORD ARRAY rows := TT("filelist")->rows;
   TestEq(["recycleher"], SELECT AS STRING ARRAY name FROM rows ORDER BY name);
