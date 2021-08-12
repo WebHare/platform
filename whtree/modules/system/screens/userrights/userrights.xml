@@ -131,7 +131,7 @@
                     <part height="1pr">
                       <includefragment name="unitcontents" fragment="userrights/parts/unitcontents.unitcontents" />
                     </part>
-                    <part height="1pr" spacers="none">
+                    <part height="1pr" spacers="none" borders="right bottom">
                       <includefragment name="userrolerightslist" fragment="userrights/parts/userrolerightslist.userrolerightslist" />
                     </part>
                   </split>

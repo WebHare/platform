@@ -76,7 +76,7 @@
                       gid="userrights.columns"
                       emptytid="userrights.empty.permissionsfromuser"
                       flags="isrole canmanage"
-                      borders="right bottom">
+                      borders="right">
 
                   <column name="name" type="text" width="2pr" tree="true" iconname="icon" tid=".permission" />
                   <column name="objectpath" type="text" width="4pr" />
@@ -104,7 +104,7 @@
                         selectcontextmenu="context_roleusers"
                         icons="tollium:users/user tollium:users/users tollium:users/mask tollium:status/checked tollium:status/unknown tollium:security/lock_closed"
                         gid="userrights.columns"
-                        borders="right bottom"
+                        borders="right"
                         emptytid="userrights.empty.nousersinrole"
                         flags="candelete">
 
@@ -114,7 +114,7 @@
                   </list>
                 </panel>
               </cell>
-              <cell spacers="top left">
+              <cell spacers="top left right">
                 <button action="adduserstorole" hinttid="userrights.actions.adduserstorole-hint" width="1pr" ellipsis="true" disablemode="hidden"/>
                 <button action="edit" tid="~properties" width="1pr"/>
                 <button action="removeusersfromrole" hinttid="userrights.actions.removeusersfromrole-hint" width="1pr"/>
