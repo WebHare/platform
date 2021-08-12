@@ -117,7 +117,7 @@ class UndoItem
 function isNodeFilterMatch(node, filter)
 {
   if (!node)
-    throw "No node in isNodeFilterMatch";
+    throw new Error("No node in isNodeFilterMatch");
   if (Array.isArray(filter))
     return filter.includes(node.nodeName.toLowerCase());
   if (typeof filter == "string")
@@ -513,7 +513,7 @@ function getVisualEquivalenceRange(maxancestor, locator)
 function splitDataNode(locator, preservelocators, preservetoward, undoitem)
 {
   if (preservetoward && ![ 'start', 'end' ].includes(preservetoward))
-    throw "Illegal preservetoward value '" + preservetoward + "'";
+    throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
   locator = locator.clone();
@@ -558,7 +558,7 @@ function _redoSplitDataNode(oldelt, oldeltval, newelt, neweltval, handlenewelt)
 function splitElement(locator, preservelocators, preservetoward, undoitem)
 {
   if (preservetoward && ![ 'start', 'end' ].includes(preservetoward))
-    throw "Illegal preservetoward value '" + preservetoward + "'";
+    throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
   locator = locator.clone();
@@ -631,13 +631,13 @@ function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect)
 function splitDom(ancestor, splitpoints, preservelocators, undoitem)
 {
   if (!ancestor)
-    throw "No ancestor in splitdom!";
+    throw new Error("No ancestor in splitdom!");
 
   //console.log('Splitdom pre ', ancestor, richdebug.getStructuredOuterHTML(ancestor, splitpoints));
   //console.log('Splitdom pre  preserve', richdebug.getStructuredOuterHTML(ancestor, preservelocators));
 
   if ([3,4].includes(ancestor.nodeType))
-    throw "splitDom ancestor must be an element";
+    throw new Error("splitDom ancestor must be an element");
 
   // Copy the preservelocators array, we have some extra locators to preserve
   preservelocators = (preservelocators || []).slice();
@@ -655,7 +655,7 @@ function splitDom(ancestor, splitpoints, preservelocators, undoitem)
 
     var preservetoward = splitpoints[i].preservetoward = splitpoints[i].preservetoward || 'end';
     if (!['start','end'].includes(preservetoward))
-      throw "Illegal preservetoward value '" + preservetoward + "'";
+      throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
     var cmp = splitpoints[i].locator.compare(orglocator);
     if (cmp < 0)
@@ -735,13 +735,13 @@ function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newloc
 function combineNodeWithPreviousNode(node, preservelocators, undoitem)
 {
   if (!node)
-    throw "Illegal parameter";
+    throw new Error("Illegal parameter");
 
   var left = node.previousSibling;
   var right = node;
 
   if (!left)
-    throw "Node has no previous sibling to combine with";
+    throw new Error("Node has no previous sibling to combine with");
 
   return combineNodes(new Locator(left, "end"), right, preservelocators, undoitem);
 }
@@ -762,7 +762,7 @@ function combineNodes(insertlocator, right, preservelocators, undoitem)
   var left = insertlocator.element;
 
   if (left.nodeType != right.nodeType || ![1,3,4].includes(left.nodeType))
-    throw "Left and right node not the same type (or no element or data node)";
+    throw new Error("Left and right node not the same type (or no element or data node)");
 
 /* TODO: express in terms of moveRangeTo, so we can remove the insanely complicated correct code below.
   var range = Range.fromNodeInner(right);
@@ -792,7 +792,7 @@ function combineNodes(insertlocator, right, preservelocators, undoitem)
   if (afterrightptr.compare(insertlocator) <= 0)
     moveforward = true;
   else if (rightptr.compare(insertlocator) < 0)
-    throw "Can't move content inside removed node";
+    throw new Error("Can't move content inside removed node");
 
   // Correct preservelocators for the node combine (before actual changes!)
   applyPreserveFunc(preservelocators, _correctForNodeCombine.bind(this, insertlocator, right, rightptr, afterrightptr, moveforward));
@@ -894,11 +894,11 @@ function _correctForNodeCombine(insertlocator, removednode, removedlocator, afte
 function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem)
 {
   if (range.start.element != range.end.element)
-    throw "moveRangeTo can only move a range with the start and end element the same";
+    throw new Error("moveRangeTo can only move a range with the start and end element the same");
 
   var rangeisnode = range.start.parentIsElementOrFragmentNode();
   if (rangeisnode != insertlocator.parentIsElementOrFragmentNode())
-    throw "moveRangeTo can only move nodes to within elements & data to within data nodes";
+    throw new Error("moveRangeTo can only move nodes to within elements & data to within data nodes");
 
   // Clone all locators, don't want the preserve functions to mess with them
   insertlocator = insertlocator.clone();
@@ -916,7 +916,7 @@ function moveSimpleRangeTo(range, insertlocator, preservelocators, undoitem)
   if (endlocator.compare(insertlocator) <= 0)
     moveforward = true;
   else if (startlocator.compare(insertlocator) < 0)
-    throw "Can't move content inside removed node";//#1" + richdebug.getStructuredOuterHTML(Locator.findCommonAncestorElement(range.start, insertlocator), { insertlocator: insertlocator, range: range });
+    throw new Error("Can't move content inside removed node");//#1" + richdebug.getStructuredOuterHTML(Locator.findCommonAncestorElement(range.start, insertlocator), { insertlocator: insertlocator, range: range })
 
 
   // Correct insertlocator if needed. May only be used after range has been removed from the DOM!!
@@ -1050,7 +1050,7 @@ function _correctForNodeMove(startlocator, endlocator, insertlocator, corr_inser
 function removeSimpleRange(range, preservelocators, undoitem)
 {
   if (range.start.element != range.end.element)
-    throw "removeRange can only remove a range with the start and end element the same";
+    throw new Error("removeRange can only remove a range with the start and end element the same");
 
   range = range.clone();
 
@@ -1153,7 +1153,7 @@ function _correctForReplaceWithChildren(locator, removednode, childcount, tocorr
 function wrapSimpleRangeInNewNode(range, newnode, preservelocators, undoitem)
 {
   if (range.start.element != range.end.element)
-    throw "wrapSimpleRangeInNewNode only works with ranges where start element is equal to end element";
+    throw new Error("wrapSimpleRangeInNewNode only works with ranges where start element is equal to end element");
 
   // Preserve range too
   preservelocators = (preservelocators || []).concat(range);
@@ -1546,7 +1546,7 @@ function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combin
             break;
         }
         else
-          throw "Illegal combinetest in combineWithPreviousNodesAtLocator";
+          throw new Error("Illegal combinetest in combineWithPreviousNodesAtLocator");
       }
       else
         break;
@@ -1862,7 +1862,7 @@ class Locator
   /// Set the locator object
   set(element, offset)
   {
-    if (!element) throw "No valid element in locator set";
+    if (!element) throw new Error("No valid element in locator set");
     this.element = element;
     if (offset === 'end')
       this.offset = this.getMaxChildOffset(element);
@@ -2121,9 +2121,9 @@ class Locator
   removeNode(preservelocators, undoitem)
   {
     if (!this.parentIsElementOrFragmentNode())
-      throw "Removing a node only allowed when parent is a node";
+      throw new Error("Removing a node only allowed when parent is a node");
     if (this.offset >= this.getMaxChildOffset(this.element))
-      throw "Locator does not point to an element";
+      throw new Error("Locator does not point to an element");
 
     var removed = this.element.childNodes[this.offset];
     this.element.removeChild(removed);
@@ -2151,11 +2151,11 @@ class Locator
   replacePointedNode(newnode, preservelocators)
   {
     if (!this.parentIsElementOrFragmentNode())
-      throw "Removing a node only allowed when parent is a node";
+      throw new Error("Removing a node only allowed when parent is a node");
     if (this.offset >= this.getMaxChildOffset(this.element))
-      throw "Locator does not point to an element";
+      throw new Error("Locator does not point to an element");
     if (!newnode)
-      throw "No valid new node given";
+      throw new Error("No valid new node given");
 
     var oldnode = this.element.childNodes[this.offset];
     this.element.replaceChild(newnode, oldnode);
@@ -2214,9 +2214,14 @@ class Locator
   */
   scanBackward(maxancestor, ignore)
   {
-    if (!maxancestor) { console.trace();throw "Missing ancestor"; }
-    if (this.offset > GetNodeEndOffset(this.element)) throw "Illegal offset!";
-    if (typeof ignore.li == "undefined") ignore.li = ignore.blocks;
+    if (!maxancestor)
+      throw new Error("Missing ancestor");
+
+    if (this.offset > GetNodeEndOffset(this.element))
+      throw new Error("Illegal offset!");
+
+    if (typeof ignore.li == "undefined")
+      ignore.li = ignore.blocks;
 
     while (true)
     {
@@ -2430,9 +2435,9 @@ class Locator
   moveToFirstVisible(maxancestor, stopatblock, placeintext)
   {
     if (!maxancestor.contains(this.element))
-      throw "Ancestor is not ancestor of this locator";
+      throw new Error("Ancestor is not ancestor of this locator");
     if (stopatblock)
-      throw "Stopatblock not supported for moveToFirstVisible";
+      throw new Error("Stopatblock not supported for moveToFirstVisible");
 
     var range = getVisualEquivalenceRange(maxancestor, this);
     //console.log('mtfv range', richdebug.getStructuredOuterHTML(maxancestor, { locator: this, range: range }, true));

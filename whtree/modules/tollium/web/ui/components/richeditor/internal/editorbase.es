@@ -653,9 +653,9 @@ export default class EditorBase
   selectRange(range, options)
   {
     if (!domlevel.isNodeSplittable(range.start.element))
-      throw "Trying to put start of selection within an unsplittable element (" + range.start.element.nodeName + ')';
+      throw new Error("Trying to put start of selection within an unsplittable element (" + range.start.element.nodeName + ')');
     if (!domlevel.isNodeSplittable(range.end.element))
-      throw "Trying to put end of selection within an unsplittable element (" + range.end.element.nodeName + ')';
+      throw new Error("Trying to put end of selection within an unsplittable element (" + range.end.element.nodeName + ')');
 
     var body = this.getContentBodyNode();
     this.currentrange = range.clone();
@@ -847,7 +847,7 @@ export default class EditorBase
   setCursor(element, offset)
   {
     if (!element)
-      throw "Invalid element passed to setCursor";
+      throw new Error("Invalid element passed to setCursor");
 
     this.setCursorAtLocator(new domlevel.Locator(element, offset || 0));
   }
@@ -2777,7 +2777,7 @@ export default class EditorBase
         break;
       case 'table':
         if (!action.size)
-          throw "Expected size param for table action";
+          throw new Error("Expected size param for table action");
         this.insertTable(action.size.x, action.size.y);
         break;
       case 'ul':

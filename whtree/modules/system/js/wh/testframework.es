@@ -449,7 +449,7 @@ class FakeUploadSession
 function prepareUploadTest(node, files, donecallback)
 {
   if(window.top.wh_testapi_fakeupload)
-    throw "The window already has a pending upload";
+    throw new Error("The window already has a pending upload");
 
   var uploadclass = new FakeUploadSession(files,donecallback);
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);

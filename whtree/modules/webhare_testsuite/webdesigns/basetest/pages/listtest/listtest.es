@@ -82,7 +82,7 @@ class TestDataSource extends ListDataSource
   sendRow(rownum)
   {
     if(rownum>=this.numrows)
-      throw "Why did the list request nonexisting row #" + rownum + "?";
+      throw new Error("Why did the list request nonexisting row #" + rownum + "?");
 
     var newrow = [ "Rij #" + rownum + "."
                  , (rownum%7)==2 ? null : this.checked.includes(rownum)   //1:checked
@@ -238,7 +238,7 @@ class TreeDataSource extends ListDataSource
   {
     console.log(arguments);
     if(row[cellidx]===null) //not allowed to change any of the nulls ,they mark unselectable or uncheckable columns
-      throw "Row #" + rownum + " cell #" + cellidx + " was marked as readonly!";
+      throw new Error("Row #" + rownum + " cell #" + cellidx + " was marked as readonly!");
     row[cellidx]=newvalue;
     this.flattenRows();
     this.list.invalidateAllRows();

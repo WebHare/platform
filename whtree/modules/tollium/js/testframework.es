@@ -197,7 +197,7 @@ class ScreenProxy
   {
     var closer = this.win.node.querySelector('.closewindow');
     if(!closer)
-      throw "Screen '" + this.win.screenname + "' has no close window";
+      throw new Error("Screen '" + this.win.screenname + "' has no close window");
 
     test.click(closer);
   }

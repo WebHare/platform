@@ -109,7 +109,7 @@ class UndoTest
         case 1:
           elt.children = this.getSubTree(child); break;
         default:
-          throw "Unsupported elt type " + child.nodeType;
+          throw new Error("Unsupported elt type " + child.nodeType);
       }
       res.push(elt);
     }
@@ -162,7 +162,6 @@ test.registerTests(
           test.true(range.start.equals(locators[2]));
           test.true(range.end.equals(locators[3]));
         }
-        //throw "b0em";
       }
     }
 

@@ -739,7 +739,7 @@ class UploadManager
     }
 
     if (this.running.length < 1 && this.pending.length)
-      throw "Got blocked items in the queue";
+      throw new Error("Got blocked items in the queue");
   }
 }
 

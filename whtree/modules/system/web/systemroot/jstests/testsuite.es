@@ -1015,7 +1015,7 @@ class TestFramework
       case "uploadprogress":
       {
         if (!this.pageframewin.__todd)
-          throw "doWaitForUploadProgress specified, but no $todd found in testframe";
+          throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
         console.log('start wait for upload');
         this.pageframewin.__todd.waitForUploadProgress(deferred.resolve);
@@ -1281,7 +1281,7 @@ class TestFramework
   {
     this.waitforgestures=false;
     if(!this.scriptframewin.waitForGestures)
-      throw "waitforgestures specified, but no waitForGestures found in scriptframe";
+      throw new Error("waitforgestures specified, but no waitForGestures found in scriptframe");
 
     if (this.nextstepscheduled)
       return;
@@ -1293,7 +1293,7 @@ class TestFramework
   {
     this.waitforuploadprogress = false;
     if(!this.pageframewin.__todd)
-      throw "doWaitForUploadProgress specified, but no $todd found in testframe";
+      throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
 
     this.pageframewin.__todd.waitForUploadProgress(this.startNextStepNow.bind(this));
   }
@@ -1301,7 +1301,7 @@ class TestFramework
   {
     this.waitforanimationframe=false;
     if(!this.pageframewin.requestAnimationFrame)
-      throw "waitforanimationframe specified, but no requestAnimationFrame found in scriptframe";
+      throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
 
     this.pageframewin.requestAnimationFrame(this.startNextStepNow.bind(this));
   }
