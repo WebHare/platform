@@ -84,6 +84,10 @@
   </div>
 [/component]
 
+[component requireloginpage]
+  <p class="normal">THE CODE PROTECTED CONTENT</p>
+[/component]
+
 [component wrdauthrouter]
   <div class="wrdauthrouter">
     <p>

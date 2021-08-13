@@ -245,6 +245,21 @@ prebuilttype->SetInstanceData(dynamicpage->id, [ prebuilttag := "dynamicpage" ])
 
 testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
 
+OBJECT authtest_router_protected_folder := testpages->CreateFolder([ name := "wrdauthtest-router-protected" ]);
+authtest_router_protected_folder->CreateFile(
+    [ name := "accessruleprotected"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := TRUE
+    ])->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">THE ACCESSRULE PROTECTED CONTENT</p></body></html>') ]
+        ]);
+
+authtest_router_protected_folder->CreateFile(
+    [ name := "codeprotected"
+    , type := prebuilttype->id
+    , publish := TRUE
+    ])->SetInstanceData(prebuilttype->namespace, [ prebuilttag := "wrdauthtest_codeprotected" ]);
+
 testsite->rootobject->EnsureFolder([name := "tmp"]);
 
 FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.rtd"])

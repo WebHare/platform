@@ -407,6 +407,11 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
+    // Handle logincontrol when already logged in
+    STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
+    IF (logincontrol != "")
+      webdesign->GetWRDAuthPlugin()->ProcessReturnTo(logincontrol);
+
     IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
       Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
 

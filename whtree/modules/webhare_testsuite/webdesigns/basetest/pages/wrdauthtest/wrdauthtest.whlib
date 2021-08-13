@@ -106,6 +106,21 @@ PUBLIC OBJECTTYPE WrdAuthStaticPage EXTEND StaticPageBase
   }
 >;
 
+PUBLIC OBJECTTYPE WRDAuthTestRequireLoginPage EXTEND DynamicPageBase
+<
+  UPDATE PUBLIC MACRO PrepareForPageConfig(OBJECT webdesign)
+  {
+    OBJECT wrdauthplugin := webdesign->GetWRDAuthPlugin();
+    wrdauthplugin->RequireLoggedInUser();
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdeisgn)
+  {
+    EmbedWittyComponent(this->pagefolder || "wrdauthtest.witty:requireloginpage");
+  }
+
+>;
+
 PUBLIC OBJECT FUNCTION WRDAuthRouter(OBJECT webdesign)
 {
   OBJECT page := GetWRDAuthPages(webdesign);
