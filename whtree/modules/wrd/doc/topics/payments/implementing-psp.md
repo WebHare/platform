@@ -26,4 +26,4 @@ Some general guidelines when implementing a new payment method
 
 ## pendingpayments table
 WRD Payments tracks payments whose status we need to watch/poll in wrd.pendingpayments. Transactions are recorded
-there as soon as StartPayment starts communicating with the PSP. When the payments
+there as soon as StartPayment starts communicating with the PSP.
