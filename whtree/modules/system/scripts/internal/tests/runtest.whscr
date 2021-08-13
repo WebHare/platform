@@ -188,7 +188,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
                WHERE name = "scriptpath";
         }
 
-        runner := GetinstallationRoot() || "bin/runscript";
+        runner := GetInstallationRoot() || "bin/runscript";
 
         IF (testrunner->print_debug)
           Print("; Running test: " || testinfo.testname || "\n");
