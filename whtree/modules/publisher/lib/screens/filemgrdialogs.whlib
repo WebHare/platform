@@ -592,7 +592,7 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GetChangesInFolder(INTEGER folderid)
   {
     RECORD ARRAY changes := SELECT id
-                                 , fullpath
+                                 , fullpath := fullpath ?? whfspath
                                  , modificationdate
                                  , userid := modifiedby
                                  , parentsite
