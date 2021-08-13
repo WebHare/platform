@@ -99,31 +99,51 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "lost & found"
                                  , type := whconstant_whfstype_systemfolder
                                  ]
-                               //, [ id := 9,  parent := 1, name := "examples",        type := 0 ]
+                                 // 9 was reserved for 'examples'
                                , [ id := whconstant_whfsid_private
                                  , parent := 0
                                  , name := "webhare-private"
                                  , type := whconstant_whfstype_systemfolder
                                  ]
-                               , [ id := whconstant_whfsid_versions
-                                 , parent := whconstant_whfsid_private
-                                 , name := "whfs-versions"
-                                 , type := whconstant_whfstype_normalfolder
-                                 ]
-                               //, [ id := 12, parent := 0, name := "webhare-moduledata", type := 2 ] //stopped autocreating sep 2019. TODO at some point start cleaning up existing ID 12 folders, once we're sure newsletter is gone everywhere
+                                 //12 was reserved for 'webhare-moduledata'
                                , [ id := whconstant_whfsid_wrdstore
                                  , parent := whconstant_whfsid_private
                                  , name := "wrd"
-                                 , type := 0
+                                 , type := whconstant_whfstype_normalfolder
                                  ]
-                               , [ id := 14, parent := whconstant_whfsid_private, name := "whfs-autosaves",  type := 0 ]
-                               , [ id := 15, parent := whconstant_whfsid_private, name := "whfs-drafts",  type := 0 ]
-                               , [ id := 16, parent := 0, name := "WebHare backend",  type := 0 ]
-                               , [ id := 17, parent := whconstant_whfsid_private, name := "whfs-versionhistory",  type := 0 ]
-                               , [ id := 18, parent := whconstant_whfsid_private, name := "whfs-versionarchive",  type := 0 ]
                                , [ id := whconstant_whfsid_private_system
                                  , parent := whconstant_whfsid_private
                                  , name := "system"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_autosaves
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-autosaves"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_drafts
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-drafts"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_webharebackend
+                                 , parent := 0
+                                 , name := "WebHare backend"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_versionhistory
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-versionhistory"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_versionarchive
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-versionarchive"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_versions
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "whfs-versions"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
                                , [ id := whconstant_whfsid_registerslots

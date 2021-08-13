@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
@@ -348,7 +349,7 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
 
     FOREVERY(INTEGER id FROM tokill)
       IF (id IN with_history)
-        OpenWHFSObject(id)->MoveTo(OpenWHFSObject(18), ToString(id));
+        OpenWHFSObject(id)->MoveTo(OpenWHFSObject(whconstant_whfsid_versionarchive), ToString(id));
       ELSE
         INSERT id INTO to_delete AT END;
 
