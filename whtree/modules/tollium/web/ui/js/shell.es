@@ -27,10 +27,10 @@ todd_components = getComponents();
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import * as whintegration from '@mod-system/js/wh/integration';
+import * as WRDAuth from '@mod-wrd/js/auth';
 import './debugging/magicmenu';
 
 var EventServerConnection = require('@mod-system/js/net/eventserver');
-var WRDAuth = require('@mod-wrd/js/auth');
 var JSONRPC = require('@mod-system/js/net/jsonrpc');
 var MenuComponent = require('../components/basecontrols/menu');
 import * as whconnect from '@mod-system/js/wh/connect';
@@ -50,7 +50,6 @@ require('../skins/default/controls.scss');
 import "./loginrequests.es"; //process preview panel login requests
 var toddImages = require("@mod-tollium/js/icons");
 
-require('@mod-system/js/compat/iefocusfix'); //it'll autorun, no need to use any export
 import TowlNotifications from './shell/towl';
 
 import { getTid } from "@mod-tollium/js/gettid";
@@ -67,7 +66,6 @@ class IndyShell
     this.checkinterval = 0;
     this.tolliumservice = null;
     this.offlinenotification = false;
-    this.wrdauth = null;
 
     this.settings = {};
 

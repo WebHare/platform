@@ -44,9 +44,9 @@
   <publisher>
     <siteprofile path="data/tollium.siteprl.xml"/>
     <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml">
-      <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface" supportedlanguages="en nl"  />
+      <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface" supportedlanguages="en nl" compatibility="modern" />
       <assetpack name="sharedworker" entrypoint="mod::tollium/webdesigns/webinterface/js/sharedworker.es" webharepolyfills="false" alwaysincludepolyfill="true" supportedlanguages="" environment="sharedworker" />
-      <assetpack name="polyfills" entrypoint="_polyfills" supportedlanguages="" webharepolyfills="false" />
+      <assetpack name="polyfills" entrypoint="_polyfills" supportedlanguages="" webharepolyfills="false" /> <!-- These refer to the babel polyfills which are separately compiled for debugging mode -->
     </webdesign>
     <customnode namespace="http://www.webhare.net/xmlns/tollium" name="portal"/>
     <feedbackscope tag="webharebackend" />
