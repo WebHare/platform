@@ -25,7 +25,7 @@ RECORD FUNCTION GetOpenIDConnectMetadata(STRING metadataurl)
     THROW NEW Exception(`Metadata could not be parsed`);
 
   IF(NOT browser->GotoWebPage(metadata.jwks_uri))
-    THROW NEW Exception(`JKWS keys unavailable`);
+    THROW NEW Exception(`JWKS keys unavailable`);
 
   RETURN[ value := [ authorizeurl := metadata.authorization_endpoint
                    , authtokenurl := metadata.token_endpoint
@@ -70,12 +70,12 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
       ]);
 
   IF (NOT RecordExists(spdata))
-    THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "' " : "") || "configured for this authentication domain");
+    THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
   ELSE IF (LENGTH(spdata) > 1)
     THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag");
 
 
-  //TODO support prompt=login, prompt=none modes. they somehwat map to passive/auto logins?
+  //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
   STRING finalurl := UpdateURLVariables(ResolveToAbsoluteURL(GetRequestURL(), "/.wrd/endpoints/oidc.shtml")
                                       , [ why := EncryptForThisServer("wrd:oidcauth", [ redirect := redirectto, client := spdata[0].wrd_id ])
                                         , prompt := ""
