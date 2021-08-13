@@ -288,11 +288,11 @@ MACRO TestParallelPayments()
   TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
   TestEq(1, Length(pmulti->GetField("LOG").entries), 'log should not register the third payment attempt.');
 
-  TestEQ("pending", pmulti->GetField("DATA").status);
+  TestEq("pending", pmulti->GetField("DATA").status);
   CompleteWRDTestpayment(pay1url, "approved");
   TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
-  TestEQ("approved", pmulti->GetField("DATA").status);
-  TestEQ(pay1ref, pmulti->GetField("DATA").paymentref);
+  TestEq("approved", pmulti->GetField("DATA").status);
+  TestEq(pay1ref, pmulti->GetField("DATA").paymentref);
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'log should have the completion added.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
 
@@ -351,12 +351,12 @@ MACRO TestPaymentOverview()
   TestEq("pending", enrichedpayments[1].status);
   TestEq(10.49m, enrichedpayments[1].amountpayable);
   TestEq("Pay by invoice", enrichedpayments[1].paymentmethodtitle);
-  TestEQ("INVOICE", enrichedpayments[1].paymentmethodtag);
+  TestEq("INVOICE", enrichedpayments[1].paymentmethodtag);
   TestEq(DEFAULT DATETIME, enrichedpayments[1].paymentdate);
 
   //these require clearing
   TestEq("000000000001", enrichedpayments[2].paymentref);
-  TestEQ(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
+  TestEq(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
   TestEq("000000000002", enrichedpayments[3].paymentref);
 
   RECORD cashpay := SELECT * FROM enrichedpayments WHERE paymentref="KASSABON:3232";
@@ -474,7 +474,7 @@ MACRO TestPaymentOrderLines()
   CompleteWRDTestpayment(gotourl, "approved");
   RECORD payment := paymentapi->GetPaymentData(pdf1->id);
 
-  Testeq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
+  TestEq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
   TestEq(bigrequest.orderlines[1].title, payment.__bestpayment.__paymentdata.m.orderlines[1].title, "white-box inspection of stored orderlines failed");
   TestEq("approved", payment.status);
 }
@@ -496,8 +496,8 @@ MACRO TestOrderNrFormats()
                           , paymentoptiontag := "NOISSUER"
                           ];
 
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", GetPaymentAPINextOrderNr(paymentapi->wrdschema));
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", GetPaymentAPINextOrderNr(paymentapi->wrdschema));
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
 
   // Update lastorderdate in separate transaction, or else we'll deadlock with the ordernr service
   testfw->CommitWork();
@@ -507,7 +507,7 @@ MACRO TestOrderNrFormats()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "016", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "016", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -515,13 +515,13 @@ MACRO TestOrderNrFormats()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 
   //Try manually setting order nr
   SetPaymentAPINextOrderNr(paymentapi->wrdschema, "BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004");
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 }
 
@@ -567,11 +567,11 @@ ASYNC MACRO TestPaymentProvidersDialog()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
   TestEq(3, Length(TT("providers")->rows));
-  Testeq("TestNoIssuer", topscreen->providers->selection.title);
+  TestEq("TestNoIssuer", topscreen->providers->selection.title);
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->editprovider->TolliumClick);
   TestEq("Nieuwe Titel", topscreen->contextextension->wrd_title->value);
-  Testeq("NEWMETHOD", TT(":Tag")->value);
+  TestEq("NEWMETHOD", TT(":Tag")->value);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
@@ -630,7 +630,7 @@ ASYNC MACRO TestPaymentReversal()
   OBJECT pd := paymentapi->paymenttype->CreateEntity([wrd_tag := "PDFORCEDREDIRECT"]);
   testfw->CommitWork();
 
-  Testeq(FALSE, RecordExists(pd->GetField("LOG")));
+  TestEq(FALSE, RecordExists(pd->GetField("LOG")));
 
   RECORD paymentinstruction := paymentapi->StartPayment(pd->id, -22.33, [ isexternal := TRUE, setstatus := "approved", returnurl := "https://www.example.net/" ]);
   TestEq(FALSE, paymentinstruction.complete);
@@ -711,7 +711,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   OBJECT navwatcher := NEW NavigationWatcher(conn);
   OBJECT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       ], pd5->GetField("LOG").entries, "*");
 
@@ -724,7 +724,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   //we'll be redirected..
   AWAIT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
@@ -734,7 +734,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   //we'll be redirected..
   AWAIT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       , [ status := "approved", type := "onpaymentfinalized" ]
