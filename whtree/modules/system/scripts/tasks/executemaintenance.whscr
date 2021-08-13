@@ -2,8 +2,11 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
@@ -90,6 +93,37 @@ MACRO FixupUserMgmt()
   trans->CommitWork();
 }
 
+MACRO CleanupWebharePrivate()
+{
+  RECORD ARRAY candidates := SELECT id, name
+                               FROM system.fs_objects
+                              WHERE parent = whconstant_whfsid_private
+                                    AND name NOT LIKE "whfs-*" //TODO remove this once we're satisfied no server has whfs- at the old location (4.33 should move it away)
+                                    AND name NOT IN GetInstalledModuleNames();
+  IF(Length(candidates) > 0)
+  {
+    INTEGER ARRAY notempty := SELECT AS INTEGER ARRAY DISTINCT parent FROM system.fs_objects WHERE parent IN (SELECT AS INTEGER ARRAY id FROM candidates);
+    candidates := SELECT * FROM candidates WHERE id NOT IN notempty;
+  }
+  IF(Length(candidates) > 0)
+  {
+    trans->BeginWork();
+    FOREVERY(RECORD candidate FROM candidates)
+      OpenWHFSObject(candidate.id)->RecycleSelf();
+    trans->CommitWork();
+  }
+
+  // get rid of webhare-moduledata if possible
+  IF(RecordExists(SELECT FROM system.fs_objects WHERE id = 12 AND parent = 0 AND name = "webhare-moduledata")
+     AND NOT RecordExists(SELECT FROM system.fs_objects WHERE parent = 12))
+  {
+    trans->BeginWork();
+    OpenWHFSObject(12)->RecycleSelf();
+    trans->CommitWork();
+
+  }
+}
+
 MACRO RunExecuteMaintenance()
 {
   IF(NOT IsRestoredWebhare())
@@ -99,6 +133,7 @@ MACRO RunExecuteMaintenance()
     CleanupDiversions();
     CleanupUserMgmt();
     CleanupUserRights();
+    CleanupWebharePrivate();
   }
   FixupUserMgmt();
 }

@@ -14,13 +14,13 @@ PUBLIC CONSTANT INTEGER whconstant_oauthoken_days := 30;
 //Folder id for webhare-private/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private := 10;
 
-//Folder id for webhare-private/whfs-versions
+//Folder id for webhare-private/system/whfs-versions
 PUBLIC CONSTANT INTEGER whconstant_whfsid_versions := 11;
 
 //Folder id for webhare-private/wrd
 PUBLIC CONSTANT INTEGER whconstant_whfsid_wrdstore := 13;
 
-//Folder id for webhare-private/whfs-drafts
+//Folder id for webhare-private/system/whfs-drafts
 PUBLIC CONSTANT INTEGER whconstant_whfsid_publicdrafts := 15;
 
 //Folder id for webhare-private/system/
@@ -46,6 +46,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
 
 //Folder/site id of the WebHare Backend site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
+
+//Folder id for webhare-private/system/whfs-versionhistory
+PUBLIC CONSTANT INTEGER whconstant_whfsid_versionhistory := 17;
+
+//Folder id for webhare-private/system/whfs-versionarchive
+PUBLIC CONSTANT INTEGER whconstant_whfsid_versionarchive := 18;
 
 //Default key expiry warning (days)
 PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 21;
