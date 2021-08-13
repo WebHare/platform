@@ -968,36 +968,7 @@ PUBLIC STATIC OBJECTTYPE IdealPaymentProvider EXTEND WRDPaymentProviderBase
     this->PollStatus();
     RETURN TRUE;
   }
-/*
-  // called to store (from ProcessReturnURL) or restore (from SetupTransaction) resulting metadata (info on payment progress) of a transaction
-  UPDATE PUBLIC MACRO SetPaymentMetadata(RECORD meta)
-  {
-    IF (NOT RecordExists(this->paymentmetadata))
-    {
-      //PRINT("Initializing metadata RECORD.");
-      this->paymentmetadata := [ issuer := ""
-                               , transactionid := ""
-                               , orderdescription := ""
-                               , idealstatus := DEFAULT RECORD
-                               ];
-    }
 
-    //PRINT(AnyToString([ now := this->paymentmetadata ],"tree"));
-
-    this->paymentmetadata := MakeUpdatedRecord(this->paymentmetadata, meta);
-
-    IF (CellExists(meta, "idealstatus"))
-      this->paymentmetadata.idealstatus := meta.idealstatus;
-
-    //PRINT(AnyToString([ meta := meta, paymentdata := this->paymentmetadata ],"tree"));
-
-    this->pvt_paymentdone     := RecordExists(this->paymentmetadata.idealstatus) ? (this->paymentmetadata.idealstatus.status != "Open") : FALSE;
-    this->pvt_paymentapproved := RecordExists(this->paymentmetadata.idealstatus) ? (this->paymentmetadata.idealstatus.status = "Success") : FALSE;
-
-    IF (CellExists(meta, "issuer") AND NOT RecordExists(this->paymentmetadata.idealstatus)) // issuer specifically set? (not an update with only the idealstatus)
-      this->SetIssuer(meta.issuer);
-  }
-*/
   PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
   {
     IF (this->issuer = "")
@@ -1018,8 +989,6 @@ PUBLIC STATIC OBJECTTYPE IdealPaymentProvider EXTEND WRDPaymentProviderBase
     UpdatePaymentMetadata(paymenttok, [ transactionid := this->transactionid ]);
     GetPrimary()->CommitWork();
 
-    //GetPrimary()->BeginWork();
-    //UPDATE wrd.pendingpayments SET pspmetadata := EncodeHSON([transactionid := this->transactionid]
     RETURN transaction.transactionurl;
   }
 >;

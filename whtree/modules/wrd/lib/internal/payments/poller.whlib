@@ -2,7 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -17,7 +16,7 @@ STRING FUNCTION DescribePayment(RECORD paymentrecord, RECORD paymentattr, OBJECT
   RETURN `Payment #${paymentrecord.id} for ${ToLowercase(wrdschema->tag || "." || paymentattr.wrdtypetag)} entity #${paymentrecord.paymententity} (${paymentrecord.paymentdata.paymentref})`;
 }
 
-PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
+PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold)
 {
   STRING ARRAY block_payments := SELECT AS STRING ARRAY uuid FROM wrd.pendingpayments GROUP BY uuid HAVING COUNT(*)>1;
   IF(Length(block_payments)>0)
@@ -79,36 +78,45 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
           seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}\n`;
         }
 
-        IF(paymentobject->status != "pending") //we now know the reality of this payment
+        IF(seterror = "")
         {
-          GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymentrecord.paymententity);
-          ProcessUpdatedPayment(paymentobject->paymenthandler, paymentattr.attributetag, paymentobject, paymenttype->GetEntity(paymentrecord.paymententity), FALSE);
-          UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME, error := "" WHERE id = paymentrecord.id;
-          GetPrimary()->CommitWork();
-        }
-        ELSE
-        {
-          IF(paymentrecord.creationdate <= AddDaysToDate(-paymentobject->expiredays, GetCurrentDatetime()))
+          IF(paymentobject->status != "pending") //we now know the reality of this payment
           {
-            //cancel payment after two weeks
-            api->CancelPendingPayment(paymentrecord.paymententity);
+            GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymentrecord.paymententity);
+            ProcessUpdatedPayment(paymentobject->paymenthandler, paymentattr.attributetag, paymentobject, paymenttype->GetEntity(paymentrecord.paymententity), FALSE);
+            UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME, error := "" WHERE id = paymentrecord.id;
+            GetPrimary()->CommitWork();
             CONTINUE;
           }
 
-          DATETIME setnextcheck;
-          RECORD diff := GetDatetimeDifference(paymentrecord.creationdate, GetCurrentDatetime());
-          IF(diff.days > 0) //check payments older than a day once every 6 hours
-            setnextcheck := AddTimeToDate(6*60*60*1000, GetCurrentDatetime());
-          ELSE IF(diff.msecs >= 2*60*60*1000) //after 2 hours, checking every 30 minutes is enough
-            setnextcheck := AddTimeToDate(30*60*1000, GetCurrentDatetime());
-          ELSE //check every 5 minutes (TODO reschedule pollpaymentstatus ourselves instead of having to actually wait for the next tick)
-            setnextcheck := AddTimeToDate(5*60*1000, GetCurrentDatetime());
-
-          GetPrimary()->BeginWork();
-          UPDATE wrd.pendingpayments SET nextcheck := setnextcheck, error := seterror WHERE id = paymentrecord.id;
-          GetPrimary()->CommitWork();
-
+          IF(paymentrecord.creationdate <= AddDaysToDate(-paymentobject->expiredays, GetCurrentDatetime()))
+          {
+            //cancel payment after two weeks
+            TRY
+            {
+              api->CancelPendingPayment(paymentrecord.paymententity, [ paymentuuid := paymentrecord.uuid ]);
+              CONTINUE;
+            }
+            CATCH(OBJECT e)
+            {
+              LogHarescriptException(e);
+              seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}\n`;
+            }
+          }
         }
+
+        DATETIME setnextcheck;
+        RECORD diff := GetDatetimeDifference(paymentrecord.creationdate, GetCurrentDatetime());
+        IF(diff.days > 0) //check payments older than a day once every 6 hours
+          setnextcheck := AddTimeToDate(6*60*60*1000, GetCurrentDatetime());
+        ELSE IF(diff.msecs >= 2*60*60*1000) //after 2 hours, checking every 30 minutes is enough
+          setnextcheck := AddTimeToDate(30*60*1000, GetCurrentDatetime());
+        ELSE //check every 5 minutes (TODO reschedule pollpaymentstatus ourselves instead of having to actually wait for the next tick)
+          setnextcheck := AddTimeToDate(5*60*1000, GetCurrentDatetime());
+
+        GetPrimary()->BeginWork();
+        UPDATE wrd.pendingpayments SET nextcheck := setnextcheck, error := seterror WHERE id = paymentrecord.id;
+        GetPrimary()->CommitWork();
       }
     }
   }
@@ -119,13 +127,8 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
     SetConsoleExitCode(1);
   }
 
-  IF(allowdelete)
+  IF(delete_threshold < MAX_DATETIME)
   {
-    INTEGER deletedays := ReadRegistryKey("wrd.globalconfig.keeppaymentsdays");
-    DATETIME delete_threshold := GetCurrentDatetime();
-    IF(NOT for_test)
-      delete_threshold := AddDaysToDate(-deletedays, delete_threshold); //we'll keep the transactions for at least 30 days as we can still receive updates
-
     GetPrimary()->BeginWork();
     DELETE FROM wrd.pendingpayments WHERE creationdate < delete_threshold AND nextcheck = MAX_DATETIME;
     GetPrimary()->CommitWork();

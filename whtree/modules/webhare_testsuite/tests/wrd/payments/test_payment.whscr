@@ -229,7 +229,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq("pending", pd2c->GetField("DATA").status);
   TestEq([ x := 42 ], pd2c->GetField("DATA").userdata);
   Sleep(10); //just in case, but we're probably not that fast
-  PollPaymentStatuses(TRUE, TRUE);
+  PollPaymentStatuses(TRUE, testfw->starttime);
 
   TestEq("failed", pd2c->GetField("DATA").status);
 
@@ -245,7 +245,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 
   TestEq("pending", pd2c_twoweeks->GetField("DATA").status);
   Sleep(10); //just in case, but we're probably not that fast
-  PollPaymentStatuses(TRUE, TRUE);
+  PollPaymentStatuses(TRUE, testfw->starttime);
 
   TestEq("failed", pd2c_twoweeks->GetField("DATA").status);
 
@@ -261,7 +261,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq([ x := 43 ], pd2d->GetField("DATA").userdata);
 }
 
-MACRO TestParallelPayments()
+MACRO TestParallelPayments() //completing first payment
 {
   testfw->BeginWork();
   OBJECT pmulti := paymentapi->paymenttype->CreateEntity([wrd_tag := "PMULTI"]);
@@ -288,11 +288,11 @@ MACRO TestParallelPayments()
   TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
   TestEq(1, Length(pmulti->GetField("LOG").entries), 'log should not register the third payment attempt.');
 
-  TestEQ("pending", pmulti->GetField("DATA").status);
+  TestEq("pending", pmulti->GetField("DATA").status);
   CompleteWRDTestpayment(pay1url, "approved");
   TestEq(2, Length(paymentapi->GetPaymentData(pmulti->id).payments));
-  TestEQ("approved", pmulti->GetField("DATA").status);
-  TestEQ(pay1ref, pmulti->GetField("DATA").paymentref);
+  TestEq("approved", pmulti->GetField("DATA").status);
+  TestEq(pay1ref, pmulti->GetField("DATA").paymentref);
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'log should have the completion added.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
 
@@ -300,7 +300,21 @@ MACRO TestParallelPayments()
   CompleteWRDTestpayment(pay2url, "failed");
   TestEq(2, Length(pmulti->GetField("LOG").entries), 'old transaction failing should not affect payment status.');
   TestEq("approved", pmulti->GetField("LOG").entries[1].status);
+
+  RECORD payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq(['approved','pending'], SELECT AS STRING ARRAY status FROM payment.payments);
+
+  //force the payment record it to expire
+  testfw->BeginWork();
+  UPDATE wrd.pendingpayments SET creationdate := AddDaysToDate(-9999, creationdate) WHERE paymententity = pmulti->id;
+  testfw->CommitWork();
+  PollPaymentStatuses(TRUE, testfw->starttime);
+
+  payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq(['approved','failed'], SELECT AS STRING ARRAY status FROM payment.payments);
 }
+
+OBJECT pm3;
 
 MACRO TestPaymentManual()
 {
@@ -308,7 +322,7 @@ MACRO TestPaymentManual()
   testfw->BeginWork();
 
   //this simulates manual processing of payments
-  OBJECT pm3 := testfw->wrdschema->^payprov->CreateEntity(
+  pm3 := testfw->wrdschema->^payprov->CreateEntity(
     [ method := MakePaymentProviderValue("wrd:external", [ methodtitle := "CASH PAYMENTS" ])
     ]);
 
@@ -325,6 +339,41 @@ MACRO TestPaymentManual()
 //FIXME verify payment date parameter. allow to explicitly overwrite it
 }
 
+MACRO TestParallelPayments2() //completing second payment, and the second one is a manual
+{
+  testfw->BeginWork();
+  OBJECT pmulti := paymentapi->paymenttype->CreateEntity([wrd_tag := "PMULTI2"]);
+  testfw->CommitWork();
+
+  RECORD paysettings := [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB" ];
+  STRING pay1url := StartWRDTestPayment(paymentapi, pmulti->id, 28.12m, paysettings);
+  STRING pay1ref := pmulti->GetField("DATA").paymentref;
+
+  RECORD paymentinstruction := paymentapi->StartPayment(pmulti->id, 28.12m, [ paymentprovider :=  pm3->id ]);
+  TestEq(TRUE, paymentinstruction.complete);
+
+  STRING pay2ref := pmulti->GetField("DATA").paymentref;
+
+  RECORD payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq("pending", payment.status);
+
+  paymentapi->SetPaymentStatus(pmulti->id, "approved");
+
+  payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq("approved", payment.status);
+  TestEq(['pending','approved'], SELECT AS STRING ARRAY status FROM payment.payments);
+
+  //force the payment record it to expire
+  testfw->BeginWork();
+  UPDATE wrd.pendingpayments SET creationdate := AddDaysToDate(-9999, creationdate) WHERE paymententity = pmulti->id;
+  testfw->CommitWork();
+  PollPaymentStatuses(TRUE, testfw->starttime);
+
+  payment := paymentapi->GetPaymentData(pmulti->id);
+  TestEq("approved", payment.status);
+  TestEq(['failed','approved'], SELECT AS STRING ARRAY status FROM payment.payments);
+}
+
 MACRO TestPaymentOverview()
 {
   //We want to be able to access basic metadata without having to run more SQL actions than needed.. so query the payments
@@ -332,7 +381,7 @@ MACRO TestPaymentOverview()
   RECORD ARRAY payments := wrdschema->^paydata->RunQuery([ outputcolumns := [ id := "WRD_ID", data := "DATA", creationdate := "WRD_CREATIONDATE" ]]);
   payments := SELECT * FROM payments ORDER BY creationdate;
 
-  TestEq(8, Length(payments));
+  TestEq(9, Length(payments));
   TestEq("pending", payments[0].data.status);
   TestEq(0m, payments[0].data.amountpayable);
   TestEq(DEFAULT DATETIME, payments[0].data.paymentdate);
@@ -351,12 +400,12 @@ MACRO TestPaymentOverview()
   TestEq("pending", enrichedpayments[1].status);
   TestEq(10.49m, enrichedpayments[1].amountpayable);
   TestEq("Pay by invoice", enrichedpayments[1].paymentmethodtitle);
-  TestEQ("INVOICE", enrichedpayments[1].paymentmethodtag);
+  TestEq("INVOICE", enrichedpayments[1].paymentmethodtag);
   TestEq(DEFAULT DATETIME, enrichedpayments[1].paymentdate);
 
   //these require clearing
   TestEq("000000000001", enrichedpayments[2].paymentref);
-  TestEQ(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
+  TestEq(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
   TestEq("000000000002", enrichedpayments[3].paymentref);
 
   RECORD cashpay := SELECT * FROM enrichedpayments WHERE paymentref="KASSABON:3232";
@@ -474,7 +523,7 @@ MACRO TestPaymentOrderLines()
   CompleteWRDTestpayment(gotourl, "approved");
   RECORD payment := paymentapi->GetPaymentData(pdf1->id);
 
-  Testeq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
+  TestEq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
   TestEq(bigrequest.orderlines[1].title, payment.__bestpayment.__paymentdata.m.orderlines[1].title, "white-box inspection of stored orderlines failed");
   TestEq("approved", payment.status);
 }
@@ -496,8 +545,8 @@ MACRO TestOrderNrFormats()
                           , paymentoptiontag := "NOISSUER"
                           ];
 
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", GetPaymentAPINextOrderNr(paymentapi->wrdschema));
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", GetPaymentAPINextOrderNr(paymentapi->wrdschema));
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
 
   // Update lastorderdate in separate transaction, or else we'll deadlock with the ordernr service
   testfw->CommitWork();
@@ -507,7 +556,7 @@ MACRO TestOrderNrFormats()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "016", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "016", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -515,13 +564,13 @@ MACRO TestOrderNrFormats()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 
   //Try manually setting order nr
   SetPaymentAPINextOrderNr(paymentapi->wrdschema, "BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004");
   testfw->BeginWork();
-  TestEQ("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004", paymentapi->AllocateOrderNumber());
+  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004", paymentapi->AllocateOrderNumber());
   testfw->CommitWork();
 }
 
@@ -529,7 +578,6 @@ ASYNC MACRO TestPendingPaymentsDialog()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := [STRING(testfw->GetWRDSchema()->tag)]] ));
   AWAIT ExpectScreenChange(+1, PTR TTClick("managependingpayments"));
-  dumpvalue(tt("pendingpayments")->rows,'boxed');
 
   TestEqStructure([[ amountpayable := 0m, creationdate := DEFAULT DATETIME, rowkey := 0, status := "", paymentref := "" ]],
                    SELECT amountpayable, creationdate, rowkey, status, paymentref FROM tt("pendingpayments")->rows);
@@ -567,11 +615,11 @@ ASYNC MACRO TestPaymentProvidersDialog()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
   TestEq(3, Length(TT("providers")->rows));
-  Testeq("TestNoIssuer", topscreen->providers->selection.title);
+  TestEq("TestNoIssuer", topscreen->providers->selection.title);
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->editprovider->TolliumClick);
   TestEq("Nieuwe Titel", topscreen->contextextension->wrd_title->value);
-  Testeq("NEWMETHOD", TT(":Tag")->value);
+  TestEq("NEWMETHOD", TT(":Tag")->value);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
@@ -630,7 +678,7 @@ ASYNC MACRO TestPaymentReversal()
   OBJECT pd := paymentapi->paymenttype->CreateEntity([wrd_tag := "PDFORCEDREDIRECT"]);
   testfw->CommitWork();
 
-  Testeq(FALSE, RecordExists(pd->GetField("LOG")));
+  TestEq(FALSE, RecordExists(pd->GetField("LOG")));
 
   RECORD paymentinstruction := paymentapi->StartPayment(pd->id, -22.33, [ isexternal := TRUE, setstatus := "approved", returnurl := "https://www.example.net/" ]);
   TestEq(FALSE, paymentinstruction.complete);
@@ -711,7 +759,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   OBJECT navwatcher := NEW NavigationWatcher(conn);
   OBJECT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       ], pd5->GetField("LOG").entries, "*");
 
@@ -724,7 +772,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   //we'll be redirected..
   AWAIT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
@@ -734,7 +782,7 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   //we'll be redirected..
   AWAIT pageloadwaiter;
 
-  TestEQMembers(
+  TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       , [ status := "approved", type := "onpaymentfinalized" ]
@@ -756,6 +804,7 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestPaymentMethodTest
                  , PTR TestParallelPayments
                  , PTR TestPaymentManual
+                 , PTR TestParallelPayments2
                  , PTR TestPaymentOverview
                  , PTR TestPaymentPersonEntity
                  , PTR TestPaymentOrderLines

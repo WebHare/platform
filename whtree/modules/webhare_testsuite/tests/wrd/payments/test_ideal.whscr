@@ -98,14 +98,14 @@ ASYNC MACRO TestIdealAPI()
     TestEqLike("*Please check your merchant return*", testfw->browser->document->body->innerhtml);
 
     TestEq("pending", entity->GetField("DATA").status);
-    PollPaymentStatuses(TRUE, FALSE); //cant delete yet, it'll break the page
+    PollPaymentStatuses(TRUE, testfw->starttime);
 
     testfw->browser->autofollow := testloop.delaypage = FALSE;
     ConfirmIdeal();
 
     IF(testloop.delaypage)
     {
-      PollPaymentStatuses(TRUE, FALSE); //cant delete yet, it'll break the page
+      PollPaymentStatuses(TRUE, testfw->starttime);
       TestEq(testloop.expectstatus, entity->GetField("DATA").status);
 
       testfw->browser->autofollow := TRUE;

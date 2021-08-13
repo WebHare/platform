@@ -495,7 +495,8 @@ STATIC OBJECTTYPE PaymentAPI
     IF(NOT ObjectExists(this->paymenttype))
       THROW NEW Exception("No payment type configured");
 
-    options := ValidateOptions([ paymentref := ""
+    options := ValidateOptions([ paymentuuid := ""
+                               , paymentref := ""
                                , forcestatus := FALSE
                                , iscancel := FALSE
                                ], options);
@@ -507,9 +508,9 @@ STATIC OBJECTTYPE PaymentAPI
     TRY
     {
       RECORD paymentdata := this->GetPaymentData(entityid);
-      OBJECT paymentobject := this->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
+      OBJECT paymentobject := this->__OpenPSP(paymentdata, DEFAULT DATETIME, options.paymentuuid);
       STRING currentstatus := paymentdata.status;
-      IF(currentstatus != "pending" AND NOT options.forcestatus)
+      IF(paymentobject->status != "pending" AND NOT options.forcestatus)
         THROW NEW Exception("Payment must still be pending to be cancellable");
 
       IF(options.iscancel)
@@ -527,13 +528,15 @@ STATIC OBJECTTYPE PaymentAPI
     }
   }
 
-  PUBLIC MACRO CancelPendingPayment(INTEGER entityid)
+  PUBLIC MACRO CancelPendingPayment(INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    this->SetPaymentStatus(entityid, "failed", [ iscancel := TRUE ]);
+    options := ValidateOptions([ paymentuuid := "" ], options);
+    this->SetPaymentStatus(entityid, "failed", CELL[ options.paymentuuid, iscancel := TRUE ]);
   }
 
   PUBLIC RECORD FUNCTION ForceRecheckPayment(INTEGER entityid)
   {
+    //TODO validate specific payment or revalidate ALL attempts if there are multiple ?
     IF(NOT ObjectExists(this->paymenttype))
       THROW NEW Exception("No payment type configured");
 
