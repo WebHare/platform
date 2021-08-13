@@ -139,7 +139,7 @@ export default class Range
   moveEndToPastLastVisible(maxancestor)
   {
     if (!maxancestor)
-      throw "Missing maxancestor";
+      throw new Error("Missing maxancestor");
 
     var ancestor = this.getAncestor();
 
@@ -208,7 +208,7 @@ export default class Range
   descendToLeafNodes(maxancestor)
   {
     if (!maxancestor)
-      throw "Missing ancestor!";
+      throw new Error("Missing ancestor!");
 
     if (!this.isCollapsed())
     {

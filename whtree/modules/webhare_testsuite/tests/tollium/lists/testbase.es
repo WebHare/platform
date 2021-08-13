@@ -12,7 +12,7 @@ function clickRowExpander(row)
 {
   var expander = row.querySelector('span.expander');
   if(!expander)
-    throw "Unable to find exapnder";
+    throw new Error("Unable to find exapnder");
   test.click(expander);
 }
 function getListRowCells(list, findtext)

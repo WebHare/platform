@@ -41,6 +41,10 @@ ASYNC MACRO TestSeoSettings()
   OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := rtdtype->id, publish := TRUE ]);
   OBJECT noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
 
+  //we were ignoring settings on index documents as they weren't in the path used for breadcrumbs and we were sharing that. fixing that
+  OBJECT noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := rtdtype->id, publish := TRUE ], [ setindex := TRUE ]);
+  noindexsubfolderindex->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ noarchive := TRUE]);
+
   OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
   nofollowfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [nofollow := TRUE]);
   OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
@@ -223,6 +227,10 @@ ASYNC MACRO TestSeoSettings()
   TestEq("noindex,follow", metarobots->GetAttribute("content"));
   linkcanonical := testfw->browser->document->QuerySelector("link[rel='canonical']");
   TestEq(noindexsubfile->link, linkcanonical->GetAttribute("href"), "Static files consider themselves their own canonical by default");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(noindexsubfolderindex->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("noindex,noarchive,follow", metarobots->GetAttribute("content"));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(nofollowsubfile->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");

@@ -68,6 +68,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
 
   PUBLIC PROPERTY flags(this->thelist->flags, SetFlags);
   PUBLIC PROPERTY acceptdrops(this->thelist->acceptdrops, this->thelist->acceptdrops);
+  PUBLIC PROPERTY icons(this->thelist->icons, -);
 
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY selection(GetSelection, SetSelection);

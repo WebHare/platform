@@ -30,8 +30,6 @@ INTEGER timeout_minutes := 15;
 // Variables
 //
 
-STRING moduledir;
-
 RECORD ARRAY testdefs;
 BOOLEAN print_output;
 BOOLEAN print_errors;
@@ -190,16 +188,10 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
                WHERE name = "scriptpath";
         }
 
-        runner := (SELECT value FROM testinfo.params WHERE name = "runscript").value;
+        runner := GetInstallationRoot() || "bin/runscript";
 
         IF (testrunner->print_debug)
           Print("; Running test: " || testinfo.testname || "\n");
-
-        IF (moduledir != "")
-        {
-          INSERT "--moduledir" INTO arguments AT END;
-          INSERT moduledir INTO arguments AT END;
-        }
 
         arguments := arguments CONCAT testinfo.runscriptarguments CONCAT [ script ] CONCAT testinfo.arguments;
 
@@ -758,9 +750,7 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
 
 MACRO PrintSyntax()
 {//     | <- The room between these pipe symbols is exactly 80 characters - - - - - - -> |
-  Print("Usage: runtest [-deoqj] --installroot=path\n");
-  Print("               [--loop] [--breakonerror] [--skip=mask]\n");
-  Print("               all|testname[.group] [params]\n");
+  Print("Usage: runtest [-deoqj] [--loop] [--breakonerror] [--skip=mask] all|testname[.group] \n");
   Print("\n");
   Print("  -d               Print test debug information\n");
   Print("  -e               Print test script errors\n");
@@ -768,30 +758,20 @@ MACRO PrintSyntax()
   Print("  -q               Runs the test in quiet mode. Only error messages will be\n");
   Print("                   displayed\n");
   Print("  -p               Use processes instead of jobs\n");
-  Print("  --installroot    WebHare installation root (overrides automatically\n");
-  Print("                   determined installation root)\n");
-  Print("  --moduledir=..   Dynamic modules dir (default: <webhare>/lib)\n");
   Print("  --breakonerror   Break on first failing test\n");
   Print("  --loop           After all test are finished, start again with first test (often combined with --breakonerror\n");
   Print("  --tag=..         Specify tags to require or exclude (eg: --tag=forms,-external)\n");
   Print("  --skip=mask      Skip test that match the mask (can be used multiple times)\n");
   Print("  --outputdir      Save output files to this directory\n");
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
+  Print("  --param=x=y      Set a test parameters\n");
   Print("  --chromeurl=...  URL on which chrome debugger is listening, for frontend tests\n");
   Print("  --keepsessions   Do not close Chrome sessions\n");
   Print("  all              Run the group 'all' in all known tests\n");
   Print("  testname         Run the test with this name (may be a comma separated list)\n");
   Print("  group            Run only the given group within a test. If this parameter is\n");
   Print("                   omitted, the group 'all' is run\n");
-  Print("  params           A list of name=value variables. Standard variables which can\n");
-  Print("                   be overridden on the command line or in testinfo.xml are:\n");
-  Print("                   runscript  Path and name of the executable used to run the\n");
-  Print("                              test scripts, defaults to runscript.exe in the\n");
-  Print("                              bin directory of your WebHare installation\n");
-  Print("                   scriptpath The path to the folder with the test scripts,\n");
-  Print("                              defaults to the path of the testinfo.xml file\n");
   Print("\n");
-  Print("Please read doc/runtest.md for more information\n");
 }
 
 MACRO SyntaxError(STRING str)
@@ -837,18 +817,17 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "systemcoverage", type := "switch" ]
                                     , [name := "systemprofile", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
-                                    , [name := "moduledir", type := "stringopt"]
                                     , [name := "skip", type := "stringlist"]
                                     , [name := "breakonerror", type := "switch"]
                                     , [name := "tag", type := "stringopt"]
                                     , [name := "testtype", type := "stringlist"]
                                     , [name := "outputdir", type := "stringopt"]
+                                    , [name := "param", type := "stringlist"]
                                     , [name := "loop", type := "switch"]
                                     , [name := "autotests", type := "switch"]
                                     , [name := "keepsessions", type := "switch"]
                                     , [name := "terse", type := "switch"]
                                     , [name := "testname", type := "param" ]
-                                    , [name := "params", type := "paramlist"]
                                     ]);
 
 IF (NOT RecordExists(parsedargs))
@@ -869,7 +848,6 @@ testrunner->print_debug := parsedargs.d;
 quiet_mode := parsedargs.q;
 use_jobs := NOT parsedargs.p;
 breakonerror := parsedargs.breakonerror;
-moduledir := parsedargs.moduledir;
 autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
 chromeurl := parsedargs.chromeurl;
@@ -903,7 +881,7 @@ IF (quiet_mode)
 
 // Parse params
 
-FOREVERY (STRING param FROM parsedargs.params)
+FOREVERY (STRING param FROM parsedargs.param)
 {
   INTEGER eq := SearchSubstring(param, '=');
   IF (eq > 0)

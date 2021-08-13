@@ -253,9 +253,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF (ObjectExists(__webdesign_config.applytester))
       this->__SetObjectId(__webdesign_config.applytester->__Deprecated_GetObjInfo().obj.id, __webdesign_config.applytester);
 
-    OBJECT tree_end := ObjectExists(this->targetobject) AND this->targetobject->id != this->targetfolder->indexdoc ? this->targetobject : this->targetfolder;
-    IF(ObjectExists(tree_end))
-      this->_targetobject_fulltree := tree_end->GetFullTree();
+    this->_targetobject_fulltree := (this->targetobject ?? this->targetfolder)->GetFullTree();
 
     IF(this->IsStaticPublication())
       this->canonicalurl := this->pvt_targetobject->url;

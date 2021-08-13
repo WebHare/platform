@@ -189,7 +189,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , *
                   , candownload := RecordExists(typeinfo) AND typeinfo.candownload
                   , ispublishable := RecordExists(typeinfo) AND typeinfo.ispublishable
-                  , pvt_iconname := GetFSObjectTolliumIcon(objects, typeinfo)
+                  , pvt_iconname := pvt_iconname ?? GetFSObjectTolliumIcon(objects, typeinfo)
                FROM objects;
 
   // Add drag info
