@@ -23,3 +23,7 @@ Some general guidelines when implementing a new payment method
   - Be careful with notification/push URLs - eg. Sisow will try to notify you
     synchronously during the payment process, which breaks if you're testing
     on an unreachable machine (eg locally) because the gateway can't reach you
+
+## pendingpayments table
+WRD Payments tracks payments whose status we need to watch/poll in wrd.pendingpayments. Transactions are recorded
+there as soon as StartPayment starts communicating with the PSP. When the payments

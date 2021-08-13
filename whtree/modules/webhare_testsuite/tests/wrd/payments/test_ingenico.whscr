@@ -206,7 +206,7 @@ MACRO TestPaymentExpiry()
   testfw->CommitWork();
 
   TestEq("pending", entity->GetField("DATA").status);
-  PollPaymentStatuses(TRUE, TRUE);
+  PollPaymentStatuses(TRUE, testfw->starttime);
   TestEq("failed", entity->GetField("DATA").status);
 }
 
