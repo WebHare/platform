@@ -182,6 +182,7 @@ class LoginApp
       switch (item.type)
       {
         case "saml":
+        case "oidc":
         {
           if (!screencomponents.samlpanel)
           {
@@ -234,7 +235,7 @@ class LoginApp
               , handler:    this.executeSAMLLogin.bind(this, item)
               });
 
-          if (item.autologin)
+          if (item.autologin && item.type == "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
           {
             $shell.wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
                 .then(this.handlePassiveSAMLLogin)

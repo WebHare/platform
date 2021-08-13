@@ -1,0 +1,89 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+
+RECORD FUNCTION GetOpenIDConnectMetadata(STRING metadataurl)
+{
+  //TODO On any data failure, log info to RPClog
+  OBJECT browser := NEW WebBrowser;
+  LogRPCForWebbrowser("wrd:auth-oidc", "", browser);
+  IF(NOT browser->GotoWebPage(metadataurl))
+    THROW NEW Exception(`Metadata unavailable`);
+
+  RECORD metadata := DecodeJSONBlob(browser->content);
+  IF(NOT RecordExists(metadata))
+    THROW NEW Exception(`Metadata could not be parsed`);
+
+  IF(NOT browser->GotoWebPage(metadata.jwks_uri))
+    THROW NEW Exception(`JWKS keys unavailable`);
+
+  RETURN[ value := [ authorizeurl := metadata.authorization_endpoint
+                   , authtokenurl := metadata.token_endpoint
+                   , issuer := metadata.issuer
+                   , keys := BlobToString(browser->content)  //the jwks_uri content
+                   ]
+        , ttl := 15 * 60 * 1000
+        ];
+}
+
+PUBLIC RECORD FUNCTION GetOIDCMetadata(STRING metadataurl)
+{
+  RETURN GetAdhocCached(CELL[ metadataurl ], PTR GetOpenIDConnectMetadata(metadataurl));
+}
+
+PUBLIC OBJECT FUNCTION GetOIDCOauth2Connection(RECORD spinfo)
+{
+  RECORD metadata := GetOIDCMetadata(spinfo.metadataurl);
+  OBJECT oauth2 := NEW Oauth2Connection(
+      CELL[ spinfo.clientid
+          , spinfo.clientsecret
+          , metadata.authorizeurl
+          , metadata.authtokenurl
+          , rpclogsource := "wrd:auth-oidc"
+          ]);
+  RETURN oauth2;
+}
+
+PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag, STRING redirectto, RECORD options)
+{
+  OBJECT wrdtype := wrdauthplugin->wrdschema->^WRDAUTH_OIDC_CLIENT;
+  IF (NOT ObjectExists(wrdtype))
+    THROW NEW Exception("This authentication domain is not setup for OIDC authentication");
+
+  RECORD ARRAY filters;
+  IF (tag != "")
+    INSERT [ field := "WRD_TAG", value := tag ] INTO filters AT END;
+
+  RECORD ARRAY spdata := wrdtype->RunQuery(
+      [ filters := filters
+      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES" ]
+      ]);
+
+  IF (NOT RecordExists(spdata))
+    THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
+  ELSE IF (LENGTH(spdata) > 1)
+    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag");
+
+
+  //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
+  STRING finalurl := UpdateURLVariables(ResolveToAbsoluteURL(GetRequestURL(), "/.wrd/endpoints/oidc.shtml")
+                                      , [ why := EncryptForThisServer("wrd:oidcauth", [ redirect := redirectto, client := spdata[0].wrd_id ])
+                                        , prompt := ""
+                                        ]);
+
+  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl, [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
+                                                                            , extraparameters := [ prompt := GetWebVariable("prompt")
+                                                                                                 //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
+                                                                                                 ]
+                                                                            ]);
+}

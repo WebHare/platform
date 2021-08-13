@@ -227,7 +227,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                 , loginprompt := loginmethod->GetAttribute("loginprompt")
                 ] INTO this->loginmethods AT END;
           }
-          CASE "saml"
+          CASE "oidc", "saml"
           {
             STRING tag := loginmethod->GetAttribute("tag");
             IF(tag != "")
