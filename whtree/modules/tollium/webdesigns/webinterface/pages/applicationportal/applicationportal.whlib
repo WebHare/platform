@@ -481,7 +481,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     IF(GetDtapStage() = "development")
     {
       /* http://127.0.0.1:7521 is webhare connect
-         tollium needs to be able to frame anyting
+         tollium needs to be able to frame anything
          img-src blob: is required by the image editor to process uploaded images client side
          img-src https: is required for eg the video browser to load thumbnails from youtube
          style-src unsafe-inline is required for the RTD which sets element styles through innerHTML

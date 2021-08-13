@@ -99,7 +99,7 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "lost & found"
                                  , type := whconstant_whfstype_systemfolder
                                  ]
-                                 // 9 was reservd for 'examples'
+                                 // 9 was reserved for 'examples'
                                , [ id := whconstant_whfsid_private
                                  , parent := 0
                                  , name := "webhare-private"
