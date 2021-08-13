@@ -890,16 +890,21 @@ OBJECTTYPE LDAPTransaction EXTEND TransactionBase
       this->conn->Disconnect();
 
     this->conn := NEW LDAPConnection();
-    IF (CellExists(options, "VERSION"))
-      this->conn->version := options.version;
-    IF (CellExists(options, "PAGESIZE"))
+    options := ValidateOptions(CELL[ ...secureconnection_options
+                                   , version := 2
+                                   , pagesize := 0
+                                   ], options);
+
+    this->conn->version := options.version;
+    IF (options.pagesize != 0)
     {
       IF (this->conn->version != 3)
         THROW NEW Exception("Pagesize is only allowed with LDAPv3");
       this->conn->pagesize := options.pagesize;
     }
 
-    IF(NOT this->conn->Connect(host,port,secure))
+    RECORD securityoptions := PickCells(options, SELECT AS STRING ARRAY name FROM UnpackRecord(secureconnection_options));
+    IF(NOT this->conn->Connect(host,port,secure, securityoptions))
     {
       this->conn := DEFAULT OBJECT;
       RETURN FALSE;
