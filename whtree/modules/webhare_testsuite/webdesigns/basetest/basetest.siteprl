@@ -110,6 +110,7 @@
                   webpageobjectname="wrdauthStaticPage" />
     <prebuiltpage type="dynamic" routerfunction="pages/wrdauthtest/wrdauthtest.whlib#WRDauthRouter" tag="wrdauthtest-router" />
     <prebuiltpage type="dynamic" tag="dynamicpage" webpageobjectname="pages/basetestpages.whlib#DynamicPage" />
+    <prebuiltpage type="dynamic" tag="wrdauthtest_codeprotected" webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
 
     <!-- Special pages -->
     <prebuiltpage type="dynamic" library="pages/basetestpages.whlib" tag="prebuiltshtml" webpageobjectname="PrebuiltSHTML" />
@@ -638,6 +639,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" loginpage="currentsite::/staticlogin/" />
   </apply>
 
+
   <apply>
     <to type="all" pathmask="/portal2/*" />
     <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
@@ -661,6 +663,11 @@
              cookiename="webharelogin-testsuite-saml-idp"
              loginpage="currentsite::/test-saml/portal-idp/"
              wrdschema="webhare_testsuite:saml-idp" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/testpages/wrdauthtest-router-protected/*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" loginpage="currentsite::/testpages/wrdauthtest-router" />
   </apply>
 
   <apply>
@@ -973,7 +980,7 @@
       <webrule authmode="ipandaccess" match="initial" path="/staticprotected2/" authscript="lib/webhare-auth-staticlogin.whscr" requirewhaccount="true" >
         <account username="external" password="secret"/>
       </webrule>
-
+      <webrule authmode="ipandaccess" match="initial" path="/testpages/wrdauthtest-router-protected/accessruleprotected" authscript="lib/webhare-auth-fromurl.whscr" requirewhaccount="true" />
     </webruleset>
   </sitesettings>
 

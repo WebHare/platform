@@ -55,6 +55,21 @@ MACRO SendHTMLPage(STRING wittypath, RECORD wittydata)
   SendWebFile(LoadWittyLibrary(wittypath,"HTML-NI")->RunToBlob(wittydata));
 }
 
+// Structure of contents of encoded wrdauth_logincontrol data
+CONSTANT RECORD logincontrol_structure :=
+      [ logintypes :=     [ "wrdauth" ] // "externaluser", "wrdauth"
+      , afterlogin :=     "" // "siteredirect", "samlresponse"
+      , prompt :=         "" // "", "none" ("" means don't prompt when already logged in)
+      , ruleid :=         0 // rule id for external login user list
+      , returnto :=       "" // URL to return to for siteredirect
+      , samlrequest :=    DEFAULT RECORD // Data needed to generate the SAML response after login
+      , validuntil :=     DEFAULT DATETIME // Valid until this date, default 15 minutes after generation
+      ];
+
+CONSTANT INTEGER logincontrol_valid_secs := 60 * 60; // login control token is valid for 1 hour
+CONSTANT INTEGER loginproof_valid_secs := 60; // login proof token is valid for 1 minute
+
+
 /** WRD auth webdesign plugin
     @topic wrdauth/api
     @public
@@ -307,17 +322,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         , cookiename := this->cookiename
         ];
 
-    IF(IsRequest())
-    {
-      // Shortcut authentication if already logged in.
-      STRING logincontroltoken := GetWebVariable("wrdauth_logincontrol");
-      IF (logincontroltoken != "")
-        this->ProcessReturnTo(logincontroltoken);
-
-      IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
-        INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
-    }
-
     webdesign->SetJSPluginConfig("wrd:auth", config);
   }
 
@@ -445,7 +449,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         proof :=
             [ type := "wrdauth"
             , entityid := this->GetLoggedinEntity()
-            , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
+            , until := AddTimeToDate(loginproof_valid_secs * 1000, GetCurrentDateTime())
             ];
       }
       CASE "external"
@@ -454,7 +458,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
             [ type := "external"
             , ruleid := logincontrol.ruleid
             , username := data.username
-            , until := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime())
+            , until := AddTimeToDate(loginproof_valid_secs * 1000, GetCurrentDateTime())
             ];
       }
       DEFAULT
@@ -1517,6 +1521,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                           ]
         , ruleid :=       accessruledata.use_list
         , returnto
+        , validuntil :=   AddTimeToDate(logincontrol_valid_secs*1000, GetCurrentDatetime())
         ];
 
     RETURN EncryptForThisServer("wrd:authplugin.logincontroltoken", data);
@@ -1532,6 +1537,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         [ afterlogin :=   "samlresponse"
         , logintypes :=   [ "wrdauth" ]
         , samlrequest
+        , validuntil :=   AddTimeToDate(logincontrol_valid_secs*1000, GetCurrentDatetime())
         ];
 
     RETURN EncryptForThisServer("wrd:authplugin.logincontroltoken", data);
@@ -1882,17 +1888,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         ? DecryptForThisServer("wrd:authplugin.logincontroltoken", webvar_logincontrol)
         : DEFAULT RECORD;
 
-    RETURN EnforceStructure(
-          [ logintypes :=     STRING[] // "externaluser", "wrdauth"
-          , afterlogin :=     "" // "siteredirect", "samlresponse"
-          , prompt :=         "" // "", "none" ("" means don't prompt when already logged in)
-          , ruleid :=         0 // rule id for external login user list
-          , returnto :=       "" // URL to return to for siteredirect
-          , samlrequest :=    DEFAULT RECORD // Data needed to generate the SAML response after login
-          ], CELL // default values:
-          [ logintypes :=     [ "wrdauth" ]
-          , ...data
-          ]);
+    // Use logincontrol_structure contents as defaults for data because EnforceStructure won't copy string arrays as defaults
+    data := EnforceStructure(logincontrol_structure, CELL[ ...logincontrol_structure, ...data ]);
+    IF (GetCurrentDatetime() > data.validuntil)
+      data := logincontrol_structure;
+
+    RETURN data;
   }
 
   /** Generates a submitinstruction to execute based on the actions specified in the webvariable 'wrdauth_logincontrol'

@@ -214,4 +214,44 @@ test.registerTests(
 
       test.true(test.qS('#isloggedin').checked);
     }
+
+  , "logincontrol test"
+  , async function()
+    {
+      test.click('#logoutlink');
+      await test.wait('pageload');
+
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#ClearLoginsForURL', test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/accessruleprotected/");
+
+      await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/codeprotected");
+      test.true(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router/"), "should be redirected to login page");
+
+      // login with (new) email and password
+      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.click('.wh-wrdauth-login__loginbutton');
+
+      await test.wait('load');
+      test.true(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/codeprotected/"));
+      test.eq('THE CODE PROTECTED CONTENT', test.getDoc().querySelector("#content").textContent);
+
+      await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
+      test.click('#logoutlink');
+      await test.wait('pageload');
+
+      await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/accessruleprotected/");
+      test.true(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router/"), "should be redirected to login page");
+
+      // login with (new) email and password
+      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.click('.wh-wrdauth-login__loginbutton');
+
+      await test.wait('load');
+      test.true(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/accessruleprotected/"));
+      test.eq('THE ACCESSRULE PROTECTED CONTENT', test.getDoc().querySelector("#content").textContent);
+
+      test.click('#logoutlink');
+      await test.wait('pageload');
+    }
   ]);

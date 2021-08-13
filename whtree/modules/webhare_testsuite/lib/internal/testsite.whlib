@@ -1528,6 +1528,12 @@ PUBLIC MACRO TestInvoke_staticprotectedresetsession()
   authplugin->__ClearAuthSession();
 }
 
+PUBLIC MACRO TestInvoke_ClearLoginsForURL(STRING url)
+{
+  OpenPrimary();
+  GetWRDAuthPlugin(url)->__LogOutExternal();
+  GetWRDAuthPlugin(url)->LogOut();
+}
 
 OBJECTTYPE StaticProtectedResetSessionPage EXTEND DynamicPageBase
 <

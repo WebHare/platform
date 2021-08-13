@@ -57,3 +57,30 @@ be logged out (and step 4 is also prevented in an iframe). In 4.22, step 2 will 
 'preview' cookie and a sessionStorage flag to detect whether it's running in the Publisher iframe.
 If so, it will directly connect with the wrd challenge/proof mechanism (using postMessage) and
 use the proof to resume at step 5.
+
+## Login page considerations
+
+A login page should check at rendering time if the `wrdauth_logincontrol` variable is present on the
+URL, and call the `ProcessReturnTo` method on the WRD auth plugin to handle automatic login.
+
+Eg:
+```
+    // Perform return actions when already logged in
+    STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
+    IF (logincontrol != "")
+      webdesign->GetWRDAuthPlugin()->ProcessReturnTo(logincontrol);
+```
+
+## Login proof cleaning
+
+When logging in with an accessrule or on a site other than where the login page is hosted,
+the URL variable `wrdauth_loginproof` is used to transfer login information. For access rules, this variable
+is removed from the URL at first login, but in some cases (parallel logins, login site is hosted on the
+same domain as the site the user is logging in) the `wrdauth_loginproof` can remain on the URL. You might
+want to remove it in these cases
+
+Eg:
+```
+    IF (GetWebVariable("wrdauth_proof") != "" )
+      Redirect(UpdateURLVariables(GetClientRequestURL(), [ wrdauth_proof := "" ]));
+```

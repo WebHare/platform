@@ -49,6 +49,8 @@ PUBLIC STRING FUNCTION GetWRDPagesCleanURL(RECORD options DEFAULTSTO DEFAULT REC
 
 PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
 <
+  STRING logincontrol;
+
   PUBLIC BOOLEAN loginemail;
 
   MACRO NEW()
@@ -61,13 +63,17 @@ PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
       INSERT "email" INTO ^username->autocomplete AT END;
       this->loginemail := TRUE;
     }
+
+    this->logincontrol := GetFormWebVariable("wrdauth_logincontrol");
+    IF (this->logincontrol != "")
+      this->formcontext->GetWRDAuthPlugin()->ProcessReturnTo(this->logincontrol);
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
     OBJECT work := this->BeginWork([database := FALSE]);
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := authplugin->Login(^username->value, ^password->value);
+    RECORD result := authplugin->Login(^username->value, ^password->value, CELL[ this->logincontrol ]);
     IF(NOT result.success)
       work->AddErrorFor(^password, this->loginemail ? GetTid("wrd:site.forms.authpages.incorrectlogin-username")
                                                     : GetTid("wrd:site.forms.authpages.incorrectlogin-email"));
@@ -75,7 +81,7 @@ PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
     IF(NOT work->Finish())
       RETURN DEFAULT RECORD;
 
-    RETURN [ submitinstruction := [ type := "reload" ]];
+    RETURN CELL[ result.submitinstruction ];
   }
 >;
 
