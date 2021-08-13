@@ -20,6 +20,7 @@ if [ -f "$BACKUPDEST/dbase/translog.whdb" -o -f "$BACKUPDEST/postgresql/db/postg
   echo "Press enter to continue, or CTRL+C to abort now"
   read
 fi
+rm $BACKUPDEST/backupcomplete 2>/dev/null #cleanup completion marker just in case
 
 if [ "`uname`" == "Darwin" ]; then
   RSYNCOPTS="--progress"
@@ -125,4 +126,5 @@ else
   die "Unknown database type $__WEBHARE_DBASE"
 fi
 
+touch $BACKUPDEST/backupcomplete
 echo "Your backup is in $BACKUPDEST/"
