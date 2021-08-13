@@ -11,4 +11,4 @@ OBJECT trans := OpenPrimary();
 //we'll keep the transactions for at least 30 days as we can still receive updates
 INTEGER deletedays := ReadRegistryKey("wrd.globalconfig.keeppaymentsdays");
 DATETIME delete_threshold := AddDaysToDate(-deletedays, GetCurrentDatetime());
-PollPaymentStatuses(FALSE, delete_threshold); //running for live wrd scheams
+PollPaymentStatuses(FALSE, delete_threshold); //running for live wrd schemas
