@@ -83,7 +83,7 @@
                   <column name="withgrantoption" type="text" width="1pr" />
                 </list>
               </cell>
-              <cell spacers="top left">
+              <cell spacers="top left right">
                 <button action="addroletousers" tid="userrights.actions.addroletousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
                 <button action="addrighttousers" tid="userrights.actions.addrighttousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
                 <button action="revokefromusers" tid="userrights.actions.revokefromusers-list" width="1pr"/>
