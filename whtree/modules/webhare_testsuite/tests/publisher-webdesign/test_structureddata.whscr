@@ -40,7 +40,7 @@ MACRO CheckBreadcrumbs()
   TestEq(OpenTestsuiteSite()->webroot, data[0]."item-list-element"[0]."item");
   TestEq('WebHare testsuite site', data[0]."item-list-element"[0]."name");
   TestEq(2, data[0]."item-list-element"[1].position);
-  TestEq('staticpage', data[0]."item-list-element"[1]."name");
+  TestEq('StaticPage', data[0]."item-list-element"[1]."name");
 
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate/staticpage")->url) );
   data := ExtractLDJSONData();
