@@ -197,8 +197,8 @@ OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty
 OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
 actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
 
-//Set up a forms testpage
-OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "testpages" ] );
+//Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
+OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
 OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE ] );
 prebuilttype->SetInstanceData(formtest->id, [ prebuilttag := "formtest" ]);
 
@@ -236,7 +236,7 @@ FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
   prebuilttype->SetInstanceData(wrdauthtest_static->id, [ prebuilttag := "wrdauthtest-static" ]);
 }
 
-OBJECT staticpage := testpages->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 

@@ -35,16 +35,16 @@ MACRO TestSitemapLinks()
   TestEq(11, Length(SELECT FROM links WHERE fileid = pagelistfile));
   //dumpvalue(links,'boxed');
   TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/formtest/"));
-  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/staticpage/");
-  TestEq([[ changefreq := "daily",   priority := 1.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/");
-  TestEq([[ changefreq := "monthly", priority := 0.8 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub1.html");
-  TestEq([[ changefreq := "yearly",  priority := 0.6 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub2.html");
+  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/StaticPage/");
+  TestEq([[ changefreq := "daily",   priority := 1.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/");
+  TestEq([[ changefreq := "monthly", priority := 0.8 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/sub1.html");
+  TestEq([[ changefreq := "yearly",  priority := 0.6 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/sub2.html");
   //sub10 only exists as hash
-  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub10.html");
+  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/sub10.html");
   TestEq(RECORD[], SELECT * FROM links WHERE link NOT LIKE baseurl || "*");
   TestEq(RECORD[], SELECT * FROM links WHERE link LIKE "*#*");
   //of the link types (18-20) only the contentlink deserves a place in the site map
-  TestEq([[ link := baseurl || "testpages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
+  TestEq([[ link := baseurl || "TestPages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
 }
 
 

@@ -22,9 +22,9 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   RECORD ARRAY contentsources := maincatalog->ListContentSources();
   contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources WHERE NOT isorphan;
   TestEq([ '/WebHare testsuite site/portal1/' //portal1 is added through ongetsources=
-         , '/WebHare testsuite site/testpages/'
+         , '/WebHare testsuite site/TestPages/'
          , '/WebHare testsuite site/webtools/'
-         ], SELECT AS STRING ARRAY whfspath FROM contentsources WHERE whfspath != "" ORDER BY whfspath);
+         ], SELECT AS STRING ARRAY whfspath FROM contentsources WHERE whfspath != "" ORDER BY ToUppercase(whfspath));
   TestEq([ 'webhare_testsuite:dbindex'
          , 'webhare_testsuite:loremindex'
          ], SELECT AS STRING ARRAY tag FROM contentsources WHERE tag != "" ORDER BY tag);
