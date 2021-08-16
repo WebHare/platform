@@ -18,7 +18,7 @@ ASYNC MACRO TestThumbnailBrowse()
     ]));
 
   OBJECT imgeditfile := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg");
-  TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name="testpages";
+  TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name="TestPages";
   TT("filesthumbs")->value := imgeditfile->id;
   topscreen->frame->focused := TT("filesthumbs");
   TestEq("imgeditfile.jpeg", TT("filesthumbs")->selection.name);
@@ -32,7 +32,7 @@ ASYNC MACRO TestThumbnailBrowse()
     , folder := imgeditfile->parent
     ]));
 
-  TestEq("testpages", TT("folders")->selection.name);
+  TestEq("TestPages", TT("folders")->selection.name);
   TestEq(0, Length(SELECT FROM TT("folders")->rows WHERE name="Trash"), "No recyclebin by default");
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
@@ -41,7 +41,7 @@ ASYNC MACRO TestThumbnailBrowse()
     [ acceptfiles := TRUE
     ]));
 
-  TestEq("testpages", TT("folders")->selection.name, "Should have remembered testpages");
+  TestEq("TestPages", TT("folders")->selection.name, "Should have remembered testpages");
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 
@@ -156,7 +156,7 @@ ASYNC MACRO TestBrowseForObjectArray()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
   //INSERT TT("folders")->rows[0].rowkey INTO TT("folders")->expanded AT END;
-  TestEq("testpages", TT("folders")->selection.name);
+  TestEq("TestPages", TT("folders")->selection.name);
   TT("filesthumbs")->value := [INTEGER(imgeditfile->id), INTEGER(staticpage->id)];
   topscreen->frame->focused := TT("filesthumbs");
 

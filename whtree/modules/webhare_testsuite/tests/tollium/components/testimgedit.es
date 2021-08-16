@@ -362,7 +362,7 @@ test.registerTests(
   , { name: "select image"
     , test: async function(doc, win)
       {
-        var testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'testpages');
+        var testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'TestPages');
         test.true(testpagerow);
         test.click(testpagerow);
         await test.wait('ui');
