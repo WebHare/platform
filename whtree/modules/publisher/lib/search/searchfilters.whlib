@@ -105,7 +105,7 @@ PUBLIC OBJECTTYPE SearchFilterContext
   OBJECT pvt_filterscreen;
   RECORD ARRAY pvt_filtertypes;
   RECORD ARRAY pvt_whfstypes;
-
+  RECORD ARRAY filterdefinitions;
 
   // ---------------------------------------------------------------------------
   //
@@ -151,29 +151,52 @@ PUBLIC OBJECTTYPE SearchFilterContext
         IF (NOT DoAccessCheckFor(filter.accesscheck, this->tolliumuser))
           CONTINUE;
 
-        RECORD curprops := __searchfilterprops;
-        __searchfilterprops := [ context := this ];
-        OBJECT filterobject := MakeObject(filter.filterobjname);
-        __searchfilterprops := curprops;
-
-        IF (filterobject NOT EXTENDSFROM BaseSearchFilter)
-          THROW NEW Exception(`Search filter ${filter.name} object '${filter.filterobjname}' does not derive from BaseSearchFilter`);
+        STRING rowkey := module.name || ":" || filter.name;
+        INSERT CELL[ rowkey
+                   , descr := DEFAULT RECORD
+                   , ...filter
+                   ] INTO this->filterdefinitions AT END;
 
         RECORD filtertype :=
-            [ rowkey := module.name || ":" || filter.name
-            , title := GetTid(filter.title)
-            , description := GetTid(filter.description)
-            , filterobject := filterobject
-            , ...filterobject->GetFields() // Already validated by moduledefparser
-            ];
+            CELL[ rowkey
+                , title := GetTid(filter.title)
+                , description := GetTid(filter.description)
+                ];
 
         IF (module.name NOT IN basemodules
             AND RecordExists(this->pvt_filtertypes)
             AND NOT RecordExists(SELECT FROM this->pvt_filtertypes WHERE CellExists(pvt_filtertypes, "isdivider") ? isdivider : FALSE))
           INSERT [ isdivider := TRUE ] INTO this->pvt_filtertypes AT END;
+
         INSERT filtertype INTO this->pvt_filtertypes AT END;
       }
     }
+  }
+
+  PUBLIC RECORD FUNCTION DescribeFilter(STRING filterrowkey)
+  {
+    RECORD filter := SELECT * FROM this->filterdefinitions WHERE rowkey = filterrowkey;
+    IF(NOT RecordExists(filter))
+      THROW NEW Exception(`No such filter '${filterrowkey}`);
+
+    IF(NOT RecordExists(filter.descr))
+    {
+
+      RECORD curprops := __searchfilterprops;
+      __searchfilterprops := [ context := this ];
+      OBJECT filterobject := MakeObject(filter.filterobjname);
+      __searchfilterprops := curprops;
+
+      IF (filterobject NOT EXTENDSFROM BaseSearchFilter)
+        THROW NEW Exception(`Search filter ${filter.rowkey} object '${filter.filterobjname}' does not derive from BaseSearchFilter`);
+
+      filter.descr := CELL[ filter.rowkey
+                          , filterobject
+                          , ...filterobject->GetFields() // Already validated by moduledefparser
+                          ];
+      UPDATE this->filterdefinitions SET descr := filter.descr WHERE rowkey = filterrowkey;
+    }
+    RETURN filter.descr;
   }
 
   // ---------------------------------------------------------------------------
