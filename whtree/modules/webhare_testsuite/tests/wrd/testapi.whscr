@@ -2874,11 +2874,11 @@ MACRO TestWHFSMapper()
       , whfsmapper
       ]);
 
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec.test_file.source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec.test_image.source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec.testintextlink.internallink);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec.richie.embedded[0].source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec.testinstance.fsref);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec.test_file.source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec.test_image.source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec.testintextlink.internallink);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec.richie.embedded[0].source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec.testinstance.fsref);
 
   entity_person->UpdateEntity(rec, CELL[ whfsmapper ]);
 
@@ -2889,11 +2889,11 @@ MACRO TestWHFSMapper()
       , whfsmapper
       ]);
 
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.test_file.source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.test_image.source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.testintextlink.internallink);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.richie.embedded[0].source_fsobject);
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.testinstance.fsref);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2.test_file.source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2.test_image.source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2.testintextlink.internallink);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2.richie.embedded[0].source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2.testinstance.fsref);
 
   // Test unmapping images with incomplete info
   rec.test_image := CellDelete(rec.test_image, "hash");
@@ -2906,7 +2906,7 @@ MACRO TestWHFSMapper()
       , whfsmapper
       ]);
 
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2_1.test_image.source_fsobject);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec2_1.test_image.source_fsobject);
 
   myrichexp.instances :=
       [ [ instanceid := "instanceid-01234"
@@ -2930,7 +2930,7 @@ MACRO TestWHFSMapper()
       , whfsmapper
       ]);
 
-  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec3.richie.instances[0].data.fsref);
+  TestEQ('site::WebHare testsuite site/TestPages/imgeditfile.jpeg', rec3.richie.instances[0].data.fsref);
   entity_person->UpdateEntity(rec3, CELL[ whfsmapper := whfsmapper ]);
   rec3 := entity_person->GetFields([ "richie" ]);
   TestEQ(destlink->id, rec3.richie.instances[0].data.fsref);

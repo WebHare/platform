@@ -91,14 +91,14 @@ PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder) //TO
       RETURN DEFAULT RECORD; //rule-only webserver?
 
     outputextension := webinfos[0].outputextension;
-    webserver_diskroot := MergePath(webserver_diskroot, primaryoutput.outputfolder);
+    webserver_diskroot := MergePath(webserver_diskroot, ToLowercase(primaryoutput.outputfolder));
   }
 
   STRING diskfolder;
   IF(webserver_diskroot = "")
     RETURN DEFAULT RECORD;
 
-  diskfolder := MergePath(webserver_diskroot, subfolder);
+  diskfolder := MergePath(webserver_diskroot, ToLowercase(subfolder));
   RETURN CELL[ outputextension
              , outputfolder := diskfolder
              ];
