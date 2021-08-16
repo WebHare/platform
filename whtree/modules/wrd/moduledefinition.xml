@@ -48,17 +48,14 @@
 
   <rights>
     <objecttype name="schema"
+                describer="lib/internal/support.whlib#wrdschemaobjecttypedescriber"
+                icon="tollium:database/database"
                 table=".schemas"
-                tid="rights.schemas"
-                icon="tollium:database/database">
-      <describer library="internal/support.whlib" objectname="wrdschemaobjecttypedescriber" />
-    </objecttype>
-
+                tid="rights.schemas" />
     <objecttype name="entities"
+                describer="lib/internal/support.whlib#wrdentitiesobjecttypedescriber"
                 table=".entities"
-                tid="rights.entities" >
-      <describer library="internal/support.whlib" objectname="wrdentitiesobjecttypedescriber" />
-    </objecttype>
+                tid="rights.entities" />
 
     <right name="createschema" showafter="superuser" tid="rights.createschema" descriptiontid="rights.createschema_descr" >
       <impliedby right="system:sysop" />
