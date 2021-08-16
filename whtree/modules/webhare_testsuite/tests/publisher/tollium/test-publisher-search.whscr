@@ -47,6 +47,11 @@ OBJECT ASYNC FUNCTION Search()
           ]
       ], searchscreen->GetFilterData());
 
+  searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";
+  //Open the screen, ensure the list doesn't crash on eg tolliumicon...
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   searchscreen->SetFilterData(
       [ filters :=
           [ [ type := "consilio:linksto"
