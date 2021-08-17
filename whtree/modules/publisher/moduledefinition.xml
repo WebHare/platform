@@ -92,11 +92,11 @@
       <accesscheck/>
     </application>
 
-    <application name="editobject" startmacro="tolliumappsfilemanager/objecteditor.whlib#StartObjectEditor" icon="tollium:files/fileoutline">
+    <application name="editobject" startmacro="tolliumapps/filemanager/objecteditor.whlib#StartObjectEditor" icon="tollium:files/fileoutline">
       <accesscheck/>
     </application>
 
-    <application name="search" screen="filemanager/search.searchpublisher" icon="tollium:actions/search">
+    <application name="search" screen="/tolliumapps/filemanager/search.xml#searchpublisher" icon="tollium:actions/search">
       <accesscheck/>
     </application>
 
@@ -975,8 +975,7 @@
   <publisher>
     <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" />
     <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" />
-    <objecteditor name="webtoolforum" screen="tolliumapps/forum/forum.xml#editforum" />
-    <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlibrunpropertydialog" />
+    <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlib#runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" screen="texteditor.main" />
     <objecteditor name="adaptivecontent_beacon" screen="/tolliumapps/filemanager/adaptivecontent.xml#beaconprops" />
