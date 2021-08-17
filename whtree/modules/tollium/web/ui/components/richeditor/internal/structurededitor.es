@@ -1369,9 +1369,17 @@ export default class StructuredEditor extends EditorBase
 
     if (domlevel.isEmbeddedObject(node))
     {
+      let htmltext = node.dataset.innerhtmlContents || '';
+      if(!htmltext) //we may have already rendered a preview (reparse of existing code or pasted content)
+      {
+        let currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
+        if(currentpreview)
+          htmltext = currentpreview.innerHTML;
+      }
+
       return { type: 'embeddedobject'
              , instanceref: node.getAttribute("data-instanceref")
-             , htmltext: node.getAttribute("data-innerhtml-contents") || node.innerHTML || ''
+             , htmltext: htmltext
              , typetext: node.getAttribute("data-widget-typetext") || ''
              , canedit: node.classList.contains("wh-rtd-embeddedobject--editable")
              , embedtype: node.nodeName=='SPAN' ? 'inline' : 'block'
