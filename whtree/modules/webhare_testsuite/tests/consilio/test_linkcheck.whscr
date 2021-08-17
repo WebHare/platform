@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
@@ -14,7 +15,14 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 // Regression test: GetHTTPUrl not returning ERRORCODE's on server error (#1252)
 MACRO TestServerStatus()
 {
-  RECORD result := GetHTTPUrl(TRUE/*get*/, "http://nonexisting.nodomain");
+  //Verify our 'mocks' work, needed for further linkcheck tests
+  STRING uniquelinksuffix := GenerateUFS128BitId(); //make sure the linkchecker has never seen us before
+  RECORD result := CheckLink(`http://linkchecker.test/expect-404/${uniquelinksuffix}`);
+  TestEq(404, result.code);
+  result := CheckLink(`https://linkchecker.test/expect-403/${uniquelinksuffix}`);
+  TestEq(403, result.code);
+
+  result := GetHTTPUrl(TRUE/*get*/, "http://nonexisting.nodomain");
   TestEq("RESOLVE", result.errorcode);
   TestEq(-16, result.code);
 
