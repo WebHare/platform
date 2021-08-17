@@ -19,10 +19,10 @@ test.registerTests(
     }
 
   , { name: 'structured-rte'
-    , test:function(doc,win)
+    , test:function()
       {
-        var rte = rtetest.getRTE(win, 'structured');
-        rtetest.setRTESelection(win, rte.getEditor(),
+        var rte = rtetest.getRTE(test.getWin(), 'structured');
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
                           { startContainer: rte.qS("p").firstChild
                           , startOffset: 0
                           , endContainer: rte.qS("p").firstChild
@@ -34,9 +34,9 @@ test.registerTests(
     }
 
   , { name: 'objectprops'
-    , test:function(doc,win)
+    , test:function()
       {
-        var rte = rtetest.getRTE(win, 'structured');
+        var rte = rtetest.getRTE(test.getWin(), 'structured');
         var selection = rte.getEditor().getSelectionRange();
 
         test.eq(testblock ? 1 : 0, selection.querySelectorAll("div").filter(el => el.matches(".wh-rtd__preview__htmlcode")).length);
@@ -60,7 +60,7 @@ test.registerTests(
     , waits: [ 'ui' ]
     }
   , { name: 'objectprops-settitle'
-    , test: function(doc,win)
+    , test: function()
       {
         test.eq(2, test.getCurrentApp().getNumOpenScreens());
         let textfield = test.compByName("fragment1!html").querySelector("textarea");
@@ -71,9 +71,9 @@ test.registerTests(
     , waits: [ 'ui' ]
     }
   , { name: 'objectprops-checktitle'
-    , test: function(doc,win)
+    , test: function()
       {
-        var rte = rtetest.getRTE(win, 'structured');
+        var rte = rtetest.getRTE(test.getWin(), 'structured');
         var selection = rte.getEditor().getSelectionRange();
 
         let htmlcode = selection.querySelectorAll(testblock ? "div" : "span").filter(el => el.matches(".wh-rtd__preview__htmlcode"))[0];
@@ -92,9 +92,9 @@ test.registerTests(
     , waits: [ 'ui' ]
     }
   , { name: 'objectprops-checkhtml'
-    , test:function(doc,win)
+    , test:function()
       {
-        var rawcode = rtetest.getRawHTMLCode(win);
+        var rawcode = rtetest.getRawHTMLCode(test.getWin());
 
         let instanceid_regex = /data-instanceid="([^"]*)"/g;
         let id_1 = instanceid_regex.exec(rawcode)[1];
@@ -124,7 +124,7 @@ test.registerTests(
     , waits: [ 'ui' ]
     }
   , { name: 'objectprops-checkhtml'
-    , test:function(doc,win)
+    , test:function()
       {
         test.eq(1, test.getCurrentApp().getNumOpenScreens());
       }
@@ -135,14 +135,14 @@ test.registerTests(
     , waits: [ 'ui' ]
     }
   , { name: 'objects-badpaste'
-    , test: async function(doc,win)
+    , test: async function()
       {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         //make sure 'dirty' is still false. note that tollium checkboxes are hard to scan :/
         test.eq('NO', test.compByName('dirty').querySelector('input').value);
 
-        let rte = rtetest.getRTE(win, 'structured');
+        let rte = rtetest.getRTE(test.getWin(), 'structured');
         test.eq(1, rte.qSA('div.wh-rtd-embeddedobject').length);
 
         let pasteblock = document.createElement("div");
@@ -155,7 +155,7 @@ test.registerTests(
 
         //paste it!
         rte.focus();
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
                           { startContainer: rte.qS("h2").firstChild
                           , startOffset: 5
                           , endContainer: rte.qS("h2").firstChild
@@ -167,9 +167,9 @@ test.registerTests(
     , waits:['ui']
     }
   , { name: 'objects-badpaste should now be dirty'
-    , test:function(doc,win)
+    , test:function()
       {
-        let rte = rtetest.getRTE(win, 'structured');
+        let rte = rtetest.getRTE(test.getWin(), 'structured');
 
         test.eq('YES', test.compByName('dirty').querySelector('input').value);
 
@@ -243,5 +243,32 @@ test.registerTests(
         test.eq(1, rte.qSA(".wh-rtd-embeddedobject--selected").length, "ONLY the toplevel embobj should have the selected class..");
       }
     }
-  ]);
 
+  , { name: 'test select and copy paste objects'
+    , test: async function()
+      {
+        let rte = rtetest.getRTE(test.getWin(), 'structured');
+        test.eq(4, rte.qSA("div.wh-rtd-embeddedobject").length);
+
+        let myembobj = rte.qSA("div.wh-rtd-embeddedobject")[0];
+        test.click(myembobj);
+        test.true(myembobj.classList.contains("wh-rtd-embeddedobject--selected"));
+
+        //TODO use direct selection for copy, but it doesn't take focus yet
+
+        //Select around element
+        let myembobjcode = myembobj.outerHTML;
+        rtetest.setStructuredContent(rte.getEditor().getContentBodyNode(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+
+        await rtetest.runWithUndo(rte.getEditor(), () => rtetest.paste(rte.getEditor(),
+                                            { typesdata: { "text/html": myembobjcode }
+                                            , files: []
+                                            , items: []
+                                            }), { waits: 'ui' });
+
+       //Verify no box-in-box
+        test.eq(1, rte.qSA("div.wh-rtd-embeddedobject__box").length);
+      }
+    }
+
+  ]);
