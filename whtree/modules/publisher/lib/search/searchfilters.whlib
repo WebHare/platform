@@ -219,9 +219,9 @@ PUBLIC OBJECTTYPE SearchFilterContext
     RECORD ARRAY whfstypes :=
         SELECT TEMPORARY typedef := RecordExists(filetype) ? filetype : foldertype
              , *
-             , tolliumicon := typedef.tolliumicon
-             , isdevelopertype := typedef.isdevelopertype
-             , title := typedef.title
+             , tolliumicon := tolliumicon
+             , isdevelopertype := isdevelopertype
+             , title := title
           FROM csp.contenttypes AS types
          WHERE RecordExists(filetype) OR RecordExists(foldertype);
     this->pvt_whfstypes :=
