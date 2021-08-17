@@ -300,7 +300,6 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
   PUBLIC PROPERTY query(GetQuery, -);
   PUBLIC PROPERTY candelete(this->deletefilter->enabled, this->deletefilter->enabled);
 
-  PUBLIC PROPERTY __customquerycomp(customquerycomp, -); //workaround for testfw
 
   // ---------------------------------------------------------------------------
   //
