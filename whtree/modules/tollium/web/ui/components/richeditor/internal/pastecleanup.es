@@ -30,35 +30,6 @@ class PasteCleanup
     let imgs = this.data.querySelectorAll('img');
     for (let i = 0; i < imgs.length; ++i)
     {
-      // Used to see whether paste would be merged to next paragraph
-      if (imgs[i].className == 'whrte-interchange-end')
-      {
-        todelete.push(imgs[i]);
-        let node = imgs[i];
-        if (node.parentNode != this.data) // Placed within other node -> was concatenated
-          result.breakafter = false;
-        else
-        {
-          // See if there is an inline node between the last block elt and our br. If so: concatenation
-          // (firefox doesn't wrap inlines in block elts)
-          result.breakafter = false;
-          while ((node = node.previousSibling))
-          {
-            // Opera adds spurious empty text nodes
-            if ([3, 4].includes(node.nodeType) && node.nodeValue != '')
-              break;
-
-            if (node.nodeType != 1) // No element? Ignore
-              continue;
-
-            if (domlevel.isNodeBlockElement(node))
-            {
-              result.breakafter = true;
-              break;
-            }
-          }
-        }
-      }
     }
 
     // Remove the interchange nodes - and all nodes that are left empty because of their removal.

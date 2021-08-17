@@ -1,4 +1,5 @@
 import * as dompack from 'dompack';
+import * as domfocus from 'dompack/browserfix/focus';
 import * as test from './testframework.es';
 import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
@@ -249,7 +250,7 @@ function getStack(message)
 
 export async function testUndoRedo(rte, preactionstate, { stack } = {})
 {
-  //console.log(`testUndoRedo prestate`, "\n" + dumpSnapShot(preactionstate.__snapshot), preactionstate.__snapshot);
+  // console.log(`testUndoRedo prestate`, "\n" + snapshots.dumpSnapShot(preactionstate.__snapshot), preactionstate.__snapshot);
   stack = stack || getStack(`trace`);
 
   if (!rte.options.allowundo)
@@ -266,18 +267,18 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {})
   await test.sleep(1);
 
   let currentsnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
-  //console.log(`testUndoRedo current`, "\n" + dumpSnapShot(currentsnapshot));
+  // console.log(`testUndoRedo current`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
-  //console.log('undo supported: ', document.queryCommandSupported("undo"), rte.undonode);
-  //rte.undonode.focus();
-  //await test.sleep(1);
+  // console.log('undo supported: ', document.queryCommandSupported("undo"), rte.undonode);
+  // rte.undonode.focus();
+  // await test.sleep(1);
 
   test.getDoc().execCommand("undo");
   //console.log("executed undo, waiting for effects");
 
   await test.sleep(1);
 
-  //console.log(`testUndoRedo after undo`, "\n" + dumpSnapShot(currentsnapshot));
+  // console.log(`testUndoRedo after undo`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
   let undosnapshot = snapshots.generateSnapshot(rte.getContentBodyNode(), rte.getSelectionRange());
   if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot))
@@ -336,4 +337,42 @@ export async function runWithUndo(rte, func, options = {})
     await test.wait(options.waits);
 
   await testUndoRedo(rte, prestate, { stack });
+}
+
+
+class ClipBoardEmul
+{
+  constructor(props)
+  {
+    this.files = props.files;
+    this.items = props.items;
+    this.types = props.types;
+    this._typesdata = props.typesdata;
+  }
+
+  getData(type)
+  {
+    return this._typesdata[type];
+  }
+}
+
+export async function paste(rte, props)
+{
+  let target = domfocus.getCurrentlyFocusedElement();
+
+  /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
+     only firefox is said to implement clipboard currently so we'll create a plain event */
+  let evt = target.ownerDocument.createEvent('Event');
+
+  let types = Object.keys(props.typesdata);
+  types.contains = key => types.includes(key);
+
+  props = Object.assign({ types }, props);
+  let cpdata = new ClipBoardEmul(props);
+
+  evt.initEvent('paste', true, true);
+  Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
+
+  let dodefault = target.dispatchEvent(evt);
+  return dodefault;
 }

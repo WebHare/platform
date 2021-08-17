@@ -46,7 +46,7 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
         OR (^showwebharebackend->value AND NOT this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend",FALSE))
       )
     {
-      IF(this->RunSimpleScreen("warning", this->GetTid(".confirmenabletweak")) != "yes")
+      IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmenabletweak")) != "yes")
         RETURN FALSE;
     }
 

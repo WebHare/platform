@@ -237,9 +237,8 @@ export default class StructuredEditor extends EditorBase
         event.preventDefault();
         return;
       }
-      else if (types.includes('text/plain') && browser.getName() != "safari")
+      else if (types.includes('text/plain'))
       {
-        // Safari doesn't seem to have text/html data available when pasting rich content, so let the legacy paste code handle it
         var text = clipboardData.getData('text/plain');
         if(dompack.debugflags.rte)
         {
@@ -272,65 +271,7 @@ export default class StructuredEditor extends EditorBase
         return;
       }
     }
-
-//    var insertlocator = this.removeSelection();
-    if(dompack.debugflags.rte)
-      console.log("[rte] Paste detected, but no usable clipboardData. scheduling event to intercept paste...");
-
-    var range = this.getSelectionRange();
-    var textnode = document.createTextNode('#');
-
-    var endnode = document.createElement("img");
-    endnode.className = 'whrte-interchange-end';
-    this.getContentBodyNode().appendChild(endnode);
-
-    var cnodes = Array.from(this.getContentBodyNode().childNodes);
-    var nodes = [];
-    for (let i = 0; i < cnodes.length; ++i)
-      if (cnodes[i] != endnode)
-        nodes.push(cnodes[i]);
-    for (let i = 0; i < nodes.length; ++i)
-      this.getContentBodyNode().removeChild(nodes[i]);
-
-    this.getContentBodyNode().insertBefore(textnode, endnode);
-    this.selectRange(Range.fromNodeInner(textnode));
-
-    //console.log('prepaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange(), true));
-
-    this.scheduleCallbackOnInputOrDelay(this.pasteDone.bind(this, nodes, range, null, endnode, null), 'paste');
-  }
-
-  pasteDone(nodes, range, startnode, endnode, locator)
-  {
-    if(dompack.debugflags.rte)
-    {
-      console.log("[rte] Got the event, intercepting paste.");
-      console.log("[rte] startnode",startnode,"endnode",endnode);
-      //console.log('postpaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), [], true));
-    }
-
-    if (browser.getName() == "safari")
-    {
-      // Safari blesses us with an extra <br> at the start of the pasted content. Remove it.
-      var root = this.getContentBodyNode();
-      if (root.firstChild && root.firstChild.nodeName.toLowerCase() == 'br')
-        root.removeChild(root.firstChild);
-    }
-
-    if (/* !startnode.parentNode || */!endnode.parentNode)
-      console.log('Nodes are gone!!! , e:'+(endnode.parentNode?1:0));
-
-    // FIXME: restore scroll position
-    var pastecontent = document.createElement('div');
-    domlevel.appendNodes(domlevel.removeNodeContents(this.getContentBodyNode()), pastecontent);
-
-    while (this.getContentBodyNode().firstChild)
-      this.getContentBodyNode().removeChild(this.getContentBodyNode().firstChild);
-
-    domlevel.appendNodes(nodes, this.getContentBodyNode());
-    this.selectRange(range);
-
-    this._pasteContent(pastecontent, 'framepaste');
+    throw new Error("Paste detected, but no usable clipboardData");
   }
 
   async _pasteContent(pastecontent, mode)
@@ -418,7 +359,8 @@ export default class StructuredEditor extends EditorBase
   //apply wh-rtd-embeddedobject--selected in all the right places
   selectionHasChanged(selection)
   {
-    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject"));
+    //select all wh-rtd-embeddedobject unless they're in another wh-rtd-embeddedobject
+    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
     let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
     embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
     currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
@@ -1393,9 +1335,17 @@ export default class StructuredEditor extends EditorBase
 
     if (domlevel.isEmbeddedObject(node))
     {
+      let htmltext = node.dataset.innerhtmlContents || '';
+      if(!htmltext) //we may have already rendered a preview (reparse of existing code or pasted content)
+      {
+        let currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
+        if(currentpreview)
+          htmltext = currentpreview.innerHTML;
+      }
+
       return { type: 'embeddedobject'
              , instanceref: node.getAttribute("data-instanceref")
-             , htmltext: node.getAttribute("data-innerhtml-contents") || node.innerHTML || ''
+             , htmltext: htmltext
              , typetext: node.getAttribute("data-widget-typetext") || ''
              , canedit: node.classList.contains("wh-rtd-embeddedobject--editable")
              , embedtype: node.nodeName=='SPAN' ? 'inline' : 'block'
