@@ -275,39 +275,6 @@ export default class StructuredEditor extends EditorBase
     throw new Error("Paste detected, but no usable clipboardData");
   }
 
-  pasteDone(nodes, range, startnode, endnode, locator)
-  {
-    if(dompack.debugflags.rte)
-    {
-      console.log("[rte] Got the event, intercepting paste.");
-      console.log("[rte] startnode",startnode,"endnode",endnode);
-      //console.log('postpaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), [], true));
-    }
-
-    if (browser.getName() == "safari")
-    {
-      // Safari blesses us with an extra <br> at the start of the pasted content. Remove it.
-      var root = this.getContentBodyNode();
-      if (root.firstChild && root.firstChild.nodeName.toLowerCase() == 'br')
-        root.removeChild(root.firstChild);
-    }
-
-    if (/* !startnode.parentNode || */!endnode.parentNode)
-      console.log('Nodes are gone!!! , e:'+(endnode.parentNode?1:0));
-
-    // FIXME: restore scroll position
-    var pastecontent = document.createElement('div');
-    domlevel.appendNodes(domlevel.removeNodeContents(this.getContentBodyNode()), pastecontent);
-
-    while (this.getContentBodyNode().firstChild)
-      this.getContentBodyNode().removeChild(this.getContentBodyNode().firstChild);
-
-    domlevel.appendNodes(nodes, this.getContentBodyNode());
-    this.selectRange(range);
-
-    this._pasteContent(pastecontent, 'framepaste');
-  }
-
   async _pasteContent(pastecontent, mode)
   {
     let undolock = this.getUndoLock();
