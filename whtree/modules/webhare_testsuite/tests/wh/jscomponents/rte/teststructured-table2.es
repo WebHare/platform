@@ -1,6 +1,4 @@
-import * as dompack from 'dompack';
 import * as test from "@mod-tollium/js/testframework";
-import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
   [
