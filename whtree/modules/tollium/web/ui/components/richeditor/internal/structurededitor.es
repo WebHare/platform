@@ -239,7 +239,6 @@ export default class StructuredEditor extends EditorBase
       }
       else if (types.includes('text/plain'))
       {
-        // Safari doesn't seem to have text/html data available when pasting rich content, so let the legacy paste code handle it
         var text = clipboardData.getData('text/plain');
         if(dompack.debugflags.rte)
         {
