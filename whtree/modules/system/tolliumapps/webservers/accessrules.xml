@@ -57,7 +57,7 @@
                 height="1pr"
                 flags="webhareusers externalusers canview"
                 gid=".columns"
-                icons="tollium:objects/lock tollium:objects/arrowright tollium:tollium/tollium tollium:folders/normal"
+                icons="tollium:objects/lock tollium:folders/normal tollium:objects/arrowright tollium:objects/arrowright tollium:tollium/tollium"
                 newcontextmenu="nosel"
                 openaction="edit"
                 selectcontextmenu="sel"

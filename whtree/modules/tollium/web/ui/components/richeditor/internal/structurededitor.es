@@ -418,7 +418,8 @@ export default class StructuredEditor extends EditorBase
   //apply wh-rtd-embeddedobject--selected in all the right places
   selectionHasChanged(selection)
   {
-    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject"));
+    //select all wh-rtd-embeddedobject unless they're in another wh-rtd-embeddedobject
+    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
     let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
     embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
     currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
@@ -1393,9 +1394,17 @@ export default class StructuredEditor extends EditorBase
 
     if (domlevel.isEmbeddedObject(node))
     {
+      let htmltext = node.dataset.innerhtmlContents || '';
+      if(!htmltext) //we may have already rendered a preview (reparse of existing code or pasted content)
+      {
+        let currentpreview = node.querySelector(".wh-rtd-embeddedobject__preview");
+        if(currentpreview)
+          htmltext = currentpreview.innerHTML;
+      }
+
       return { type: 'embeddedobject'
              , instanceref: node.getAttribute("data-instanceref")
-             , htmltext: node.getAttribute("data-innerhtml-contents") || node.innerHTML || ''
+             , htmltext: htmltext
              , typetext: node.getAttribute("data-widget-typetext") || ''
              , canedit: node.classList.contains("wh-rtd-embeddedobject--editable")
              , embedtype: node.nodeName=='SPAN' ? 'inline' : 'block'
