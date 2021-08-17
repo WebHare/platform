@@ -418,7 +418,8 @@ export default class StructuredEditor extends EditorBase
   //apply wh-rtd-embeddedobject--selected in all the right places
   selectionHasChanged(selection)
   {
-    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject"));
+    //select all wh-rtd-embeddedobject unless they're in another wh-rtd-embeddedobject
+    let embeddedobjects_to_select = Array.from(selection.querySelectorAll(".wh-rtd-embeddedobject")).filter(_ => !_.parentNode.closest(".wh-rtd-embeddedobject"));
     let currently_selected = Array.from(this.getContentBodyNode().querySelectorAll(".wh-rtd-embeddedobject--selected"));
     embeddedobjects_to_select.forEach(node => node.classList.add("wh-rtd-embeddedobject--selected"));
     currently_selected.filter(node => !embeddedobjects_to_select.includes(node)).forEach(node => node.classList.remove("wh-rtd-embeddedobject--selected"));
