@@ -287,7 +287,7 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
     ELSE
     {
       this->links->empty := GetTid("consilio:report.linkcheck.nobrokenlinks");
-      this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http:*//*" AND (status < 200 OR status > 299);
+      this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http*://*" AND (status < 200 OR status > 299);
     }
   }
 >;
