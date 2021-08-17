@@ -1065,22 +1065,6 @@ test.registerTests(
         test.eq(-1, imglocator.compare(range.start));
         test.true(range.isCollapsed());
 
-        // Paste of text/plain data via gotPaste & clipboardData
-        if (browser.getName() !== "ie" && browser.getName() !== "safari")
-        {
-          locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)"</p>');
-          var event =
-            { clipboardData:
-                  { getData: function(type) { return "test"; }
-                  , types: [ "text/plain" ]
-                  }
-            , preventDefault: function() {}
-            , stopPropagation: function() {}
-            };
-          await rtetest.runWithUndo(rte, () => rte.gotPaste(event), { waits: 'ui' });
-          rtetest.testEqSelHTMLEx(win, '<p class="normal">"testtest(*0*)(*1*)"</p>');
-        }
-
         // Paste into lists
         locators = rtetest.setStructuredContent(win,  '<ul class="unordered"><li><i>"a(*0*)(*1*)"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: 'woord<br>woord2'}); // Need space after last <br>, or it will be ignored

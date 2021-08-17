@@ -237,7 +237,7 @@ export default class StructuredEditor extends EditorBase
         event.preventDefault();
         return;
       }
-      else if (types.includes('text/plain') && browser.getName() != "safari")
+      else if (types.includes('text/plain'))
       {
         // Safari doesn't seem to have text/html data available when pasting rich content, so let the legacy paste code handle it
         var text = clipboardData.getData('text/plain');
@@ -272,32 +272,7 @@ export default class StructuredEditor extends EditorBase
         return;
       }
     }
-
-//    var insertlocator = this.removeSelection();
-    if(dompack.debugflags.rte)
-      console.log("[rte] Paste detected, but no usable clipboardData. scheduling event to intercept paste...");
-
-    var range = this.getSelectionRange();
-    var textnode = document.createTextNode('#');
-
-    var endnode = document.createElement("img");
-    endnode.className = 'whrte-interchange-end';
-    this.getContentBodyNode().appendChild(endnode);
-
-    var cnodes = Array.from(this.getContentBodyNode().childNodes);
-    var nodes = [];
-    for (let i = 0; i < cnodes.length; ++i)
-      if (cnodes[i] != endnode)
-        nodes.push(cnodes[i]);
-    for (let i = 0; i < nodes.length; ++i)
-      this.getContentBodyNode().removeChild(nodes[i]);
-
-    this.getContentBodyNode().insertBefore(textnode, endnode);
-    this.selectRange(Range.fromNodeInner(textnode));
-
-    //console.log('prepaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange(), true));
-
-    this.scheduleCallbackOnInputOrDelay(this.pasteDone.bind(this, nodes, range, null, endnode, null), 'paste');
+    throw new Error("Paste detected, but no usable clipboardData");
   }
 
   pasteDone(nodes, range, startnode, endnode, locator)
