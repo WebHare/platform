@@ -7,14 +7,16 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 OBJECT linksrtdfile;
 
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite();
 
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
+  OBJECT testroot := GetTestsuiteTempFolder();
 
   OBJECT myrichdoc := NEW EditableRichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
@@ -23,7 +25,7 @@ MACRO PrepIt()
                               ]);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  linksrtdfile := siteroot->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
+  linksrtdfile := testroot->CreateFile([name := "links.rtd", type := richdoctype->id, publish:=FALSE]);
 
   richdoctype->SetInstanceData(linksrtdfile->id, [data := myrichdoc->ExportAsRecord()]);
 
@@ -47,6 +49,11 @@ OBJECT ASYNC FUNCTION Search()
           ]
       ], searchscreen->GetFilterData());
 
+  searchscreen->filtercomps[0]->^filtertype->value := "publisher:whfstype";
+  //Open the screen, ensure the list doesn't crash on eg tolliumicon...
+  AWAIT ExpectScreenChange(+1, PTR searchscreen->filtercomps[0]->selectqueryselectbutton->TolliumClick);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   searchscreen->SetFilterData(
       [ filters :=
           [ [ type := "consilio:linksto"
@@ -61,7 +68,7 @@ OBJECT ASYNC FUNCTION Search()
   TestEq(1,Length(rows));
   TestEq(linksrtdfile->id, rows[0].rowkey);
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
   RETURN TRUE;
 }
 

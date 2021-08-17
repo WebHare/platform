@@ -367,10 +367,13 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
   //
   // Actions
   //
-
+  RECORD FUNCTION GetCurrentFilter()
+  {
+    RETURN this->contexts->^__publisher_searchfilters->DescribeFilter(^filtertype->value);
+  }
   MACRO DoSelectQuerySelect()
   {
-    RECORD value := this->filtertype->selection.filterobject->SelectQuery(this->value);
+    RECORD value := this->GetCurrentFilter().filterobject->SelectQuery(this->value);
     IF (RecordExists(value))
       this->value := value;
   }
@@ -398,7 +401,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   MACRO OnSelectType()
   {
-    RECORD filter := this->filtertype->selection;
+    RECORD filter := this->GetCurrentFilter();
     IF (NOT RecordExists(filter) AND this->statictype != "")
       THROW NEW TolliumException(this, `Unknown search filter type '${this->statictype}'`);
     IF (NOT RecordExists(filter) OR filter.rowkey = this->lastfiltertype)
@@ -493,7 +496,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
   {
     IF (NOT this->changingtype)
     {
-      RECORD value := this->filtertype->selection.filterobject->OnSelectMatchType(this->value);
+      RECORD value := this->GetCurrentFilter().filterobject->OnSelectMatchType(this->value);
       IF (RecordExists(value))
         this->value := value;
 
@@ -547,7 +550,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   RECORD FUNCTION GetValue()
   {
-    RECORD filter := this->filtertype->selection;
+    RECORD filter := this->GetCurrentFilter();
     RECORD value;
     IF (this->matchtype->visible)
       INSERT CELL matchtype := this->matchtype->value INTO value;
@@ -574,7 +577,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   MACRO SetValue(RECORD value)
   {
-    RECORD filter := this->filtertype->selection;
+    RECORD filter := this->GetCurrentFilter();
     IF (NOT RecordExists(filter))
     {
       this->initvalue := value;
@@ -602,7 +605,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   RECORD FUNCTION GetQuery()
   {
-    RECORD filter := this->filtertype->selection;
+    RECORD filter := this->GetCurrentFilter();
     RETURN filter.filterobject->GetQuery(this->value);
   }
 

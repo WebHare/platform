@@ -679,13 +679,12 @@ PUBLIC OBJECTTYPE HasDraftFilter EXTEND BaseSearchFilter
   }
 >;
 
-PUBLIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
+PUBLIC STATIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
 <
   RECORD ARRAY allcomponents;
 
   MACRO NEW()
   {
-    this->allcomponents := GetSearchableFormComponents();
   }
 
   UPDATE PUBLIC RECORD FUNCTION GetFields()
@@ -698,6 +697,9 @@ PUBLIC OBJECTTYPE FormFieldsFilter EXTEND BaseSearchFilter
 
   UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
   {
+    IF(Length(this->allcomponents) = 0)
+      this->allcomponents := GetSearchableFormComponents();
+
     STRING qname := this->context->filterscreen->RunScreen("mod::publisher/tolliumapps/formedit/formcomponent.xml#selectcomponent",
         [ components := this->allcomponents
         , type := "pubsearch"
