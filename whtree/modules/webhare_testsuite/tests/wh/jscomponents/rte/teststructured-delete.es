@@ -133,7 +133,7 @@ test.registerTests(
 
         test.subtest("Delete before embedded object");
         // no verify because embedded object structure is quite complicated
-        rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)"<br></p><div class="wh-rtd-embeddedobject" data-instanceid="test456">"Ik ben niet editbaar:test456"</div>', { verify: false });
+        rtetest.setStructuredContent(win, `<p class="normal">"a(*0*)"<br></p><div class="wh-rtd-embeddedobject" data-instanceid="test456" data-innerhtml-contents='"Ik ben niet editbaar:test456"'></div>`, { verify: false });
         await rtetest.runWithUndo(rte, () => test.pressKey("Delete"));
         test.eq("Ik ben niet editbaar:test456", rte.getContentBodyNode().querySelector("div").textContent); // embedded object is not deleted
 
@@ -149,19 +149,19 @@ test.registerTests(
 
         // Delete in list just before embedded object removed the div around the embedded object
         test.subtest("Delete in list before embedded object");
-        rtetest.setStructuredContent(win, '<ol class="ordered"><li>"a(*0*)"</li></ol><div class="wh-rtd-embeddedobject" data-instanceid="test456">"Ik ben niet editbaar:test456"</div>', { verify: false });
+        rtetest.setStructuredContent(win, `<ol class="ordered"><li>"a(*0*)"</li></ol><div class="wh-rtd-embeddedobject" data-instanceid="test456" data-innerhtml-contents='"Ik ben niet editbaar:test456"'></div>`, { verify: false });
         await rtetest.runWithUndo(rte, () => test.pressKey("Delete"));
         test.eq("Ik ben niet editbaar:test456", rte.getContentBodyNode().querySelector("div").textContent); // embedded object is not deleted
 
         // Backspace in list just after embedded object removed list, left text at root
         test.subtest("Backspace in list after embedded object");
-        rtetest.setStructuredContent(win, '<div class="wh-rtd-embeddedobject" data-instanceid="test456">"Ik ben niet editbaar:test456"</div><ol class="ordered"><li>"(*0*)a"</li></ol>', { verify: false });
+        rtetest.setStructuredContent(win, `<div class="wh-rtd-embeddedobject" data-instanceid="test456" data-innerhtml-contents='"Ik ben niet editbaar:test456"'></div><ol class="ordered"><li>"(*0*)a"</li></ol>`, { verify: false });
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         test.true(rte.getContentBodyNode().querySelector("li")); // should not delete the li
 
         // Backspace in empty paragraph after empty paragraph and embedded object caused wrong cursor pos in chrome
         test.subtest("Backspace in list after embedded object");
-        rtetest.setStructuredContent(win, '<p class="normal">"a"</p><p class="normal"><br data-wh-rte="bogus"></p><div class="wh-rtd-embeddedobject" data-instanceid="test456">"Ik ben niet editbaar:test456"</div><p class="normal">(*0*)<br data-wh-rte="bogus"></p>', { verify: false });
+        rtetest.setStructuredContent(win, `<p class="normal">"a"</p><p class="normal"><br data-wh-rte="bogus"></p><div class="wh-rtd-embeddedobject" data-instanceid="test456" data-innerhtml-contents='"Ik ben niet editbaar:test456"'></div><p class="normal">(*0*)<br data-wh-rte="bogus"></p>`, { verify: false });
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         test.eq(0, rte.getContentBodyNode().querySelectorAll("p div").length); // should not merge the contents of the embedded object
