@@ -333,7 +333,7 @@ OBJECTTYPE WebConfigBuilder
       RETURN ""; //nothing to see here
     IF(ToUppercase(data) LIKE "SITE:*")
     {
-      //Don't care about the subpath, avoid unnecesary lookups (and testsuite errors). the only thing it could compensate for is the deprecated striprtdextension?
+      //Don't care about the subpath, avoid unnecessary lookups (and testsuite errors). the only thing it could compensate for is the deprecated striprtdextension?
       RECORD targetinfo;
       INTEGER firstslash := SearchSubstring(data,'/');
       STRING sitepart := firstslash > 0 ? Left(data,firstslash) : data;
