@@ -398,7 +398,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
         CONTINUE;
 
       IF(options.printdownloads)
-        PRINT(`Downloading ${RecordExists(match) ? "updated" : "new"} file '${filename}'... `);
+        PRINT(`Downloading ${RecordExists(match) ? "updated" : "new"} file '${remotefile.name}'... `);
 
       RECORD file := this->GetObject(bucket, remotefile.name);
       STRING finalname := MergePath(destpath, filename);

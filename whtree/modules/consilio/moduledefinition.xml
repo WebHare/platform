@@ -45,13 +45,11 @@
   </tollium>
 
   <rights>
-    <objecttype
-        name="catalog"
-        table=".indices"
-        tid="rights.catalogs"
-        icon="consilio:consilio">
-      <describer library="internal/rights.whlib" objectname="catalogobjecttypedescriber" />
-    </objecttype>
+    <objecttype name="catalog"
+                describer="lib/internal/rights.whlib#catalogobjecttypedescriber"
+                icon="consilio:consilio"
+                table=".indices"
+                tid="rights.catalogs" />
 
     <right name="manage" objecttype="catalog" tid="rights.manage" descriptiontid="rights.manage_descr" >
       <impliedby right="system:sysop" />

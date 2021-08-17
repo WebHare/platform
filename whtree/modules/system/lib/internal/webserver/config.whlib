@@ -333,16 +333,19 @@ OBJECTTYPE WebConfigBuilder
       RETURN ""; //nothing to see here
     IF(ToUppercase(data) LIKE "SITE:*")
     {
-      INTEGER res := LookupWHFSObject(0, data);
-      IF(res > 0)
-      {
-        STRING path := GetFSObjectDiskOutputPath(res);
-        IF(path != "")
-          RETURN path;
+      //Don't care about the subpath, avoid unnecessary lookups (and testsuite errors). the only thing it could compensate for is the deprecated striprtdextension?
+      RECORD targetinfo;
+      INTEGER firstslash := SearchSubstring(data,'/');
+      STRING sitepart := firstslash > 0 ? Left(data,firstslash) : data;
+      STRING subpath := firstslash > 0 ? Substring(data,firstslash+1) : "";
 
-        THROW NEW Exception(`Couldn't interpret path "${data}" - target fsobject #${res} doesn't appear to be hosted`);
-      }
-      THROW NEW Exception(`Couldn't interpret path "${data}" - target not found`);
+      INTEGER siteid := LookupWHFSObject(0, sitepart);
+      IF(siteid > 0)
+        targetinfo := DescribeDiskOutput(siteid, subpath);
+      IF(NOT RecordExists(targetinfo))
+        THROW NEW Exception(`Couldn't interpret path "${data}" - target not found`);
+
+      RETURN targetinfo.outputfolder;
     }
     IF(ToUppercase(data) LIKE "WEB:*")
     {

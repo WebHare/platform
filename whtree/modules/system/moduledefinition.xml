@@ -215,33 +215,28 @@
                 />
 
     <objecttype name="units"
-                table=".authobjects"
-                tid="rights.units"
+                describer="lib/internal/support.whlib#unitobjecttypedescriber"
+                icon="tollium:users/users"
                 parentfield="parent"
                 rightsgroup="authobjects"
-                icon="tollium:users/users"
-                describer="lib/internal/support.whlib#unitobjecttypedescriber"/>
-
+                table=".authobjects"
+                tid="rights.units" />
     <objecttype name="fs_objects"
-                table=".fs_objects"
-                tid="rights.fs_objects"
-                parentfield="parent"
-                rightsgroup="fs"
+                describer="lib/internal/support.whlib#fsobjecttypedescriber"
                 description="File system objects (files and folders)*"
                 icon="tollium:folders/normal"
-                describer="lib/internal/support.whlib#fsobjecttypedescriber" />
-
+                parentfield="parent"
+                rightsgroup="fs"
+                table=".fs_objects"
+                tid="rights.fs_objects" />
     <objecttype name="webdav_datafolders"
+                describer="lib/internal/support.whlib#webdav_datafoldersdescriber"
                 table=".webdav_datafolders"
-                tid="rights.webdav_datafolders"
-                describer="lib/internal/support.whlib#webdav_datafoldersdescriber" />
-
+                tid="rights.webdav_datafolders" />
     <objecttype name="accessrules"
+                describer="lib/internal/support.whlib#accessrulesdescriber"
                 table=".access"
-                tid="rights.accessrules"
-                >
-     <describer library="internal/support.whlib" objectname="accessrulesdescriber" />
-    </objecttype>
+                tid="rights.accessrules" />
 
     <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*" isrootright="true">
       <impliedby right="sysop" />
