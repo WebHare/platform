@@ -65,6 +65,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       this->VerifyObjectExistence(scp->linenum, MakeAbsoluteResourcePath(this->respath, scp->GetAttribute("objectname")));
     }
 
+    //Validate application entrypoints
+    FOREVERY(RECORD app FROM md.portal.applications CONCAT md.fs_objecteditors)
+    {
+      IF(app.screen != "")
+        this->VerifyScreenReferenceExistence(app.linenum, app.screen, "screen");
+
+      IF(app.appfunction != "")
+        this->VerifyFunctionExistence([ resourcename := this->respath, line := app.linenum, col := 0], app.appfunction);
+    }
+
     FOREVERY(RECORD task FROM md.tasks)
     {
       IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")

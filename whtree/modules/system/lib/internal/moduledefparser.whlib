@@ -752,6 +752,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   , screen :=         node->GetAttribute("screen")
                   , appfunction :=    ""
                   , appcontexts :=    RECORD[]
+                  , linenum :=        node->linenum
                   ];
 
     IF(app.screen LIKE "*#*" OR app.screen LIKE "*.xml") //it's a new style path. we expect a # or a .xml termination to resolve amibguity with old style screen names

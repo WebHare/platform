@@ -306,7 +306,8 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
            , message
            , source :=        source
            , metadata :=      source != "unknown" AND CellExists(errors, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.errors;
+        FROM result.errors
+    ORDER BY COLUMN resourcename, line, col, message;
 
   result.warnings :=
       SELECT TEMPORARY source := CellExists(warnings, "source") ? COLUMN source : "unknown"
@@ -316,7 +317,8 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
            , message
            , source :=        source
            , metadata :=      source != "unknown" AND CellExists(warnings, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.warnings;
+        FROM result.warnings
+    ORDER BY COLUMN resourcename, line, col, message;
 
   result.hints :=
       SELECT TEMPORARY source := CellExists(hints, "source") ? COLUMN source : "unknown"
@@ -326,7 +328,8 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
            , message
            , source :=        source
            , metadata :=      source != "unknown" AND CellExists(hints, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.hints;
+        FROM result.hints
+    ORDER BY COLUMN resourcename, line, col, message;
 
   result.tids :=
       SELECT COLUMN resourcename
@@ -334,7 +337,8 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
            , col
            , tid
            , attrname := CellExists(tids,'attrname') ? tids.attrname : ""
-        FROM result.tids;
+        FROM result.tids
+    ORDER BY COLUMN resourcename, line, col, tid;
 
   RETURN [ ttl := 60*60*1000
          , value := result
