@@ -237,6 +237,10 @@ test.registerTests(
         test.true(test.compByName('fragment1!rtdleft'));
         test.clickTolliumButton("OK");
         await test.wait("ui");
+
+        test.eq(4, rte.qSA("div.wh-rtd-embeddedobject").length);
+        test.true(rte.qSA("div.wh-rtd-embeddedobject")[0].classList.contains("wh-rtd-embeddedobject--selected"));
+        test.eq(1, rte.qSA(".wh-rtd-embeddedobject--selected").length, "ONLY the toplevel embobj should have the selected class..");
       }
     }
   ]);
