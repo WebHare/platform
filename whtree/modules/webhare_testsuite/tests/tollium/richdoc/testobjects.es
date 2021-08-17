@@ -266,7 +266,7 @@ test.registerTests(
                                             , items: []
                                             }), { waits: 'ui' });
 
-       //Verify no box-in-box
+        //Verify no box-in-box
         test.eq(1, rte.qSA("div.wh-rtd-embeddedobject__box").length);
       }
     }
