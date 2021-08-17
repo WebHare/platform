@@ -42,7 +42,7 @@ OBJECT ASYNC FUNCTION EmptyFileTest()
   RETURN TRUE;
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE, waitpublish := FALSE])
                  , PTR PrepIt
                  , PTR EmptyFileTest
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

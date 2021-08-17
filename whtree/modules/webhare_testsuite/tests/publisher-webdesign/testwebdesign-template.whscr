@@ -11,6 +11,12 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 MACRO TestBasics()
 {
+  testfw->BeginWork();
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT indexhtmldoc := siteroot->CreateFile([name:="index.html", data := StringToBlob("Een homepage"), publish := TRUE, type := 5 ]);
+  testfw->CommitWork();
+  WaitForPublishCompletion(siteroot->id);
+
   RECORD mydesign := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE rowkey = "webhare_testsuite_temp:testdesign";
   TestEq(TRUE, RecordExists(mydesign), 'my test design not visible in GetAvailableWebDesigns (it broke? cache invalidations? siteprofile compilations missing it ?');
 
@@ -23,20 +29,15 @@ MACRO TestBasics()
   STRING tryfile := designbase || "testdesign.siteprl.xml";
   TestEq(TRUE, RecordExists(GetDiskFileProperties(tryfile)), "No such file " || tryfile);
 
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  OBJECT loadlibdoc := siteroot->OpenByPath("loadlib.html");
-  OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
-
-  TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);
   IF(testfw->debug)
-    Print(`Testing page: ${emptyfile->url}\n`);
+    Print(`Testing page: ${indexhtmldoc->url}\n`);
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url));
+  TestEq(TRUE, testfw->browser->GotoWebPage(indexhtmldoc->url));
   RECORD bundle := ExtractBundleOutputTag(testfw->browser->document);
   TestEq("webhare_testsuite_temp:testdesign", bundle.outputtag, "Verify we got the right webdesign");
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, withcontent := FALSE ])
                  , PTR TestBasics
                  , PTR EnsureValidTestModuleWebDesignWebsiteBUndle
                  ]);

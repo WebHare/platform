@@ -57,7 +57,7 @@ MACRO MyPrepare()
 
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution", [ openorphans := TRUE ])));
 
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE  ]);
 }
 
 MACRO TestFixDynamicExecution()

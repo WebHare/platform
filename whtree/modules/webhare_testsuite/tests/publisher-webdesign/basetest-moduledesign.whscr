@@ -233,7 +233,7 @@ MACRO TestDeletedLinkDest()
   siteroot->OpenByPath("contentlink.shtml")->ScheduleRepublish();
 
   testfw->CommitWork();
-  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPublishCompletion(siteroot->id, [ accepterrors := TRUE ]);
 
   testfw->browser->GotoWebPage(siteroot->url || "contentlink.shtml");
   TestEq(500, testfw->browser->GetHTTPStatusCode(), siteroot->url || "contentlink.shtml");
@@ -296,7 +296,7 @@ MACRO TestCaptureSubPaths()
 
   testfw->CommitWork();
 
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->rootobject->id);
+  WaitForPublishCompletion(testfw->GetTestSite()->rootobject->id, [ accepterrors := TRUE ]);
 
   TestEQ(TRUE, testfw->browser->GotoWebPage(file_capture_static->url));
   TestEQ(TRUE, testfw->browser->GotoWebPage(file_capture_static->url || "with_subpath"));

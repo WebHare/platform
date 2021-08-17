@@ -77,6 +77,6 @@ MACRO TestRules()
 }
 
 RunTestFramework( [ PTR TestBeforeSite
-                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:alttest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
+                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:alttest", [ istemplate := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
                   , PTR TestRules
                   ]);

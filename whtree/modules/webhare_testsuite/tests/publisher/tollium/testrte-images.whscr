@@ -141,7 +141,7 @@ OBJECT ASYNC FUNCTION TestDoc()
   RETURN TRUE;
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE, waitpublish := FALSE])
                  , PTR PrepIt
                  , PTR CreateDoc
                  , PTR TestDoc

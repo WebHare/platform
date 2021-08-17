@@ -111,7 +111,7 @@ MACRO TestCheckedLinks()
   testfw->CommitWork();
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE ])
                  , PTR Prepare
                  , PTR TestCheckedLinks
                  ]);

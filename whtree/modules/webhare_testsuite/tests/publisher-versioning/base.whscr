@@ -671,7 +671,7 @@ MACRO TestStoredPaths()
 
 
 RunTestFramework(
-    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE ])
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE ])
     , PTR Create
     , PTR TestAccept
     , PTR TestDeny

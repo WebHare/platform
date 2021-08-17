@@ -470,7 +470,7 @@ MACRO CopyMoveTest()
   //Create a siteprofile to repub everything whenever a file named "test.html" is changed (and a move sounds like a change)
   testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
   testfw->Commit(); //flush the siteprofile updates
-  WaitForPublishCompletion(testsite->id);
+  WaitForPublishCompletion(testsite->id, [ accepterrors := TRUE ]);
 
   testfw->StartTrans("~webhare",FALSE);
 
@@ -686,10 +686,10 @@ MACRO TestPublishRegression()
 {
   //verify that WaitForPublishCompletion doesn't get stuck when a site has no output
   testfw->BeginWork();
-  OBJECT testsite := testfw->SetupTestWebdesignWebsite([ enableoutput := FALSE, sitename := "webhare_testuiste.nooutput"]);
+  OBJECT testsite := testfw->SetupTestWebdesignWebsite([ enableoutput := FALSE, sitename := "webhare_testsuite.nooutput"]);
   OBJECT testhtml := testsite->rootobject->CreateFile([name:="test.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
   testfw->CommitWork();
-  WaitForPublishCompletion(testsite->id);
+  WaitForPublishCompletion(testsite->id, [ accepterrors := TRUE ]); //expecting a 112 error
 }
 
 

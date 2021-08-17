@@ -1,20 +1,30 @@
 <?wh
-LOADLIB "wh::datetime.whlib";
+/* Test dealing with an assetpackmgr if compilation breaks */
+
 LOADLIB "wh::files.whlib";
-LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
-/* Test dealing with an assetpackmgr if compilation breaks */
-
 MACRO TestCrashJson()
 {
+  testfw->BeginWork();
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT dynfolder := siteroot->CreateFolder( [ name:="dynfolder"
+                                              , typens := "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder"
+                                              ]);
+  dynfolder->CreateFile([name := "index.shtml", typens := "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents", publish := TRUE ]);
+  testfw->CommitWork();
+  WaitForPublishCompletion(siteroot->id);
+
   testfw->FlushTasks([ "webhare_testsuite:aftercompile" ]);
   TestEq(TRUE, ReadRegistryKey("webhare_testsuite.tests.lastaftercompile") > testfw->starttime, "aftercompile task was NOT invoked");
 
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->url || "dynfolder/"), testfw->browser->href);
+  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->objecturl || "dynfolder/"), testfw->browser->href);
 
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
   RECORD extracted := ExtractBundleOutputTag(testfw->browser->document);
@@ -37,7 +47,7 @@ MACRO TestCrashJson()
   TestEqLike("Package.json*not valid JSON", status.errors, "Wrong errors for bundle " || extracted.outputtag);
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, witherrors := FALSE, withcontent := TRUE, waitpublish := TRUE])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, withcontent := FALSE ])
                  , PTR EnsureValidTestModuleWebDesignWebsiteBUndle
                  , PTR TestCrashJson
                  ]);

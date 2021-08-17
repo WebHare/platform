@@ -2,6 +2,7 @@
 /** @private This library should be private, get FormsapiFormTester from testfw/sites.whlib */
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/testfw/forms.whlib" EXPORT OpenFormsapiFormTester;
@@ -45,7 +46,6 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
                                                   ]);
 
   OBJECT externallinkshtml := siteroot->CreateFile([name:="externallink.shtml", type := 18, externallink := "http://www.b-lex.nl/", publish := TRUE ]);
-  OBJECT internallinkemptyshtml := siteroot->CreateFile([name:="internallink-empty.shtml", type := 19, filelink := 0, publish := TRUE ]);
   OBJECT internallinkpublishedshtml := siteroot->CreateFile([name:="internallink-published.shtml", type := 19, filelink := dynamicpageshtml->id, publish := TRUE ]);
   OBJECT internallinkunpublishedshtml := siteroot->CreateFile([name:="internallink-unpublished.shtml", type := 19, filelink := dynamicpagewitty->id, publish := TRUE ]);
 
@@ -65,6 +65,7 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
 
   IF(with_errors)
   {
+    OBJECT internallinkemptyshtml := siteroot->CreateFile([name:="internallink-empty.shtml", type := 19, filelink := 0, publish := TRUE ]);
     OBJECT loadlibdoc := siteroot->CreateFile([name:="loadlib.html", data := StringToBlob("Een <b>loadlib</b> pagina"), publish := TRUE, type := 38 ]);
     OBJECT loadlibsdoc := siteroot->CreateFile([name:="loadlib.shtml", data := StringToBlob("Een <b>loadlib</b> pagina"), publish := TRUE, type := 38 ]);
     OBJECT compileerror := siteroot->CreateFile([name:="compileerror.shtml", type := 25, data := StringToBlob('<?wh XYZ;'), publish := TRUE ]);
@@ -96,7 +97,7 @@ PUBLIC MACRO PrepareTestModuleWebDesignWebsite(STRING webdesigntemplate, RECORD 
   }
 
   IF(options.waitpublish)
-    testfw->WaitForPublishCompletion(newsite->id);
+    WaitForPublishCompletion(newsite->id, [ accepterrors := options.witherrors ]);
 }
 
 PUBLIC ASYNC FUNCTION EnsureValidTestModuleWebDesignWebsiteBundle()

@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
 OBJECT fullrightfolder;
@@ -82,7 +83,7 @@ MACRO CheckPublication()
   OBJECT testwhsock :=     siteroot->CreateFile([ name := "test.whsock",     type := 21/*plain text*/, data := StringToBlob("<?wh FORMAT('C:'); ?>"), publish := TRUE ]);
 
   testfw->CommitWork();
-  testfw->WaitForPublishCompletion(siteroot->id);
+  WaitForPublishCompletion(siteroot->id, [ accepterrors := TRUE ]);
 
   testplain := OpenWHFSObject(testplain->id);
   TestEq(3004, testplain->published);
