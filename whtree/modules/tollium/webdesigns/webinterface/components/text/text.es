@@ -247,8 +247,4 @@ export default class ObjText extends ComponentBase
     if (!this.styles.wordwrap && !this.styles.ellipsis && this.width.set < this.width.calc)
       return this.node.textContent;
   }
-
-};
-
-exports.components = { text: $todd.ObjText
-                     };
+}

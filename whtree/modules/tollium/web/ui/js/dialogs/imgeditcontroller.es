@@ -5,7 +5,8 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
 import * as dompack from 'dompack';
-var ExifParser = require("exif-parser");
+//TODO how did webpack find this?  require("exif-parser");
+var ExifParser = require("@mod-tollium/webdesigns/webinterface/node_modules/exif-parser");
 
 var getTid = require("@mod-tollium/js/gettid").getTid;
 
