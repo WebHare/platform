@@ -1,0 +1,24 @@
+<?wh
+/* Convert system:usermgmt to add WHUSER_LOGIN. You may need this if you're
+   switching away from email-based login names. This script should eventually
+   move to a configuration/migration tool, perhaps under a 'wh wrd:...' or 'wh auth ...' */
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OpenPrimary()->BeginWork();
+
+OBJECT wrdschema := OpenWRDSchema("system:usermgmt");
+IF(NOT RecordExists(wrdschema->accounttype->GetAttribute("WHUSER_LOGIN")))
+  wrdschema->accounttype->CreateAttribute("FREE","WHUSER_LOGIN", [ isunique := TRUE ]);
+wrdschema->UpdateMetadata([ accountlogintag := "WHUSER_LOGIN" ]);
+
+FOREVERY(RECORD user FROM wrdschema->accounttype->RunQuery(
+    [ outputcolumns := CELL[ "WRD_ID", "WHUSER_LOGIN", "WRD_CONTACT_EMAIL" ]
+    ]))
+{
+  IF(user.whuser_login = "" AND user.wrd_contact_email != "")
+    wrdschema->accounttype->UpdateEntity(user.wrd_id, [ whuser_login := user.wrd_contact_email ]);
+}
+
+GetPrimary()->CommitWork();

@@ -307,15 +307,18 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       @param type Screen type (eg 'tabsextension')
       @return TRUE if the screen exists
   */
-  OBJECT FUNCTION VerifyScreenReferenceExistence(INTEGER linenum, STRING screenref, STRING type)
+  OBJECT FUNCTION VerifyScreenReferenceExistence(INTEGER linenum, STRING screenref, STRING findtype)
   {
     STRING absscreenref := MakeAbsoluteScreenReference(this->respath, screenref);
     IF(absscreenref = "")
       RETURN DEFAULT OBJECT; //we are not a required check..
 
     STRING ARRAY reftoks := Tokenize(absscreenref,'#');
-    IF(Length(reftoks) != 2)
-      this->AddErrorForLine(linenum, `Invalid reference for '${type}' target '${screenref}': expecting <resource>#<name>`);
+    IF(Length(reftoks) > 2)
+    {
+      this->AddErrorForLine(linenum, `Invalid reference for '${findtype}' target '${screenref}': expecting <resource>[#<name>]`);
+      RETURN DEFAULT OBJECT;
+    }
 
     TRY
     {
@@ -323,26 +326,32 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
 
       //Look for things under the documentnode
       FOREVERY(OBJECT potentialtarget FROM target.doc->documentelement->ListChildren("*","*"))
-       IF(potentialtarget->GetAttribute("name") = reftoks[1])
-       {
-         STRING matchtype := GetNodeType(potentialtarget);
-         IF(matchtype = type)
-         {
-           RETURN potentialtarget; //Found it!
-         }
-         ELSE IF(matchtype != "")
-         {
-           this->AddErrorForLine(linenum, `Invalid reference for '${type}' target '${screenref}': '${reftoks[1]}' is a '${matchtype}', not a '${type}'`);
-           RETURN DEFAULT OBJECT;
+      {
+        STRING targettype := GetNodeType(potentialtarget);
+        IF(Length(reftoks) = 1)
+        {
+          IF(targettype = findtype) //first hit is okay if we're not searching by name
+            RETURN potentialtarget;
+
+          CONTINUE;
         }
-       }
+
+        IF(potentialtarget->GetAttribute("name") = reftoks[1])
+        {
+          IF(targettype = findtype)
+            RETURN potentialtarget; //Found it!
+
+          this->AddErrorForLine(linenum, `Invalid reference for '${findtype}' target '${screenref}': '${reftoks[1]}' is a '${targettype}', not a '${findtype}'`);
+          RETURN DEFAULT OBJECT;
+        }
+      }
     }
     CATCH(OBJECT<RetrieveResourceException> e)
     {
-      this->AddErrorForLine(linenum, `Can't find '${type}' target '${screenref}': ${e->what}`);
+      this->AddErrorForLine(linenum, `Can't find '${findtype}' target '${screenref}': ${e->what}`);
       RETURN DEFAULT OBJECT;
     }
-    this->AddErrorForLine(linenum, `Can't find '${type}' target '${reftoks[1]}' in ${reftoks[0]}`);
+    this->AddErrorForLine(linenum, `Can't find '${findtype}' target '${reftoks[1]}' in ${reftoks[0]}`);
     RETURN DEFAULT OBJECT;
   }
 
@@ -354,6 +363,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   RECORD FUNCTION VerifyFunctionExistence(RECORD tolliumscope, STRING func)
   {
     STRING ARRAY functoks := Tokenize(func,'#');
+    IF(Length(functoks) != 2)
+    {
+      this->AddErrorForScope(tolliumscope, `Invalid function reference '${func}')`);
+      RETURN DEFAULT RECORD;
+    }
     RECORD lib := this->GetLibDescription(functoks[0]);
     IF(NOT RecordExists(lib))
     {

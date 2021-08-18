@@ -231,6 +231,12 @@ BLOB moduledefissues := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <servicemanager>
     <managedtask type="pdfmailflow" library="formcomponents/pdfmailflow.whlib" objectname="PDFMailFlowTask"/>
   </servicemanager>
+  <portal>
+    <application name="nosuchapp" screen="yyy/filemanager/main.xml"><accesscheck/></application>
+  </portal>
+  <publisher>
+    <objecteditor name="nosucheditor" startmacro="xxx/objectprops/objectprops.whlibrunpropertydialog" />
+  </publisher>
 </module>`);
 
 BLOB FUNCTION WrapAsScreenBody(STRING innercode)
@@ -272,7 +278,10 @@ MACRO TestBasicValidate()
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
   TestEq([[ line := 18, message := "No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\' (looking for \'PDFMailFlowTask\')" ]
+         ,[ line := 21, message := 'Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource' ]
+         ,[ line := 24, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
          ], (SELECT line, message FROM res.errors));
+
   TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
          ,[ line := 9, message := "This path triggered a warning" ]
          ,[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]

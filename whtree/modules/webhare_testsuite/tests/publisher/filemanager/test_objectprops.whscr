@@ -111,9 +111,26 @@ ASYNC MACRO TestPinFlip()
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
 }
 
+ASYNC MACRO TestObjectPropsThroughObjectEditor()
+{
+  GetPrimary()->BeginWork();
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([name := "objectprops-propertydialog", title := "Testfile for property dialogs"]);
+  GetPrimary()->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ testfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
+
+  TestEq("Testfile for property dialogs", TT("title")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //close props
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
+}
+
+
 RunTestframework([ PTR ObjectProps
                  , PTR TestRenameSiteConflict
                  , PTR TestPinFlip
+                 , PTR TestObjectPropsThroughObjectEditor
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);
