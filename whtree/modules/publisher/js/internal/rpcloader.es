@@ -4,22 +4,40 @@
 */
 let bridge = require('@mod-system/js/wh/bridge');
 
-async function getWrappers(context, service)
+async function generateRPCWrappers(resourcePath, rpcdata)
 {
+  let rpcfile = JSON.parse(rpcdata);
+  let service = rpcfile.services[0];
   let response = await bridge.invoke("mod::publisher/lib/internal/webdesign/rpcloader.whlib", "GetServiceInfo", service);
-  let output='';
+  let dependencies = [];
+  let warnings = [];
+
+  let output = `// Auto-generated RPC interface from ${resourcePath}
+var RPCClient = require("@mod-system/js/wh/rpc").default;
+var request = exports.rpcclient = new RPCClient("${service}");
+exports.rpcResolve = function(promise, result) { request._handleLegacyRPCResolve(promise, result) };
+exports.invoke = function() { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
+`;
+  // Define JSONRPC error code constants as getter-only properties on the exports object
+  [ "HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR"
+  , "TIMEOUT_ERROR", "SERVER_ERROR" ].forEach(function(code, i)
+  {
+    if (!i)
+      output += "\n";
+    output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
+  });
 
   if (response.diskpath)
   {
     output += `\n// Adding dependency: '${response.diskpath}'\n`;
-    context.addDependency(response.diskpath);
+    dependencies.push(response.diskpath);
   }
 
   response.functions.forEach(func =>
   {
     if (func.name.toLowerCase().startsWith("rpc"))
     {
-      context.emitWarning("Not including function '" + func.name + "', because its name starts with 'rpc'");
+      warnings.push("Not including function '" + func.name + "', because its name starts with 'rpc'");
     }
     else
     {
@@ -39,7 +57,11 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
 `;
     }
   });
-  return output;
+
+  return { output
+         , dependencies
+         , warnings
+         };
 }
 
 async function runRPCLoader(context, rpcfile, callback)
@@ -47,26 +69,11 @@ async function runRPCLoader(context, rpcfile, callback)
   // context.inputValue[0] is the parsed JSON object from the 'json' loader
   try
   {
-    rpcfile = JSON.parse(rpcfile);
+    let result = await generateRPCWrappers(context.resourcePath, rpcfile);
+    result.dependencies.forEach(dep => context.addDependency(dep));
+    result.warnings.forEach(warning => context.emitWarning(warning));
 
-    let service = rpcfile.services[0];
-    let output = `// Auto-generated RPC interface from ${context.resourcePath}
-var RPCClient = require("@mod-system/js/wh/rpc").default;
-var request = exports.rpcclient = new RPCClient("${service}");
-exports.rpcResolve = function(promise, result) { request._handleLegacyRPCResolve(promise, result) };
-exports.invoke = function() { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
-`;
-    // Define JSONRPC error code constants as getter-only properties on the exports object
-    [ "HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR"
-    , "TIMEOUT_ERROR", "SERVER_ERROR" ].forEach(function(code, i)
-    {
-      if (!i)
-        output += "\n";
-      output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
-    });
-
-    output += await getWrappers(context, service);
-    callback(null, output);
+    callback(null, result.output);
   }
   catch(e)
   {
@@ -76,12 +83,16 @@ exports.invoke = function() { return request.invoke.apply(request,Array.prototyp
   }
 }
 
-module.exports = function(source)
+function webpackJSONRPCLoader(source)
 {
+  console.log(this,source);
   let callback = this.async();
   if (!callback)
     return "";
 
   this.cacheable(true);
   runRPCLoader(this, source, callback);
-};
+}
+
+module.exports = webpackJSONRPCLoader;
+
