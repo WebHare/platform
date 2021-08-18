@@ -355,8 +355,8 @@ export class ApplicationBase
   }
   setOnAppBar(onappbar, fixedonappbar)
   {
-    if($todd.applicationBar)
-      $todd.applicationBar.toggleShortcut(this, onappbar, fixedonappbar);
+    if(this.shell.applicationbar)
+      this.shell.applicationbar.toggleShortcut(this, onappbar, fixedonappbar);
   }
 
   updateApplicationProperties(props)
@@ -421,8 +421,8 @@ export class ApplicationBase
       //activate
       this.appnodes.root.classList.add('appcanvas--visible');
 
-      if($todd.applicationBar && this.apptab)
-        $todd.applicationBar.setActiveShortcut(this.apptab);
+      if(this.shell.applicationbar && this.apptab)
+        this.shell.applicationbar.setActiveShortcut(this.apptab);
       this.setAppTitle(this.title);
       this.shell.onApplicationStackChange();
     }

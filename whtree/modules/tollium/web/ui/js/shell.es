@@ -39,7 +39,7 @@ import { setupMouseHandling } from "./shell/mousehandling";
 
 var $todd = require('./support');
 import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
-require('./desktop');
+import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/login";
 import "./apps/oauth";
@@ -276,7 +276,7 @@ class IndyShell
 
     var appbar = document.getElementById('t-apptabs');
     if(appbar)
-      $todd.applicationBar = new $todd.ApplicationBar(this, appbar);
+      this.applicationbar = new ApplicationBar(this, appbar);
 
     registerJSApp('tollium:builtin.placeholder', PlaceholderApp);
 
@@ -367,8 +367,8 @@ class IndyShell
   onApplicationStackChange()
   {
     //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
-    if(!$todd.getActiveApplication() && $todd.applicationBar.apps.length > 0)
-      $todd.applicationBar.apps.slice(-1)[0].app.activateApp();
+    if(!$todd.getActiveApplication() && this.applicationbar.apps.length > 0)
+      this.applicationbar.apps.slice(-1)[0].app.activateApp();
   }
   onApplicationEnded(app)
   {
