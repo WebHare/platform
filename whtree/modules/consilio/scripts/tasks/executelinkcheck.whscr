@@ -1,51 +1,21 @@
 ﻿<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::consilio/lib/internal/linkchecker/executelinkcheck.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+
 /*
 
 Debug link check:
 wh run mod::consilio/scripts/tasks/executelinkcheck.whscr --debug --force --urlmask '*example.com*'
-
-         Checks links and stores the results
-
-         This is the script that actually checks links. It will
-          - check all links that have to be checked (link.nextcheck <= now)
-            - get link info
-            - check link
-            - store result
-            - update link.nextcheck
-          - schedule itself for the next link(s) (smalles nextcheck)
-          For each link the HTTP status code is recorded. For links without
-          status code (e.g. no connection could be made) we will use the
-          response class "0xx: Connection error":
-            001  Socket error               Error creating TCP socket
-            002  Server not found           The server name could not be resolved
-            003  Could not connect          No connection to the server could be made
-            004  Connection timed out       Making a connection to the server timed out
-            005  No HTTP connection         Could not open HTTP connection
-            006  No secure connection       Connection could not be secured (SSL connection)
-            007  Request could not be sent  The HTTP request could not be sent to the server
-            008  No HTTP response           No valid HTTP response received from the server
-            009  Circular redirection       Got a circular redirection
-            010  Too many redirections      Redirection chain is too long
 */
-
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
-
-LOADLIB "wh::internet/mime.whlib";
-LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
-
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/http_api.whlib";
-LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
-
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/consoleapps.whlib";
 
 // Command line settings
 RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
-                                                         , [ name := "debugbrowser", type := "switch" ]
                                                          , [ name := "noreschedule", type := "switch" ]
                                                          , [ name := "nocache", type := "switch" ]
                                                          , [ name := "force", type := "switch" ]
@@ -53,222 +23,23 @@ RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", ty
                                                          , [ name := "runsize", type := "stringopt" ]
                                                          ]);
 IF (NOT RecordExists(settings))
-  Abort("invalid arguments");
-
-__webbrowser_debugall := settings.debugbrowser;
-
-// Don't run link checking tasks if Consilio is disabled in the license and the linkchecker is not run from the command line
-//IF (NOT __SYSTEM_WHCOREPARAMETERS().consilio AND NOT settings.debug)
-//  RETURN;
-
-INTEGER max_per_run := 250;
-INTEGER max_redirections := 10;
-OBJECT trans;
-DATETIME checkdate := GetCurrentDateTime();
-
-//ADDME: Make these tunable through the registry?
-INTEGER check_link_interval := 24*60*60*1000; // Check links once each day
-INTEGER max_batch_run_length := 10*60*1000; // Stop runs that have been taking longer than 10 minutes
-
-// Set to TRUE by supplying a "debug" argument
-BOOLEAN debug;
-
-SetUserAgent("LinkChecker");
-
-trans := OpenPrimary();
-
-MACRO UpdateDatabase(RECORD ARRAY changed_recs)
 {
-  // Time to check already checked links
-  DATETIME nextcheckdate := AddTimeToDate(check_link_interval, GetCurrentDateTime());
-  // Time to check new links if status was not changed
-  DATETIME newcheckdate := AddTimeToDate(server_status_permanent, GetCurrentDateTime());
-
-  FOREVERY (RECORD changed_rec FROM changed_recs)
-  {
-    IF (debug)
-      PRINT("Updating checked_links\n");
-    UPDATE consilio.checked_links
-       SET checked := changed_rec.checked
-         , nextcheck := changed_rec.status = 0 ? newcheckdate : nextcheckdate
-         , checktime := changed_rec.checktime
-         , status := changed_rec.status
-     WHERE id = changed_rec.id;
-  }
+  TerminateScriptWithError("invalid arguments");
 }
 
-// Get a list of links to check in this run
-RECORD ARRAY links_to_check;
-
-
-// Run in standalone mode, i.e. get links to check from db
-debug := debug OR settings.debug;
-IF (ToInteger(settings.runsize,-1) >= 0)
-  max_per_run := ToInteger(settings.runsize,-1);
+OpenPrimary();
 
 IF (NOT ReadRegistryKey("consilio.linkchecker.enabled", [fallback:=TRUE]))
 {
-  IF(debug)
+  IF(settings.debug)
     Print("The linkchecker has been disabled in the registry (key consilio.linkchecker.enabled)\n");
   RETURN;
 }
 
-links_to_check := SELECT *
-                    FROM consilio.checked_links
-                   WHERE (settings.force ? TRUE : nextcheck < checkdate)
-                         AND (settings.urlmask="" OR (ToUppercase(url) LIKE ToUppercase(settings.urlmask)))
-                   LIMIT max_per_run > 0 ? max_per_run : 999999;
-
-IF (debug)
-  PRINT("Checking " || Length(links_to_check) || " links\n");
-
-links_to_check := SELECT * FROM links_to_check
-                       ORDER BY url;
-
-DATETIME run_start := GetCurrentDateTime();
-
-RECORD ARRAY checked_links;
-
-// Check the links
-SetOutputBuffering(NOT debug);
-FOREVERY (RECORD link_to_check FROM links_to_check)
-{
-  IF (GotConsoleQuit())
-    BREAK;
-
-  RECORD response;
-  STRING url := link_to_check.url;
-  IF (url LIKE "mailto:*")
-  {
-    IF (debug)
-      PRINT("Skipping mailto link #" || #link_to_check || ": " || url || "\n");
-    response := [ code := 0
-                ];
-  }
-  ELSE IF(NOT IsValidPlainHTTPURL(url))
-  {
-    IF (debug)
-      PRINT("Skipping invalid URL " || url || "\n");
-    response := [ code := 499
-                ];
-  }
-  ELSE
-  {
-    IF (debug)
-      PRINT("Checking link #" || #link_to_check || ": " || url || "\n");
-
-    STRING ARRAY visited := [url]; // List of visited URL's for this page (to detect circular references)
-    response := CheckLink(url, CELL[settings.debug,settings.nocache]);
-    WHILE (response.code = 301 // Moved Permanently
-        OR response.code = 302 // Found
-        OR response.code = 303 // See Other
-        OR response.code = 307 // Temporary Redirect
-      )
-    {
-      // We got a redirection
-      STRING newurl := GetMIMEHeader(response.headers, "Location");
-      IF (debug)
-        PRINT("Redirected to: " || newurl || "\n");
-      newurl := ResolveToAbsoluteURL(url, newurl);
-      IF (newurl IN visited)
-      {
-        // We've seen this URL before: circular redirection
-        response.code := 009;
-      }
-      ELSE IF (Length(visited) > max_redirections)
-      {
-        // We've got too many redirections already
-        response.code := 010;
-      }
-      ELSE
-      {
-        // Try the new URL
-        url := newurl;
-        INSERT url INTO visited AT END;
-        response := CheckLink(url, CELL[settings.debug,settings.nocache]);
-      }
-    }
-
-    IF (debug)
-      PRINT("Got response code: " || response.code || "\n");
-
-    IF (response.code = 0) // Could not send request
-      response.code := 007;
-    ELSE IF (response.code = 304) // Not Modified
-      response.code := 200;
-  }
-
-  RECORD linkdata := link_to_check;
-
-  DATETIME now := GetCurrentDateTime();
-  linkdata.checked := now;
-  linkdata.checktime := GetMsecsDifference(link_to_check.nextcheck, now);
-  IF (RecordExists(response))
-    linkdata.status := response.code;
-
-  INSERT linkdata INTO checked_links AT END;
-
-  // Check if the run hasn't been taking too long
-  IF (GetMsecsDifference(run_start, now) > max_batch_run_length)
-  {
-    IF (debug)
-      PRINT("Aborting the run, it has taken too long\n");
-    BREAK;
-  }
-}
-links_to_check := checked_links;
-
-SetOutputBuffering(FALSE);
-
-INTEGER max_tries := 2;
-WHILE (max_tries > 0) // In case of deadlock, we'll try again
-{
-  // Commit link changes
-  IF (debug)
-    PRINT("Committing database changes\n");
-  trans->BeginWork();
-  UpdateDatabase(links_to_check);
-
-  IF (NOT settings.noreschedule)
-  {
-    IF (Length(links_to_check) >= max_per_run) //Hit maximum, stop running so other scripts have a shot at running
-    {
-      DATETIME nexttask := GetCurrentDateTime();
-      IF (debug)
-        PRINT("Scheduling new task for " || FormatDateTime("%Y-%m-%d %H:%M", UTCToLocal(nexttask,"CET")) || "\n");
-      GetPrimary()->ScheduleTask("consilio:linkchecker",nexttask);
-    }
-    ELSE
-    {
-      // Schedule ourself for next link to check, but wait a minute to collect multiple links
-      // It is too slow to select the first (smalles) nextcheck value; it is more efficient to check if we have something
-      // to do within five or fifteen minutes and otherwise just reschedule after thirty minutes
-      IF (RecordExists(SELECT FROM consilio.checked_links))
-      {
-        DATETIME nexttask := AddTimeToDate(1000*60*5, GetCurrentDateTime()); // Add 5 minutes
-        IF (NOT RecordExists(SELECT FROM consilio.checked_links WHERE nextcheck <= nexttask))
-          nexttask := AddTimeToDate(1000*60*10, nexttask); // Add another 10 minutes (15 minutes total)
-        IF (NOT RecordExists(SELECT FROM consilio.checked_links WHERE nextcheck <= nexttask))
-          nexttask := AddTimeToDate(1000*60*15, nexttask); // Add another 15 minutes (30 minutes total)
-
-        IF (debug)
-          PRINT("Scheduling new task for " || FormatDateTime("%Y-%m-%d %H:%M", UTCToLocal(nexttask,"CET")) || "\n");
-        GetPrimary()->ScheduleTask("consilio:linkchecker",nexttask);
-      }
-    }
-  }
-
-  // Commit server status changes
-  TRY
-  {
-    trans->CommitWork();
-    IF (debug)
-      PRINT("Done\n");
-    BREAK;
-  }
-  CATCH(OBJECT e)
-  {
-    PRINT("Trying to commit again\n");
-    max_tries := max_tries - 1;
-  }
-}
+ExecuteConsilioLinkCheck(CELL[ settings.debug
+                             , runsize := ToInteger(settings.runsize,-1)
+                             , settings.force
+                             , settings.urlmask
+                             , settings.nocache
+                             , reschedule := NOT settings.noreschedule
+                             ]);

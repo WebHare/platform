@@ -78,12 +78,19 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
 {
   options := ValidateOptions([debug := FALSE, nocache := FALSE], options);
 
+  IF (url LIKE "*://linkchecker.test/expect-???/*") //mocks for testing
+  {
+    RETURN [ code := ToInteger(Tokenize(Tokenize(url,'-')[1],'/')[0], 0) ];
+  }
+
   //Perhaps we already know the server is dead ?
   STRING origin := UnpackURL(url).origin;
   IF (options.debug)
     PRINT("Checking on server " || origin || "\n");
+
   BOOLEAN usedcachedstatus;
   INTEGER status;
+
   IF (origin = last_origin)
   {
     status := last_serverstatus;

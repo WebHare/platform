@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::consilio/lib/internal/linkchecker/executelinkcheck.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+ASYNC MACRO TestLinkCheckTab()
+{
+  testfw->BeginWork();
+
+  OBJECT basefolder := GetTestsuiteTempFolder();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->id, FALSE, TRUE);
+
+  OBJECT testextralink := basefolder->CreateFile( [ name := "testextralink", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE]);
+  OBJECT testfile := basefolder->CreateFile([name := "richtest", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE]);
+
+  OBJECT myrichdoc := NEW EditableRichDocument;
+  STRING uniquelinksuffix := GenerateUFS128BitId(); //make sure the linkchecker has never seen us before
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(`
+    <html>
+      <body>
+        <p><a href="x-richdoclink:1234-5678-001">Link to site</a> <a href="x-richdoclink:1234-5678-002">Link to testextralink</a>
+        <p><a href="http://linkchecker.test/expect-404/${uniquelinksuffix}">Link to http</a></p>
+        <p><a href="https://linkchecker.test/expect-403/${uniquelinksuffix}">Link to https</a></p>
+        <p><a href="mailto:${uniquelinksuffix}@example.net">Link to mail</a></p>
+      </body>
+    </html>`)
+                 , links := [[ tag := "1234-5678-001", linkref := basefolder->parentsite ]
+                            ,[ tag := "1234-5678-002", linkref := testextralink->id ]
+                            ]
+                 ]);;
+
+  //Commit the document to the database
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := myrichdoc->ExportAsRecord() ]);
+
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(`
+    <html>
+      <body>
+        <p><a href="http://linkchecker.test/expect-404/${uniquelinksuffix}">The same link to http</a></p>
+        <p><a href="https://linkchecker.test/expect-401/different-${uniquelinksuffix}">A different link</a></p>
+      </body>
+    </html>`)
+                 ]);;
+
+  //Commit the document to the database
+  testextralink->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := myrichdoc->ExportAsRecord() ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := STRING[testfile->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TT(":Show all links")->value := TRUE;
+  TestEqMembers([[ text := "Link to http", url := `http://linkchecker.test/expect-404/${uniquelinksuffix}` ]
+                ,[ text := "Link to https", url := `https://linkchecker.test/expect-403/${uniquelinksuffix}` ]
+                ,[ text := "Link to mail", url := `mailto:${uniquelinksuffix}@example.net` ]
+                ,[ text := "Link to site", url := OpenTestsuiteSite()->webroot ]
+                ,[ text := "Link to testextralink", url := testextralink->link ]
+                ], (SELECT * FROM TT("objectreport->links")->rows ORDER BY text), "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit objectprops
+
+  ExecuteConsilioLinkCheck([urlmask := "*//linkchecker.test/*"]);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TestEqMembers([[ text := "Link to http", url := `http://linkchecker.test/expect-404/${uniquelinksuffix}`, status := 404 ]
+                ,[ text := "Link to https", url := `https://linkchecker.test/expect-403/${uniquelinksuffix}`, status := 403 ]
+                ], (SELECT * FROM TT("objectreport->links")->rows ORDER BY text), "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit objectprops
+
+  //Check the site linkcheck report, should show the same issues
+  AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
+  TT("obj")->value := OpenTestsuiteSite()->name;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("linkcheck"));
+  TestEqMembers([[ text := "A different link", url := `https://linkchecker.test/expect-401/different-${uniquelinksuffix}`, status := 401 ]
+                ,[ text := "Link to http", url := `http://linkchecker.test/expect-404/${uniquelinksuffix}`, status := 404 ]
+                ,[ text := "Link to https", url := `https://linkchecker.test/expect-403/${uniquelinksuffix}`, status := 403 ]
+                ,[ text := "The same link to http", url := `http://linkchecker.test/expect-404/${uniquelinksuffix}`, status := 404 ]
+                ], (SELECT * FROM TT("links")->rows ORDER BY text), "*");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit site props
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
+}
+
+RunTestframework([ PTR TestLinkCheckTab
+                 ], [ testusers := [[ login := "lisa" ]
+                                   ]
+                    ]);

@@ -33,6 +33,7 @@
   <test script="test_publishersearch.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_publishersearch.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_linkcheck.whscr"/>
+  <test script="test_publisher_linkcheck.whscr"/>
   <test script="test_cleanup.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_cleanup.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_pagelists.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
