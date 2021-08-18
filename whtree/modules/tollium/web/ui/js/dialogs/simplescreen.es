@@ -1,4 +1,4 @@
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "../../common.lang.json";

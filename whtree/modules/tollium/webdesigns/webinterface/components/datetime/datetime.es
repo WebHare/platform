@@ -3,7 +3,7 @@ import { getTid } from '@mod-tollium/js/gettid';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as datehelpers from "@mod-publisher/js/forms/internal/datehelpers.es"; //FIXME we need a 'today' function in dompack's datehelprs
 
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 import { DateField, TimeField } from '@mod-publisher/js/forms/fields/datetime.es';
 import './datetime.scss';

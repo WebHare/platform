@@ -2,7 +2,7 @@ import * as dompack from 'dompack';
 import { ObjAutoSuggestableBase } from '../textedit/textedit.es';
 
 var TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit.es');
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjTagEdit extends ObjAutoSuggestableBase
 {

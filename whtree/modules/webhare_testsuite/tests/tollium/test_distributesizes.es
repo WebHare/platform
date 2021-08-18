@@ -1,6 +1,6 @@
 /*! LOAD: wh.util.jstests, tollium:ui/js/components.js !*/
 import * as test from '@mod-tollium/js/testframework';
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 import { distributeSizes } from '@mod-tollium/web/ui/js/componentbase';
 
 

@@ -1,7 +1,7 @@
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
-var $todd = require("./support");
+import $todd from "@mod-tollium/web/ui/js/support";
 
 // Mutators should be defined first, so they can be used inside the ObjLayout Class!
 

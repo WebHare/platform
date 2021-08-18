@@ -4,7 +4,7 @@ import ObjText from '../text/text.es';
 import { updateNodeBackground, ObjPanelLine } from '../panel/panel.es';
 import "./inlineblock.scss";
 
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 const bgstyle = Symbol.for("background style");
 

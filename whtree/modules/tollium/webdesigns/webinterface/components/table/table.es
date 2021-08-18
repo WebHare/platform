@@ -4,7 +4,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import * as movable from 'dompack/browserfix/movable';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 
-var $todd = require("@mod-tollium/web/ui/js/support");
+import $todd from "@mod-tollium/web/ui/js/support";
 
 import Keyboard from 'dompack/extra/keyboard';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';

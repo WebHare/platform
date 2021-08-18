@@ -2,7 +2,7 @@
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import { getTid } from "@mod-tollium/js/gettid";
 import * as domencoding from 'dompack/types/text';
-var $todd = require('../support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 let checkservice;
 let checkcall = null;

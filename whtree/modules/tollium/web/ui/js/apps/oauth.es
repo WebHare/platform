@@ -1,4 +1,4 @@
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 var getTid = require("@mod-tollium/js/gettid").getTid;
 var utilerror = require('@mod-system/js/wh/errorreporting');
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';

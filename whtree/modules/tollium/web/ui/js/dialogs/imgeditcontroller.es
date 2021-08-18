@@ -10,7 +10,7 @@ var ExifParser = require("@mod-tollium/webdesigns/webinterface/node_modules/exif
 
 var getTid = require("@mod-tollium/js/gettid").getTid;
 
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 var ImageEditor = require("../../components/imageeditor");
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html

@@ -1,4 +1,4 @@
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase from "./transportbase.es";
 var JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as whintegration from '@mod-system/js/wh/integration';

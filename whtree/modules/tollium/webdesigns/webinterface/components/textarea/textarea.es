@@ -4,7 +4,7 @@ import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base
 
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import Keyboard from 'dompack/extra/keyboard';
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 /****************************************************************************************************************************
  *                                                                                                                          *

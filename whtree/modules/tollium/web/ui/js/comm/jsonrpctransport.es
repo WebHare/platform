@@ -1,4 +1,4 @@
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase from "./transportbase.es";
 import * as service from "./toddservice.rpc.json";
 

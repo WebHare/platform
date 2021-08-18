@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import ActionableBase from '@mod-tollium/webdesigns/webinterface/components/base/actionable';
 import * as icons from '@mod-tollium/js/icons';
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import './button.scss';
 

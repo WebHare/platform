@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import * as domscroll from 'dompack/browserfix/scroll';
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
