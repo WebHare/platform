@@ -75,7 +75,7 @@ Set the IP address binding for the rescue port (usually 13688). If not set it de
 an insecure WebHare backend interface
 
 ### WEBHARE_LOOPBACKPORT_BINDIP
-Set the IP address binding for the loopback connections port (usually 13685). If not set it defaults to localhost. This port
+Set the IP address binding for the loopback connections port (usually 13683). If not set it defaults to localhost. This port
 is used for internal connections between WebHare processes and allows access to the whmanager (eg. IPC, events, mutexes)
 
 ### WEBHARE_ELASTICSEARCH_BINDHOST
