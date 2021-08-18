@@ -268,7 +268,7 @@ OBJECT ASYNC FUNCTION TestVersionedDraft()
 
 
 RunTestFramework(
-    [ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE ])
+    [ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [ istemplate := FALSE, withcontent := FALSE ])
     , PTR Create
     , PTR TestVersioned
     , PTR TestVersionedDraft

@@ -2,18 +2,24 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 
 MACRO TestOutput()
 {
+  testfw->BeginWork();
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->link));
+  OBJECT indexhtmldoc := siteroot->CreateFile([name:="index.html", data := StringToBlob("Een homepage"), publish := TRUE, type := 5 ]);
+  testfw->CommitWork();
+  WaitForPublishCompletion(siteroot->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->objecturl));
   TestEq("Een homepage", BlobToString(testfw->browser->content));
 
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:nodesign")
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:nodesign", [ withcontent := FALSE ])
                  , PTR TestOutput
                  ]);

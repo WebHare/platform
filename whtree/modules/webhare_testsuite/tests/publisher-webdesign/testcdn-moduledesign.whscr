@@ -39,7 +39,7 @@ MACRO CHeckURLS()
   TestEQ(TRUE, testfw->browser->GotoWebPage(imglink));
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE, cdnhost := "cdn.localhost.beta.webhare.net" ])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, cdnhost := "cdn.localhost.beta.webhare.net" ])
                  , PTR CheckURLS
                  ], [ addinterfacealiases := [ "cdn.localhost.beta.webhare.net" ]
                     ]);

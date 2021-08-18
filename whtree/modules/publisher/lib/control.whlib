@@ -273,23 +273,36 @@ PUBLIC OBJECT FUNCTION MakeChangesIndexedPromise()
   RETURN GetWHFSCommitHandler()->WaitForChangesIndexed();
 }
 
-BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN recursive)
+BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors)
 {
   // See if any object is marked as currently publishing
   INTEGER ARRAY folderids := [ INTEGER(rootfolder->id) ];
-  IF (recursive)
-    folderids := folderids CONCAT rootfolder->GetDescendantFolderids();
+  folderids := folderids CONCAT rootfolder->GetDescendantFolderids();
 
-  RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath FROM system.fs_objects WHERE NOT isfolder AND parent IN folderids;
+  RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath, errordata FROM system.fs_objects WHERE NOT isfolder AND parent IN folderids;
   FOREVERY (RECORD o FROM objects)
     IF (o.publish AND (o.published%100000) > 0 AND (o.published%100000) < 100)
-      RETURN TRUE;
+      RETURN TRUE; //these files are still queued
 
-  // Query the publisher queue if any of these objects is on the queue
+  // Query the publisher queue if any of these objects are on the queue
   OBJECT service := __OpenSynchronousWebHareService("publisher:publication");
   INTEGER ARRAY scheduled := service->TestFilesScheduled(SELECT AS INTEGER ARRAY id FROM objects);
   BOOLEAN isscheduled := IsValueSet(scheduled);
   service->CloseService();
+
+  IF(NOT accepterrors)
+  {
+    BOOLEAN anyerrors;
+    FOREVERY (RECORD o FROM objects)
+      IF(GetErrorFromPublished(o.published) != 0)
+      {
+        Print(`Publication error for #${o.id} (${o.whfspath}): errorcode ${GetErrorFromPublished(o.published)}${o.errordata != "" ? ","||o.errordata:""}\n`);
+        anyerrors := TRUE;
+      }
+
+    IF(anyerrors)
+      THROW NEW Exception(`Unexpected publication errors - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
+  }
 
   RETURN isscheduled;
 }
@@ -326,12 +339,14 @@ MACRO WaitForEventCompletions(DATETIME deadline)
     @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
     @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
     @cell(boolean) options.skipeventcompletion Do not wait for publisher (republish) events to complete processing
+    @cell(boolean) options.accepterrors Accept errors in the publication (WebHare 4.33+)
     @return True if publication completed, false on timeout*/
 PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ deadline := MAX_DATETIME
                              , reportfrequency := 0
                              , skipeventcompletion := FALSE
+                             , accepterrors := FALSE
                              ], options);
 
   IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
@@ -352,7 +367,7 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD 
     IF(options.reportfrequency != 0)
       nextfeedback := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
 
-    WHILE(IsFolderPublishing(folderobj, TRUE))
+    WHILE(IsFolderPublishing(folderobj, options.accepterrors))
     {
       /* Check every second because we won't get feedback from the publisher queue when items have completed
          (which will be some time AFTER they have committed)

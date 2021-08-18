@@ -65,7 +65,6 @@ RECORD FUNCTION GetCSSStuff()
 MACRO TestBasics()
 {
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  OBJECT loadlibdoc := siteroot->OpenByPath("loadlib.html");
   OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
 
   TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);

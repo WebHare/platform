@@ -424,7 +424,7 @@ OBJECT ASYNC FUNCTION TestExport()
 
 
 RunTestFramework(
-    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE, webfeatures := ["webhare_testsuite:versioned"]  ])
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, withcontent := FALSE, webfeatures := ["webhare_testsuite:versioned"]  ])
     , PTR Create
     , PTR BaseReview
     , PTR TestExport

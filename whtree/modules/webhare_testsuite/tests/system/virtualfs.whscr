@@ -542,7 +542,7 @@ MACRO TestMargeThroughWebdav()
 }
 
 
-Runtestframework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := FALSE, withcontent := FALSE ])
+Runtestframework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE ])
                   , PTR BaseTest
                   , PTR DiskfolderReadonlyMaskTest
                   , PTR DataTests

@@ -182,7 +182,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
 
 RunTestFramework(
     [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, withcontent := FALSE, webfeatures := ["webhare_testsuite:versioned"] ])
-    , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
+    , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
     , PTR Create
     , PTR PublisherRecycleBinVersionedDelete
     ],

@@ -165,8 +165,8 @@ PUBLIC OBJECT FUNCTION UpdateDraftPublish(OBJECT testfile, BOOLEAN newpublish)
 
 PUBLIC MACRO CreateVersioningTestSite()
 {
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, webfeatures := ["webhare_testsuite:versioned"] ]);
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, webfeatures := ["webhare_testsuite:versioned"] ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ]);
 
   testfw->BeginWork();
   EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
