@@ -282,7 +282,7 @@ BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors)
   RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath, errordata FROM system.fs_objects WHERE NOT isfolder AND parent IN folderids;
   FOREVERY (RECORD o FROM objects)
     IF (o.publish AND (o.published%100000) > 0 AND (o.published%100000) < 100)
-      RETURN TRUE; //these files are still queud
+      RETURN TRUE; //these files are still queued
 
   // Query the publisher queue if any of these objects are on the queue
   OBJECT service := __OpenSynchronousWebHareService("publisher:publication");
