@@ -2,7 +2,7 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import './buttongroup.scss';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 /****************************************************************************************************************************
  *                                                                                                                          *

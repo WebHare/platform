@@ -1,9 +1,8 @@
-/* globals $shell $wh */
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
-const $todd = require("./support");
+import $todd from "@mod-tollium/web/ui/js/support";
 const dombusy = require('dompack/src/busy');
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const focusZones = require('../components/focuszones');
@@ -277,7 +276,7 @@ export class ApplicationBase
   /// Load the requested component types, invoke 'callback' when they are loaded
   requireComponentTypes(requiredtypes, callback)
   {
-    var unloaded_components = $shell.checkComponentsLoaded(requiredtypes, callback);
+    var unloaded_components = this.shell.checkComponentsLoaded(requiredtypes, callback);
     if(unloaded_components.length)
       return;
     callback();
@@ -355,8 +354,8 @@ export class ApplicationBase
   }
   setOnAppBar(onappbar, fixedonappbar)
   {
-    if($todd.applicationBar)
-      $todd.applicationBar.toggleShortcut(this, onappbar, fixedonappbar);
+    if(this.shell.applicationbar)
+      this.shell.applicationbar.toggleShortcut(this, onappbar, fixedonappbar);
   }
 
   updateApplicationProperties(props)
@@ -421,8 +420,8 @@ export class ApplicationBase
       //activate
       this.appnodes.root.classList.add('appcanvas--visible');
 
-      if($todd.applicationBar && this.apptab)
-        $todd.applicationBar.setActiveShortcut(this.apptab);
+      if(this.shell.applicationbar && this.apptab)
+        this.shell.applicationbar.setActiveShortcut(this.apptab);
       this.setAppTitle(this.title);
       this.shell.onApplicationStackChange();
     }
@@ -443,7 +442,7 @@ export class ApplicationBase
     return this.resetApp().finally( () =>
     {
       this.destroy(); //FIXME dispose comm channels etc?
-      $shell.onApplicationEnded(this);
+      this.shell.onApplicationEnded(this);
     });
   }
 
@@ -480,7 +479,7 @@ export class ApplicationBase
     this.title = newtitle;
     if ($todd.applicationstack.slice(-1)[0] == this)
     {
-      let prefix = $shell.getCurrentSettings().browsertitleprefix;
+      let prefix = this.shell.getCurrentSettings().browsertitleprefix;
       document.title = (prefix ? prefix + ' ' : '') + this.title;
     }
   }
@@ -970,7 +969,7 @@ export class BackendApplication extends ApplicationBase
         }
         else if(instrname == "redirect")
         {
-          if($wh.config.tollium.frontendmode)
+          if(whintegration.config.tollium.frontendmode)
             window.parent.location.href = instr.url;
           else
             console.warn("Ignoring redirection instruction, they are only accepted in frontend mode");
@@ -1236,11 +1235,6 @@ export class BackendApplication extends ApplicationBase
 /****************************************************************************************************************************
  * Global application functions
  */
-
-$todd.getActiveApplication = function()
-{
-  return $todd.applicationstack.slice(-1)[0];
-};
 
 export function registerJSApp(name, constructor)
 {

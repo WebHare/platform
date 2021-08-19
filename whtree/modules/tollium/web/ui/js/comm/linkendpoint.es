@@ -1,4 +1,4 @@
-var $todd = require("../support");
+import $todd from "@mod-tollium/web/ui/js/support";
 
 /** Implements the todd end of a reliable communication link
 */

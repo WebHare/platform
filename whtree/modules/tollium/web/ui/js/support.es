@@ -86,6 +86,11 @@ $todd.dummyimage = null;
 $todd.intolerant = window.location.href.indexOf('intolerant=1') != -1;
 $todd.fastunload= window.location.href.indexOf('fastunload=1') != -1;
 
+$todd.getActiveApplication = function()
+{
+  return $todd.applicationstack.slice(-1)[0];
+};
+
 /****************************************************************************************************************************
  * Text functions
  */
@@ -635,7 +640,7 @@ $todd.checkEnabledFlags = function(flags, checkflags, min, max, selectionmatch) 
   return enabled;
 };
 
-module.exports = $todd;
+export default $todd;
 window.__todd = $todd; //test framework currently requires it. FIX THAT
 
 checkLogTypes();

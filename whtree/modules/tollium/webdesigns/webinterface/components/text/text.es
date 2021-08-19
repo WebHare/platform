@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 import "./text.scss";
 
 const linetextTopMargin = 5; //keep in sync with t-text.scss
@@ -247,8 +247,4 @@ export default class ObjText extends ComponentBase
     if (!this.styles.wordwrap && !this.styles.ellipsis && this.width.set < this.width.calc)
       return this.node.textContent;
   }
-
-};
-
-exports.components = { text: $todd.ObjText
-                     };
+}

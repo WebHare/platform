@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import HTMLComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/html';
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjPulldown extends HTMLComponentBase
 {

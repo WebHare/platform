@@ -1,11 +1,10 @@
-﻿import * as dompack from 'dompack';
-var $todd = require("./support");
+import * as dompack from 'dompack';
+import $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import * as domscroll from 'dompack/browserfix/scroll';
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
-require("../common.lang.json");
 var toddImages = require("@mod-tollium/js/icons");
-import { ToddImage } from "./components/jsx";
+import { ToddImage } from "../components/jsx";
 
 
 /****************************************************************************************************************************
@@ -19,7 +18,7 @@ import { ToddImage } from "./components/jsx";
  * The application tabs bar
  */
 
-$todd.ApplicationBar = class
+export default class ApplicationBar
 {
   constructor(shell, appbar)
   {
@@ -384,6 +383,4 @@ $todd.ApplicationBar = class
   {
     return this.apps.length>0;
   }
-};
-
-$todd.applicationBar = null;
+}

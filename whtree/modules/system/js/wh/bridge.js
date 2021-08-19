@@ -159,7 +159,7 @@ class WebHareBridge extends Events.EventEmitter
     this.socket.on("error", this._onError.bind(this));
     this.socket.on("close", this._onClose.bind(this));
     //this.socket.on("open", this.onOpen.bind(this));
-    this.onlinepromise = new Promise(resolve => this.onconnect = resolve);
+    this.onlinepromise = new Promise( (resolve,reject) => { this.onconnect = resolve; this.onconnectfail = reject; });
   }
 
   connect(options)
@@ -387,6 +387,7 @@ class WebHareBridge extends Events.EventEmitter
   _onError(error)
   {
     console.error("webhare-bridge", this._bridgeid, ": websocket reported error: " + error);
+    this.onconnectfail(error);
   }
 
   _onClose()

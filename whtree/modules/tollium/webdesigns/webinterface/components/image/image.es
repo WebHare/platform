@@ -4,7 +4,7 @@ import OverlayManager from "@webhare/dompack-overlays";
 import './image.scss';
 
 var toddImages = require("@mod-tollium/js/icons");
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 // FIXME: relayout is needlessly triggered after communicating things like selection to the server
 

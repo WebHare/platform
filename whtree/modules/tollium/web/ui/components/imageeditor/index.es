@@ -50,8 +50,6 @@ class ImageEditor
                    , createScreen: null
                    , setModalLayerOpacity: null
                    , editorBackground: ""
-                   , maxLength: 0
-                   , maxArea: 0
                    , ...options
                    , maxLength: MAX_IMAGE_LENGTH
                    , maxArea: MAX_IMAGE_AREA

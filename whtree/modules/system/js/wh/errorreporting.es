@@ -19,8 +19,6 @@ if (typeof window != "undefined")
   root = window;
 else if (typeof self != "undefined")
   root = self;
-else
-  root = this;
 
 // With promise debugging, we replace the promise constructor to add a stack trace to the promise
 // at construction time, so we can trace where the rejected promise came from

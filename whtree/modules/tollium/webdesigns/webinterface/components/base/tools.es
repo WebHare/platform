@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import * as domfocus from "dompack/browserfix/focus";
-var $todd = require('@mod-tollium/web/ui/js/support');
+import $todd from "@mod-tollium/web/ui/js/support";
 
 export function getBorderWidth(borders)
 {
