@@ -390,6 +390,11 @@
     <baseproperties nofollow="false" />
   </apply>
 
+  <apply>
+    <to type="all" pathmask="*objectprops-propertydialog*" />
+    <setobjecteditor name="publisher:propertydialog" />
+  </apply>
+
 
   <!-- RTDType and widget testing -->
   <widgettype editextension="#editlevel1"

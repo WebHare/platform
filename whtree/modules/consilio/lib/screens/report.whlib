@@ -49,7 +49,8 @@ PUBLIC OBJECTTYPE LinkCheck EXTEND TolliumScreenBase
                , filefolder := parent
                , filedate := modificationdate
             FROM system.fs_objects
-           WHERE id IN referenced_files;
+           WHERE id IN referenced_files
+        ORDER BY id;
 
     // Merge. Every element from files has an element in checked
     this->alllinks := DEFAULT RECORD ARRAY;
@@ -287,7 +288,7 @@ PUBLIC OBJECTTYPE ObjectReport EXTEND TolliumFragmentBase
     ELSE
     {
       this->links->empty := GetTid("consilio:report.linkcheck.nobrokenlinks");
-      this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http:*//*" AND (status < 200 OR status > 299);
+      this->links->rows := SELECT * FROM this->alllinks WHERE url LIKE "http*://*" AND (status < 200 OR status > 299);
     }
   }
 >;

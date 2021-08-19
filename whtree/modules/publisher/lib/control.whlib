@@ -326,12 +326,14 @@ MACRO WaitForEventCompletions(DATETIME deadline)
     @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
     @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
     @cell(boolean) options.skipeventcompletion Do not wait for publisher (republish) events to complete processing
+    @cell(boolean) options.accepterrors Accept errors in the publication (WebHare 4.33+)
     @return True if publication completed, false on timeout*/
 PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ deadline := MAX_DATETIME
                              , reportfrequency := 0
                              , skipeventcompletion := FALSE
+                             , accepterrors := FALSE
                              ], options);
 
   IF(NOT HavePrimaryTransaction() OR GetPrimary()->IsWorkOpen())
