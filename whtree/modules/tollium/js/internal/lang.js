@@ -50,26 +50,33 @@ module.exports = function(source)
     return "";
 
   this.cacheable(true);
-  runLangLoader(this, source).then(res => callback(null, res));
+  let config = JSON.parse(this.query.substr(1));
+  runLangLoader(config, this.resourcePath, source).then(res =>
+    {
+      res.warnings.forEach(w => this.emitWarning(w));
+      res.errors.forEach(w => this.emitError(w));
+      res.dependencies.forEach(d => this.addDependency(d));
+      callback(null, res.output)
+    });
 };
 
-async function runLangLoader(context, source)
+async function runLangLoader(config, resourcepath, source)
 {
+  let warnings = [], dependencies = [];
+
   try
   {
-    let config = JSON.parse(context.query.substr(1));
-
     // Read installed modules and determine current module
     let modules = new Map();
     let curmodule = "";
     config.modules.forEach(module =>
     {
       modules.set(module.name, module.root);
-      if (context.resourcePath.startsWith(module.root))
+      if (resourcepath.startsWith(module.root))
         curmodule = module.name;
     });
     if (!curmodule)
-      context.emitWarning("Could not determine current module");
+      warnings.push("Could not determine current module");
 
     // this.inputValue[0] is the parsed JSON object from the 'json' loader
     let langfile = JSON.parse(source); //this.inputValue[0];
@@ -102,26 +109,34 @@ async function runLangLoader(context, source)
       }
     }
 
-    let output = `// Auto-generated language file from ${context.resourcePath}\n`;
+    let output = `// Auto-generated language file from ${resourcepath}\n`;
     output += generateTexts(alltexts);
 
     // Mark all cached files as dependency, so the language file will be regenerated if one of these changes
     filecache.forEach(result =>
     {
       output += `// Adding dependency: ${result.filepath}\n`;
-      context.addDependency(result.filepath);
+      dependencies.push(result.filepath);
     });
     // Clear file cache for the next run (file contents may have changed by then)
     filecache.clear();
 
     // We're done
-    return output;
+    return { output
+           , warnings
+           , dependencies
+           , errors: []
+           };
   }
   catch(e)
   {
-    console.log('caught runrpcloader error:',e);
-    context.emitError(e);
-    return '/*\n' + JSON.stringify(e) + '\n*/\n';
+    console.log('caught language parser error:',e);
+
+    return { output: '/*\n' + JSON.stringify(e) + '\n*/\n'
+           , warnings
+           , dependencies
+           , errors: [e.toString()]
+           };
   }
 }
 
