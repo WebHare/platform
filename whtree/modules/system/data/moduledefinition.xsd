@@ -1914,18 +1914,17 @@
           <xs:attribute name="compatibility">
             <xs:annotation>
               <xs:documentation>
-                The compatibility settings for generated code
+                The compatibility settings for generated code. Don't specify to retain IE11 compatibility, es2016-es2021 or esnext for esbuild in WH 4.33+. See also https://esbuild.github.io/content-types/#javascript
               </xs:documentation>
             </xs:annotation>
             <xs:simpleType>
               <xs:list>
                 <xs:simpleType>
                   <xs:restriction base="xs:string">
-                    <xs:enumeration value="modern">
-                      <xs:annotation>
-                        <xs:documentation>Last few versions of Chrome, Edge, Safari, Firefox. No support for IE11 or 'old' MS Edge</xs:documentation>
-                      </xs:annotation>
-                    </xs:enumeration>
+                    <!-- modern doesn't really same to change much, it was still transforming async and not sure it's worth investigating
+                         accept the es2016-es2021 and esnext patterns 'esbuild' offers
+                      -->
+                    <xs:pattern value="(modern|esnext|es201[6-9]|es20[2-9][0-9])" />
                   </xs:restriction>
                 </xs:simpleType>
               </xs:list>
