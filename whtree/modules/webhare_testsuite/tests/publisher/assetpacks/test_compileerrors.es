@@ -5,7 +5,7 @@ const fs = require("fs");
 
 const bridge = require('@mod-system/js/wh/bridge');
 let baseconfig;
-let assetCompiler = require('@mod-publisher/js/internal/assetpackcompile.es');
+let assetCompiler = require('@mod-publisher/js/internal/assetcompile.es');
 
 async function compileAdhocTestBundle(entrypoint)
 {
