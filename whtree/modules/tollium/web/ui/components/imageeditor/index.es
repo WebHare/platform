@@ -6,7 +6,8 @@ var Scaling = require('./scaling');
 var Refpoint = require('./refpoint');
 var Filters = require('./filters');
 var getTid = require("@mod-tollium/js/gettid").getTid;
-require("./imageeditor.lang.json");
+import "./imageeditor.lang.json";
+import "../../common.lang.json";
 var toddImages = require("@mod-tollium/js/icons");
 import * as dompack from 'dompack';
 

@@ -70,7 +70,6 @@ describe("lang.json parser", function()
 
     let source =
 `{ "imports": { "tollium": [ "components.imgedit" ] }
-, "requires": [ "../../common.lang.json" ]
 }`;
 
     let langloader = require("@mod-tollium/js/internal/lang");
@@ -83,7 +82,6 @@ describe("lang.json parser", function()
     assert.deepEqual([ tolliumroot + 'language/default.xml', tolliumroot + 'language/nl.xml' ], dependencies);
 
     // Make sure both en and nl texts are present
-    assert.strictEqual(true, loaderresult.output.includes(`require("${tolliumroot}web/ui/common.lang.json");`));
     assert.strictEqual(true, loaderresult.output.includes(`"dominantcolor":"Dominant color"`));
     assert.strictEqual(true, loaderresult.output.includes(`"dominantcolor":"Dominante kleur"`));
   });

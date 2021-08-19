@@ -5,7 +5,6 @@
 let fs = require("fs");
 let path = require("path");
 let sax = require("sax");
-let util = require('util');
 
 
 let testfsoverrides = {};
@@ -75,16 +74,6 @@ async function runLangLoader(context, source)
     // this.inputValue[0] is the parsed JSON object from the 'json' loader
     let langfile = JSON.parse(source); //this.inputValue[0];
 
-    let otherfiles = [];
-    if ("requires" in langfile)
-    {
-      langfile.requires.forEach(inc =>
-      {
-        otherfiles.push(util.promisify(context.resolve)(context.context, inc));
-      });
-      otherfiles = await Promise.all(otherfiles);
-    }
-
     let alltexts = new Map();
     let filecache = new Map();
 
@@ -114,13 +103,6 @@ async function runLangLoader(context, source)
     }
 
     let output = `// Auto-generated language file from ${context.resourcePath}\n`;
-
-    // Add other required language files
-    otherfiles.forEach(req =>
-    {
-      output += `require("${req}");\n`;
-    });
-
     output += generateTexts(alltexts);
 
     // Mark all cached files as dependency, so the language file will be regenerated if one of these changes
