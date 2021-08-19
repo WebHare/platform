@@ -11,7 +11,7 @@
   "license": "unlicensed",
   "private": true,
   "dependencies": {
-    "@webhare/dompack-overlays": "^0.9.0",
+    "@webhare/dompack-overlays": "^0.10.0",
     "exif-parser": "0.1.9",
     "font-awesome": "4.6.1",
     "typeface-roboto": "0.0.75",
