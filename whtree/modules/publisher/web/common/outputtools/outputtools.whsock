@@ -18,7 +18,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
 OBJECT assetpackcontroller;
-STRING bundleuuid;
+STRING ARRAY bundlewatchlist;
 INTEGER bundleuuidcb;
 OBJECT handler;
 INTEGER watchfile;
@@ -56,7 +56,7 @@ MACRO GotAssetpackControlRestart(STRING event, RECORD ARRAY data)
     assetpackcontroller := DEFAULT OBJECT;
   }
 
-  IF (bundleuuid != "")
+  FOREVERY(STRING bundleuuid FROM bundlewatchlist)
     WatchAssetPack(bundleuuid);
 }
 
@@ -72,7 +72,12 @@ MACRO OnData(STRING datapacket)
   {
     CASE "watchassetpack"
     {
-      WatchAssetPack(UnmapBundleUuid(data.uuid));
+      STRING bundleuuid := UnmapBundleUuid(data.uuid);
+      IF(bundleuuid NOT IN bundlewatchlist)
+      {
+        INSERT bundleuuid INTO bundlewatchlist AT END;
+        WatchAssetPack(bundleuuid);
+      }
       RETURN;
     }
     CASE "watchurl"
@@ -122,28 +127,10 @@ BOOLEAN FUNCTION RequireAssetPackControlLink()
 
 MACRO WatchAssetPack(STRING uuid)
 {
-  STRING oldbundleuuid := bundleuuid;
-
-  IF (bundleuuid != uuid)
-  {
-    IF (bundleuuidcb != 0)
-    {
-      UnregisterCallback(bundleuuidcb);
-      bundleuuidcb := 0;
-    }
-
-    bundleuuid := uuid;
-
-    IF (bundleuuid != "")
-      bundleuuidcb := RegisterMultiEventCallback("publisher:assetpackcontrol.change." || bundleuuid, PTR OnAssetPackChange);
-  }
+  bundleuuidcb := RegisterMultiEventCallback("publisher:assetpackcontrol.change." || uuid, PTR OnAssetPackChange);
 
   IF (RequireAssetPackControlLink())
-  {
-    IF (oldbundleuuid != "" AND oldbundleuuid != bundleuuid)
-      assetpackcontroller->SetWatched(oldbundleuuid, FALSE);
-    assetpackcontroller->SetWatched(bundleuuid, TRUE);
-  }
+    assetpackcontroller->SetWatched(uuid, TRUE);
 
   SendAssetPackStatus();
 }
@@ -223,25 +210,46 @@ MACRO SendAssetPackStatus()
   IF (NOT RequireAssetPackControlLink())
     RETURN;
 
+  RECORD packet := [ type := "assetpack"
+                   , uuid := ""
+                   , iscompiling := FALSE
+                   , haserrors := FALSE
+                   , errors := ""
+                   , stats := ""
+                   , missingdependencies := STRING[]
+                   , info := DEFAULT RECORD
+                   , fullsourcemap := FALSE
+                   ];
+
   TRY
   {
-    RECORD status := WaitForPromise(assetpackcontroller->GetBundleStatus(bundleuuid));
-    IF (NOT RecordExists(status))
+    FOREVERY(STRING bundleuuid FROM bundlewatchlist)
     {
-      SendPacket([ type := "assetpack-missing" ]);
-      RETURN;
+      RECORD status := WaitForPromise(assetpackcontroller->GetBundleStatus(bundleuuid));
+      IF (NOT RecordExists(status))
+      {
+        SendPacket([ type := "assetpack-missing" ]);
+        RETURN;
+      }
+
+      IF(#bundleuuid = 0)
+      {
+        packet.uuid := bundleuuid;
+        packet.fullsourcemap := status.bundleconfig.fullsourcemap;
+      }
+
+      IF(LengtH(status.info.errors) > 0 AND NOT RecordExists(packet.info))
+        packet.info := CELL[ status.info.errors ];
+
+      packet.missingdependencies := packet.missingdependencies CONCAT status.missingdependencies;
+      packet.errors := packet.errors || status.errors;
+      packet.stats := packet.stats || status.stats;
+      IF(status.haserrors)
+        packet.haserrors := TRUE;
+      IF(status.iscompiling OR status.requirecompile)
+        packet.iscompiling := TRUE;
     }
 
-    RECORD packet := [ type := "assetpack"
-                     , uuid := bundleuuid
-                     , iscompiling := status.iscompiling OR status.requirecompile
-                     , haserrors := status.haserrors
-                     , errors := status.errors
-                     , stats := status.stats
-                     , missingdependencies := status.missingdependencies
-                     , info := CELL[ status.info.errors ]
-                     , fullsourcemap := status.bundleconfig.fullsourcemap
-                     ];
     SendPacket(packet);
   }
   CATCH
