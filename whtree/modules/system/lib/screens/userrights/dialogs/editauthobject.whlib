@@ -2,6 +2,8 @@
 
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -11,6 +13,15 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
+    ^usereditpolicy->options := RECORD
+        [ [ rowkey := "", title :=    "" ]
+        , ...(SELECT TEMPORARY title := GetTid/*nocheck*/(tid)
+                   , rowkey := name
+                   , title := title
+                FROM GetUserEditPolicies()
+            ORDER BY title)
+        ];
+
     ^entity->Load(data.unit);
     IF(data.unit = 0)
       ^entity->extradata := [ wrd_leftentity := data.parent ];

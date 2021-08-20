@@ -1967,20 +1967,33 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /** Flush tasks of the specified types. Throws if any task failed
       @param tasktypes List of tasks to cancel
       @cell options.createdafter Only flush tasks created after this time (takes test start time by default)
-      @cell options.acceptcancel Don't throw if the task is cancelled */
-  PUBLIC MACRO FlushTasks(STRING ARRAY tasktypes, RECORD options DEFAULTSTO DEFAULT RECORD)
+      @cell options.acceptcancel Don't throw if the task is cancelled
+      @return Task results
+      @cell(string) return.type Task type
+      @cell(integer) return.id Task id
+      @cell(record) return.result Task result
+  */
+  PUBLIC RECORD ARRAY FUNCTION FlushTasks(STRING ARRAY tasktypes, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ createdafter := this->__testfwstart
                                , acceptcancel := FALSE
                                ], options);
 
     DATETIME maxwait := AddTimeToDate(60 * 1000, GetCurrentDatetime());
+    RECORD ARRAY retval;
     FOREVERY(STRING type FROM tasktypes)
     {
       GetTaskTypeSettings(type, FALSE); //validate its extistence
       FOREVERY(RECORD task FROM LookupManagedTasks(type, CELL[options.createdafter]))
-        RetrieveManagedTaskResult(task.id, maxwait, [ acceptcancel := options.acceptcancel ]);
+      {
+        INSERT CELL
+            [ type
+            , task.id
+            , result :=   RetrieveManagedTaskResult(task.id, maxwait, [ acceptcancel := options.acceptcancel ])
+            ] INTO retval AT END;
+      }
     }
+    RETURN retval;
   }
 
   PUBLIC OBJECT FUNCTION MakeRestAPITester(STRING apispecification, STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)

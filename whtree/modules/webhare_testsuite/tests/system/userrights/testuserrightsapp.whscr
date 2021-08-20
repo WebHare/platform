@@ -33,6 +33,7 @@ ASYNC MACRO Setup()
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
   AWAIT ExpectScreenChange(+1, PTR TTClick("unittree->newunit"));
   TT("wrd_title")->value := "Lisa's new unit";
+  TT("usereditpolicy")->value := "webhare_testsuite:usereditpolicy";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   //Select the new unit
@@ -42,12 +43,64 @@ ASYNC MACRO Setup()
   AWAIT ExpectScreenChange(+1, PTR TT("unittree->unitlist")->openaction->TolliumClick());
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-
   //Add a user
   AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
 
   TT("username")->value := "bart@example.net";
+  DATETIME lastaction := GetCurrentDateTime();
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEQMembers(
+        [ [ type :=     "webhare_testsuite:usereditedtask"
+          , result :=   [ wrdschema :=    GetTestController()->userapi->wrdschema->id
+                        , id :=           GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid
+                        , action :=       "add"
+                        ]
+          ]
+        ], testfw->FlushTasks([ "webhare_testsuite:usereditedtask" ]), "*");
+
+  lastaction := GetCurrentDateTime();
+  testfw->BeginWork();
+  GetTestController()->userapi->TriggerUserEditAfterEffects(GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid, [ action := "add" ]);
+  testfw->CommitWork();
+
+  TestEQMembers(
+        [ [ type :=     "webhare_testsuite:usereditedtask"
+          , result :=   [ wrdschema :=    GetTestController()->userapi->wrdschema->id
+                        , id :=           GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid
+                        , action :=       "add"
+                        ]
+          ]
+        ], testfw->FlushTasks([ "webhare_testsuite:usereditedtask" ], [ createdafter := lastaction ]), "*");
+
+
+  topscreen->frame->focused := TT("unitcontents->userandrolelist");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  lastaction := GetCurrentDateTime();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEQMembers(
+        [ [ type :=     "webhare_testsuite:usereditedtask"
+          , result :=   [ wrdschema :=    GetTestController()->userapi->wrdschema->id
+                        , id :=           GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid
+                        , action :=       "edit"
+                        ]
+          ]
+        ], testfw->FlushTasks([ "webhare_testsuite:usereditedtask" ], [ createdafter := lastaction ]), "*");
+
+  lastaction := GetCurrentDateTime();
+  testfw->BeginWork();
+  GetTestController()->userapi->TriggerUserEditAfterEffects(GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid, [ action := "edit" ]);
+  testfw->CommitWork();
+
+  TestEQMembers(
+        [ [ type :=     "webhare_testsuite:usereditedtask"
+          , result :=   [ wrdschema :=    GetTestController()->userapi->wrdschema->id
+                        , id :=           GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net")->entityid
+                        , action :=       "edit"
+                        ]
+          ]
+        ], testfw->FlushTasks([ "webhare_testsuite:usereditedtask" ], [ createdafter := lastaction ]), "*");
 
   //Select the new user
   TestEq(TRUE, RecordExists(SELECT FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net"));

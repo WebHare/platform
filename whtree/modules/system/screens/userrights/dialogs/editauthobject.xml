@@ -14,7 +14,7 @@
           <textedit composition="entity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
           <textarea composition="entity" cellname="whuser_comment" height="1pr" tid="~comments" />
         </tab>
-        <tab tid=".passwordchecks">
+        <tab tid="~settings">
           <heading composition="entity"
                    cellname="override_passwordchecks"
                    name="override_passwordchecks"
@@ -23,6 +23,11 @@
           <system:passwordvalidationchecks composition="entity"
                                            cellname="passwordchecks"
                                            name="passwordchecks" />
+          <heading tid=".policy" />
+          <select composition="entity"
+                  cellname="usereditpolicy"
+                  name="usereditpolicy"
+                  type="pulldown" />
         </tab>
       </tabs>
     </body>
