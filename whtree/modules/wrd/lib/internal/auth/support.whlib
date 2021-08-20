@@ -16,6 +16,15 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
+
+/** Default WRD auth configuration
+    @cell(integer64) expire_login Expire normal login after this time (milliseconds)
+    @cell(integer64) expire_persistentlogin Expire persistent login after this time (milliseconds)
+    @cell(integer64) expire_thirdpartylogin Expire third party login after this time (milliseconds)
+    @cell(integer) round_longlogins_to Round long logins to this time of the day (milliseconds)
+    @cell(string) round_longlogins_tz Round long logins in this timezone
+    @cell(integer64) round_minduration Minimum duration of sessions when rounding (milliseconds)
+*/
 PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   [ expire_login :=                 86400 * 1000i64 // 1 day
   , expire_persistentlogin :=  30 * 86400 * 1000i64 //30 days

@@ -13,6 +13,18 @@ PUBLIC CONSTANT INTEGER cookietype_persistent := 2; //direct login with 'remembe
 PUBLIC CONSTANT INTEGER cookietype_external := 3;   //cross-domain logins on the same webhare
 
 
+/** @param wrdschemaname Name of the WRD schema
+    @return Adhoccacheable authentication configuration of the WRD schema
+    @cell return.value Authentication settings of this WRD schema
+        @includecelldef #wrdauth_defaultconfiguration
+    @cell return.value.fatalerror If it exists, describes the error when getting the authentication settings
+    @cell(integer) return.value.schemaid WRD schema id
+    @cell(boolean) return.value.loginemail Whether the account email tag is equal to the login tag
+    @cell(string) return.value.domainsecret Domain secret
+    @cell(string) return.value.accountpasswordtag Tag of the the password attribute
+    @cell(boolean) return.value.accountpasswordisauthsettings Whether the password attribute of WRD type 'authenticationsettings'
+    @cell(string) return.value.fallback_lastloginfield Fallback last login field
+*/
 RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
 {
   OBJECT wrdschema := OpenWRDSchema(wrdschemaname);
@@ -69,7 +81,10 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
          ];
     }
 
-//Get everything you need to know about WRDAuth's configuration, cacheable
+/** Get everything you need to know about WRDAuth's configuration, cacheable
+    @param wrdschema WRD schema name
+    @return @includecelldef #GetCacheableWRDAuthConfig.return.value
+*/
 PUBLIC RECORD FUNCTION GetWRDAuthConfig(STRING wrdschema)
 {
   RETURN GetAdhocCached(CELL[ wrdschema ], PTR GetCacheableWRDAuthConfig(wrdschema));
