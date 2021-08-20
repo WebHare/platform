@@ -19,7 +19,6 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 OBJECT assetpackcontroller;
 STRING ARRAY bundlewatchlist;
-INTEGER bundleuuidcb;
 OBJECT handler;
 INTEGER watchfile;
 BOOLEAN ispreview;
@@ -127,7 +126,7 @@ BOOLEAN FUNCTION RequireAssetPackControlLink()
 
 MACRO WatchAssetPack(STRING uuid)
 {
-  bundleuuidcb := RegisterMultiEventCallback("publisher:assetpackcontrol.change." || uuid, PTR OnAssetPackChange);
+  RegisterMultiEventCallback("publisher:assetpackcontrol.change." || uuid, PTR OnAssetPackChange);
 
   IF (RequireAssetPackControlLink())
     assetpackcontroller->SetWatched(uuid, TRUE);
