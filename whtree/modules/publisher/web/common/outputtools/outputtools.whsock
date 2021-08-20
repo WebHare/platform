@@ -238,7 +238,7 @@ MACRO SendAssetPackStatus()
         packet.fullsourcemap := status.bundleconfig.fullsourcemap;
       }
 
-      IF(LengtH(status.info.errors) > 0 AND NOT RecordExists(packet.info))
+      IF(Length(status.info.errors) > 0 AND NOT RecordExists(packet.info))
         packet.info := CELL[ status.info.errors ];
 
       packet.missingdependencies := packet.missingdependencies CONCAT status.missingdependencies;
