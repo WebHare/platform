@@ -72,7 +72,7 @@ RECORD FUNCTION GetUserEditPolicyByName(STRING name)
   RETURN retval;
 }
 
-/** List the active user right edit policies
+/** List the available user right edit policies
     @cell(string) options.onlymodule Only retrieve for this module
     @return List of user edit policies @includecelldef #GetUserEditPolicyByName.return
     @cell return.name Name of the policy
