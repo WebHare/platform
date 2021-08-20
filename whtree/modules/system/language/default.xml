@@ -1751,6 +1751,7 @@
         <text tid="finished">You will receive an email with further instructions</text>
         <text tid="forgotpassword">Forgot password</text>
         <text tid="linkisexpired">The reset link you've followed has expired</text>
+        <text tid="linkisexpiredresend">The reset link you've followed has expired, do you want to receive a new link?</text>
         <text tid="passwordupdated">Your password has been updated</text>
         <text tid="resetpassword">Reset password</text>
         <text tid="verificationcode">Verification code</text>
