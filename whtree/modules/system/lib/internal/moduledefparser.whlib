@@ -732,6 +732,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , webfeatures          := DEFAULT RECORD ARRAY
       , filemgrextensions    := DEFAULT RECORD ARRAY
       , usermgrextensions    := DEFAULT RECORD ARRAY
+      , usereditpolicies     := DEFAULT RECORD ARRAY
       , versioningpolicies   := DEFAULT RECORD ARRAY
       , indexfields          := DEFAULT RECORD ARRAY
       , searchfilters        := DEFAULT RECORD ARRAY
@@ -1382,6 +1383,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                        ] INTO extension.addactions AT END;
           }
           INSERT extension INTO this->moduledef.usermgrextensions AT END;
+        }
+        CASE "usereditpolicy"
+        {
+          RECORD policy :=
+              [ name :=                   `${this->moduledef.name}:${subchild->GetAttribute("name")}`
+              , tid :=                    ParseXMLTidPtr(this->respath, childgid, subchild, "title")
+              , usereditedmanagedtask :=  ParseXMLModuleNamed(this->moduledef.name, subchild, "usereditedmanagedtask")
+              ];
+
+          INSERT policy INTO this->moduledef.usereditpolicies AT END;
         }
       }
     }

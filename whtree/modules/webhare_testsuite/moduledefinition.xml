@@ -27,6 +27,7 @@
     <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
     <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
     <managedtask   type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
+    <managedtask   type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask"/>
     <ephemeraltask type="nodetask" library="js/task.es" />
   </servicemanager>
@@ -189,6 +190,10 @@
       <tryfile path="whdata::tmp/webhare_testsuite.datastorage/file.shtml" />
       <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
     </webrule>
+
+    <usereditpolicy name="usereditpolicy" title="webhare_testsuite test user edit policy"
+                    usereditedmanagedtask="usereditedtask" />
+
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">

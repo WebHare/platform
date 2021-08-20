@@ -216,6 +216,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       this->contexts->userapi->SyncUserAfterUpdate(id);
 
       user := this->contexts->userapi->GetUser(id); //reload user, guid might have changed
+      this->contexts->userapi->TriggerUserEditAfterEffects(id, [ action := RecordExists(currentsettings) ? "edit" : "add" ]);
     }
     ELSE
       user := this->pvt_user;
