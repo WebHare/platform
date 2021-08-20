@@ -427,7 +427,8 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
                             ]
       , nodemodulepaths:    baseconfig.nodemodulepaths
       , babeltranspile:     [ "\\.es$" ].concat(bundle.bundleconfig.babeltranspile)
-      , babelenvtarget:     { "targets": bundle.bundleconfig.compatibility == "modern" ? "last 3 chrome versions, last 3 firefox versions, last 3 safari versions" : "defaults, ie 11"
+                              //any compat value (modern, esXXXX) will drop IE11 support
+      , babelenvtarget:     { "targets": bundle.bundleconfig.compatibility ? "last 3 chrome versions, last 3 firefox versions, last 3 safari versions" : "defaults, ie 11"
                             }
       , babelextraplugins:  [ "@babel/plugin-transform-modules-commonjs" ]
       };
