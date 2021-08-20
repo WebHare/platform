@@ -1560,6 +1560,7 @@
         <text tid="finished">U ontvangt een mailbericht met verdere instructies</text>
         <text tid="forgotpassword">Wachtwoord vergeten</text>
         <text tid="linkisexpired">De link die u volgt is verlopen</text>
+        <text tid="linkisexpiredresend">De link die u volgt is verlopen, wilt u een nieuwe link ontvangen?</text>
         <text tid="passwordupdated">Uw wachtwoord is bijgewerkt</text>
         <text tid="resetpassword">Wachtwoord instellen</text>
         <text tid="verificationcode">Verificatiecode</text>
