@@ -1387,6 +1387,7 @@
         <xs:element name="restapi" type="RestApi" />
       </xs:choice>
       <xs:element name="usermgrextension" type="UserMgrExtension" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="usereditpolicy" type="UserEditPolicy" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
   </xs:complexType>
 
@@ -1483,6 +1484,12 @@
       </xs:element>
     </xs:sequence>
     <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
+  <xs:complexType name="UserEditPolicy">
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="usereditedmanagedtask" type="sc:OptionallyQualifiedName" />
   </xs:complexType>
 
   <xs:complexType name="Registry">

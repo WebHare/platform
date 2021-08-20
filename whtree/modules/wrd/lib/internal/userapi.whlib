@@ -6,6 +6,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
@@ -20,6 +21,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/authobjects.whlib";
 LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
 
 
 OBJECTTYPE LocalWork
@@ -457,6 +459,32 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     FINALLY
     {
       work->Finish();
+    }
+  }
+
+  /** Trigger the after-effects after editing a user. Should be called after SyncUserAfterUpdate.
+      @param userid Id of the user
+      @cell(string) options.action Performed action, "add" or "edit" (required).
+  */
+  PUBLIC MACRO TriggerUserEditAfterEffects(INTEGER userid, RECORD options)
+  {
+    options := ValidateOptions(
+        [ action :=   ""
+        ],
+        options,
+        [ enums := [ action := [ "add", "edit" ] ]
+        , required := [ "action"]
+        ]);
+
+    RECORD policy := GetUserEditPolicyForUser(this->wrdschema, userid);
+
+    IF (policy.usereditedmanagedtask != "")
+    {
+      ScheduleManagedTask(policy.usereditedmanagedtask, CELL
+          [ wrdschema :=    this->wrdschema->id
+          , options.action
+          , id :=           userid
+          ]);
     }
   }
 
