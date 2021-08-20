@@ -124,7 +124,7 @@ PUBLIC STRING ARRAY FUNCTION GetInstalledModuleNames()
 
 /** @short Gather custom moduledefinition setting nodes
     @param ns Namespace URI to look up
-    @param localname Local ame of the node to look up
+    @param localname Local name of the node to look up
     @return Matching settings
     @cell(string) return.module Module name
     @cell(string) return.resource Resource name of moduledefinition referring to the file
@@ -154,22 +154,10 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomModuleSettings(STRING ns, STRING localname
 }
 
 /** Open a XML document read-only
-    @param module Module to search the xml document
-    @param type Type of file: one of "screens", "language", "data", "moduledefinition", "manifest"
-    @param subcode Subcode of the file
+    @param path Resource path
     @return Record with xml document object data, DEFAULT RECORD if the document did not exist
-    @cell return.modulename
-    @cell return.type
-    @cell return.subcode
-    @cell return.doc XML document object
-    @cell return.modtime Modtime of the schema file
-    @cell return.validations List of already performed validations against this document
-    @cell return.validations.xsdschema Schema against which the validation has been done
-    @cell return.validations.xsdschema.modulename
-    @cell return.validations.xsdschema.type
-    @cell return.validations.xsdschema.subcode
-    @cell return.validations.xsdschema.modtime
-    @cell return.validations.errors List of validation errors
+        @includecelldef #OpenXMLDoc.return
+    @cell(object %XMLDocument) return.doc XML document
 */
 PUBLIC RECORD FUNCTION RetrieveCachedXMLResource(STRING path)
 {
@@ -177,15 +165,10 @@ PUBLIC RECORD FUNCTION RetrieveCachedXMLResource(STRING path)
 }
 
 /** Open a XML document as a read-only schema
-    @param module Module to search the xml document
-    @param type Type of file: one of "screens", "language", "data", "moduledefinition", "manifest"
-    @param subcode Subcode of the file
+    @param path Resource path
     @return Record with xml document object data, DEFAULT RECORD if the schema did not exist
-    @cell return.modulename
-    @cell return.type
-    @cell return.subcode
-    @cell return.doc Schema document object
-    @cell return.modtime Modtime of the schema file
+        @includecelldef #OpenXMLDoc.return
+    @cell(object %XMLSchema) return.doc XML schema
 */
 PUBLIC RECORD FUNCTION __RetrieveCachedXMLSchema(STRING path) //This API will be removed as soon as loaded XML docs can be converted to schemas
 {
@@ -194,7 +177,6 @@ PUBLIC RECORD FUNCTION __RetrieveCachedXMLSchema(STRING path) //This API will be
 
 /** Returns the resource name for a disk path. Also accept webhare resource paths, which are normalized
     @param diskpath Disk path / resource name
-    @param options
     @cell options.allowdiskpath If TRUE, return 'direct::...' path when no other resource name could be found. Otherwise return an empty string (default).
     @return Resource path. Empty value if the path does not have a resource name
 */

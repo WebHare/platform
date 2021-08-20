@@ -229,6 +229,12 @@ PUBLIC STRING ARRAY FUNCTION GetResourceEventMasks(STRING ARRAY inpaths)
   RETURN masks;
 }
 
+/** Opens an XML document
+    @param path Resource path
+    @param _isschema Whether the resource is an XML schema
+    @return @includecelldef #GetCacheableXMLDoc.value
+    @cell(string) return.path Resource path
+*/
 PUBLIC RECORD FUNCTION OpenXMLDoc(STRING path, BOOLEAN _isschema)
 {
   RECORD doc := GetAdhocCached([ _isschema := _isschema
@@ -253,6 +259,16 @@ PUBLIC RECORD FUNCTION WebHareDynamicLoader(STRING url, STRING id)
   RETURN [ success := FALSE ];
 }
 
+/** Get a adhoc cacheable XML document
+    @param _isschema Whether the document is an XML schema and must be opened as such
+    @param resourcepath Resource path
+    @return Cache data for XML document
+    @cell(record) return.value XML document data
+    @cell(object %XmlDocument %XmlSchema) return.value.doc XML document or XML schema
+    @cell(record array) return.value.files List of files
+    @cell(string) return.value.files.path Resource path
+    @cell(datetime) return.value.files.modified Modification date (not always present)
+*/
 RECORD FUNCTION GetCacheableXMLDoc(BOOLEAN _isschema, STRING resourcepath)
 {
   RECORD ARRAY files;

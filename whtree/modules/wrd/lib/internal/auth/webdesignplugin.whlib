@@ -116,10 +116,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /// @type(object #WRDAuth)
   OBJECT __wrdauth;
 
+  /// Configuration @includecelldef #ParseConfigurationNode.return
   RECORD pvt_config;
 
   STRING cookiename;
 
+  /** WRD schema authentication configuration @includecelldef #GetWRDAuthConfig.return
+  */
   RECORD wrdauthconfig;
 
   // ---------------------------------------------------------------------------
@@ -191,6 +194,22 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @param siteprofile Siteprofile with the node to parse
       @param node Node to parse
       @return Configuration
+      @cell(string) return.wrdschema WRD schema name (not yet expanded)
+      @cell(string) return.supportobjectname Support object reference
+      @cell(integer) return.passwordresetlifetime Password reset lifetime in minutes
+      @cell(string array) return.cachefields
+      @cell(string) return.servicemailtemplate
+      @cell(string) return.loginpage Site reference to the login page (eg "currentsite::/")
+      @cell(boolean) return.spautocreate
+      @cell(string) return.cookiename Cookie name (not yet expanded)
+      @cell(boolean) return.securecookie
+      @cell(boolean) return.nohttponlycookies
+      @cell(string) return.firstloginfield
+      @cell(string) return.lastloginfield
+      @cell(string) return.samesitecookie
+      @cell(string array) return.routerfeatures
+      @cell(string) return.authpageswitty
+      @cell(string) return.cookiedomain
   */
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
@@ -434,7 +453,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Generates a submitinstruction to execute with a proof that a user is logged in (via wrdauth or via external users of access rule)
-      @param logincontrol Login control data @includecelldef #DecryptLoginControlToken.return
+      @param logincontrol Login control data @includecelldef #__DecryptLoginControlToken.return
       @param type Proof type ("wrdauth", "wrdauth-nocookies", "external")
       @param data Proof data for external login
       @cell data.username User name
@@ -1865,6 +1884,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         ];
   }
 
+  /** Return the configuration
+      @return Plugin configuration
+          @includecelldef #ParseConfigurationNode.return
+          @includecelldef #GetWRDAuthConfig.return
+      @cell return.cookiename Cookie name
+  */
   PUBLIC RECORD FUNCTION _GetConfig()
   {
     RETURN CELL[ ...this->pvt_config, ...this->wrdauthconfig, this->cookiename ];
@@ -1902,8 +1927,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Generates a submitinstruction to execute based on the actions specified in the webvariable 'wrdauth_logincontrol'
-      @param logincontrol Login control data @includecelldef #DecryptLoginControlToken.return
-      @param logintype Login type @includecelldef #DecryptLoginControlToken.return.logintypes
+      @param logincontrol Login control data @includecelldef #__DecryptLoginControlToken.return
+      @param logintype Login type @includecelldef #__DecryptLoginControlToken.return.logintypes
       @cell(string) options.username User name (for external (access rule user list) logins)
       @return Submitinstruction @includecelldef %ExecuteSubmitInstruction.instr
   */

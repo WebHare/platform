@@ -3,7 +3,7 @@
   <!-- SAML IDP -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
             blobiscontent="false"
-            icon="tollium:files/samlidpendpoint"
+            icon="tollium:files/application_x-webhare-serverparsed"
             ispublishable="true"
             ispublishedassubdir="true"
             tid="wrd:filetypes.samlidpendpoint">
@@ -13,7 +13,7 @@
   <!-- SAML SP -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/samlspendpoint"
             blobiscontent="false"
-            icon="tollium:files/samlspendpoint"
+            icon="tollium:files/application_x-webhare-serverparsed"
             ispublishable="true"
             ispublishedassubdir="true"
             tid="wrd:filetypes.samlspendpoint">
