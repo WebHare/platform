@@ -118,3 +118,11 @@ PUBLIC OBJECTTYPE TimeLimitedTask EXTEND ManagedTaskBase
     this->ResolveByCompletion(data);
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE UserEditedTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    this->ResolveByCompletion(data);
+  }
+>;

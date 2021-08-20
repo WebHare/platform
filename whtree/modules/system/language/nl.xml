@@ -2192,6 +2192,8 @@
       <text tid="editunit">Eenheid aanpassen</text>
       <text tid="override_passwordchecks">Overschrijf wachtwoordeisen</text>
       <text tid="passwordchecks">Wachtwoordeisen</text>
+      <text tid="policy">Beleid</text>
+      <text tid="usereditpolicy">Gebruikersbewerkingsbeleid</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>

@@ -1,0 +1,89 @@
+<?wh
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+
+
+STRING FUNCTION GetModuleQualifiedName(STRING resourcename, STRING name)
+{
+  IF (name != "" AND name NOT LIKE "*:*")
+    name := `${GetModuleNameFromResourcePath(resourcename)}:${name}`;
+  RETURN name;
+}
+
+/** Get the user edit policy for a user
+    @param(object %WRDSchema2017) wrdschema WRD schema
+    @param user User entityid
+    @cell(integer) options.defaultunit Unit to use when the user = 0
+    @return @includecelldef #GetUserEditPolicyByName.return
+*/
+PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(OBJECT wrdschema, INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ defaultunit :=    0 // for when user = 0
+      ], options);
+
+  STRING usereditpolicy;
+  BOOLEAN have_unit := RecordExists(wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
+  IF (have_unit)
+  {
+    INTEGER unit := user != 0
+        ? wrdschema->accounttype->GetEntityField(user, "WHUSER_UNIT")
+        : options.defaultunit;
+
+    WHILE (unit != 0)
+    {
+      RECORD data := wrdschema->^whuser_unit->GetEntityFields(unit, [ "wrd_leftentity", "usereditpolicy" ]);
+      IF (data.usereditpolicy != "")
+      {
+        usereditpolicy := data.usereditpolicy;
+        BREAK;
+      }
+      unit := data.wrd_leftentity;
+    }
+  }
+
+  RETURN GetUserEditPolicyByName(usereditpolicy);
+}
+
+/** Return the usereditpolicy by qualified name (`module:name`)
+    @param name Name of the policy
+    @return User edit policy data
+    @cell return.usereditedmanagedtask Managed task to run after editing a user
+*/
+RECORD FUNCTION GetUserEditPolicyByName(STRING name)
+{
+  RECORD retval :=
+      [ usereditedmanagedtask :=  ""
+      ];
+
+  IF (name != "")
+  {
+    retval := CELL
+        [ ...retval
+        , ...RECORD(SELECT *
+                         , DELETE tid
+                         , DELETE name
+                      FROM GetUserEditPolicies()
+                     WHERE COLUMN name = VAR name)
+        ];
+  }
+  RETURN retval;
+}
+
+/** List the available user right edit policies
+    @cell(string) options.onlymodule Only retrieve for this module
+    @return List of user edit policies @includecelldef #GetUserEditPolicyByName.return
+    @cell return.name Name of the policy
+    @cell return.tid Tid for the policy
+*/
+PUBLIC RECORD ARRAY FUNCTION GetUserEditPolicies(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD ARRAY retval;
+
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+    retval := retval CONCAT mod.usereditpolicies;
+
+  RETURN retval;
+}
