@@ -154,7 +154,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   IF(NOT options.forvalidation AND NOT IsNodeApplicableToThisWebHare(rulenode))
     RETURN retval;
 
-  IF(rule.path LIKE "*---x-trigger-a-warning-please---*")
+  IF(rule.path LIKE "*---x-trigger-a-warning-please---*") //explicit warning because we're short on permanent warnings that are not going away (ie deprecations) and need to test warning processing
     retval := AddMessage(retval, "warning", baseresource, rulenode, "This path triggered a warning");
 
   rule.vars := CELL[ ...rule.vars, modulename ];
@@ -280,8 +280,14 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
     {
       STRING trypath := `mod::${modulename}/scripts/${authscript}`;
       IF(RecordExists(RetrieveWebHareResource(trypath, [ allowmissing := TRUE ])))
+      {
+        retval := AddMessage(retval, "warning", baseresource, rulenode, `An authscript should not assume implicit insertion of a 'scripts' path`); //added in 4.33
         rule.extauthscript := trypath;
+      }
     }
+
+    IF(NOT RecordExists(RetrieveWebHareResource(rule.extauthscript, [ allowmissing := TRUE ])))
+      RETURN AddMessage(retval, "error", baseresource, rulenode, `Cannot find authscript '${rule.extauthscript}'`);
   }
 
   rule.realm := rulenode->GetAttribute("realm");

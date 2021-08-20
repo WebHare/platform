@@ -30,7 +30,7 @@
   <backend>
     <webrule path="allroots:/tollium_todd.res/consilio/auth_elastic.shtml"
              match="exact"
-             authscript="internal/auth_elastic.whscr"
+             authscript="scripts/internal/auth_elastic.whscr"
              priority="before" />
 
     <webrule path="allroots:/.px/" handlebyscript="web/resources/pxl.txt" match="initial">
