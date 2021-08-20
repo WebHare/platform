@@ -1,6 +1,6 @@
 +function(){ //scope guard - we are directly loaded into the page
 
-var websocketbase, bundleid = null, bundlecssnode;
+var websocketbase, bundleid = null, bundlecssnode, additionalbundles = [];
 var toolbar = null, toolbar_assetstatus=null, toolbar_cssreload=null, toolbar_cssreloadcheck=null,toolbar_pagereload=null;
 var toolbar_filestatus=null,toolbar_pagerepublishreload=null;
 var toolbar_resstatus=null,toolbar_resreload=null,toolbar_resreloadcheck=null;
@@ -42,6 +42,7 @@ function setupWebsocket()
     if (watchedresources.length)
       toolssocket.send(JSON.stringify({ type: 'watchresources', resources: watchedresources }));
     livesocket = toolssocket;
+    additionalbundles.forEach( function(addbundleid) { livesocket.send(JSON.stringify({ type: 'watchassetpack', uuid: addbundleid })) });
   });
   toolssocket.addEventListener('message', function(event)
   {
@@ -511,6 +512,14 @@ for(;outputtoolsnode;outputtoolsnode=outputtoolsnode.previousElementSibling)
     bundleid = toks[toks.length-2];
     break;
   }
+
+//(temporary?) hack for watching multiple bundles until/unless outputtools learns to detect these itself (ie watch for script tags appearing?)
+window.whOutputToolsAddWatchBundle = function(bundleid)
+{
+  additionalbundles.push(bundleid);
+  if(livesocket)
+    livesocket.send(JSON.stringify({ type: 'watchassetpack', uuid: bundleid }));
+};
 
 document.addEventListener("DOMContentLoaded", onDomReady);
 window.addEventListener("message", onMessage);

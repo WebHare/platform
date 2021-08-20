@@ -62,13 +62,10 @@ You can also use the `gettid` function in your JavaScript (\*.es) files. To do t
 Create a JSON file called `mysite.lang.json`. `mysite` can be anything, just make sure the file name ends with `.lang.json`.
 
 A language specification file should contain one object, with an `imports` key,
-which is an object with module names for keys and arrays of gid's for values,
-and optionally a `requires` key, which can be used to list other language files
-to be included, e.g.:
+which is an object with module names for keys and arrays of gid's for values, e.g.:
 
 ```javascript
   { "imports": { "module_name": [ "site.commontexts" ] }
-  , "requires": [ "../common.lang.json" ]
   }
 ```
 

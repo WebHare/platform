@@ -726,15 +726,6 @@ export class RTE
   {
     var returntree = this.getBody().cloneNode(true);
 
-    // undo Microsoft Lync telephone transform
-    qSA(returntree, 'span.baec5a81-e4d6-4674-97f3-e9220f0136c1').forEach(node =>
-    {
-      // Microsoft Lync transforms telephone numbers (eg xx-xx) to '<span class="baec..." ...>xx-xx<a><img></a>'
-      // Remove the <a>, replace the span with its contents
-      qSA(node, 'a').forEach(linknode => linknode.remove());
-      dompack.replace(node, Array.from(node.childNodes));
-    });
-
     //clean embedded objects
     domlevel.queryEmbeddedObjects(returntree).forEach(node =>
     {
