@@ -295,7 +295,7 @@
         allowallmethods="true"
         redirecttoscript="internal/webdavnamespace.shtml"
         primarytrans="none"
-        authscript="internal/auth/webdav.whscr"
+        authscript="scripts/internal/auth/webdav.whscr"
       />
 
       <webrule
@@ -304,7 +304,7 @@
         allowallmethods="true"
         redirecttoscript="internal/webdavnamespace.shtml"
         primarytrans="none"
-        authscript="internal/auth/webdav.whscr"
+        authscript="scripts/internal/auth/webdav.whscr"
       />
 
       <webrule
@@ -314,7 +314,7 @@
         redirecttoscript="internal/webdavnamespace.shtml"
         matchassubdir="false"
         primarytrans="none"
-        authscript="internal/auth/webdav.whscr"
+        authscript="scripts/internal/auth/webdav.whscr"
       />
     </webruleset>
 
