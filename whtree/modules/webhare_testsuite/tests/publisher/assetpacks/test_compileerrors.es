@@ -1,7 +1,9 @@
 /* globals describe it */
+// now more of a generic 'compiler issues' test
 
 const assert = require("assert");
 const fs = require("fs");
+const path = require("path");
 
 const bridge = require('@mod-system/js/wh/bridge');
 let baseconfig;
@@ -41,14 +43,18 @@ describe("test_compileerrors", (done) =>
 
   it("should properly detect broken scss", async function()
   {
-    this.timeout(60000);
+    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
 
     let result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es");
     assert(result.haserrors === true);
+    assert(Array.isArray(result.info.errors));
+    assert(result.info.errors.length >= 1);
+    assert(result.info.errors[0].message);
+    assert(result.info.errors[0].resource); //note: esbuild creates relative paths, webpack absolute paths. does this matter anywhere?
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
-    assert(filedeps.includes(__dirname + "/broken-scss/broken-scss.es"));
-    assert(filedeps.includes(__dirname + "/broken-scss/broken-scss.scss"));
+    assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.scss")));
+    assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.es")));
     assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
 
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);
@@ -56,6 +62,74 @@ describe("test_compileerrors", (done) =>
 
   });
 
+  it("Any package (or at least with ES files) includes the poyfill as dep", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es");
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
+  });
+
+  it("rpc.json files pull in system/js/wh/rpc.es as dependency", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json");
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.rpc.json")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
+  });
+
+  it("lang.json files pull in tollium/js/gettid.es as dependency", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json");
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.lang.json")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/js/gettid.es")));
+  });
+
+  it("combine-deps pulls all these in as dependencies", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es");
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.es")));
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.lang.json")));
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.rpc.json")));
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.scss")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/js/gettid.es")));
+
+    let missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    assert(missingdeps.length == 0);
+  });
+
+  it("test other tricky dependencies", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/regressions.es");
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/dompack/browserfix/reset.css")));
+  });
 
   it("cleanup", () =>
   {
@@ -63,3 +137,4 @@ describe("test_compileerrors", (done) =>
   });
 
 });
+
