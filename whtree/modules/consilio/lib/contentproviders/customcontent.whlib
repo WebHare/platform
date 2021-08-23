@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/jobs.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 
@@ -524,6 +525,8 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
   {
     IF (ObjectExists(this->job))
       this->job->Close();
+    IF (this->job_outputstream != 0)
+      ClosePipe(this->job_outputstream);
     this->job_outputstream := 0;
     this->job := DEFAULT OBJECT;
   }
