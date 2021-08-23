@@ -33,8 +33,12 @@ MACRO TestSitemapLinks()
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;
   TestEq(11, Length(SELECT FROM links WHERE fileid = pagelistfile));
-  //dumpvalue(links,'boxed');
   TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/formtest/"));
+
+  TestEq(2, Length(SELECT FROM links WHERE link LIKE "*/sub/*"));
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/staticpage/"));
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/contentlink/"));
+
   TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/StaticPage/");
   TestEq([[ changefreq := "daily",   priority := 1.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/");
   TestEq([[ changefreq := "monthly", priority := 0.8 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "TestPages/pagelisttest/sub1.html");
@@ -45,6 +49,19 @@ MACRO TestSitemapLinks()
   TestEq(RECORD[], SELECT * FROM links WHERE link LIKE "*#*");
   //of the link types (18-20) only the contentlink deserves a place in the site map
   TestEq([[ link := baseurl || "TestPages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
+
+  OBJECT foldertemplatesub := OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate/sub");
+  links := GenerateSitemapLinks(foldertemplatesub->id);
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/staticpage/"));
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/contentlink/"));
+
+  links := GenerateSitemapLinks(OpenTestsuiteSite()->id, [ skipfolderswithoutindex := TRUE ]);
+  TestEq(FALSE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/staticpage/"));
+  TestEq(FALSE, RecordExists(SELECT FROM links WHERE link LIKE "*/sub/contentlink/"));
+
+  OBJECT testpagessub := OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate/sub");
+  TestEq(2, Length(GenerateSitemapLinks(testpagessub->id)));
+  TestEq(0, Length(GenerateSitemapLinks(testpagessub->id, [ skipfolderswithoutindex := TRUE ])));
 }
 
 
