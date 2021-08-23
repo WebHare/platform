@@ -198,11 +198,6 @@ IF(previewcookie IN ["debug","devpackage"])
       WaitForCompiledAssetpack(rewritten.outputtag); // Wait for the first compile of the assetpack
     }
   }
-  ELSE IF(mimetype = "TEXT/CACHE-MANIFEST")
-  {
-    LogWebserverError("Manifest blocked in output debugmode: We do not return a manifest in output debugmode as the manifest will not contain links to the '.dev' assetpack files");
-    AbortWithHTTPError(403, "Manifest blocked in output debugmode", [htmlbody := "<h1>Manifest blocked</h1><p>We do not return a manifest in output debugmode as the manifest will not contain links to the '.dev' assetpack files</p>"]);
-  }
 }
 
 // Explicitly add HTTP response status
