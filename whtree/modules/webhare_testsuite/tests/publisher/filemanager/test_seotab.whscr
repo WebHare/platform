@@ -10,6 +10,8 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
@@ -58,6 +60,13 @@ ASYNC MACRO TestSeoSettings()
   OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := rtdtype->id, publish := TRUE ]);
 
   testfw->CommitWork();
+
+  RECORD ARRAY links := GenerateSitemapLinks(seotestroot->id);
+  TestEq(TRUE, RecordExists(SELECT FROM links WHERE link = nofollowsubfile->link));
+  TestEq(FALSE, RecordExists(SELECT FROM links WHERE link = noindexsubfile->link));
+
+  TestEq(RECORD[], GenerateSitemapLinks(noindexfolder->id), "Folder has noindex so this list should be empty");
+  TestEq(RECORD[], GenerateSitemapLinks(noindexsubfolder->id), "Parent has noindex so this list should be empty");
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindeximage->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
