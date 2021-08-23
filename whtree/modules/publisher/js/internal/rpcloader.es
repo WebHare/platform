@@ -85,7 +85,6 @@ async function runRPCLoader(context, rpcfile, callback)
 
 function webpackJSONRPCLoader(source)
 {
-  console.log(this,source);
   let callback = this.async();
   if (!callback)
     return "";
