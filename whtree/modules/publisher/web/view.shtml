@@ -193,10 +193,7 @@ IF(previewcookie IN ["debug","devpackage"])
   {
     RECORD rewritten := RewriteAssetpackCode(outgoingcontent, previewcookie="debug");
     IF(RecordExists(rewritten))
-    {
       outgoingcontent := rewritten.content;
-      WaitForCompiledAssetpack(rewritten.outputtag); // Wait for the first compile of the assetpack
-    }
   }
 }
 

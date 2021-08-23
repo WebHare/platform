@@ -123,25 +123,29 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
   OBJECT findpattern := NEW RegEx('<link rel="stylesheet" href="([^"]*)/.ap/([^/"]*)/ap.css"><script src="([^"]*)/.ap/([^/"]*)/ap.js"([^>]*)');
   STRING content := BlobToString(outgoingcontent);
   RECORD ARRAY matches := findpattern->Exec(content);
-  IF(Length(matches) > 4)
+  IF(Length(matches) > 4 AND matches[2].value NOT LIKE "*.dev")
   {
-    IF (matches[2].value NOT LIKE "*.dev")
+    STRING outputtag := matches[2].value || ".dev";
+    RECORD compileresult := WaitForCompiledAssetpack(UnmapBundleUuid(outputtag)); // Wait for the first compile of the assetpack
+
+    //matches[5] == JS options (async, crossorigin=anonymous)
+    STRING toinsert;
+    IF(matches[0].value LIKE "*/.esm-experimental/*")
     {
-      //matches[5] == JS options (async, crossorigin=anonymous)
-      STRING toinsert;
-      IF(matches[0].value LIKE "*/.esm-experimental/*")
-      {
-        toinsert := `${matches[1].value}/.ap/${matches[2].value}.dev/ap.css">`
-                    || `<script src="/.esm-experimental/!/${matches[2].value}.dev/ap.js"${matches[5].value}`;
-      }
-      ELSE
-      {
-        toinsert := `${matches[1].value}/.ap/${matches[2].value}.dev/ap.css">`
-                    || `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`
-                    || `<script src="${matches[3].value}/.ap/${matches[2].value}.dev/ap.js"${matches[5].value}`;
-      }
-      content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
+      toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
+                  || `<script src="/.esm-experimental/!/${outputtag}/ap.js"${matches[5].value}`;
     }
+    ELSE
+    {
+      STRING espolyfill;
+      IF(compileresult.lastcompiler = "webpack")
+        espolyfill := `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`;
+
+      toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
+                  || espolyfill
+                  || `<script src="${matches[3].value}/.ap/${outputtag}/ap.js"${matches[5].value}`;
+    }
+    content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
 
     STRING injection;
     IF(insertoutputtools)
@@ -158,9 +162,8 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
       outgoingcontent := StringToBlob(content);
     }
 
-    RETURN [ outputtag := UnmapBundleUuid(matches[2].value)
-           , content := outgoingcontent
-           ];
+    RETURN CELL[ content := outgoingcontent
+               ];
   }
   RETURN DEFAULT RECORD;
 }

@@ -22,29 +22,26 @@ MACRO TestViewInterceptions()
   OBJECT doc;
 
   res := RewriteAssetpackCode(StringToBlob(
-`<html><link rel="stylesheet" href="/.ap/blex_mettesites.ferretpedigrees/ap.css"><script src="/.ap/blex_mettesites.ferretpedigrees/ap.js" async></script></head><body></body></html>`),TRUE);
+`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`),TRUE);
 
   doc := MakeXMLDocumentFromHTML(res.content); //convert to HTML so we also have a validation
   Testeq(RECORD[],doc->GetParseErrors());
-  TestEq('<link href="/.ap/blex_mettesites.ferretpedigrees.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
-  TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
+  TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
   TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
   TestEq(TRUE, ObjectExists(doc->GetElementById("wh-publisher-outputtools")));
-  TestEq("blex_mettesites:ferretpedigrees", res.outputtag);
 
   res := RewriteAssetpackCode(StringToBlob(
-`<html><link rel="stylesheet" href="/.ap/blex_mettesites.ferretpedigrees/ap.css"><script src="/.ap/blex_mettesites.ferretpedigrees/ap.js" async></script></head><body></body></html>`),FALSE);
+`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`),FALSE);
 
   doc := MakeXMLDocumentFromHTML(res.content); //convert to HTML so we also have a validation
   Testeq(RECORD[],doc->GetParseErrors());
-  TestEq('<link href="/.ap/blex_mettesites.ferretpedigrees.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
+  TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
   TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
-  TestEq('<script async="" src="/.ap/blex_mettesites.ferretpedigrees.dev/ap.js"><\/script>', doc->GetElements("script")[1]->outerhtml);
+  TestEq('<script async="" src="/.ap/webhare_testsuite.basetest.dev/ap.js"><\/script>', doc->GetElements("script")[1]->outerhtml);
   TestEq(FALSE, ObjectExists(doc->GetElementById("wh-publisher-outputtools")));
-  TestEq("blex_mettesites:ferretpedigrees", res.outputtag);
 
 //  res := RewriteAssetpackCode(StringToBlob(
-//`<html><link rel="stylesheet" href="/.ap/blex_mettesites.ferretpedigrees/ap.css"><script src="/.ap/blex_mettesites.ferretpedigrees/ap.js" async></script></head>mbody></body></html>`));
+//`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head>mbody></body></html>`));
 }
 
 RECORD FUNCTION GetCSSStuff()

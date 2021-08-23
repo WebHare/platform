@@ -110,6 +110,7 @@ async function runTask(taskcontext, data)
       , haserrors:            Boolean(compileresult.err || result.errors.length)
       , info:                 result
       , compiletoken:         data.compiletoken
+      , compiler:             "webpack"
       , fullrecompile
       });
 }
