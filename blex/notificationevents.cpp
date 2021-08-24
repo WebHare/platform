@@ -17,15 +17,19 @@
 namespace Blex
 {
 
-NotificationEventQueue::NotificationEventQueue(NotificationEventManager &_eventmgr)
+NotificationEventKeeperBase::NotificationEventKeeperBase(NotificationEventManager &_eventmgr)
 : eventmgr(_eventmgr)
 {
         eventmgr.Register(this);
 }
 
-NotificationEventQueue::~NotificationEventQueue()
+NotificationEventKeeperBase::~NotificationEventKeeperBase()
 {
         eventmgr.Unregister(this);
+}
+
+NotificationEventQueue::~NotificationEventQueue()
+{
 }
 
 void NotificationEventQueue::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
@@ -92,6 +96,67 @@ void NotificationEventQueue::ModifySubscription(LockedData::WriteRef &lock, std:
         }
 }
 
+NotificationEventCollector::~NotificationEventCollector()
+{
+}
+
+void NotificationEventCollector::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
+{
+        LockedData::WriteRef lock(data);
+        if (MatchesSubscription(lock, event->name))
+        {
+                lock->events.insert(event->name);
+                SetSignalled(true);
+        }
+}
+
+std::set< std::string > NotificationEventCollector::GetEvents()
+{
+        LockedData::WriteRef lock(data);
+        std::set< std::string > toreturn = std::move(lock->events);
+        SetSignalled(false);
+        lock->events.clear();
+        return toreturn;
+}
+
+bool NotificationEventCollector::MatchesSubscription(LockedData::WriteRef &lock, std::string const &eventname) const
+{
+        EVT_PRINT("test " << eventname);
+        for (auto &itr: lock->subscriptions)
+        {
+            if (Blex::StringGlob< std::string::const_iterator >(itr.begin(), itr.end(), eventname.begin(), eventname.end(), false))
+            {
+                    EVT_PRINT(" test on " << itr << ": ok");
+                    return true;
+            }
+            EVT_PRINT(" test on " << itr << ": fail");
+        }
+        return false;
+}
+
+void NotificationEventCollector::FilterQueue(LockedData::WriteRef &lock)
+{
+        for (auto itr = lock->events.begin(), last = lock->events.end(); itr != last; )
+            if (!MatchesSubscription(lock, *itr))
+                itr = lock->events.erase(itr);
+            else
+                ++itr;
+
+        SetSignalled(!lock->events.empty());
+}
+
+void NotificationEventCollector::ModifySubscription(LockedData::WriteRef &lock, std::string const &mask, bool active)
+{
+        auto itr = std::find(lock->subscriptions.begin(), lock->subscriptions.end(), mask);
+        if ((itr == lock->subscriptions.end()) == active)
+        {
+                if (active)
+                    lock->subscriptions.push_back(mask);
+                else
+                    lock->subscriptions.erase(itr);
+        }
+}
+
 NotificationEventReceiver::NotificationEventReceiver(NotificationEventManager &_eventmgr)
 : eventmgr(_eventmgr)
 , registered(false)
@@ -138,16 +203,16 @@ void NotificationEventManager::Unregister(NotificationEventReceiver *receiver)
         lock->eventreceivers.erase(receiver);
 }
 
-void NotificationEventManager::Register(NotificationEventQueue *queue)
+void NotificationEventManager::Register(NotificationEventKeeperBase *keeper)
 {
         LockedData::WriteRef lock(data);
-        lock->queues.insert(queue);
+        lock->keepers.insert(keeper);
 }
 
-void NotificationEventManager::Unregister(NotificationEventQueue *queue)
+void NotificationEventManager::Unregister(NotificationEventKeeperBase *keeper)
 {
         LockedData::WriteRef lock(data);
-        lock->queues.erase(queue);
+        lock->keepers.erase(keeper);
 }
 
 void NotificationEventManager::SetExportCallback(ExportCallback onexport)
@@ -163,7 +228,7 @@ void NotificationEventManager::QueueEventNoExport(std::shared_ptr< NotificationE
         for (auto &itr: lock->eventreceivers)
             itr->ReceiveNotificationEvent(event->name, event->payload.begin(), event->payload.size());
 
-        for (auto &itr: lock->queues)
+        for (auto &itr: lock->keepers)
             itr->TryAddEvent(event);
 }
 
@@ -179,5 +244,11 @@ void NotificationEventManager::QueueEvent(std::shared_ptr< NotificationEvent > c
 
         QueueEventNoExport(event);
 }
+
+NotificationEventManager::EventLock NotificationEventManager::GetTemporaryEventLock()
+{
+        return EventLock(new LockedData::WriteRef(data));
+}
+
 
 } // End of namespace Blex

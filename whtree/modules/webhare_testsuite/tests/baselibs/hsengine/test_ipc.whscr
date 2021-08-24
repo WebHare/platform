@@ -473,6 +473,55 @@ MACRO TestEventStream()
   TestEQ(stream, WaitForMultiple([ stream ], INTEGER[], 0));
   __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(stream, STRING[], STRING[ "webhare_testsuit:testevent" ], FALSE);
   TestEQ(-1, WaitForMultiple([ stream ], INTEGER[], 0));
+  __HS_EVENT_CLOSESTREAM(stream);
+}
+
+BOOLEAN FUNCTION TestReadSignalled(INTEGER handle)
+{
+  RETURN WaitForMultiple([ handle ], INTEGER[], 0) = handle;
+}
+
+MACRO TestEventCollector()
+{
+  // test eventstream not becoming un-signalled when subscription removes last event from queue
+  INTEGER collector := __HS_EVENT_CREATECOLLECTOR(STRING[]);
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  TestEQ(FALSE, TestReadSignalled(collector));
+  TestEQ(STRING[], __HS_EVENT_COLLECTORREAD(collector));
+  __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(collector, [ "*" ], STRING[], FALSE);
+  TestEQ(FALSE, TestReadSignalled(collector));
+  BroadCastEvent("webhare_testsuit:testevent2",  DEFAULT RECORD);
+  TestEQ(TRUE, TestReadSignalled(collector));
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  BroadCastEvent("webhare_testsuit:testevent3",  DEFAULT RECORD);
+  TestEQ(STRING[ "webhare_testsuit:testevent", "webhare_testsuit:testevent2", "webhare_testsuit:testevent3" ], __HS_EVENT_COLLECTORREAD(collector));
+  TestEQ(FALSE, TestReadSignalled(collector));
+  TestEQ(STRING[], __HS_EVENT_COLLECTORREAD(collector), "Read should have cleared the collector");
+
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  BroadCastEvent("webhare_testsuit:testevent2",  DEFAULT RECORD);
+  __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(collector, [ "webhare_testsuit:testevent", "webhare_testsuit:testevent3" ], STRING[], TRUE);
+  TestEQ(TRUE, TestReadSignalled(collector));
+  TestEQ(STRING[ "webhare_testsuit:testevent" ], __HS_EVENT_COLLECTORREAD(collector));
+
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  BroadCastEvent("webhare_testsuit:testevent3",  DEFAULT RECORD);
+  __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(collector, [ "webhare_testsuit:testevent2" ], [ "webhare_testsuit:testevent3" ], FALSE);
+  TestEQ(TRUE, TestReadSignalled(collector));
+  BroadCastEvent("webhare_testsuit:testevent2",  DEFAULT RECORD);
+  BroadCastEvent("webhare_testsuit:testevent3",  DEFAULT RECORD);
+  TestEQ(STRING[ "webhare_testsuit:testevent", "webhare_testsuit:testevent2" ], __HS_EVENT_COLLECTORREAD(collector));
+  __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(collector, STRING[], STRING[], TRUE);
+  TestEQ(FALSE, TestReadSignalled(collector));
+
+  __HS_EVENT_CLOSECOLLECTOR(collector);
+
+  collector := __HS_EVENT_CREATECOLLECTOR([ "*"] );
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  TestEQ(TRUE, TestReadSignalled(collector));
+  TestEQ(STRING[ "webhare_testsuit:testevent" ], __HS_EVENT_COLLECTORREAD(collector));
+  __HS_EVENT_CLOSECOLLECTOR(collector);
 }
 
 PRINT("\n === Running TestIPC\n");
@@ -484,3 +533,4 @@ ImmediateBroadcastCallbackTest();
 AsyncFunctionsTest();
 TestEventManager();
 TestEventStream();
+TestEventCollector();

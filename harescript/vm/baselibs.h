@@ -507,6 +507,30 @@ class EventStream : public HareScript::OutputObject
         }
 };
 
+/** Listener outputobject (used to be able to wait on connections, for
+    notifications, asks and tells)
+*/
+class EventCollector : public HareScript::OutputObject
+{
+    private:
+        Blex::NotificationEventCollector collector;
+
+    public:
+        EventCollector(HSVM *vm, Blex::NotificationEventManager &_eventmgr);
+        ~EventCollector();
+
+        bool AddToWaiterRead(Blex::PipeWaiter &waiter);
+        void RemoveFromWaiterRead(Blex::PipeWaiter &waiter);
+        HareScript::OutputObject::SignalledStatus IsReadSignalled(Blex::PipeWaiter *waiter);
+
+        void GetItems(HSVM_VariableId id_set);
+
+        template< class Itr > void ModifySubscriptions(Itr add_begin, Itr add_end, Itr remove_begin, Itr remove_end, bool reset)
+        {
+                collector.ModifySubscriptions(add_begin, add_end, remove_begin, remove_end, reset);
+        }
+};
+
 /** Our own context data.. */
 struct SystemContextData
 {
@@ -556,6 +580,7 @@ struct SystemContextData
         std::map<int, CompressingStreamPtr> compressingstreams;
         std::map<int, DecompressingStreamPtr> decompressingstreams;
         std::map< int32_t, std::shared_ptr< EventStream > > eventstreams;
+        std::map< int32_t, std::shared_ptr< EventCollector > > eventcollectors;
 
         SystemContextData();
 
