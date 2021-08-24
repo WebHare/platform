@@ -68,6 +68,8 @@ class AdhocCache : public Blex::NotificationEventReceiver
                 uint32_t min_entries_per_library;
         };
 
+        Blex::NotificationEventManager &eventmgr;
+
         typedef Blex::InterlockedData< CacheData, Blex::Mutex > LockedCacheData;
         LockedCacheData lockedcachedata;
 
@@ -84,7 +86,7 @@ class AdhocCache : public Blex::NotificationEventReceiver
         ~AdhocCache();
 
         bool GetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId result, HashTag *store_hash);
-        void SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId date, Blex::DateTime expiry, std::vector< std::string > const &eventmasks);
+        void SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId date, Blex::DateTime expiry, std::vector< std::string > const &eventmasks);
         void GetStats(HareScript::VirtualMachine *vm, HSVM_VariableId id_set);
         void InvalidateAll();
         void TwistKnobs(int32_t max_entries, int32_t min_entries_per_library);
