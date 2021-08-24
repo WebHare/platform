@@ -1329,24 +1329,6 @@ STATIC OBJECTTYPE AssetPackController
     BroadcastEvent("publisher:assetpackcontrol.change.all", DEFAULT RECORD);
   }
 
-  PUBLIC RECORD FUNCTION GetSpecificBundle(STRING outputtag)
-  {
-    RECORD ARRAY matches := ListUUIDMatches(this->bundles, outputtag);
-    IF(Length(matches) > 1 OR Length(matches)=0)
-      RETURN [ bundle := DEFAULT RECORD ];
-
-    RECORD bundle := this->CheckBundle(matches[0]);
-    IF(NOT RecordExists(bundle))
-      THROW NEW Exception("The bundle is not compilable");
-
-    IF (bundle.hasstatus)
-      THROW NEW Exception("Error: " || bundle.error);
-
-    RETURN [ bundle := bundle
-           , baseconfig := GetAssetpacksBaseConfig()
-           ];
-  }
-
   PUBLIC RECORD FUNCTION GetStatus()
   {
     RECORD status := [ bundles := (SELECT TEMPORARY watchcountpos := RecordLowerBound(this->watchcounts, bundles, [ "OUTPUTTAG" ])
@@ -1657,11 +1639,6 @@ OBJECTTYPE AssetPackControl
   OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
   {
     RETURN controller->GetAdhocBundle(bundle);
-  }
-
-  PUBLIC RECORD FUNCTION GetSpecificBundle(STRING outputtag)
-  {
-    RETURN controller->GetSpecificBundle(outputtag);
   }
 
   /** Returns the current status of the assetpack controller
