@@ -39,7 +39,6 @@ STATIC OBJECTTYPE GetconfigPortHandler EXTEND IPCPortHandlerBase
     CreateDiskDirectoryRecursive(MergePath(GetWebHareConfiguration().varroot, "system.cache"),TRUE);
     this->saved_configpath := MergePath(GetWebHareConfiguration().varroot, "system.cache/webserver-config");
 
-    EnsureWHFSCacheListener(); //avoid inversion of run order between our OnRefresh and teh internal.siteprofiles.recompiled listener in this function
     RegisterMultiEventCallback("publisher:internal.siteprofiles.recompiled", PTR this->OnRefresh);
 
     this->DoInitialLoad();

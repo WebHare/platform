@@ -3,6 +3,8 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -11,11 +13,29 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-BOOLEAN registeredtypechangelistener;
+
 PUBLIC RECORD ARRAY whfscache_loadedwhfstypes;
 PUBLIC RECORD whfscache_csp;
 
-MACRO RefreshWHFSCache(STRING event, RECORD ARRAY msg)
+INTEGER whfscache_eventcollector;
+
+/// Call this before using whfscache_loadedwhfstypes and whfscache_csp
+PUBLIC MACRO CheckWHFSCache()
+{
+  IF (whfscache_eventcollector = 0)
+  {
+    // Assume the caches will be filled after this call, so listening for
+    // events is needed
+    whfscache_eventcollector := __HS_EVENT_CREATECOLLECTOR(
+        [ "publisher:internal.siteprofiles.recompiled"
+        , "publisher:internal.siteprofiles.memberschanged"
+        ]);
+  }
+  ELSE IF (IsValueSet(__HS_EVENT_COLLECTORREAD(whfscache_eventcollector)))
+    RefreshWHFSCache();
+}
+
+MACRO RefreshWHFSCache()
 {
   RECORD ARRAY new_loadedwhfstypes;
   FOREVERY (RECORD rec FROM whfscache_loadedwhfstypes)
@@ -31,17 +51,6 @@ MACRO RefreshWHFSCache(STRING event, RECORD ARRAY msg)
 
   whfscache_csp := DEFAULT RECORD; //force it to be reloaded next use
 }
-
-PUBLIC MACRO EnsureWHFSCacheListener()
-{
-  IF(registeredtypechangelistener)
-    RETURN;
-
-  RegisterMultiEventCallback("publisher:internal.siteprofiles.memberschanged", PTR RefreshWHFSCache);
-  registeredtypechangelistener := TRUE;
-}
-
-
 
 
 PUBLIC BOOLEAN debugmapping := FALSE;
