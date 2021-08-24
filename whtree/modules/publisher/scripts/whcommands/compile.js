@@ -10,7 +10,7 @@ async function main(bundlename)
 {
   var taskcontext = {};
   let data = { directcompile:true };
-  let assetCompiler = require('@mod-publisher/js/internal/assetpackcompile.es');
+  let assetCompiler = require('@mod-publisher/js/internal/assetcompile.es');
 
   await bridge.connect();
   let baseconfig = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetAssetpacksBaseConfig');

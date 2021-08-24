@@ -1106,20 +1106,25 @@ STATIC OBJECTTYPE AssetPackController
     }
 
     // Apply the result to the bundles list.
+    RECORD compileresult :=
+        CELL[ haserrors
+            , lastcompile :=   now
+            , lastcompiletoken := message.compiletoken
+            , lastcompiler :=  CellExists(message, 'compiler') ? message.compiler : bundle.lastcompiler
+            ];
+
     RECORD changes :=
-        [ hasstatus :=     TRUE
-        , iscompiling :=   FALSE
-        , haserrors :=     haserrors
-        , stats :=         message.stats
-        , statsjson :=     message.statsjson
-        , errors :=        message.errors
-        , info :=          message.info
-        , lastcompile :=   now
-        , lastcompiletoken := message.compiletoken
-        , dependencies :=  rec.dependencies
-        , masks :=         rec.masks
-        , generatedassets := generatedassets
-        ];
+        CELL[ ...compileresult
+            , hasstatus :=     TRUE
+            , iscompiling :=   FALSE
+            , stats :=         message.stats
+            , statsjson :=     message.statsjson
+            , errors :=        message.errors
+            , info :=          message.info
+            , dependencies :=  rec.dependencies
+            , masks :=         rec.masks
+            , generatedassets := generatedassets
+            ];
 
     UPDATE this->bundles
        SET RECORD changes
@@ -1145,7 +1150,7 @@ STATIC OBJECTTYPE AssetPackController
     {
       // Notify compilation waiters
       FOREVERY (RECORD waitrec FROM SELECT * FROM this->compilewaits WHERE outputtag = message.bundle)
-        waitrec.resolve([ haserrors := haserrors, lastcompile := now, lastcompiletoken := message.compiletoken, outputtag := message.bundle ]);
+        waitrec.resolve(CELL[ ...compileresult, outputtag := message.bundle ]);
       DELETE FROM this->compilewaits WHERE outputtag = message.bundle;
     }
 
@@ -1190,6 +1195,7 @@ STATIC OBJECTTYPE AssetPackController
         , info :=             bundle.info
         , lastcompile :=      bundle.lastcompile
         , lastcompiletoken := bundle.lastcompiletoken
+        , lastcompiler :=     bundle.lastcompiler
         , requirecompile :=   bundle.requirecompile
         , dependencies :=     bundle.dependencies
         , generatedassets :=  bundle.generatedassets
@@ -1249,6 +1255,7 @@ STATIC OBJECTTYPE AssetPackController
                  , iscompiling :=         FALSE
                  , lastcompile :=         DEFAULT DATETIME
                  , lastcompiletoken :=    ""
+                 , lastcompiler :=        ""
                  , outputpath :=          outputpath
                  , found :=               FALSE
                  , masks :=               DEFAULT STRING ARRAY
@@ -1312,6 +1319,7 @@ STATIC OBJECTTYPE AssetPackController
         rec.resolve([ haserrors := TRUE
                     , lastcompile := GetCurrentDatetime()
                     , lastcompiletoken := ""
+                    , lastcompiler := ""
                     , outputtag := rec.outputtag
                     ]);
         DELETE FROM this->compilewaits WHERE bundleid = rec.outputtag;
@@ -1435,7 +1443,7 @@ STATIC OBJECTTYPE AssetPackController
   OBJECT FUNCTION DoWait(RECORD bundle, BOOLEAN acceptstale)
   {
     IF (bundle.lastcompile != DEFAULT DATETIME AND (acceptstale OR (NOT bundle.iscompiling AND NOT bundle.requirecompile)))
-      RETURN CreateResolvedPromise([ haserrors := bundle.haserrors, lastcompile := bundle.lastcompile, lastcompiletoken := bundle.lastcompiletoken, outputtag := bundle.outputtag ]);
+      RETURN CreateResolvedPromise(CELL[ bundle.haserrors, bundle.lastcompile, bundle.lastcompiletoken, bundle.lastcompiler, bundle.outputtag ]);
 
     RETURN this->CreateCompilePromise(bundle.outputtag);
   }
