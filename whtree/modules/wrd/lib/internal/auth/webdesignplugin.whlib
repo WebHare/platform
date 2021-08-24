@@ -701,7 +701,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
                                , persistent := FALSE
-                               ], options);
+                               , firstloginfield := ""
+                               , lastloginfield := ""
+                               ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
     this->GetSupportObject(); // initialize loginfilter
@@ -730,13 +732,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       IF (options.setcookies)
         this->UpdateUserInfo();
-
-      IF (CellExists(options, "SAMLIDPREQ") AND options.samlidpreq != "")
-      {
-        RECORD samlreq := DecryptForThisServer("wrd:samlauth", options.samlidpreq);
-        submitinstruction := GenerateSAMLLoginResponse(this, samlreq);
-        LogRPCTraffic("wrd:saml", "ssoservice", TRUE, GetClientRemoteIp(), samlreq.ti, submitinstruction);
-      }
     }
 
     INSERT CELL submitinstruction := submitinstruction INTO trylogin;
