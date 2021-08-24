@@ -486,3 +486,21 @@ module.exports.readLanguageFile = readLanguageFile;
 module.exports.parseLanguageFile = parseLanguageFile;
 module.exports.generateTexts = generateTexts;
 module.exports.overrideFile = overrideFile;
+
+module.exports.getESBuildPlugin = (config) => ({
+    name: "languagefile",
+    setup: function (build)
+    {
+      build.onLoad({ filter: /.\.lang\.json$/, namespace: "file" }, async (args) =>
+      {
+        let source = await fs.promises.readFile(args.path);
+        let result = await runLangLoader(config, args.path, source, null);
+
+        return { contents: result.output
+               , warnings: result.warnings.map(_ => ({text:_}))
+               , errors: result.errors.map(_ => ({text:_}))
+               };
+      });
+    },
+});
+

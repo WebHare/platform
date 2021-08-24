@@ -985,7 +985,7 @@ STATIC OBJECTTYPE AssetPackController
 
   /** Upon compile success, move all newly generated files to the output directory
   */
-  MACRO MoveGeneratedFiles(RECORD bundle)
+  MACRO MoveGeneratedFiles(RECORD bundle, STRING usedcompiler)
   {
     STRING builddir := MergePath(bundle.outputpath, "build");
     CreateDiskDirectory(Mergepath(bundle.outputpath,"st"), TRUE);
@@ -999,8 +999,13 @@ STATIC OBJECTTYPE AssetPackController
       IF (rec.name = "records.json")
         CONTINUE;
 
-      STRING outpath := rec.name LIKE "ap.*" OR rec.name LIKE "apmanifest.json*" ? rec.name : "st/" || rec.name;
-      STRING destpath := MergePath(bundle.outputpath, outpath);
+      STRING outpath;
+      IF(usedcompiler = "esbuild")
+        outpath := ToLowercase(rec.name );
+      ELSE
+        outpath := rec.name LIKE "ap.*" OR rec.name LIKE "apmanifest.json*" ? rec.name : "st/" || rec.name;
+
+      STRING destpath := MergePath(bundle.outputpath, ToLowercase(outpath));
       IF(NOT MoveDiskPath(rec.path, destpath))
       {
         IF (debug)
@@ -1101,7 +1106,7 @@ STATIC OBJECTTYPE AssetPackController
     RECORD ARRAY generatedassets;
     IF (NOT haserrors)
     {
-      this->MoveGeneratedFiles(bundle);
+      this->MoveGeneratedFiles(bundle, message.compiler);
       generatedassets := this->ListAssetsOnDisk(bundle);
     }
 
