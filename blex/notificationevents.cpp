@@ -25,11 +25,16 @@ NotificationEventKeeperBase::NotificationEventKeeperBase(NotificationEventManage
 
 NotificationEventKeeperBase::~NotificationEventKeeperBase()
 {
+}
+
+void NotificationEventKeeperBase::Unregister()
+{
         eventmgr.Unregister(this);
 }
 
 NotificationEventQueue::~NotificationEventQueue()
 {
+        Unregister();
 }
 
 void NotificationEventQueue::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
@@ -98,6 +103,7 @@ void NotificationEventQueue::ModifySubscription(LockedData::WriteRef &lock, std:
 
 NotificationEventCollector::~NotificationEventCollector()
 {
+        Unregister();
 }
 
 void NotificationEventCollector::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
@@ -115,6 +121,7 @@ std::set< std::string > NotificationEventCollector::GetEvents()
         LockedData::WriteRef lock(data);
         std::set< std::string > toreturn = std::move(lock->events);
         SetSignalled(false);
+        // contents are undefined after move, so do explicit clear
         lock->events.clear();
         return toreturn;
 }

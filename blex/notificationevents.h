@@ -42,6 +42,9 @@ class BLEXLIB_PUBLIC NotificationEventKeeperBase: public Blex::StatefulEvent
     protected:
         NotificationEventManager &eventmgr;
 
+        /// Call to unregister
+        void Unregister();
+
         /// Adds an event to the queue, but only if it matches the registration masks
         virtual void TryAddEvent(std::shared_ptr< NotificationEvent > const &event) = 0;
 
