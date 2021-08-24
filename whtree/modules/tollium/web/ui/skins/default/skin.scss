@@ -259,7 +259,7 @@ t-hr:before
 div.closewindow
 {
   opacity:0.7;
-  background-image: url(/.tollium/ui/skins/default/closebutton.16x16.svg);
+  background-image: url(./closebutton.16x16.svg);
 }
 /* line 201, http://webhare.moe.sf.b-lex.com/.tollium/ui/skins/default/skin.less */
 div.closewindow:hover
@@ -769,7 +769,7 @@ html.previewframe body
 
 html.previewframe #bg
 {
-  background: url("/.webhare/direct/publisher/rabbit-placeholder.png") no-repeat center;
+  background: url("~@mod-system/web/global/direct/publisher/rabbit-placeholder.png") no-repeat center;
   background-size: contain;
   position: absolute;
   height:50%;
