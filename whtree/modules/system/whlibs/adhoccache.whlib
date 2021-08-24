@@ -3,10 +3,11 @@
 
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
 //FIXME these should be in libvm, but are in libwebhare at this moment...
 RECORD FUNCTION GetAdhocCacheData(RECORD cachetag) __ATTRIBUTES__(EXTERNAL);
-MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING ARRAY eventmasks) __ATTRIBUTES__(EXTERNAL);
+MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING ARRAY eventmasks, INTEGER eventcollector) __ATTRIBUTES__(EXTERNAL);
 
 /** Get a value from cachegetter, first looking at a cache (every calling whlib has its own cache)
     @param cachetag Tag that uniquely identifies the result (local per calling whlib)
@@ -37,6 +38,7 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
 
   OBJECT lock;
   OBJECT innerlock;
+  INTEGER eventcollector;
   TRY
   {
     IF (exclusive)
@@ -61,6 +63,9 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       IF (result.found)
         RETURN result.value;
     }
+
+    // Start listening for events
+    eventcollector := __HS_EVENT_CREATECOLLECTOR([ "*" ]);
 
     VARIANT gotresult := cachegetter();
     DATETIME expires;
@@ -99,12 +104,21 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       eventmasks := gotresult.eventmasks;
     }
 
-    SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks);
+    // SetAdhocCacheData takes extra locks when using the collector, avoid that if possible
+    IF (IsValueSet(eventmasks))
+    {
+      __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(eventcollector, eventmasks, STRING[], TRUE);
+      SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks, eventcollector);
+    }
+    ELSE
+      SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks, 0);
 
     RETURN gotresult.value;
   }
   FINALLY
   {
+    IF (IsValueSet(eventcollector))
+      __HS_EVENT_CLOSECOLLECTOR(eventcollector);
     IF (ObjectExists(innerlock))
       innerlock->Close();
     IF (ObjectExists(lock))
@@ -166,6 +180,6 @@ PUBLIC MACRO StoreAdhocCached(RECORD cachetag, RECORD storevalue)
       THROW NEW Exception("Invalid storevalue passed to StoreAdhocCached: when no TTL is given, at least one eventmask is required");
   }
 
-  SetAdhocCacheData(cachetag, storevalue.value, expires, eventmasks);
+  SetAdhocCacheData(cachetag, storevalue.value, expires, eventmasks, 0);
 }
 

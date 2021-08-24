@@ -231,8 +231,6 @@ MACRO EventInvalidationTest()
   seenvalues := DEFAULT INTEGER ARRAY;
   BroadcastEvent("beta:adhoccache_event", DEFAULT RECORD);
 
-  Sleep(100); // Let the event be handled and such, hopefully this is enough time
-
   x := GetDataWithEventInvalidation(12);
 
   TestEq(24, x);
@@ -241,12 +239,18 @@ MACRO EventInvalidationTest()
   //this will trigger an empty eventmasks list, should not crash
   x := GetDataWithEventInvalidation(-1);
   TestEq(-2,x);
-}
 
+  // Test ignoring adhoccache store when invalidation event arrived during the data calculation
+  TestEQ([ value := 2, gen := 1 ], GetDataWithEventInvalidation2(1, [ value := 2, callback := PTR BroadcastEvent("beta:adhoccache_event", DEFAULT RECORD) ]));
+  TestEQ([ value := 3, gen := 1 ], GetDataWithEventInvalidation2(1, [ value := 3 ]), "Previous call shouldn't have stored in the cache");
+  TestEQ([ value := 3, gen := 1 ], GetDataWithEventInvalidation2(1, [ value := 4 ]));
+  BroadcastEvent("beta:adhoccache_event", DEFAULT RECORD);
+  TestEQ([ value := 5, gen := 1 ], GetDataWithEventInvalidation2(1, [ value := 5 ]));
+}
 
 RECORD FUNCTION GetCacheableStuff(INTEGER id)
 {
- RETURN [ eventmasks := [ "webhare_testsuite:localeventtest" ]
+  RETURN [ eventmasks := [ "webhare_testsuite:localeventtest" ]
          , value := id
          , ttl := 60000
          ];

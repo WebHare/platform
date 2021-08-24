@@ -70,7 +70,7 @@ void ScriptContextData::UpdateAuthenticationRecord(HSVM *vm)
 }
 
 AdhocCache::AdhocCache(Connection &conn)
-: Blex::NotificationEventReceiver(conn.GetNotificationEventMgr())
+: NotificationEventReceiver(conn.GetNotificationEventMgr())
 {
         {
                 LockedCacheData::WriteRef lock(lockedcachedata);
@@ -236,7 +236,7 @@ bool AdhocCache::RemoveEntry(LockedCacheData::WriteRef &lock, LibraryURI const &
         return true;
 }
 
-void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId data, Blex::DateTime expiry, EventMasks const &eventmasks)
+void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachetag, int32_t eventcollector, LibraryURI const &library, Blex::DateTime const &librarymodtime, HSVM_VariableId data, Blex::DateTime expiry, EventMasks const &eventmasks)
 {
         HareScript::StackMachine &stackm = vm->GetStackMachine();
         HareScript::Marshaller &marshaller = vm->GetCacheMarshaller();
@@ -245,6 +245,17 @@ void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachet
 
         std::shared_ptr< HareScript::MarshalPacket const > packet;
         packet.reset(marshaller.WriteToNewPacket(data));
+
+        HareScript::OutputObject *collector = eventcollector != 0 ? vm->GetOutputObject(eventcollector, false) : nullptr;
+
+        Blex::NotificationEventManager::EventLock lock;
+        if (collector)
+        {
+                // Get a lock on event dispatching so there won't be events that are delivered to the adhoccache but not to the collector
+                lock = eventmgr.GetTemporaryEventLock();
+                if (collector->IsReadSignalled(nullptr) != HareScript::OutputObject::NotSignalled)
+                    return;
+        }
 
         {
                 LockedCacheData::WriteRef lock(lockedcachedata);
@@ -737,7 +748,7 @@ void SetAdhocCacheData(HSVM *vm)
         std::sort(eventmasks.begin(), eventmasks.end());
         eventmasks.erase(std::unique(eventmasks.begin(), eventmasks.end()), eventmasks.end());
 
-        cache.SetEntry(HareScript::GetVirtualMachine(vm), HSVM_Arg(0), scriptcontext->adhoclibrary, scriptcontext->adhoclibrarymodtime, HSVM_Arg(1), Blex::DateTime(daysvalue, msecsvalue), eventmasks);
+        cache.SetEntry(HareScript::GetVirtualMachine(vm), HSVM_Arg(0), HSVM_IntegerGet(vm, HSVM_Arg(4)), scriptcontext->adhoclibrary, scriptcontext->adhoclibrarymodtime, HSVM_Arg(1), Blex::DateTime(daysvalue, msecsvalue), eventmasks);
 }
 
 void GetAdhocCacheStats(HSVM *vm, HSVM_VariableId id_set)
@@ -1137,7 +1148,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata,"__SYSTEM_WHCOREPARAMETERS::R:", GetWHCoreParameters);
 
         HSVM_RegisterFunction(regdata,"GETADHOCCACHEDATA::R:R", GetAdhocCacheData);
-        HSVM_RegisterMacro(regdata,"SETADHOCCACHEDATA:::RVDSA", SetAdhocCacheData);
+        HSVM_RegisterMacro(regdata,"SETADHOCCACHEDATA:::RVDSAI", SetAdhocCacheData);
         HSVM_RegisterFunction(regdata,"GETADHOCCACHESTATS::R:", GetAdhocCacheStats);
         HSVM_RegisterMacro(regdata,"INVALIDATEADHOCCACHE:::", InvalidateAdhocCache);
         HSVM_RegisterMacro(regdata,"__SYSTEM_SETUPADHOCCACHE:::II", SetupAdhocCache);

@@ -58,6 +58,29 @@ PUBLIC INTEGER FUNCTION GetDataWithEventInvalidation(INTEGER id)
   RETURN GetAdhocCached([id:=id], PTR CalcDataWithEvent(id));
 }
 
+INTEGER gen;
+
+RECORD FUNCTION CalcDataWithEvent2(RECORD options)
+{
+  IF (IsValueSet(options.callback))
+    options.callback();
+
+  gen := gen + 1;
+  RETURN CELL[ eventmasks := [ "beta:adhoccache_event" ], value := CELL[ options.value, gen ] ];
+}
+
+PUBLIC RECORD FUNCTION GetDataWithEventInvalidation2(INTEGER keydata, RECORD options)
+{
+  options := ValidateOptions(
+      [ value :=    0
+      , callback := DEFAULT FUNCTION PTR
+      , gen := 0
+      ], options);
+
+  gen := options.gen;
+  RETURN GetAdhocCached(CELL[ keydata ], PTR CalcDataWithEvent2(options));
+}
+
 PUBLIC MACRO InvalidateData(INTEGER id)
 {
   InvalidateAdhocCache();
