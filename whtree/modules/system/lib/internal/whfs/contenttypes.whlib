@@ -1908,6 +1908,8 @@ PUBLIC MACRO RegisterWHFSType(RECORD typeinfo)
 */
 PUBLIC OBJECT FUNCTION OpenWHFSTypeById(INTEGER getid)
 {
+  CheckWHFSCache();
+
   RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE id=getid;
   IF(RecordExists(entry))
   {
@@ -1929,9 +1931,12 @@ OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
 
   OBJECT rettype := NEW WHFSType(entry);
 
-  EnsureWHFSCacheListener();
-  INSERT CELL obj := WEAKOBJECT(rettype) INTO entry;
-  INSERT entry INTO whfscache_loadedwhfstypes AT END;
+  IF (entry.id != 0)
+  {
+    INSERT CELL obj := WEAKOBJECT(rettype) INTO entry;
+    INSERT entry INTO whfscache_loadedwhfstypes AT END;
+  }
+
   RETURN rettype;
 }
 
@@ -1962,6 +1967,8 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
                             , ispublishedassubdir := FALSE
                             ]);
   }
+
+  CheckWHFSCache();
 
   RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
   IF(RecordExists(entry))

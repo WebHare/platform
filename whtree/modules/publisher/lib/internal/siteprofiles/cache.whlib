@@ -1,19 +1,23 @@
 <?wh
+
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "wh::internal/interface.whlib";
+
 
 PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
 {
+  CheckWHFSCache();
+
   StoreAdhocCached([ type := "siteprofiles" ],
       [ ttl :=          60 * 60 * 1000 // 1 hour
       , value :=        data
       , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
       ]);
   whfscache_csp := data;
-  EnsureWHFSCacheListener();
 }
 
 RECORD FUNCTION DoGetCacheableSiteProfiles()
@@ -40,11 +44,11 @@ RECORD FUNCTION GetCacheableSiteProfiles()
 
 PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
 {
-  IF(NOT RecordExists(whfscache_csp))
-  {
+  CheckWHFSCache();
+
+  IF (NOT RecordExists(whfscache_csp))
     whfscache_csp := GetAdhocCached([ type := "siteprofiles" ], PTR GetCacheableSiteProfiles);
-    EnsureWHFSCacheListener();
-  }
+
   RETURN whfscache_csp;
 }
 
