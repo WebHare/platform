@@ -229,8 +229,8 @@ void HS_Event_CollectorModifySubscriptions(VirtualMachine *vm)
                 return;
         }
 
-        auto middle = masks.begin() + add_size;
-        itr->second->ModifySubscriptions(masks.begin(), middle, middle, masks.end(), reset);
+        auto start_remove_masks = masks.begin() + add_size;
+        itr->second->ModifySubscriptions(masks.begin(), start_remove_masks, start_remove_masks, masks.end(), reset);
 }
 
 void HS_Event_CollectorRead(VarId id_set, VirtualMachine *vm)
