@@ -1,4 +1,11 @@
+@import '~@mod-publisher/js/forms/styles';
+
 html
 {
   background: #cofefe;
+}
+.test_external_asset_scss
+{
+  //we currently have no way to validate urls like this, they may eg appear out of access rules.
+  background: url(/.mydesign/test_external_asset_scss.png);
 }
