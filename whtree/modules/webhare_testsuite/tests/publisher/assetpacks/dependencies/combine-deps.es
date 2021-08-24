@@ -8,4 +8,6 @@ import './base-for-deps.rpc.json';
 import './deeper/direct-deeper.css';
 import './deeper/direct-deeper.scss';
 
-// require('@mod-tollium/web/ui/skins/default/controls.scss');
+import "modtest";
+import "modtest/modtest.es";
+import "./deeper/find-modtest2";
