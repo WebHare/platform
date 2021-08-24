@@ -68,8 +68,6 @@ class AdhocCache : public Blex::NotificationEventReceiver
                 uint32_t min_entries_per_library;
         };
 
-        Blex::NotificationEventManager &eventmgr;
-
         typedef Blex::InterlockedData< CacheData, Blex::Mutex > LockedCacheData;
         LockedCacheData lockedcachedata;
 

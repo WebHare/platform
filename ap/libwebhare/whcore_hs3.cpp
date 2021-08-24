@@ -71,7 +71,6 @@ void ScriptContextData::UpdateAuthenticationRecord(HSVM *vm)
 
 AdhocCache::AdhocCache(Connection &conn)
 : NotificationEventReceiver(conn.GetNotificationEventMgr())
-, eventmgr(conn.GetNotificationEventMgr())
 {
         {
                 LockedCacheData::WriteRef lock(lockedcachedata);
