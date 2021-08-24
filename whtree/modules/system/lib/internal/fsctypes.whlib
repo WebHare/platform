@@ -8,18 +8,11 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 */
 PUBLIC BOOLEAN uncommitted_fstypes_changes;
 
-//PUBLIC RECORD ARRAY whfstypecache; //FIXME How to ensure flushing after a commit?! Does that even matter?
-
 PUBLIC BOOLEAN FUNCTION IsArrayVersionOf(INTEGER soloversion, INTEGER arrayversion)
 {
   RETURN (soloversion IN [1,2] AND arrayversion IN [3,14])
          OR (soloversion = 11 AND arrayversion = 13);
 }
-/*
-PUBLIC MACRO FlushContentTypeCache()
-{
-  whfstypecache:=DEFAULT RECORD ARRAY;
-}*/
 
 /** Return the members of a type, sorted on (parent,name)
     @return

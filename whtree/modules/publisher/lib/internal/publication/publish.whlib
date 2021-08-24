@@ -44,23 +44,9 @@ PUBLIC STATIC OBJECTTYPE Reader
   {
     DEBUGPRINT("Run " || Fileid);
 
-    /* We must prevent a race where files are already queued for publication,
-       but siteprofile compilation will be occcuring in the next transaction
-
-       Wait for any pending siteprofile compilations to complete.
-    */
-    OpenLockManager()->LockMutex("system:siteprofrecompile")->Close();
-
-    /* FIXME this broadcast shouldn't be needed? but without it socialite.test_plugins
-       fails when run on a fresh database. it looks like this introduces a point
-       for siteprofile adhoccache fluches to reach us, and the above statement doesn't */
-    BroadcastLocalEvent("publisher:startpublication", DEFAULT RECORD);
-
     this->fileid := fileid;
     this->allpubssize := 0;
     INTEGER retval := -1;
-
-//    FlushContentTypeCache(); //FIXME need better siteprofile data invalidations
 
     TRY
     {
