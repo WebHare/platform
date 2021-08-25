@@ -1573,7 +1573,6 @@ STATIC OBJECTTYPE WHFSType
       @param idcellname Name of the cell in the inrows that contain the fs_object id. Append '[]' if the cell is an array of values, use `<cellname>.<innerarray>` to enrich inner arrays.
       @param fields Fields to retrieve
       @param options Options
-      @cell(boolean) options.rightouterjoin No effect - getting instancedata always succeeds.
       @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name (when the idcell is an array, insert enriched values into this cell).
       @cell(boolean) options.rightouterjoin No effect - getting instancedata always succeeds.
       @cell(boolean) options.orphans Get orphan members too

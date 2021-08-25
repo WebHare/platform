@@ -114,12 +114,12 @@ VARIANT FUNCTION CallAndRetryOnConnectionFailure(FUNCTION PTR fptr)
   }
 }
 
-RECORD FUNCTION GetPackingInfo(RECORD requestedbundle, BOOLEAN wait)
+RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
 {
   TRY
   {
     OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    RECORD bundle := WaitForPromise(service->GetBundle(requestedbundle, [ nowait := NOT wait ]));
+    RECORD bundle := WaitForPromise(service->GetBundle(requestedbundle, [ nowait := FALSE ]));
     service->CloseService();
     INSERT CELL stale := FALSE INTO bundle;
     RETURN [ ttl := 15 * 60 * 1000
@@ -197,16 +197,6 @@ STATIC OBJECTTYPE Resolver
       INSERT require INTO this->requestedbundle.bundleconfig.extrarequires AT END;
   }
 
-  PUBLIC STRING FUNCTION GetOutputTag(BOOLEAN wait)
-  {
-    RETURN GetPackingInfo(this->requestedbundle, wait).value.outputtag;
-  }
-
-  PUBLIC STRING FUNCTION GetOutputTagNoCompile()
-  {
-    RETURN GetHashForBundle(this->requestedbundle);
-  }
-
   MACRO EnsurePackingInfo()
   {
     IF(RecordExists(this->packinginfo))
@@ -220,7 +210,7 @@ STATIC OBJECTTYPE Resolver
       torequest.bundleconfig.extrarequires := SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(torequest.bundleconfig.extrarequires,'req') ORDER BY req;
 
       STRING designhash := GetHashForBundle(this->requestedbundle);
-      FUNCTION PTR getter := /*PTR CallAndRetryOnConnectionFailure*/(PTR GetPackingInfo(this->requestedbundle, TRUE));
+      FUNCTION PTR getter := /*PTR CallAndRetryOnConnectionFailure*/(PTR GetPackingInfo(this->requestedbundle));
       IF(torequest.adhoc)
         this->packinginfo := getter().value;
       ELSE
