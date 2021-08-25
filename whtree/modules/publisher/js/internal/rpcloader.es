@@ -2,6 +2,7 @@
   This is the RPC loader, which is used by the assetpackmanager to generate JSONRPC binding files based on *.rpc.json
   JSONRPC specification files. See services.md for further documentation
 */
+const fs = require('fs');
 let bridge = require('@mod-system/js/wh/bridge');
 
 async function generateRPCWrappers(resourcePath, rpcdata)
@@ -94,4 +95,22 @@ function webpackJSONRPCLoader(source)
 }
 
 module.exports = webpackJSONRPCLoader;
+
+
+module.exports.getESBuildPlugin = (options = {}) => ({
+    name: "jsonrpc",
+    setup: function (build)
+    {
+      build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) =>
+      {
+        let source = await fs.promises.readFile(args.path);
+        let result = await generateRPCWrappers(args.path, source);
+
+        return { contents: result.output
+               , warnings: result.warnings.map(_ => ({text:_}))
+               };
+        // console.log(require.resolve(args.path, ))
+      });
+    },
+});
 

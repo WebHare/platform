@@ -1,4 +1,19 @@
+//it seems imports without ~@ also worked in WebHare, so support both for esbuild
+@import '~@mod-publisher/js/forms/styles';
+@import "@mod-publisher/js/forms/fields/datetime.scss";
+@import "~dompack/browserfix/reset.css";
+
+@import "~modtest/modtest.scss";
+@import "~modtest/modtest2"; //and users also do module imports without the extension
+@import "~modtest/partial.scss"; //and scss will automatically try your path with a prefix
+@import "~modtest/partial2"; //or with a scss extension too, because hey, why not
+
 html
 {
   background: #cofefe;
+}
+.test_external_asset_scss
+{
+  //we currently have no way to validate urls like this, they may eg appear out of access rules.
+  background: url(/.mydesign/test_external_asset_scss.png);
 }

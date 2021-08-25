@@ -1,5 +1,12 @@
 /* globals describe it */
-// now more of a generic 'compiler issues' test
+
+/* now more of a generic 'compiler issues' test
+
+   to manually run this testset for both webpack and esbuild:
+
+   WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=esnext wh runtest publisher.assetpacks.test_compileerrors
+   WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=modern wh runtest publisher.assetpacks.test_compileerrors
+*/
 
 const assert = require("assert");
 const fs = require("fs");

@@ -1,0 +1,13 @@
+html
+{
+  background: #cofefe;
+}
+.test_external_asset_css
+{
+  /* we currently have no way to validate urls like this, they may eg appear out of access rules. */
+  background: url(/.mydesign/test_external_asset_css.png);
+}
+.test_samelevel_asset
+{
+  background: url(testimg.png);
+}

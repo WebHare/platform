@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
@@ -1266,6 +1267,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     RECORD ARRAY designs;
     RECORD ARRAY assetpacks;
 
+    STRING forcedcompatibility := GetEnvironmentVariable("WEBHARE_ASSETPACK_FORCE_COMPATIBILITY");
     FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webdesign")->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(child))
@@ -1310,7 +1312,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                  , designroot := designroot
                  , alwaysincludepolyfill := ParseXSBoolean(assetpacknode->GetAttribute("alwaysincludepolyfill"))
                  , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
-                 , compatibility := assetpacknode->GetAttribute("compatibility")
+                 , compatibility := forcedcompatibility ?? assetpacknode->GetAttribute("compatibility")
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
                  , babeltranspile := babeltranspile

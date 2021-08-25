@@ -21,17 +21,17 @@
 @mixin tollium-pulldownarrow
 {
   @include tollium-skinicon;
-  background-image: url(pulldown-arrow.svg);
+  background-image: url(~@mod-tollium/web/ui/skins/default/pulldown-arrow.svg);
 }
 @mixin tollium-skinicon-datepicker
 {
   @include tollium-skinicon;
-  background-image: url(datepicker.16x16.b.svg);
+  background-image: url(~@mod-tollium/web/ui/skins/default/datepicker.16x16.b.svg);
 }
 @mixin tollium-skinicon-reset
 {
   @include tollium-skinicon;
-  background-image: url(reset.16x16.b.svg);
+  background-image: url(~@mod-tollium/web/ui/skins/default/reset.16x16.b.svg);
 }
 
 @mixin tollium-defaultbutton
@@ -65,7 +65,7 @@
 {
   border-color: #b3b3b3;
   color: rgba(0,0,0,.5);
-  background: url("bgdisabled.svg") 0 0/48px 48px;
+  background: url("~@mod-tollium/web/ui/skins/default/bgdisabled.svg") 0 0/48px 48px;
 
   &:focus
   {
