@@ -107,6 +107,11 @@ async function runTask(taskcontext, data)
     esbuild_configuration.inject.push(path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/modern.es"));
   }
 
+  for(const extrarequired of bundle.bundleconfig.extrarequires.filter(node => !!node))
+  {
+    esbuild_configuration.inject.push(extrarequired);
+  }
+
   if(!bundle.isdev) //running in prod
   {
     esbuild_configuration.write = false; //required to have GzipBrotliPlugin do its trick
