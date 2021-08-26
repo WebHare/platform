@@ -433,7 +433,7 @@ create_container()
   #######################
   #
   # Create the environment file
-  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' > ${TEMPBUILDROOT}/env-file
+  > ${TEMPBUILDROOT}/env-file
 
   # Switch to DTAP development - most test refuse to run without this option for safety reasons
   echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
@@ -455,6 +455,9 @@ create_container()
   else #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
     echo "WH_EXTRACTTESTSUITE=1" >> ${TEMPBUILDROOT}/env-file
   fi
+
+  # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
+  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
   CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file --tmpfs /opt/whdata:exec $WEBHAREIMAGE"

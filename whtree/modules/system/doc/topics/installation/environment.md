@@ -109,7 +109,8 @@ Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlay
 ### TESTSECRET_SECRETSURL
 A URL whose contents will be sourced by the tests and from which any environment variables starting
 with `TESTFW_` or `TESTSECRET_` will be passed on to the CI environment (except for `TESTSECRET_SECRETSURL` itself).
-The `WEBHARE_DEBUG` is also passed to the CI environment
+The `WEBHARE_DEBUG` is also passed to the CI environment. Any environment variables whose name starts with `TESTFW_WEBHARE_`
+or `TESTFWSECRET_WEBHARE_` will be passed as `WEBHARE_` to the CI environment.
 
 Keep in mind that the buildscripts will list all the set variables and their contexts in their output (the contents of
 `TESTSECRET_` variables are replaced with `xxxxxx` here so you can still see whether or not they were properly set)
