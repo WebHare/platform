@@ -23,7 +23,7 @@
 
       <action name="edit" hinttid=".edit-hint" tid="~properties">
         <enableon source="directpermissions" min="1" max="1" checkflags="canmanage" onexecute="doeditgrant" />
-        <enableon source="userlistbyrole" min="1" max="1" checkflags="candelete" onexecute="doeditrolegrant" />
+        <enableon source="userlistbyrole" min="1" max="1" checkflags="canmanagerolegrant" onexecute="doeditrolegrant" />
       </action>
 
       <action name="adduserstorole" onexecute="doadduserstorole" hinttid=".adduserstorole-hint">
@@ -31,7 +31,7 @@
       </action>
 
       <action name="removeusersfromrole" hinttid=".removeusersfromrole-hint" tid="~delete" ellipsis="true">
-        <enableon min="1" source="userlistbyrole" onexecute="doremoveusersfromrole" checkflags="candelete" />
+        <enableon min="1" source="userlistbyrole" onexecute="doremoveusersfromrole" checkflags="canmanagerolegrant" />
       </action>
 
     </actions>
@@ -49,6 +49,7 @@
       </menu>
 
       <menu name="context_roleusers">
+        <item action="edit" tid="userrights.actions.properties" disablemode="hidden"/>
         <item action="removeusersfromrole" disablemode="hidden" />
       </menu>
 
@@ -106,7 +107,7 @@
                         gid="userrights.columns"
                         borders="right"
                         emptytid="userrights.empty.nousersinrole"
-                        flags="candelete">
+                        flags="canmanagerolegrant">
 
                     <column name="name" type="text" width="30x" iconname="type" />
                     <column name="fullname" type="text" width="1pr" />
