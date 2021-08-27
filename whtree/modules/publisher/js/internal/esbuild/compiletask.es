@@ -187,7 +187,7 @@ async function runTask(taskcontext, data)
                       , assets: []
                       };
 
-  //TODO should this be more async-y ? especially wth compression..
+  //TODO should this be more async-y ? especially with compression..
   if(buildresult.outputFiles)
   {
     try { fs.mkdirSync(esbuild_configuration.outdir); }
