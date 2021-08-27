@@ -1,9 +1,16 @@
 const esbuild = require('esbuild');
+const fs = require('fs');
 const whSassPlugin = require("./plugin-sass.es");
 const path = require('path');
-const GzipBrotliPlugin = require('./plugin-gzip.es');
 const bridge = require('@mod-system/js/wh/bridge');
 const compileutils = require('./compileutils.es');
+const { promisify } = require('util');
+const zlib = require('zlib');
+const compressGz = promisify(zlib.gzip);
+
+/* TODO likewise addd Brotli, but WH can't serve it yet anyway
+const compressBr = promisify(zlib.brotliCompress);
+*/
 
 class captureLoadPlugin
 {
@@ -67,6 +74,7 @@ async function runTask(taskcontext, data)
       , outdir: path.join(bundle.outputpath,"build")
       , entryNames: "ap"
       , jsxFactory: 'dompack.jsxcreate'
+      , write: false
       , inject: []
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
@@ -114,8 +122,6 @@ async function runTask(taskcontext, data)
 
   if(!bundle.isdev) //running in prod
   {
-    esbuild_configuration.write = false; //required to have GzipBrotliPlugin do its trick
-    esbuild_configuration.plugins.push(GzipBrotliPlugin({brotli:false}));
   }
   else //dev
   {
@@ -175,6 +181,40 @@ async function runTask(taskcontext, data)
                                                      // , lineText: _.location ? _.location.lineText : ""
                                                      }))
              };
+
+  //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
+  let assetoverview = { version: 1
+                      , assets: []
+                      };
+
+  //TODO should this be more async-y ? especially wth compression..
+  if(buildresult.outputFiles)
+  {
+    try { fs.mkdirSync(esbuild_configuration.outdir); }
+    catch(ignore) { }
+
+    for(let file of buildresult.outputFiles)
+    {
+      let subpath = file.path.substr(esbuild_configuration.outdir.length + 1).toLowerCase();
+      fs.writeFileSync(path.join(esbuild_configuration.outdir, subpath), file.contents);
+      assetoverview.assets.push({ subpath: subpath
+                                , compressed: false
+                                , sourcemap:  subpath.endsWith(".map")
+                                });
+
+      if(!bundle.isdev)
+      {
+        fs.writeFileSync(path.join(esbuild_configuration.outdir, subpath) + '.gz', await compressGz(file.contents, { level: 9 }));
+        assetoverview.assets.push({ subpath: subpath + '.gz'
+                                  , compressed: true
+                                  , sourcemap:  subpath.endsWith(".map")
+                                  });
+      }
+    }
+
+    let apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
+    fs.writeFileSync(apmanifestpath, JSON.stringify(assetoverview));
+  }
 
   // if(buildresult.metafile)
   // {

@@ -16,16 +16,18 @@ const bridge = require('@mod-system/js/wh/bridge');
 let baseconfig;
 let assetCompiler = require('@mod-publisher/js/internal/assetcompile.es');
 
-async function compileAdhocTestBundle(entrypoint)
+async function compileAdhocTestBundle(entrypoint, isdev)
 {
-  let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', "tollium:webinterface");
+  let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', isdev ? "tollium:webinterface.dev" : "tollium:webinterface");
 
   //TODO nicer way to init a bundle
   bundle.outputtag = "webhare_testsuite:compileerrors";
   bundle.entrypoint = entrypoint;
   bundle.outputpath = "/tmp/compileerrors-build-test/";
-  if (!fs.existsSync(bundle.outputpath))
-    fs.mkdirSync(bundle.outputpath);
+
+  if(fs.existsSync(bundle.outputpath))
+    fs.rmdirSync(bundle.outputpath, {recursive:true});
+  fs.mkdirSync(bundle.outputpath);
 
     //we need a taskcontext to invoke the assetCompiler, as it thinks its an ephemeral task runner
   let taskcontext = {};
@@ -36,6 +38,27 @@ async function compileAdhocTestBundle(entrypoint)
 
   let result = await completionpromise;
   JSON.stringify(result); //detect cycles etc;
+  if(!result.haserrors)
+  {
+    //verify the manifest
+    let manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/build/apmanifest.json"));
+    assert(1, manifest.version);
+    assert(manifest.assets.find(file => file.subpath == 'ap.js' && !file.compressed && !file.sourcemap));
+    assert(!!isdev === !manifest.assets.find(file => file.subpath == 'ap.js.gz' && file.compressed && !file.sourcemap));
+
+    manifest.assets.forEach(file =>
+      {
+        let subpath = file.subpath;
+        if(subpath.startsWith('st/') && result.compiler=='webpack') //the move to 'st/' isnt done during build, but after... so don't look for st/ here. esbuild stops bothering with the st/ folder
+          subpath = subpath.substr(3);
+
+        let fullpath = path.join("/tmp/compileerrors-build-test/build/", subpath);
+        if(!fs.existsSync(fullpath))
+          throw new Error(`Missing file ${fullpath}`);
+      });
+    manifest.assets.forEach(file => file.subpath == file.subpath.toLowerCase());
+   }
+
   return result;
 }
 
@@ -52,7 +75,7 @@ describe("test_compileerrors", (done) =>
   {
     this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
 
-    let result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es");
+    let result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es", true);
     assert(result.haserrors === true);
     assert(Array.isArray(result.info.errors));
     assert(result.info.errors.length >= 1);
@@ -69,11 +92,11 @@ describe("test_compileerrors", (done) =>
 
   });
 
-  it("Any package (or at least with ES files) includes the poyfill as dep", async function()
+  it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
   {
     this.timeout(60000);
 
-    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es");
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es", false);
     assert(result.haserrors === false);
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
@@ -81,11 +104,11 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
   });
 
-  it("rpc.json files pull in system/js/wh/rpc.es as dependency", async function()
+  it("rpc.json files pull in system/js/wh/rpc.es as dependency (prod)", async function()
   {
     this.timeout(60000);
 
-    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json");
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json", false);
     assert(result.haserrors === false);
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
@@ -97,7 +120,7 @@ describe("test_compileerrors", (done) =>
   {
     this.timeout(60000);
 
-    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json");
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json", true);
     assert(result.haserrors === false);
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
@@ -109,7 +132,7 @@ describe("test_compileerrors", (done) =>
   {
     this.timeout(60000);
 
-    let result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es");
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es", true);
     assert(result.haserrors === false);
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
