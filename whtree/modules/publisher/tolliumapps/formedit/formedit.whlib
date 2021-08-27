@@ -1163,6 +1163,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       CATCH(OBJECT e)
       {
         LogHarescriptException(e);
+        //give tollium debug channel (and tests) a hint about what's up
+        Print(`OpenLiveForm failed: ${e->what}\n`);
         IF(this->frame->flags.showdevoptions AND this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.formedit.messages.formbroken-fixit", e->what)) = "yes")
         {
           this->RunEditSource(TRUE, FALSE);

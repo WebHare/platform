@@ -192,37 +192,31 @@ PUBLIC STATIC OBJECTTYPE Reader
 
     INSERT CELL published := published INTO fileupdate;
 
-    IF (errortype >= 1001 AND errortype <= 2000) //IO error
+    IF(errortype != 0)
     {
-      //I/O errors: hide the text from the database but do log them
-      INSERT CELL errordata := "" INTO fileupdate;
-      PRINT("I/O error publishing file #" || fileid || ": " || errordata || "\n");
+      PRINT(`Error ${errortype} publishing file #${fileid}${errordata != "" ? ": " || errordata : ""}\n`);
+      INSERT CELL errordata := LimitUTF8Bytes(errordata, 1024) INTO fileupdate;
     }
     ELSE
     {
-      IF (errortype >= 3000 AND errortype <= 99999) //Integrity errors
-      { //Disastrous errors: show text in database and log them
-        PRINT("Fatal error publishing file #" || fileid || ": " || errordata || "\n");
-      }
-      IF (errortype = 0)
-      {
-        DATETIME now := GetCurrentDateTime();
+      DATETIME now := GetCurrentDateTime();
 
-        //no error, so log publication time
-        INTEGER totaltime := GetDatetimeDifference(this->publishstart, now).msecs;
-        IF (totaltime = 0)
-          totaltime := 1;
-        ELSE IF (totaltime > 10000000) //don't register conversions taking longer than 10000s (160 minutes)
-          totaltime := 0;
+      //no error, so log publication time
+      INTEGER totaltime := GetDatetimeDifference(this->publishstart, now).msecs;
+      IF (totaltime = 0)
+        totaltime := 1;
+      ELSE IF (totaltime > 10000000) //don't register conversions taking longer than 10000s (160 minutes)
+        totaltime := 0;
 
-        IF(filescan.firstpublishdate = DEFAULT DATETIME)
-          INSERT CELL firstpublishdate := now INTO fileupdate;
-        INSERT CELL lastpublishtime := totaltime INTO fileupdate;
-        INSERT CELL lastpublishdate := now INTO fileupdate;
-        INSERT CELL lastpublishsize := this->allpubssize INTO fileupdate;
-      }
+      IF(filescan.firstpublishdate = DEFAULT DATETIME)
+        INSERT CELL firstpublishdate := now INTO fileupdate;
 
-      INSERT CELL errordata := LimitUTF8Bytes(errordata, 1024) INTO fileupdate;
+      fileupdate := CELL[ ...fileupdate
+                        , lastpublishtime := totaltime
+                        , lastpublishdate := now
+                        , lastpublishsize := this->allpubssize
+                        , errordata := ""
+                        ];
     }
 
     /* Add publish to WHERE check to force revalidation after record lock. This fixes a race where

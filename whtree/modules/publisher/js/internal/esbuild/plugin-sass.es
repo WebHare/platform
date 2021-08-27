@@ -103,13 +103,9 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
             if (node.type === "Url") {
                 const value = node.value;
                 const normalizedUrl = value.type === "String" ? normalizeQuotes(value.value) : value.value;
-                console.error("URL:",normalizedUrl);
 
                 if (normalizedUrl.startsWith('http:') || normalizedUrl.startsWith('https:') || normalizedUrl.startsWith('/'))
-                {
-                    console.error("URL is external, ignore");
                     return;
-                }
 
                 if(normalizedUrl.startsWith('~'))
                 {
