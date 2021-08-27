@@ -42,6 +42,9 @@ class BLEXLIB_PUBLIC NotificationEventKeeperBase: public Blex::StatefulEvent
     protected:
         NotificationEventManager &eventmgr;
 
+        /// Call to register
+        void Register();
+
         /// Call to unregister
         void Unregister();
 
@@ -86,7 +89,7 @@ class BLEXLIB_PUBLIC NotificationEventQueue: public NotificationEventKeeperBase
         void TryAddEvent(std::shared_ptr< NotificationEvent > const &event);
 
     public:
-        NotificationEventQueue(NotificationEventManager &eventmgr) : NotificationEventKeeperBase(eventmgr) { }
+        NotificationEventQueue(NotificationEventManager &eventmgr);
         ~NotificationEventQueue();
 
         /// Pop the next event from the queue
@@ -143,7 +146,7 @@ class BLEXLIB_PUBLIC NotificationEventCollector: public NotificationEventKeeperB
         void TryAddEvent(std::shared_ptr< NotificationEvent > const &event);
 
     public:
-        NotificationEventCollector(NotificationEventManager &eventmgr) : NotificationEventKeeperBase(eventmgr) { }
+        NotificationEventCollector(NotificationEventManager &eventmgr);
         ~NotificationEventCollector();
 
         // Return the list of events, clearing the state

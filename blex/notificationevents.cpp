@@ -20,11 +20,15 @@ namespace Blex
 NotificationEventKeeperBase::NotificationEventKeeperBase(NotificationEventManager &_eventmgr)
 : eventmgr(_eventmgr)
 {
-        eventmgr.Register(this);
 }
 
 NotificationEventKeeperBase::~NotificationEventKeeperBase()
 {
+}
+
+void NotificationEventKeeperBase::Register()
+{
+        eventmgr.Register(this);
 }
 
 void NotificationEventKeeperBase::Unregister()
@@ -32,9 +36,15 @@ void NotificationEventKeeperBase::Unregister()
         eventmgr.Unregister(this);
 }
 
+NotificationEventQueue::NotificationEventQueue(NotificationEventManager &eventmgr)
+: NotificationEventKeeperBase(eventmgr)
+{
+        Register(); // must be last statement
+}
+
 NotificationEventQueue::~NotificationEventQueue()
 {
-        Unregister();
+        Unregister(); // must be first statement
 }
 
 void NotificationEventQueue::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
@@ -101,9 +111,15 @@ void NotificationEventQueue::ModifySubscription(LockedData::WriteRef &lock, std:
         }
 }
 
+NotificationEventCollector::NotificationEventCollector(NotificationEventManager &eventmgr)
+: NotificationEventKeeperBase(eventmgr)
+{
+        Register(); // must be last statement
+}
+
 NotificationEventCollector::~NotificationEventCollector()
 {
-        Unregister();
+        Unregister(); // must be first statement
 }
 
 void NotificationEventCollector::TryAddEvent(std::shared_ptr< NotificationEvent > const &event)
