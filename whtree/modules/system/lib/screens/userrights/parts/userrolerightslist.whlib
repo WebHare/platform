@@ -218,6 +218,13 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
 
     RECORD ARRAY rows := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := roleusers ] ], this->owner->tolliumuser);
     rows := EnrichWithUnitPath(rows, this->owner->tolliumuser);
+
+    BOOLEAN canmanagerole := this->owner->tolliumuser->HasRightOn("system:manageroles", this->pvt_wrdauthobject->authobjectid);
+    rows :=
+        SELECT *
+             , canmanagerolegrant :=  canmanagerole
+          FROM rows;
+
     this->userlistbyrole->rows := rows;
   }
 
