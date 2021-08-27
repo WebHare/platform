@@ -171,6 +171,9 @@ ASYNC MACRO TestAccept()
   TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
   TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
 
+  // Wait for publication to finish to avoid deadlocks
+  WaitForPublishCompletion(testfile->parent);
+
   // ------
   // Test: applying of fields from draft: depublishing published file
 
@@ -225,6 +228,9 @@ ASYNC MACRO TestAccept()
   TestEQ(FALSE, IsPublish(testfile->published));
   TestEQ(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
   TestEq(DEFAULT OBJECT, GetPublicDraft(testfile->id));
+
+  // Wait for publication to finish to avoid deadlocks
+  WaitForPublishCompletion(testfile->parent);
 
   // ------
   // Test: applying of fields from draft: modifying depublished file
