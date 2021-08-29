@@ -83,7 +83,15 @@ function setupWebsocket()
         for(i=0;i<realerrors.length;++i)
         {
           if(realerrors[i].resource)
-            console.log("Error involving", realerrors[i].resource);
+          {
+            var errloc = "Error involving " + realerrors[i].resource;
+            if(realerrors[i].line)
+              errloc += " line " + realerrors[i].line;
+            if(realerrors[i].col)
+              errloc += " column " + realerrors[i].col;
+
+            console.log(errloc);
+          }
           console.log(realerrors[i].message);
         }
       }
