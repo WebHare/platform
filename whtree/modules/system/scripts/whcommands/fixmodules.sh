@@ -80,6 +80,16 @@ if [ -z "$ONLYBROKEN" ]; then
         fi
       fi
     done
+
+    if [ -x $MODULEDIR/scripts/fixmodules-plugin.sh ]; then
+      cd $MODULEDIR
+      $MODULEDIR/scripts/fixmodules-plugin.sh
+      FIXRETVAL=$?
+      if [ "$FIXRETVAL" != "0" ]; then
+        echo "Module plugin for module '$MODULEDIR' failed with errorcode $FIXRETVAL"
+        FAIL=1
+      fi
+    fi
   done
 else
   while read -r path
