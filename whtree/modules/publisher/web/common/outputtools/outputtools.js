@@ -504,7 +504,7 @@ function onHideToolsClick()
 //
 // Init
 //
-var outputtoolsnode = document.querySelector('#wh-publisher-outputtools');
+var outputtoolsnode = document.currentScript;
 websocketbase = 'ws' + location.origin.substr(4) + "/.publisher/common/outputtools/";
 
 outputtoolsnode = outputtoolsnode.previousElementSibling;

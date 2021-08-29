@@ -11,8 +11,10 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 
 OBJECT trans := OpenPrimary();
@@ -63,12 +65,13 @@ IF(urlbase LIKE "*/!/*")
       IF (NOT RecordExists(affectedtest))
         ABORT(`No such test ${testname}`);
 
-      OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
+      OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML-NI");
       IF(Length(suburltoks) <= 2)
       {
         RECORD data := [ printheaders := DEFAULT MACRO PTR
                        , harescripttestdata := affectedtest.harescripttestdata
                        , exclusive :=    affectedtest.exclusive ? "1" : "0"
+                       , outputtools := AreOutputToolsActive() ? GetOutputtoolsJSCode() : ""
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"
