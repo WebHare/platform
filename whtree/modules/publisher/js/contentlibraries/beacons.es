@@ -1,8 +1,10 @@
 import * as dompack from "dompack";
 import * as storage from "dompack/extra/storage";
 import { generateId } from "@mod-consilio/js/pxl";
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
 
 let visitCount = 0;
+let beaconconsent, holdbeacons;
 
 export function isSet(tag, options)
 {
@@ -25,6 +27,30 @@ export function isSet(tag, options)
 
 export function trigger(tag, options)
 {
+  let instr = () => executeTrigger(tag, options);
+  if(holdbeacons)
+    holdbeacons.push(instr);
+  else
+    instr();
+}
+export function clear(tag)
+{
+  let instr = () => executeClear(tag);
+  if(holdbeacons)
+    holdbeacons.push(instr);
+  else
+    instr();
+}
+
+function runDelayedInit()
+{
+  holdbeacons.forEach(func => func());
+  holdbeacons = null;
+  initVisitCount();
+}
+
+function executeTrigger(tag, options)
+{
   options =
       { when: Date.now()
       , ...options
@@ -46,7 +72,7 @@ export function trigger(tag, options)
     window.dataLayer.push( { event: 'wh:trigger-user-beacon', whUserBeacon: tag });
 }
 
-export function clear(tag)
+function executeClear(tag)
 {
   if (dompack.debugflags.bac)
     console.log("[bac] Clearing beacons", tag);
@@ -77,6 +103,9 @@ export function list()
 
 function initVisitCount()
 {
+  if(holdbeacons)
+    return; //allow onConsentChange to invoke us
+
   let visitor = storage.getLocal("wh:visitor");
   let sessionId = storage.getSession("wh:visitor");
 
@@ -162,7 +191,7 @@ function autoTriggerBeacons()
 export function triggerWidgetBeacons()
 {
   // Don't directly trigger the beacon yet, as the dataLayer may not have been initialized and this way we can collapse
-  // multiple calls
+  // multiple calls. Also allows us to wrap beacons behind consent checks
   if (!autoTriggerTimeout)
     autoTriggerTimeout = setTimeout(autoTriggerBeacons, 10);
 }
@@ -210,9 +239,44 @@ class TriggerBeacon
   }
 }
 
-initVisitCount();
-dompack.register("wh-beacon", node =>
+export function __setup(consent)
 {
-  if (node.dataset.beacon)
-    new TriggerBeacon(node);
-});
+  beaconconsent = consent;
+  if(beaconconsent)
+  {
+    holdbeacons = [];
+    consenthandler.onConsentChange(consentsettings =>
+    {
+      if(!holdbeacons)
+        return; //already flushed any beacons
+
+      if (beaconconsent == "*")
+      {
+        if(consentsettings.consent.length)
+        {
+          if(dompack.debugflags.bac)
+            console.log(`[bac] Got any consent, allow beacons`);
+          runDelayedInit();
+        }
+      }
+      else if (consentsettings.consent.includes(beaconconsent))
+      {
+        if(dompack.debugflags.bac)
+          console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
+        runDelayedInit();
+      }
+      else
+      {
+        if(dompack.debugflags.bac)
+          console.log("[bac] No consent yet to allow beacons");
+      }
+    });
+  }
+
+  initVisitCount();
+  dompack.register("wh-beacon", node =>
+  {
+    if (node.dataset.beacon)
+      new TriggerBeacon(node);
+  });
+}

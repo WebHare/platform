@@ -76,13 +76,12 @@ async function startCookieRequest()
 }
 
 let urlparams = new URL(location.href).searchParams;
+window.got_consent_analytics=false;
+window.got_consent_remarketing = false;
+
 if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest"))
 {
-  window.got_consent_analytics=false;
-  window.got_consent_remarketing = false;
-
   let requiredconsent = urlparams.get("analyticsrequiredconsent");
-
 
   if(urlparams.get("gtmplugin_integration") != "none")
   {
@@ -98,7 +97,10 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
     else
       ga4.initOnConsent();
   }
+}
 
+if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent"))
+{
   if(urlparams.has("defaultconsent"))
   {
     consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent").split(",") });
@@ -112,8 +114,12 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
   window.hasConsent = consenthandler.hasConsent;
 }
 
+window.__testdcoptions = {};
 if (urlparams.has("now"))
-  window.__testdcoptions = { now: new Date(urlparams.get("now")) };
+  window.__testdcoptions.now = new Date(urlparams.get("now"));
+if (urlparams.get("beaconconsent"))
+  window.__testdcoptions.beaconconsent = urlparams.get("beaconconsent");
+
 adaptivecontent.setup(window.__testdcoptions);
 
 window.geoip_getCountryCode = geoip.getCountryCode;
