@@ -2,19 +2,33 @@ import test from "@mod-system/js/wh/testframework";
 
 let testinfo;
 
+// Clear all beacons and reload
+async function resetAll()
+{
+  await test.load(testinfo.url + "?wh-debug=bac");
+  test.click("#resetallbeacons");
+  test.click("#resetvisitcount");
+  await test.wait(() => test.qSA("#currentbeacons div").length == 0);
+  await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
+  test.getDoc().cookie="webhare-testsuite-consent=;path=/";
+  await test.load(testinfo.url + "?wh-debug=bac");
+}
+
 test.registerTests(
   [ "setup"
   , async function()
     {
-      // Setup the test site and load the test page
+      // Setup the test site
       testinfo = await test.invoke("mod::webhare_testsuite/tests/publisher/contentlibraries/libs/adaptivecontent.whlib#SetupDCTest");
-      await test.load(testinfo.url + "?wh-debug=bac");
+    }
+
+  , "run tests"
+  , async function()
+    {
+      testinfo = await test.invoke("mod::webhare_testsuite/tests/publisher/contentlibraries/libs/adaptivecontent.whlib#SetupDCTest");
 
       // Clear all beacons and reload
-      test.click("#resetallbeacons");
-      test.click("#resetvisitcount");
-      await test.wait(() => test.qSA("#currentbeacons div").length == 0);
-      await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
+      await resetAll();
       await test.load(testinfo.url + "?wh-debug=bac");
 
       // We were supposed to arrive at this page without any beacons, and so we should see Widget 1.C
@@ -129,5 +143,37 @@ test.registerTests(
 
       // The thank you page beacon should now have been triggered
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
+    }
+
+  , "consent beacons/views initially allowed"
+  , async function()
+    {
+      await resetAll();
+      await test.load(testinfo.url + "?defaultconsent=analytics&beaconconsent=analytics&wh-debug=anl,bac");
+      //visit count already on 1, even though a cookie bar will still appear... so the code is running!
+      await test.wait(() => test.qS("#visitcount").dataset.visitCount == "1");
+
+      //TODO test now disabling these
+    }
+
+  , "consent blocked beacons"
+  , async function()
+    {
+      await resetAll();
+      await test.load(testinfo.url + "?defaultconsent=&beaconconsent=analytics&wh-debug=anl,bac");
+
+      // Test visit counter not updating
+      test.click("button[data-messagebox-result=no]"); //cancel cookie request
+      test.click("#resetvisitsession");
+      test.click("#reload");
+      await test.wait('load');
+      await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
+
+      // Set and reset the student beacon
+      test.true(test.getWin().dataLayer);
+      test.click("#setstudentbeacon");
+      await test.wait(300);
+      test.eq(0, test.qSA("#currentbeacons div").length);
+      test.false(Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-student"));
     }
   ]);

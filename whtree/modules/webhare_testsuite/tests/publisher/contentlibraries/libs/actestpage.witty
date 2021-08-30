@@ -2,6 +2,7 @@
   <div id="nowdate"></div>
   <div id="currentbeacons"></div>
   <div id="visitcount"></div>
+  <button id="reload">Reload</button>
   <button id="resetallbeacons">Reset all beacons</button>
   <button id="resetvisitcount">Reset visit count</button>
   <button id="resetvisitsession">Reset visit session</button>
