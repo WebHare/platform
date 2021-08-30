@@ -6,7 +6,7 @@ if(!window.dataLayer)
 
 function updateBeacons(nd)
 {
-  if (window.__testdcoptions)
+  if (window.__testdcoptions && window.__testdcoptions.now)
     nd.textContent = `Override test date ${window.__testdcoptions.now.toISOString()}`;
   else
     nd.textContent = `Using current date ${new Date().toISOString()}`;
@@ -24,6 +24,7 @@ function updateBeacons(nd)
 }
 
 dompack.register("#nowdate", _ => setInterval(() => updateBeacons(_), 200));
+dompack.register("#reload", _ => _.addEventListener("click", () => location.reload()));
 dompack.register("#setstudentbeacon", _ => _.addEventListener("click", () => beacons.trigger("is-student")));
 dompack.register("#clearstudentbeacon", _ => _.addEventListener("click", () => beacons.clear("is-student")));
 dompack.register("#clearemployeebeacon", _ => _.addEventListener("click", () => beacons.clear("is-employee")));

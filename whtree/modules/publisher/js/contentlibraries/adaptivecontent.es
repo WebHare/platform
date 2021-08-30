@@ -150,8 +150,10 @@ async function handleAdaptiveContent(node)
 
 export function setup(options)
 {
-  dcoptions = {...options};
+  dcoptions = { ...options };
   if (dcoptions.now && dompack.debugflags.bac)
     console.info("[bac] Using 'now' date", dcoptions.now);
+
+  beacons.__setup(dcoptions.beaconconsent);
   dompack.register("template.wh-adaptivecontent", handleAdaptiveContent);
 }
