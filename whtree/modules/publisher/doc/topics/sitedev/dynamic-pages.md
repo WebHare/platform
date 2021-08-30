@@ -14,9 +14,9 @@ Dynamic pages are generally defined using `<dynamicexecution>` on a file or
 folder type in the site profile:
 
 ```xml
-  <contenttype namespace="http://www.utwente.nl/xmlns/home/archivefolder" />
+  <contenttype namespace="http://www.example.net/xmlns/home/archivefolder" />
 
-  <foldertype typedef="http://www.utwente.nl/xmlns/home/archivefolder">
+  <foldertype typedef="http://www.example.net/xmlns/home/archivefolder">
     <dynamicexecution webpageobjectname="news.whlib#NewsPage" />
   </foldertype>
 ```
