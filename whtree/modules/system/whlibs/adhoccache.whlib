@@ -107,7 +107,7 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
     // SetAdhocCacheData takes extra locks when using the collector, avoid that if possible
     IF (IsValueSet(eventmasks))
     {
-      __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(eventcollector, eventmasks, STRING[], TRUE);
+      __HS_EVENT_COLLECTORMODIFYSUBSCRIPTIONS(eventcollector, [ "system:clearcaches" ] CONCAT eventmasks, STRING[], TRUE);
       SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks, eventcollector);
     }
     ELSE
