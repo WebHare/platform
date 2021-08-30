@@ -188,7 +188,7 @@ PUBLIC STRING ARRAY FUNCTION GetWebhareResourceEventMasks(STRING inpath)
 
     modulepath := Left(modulepath, idx + 1);
     INSERT modulepath INTO results AT END;
-    RETURN results;
+    RETURN STRING[ "system:modulesupdate", ...results ];
   }
 
   RECORD rec := LookupGlobalResourceByPath(0, inpath, inpath, TRUE);
@@ -223,7 +223,14 @@ PUBLIC STRING ARRAY FUNCTION GetResourceEventMasks(STRING ARRAY inpaths)
         IF(mask NOT IN masks)
           INSERT mask INTO masks AT END;
     }
-    CATCH ;
+    CATCH
+    {
+      /* "system:modulesupdate" can influence whether GetWebhareResourceEventMasks throws,
+         so it needs to be present in the return value
+      */
+      IF ("system:modulesupdate" NOT IN masks)
+        INSERT "system:modulesupdate" INTO masks AT END;
+    };
   }
 
   RETURN masks;
@@ -304,7 +311,7 @@ RECORD FUNCTION GetCacheableXMLDoc(BOOLEAN _isschema, STRING resourcepath)
          , value := [ doc := ObjectExists(doc) AND ObjectExists(doc->documentelement) ? doc : DEFAULT OBJECT
                     , files := files
                     ]
-         , eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM files)
+         , eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(SELECT AS STRING ARRAY path FROM files)
          ];
 }
 
