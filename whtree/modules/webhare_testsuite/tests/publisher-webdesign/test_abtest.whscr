@@ -1,0 +1,125 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestABTest()
+{
+  testfw->BeginWork();
+  OBJECT abtestfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "abtestfolder"]);
+
+  OBJECT abtesttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT variant1 := abtestfolder->CreateFile([name := "variant1", title := "Variant 1", type := richdoctype->id, publish := FALSE ]);
+  OBJECT variant2 := abtestfolder->CreateFile([name := "variant2", title := "Variant 2", type := richdoctype->id, publish := FALSE ]);
+  OBJECT otherdoc := abtestfolder->CreateFile([name := "otherdoc", title := "Other Doc", type := richdoctype->id, publish := TRUE, ordering := 3 ]);
+  OBJECT abtester := abtestfolder->CreateFile([name := "abtest", title := "A/B test", type := abtesttype->id, publish := TRUE]);
+  OBJECT abtester_contentlink := abtestfolder->CreateFile([name := "abtester_contentlink", title := "A/B test contentlink", type := 20, publish := TRUE, filelink := abtester->id ]);
+
+  OBJECT subfolder := abtestfolder->CreateFolder([name := "subfolder"]);
+  OBJECT subfolder_contentlink := subfolder->CreateFile([name := "subfolder_contentlink", title := "A/B test contentlink", type := 20, publish := TRUE, filelink := abtester->id ]);
+
+  abtestfolder->UpdateMetadata([ indexdoc := abtester->id ]);
+  abtesttype->SetInstanceData(abtester->id,
+    [ abgroup := "myabtest"
+    , duration_days := 1
+    , aboptions := [[ aboption := "A", weight := 1, target := variant1->id ]
+                   ,[ aboption := "B", weight := 999999999, target := variant2->id ]
+                   ]
+    ]);
+
+  richdoctype->SetInstanceData(variant1->id,
+    [ data := [ htmltext := StringToBlob('<html><body><h2 class="heading2">Variant #1</h2><p class="normal">This is variant 1.</p></body></html>') ]
+    ]);
+  richdoctype->SetInstanceData(variant2->id,
+    [ data := [ htmltext := StringToBlob('<html><body><p class="normal">This is variant 2.</p></body></html>') ]
+    ]);
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(abtestfolder->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  TestEq(variant2->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
+  TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
+  TestEq("B", testfw->browser->GetCookie("webhare-abtest-myabtest"));
+  TestEq(abtestfolder->OpenByName("abtest")->indexurl, testfw->browser->QS("link[rel=canonical]")->GetAttribute("href"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
+
+  testfw->browser->SetSessionCookie("webhare-abtest-myabtest","A");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEq(abtester->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  TestEq(variant1->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
+  TestEqLike("*This is variant 1.*", testfw->browser->QS("#content")->textcontent);
+  TestEq("A", testfw->browser->GetCookie("webhare-abtest-myabtest"));
+
+  testfw->browser->SetSessionCookie("webhare-abtest-myabtest","X");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
+  TestEq("B", testfw->browser->GetCookie("webhare-abtest-myabtest"));
+
+  TestEq("myabtest", testfw->browser->document->documentelement->GetAttribute("data-experiment-id"));
+  TestEq("B", testfw->browser->document->documentelement->GetAttribute("data-experiment-variant"));
+
+  //Access it through content links
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtester_contentlink")->indexurl));
+  TestEqLike("*This is variant 1.*", testfw->browser->QS("#content")->textcontent);
+  TestEq(FALSE, testfw->browser->document->documentelement->HasAttribute("data-experiment-id"));
+  TestEq(FALSE, testfw->browser->document->documentelement->HasAttribute("data-experiment-variant"));
+
+  //It should not be setting a cookie
+  OBJECT subbrowser := NEW WebBrowser;
+  TestEq(TRUE, subbrowser->GotoWebPage(abtestfolder->OpenByName("abtester_contentlink")->indexurl));
+  TestEqLike("*This is variant 1.*", subbrowser->QS("#content")->textcontent);
+  TestEq("", subbrowser->GetCookie("webhare-abtest-myabtest"));
+
+  //No subfolder errors please
+  TestEq(TRUE, subbrowser->GotoWebPage(abtestfolder->OpenByPath("subfolder/subfolder_contentlink")->indexurl));
+  TestEqLike("*This is variant 1.*", subbrowser->QS("#content")->textcontent);
+  TestEq("", subbrowser->GetCookie("webhare-abtest-myabtest"));
+
+  OBJECT service; //FIXME try to get rid of it, outputanalyzer sohuldnt conflict with publishers...
+  TRY service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+  CATCH ;
+
+  //test as non index
+  testfw->BeginWork();
+  abtestfolder->UpdateMetadata([ indexdoc := 0 ]);
+  testfw->CommitWork();
+  IF(Objectexists(service))
+  {
+    WHILE(TRUE)
+    {
+      RECORD state := WaitForPRomise(service->GetState());
+      DumpValue(state);
+      IF(Length(state.running) = 0 AND state.runnable=0)
+        BREAK;
+      Sleep(100);
+    }
+  }
+
+  Sleep(5000);//further reduce race risk :/
+
+  testfw->BeginWork();
+  abtester->UpdateMetadata([title := "A/B test no index"]);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(abtestfolder->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
+}
+
+RunTestframework([ PTR TestABTest
+                 ]);

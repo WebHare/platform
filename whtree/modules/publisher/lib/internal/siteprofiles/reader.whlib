@@ -519,18 +519,19 @@ MACRO ExecuteRepublishInstruction(INTEGER folder, STRING mask, BOOLEAN recursive
 
 PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesigninfo, INTEGER errorcode, OBJECT override_contentobject, OBJECT pageobject, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions(CELL[ navigationobject := DEFAULT OBJECT ], options);
 
   RECORD saveconfig := __webdesign_config;
   TRY
   {
-    __webdesign_config := MakeMergedRecord(webdesigninfo
-                                          , [ applytester := applytester
-                                            , errorcode := errorcode
-                                            , override_contentobject := override_contentobject
-                                            , pageobject := pageobject
-                                            , renderwidgetpreview := renderwidgetpreview
-                                            ]);
+    __webdesign_config := CELL[ ...webdesigninfo
+                              , applytester
+                              , errorcode
+                              , override_contentobject
+                              , options.navigationobject
+                              , pageobject
+                              , renderwidgetpreview
+                              ];
 
     //Prevent oldstyle webdesigns
     IF(webdesigninfo.assetpack = "")
