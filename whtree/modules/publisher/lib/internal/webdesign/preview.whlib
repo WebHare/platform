@@ -118,6 +118,11 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
   webdesign->RunPage();
 }
 
+PUBLIC STRING FUNCTION GetOutputtoolsJSCode()
+{
+  RETURN `<link href="/.publisher/common/outputtools/outputtools.css" rel="stylesheet"><script src="/.publisher/common/outputtools/outputtools.js"></script>`;
+}
+
 PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insertoutputtools)
 {
   OBJECT findpattern := NEW RegEx('<link rel="stylesheet" href="([^"]*)/.ap/([^/"]*)/ap.css"><script src="([^"]*)/.ap/([^/"]*)/ap.js"([^>]*)');
@@ -149,11 +154,7 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
 
     STRING injection;
     IF(insertoutputtools)
-    {
-      STRING outtoolsurlbase := matches[1].value || "/.publisher/common/outputtools/";
-      injection := '<link href="' || EncodeValue(outtoolsurlbase || "outputtools.css") || '" rel="stylesheet">'
-                    || '<script src="' || EncodeValue(outtoolsurlbase || "outputtools.js") || '" id="wh-publisher-outputtools"></script>';
-    }
+      injection := GetOutputtoolsJSCode();
 
     INTEGER headclose := SearchSubstring(content,'</head>');
     IF(headclose != -1)

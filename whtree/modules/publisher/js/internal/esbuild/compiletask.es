@@ -75,6 +75,7 @@ async function runTask(taskcontext, data)
       , entryNames: "ap"
       , jsxFactory: 'dompack.jsxcreate'
       , write: false
+      , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
       , inject: []
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
