@@ -246,6 +246,71 @@ function testEqFloat(expected, actual, delta, explanation)
   testDeepEq(expected, actual, '');
 };
 
+/** Compare specific cells of two values (recursive)
+    @param expected Expected value
+    @param got Gotten value
+    @param keys Comma-separated list of members to check. Use '*' as first member to match all, and `-<cellname>` to excluded members after that.
+    @param annotation Message to display when the test fails
+*/
+function testEqMembers(expect, got, { keys = null, explation } = {})
+{
+  testEqMembersRecurse(expect, got, "got", keys);
+}
+
+function testEqMembersRecurse(expect, got, path, keys, explation)
+{
+  switch (typeof expect)
+  {
+    case "undefined":   return;
+    case "object":
+    {
+      if (expect === null)
+      {
+        if (expect !== got)
+        {
+          console.log({ expect, got });
+          throw Error(`Expected ${expect}, got ${got}, at ${path}`);
+        }
+        return;
+      }
+      const expectarray = Array.isArray(expect);
+      if (expectarray != Array.isArray(got))
+      {
+        console.log({ expect, got });
+        throw Error(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`);
+      }
+      if (expectarray)
+      {
+        if (expect.length != got.length)
+        {
+          console.log({ expect, got });
+          throw Error(`Expected array of length ${expect.length}, got array of length ${got.length}, at ${path}`);
+        }
+        for (let i = 0; i < expect.length; ++i)
+          testEqMembersRecurse(expect[i], got[i], `${path}[${i}]`);
+        return;
+      }
+      const gotkeys = Object.keys(got);
+      for (const i of Object.entries(expect))
+      {
+        if (keys && !keys.includes[i[0]])
+          continue;
+
+        if (!gotkeys.includes(i[0]))
+        {
+          console.log({ expect, got });
+          throw Error(`Expected property ${i[0]}, didn't find it, at ${path}`);
+        }
+        testEqMembersRecurse(i[1], got[i[0]], `${path}.${i[0]}`);
+      }
+      return;
+    }
+    default:
+      if (expect !== got)
+        throw Error(`Expected ${expect}, got ${got}, at ${path}`);
+  }
+}
+
 function testTrue(actual, explanation)
 {
   testEq(true, Boolean(actual), explanation);
@@ -802,6 +867,7 @@ module.exports = { registerTests: registerJSTests
                  , waitForEvent: test.waitForEvent
                  , eq: testEq
                  , eqMatch: testEqMatch
+                 , eqMembers: testEqMembers
                  , eqIn: testEqIn
                  , eqHTML: testEqHTML
                  , true: testTrue
