@@ -752,8 +752,6 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 
   RECORD ARRAY tocheck := SELECT name
                                , path := GetModuleInstallationRoot(name)
-                               , currentnodelink := ReadSoftLink(whdatamods || "@webhare-" || name)
-                               , legacyrootlink := ReadSoftLink(whdatamods || "@__webhareroot-" || name) //FIXME we may discard or rename this once the FS layout dust settles down
                                , currentrootlink := ReadSoftLink(whdatamods || "@mod-" || name)
                             FROM ToRecordArray(modules,"name");
 
@@ -762,25 +760,6 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
     IF(tofix.path="")
       CONTINUE;
 
-    STRING shouldbelink;
-    shouldbelink := RecordExists(GetDiskFileProperties(tofix.path || "js")) ? tofix.path || "js/"
-                     : RecordExists(GetDiskFileProperties(tofix.path || "nodejs")) ? tofix.path || "nodejs/"
-                     : "";
-
-    IF(tofix.currentnodelink != shouldbelink)
-    {
-      IF(shouldbelink != "")
-      {
-        //create using temp, overwiting any existing link where needed
-        CreateSoftLink(whdatamods || "@webhare-" || tofix.name || ".tmp", shouldbelink);
-        MoveDiskPath(whdatamods || "@webhare-" || tofix.name || ".tmp", whdatamods || "@webhare-" || tofix.name);
-      }
-      ELSE
-      {
-        DeleteDiskFile(whdatamods || "@webhare-" || tofix.name);
-      }
-    }
-
     STRING shouldberootlink := tofix.path;
     IF(tofix.currentrootlink != shouldberootlink)
     {
@@ -788,34 +767,11 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
       CreateSoftLink(whdatamods || "@mod-" || tofix.name || ".tmp", shouldberootlink);
       MoveDiskPath(whdatamods || "@mod-" || tofix.name || ".tmp", whdatamods || "@mod-" || tofix.name);
     }
-
-    STRING shouldbelegacyrootlink := tofix.name IN ["utwente_courses","utwente_campusapp"] ? tofix.path : "";
-    IF(tofix.legacyrootlink != shouldbelegacyrootlink)
-    {
-      IF(shouldbelegacyrootlink != "")
-      {
-        //create using temp, overwiting any existing link where needed
-        CreateSoftLink(whdatamods || "@__webhareroot-" || tofix.name || ".tmp", shouldbelegacyrootlink);
-        MoveDiskPath(whdatamods || "@__webhareroot-" || tofix.name || ".tmp", whdatamods || "@__webhareroot-" || tofix.name);
-      }
-      ELSE
-      {
-        DeleteDiskFile(whdatamods || "@__webhareroot-" || tofix.name);
-      }
-    }
   }
 
   IF(isallmodules)
   {
-    RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@webhare-*") WHERE Substring(name,9) NOT IN modules;
-    FOREVERY(RECORD tokill FROM deletelinks)
-      DeleteDiskFile(whdatamods || tokill.name);
-
-    deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@__webhareroot-*") WHERE Substring(name,15) NOT IN modules;
-    FOREVERY(RECORD tokill FROM deletelinks)
-      DeleteDiskFile(whdatamods || tokill.name);
-
-    deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@mod-*") WHERE Substring(name,5) NOT IN modules;
+    RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@mod-*") WHERE Substring(name,5) NOT IN modules;
     FOREVERY(RECORD tokill FROM deletelinks)
       DeleteDiskFile(whdatamods || tokill.name);
   }

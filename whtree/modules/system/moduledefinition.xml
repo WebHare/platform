@@ -19,7 +19,7 @@
     <runonce tag="initdb_20210813" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_20210808" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce tag="poststartcleanup_20210830" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
     <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
 

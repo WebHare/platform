@@ -64,4 +64,10 @@ RECORD ARRAY fix_standalone_templates := SELECT id FROM system.fs_objects WHERE 
 FOREVERY(RECORD tpl FROM fix_standalone_templates)
   OpenWHFSObject(tpl.id)->UpdateMetadata([ type := 16, publish := FALSE ]);
 
+// 4.33 Get rid of old @webhare- and @__webhareroot- prefixes... it's time to complete the switch to @mod- for consistency
+STRING whdatamods := GetWebhareConfiguration().varroot || "nodejs/node_modules/";
+RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@webhare-*") CONCAT ReadDiskDirectory(whdatamods,"@__webhareroot-*");
+FOREVERY(RECORD tokill FROM deletelinks)
+  DeleteDiskFile(whdatamods || tokill.name);
+
 trans->CommitWork();
