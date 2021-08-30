@@ -368,9 +368,6 @@ STATIC OBJECTTYPE SearchObject
   // Initialize the search object for catalog searches
   MACRO InitCatalog(RECORD initdata)
   {
-    IF(initdata.catalog = "WebHare publisher index") //TODO remove when utwente_base and helicon_base stop using the old name (or just switch to consilio/lib/api)
-      initdata.catalog := "publisher:whfs";
-
     INTEGER indexid :=
         SELECT AS INTEGER id
           FROM consilio.indices
@@ -783,9 +780,6 @@ PUBLIC RECORD FUNCTION GetCatalogList(/*unused*/STRING password DEFAULTSTO "")
 
 PUBLIC INTEGER FUNCTION GetCatalogIdByName(STRING catalog_name, /*unused*/STRING password DEFAULTSTO "")
 {
-  IF(catalog_name = "WebHare publisher index") //TODO remove when utwente_base and helicon_base stop using the old name (or just switch to consilio/lib/api)
-    catalog_name := "publisher:whfs";
-
   RETURN
       (SELECT AS INTEGER id + 1
          FROM consilio.indices
