@@ -187,12 +187,11 @@ PUBLIC MACRO CustomForm()
 
   //Discard all mail so far
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
-  mails := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
+  mails := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 2 ]);
 
   TestEq('=?UTF-8?Q?P=2E_Gim=C3=A9nez_&_Henkie_=F0=9F=98=87?= <mailfromtemplate@beta.webhare.net>', (SELECT AS STRING value FROM mails[0].headers WHERE field = "From"));
   TestEq("<testfw+formtest@beta.webhare.net>", (SELECT AS STRING value FROM mails[0].headers WHERE field = "Reply-To"));
 
-  TestEq(2, Length(mails));
   TestEq(2, Length(testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ])));
 
   // Edit again, but this time we'll resubmit the edit file just like an edit would do where the fileedit is handled by its JS equivalent
