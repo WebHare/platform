@@ -20,7 +20,7 @@
   <test script="test_consilioapi.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_consilioapi.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_robots.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_robots.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_robots.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH" flaky="true"/>
   <test script="test_customcontent.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_customcontent.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_suggestfields.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>

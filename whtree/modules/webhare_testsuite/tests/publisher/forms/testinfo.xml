@@ -6,8 +6,8 @@
   <test script="testformfile-aswidget.whscr" />
   <test script="testformfile-pagetitles-infotexts.whscr"/>
   <test script="testformapi.whscr" />
-  <test script="testformcustomfile.whscr"/>
-  <test script="testformcustomfile2.whscr"/>
+  <test script="testformcustomfile.whscr" flaky="true"/>
+  <test script="testformcustomfile2.whscr" flaky="true"/>
   <test script="testformfile-mailoptions.whscr"/>
   <test script="testformfile-formeditapp.whscr"/>
   <jstest name="testcore-plaincomponents" file="testcore.es">
