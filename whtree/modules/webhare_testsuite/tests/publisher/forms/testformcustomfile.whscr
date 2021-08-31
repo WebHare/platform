@@ -210,6 +210,10 @@ PUBLIC MACRO CustomForm()
   submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", submitted.response.upload.hash);
 
+  // make sure that the submission results are processed before cancelling
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+  testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
+
   //Test cancellation
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(witty.pagedata.editlink, [ cancel := "1" ])), testfw->browser->href);
   TestEq(0, webtoolresults->GetResultsCount());
