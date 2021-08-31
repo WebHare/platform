@@ -898,6 +898,8 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
   {
     this->resultslimitedpanel->visible := FALSE;
     RECORD filterresult := this->folderfilter->contents->RunFilter(CELL[allresults]);
+    this->_SetFilterResult(filterresult);
+
     IF(NOT RecordExists(filterresult) OR filterresult.numresults = 0) //no matches
     {
       IF(interactive)
@@ -905,7 +907,6 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
         this->resultslimited->htmlvalue := GetTid("publisher:components.filelist.filternoresults");
         this->resultslimitedpanel->visible := TRUE;
       }
-      this->_SetFilterResult(filterresult);
       RETURN;
     }
 
@@ -913,15 +914,13 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     {
       STRING htmlvalue;
       // Only sysops have the option to show all results
-      IF (filterresult.allowallresults)
+      IF (this->currentfilterresults.allowallresults)
         htmlvalue := `${GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)))} <a href="filelist:showallresults">${GetTid("publisher:components.filelist.clickallresults", ToString(filterresult.numresults))}</a>`;
       ELSE
         htmlvalue := GetTid("publisher:components.filelist.toomanyresults", ToString(Length(filterresult.showresults)), ToString(filterresult.numresults));
       this->resultslimited->htmlvalue := htmlvalue;
       this->resultslimitedpanel->visible := TRUE;
     }
-
-    this->_SetFilterResult(filterresult);
   }
 
   MACRO OnShowAllResults(STRING link)

@@ -1,5 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="base.whscr"/>
+  <test script="base.whscr" flaky="true"/>
   <test script="publisher.whscr"/>
   <test script="publisher-indexactions.whscr"/>
   <test script="publisher-recyclebin.whscr"/>

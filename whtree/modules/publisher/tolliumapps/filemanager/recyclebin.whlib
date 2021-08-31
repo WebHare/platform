@@ -86,6 +86,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     RETURN [ numresults := Length(results)
            , moreresults := Length(results) > 100
            , showresults := (SELECT id, parent FROM results LIMIT 100)
+           , allowallresults := this->tolliumuser->HasRight("system:sysop")
            ];
   }
 
