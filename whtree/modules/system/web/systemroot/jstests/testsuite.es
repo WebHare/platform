@@ -863,9 +863,9 @@ class TestFramework
 
   async waitForEmails(email, options)
   {
-    options = { timeout: 0, count: 1, ...options };
+    options = { timeout: 0, count: 1, returnallmail: false, ...options };
 
-    let emails = await testservice.retrieveEmails(email, options.timeout, options.count);
+    let emails = await testservice.retrieveEmails(email, options.timeout, options.count, options.returnallmail);
     for (let email of emails)
     {
       email.doc = this.scriptframedoc.createElement('div');
@@ -880,8 +880,9 @@ class TestFramework
     var email = typeof step.email == "function" ? step.email() : step.email;
     let timeout = step.emailtimeout || 0;
     let count = step.emailcount || 1;
+    let returnallmail = step.returnallmail || false;
 
-    let results = await testservice.retrieveEmails(email, timeout, count);
+    let results = await testservice.retrieveEmails(email, timeout, count, returnallmail);
     return this.processStepEmailResults(step, results);
   }
 

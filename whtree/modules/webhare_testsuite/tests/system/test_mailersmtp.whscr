@@ -80,7 +80,7 @@ MACRO MailSendTest()
   RECORD ARRAY headers := [ [ field := "Subject", value := "subject" ], [ field := "To", value := "to+2@beta.webhare.net" ] ];
   QueueMail("webhare_testsuite:system.mailertest", ["to+2@beta.webhare.net"], "info@sender.beta.webhare.net", headers, toppart);
 
-  mails := testfw->extractallmailfor("to+2@beta.webhare.net");
+  mails := testfw->extractallmailfor("to+2@beta.webhare.net", [ count := 2, returnallmail := TRUE  ]);
   TestEq(2,Length(mails));
   //DumpValue(mails,'tree'); //for debugging of test failure
 

@@ -114,7 +114,7 @@ MACRO VerifyAndCleanupMail()
 {
   //flush tasks and collect our mail
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
-  TestEq(4, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net")));
+  TestEq(4, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ count := 0, returnallmail := TRUE ])));
 }
 
 MACRO WorkHandlingErrors()

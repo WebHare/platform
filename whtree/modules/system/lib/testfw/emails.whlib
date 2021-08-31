@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
 
-PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonly, DATETIME scanaheaduntil)
+PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonly, DATETIME scanaheaduntil, INTEGER limitmails)
 {
   IF(emailaddress NOT LIKE "*@beta.webhare.net" AND emailaddress NOT LIKE "*@*.beta.webhare.net")
     THROW NEW Exception("For security reasons, only email directed to any *@[*.]beta.webhare.net email address may be retrieved");
@@ -26,7 +26,8 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
                                 AND (scanaheaduntil = DEFAULT DATETIME ? notbefore = DEFAULT DATETIME : notbefore < scanaheaduntil)
                                 AND NOT iscancelled
                                 AND DecodeHSON(taskdata).receiver LIKE emailaddress
-                       ORDER BY creationdate, id;
+                       ORDER BY creationdate, id
+                          LIMIT limitmails;
 
   IF(NOT peekonly)
     CancelManagedTasks(SELECT AS INTEGER ARRAY id FROM emails);
@@ -90,7 +91,7 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
   RETURN outmails;
 }
 
-PUBLIC RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, BOOLEAN peekonly, DATETIME scanaheaduntil)
+PUBLIC RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, BOOLEAN peekonly, DATETIME scanaheaduntil, BOOLEAN returnallmail)
 {
   IF(timeout < 0 OR timeout > 60000)
     THROW NEW Exception("Illegal timeout");
@@ -99,12 +100,17 @@ PUBLIC RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeo
   RECORD ARRAY outmails;
   WHILE(TRUE)
   {
-    outmails := outmails CONCAT __TryGetEmails(emailaddress, peekonly, scanaheaduntil);
+    outmails := outmails CONCAT __TryGetEmails(emailaddress, peekonly, scanaheaduntil, returnallmail ? 99999999 : count - Length(outmails));
     IF(Length(outmails) >= count)
       RETURN outmails;
 
     IF(waituntil <= GetCurrentDatetime())
+    {
+      IF(count > 0)
+        THROW NEW Exception(`Timeout retrieving emails - expected ${returnallmail?"at least ":""}${count} emails, got ${Length(outmails)}`);
+
       RETURN RECORD[];
+    }
 
     Sleep(100);
   }
