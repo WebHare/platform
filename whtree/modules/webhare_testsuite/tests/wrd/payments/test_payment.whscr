@@ -33,7 +33,7 @@ MACRO TestPaymentFields()
   testfw->BeginWork();
 
   OBJECT wrdschema :=  testfw->GetWRDSchema();
-  TestThrows(PTR wrdschema->^paydata->CreateAttribute("PAYDATA", "PAYMENT"), 'without domain should throw');
+  TestThrowsLike('The domain tag may not be empty*',PTR wrdschema->^paydata->CreateAttribute("PAYDATA", "PAYMENT"), 'without domain should throw');
 
   TestThrowsLike("Type 'PAYMENTDATA' does not exist*", PTR GetPaymentAPI(wrdschema, [ providerfield := "PAYMENTDATA.PAYMENT", paymentfield := "PAYDATA.DATA" ]));
   TestThrowsLike("Invalid provider attribute 'PAYPROV.WRD_TITLE'", PTR GetPaymentAPI(wrdschema,   [ providerfield := "PAYPROV.WRD_TITLE", paymentfield := "PAYDATA.DATA" ]));
@@ -259,6 +259,25 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   paymentapi->CancelPendingPayment(pd2d->id);
   TestEq("failed", pd2d->GetField("DATA").status);
   TestEq([ x := 43 ], pd2d->GetField("DATA").userdata);
+}
+
+MACRO TestPaymentBrokenMethodTest()
+{
+  RECORD ARRAY paymentoptions := paymentapi->ListAllPaymentOptions();
+  TestEq(3,Length(paymentoptions));
+
+  //broken methods shouldn't be created, but they can appear after a Sync until they're repaired.
+  //TODO also test accessing payments made using this broken method, and possibly repairing it? Although that seems pretty unsafe (the new payment method may be incompatible with the data retained frmo hte old one)
+  testfw->BeginWork();
+
+  testfw->wrdschema->^payprov->UpdateAttribute("METHOD", [ isrequired := FALSE ]);
+  OBJECT brokenmethod := testfw->wrdschema->^payprov->CreateEntity([ wrd_title := "brokenmethod" ]);
+  testfw->wrdschema->^payprov->UpdateAttribute("METHOD", [ isrequired := TRUE ]);
+
+  paymentoptions := paymentapi->ListAllPaymentOptions();
+  TestEq(3,Length(paymentoptions));
+
+  testfw->CommitWork();
 }
 
 MACRO TestParallelPayments() //completing first payment
@@ -584,8 +603,8 @@ ASYNC MACRO TestPendingPaymentsDialog()
   RECORD row_1273 := SELECT * FROM tt("pendingpayments")->rows WHERE amountpayable = 12.73m;
   TestEq("failed", row_1273.status);
 
-  AWAIT ExpectScreenChange(-1, PTR TTEScape);
-  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestPaymentProvidersDialog()
@@ -596,46 +615,53 @@ ASYNC MACRO TestPaymentProvidersDialog()
         ]));
 
   RECORD ARRAY rows := SELECT * FROM TT("providers")->rows ORDER BY title;
-  TestEq(3, Length(rows));
-  TestEq("CASH PAYMENTS", rows[0].title);
-  TestEq("Pay by invoice", rows[1].title);
-  TestEq("TestNoIssuer, TestWithIssuer", rows[2].title);
+  TestEq(4, Length(rows));
+  TestEqLike("#*", rows[0].title);
+  TestEq("External", rows[1].type);
+  TestEq("CASH PAYMENTS", rows[1].title);
+  TestEq("Pay by invoice", rows[2].title);
+  TestEq("TestNoIssuer, TestWithIssuer", rows[3].title);
 
   //First delete the current TestNoIssuer, TestWithIssuer
-  topscreen->providers->selection := rows[2];
+  topscreen->providers->selection := rows[3];
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->deleteprovider->TolliumClick);
 
+  //Receate it TestNoIssuer, TestWithIssuer
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   topscreen->methods->value := "wrd:test";
-  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TT(":Tag")->value := "newmethod";
   topscreen->paymentextension->disablewithissuer->value := TRUE;
-  AWAIT ExpectWorkErrors(PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectWorkErrors(PTR TTClick(":Ok"));
   topscreen->contextextension->wrd_title->value := "Nieuwe Titel";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEq(3, Length(TT("providers")->rows));
+  TestEq(4, Length(TT("providers")->rows));
   TestEq("TestNoIssuer", topscreen->providers->selection.title);
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->editprovider->TolliumClick);
   TestEq("Nieuwe Titel", topscreen->contextextension->wrd_title->value);
   TestEq("NEWMETHOD", TT(":Tag")->value);
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  //Attempt to edit the broken provider
+  topscreen->providers->selection := rows[0];
+  AWAIT ExpectScreenChange(+1, PTR TTClick(':edit'));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Test opening through the browser
-
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := [STRING(testfw->GetWRDSchema()->tag)]] ));
   AWAIT ExpectScreenChange(+1, PTR TTClick("managepaymentproviders"));
   //DumpValue(TT("possiblefields")->rows,'boxed');
   TestEq(1,Length(TT("possiblefields")->rows));
   TT("possiblefields")->selection := TT("possiblefields")->rows[0];
   AWAIT ExpectScreenChange(+1, PTR TTClick("manageproviders"));
-  TestEq(3, Length(TT("providers")->rows));
-  AWAIT ExpectScreenChange(-1, PTR TTEScape);
-  AWAIT ExpectScreenChange(-1, PTR TTEScape);
-  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+  TestEq(4, Length(TT("providers")->rows));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestPaymentDetailsDialog()
@@ -802,6 +828,7 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR Prep
                  , PTR TestPaymentFields
                  , PTR TestPaymentMethodTest
+                 , PTR TestPaymentBrokenMethodTest
                  , PTR TestParallelPayments
                  , PTR TestPaymentManual
                  , PTR TestParallelPayments2

@@ -1042,6 +1042,9 @@
         <text tid="paymentdate">Payment date</text>
         <text tid="paymentsdashboard">Recent payments</text>
       </textgroup>
+      <textgroup gid="external">   <!-- tolliumapps.payments.external -->
+        <text tid="methodtitle">External</text>
+      </textgroup>
       <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
         <text tid="acquirer">Acquirer</text>
         <text tid="keypair">Keypair</text>
@@ -1109,6 +1112,9 @@
         <text tid="connect">Test</text>
         <text tid="publickey">Public key</text>
         <text tid="secretkey">Secret key</text>
+      </textgroup>
+      <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
+        <text tid="methodtitle">Unavailable</text>
       </textgroup>
     </textgroup>
   </textgroup>

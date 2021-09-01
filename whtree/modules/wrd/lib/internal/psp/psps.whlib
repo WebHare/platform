@@ -1,9 +1,13 @@
 <?wh
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+
 PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
 {
   //external -must- be the first payment method - it is used for builtin payments too
   RETURN [[ tag := "wrd:external"
-          , title := "External"
+          , title := /*tid*/"wrd:tolliumapps.payments.external.methodtitle"
           , objectname := "mod::wrd/lib/internal/psp/external.whlib#ExternalPaymentProvider"
           , configextensions := "mod::wrd/tolliumapps/payments/builtins.xml#configexternalpsp"
           , payinfoscreen := ""
@@ -12,8 +16,15 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , expiredays := 14
                                ]
           ]
+         ,[ tag := "wrd:unavailable"
+          , title := /*tid*/"wrd:tolliumapps.payments.unavailable.methodtitle"
+          , objectname := "mod::wrd/lib/internal/psp/unavailable.whlib#UnavailablePaymentProvider"
+          , configextensions := ""
+          , payinfoscreen := ""
+          , metadataoptions := DEFAULT RECORD
+          ]
          ,[ tag := "wrd:ingenico"
-          , title := "Ingenico"
+          , title := ":Ingenico"
           , objectname := "mod::wrd/lib/internal/psp/ingenico.whlib#IngenicoPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/ingenico.xml#payinfo"
           , manual := "wrd:ogone"
@@ -32,7 +43,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:ideal"
-          , title := "iDEAL"
+          , title := ":iDEAL"
           , objectname := "mod::wrd/lib/internal/psp/ideal.whlib#IdealPaymentProvider"
           , configextensions := "mod::wrd/tolliumapps/payments/ideal.xml#configideal"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/ideal.xml#payinfo"
@@ -44,7 +55,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:mollie"
-          , title := "Mollie"
+          , title := ":Mollie"
           , objectname := "mod::wrd/lib/internal/psp/mollie.whlib#MolliePaymentProvider"
           , configextensions := "mod::wrd/tolliumapps/payments/mollie.xml#configmollie"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/mollie.xml#payinfo"
@@ -54,7 +65,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:sisow"
-          , title := "sisow"
+          , title := ":sisow"
           , objectname := "mod::wrd/lib/internal/psp/sisow.whlib#SisowPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/sisow.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/sisow.xml#configsisow"
@@ -65,7 +76,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:multisafepay"
-          , title := "multisafepay"
+          , title := ":multisafepay"
           , objectname := "mod::wrd/lib/internal/psp/multisafepay.whlib#MultisafepayPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/multisafepay.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/multisafepay.xml#configmultisafepay"
@@ -75,7 +86,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:stripe"
-          , title := "stripe"
+          , title := ":stripe"
           , objectname := "mod::wrd/lib/internal/psp/stripe.whlib#stripePaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/stripe.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/stripe.xml#configstripe"
@@ -85,11 +96,11 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:afterpay"
-          , title := "Afterpay"
+          , title := ":Afterpay"
           , objectname := "mod::wrd/lib/internal/psp/afterpay.whlib#AfterpayPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/afterpay.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/afterpay.xml#configafterpay"
-          , metadataoptions := [ methodtitle := ""
+          , metadataoptions := [ methodtitle := ":"
                                , merchantid := ""
                                , password := ""
                                , portfolioid := 0
@@ -98,18 +109,18 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
          ,[ tag := "wrd:spraypay"
-          , title := "spraypay"
+          , title := ":spraypay"
           , objectname := "mod::wrd/lib/internal/psp/spraypay.whlib#SpraypayPaymentProvider"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/spraypay.xml#payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/spraypay.xml#configspraypay"
-          , metadataoptions := [ methodtitle := ""
+          , metadataoptions := [ methodtitle := ":"
                                , webshopid := 0
                                , apikey := ""
                                , testmode := FALSE
                                ]
           ]
          ,[ tag := "wrd:pay_nl"
-          , title := "Pay.nl"
+          , title := ":Pay.nl"
           , objectname := "mod::wrd/lib/internal/psp/pay_nl.whlib#PayNLPaymentProvider"
           , configextensions := "mod::wrd/tolliumapps/payments/pay_nl.xml#configpaynl"
           , payinfoscreen := "mod::wrd/tolliumapps/payments/pay_nl.xml#payinfo"
@@ -122,20 +133,20 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                ]
           ]
 /*         ,[ tag := "wrd:klarna"
-          , title := "Klarna"
+          , title := ":Klarna"
           , objectname := "mod::wrd/lib/internal/psp/klarna.whlib#KlarnaPaymentProvider"
           , payinfoscreen := "paymentproviders:klarna.payinfo"
           , metadataoptions := DEFAULT RECORD
           ]
          ,[ tag := "wrd:buckaroo"
-          , title := "Buckaroo"
+          , title := ":Buckaroo"
           , objectname := "mod::wrd/lib/internal/psp/buckaroo.whlib#BuckarooPaymentProvider"
           , payinfoscreen := "paymentproviders:buckaroo.payinfo"
           , metadataoptions := DEFAULT RECORD
           ]
 */
          ,[ tag := "wrd:test"
-          , title := "Test"
+          , title := ":Test"
           , objectname := "mod::wrd/lib/internal/psp/test.whlib#TestPaymentProvider"
           , payinfoscreen := ""//paymentproviders:test.payinfo"
           , configextensions := "mod::wrd/tolliumapps/payments/builtins.xml#configtestpsp"
@@ -182,4 +193,3 @@ PUBLIC OBJECT FUNCTION OpenPSPHandler(STRING createtype, RECORD metadata)
   DELETE CELL __discard FROM pspoptions;
   RETURN MakeObject(methodinfo.objectname, pspoptions);
 }
-

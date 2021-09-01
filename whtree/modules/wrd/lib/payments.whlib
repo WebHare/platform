@@ -131,9 +131,12 @@ STATIC OBJECTTYPE PaymentAPI
     IF(NOT RecordExists(paymententity))
       THROW NEW Exception(`No such payment provider #${paymentprovider}`);
 
-    //FIXME condiser passing payment info through creation, so a PSP can never existing without payment, and we can start eliminating edge cases
-    RECORD paymentinfo := GetCell(paymententity, this->providerattribute).__paymentprovider;
-    OBJECT psp := OpenPSPHandler(paymentinfo.type, paymentinfo.meta);
+    //FIXME cnosider passing payment info through creation, so a PSP can never existing without payment, and we can start eliminating edge cases
+    RECORD paymentinfo := GetCell(paymententity, this->providerattribute);
+    IF(NOT RecordExists(paymentinfo))
+      paymentinfo := [ __paymentprovider := [ type := "wrd:unavailable", meta := DEFAULT RECORD ]];
+
+    OBJECT psp := OpenPSPHandler(paymentinfo.__paymentprovider.type, paymentinfo.__paymentprovider.meta);
     RETURN psp;
   }
 

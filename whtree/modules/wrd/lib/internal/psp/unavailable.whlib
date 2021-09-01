@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE UnavailablePaymentProvider EXTEND WRDPaymentProviderBase
+<
+  MACRO NEW(RECORD metadata) : WRDPaymentProviderBase("wrd:unavailable","redirect",DEFAULT RECORD)
+  {
+
+  }
+  UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
+  {
+    RETURN RECORD[];
+  }
+>;
