@@ -354,6 +354,8 @@ export default class EditorBase
 
     this.onload && this.onload();
 
+    this._mouseupcallback = e => this._gotMouseUp(e);
+
     if(this.options.log)
       console.log('onloadcompletedelayed finished');
 
@@ -1534,7 +1536,6 @@ export default class EditorBase
       this.bodydiv.addEventListener('keypress', this._gotKeyPress.bind(this));
       this.bodydiv.addEventListener('keyup', this._gotKeyUp.bind(this));//*/
       this.bodydiv.addEventListener('mousedown', this._gotMouseDown.bind(this));
-      this.bodydiv.addEventListener('mouseup', this._gotMouseUp.bind(this));
       this.bodydiv.addEventListener('click', this._gotMouseClick.bind(this));
       this.bodydiv.addEventListener('paste', this._gotPaste.bind(this));
       this.bodydiv.addEventListener('copy', this._gotCopy.bind(this));
@@ -2534,11 +2535,16 @@ export default class EditorBase
       this._gotSelectionChange(event);
       this.stateHasChanged();
     },1);
+
+    //Make sure we detect mouseup happening outside our window
+    window.addEventListener('mouseup', this._mouseupcallback);
     return true;
   }
 
   _gotMouseUp(event)
   {
+    window.removeEventListener('mouseup', this._mouseupcallback);
+
     this.ClearDelayedSurrounds();
     window.setTimeout( () =>
     {
