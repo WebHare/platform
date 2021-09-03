@@ -131,7 +131,7 @@ STATIC OBJECTTYPE PaymentAPI
     IF(NOT RecordExists(paymententity))
       THROW NEW Exception(`No such payment provider #${paymentprovider}`);
 
-    //FIXME cnosider passing payment info through creation, so a PSP can never existing without payment, and we can start eliminating edge cases
+    //FIXME consider passing payment info through creation, so a PSP can never exist without payment, and we can start eliminating edge cases
     RECORD paymentinfo := GetCell(paymententity, this->providerattribute);
     IF(NOT RecordExists(paymentinfo))
       paymentinfo := [ __paymentprovider := [ type := "wrd:unavailable", meta := DEFAULT RECORD ]];

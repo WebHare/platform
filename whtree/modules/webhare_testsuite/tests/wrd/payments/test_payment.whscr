@@ -267,7 +267,7 @@ MACRO TestPaymentBrokenMethodTest()
   TestEq(3,Length(paymentoptions));
 
   //broken methods shouldn't be created, but they can appear after a Sync until they're repaired.
-  //TODO also test accessing payments made using this broken method, and possibly repairing it? Although that seems pretty unsafe (the new payment method may be incompatible with the data retained frmo hte old one)
+  //TODO also test accessing payments made using this broken method, and possibly repairing it? Although that seems pretty unsafe (the new payment method may be incompatible with the data retained from the old one)
   testfw->BeginWork();
 
   testfw->wrdschema->^payprov->UpdateAttribute("METHOD", [ isrequired := FALSE ]);
