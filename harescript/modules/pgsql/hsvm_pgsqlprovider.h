@@ -98,7 +98,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         virtual void ExecuteInserts(DatabaseQuery const &query, VarId newrecord);
         virtual CursorId OpenCursor(DatabaseQuery &query, CursorType cursortype);
         virtual unsigned RetrieveNextBlock(CursorId id, VarId recarr);
-        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block);
+        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block);
         virtual LockResult LockRow(CursorId id, VarId recarr, unsigned row);
         virtual void UnlockRow(CursorId id, unsigned row);
         virtual void DeleteRecord(CursorId id, unsigned row);

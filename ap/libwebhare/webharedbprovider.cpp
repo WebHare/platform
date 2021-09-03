@@ -1329,14 +1329,18 @@ unsigned WebHareDBTransaction::RetrieveNextBlock(CursorId id, VarId recarr)
         return blocksize;
 }
 
-void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool allow_direct_close)
+void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool allow_direct_close)
 {
         VarMemory &varmem = vm->GetStackMachine();
         SQLQueryData &querydata = *queries.Get(id);
 
         try
         {
-                querydata.scan->RetrieveFase2Data(&rowlist[0], rowlist.size(), allow_direct_close);
+                Blex::SemiStaticPodVector< unsigned, 64 > rownumlist;
+                for (auto &itr: rowlist)
+                    rownumlist.push_back(itr.rownum);
+
+                querydata.scan->RetrieveFase2Data(&rownumlist[0], rownumlist.size(), allow_direct_close);
         }
         catch (Database::Exception &e)
         {

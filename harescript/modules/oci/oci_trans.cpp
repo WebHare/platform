@@ -443,7 +443,7 @@ unsigned OCITransaction::RetrieveNextBlock(CursorId id, VarId recarr)
         }
         return 0;
 }
-void OCITransaction::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< unsigned > const &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
+void OCITransaction::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
 {
         // ADDME: Add support for fase2 records
         return;

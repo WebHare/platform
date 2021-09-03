@@ -218,7 +218,7 @@ unsigned RecordDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return retrieve_count;
 }
 
-void RecordDBTransactionDriver::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< unsigned > const &/*rowlist*/, bool/*last_fase2_req_in_block*/)
+void RecordDBTransactionDriver::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool/*last_fase2_req_in_block*/)
 {
         // Ignored; this db provider always returns all columns
 }

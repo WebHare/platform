@@ -129,6 +129,9 @@ struct SubQuery
         // Marks for every row whether fase2 promotion has taken place
         Blex::SemiStaticPodVector< bool, 16 > row_is_fase_2;
 
+        // Stores the lockresult for every fase2 row
+        Blex::SemiStaticPodVector< LockResult, 16 > fase_2_lockresult;
+
         // Array indicating whether record array elements are deleted
         Blex::SemiStaticPodVector< bool, 16 > is_deleted;
 
@@ -181,9 +184,10 @@ struct SubQuery
         unsigned RetrieveNextBlock();
 
         /** Retrieves fase 2 rows in the current block
-            @param subelements List of rows within current block for which fase2 records must be retrieved
+            @param subelements List of rows within current block for which fase2 records must be retrieved. Update the lockresult
+              to Updated or Deleted when anything changes
             @param allow_direct_close If no more fase1 records are available, the query may be auto-closed after this call. */
-        void RetrieveFase2Records(Blex::PodVector< unsigned > const &rows, bool allow_direct_close);
+        void RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &rows, bool allow_direct_close);
 
         /* Retrieves records from the current blockpos (fase of the returned record is determined by previous call to retrieveXXX)
            Returned record may not be written to */
@@ -285,7 +289,7 @@ struct OpenQuery
         bool AdvanceWhileInvalid(unsigned modified_sq, bool stop_at_0_block_boundary);
         bool SatisfiesRemainingJoin(RemainingJoinCondition const &cond);
         bool AdvanceCursor(bool stopatblockboundary);
-        void RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements);
+        void RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements);
 
         /// Calculate all partitions (sources connected with joins)
         void PartitionSources(QueryDefinition &querydef);
@@ -338,7 +342,7 @@ struct OpenQuery
         // Indicates wether the query has ended
         bool finished;
 
-        Blex::SemiStaticPodVector< unsigned, 16 > matchingrows;
+        Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > matchingrows;
 
         bool in_fase2;
         bool locked;

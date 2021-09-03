@@ -1896,7 +1896,7 @@ unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return rowcount;
 }
 
-void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block)
+void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block)
 {
         // No fase2
         (void)id;

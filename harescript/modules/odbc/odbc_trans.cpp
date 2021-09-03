@@ -651,7 +651,7 @@ unsigned ODBCTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return querydata.resultset.BlockRowCount();
 }
 
-void ODBCTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
+void ODBCTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
 {
         ODBCQueryData &querydata = *queries.Get(id);
         StackMachine &varmem = vm->GetStackMachine();

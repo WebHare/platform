@@ -168,6 +168,12 @@ enum class LockResult
         Removed
 };
 
+struct Fase2RetrieveRow
+{
+        unsigned rownum;
+        LockResult lockresult;
+};
+
 /** Base class for a transaction interface.
 
     Every transaction used in the VM must have one of these to provide
@@ -225,9 +231,9 @@ struct BLEXLIB_PUBLIC DatabaseTransactionDriverInterface
             function (for different rows) must be allowed.
             @param id Id identifying query
             @param recarr Array in which the records must be stored. Missing columns indicate NULL.
-            @param rowlist List of rows for which the fase 2 records must be retrieved
+            @param rowlist List of rows for which the fase 2 records must be retrieved, increasing the lockresult (unchanged->updated->deleted if needed)
             @param is_last_fase2_req_for_block If true, no more fase 2 requests will be done for this block */
-        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block) = 0;
+        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block) = 0;
 
         /** Locks the specified row within the current block for update or delete. Only called when
             'needs_locking_and_recheck' is true in the description member. The values of

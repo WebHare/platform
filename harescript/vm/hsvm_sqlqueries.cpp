@@ -164,6 +164,8 @@ unsigned SubQuery::RetrieveNextBlock()
                         block_pos = 0;
                         row_is_fase_2.resize(block_length);
                         std::fill(row_is_fase_2.begin(), row_is_fase_2.end(), false);
+                        fase_2_lockresult.resize(block_length);
+                        std::fill(fase_2_lockresult.begin(), fase_2_lockresult.end(), LockResult::Unchanged);
 
                         AdvanceWhileInvalid();
 
@@ -189,19 +191,19 @@ unsigned SubQuery::RetrieveNextBlock()
                 return 0;
 }
 
-void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements_org, bool allow_direct_close)
+void SubQuery::RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements_org, bool allow_direct_close)
 {
-        Blex::SemiStaticPodVector< unsigned, 16 > subelements(subelements_org);
+        Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > subelements(subelements_org);
         if (trans)
         {
                 // Filter out all rows for which we already fetched fase 2.
                 auto wit = subelements.begin();
-                for (auto itr: subelements)
+                for (auto &itr: subelements)
                 {
-                        if (!row_is_fase_2[itr])
+                        if (!row_is_fase_2[itr.rownum])
                         {
                                 *(wit++) = itr;
-                                row_is_fase_2[itr] = true;
+                                row_is_fase_2[itr.rownum] = true;
                         }
                 }
                 subelements.erase(wit, subelements.end());
@@ -209,6 +211,10 @@ void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelemen
                 if (!subelements.empty())
                 {
                         trans->RetrieveFase2Records(cursorid, rec_array, subelements, allow_direct_close);
+
+                        // store lockresult
+                        for (auto &itr: subelements)
+                            fase_2_lockresult[itr.rownum] = itr.lockresult;
 
                         if (trans->description.supports_nulls)
                         {
@@ -220,12 +226,15 @@ void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelemen
                                         TableSource &tc = querydef.tables[tabidx];
                                         for (auto rowitr: subelements)
                                         {
-                                                VarId rec = stackm.ArrayElementRef(rec_array, rowitr * tabcount + tabidx);
+                                                VarId rec = stackm.ArrayElementRef(rec_array, rowitr.rownum * tabcount + tabidx);
                                                 FillWithNullDefaults(stackm, tc, rec, Fases::Fase2);
                                         }
                                 }
                         }
                 }
+
+                for (auto &itr: subelements_org)
+                    itr.lockresult = fase_2_lockresult[itr.rownum];
         }
 }
 
@@ -310,14 +319,14 @@ void SubQuery::ReadAndCache()
 
                 Open();
                 unsigned cursorsize = querydef.tables.size();
-                Blex::SemiStaticPodVector< unsigned, 16 > row_request;
+                Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > row_request;
                 while (RetrieveNextBlock() != 0)
                 {
                         // Retrieve only fase 2 records for single-condition matching thingies
                         row_request.clear();
                         while (true)
                         {
-                                row_request.push_back(block_pos);
+                                row_request.push_back(Fase2RetrieveRow{ block_pos, LockResult::Unchanged });
                                 if (!AdvanceCursorWithinBlock())
                                     break;
                         }
@@ -328,8 +337,12 @@ void SubQuery::ReadAndCache()
 
                                 // Copy the results to the resultset
                                 for (auto itr: row_request)
-                                    for (unsigned idx = 0; idx < cursorsize; ++idx)
-                                        varmem.CopyFrom(varmem.ArrayElementAppend(results), varmem.ArrayElementRef(rec_array, idx + itr * cursorsize));
+                                {
+                                        if (itr.lockresult == LockResult::Removed)
+                                                continue;
+                                        for (unsigned idx = 0; idx < cursorsize; ++idx)
+                                                varmem.CopyFrom(varmem.ArrayElementAppend(results), varmem.ArrayElementRef(rec_array, idx + itr.rownum * cursorsize));
+                                }
                         }
                 }
                 Close();
@@ -726,7 +739,7 @@ bool OpenQuery::AdvanceCursor(bool stopatblockboundary)
         return AdvanceWhileInvalid(advanced_sq, stopatblockboundary);
 }
 
-void OpenQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements)
+void OpenQuery::RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements)
 {
         for (std::vector<SubQuery>::iterator it = subqueries.begin(); it != subqueries.end(); ++it)
             it->RetrieveFase2Records(subelements, use_blocks);
@@ -843,7 +856,7 @@ QueryActions::_type OpenQuery::GetNextAction()
                         if (evaluated_where_ok)
                         {
                                 // Just did fase1, it was a match. Add to matching rows
-                                matchingrows.push_back(sq0.GetCurrentRow());
+                                matchingrows.push_back(Fase2RetrieveRow{ sq0.GetCurrentRow(), LockResult::Unchanged });
                                 if (limitcounter > 0)
                                     --limitcounter;
                                 if (!use_blocks || limitcounter == 0)
@@ -887,7 +900,7 @@ QueryActions::_type OpenQuery::GetNextAction()
                 if (!matchingrows.empty())
                 {
                         // Get the first matching row
-                        sq0.SetCurrentRow(matchingrows[0]);
+                        sq0.SetCurrentRow(matchingrows[0].rownum);
                         matchingrows.erase(matchingrows.begin());
         //                --limitcounter;
                         return QueryActions::Fase2Action;

@@ -262,7 +262,7 @@ unsigned LoopbackDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recar
         return rowcount;
 }
 
-void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool /*is_last_fase2_req_for_block*/)
+void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool /*is_last_fase2_req_for_block*/)
 {
         HSVM_VariableId obj = GetCursor(id).obj;
 
@@ -274,8 +274,8 @@ void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr
         HSVM_OpenFunctionCall(*vm, 1);
         HSVM_VariableId rowlistvar = HSVM_CallParam(*vm, 0);
         HSVM_SetDefault(*vm, rowlistvar, HSVM_VAR_IntegerArray);
-        for (auto itr: rowlist)
-            HSVM_IntegerSet(*vm, HSVM_ArrayAppend(*vm, rowlistvar), itr);
+        for (auto &itr: rowlist)
+            HSVM_IntegerSet(*vm, HSVM_ArrayAppend(*vm, rowlistvar), itr.rownum);
 //        HSVM_BooleanSet(*vm, HSVM_CallParam(*vm, 1), is_last_fase2_req_for_block);
 
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "GETFASE2DATA"), true, true);
