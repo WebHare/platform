@@ -1351,7 +1351,7 @@ void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex:
                 InternalTranslateRecord(querydata, querydata.scan->GetRow(row), table, varmem.ArrayElementRef(recarr, loc), Fase2, false);
 }
 
-DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(CursorId id, VarId recarr, unsigned row)
+LockResult WebHareDBTransaction::LockRow(CursorId id, VarId recarr, unsigned row)
 {
         StackMachine &stackm = vm->GetStackMachine();
         SQLQueryData &querydata = *queries.Get(id);
@@ -1364,18 +1364,18 @@ DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(Cur
         catch (Database::Exception &e)
         {
                 TranslateException(e);
-                return Removed;
+                return LockResult::Removed;
         }
         switch (lockres)
         {
-        case Database::DBLRGone:          return Removed;
+        case Database::DBLRGone:          return LockResult::Removed;
         case Database::DBLRLocked:
                 {
                         unsigned tablecount = querydata.sources.size();
                         unsigned loc = row * tablecount;
                         for (unsigned table = 0; table < tablecount; ++table, ++loc)
                              InternalTranslateRecord(querydata, querydata.scan->GetRow(row), table, stackm.ArrayElementRef(recarr, loc), Fase2, false);
-                        return Unchanged;
+                        return LockResult::Unchanged;
                 }
         case Database::DBLRLockedModified:
                 {
@@ -1389,7 +1389,7 @@ DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(Cur
                 }
         default: ;
         }
-        return Changed;
+        return LockResult::Changed;
 }
 
 void WebHareDBTransaction::UnlockRow(CursorId id, unsigned row)

@@ -286,7 +286,7 @@ void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr
         HSVM_CopyFrom(*vm, recarr, block);
 }
 
-LoopbackDBTransactionDriver::LockResult LoopbackDBTransactionDriver::LockRow(CursorId id, VarId /*recarr*/, unsigned row)
+LockResult LoopbackDBTransactionDriver::LockRow(CursorId id, VarId /*recarr*/, unsigned row)
 {
         HSVM_VariableId obj = GetCursor(id).obj;
 
@@ -302,11 +302,11 @@ LoopbackDBTransactionDriver::LockResult LoopbackDBTransactionDriver::LockRow(Cur
         // FIXME: is it necessary to copy pvt_current_block when result == changed??
 
         if (result == "REMOVED")
-            return Removed;
+            return LockResult::Removed;
         else if (result == "UNCHANGED")
-            return Unchanged;
+            return LockResult::Unchanged;
         else if (result == "CHANGED")
-            return Changed;
+            return LockResult::Changed;
         else
             throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB illegal result for LockRow: '" + result + "'");
 }

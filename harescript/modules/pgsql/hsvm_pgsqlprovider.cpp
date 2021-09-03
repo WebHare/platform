@@ -1906,7 +1906,7 @@ void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Ble
         return;
 }
 
-DatabaseTransactionDriverInterface::LockResult PGSQLTransactionDriver::LockRow(CursorId, VarId, unsigned)
+LockResult PGSQLTransactionDriver::LockRow(CursorId, VarId, unsigned)
 {
         // No locking in this driver
         throw std::logic_error("locking not needed in PostgreSQL driver");

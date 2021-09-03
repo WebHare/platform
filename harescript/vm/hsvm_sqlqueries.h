@@ -196,7 +196,7 @@ struct SubQuery
             trans->description.needs_locking_and_recheck is true.
             @param row Row to lock
             @return Lock result (see DatabaseTransactionDriverInterface::LockResult for meaning) */
-        DatabaseTransactionDriverInterface::LockResult LockRow();
+        LockResult LockRow();
 
         /** Unlocks a previously locked row (used when the locked row didn't match fase1)
             @param row Row to unlock */

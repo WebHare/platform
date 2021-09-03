@@ -161,6 +161,13 @@ struct DatabaseQuery
         DatabaseQuery() : limit(-1), maxblockrows(0) {}
 };
 
+enum class LockResult
+{
+        Unchanged,
+        Changed,
+        Removed
+};
+
 /** Base class for a transaction interface.
 
     Every transaction used in the VM must have one of these to provide
@@ -179,13 +186,6 @@ struct BLEXLIB_PUBLIC DatabaseTransactionDriverInterface
                 Select = 0,
                 Delete = 1,
                 Update = 2
-        };
-
-        enum LockResult
-        {
-                Unchanged,
-                Changed,
-                Removed
         };
 
         DatabaseTransactionDriverInterface(VirtualMachine *vm);

@@ -339,14 +339,14 @@ void SubQuery::ReadAndCache()
         }
 }
 
-DatabaseTransactionDriverInterface::LockResult SubQuery::LockRow()
+LockResult SubQuery::LockRow()
 {
         if (trans)
             return trans->LockRow(cursorid, rec_array, block_pos);
         else
         {
                 // What to do in record array case?
-                return DatabaseTransactionDriverInterface::Unchanged;
+                return LockResult::Unchanged;
         }
 }
 
@@ -812,13 +812,13 @@ QueryActions::_type OpenQuery::GetNextAction()
                                                 // Try to lock the current row
                                                 switch (sq0.LockRow())
                                                 {
-                                                case DatabaseTransactionDriverInterface::Unchanged:
+                                                case LockResult::Unchanged:
                                                     {
                                                             // Inv: evaluated_where_ok == true
                                                             locked = true;
                                                             // Add this to fase2 set (use_blocks is false, so fase2 will be entered immediately)
                                                     } break;
-                                                case DatabaseTransactionDriverInterface::Changed:
+                                                case LockResult::Changed:
                                                     {
                                                             locked = true;
                                                             want_fase_1 = true;

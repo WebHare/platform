@@ -223,10 +223,10 @@ void RecordDBTransactionDriver::RetrieveFase2Records(CursorId /*id*/, VarId /*re
         // Ignored; this db provider always returns all columns
 }
 
-RecordDBTransactionDriver::LockResult RecordDBTransactionDriver::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
+LockResult RecordDBTransactionDriver::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
 {
         // Ignored; this db provider does not need locking
-        return Unchanged;
+        return LockResult::Unchanged;
 }
 
 void RecordDBTransactionDriver::UnlockRow(CursorId /*id*/, unsigned /*row*/)
