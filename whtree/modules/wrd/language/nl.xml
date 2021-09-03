@@ -1042,6 +1042,9 @@
         <text tid="paymentdate">Betaaldatum</text>
         <text tid="paymentsdashboard">Recente betalingen</text>
       </textgroup>
+      <textgroup gid="external">   <!-- tolliumapps.payments.external -->
+        <text tid="methodtitle">Extern</text>
+      </textgroup>
       <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
         <text tid="acquirer">Verwerker</text>
         <text tid="keypair">Sleutelpaar</text>
@@ -1109,6 +1112,9 @@
         <text tid="connect">Test</text>
         <text tid="publickey">Publieke sleutel</text>
         <text tid="secretkey">Geheime sleutel</text>
+      </textgroup>
+      <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
+        <text tid="methodtitle">Niet beschikbaar</text>
       </textgroup>
     </textgroup>
   </textgroup>

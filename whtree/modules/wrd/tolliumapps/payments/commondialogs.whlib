@@ -42,8 +42,8 @@ PUBLIC OBJECTTYPE PaymentProviders EXTEND TolliumScreenBase
     }
 
     RETURN SELECT rowkey := id
-                , title
-                , type := (SELECT AS STRING title FROM types WHERE ToUppercase(types.tag) = ToUppercase(methods.psp->psptype))
+                , title := title ?? `#${id}`
+                , type := GetTid(SELECT AS STRING title FROM types WHERE ToUppercase(types.tag) = ToUppercase(methods.psp->psptype))
                 , tag
                 , psptype := methods.psp->psptype
                 , psp

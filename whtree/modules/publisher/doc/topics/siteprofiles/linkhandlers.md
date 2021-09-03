@@ -25,7 +25,7 @@ You can then activate your component as a link handler in the rtdtype in
 your siteprofile. In the following example 'my' is bound to your component XML namespace:
 
 ```xml
-  <rtdtype namespace="http://www.utwente.nl/xmlns/rtd/defaulttype" ...>
+  <rtdtype namespace="http://www.example.net/xmlns/rtd/defaulttype" ...>
     <linkhandlers xmlns="http://www.webhare.net/xmlns/tollium/screens">
       <my:topiclink />
     </linkhandlers>

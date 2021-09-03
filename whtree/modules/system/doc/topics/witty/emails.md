@@ -114,11 +114,11 @@ Once you've switched to using PrepareMailWitty it's easy to add a debug/test opt
 To ensure your preview and live versions don't diverge too much, you should wrap your PrepareMailWitty call in a function that's shared by both. For example:
 
 ```harescript
-STRING echeckbasemailpath := "site::repository/utwente-data/mailtemplates/echeck/";
+STRING echeckbasemailpath := "site::repository/mydata/mailtemplates/echeck/";
 
 PUBLIC OBJECT FUNCTION GetEcheckNotFoundMaill(STRING mail, RECORD options)
 {
-  options := ValidateOptions([ url := "https://www.utwente.nl/"
+  options := ValidateOptions([ url := "https://www.example.net/"
                              , programmetitle := "[programmetitle]"
                              ], options);
   OBJECT composer := PrepareMailWitty(`${echeckbasemailpath}formnotfound.html.witty`);

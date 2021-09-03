@@ -137,10 +137,10 @@ MACRO TestBase()
   TestEQ("mod::system/lib/go.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/go.whlib")); //it doesn't exist so we assume lib
   TestEQ("mod::system/lib/database.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/database.whlib")); //it actually exists
   TestEQ("site::webhare backend/design/lib/webharebackend.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
-  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
-  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
 
-  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
 
   TestEq("mod::webhare_testsuite/lib/testfallbac.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallbac.whlib"));
   TestEq("mod::webhare_testsuite/include/testfallback.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallback.whlib")); //this one is actually in /include/ !
@@ -245,14 +245,14 @@ MACRO SupportLIbrary()
 
   TestEq("mod::tollium/screens/screen.xml#other", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "screen.other"));
 
-  TestThrows(PTR MakeAbsoluteScreenReference("moduledata::utwente_campusapp/siteprofile.xml", ".././screens/eventsignup.xml#signupform"));
-  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("mod::utwente_campusapp/data/siteprofile.xml", "../screens/eventsignup.xml#signupform"));
+  TestThrows(PTR MakeAbsoluteScreenReference("moduledata::example/siteprofile.xml", ".././screens/eventsignup.xml#signupform"));
+  TestEq("mod::example/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("mod::example/data/siteprofile.xml", "../screens/eventsignup.xml#signupform"));
 
   TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "publisher:a/b.screen1"));
 
   TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("", "publisher:a/b.screen1"));
-  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::utwente_campusapp/screens/eventsignup.xml#signupform"));
-  TestEq("mod::utwente_campusapp/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduledata::utwente_campusapp/eventsignup.xml#signupform"));
+  TestEq("mod::example/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::example/screens/eventsignup.xml#signupform"));
+  TestEq("mod::example/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduledata::example/eventsignup.xml#signupform"));
 
   TestThrows(PTR MakeAbsoluteScreenReference("moduledata::webhare_testsuite/testcomponents.xsd", "components/media.vimeo_rec"));
 
@@ -261,7 +261,7 @@ MACRO SupportLIbrary()
   TestEq("wh::files.whlib", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whlibs/files.whlib"));
   TestEq("whres::test.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whres/test.xml"));
 
-  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
   TestEq("mod::wrd/screens/types.xml#managetypes", MakeAbsoluteScreenReference("mod::wrd/screens/browser.xml", "types.xml#managetypes"));
 }
 

@@ -215,7 +215,7 @@ MACRO MetaAttributesTest()
   composer->mergerecord := [ subject := "S", replyto := "mailreplyto@beta.webhare.net" ];
   composer->QueueMail();
 
-  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net")));
+  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net", [ count := 0 ])));
   Testeq(1,Length(testfw->extractallmailfor("mailto@beta.webhare.net")));
   Testeq(1,Length(testfw->extractallmailfor("mailto2@beta.webhare.net")));
   Testeq(1,Length(testfw->extractallmailfor("mailto3-final@beta.webhare.net")));
@@ -237,7 +237,7 @@ MACRO MetaAttributesTest_PrepareMail()
   testfw->BeginWork();
   composer->QueueMailInWork();
 
-  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net")));
+  Testeq(0,Length(testfw->extractallmailfor("mailto3@beta.webhare.net", [ count := 0 ])));
   Testeq(1,Length(testfw->extractallmailfor("mailto@beta.webhare.net")));
   Testeq(1,Length(testfw->extractallmailfor("mailto2@beta.webhare.net")));
   Testeq(1,Length(testfw->extractallmailfor("mailto3-final@beta.webhare.net")));
@@ -545,7 +545,7 @@ ASYNC MACRO TestMailWitty()
   outmail->QueueMailInWork();
   Testeq(1,Length(testfw->extractallmailfor("mailtemplate-bcc@beta.webhare.net")));
   Testeq(1,Length(testfw->extractallmailfor("mail-cc@beta.webhare.net")));
-  Testeq(0,Length(testfw->extractallmailfor("mailtemplate-cc@beta.webhare.net")));
+  Testeq(0,Length(testfw->extractallmailfor("mailtemplate-cc@beta.webhare.net", [ count := 0 ])));
   testfw->RollbackWork();
 
   RECORD rtdtext := [ htmltext := StringToBlob('<html><head></head><body>'
