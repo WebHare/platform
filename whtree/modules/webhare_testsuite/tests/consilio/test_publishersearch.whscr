@@ -51,7 +51,7 @@ MACRO TestWHFSContentHandler()
 
   OBJECT myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
-                                 || '<p class="normal">blabla5</p>'
+                                 || '<p class="normal">blabla5 <a href="#">blabla5link</a></p>'
                                  || '</body></html>')
                  , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);
@@ -60,7 +60,7 @@ MACRO TestWHFSContentHandler()
   //ensure structuredef documents are still (somewhat) indexed (otherwise we'd regress too early on these)
   OBJECT applytester := GetApplytesterForObject(file_5->id);
   RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
-  TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
+  TestEqLike("*blabla5*blabla5link*", BlobToString(indexable.htmltext));
 
   beforerepositoryfolder := OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository");
   IF(ObjectExists(beforerepositoryfolder->OpenByName("privatetestfile1.txt")))
@@ -166,7 +166,7 @@ MACRO PublisherSearchTest()
 
   items := SELECT * FROM result.results ORDER BY whfspath;
   TestEq("<span class=\"consilio--highlight\">blafolder</span> &#60;&#62;", items[0].title);
-  TestEq("blabla5", items[5].summary); //'summary' by default
+  TestEq("blabla5 blabla5link", items[5].summary); //'summary' by default
   TestEq(FALSE, CellExists(items[5], 'score'));
   TestEq(FALSE, CellExists(items[5], '_score'));
   TestEq(FALSE, CellExists(items[5], '_summary'));
@@ -176,14 +176,14 @@ MACRO PublisherSearchTest()
 
   items := SELECT * FROM result.results ORDER BY whfspath;
   TestEq("blafolder <>", items[0].title);
-  TestEq("blabla5", items[5]._summary);
+  TestEq("blabla5 blabla5link", items[5]._summary);
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["summary"], summaryfield := "summary", scorefield := "points" ]);
   TestEq(6, result.totalcount);
 
   items := SELECT * FROM result.results ORDER BY whfspath;
   TestEq("blafolder <>", items[0].title);
-  TestEq("blabla5", items[5].summary);
+  TestEq("blabla5 blabla5link", items[5].summary);
   TestEq(TYPEID(FLOAT), TYPEID(items[5].points), 'ensure score exists and is of proper type');
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ summaryfield := "" ]);
@@ -205,6 +205,9 @@ MACRO PublisherSearchTest()
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_4->id));
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla5")]));
+  TestEq(1, result.totalcount);
+  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla5link")]));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
 
