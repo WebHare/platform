@@ -139,23 +139,20 @@ void DocumentWriter::InvertDocumentField(const Field &field)
                         {
                                 case ConsilioToken::Word:
                                 {
-                                        // Only add if not link text
-                                        if (!t.linktext)
+                                        AddPosition(field.Name(), t.normalizedterm, position);
+                                        ++length;
+                                        // Don't add the stemmed term for the suggest field
+                                        if (!suggestfield && !t.stemmedterm.empty())
                                         {
-                                                AddPosition(field.Name(), t.normalizedterm, position);
+                                                AddPosition(field.Name(), t.stemmedterm, position);
                                                 ++length;
-                                                // Don't add the stemmed term for the suggest field
-                                                if (!suggestfield && !t.stemmedterm.empty())
-                                                {
-                                                        AddPosition(field.Name(), t.stemmedterm, position);
-                                                        ++length;
-                                                }
-
-                                                // Add the text to the suggest stream (don't have to use normalized term;
-                                                // the term will be normalized when the suggest stream is indexed)
-                                                for (std::vector<std::string>::const_iterator prefix = suggestprefixes.begin(); prefix != suggestprefixes.end(); ++prefix)
-                                                    AddSuggest(*prefix, t.term);
                                         }
+
+                                        // Add the text to the suggest stream (don't have to use normalized term;
+                                        // the term will be normalized when the suggest stream is indexed)
+                                        for (std::vector<std::string>::const_iterator prefix = suggestprefixes.begin(); prefix != suggestprefixes.end(); ++prefix)
+                                            AddSuggest(*prefix, t.term);
+
                                         ++position;
                                 } break;
                                 case ConsilioToken::Lang:
