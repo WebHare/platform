@@ -377,7 +377,7 @@ RECORD FUNCTION GetBestPartialLikeMatch(STRING likemask, STRING teststr)
             [ total :=        minfirst + minlast
             , startmask :=    Substitute(first, "\n", "\\n\n")
             , lastmask :=     Substitute(second, "\n", "\\n\n")
-            , missingmask :=  `${i=0?"":"*"}${Substitute(Detokenize(ArraySlice(parts, i, a - i), "*"), "\n", "\\n\n")}${a=LENGTH(parts)?"":"*"}` ?? "(*empty mask*)"
+            , missingmask :=  Substitute(SubString(likemask, LENGTH(first), LENGTH(likemask) - LENGTH(first) - LENGTH(second)), "\n", "\\n\n") ?? "(*empty mask*)"
             , startmatch :=   Substitute(Left(teststr, minfirst), "\n", "\\n\n")
             , lastmatch :=    Substitute(Right(teststr, minlast), "\n", "\\n\n")
             , missingmatch := Substitute(SubString(teststr, minfirst, LENGTH(teststr) - minlast - minfirst), "\n", "\\n\n") ?? "(*missing content*)"
