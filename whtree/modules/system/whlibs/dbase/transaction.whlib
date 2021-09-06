@@ -65,8 +65,15 @@ PUBLIC OBJECTTYPE TransactionCursorBase
 
   /** Retrieves the fase2 data for a set of rows
       @param rows List of rows to get the fase2 data for
+      @return Lock result for the implicit locking of rows
+        (can be DEFAULT STRING ARRAY if no implicit locking is done, or all rows
+        are unchanged).
+        Possible lock results:
+        - "UNCHANGED": Record is unchanged and locked
+        - "CHANGED": Record is changed, fase1 data must be updated in pvt_currentblock
+        - "REMOVED": Record is gone or does no longer meet requirements
   */
-  PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rows)
   {
     THROW NEW Exception("LowLevelCursor::GetFase2Data not implemented");
   }
@@ -166,10 +173,11 @@ PUBLIC OBJECTTYPE ForwardingTransactionCursor EXTEND TransactionCursorBase
   }
 
 
-  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rows)
   {
-    this->forwardto->GetFase2Data(rows);
+    STRING ARRAY retval := this->forwardto->GetFase2Data(rows);
     this->pvt_currentblock := this->forwardto->currentblock;
+    RETURN retval;
   }
 
 

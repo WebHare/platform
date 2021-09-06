@@ -281,6 +281,24 @@ void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "GETFASE2DATA"), true, true);
         if (!res)
             throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB GetFase2Data failed");
+
+        unsigned len = HSVM_ArrayLength(*vm, res);
+        for (unsigned i = 0; i < len && i < rowlist.size(); ++i)
+        {
+                std::string result = HSVM_StringGetSTD(*vm, HSVM_ArrayGetRef(*vm, res, i));
+                LockResult lockres;
+                if (result == "REMOVED")
+                    lockres = LockResult::Removed;
+                else if (result == "UNCHANGED")
+                    lockres = LockResult::Unchanged;
+                else if (result == "CHANGED")
+                    lockres = LockResult::Changed;
+                else
+                    throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB illegal result for RetrieveFase2Records lock result: '" + result + "'");
+                if (lockres > rowlist[i].lockresult)
+                    rowlist[i].lockresult = lockres;
+        }
+
         HSVM_CloseFunctionCall(*vm);
 
         HSVM_CopyFrom(*vm, recarr, block);

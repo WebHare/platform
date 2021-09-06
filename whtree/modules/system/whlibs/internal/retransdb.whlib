@@ -219,7 +219,7 @@ OBJECTTYPE RetransLowLevelCursor EXTEND TransactionCursorBase
     // Don't care.
   }
 
-  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rows)
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rows)
   {
 //    PRINT("retrans: GetFase2Data\n");
     FOREVERY (INTEGER row FROM rows)
@@ -238,12 +238,12 @@ OBJECTTYPE RetransLowLevelCursor EXTEND TransactionCursorBase
       CASE 0
         {
           this->state := "FASE1";
-          RETURN;
+          RETURN STRING[];
         }
       CASE 2
         {
           this->state := "DONE";
-          RETURN;
+          RETURN STRING[];
         }
       }
     }
@@ -254,6 +254,7 @@ OBJECTTYPE RetransLowLevelCursor EXTEND TransactionCursorBase
 
     this->pvt_currentblock := rs;
     this->state := "FASE2_R";
+    RETURN STRING[];
   }
 
   UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)

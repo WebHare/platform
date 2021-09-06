@@ -56,10 +56,11 @@ OBJECTTYPE ForwardingLoopbackCursor EXTEND LoopbackCursor
     this->pvt_currentblock := this->itf.GetCurrentBlock();
   }
 
-  UPDATE PUBLIC MACRO GetFase2Data(INTEGER ARRAY rowlist)
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rowlist)
   {
-    this->itf.GetFase2Data(rowlist);
+    STRING ARRAY retval := this->itf.GetFase2Data(rowlist);
     this->pvt_currentblock := this->itf.GetCurrentBlock();
+    RETURN retval;
   }
 
   UPDATE PUBLIC STRING FUNCTION LockRow(INTEGER row)
