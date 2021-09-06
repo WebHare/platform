@@ -59,7 +59,7 @@ while [ -n "$1" ]; do
     fi
 
     mkdir -p $(dirname $TARGETDIR)
-    git clone "$CLONEURL" "$TARGETDIR" && ANYMODS=1 || ERROR=1
+    git clone --recurse-submodules "$CLONEURL" "$TARGETDIR" && ANYMODS=1 || ERROR=1
   fi
   shift
 done
