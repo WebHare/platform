@@ -158,9 +158,9 @@ class ODBCTransactionDriver : public DatabaseTransactionDriverInterface
         void CloseCursor(CursorId id);
 
         unsigned RetrieveNextBlock(CursorId id, VarId recarr);
-        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block);
+        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block);
 
-        LockResult LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/) { return Removed; }
+        LockResult LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/) { return LockResult::Removed; }
         void UnlockRow(CursorId /*id*/, unsigned /*row*/) {}
         void DeleteRecord(CursorId id, unsigned row);
         void UpdateRecord(CursorId id, unsigned row, VarId newfields);

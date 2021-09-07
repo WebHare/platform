@@ -55,6 +55,7 @@ OCITransaction::OCITransaction(HSVM *hsvm, OCIContext &ocicontext)
         description.supports_data_modify = true;
         description.supports_nulls = true;
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
 
         transfer.StringPieceSize=4000;
@@ -443,7 +444,7 @@ unsigned OCITransaction::RetrieveNextBlock(CursorId id, VarId recarr)
         }
         return 0;
 }
-void OCITransaction::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< unsigned > const &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
+void OCITransaction::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
 {
         // ADDME: Add support for fase2 records
         return;

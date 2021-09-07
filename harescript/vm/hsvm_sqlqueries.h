@@ -129,6 +129,9 @@ struct SubQuery
         // Marks for every row whether fase2 promotion has taken place
         Blex::SemiStaticPodVector< bool, 16 > row_is_fase_2;
 
+        // Stores the lockresult for every fase2 row
+        Blex::SemiStaticPodVector< LockResult, 16 > fase_2_lockresult;
+
         // Array indicating whether record array elements are deleted
         Blex::SemiStaticPodVector< bool, 16 > is_deleted;
 
@@ -158,9 +161,6 @@ struct SubQuery
         unsigned inpartlimit;
         unsigned inpartquerynr;
 
-        // Returns whether the current row is invalid
-        bool IsCurrentRowInvalid();
-
         /** Advances the block_pos counter while the current row does not match the query definition. Does not retrieve
             next block.
             @return Whether a matching row has been found in the rest of the block */
@@ -181,9 +181,10 @@ struct SubQuery
         unsigned RetrieveNextBlock();
 
         /** Retrieves fase 2 rows in the current block
-            @param subelements List of rows within current block for which fase2 records must be retrieved
+            @param subelements List of rows within current block for which fase2 records must be retrieved. Update the lockresult
+              to Updated or Deleted when anything changes
             @param allow_direct_close If no more fase1 records are available, the query may be auto-closed after this call. */
-        void RetrieveFase2Records(Blex::PodVector< unsigned > const &rows, bool allow_direct_close);
+        void RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &rows, bool allow_direct_close);
 
         /* Retrieves records from the current blockpos (fase of the returned record is determined by previous call to retrieveXXX)
            Returned record may not be written to */
@@ -196,7 +197,7 @@ struct SubQuery
             trans->description.needs_locking_and_recheck is true.
             @param row Row to lock
             @return Lock result (see DatabaseTransactionDriverInterface::LockResult for meaning) */
-        DatabaseTransactionDriverInterface::LockResult LockRow();
+        LockResult LockRow();
 
         /** Unlocks a previously locked row (used when the locked row didn't match fase1)
             @param row Row to unlock */
@@ -228,6 +229,11 @@ struct SubQuery
 
         /// Sets current row
         void inline SetCurrentRow(unsigned row) { block_pos = row; }
+
+        /** Check if current row is valid wrt single- and joinconditions
+            @param fullcheck If true, also recheck conditions handled by the database driver
+        */
+        bool IsCurrentRowValid(bool fullcheck);
 
         /// Returns the transaction (0 if record array!)
         inline DatabaseTransactionDriverInterface * GetTransaction() { return trans; }
@@ -285,7 +291,7 @@ struct OpenQuery
         bool AdvanceWhileInvalid(unsigned modified_sq, bool stop_at_0_block_boundary);
         bool SatisfiesRemainingJoin(RemainingJoinCondition const &cond);
         bool AdvanceCursor(bool stopatblockboundary);
-        void RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements);
+        void RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements);
 
         /// Calculate all partitions (sources connected with joins)
         void PartitionSources(QueryDefinition &querydef);
@@ -338,7 +344,7 @@ struct OpenQuery
         // Indicates wether the query has ended
         bool finished;
 
-        Blex::SemiStaticPodVector< unsigned, 16 > matchingrows;
+        Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > matchingrows;
 
         bool in_fase2;
         bool locked;
@@ -346,6 +352,7 @@ struct OpenQuery
         bool use_blocks;
         bool use_fase1;
         bool fase2needslock;
+        bool fase2_locks_implicitly;
 
         friend struct SubQuery;
 };

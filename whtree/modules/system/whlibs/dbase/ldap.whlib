@@ -812,8 +812,9 @@ DEBUGPrintTo(ldapdebugstream,"Got referral: " << ref);
       /*loop*/;
   }
 
-  UPDATE /*FIXME PRIVATE*/PUBLIC MACRO GetFase2Data(INTEGER ARRAY rowlist)
+  UPDATE /*FIXME PRIVATE*/PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rowlist)
   {
+    RETURN STRING[];
   }
 
   UPDATE /*FIXME PRIVATE*/PUBLIC MACRO Close()

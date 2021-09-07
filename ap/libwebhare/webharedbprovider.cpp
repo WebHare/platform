@@ -572,6 +572,7 @@ WebHareDBTransaction::WebHareDBTransaction(Connection *conn, std::unique_ptr< Da
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = true;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
 
         //DEBUGPRINT("Creating WHDB transaction " << this);
@@ -1329,14 +1330,18 @@ unsigned WebHareDBTransaction::RetrieveNextBlock(CursorId id, VarId recarr)
         return blocksize;
 }
 
-void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool allow_direct_close)
+void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool allow_direct_close)
 {
         VarMemory &varmem = vm->GetStackMachine();
         SQLQueryData &querydata = *queries.Get(id);
 
         try
         {
-                querydata.scan->RetrieveFase2Data(&rowlist[0], rowlist.size(), allow_direct_close);
+                Blex::SemiStaticPodVector< unsigned, 64 > rownumlist;
+                for (auto &itr: rowlist)
+                    rownumlist.push_back(itr.rownum);
+
+                querydata.scan->RetrieveFase2Data(&rownumlist[0], rownumlist.size(), allow_direct_close);
         }
         catch (Database::Exception &e)
         {
@@ -1351,7 +1356,7 @@ void WebHareDBTransaction::RetrieveFase2Records(CursorId id, VarId recarr, Blex:
                 InternalTranslateRecord(querydata, querydata.scan->GetRow(row), table, varmem.ArrayElementRef(recarr, loc), Fase2, false);
 }
 
-DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(CursorId id, VarId recarr, unsigned row)
+LockResult WebHareDBTransaction::LockRow(CursorId id, VarId recarr, unsigned row)
 {
         StackMachine &stackm = vm->GetStackMachine();
         SQLQueryData &querydata = *queries.Get(id);
@@ -1364,18 +1369,18 @@ DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(Cur
         catch (Database::Exception &e)
         {
                 TranslateException(e);
-                return Removed;
+                return LockResult::Removed;
         }
         switch (lockres)
         {
-        case Database::DBLRGone:          return Removed;
+        case Database::DBLRGone:          return LockResult::Removed;
         case Database::DBLRLocked:
                 {
                         unsigned tablecount = querydata.sources.size();
                         unsigned loc = row * tablecount;
                         for (unsigned table = 0; table < tablecount; ++table, ++loc)
                              InternalTranslateRecord(querydata, querydata.scan->GetRow(row), table, stackm.ArrayElementRef(recarr, loc), Fase2, false);
-                        return Unchanged;
+                        return LockResult::Unchanged;
                 }
         case Database::DBLRLockedModified:
                 {
@@ -1389,7 +1394,7 @@ DatabaseTransactionDriverInterface::LockResult WebHareDBTransaction::LockRow(Cur
                 }
         default: ;
         }
-        return Changed;
+        return LockResult::Changed;
 }
 
 void WebHareDBTransaction::UnlockRow(CursorId id, unsigned row)

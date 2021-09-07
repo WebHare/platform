@@ -38,6 +38,7 @@ RecordDBTransactionDriver::RecordDBTransactionDriver(VirtualMachine *vm)
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
 }
 
@@ -218,15 +219,15 @@ unsigned RecordDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return retrieve_count;
 }
 
-void RecordDBTransactionDriver::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< unsigned > const &/*rowlist*/, bool/*last_fase2_req_in_block*/)
+void RecordDBTransactionDriver::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool/*last_fase2_req_in_block*/)
 {
         // Ignored; this db provider always returns all columns
 }
 
-RecordDBTransactionDriver::LockResult RecordDBTransactionDriver::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
+LockResult RecordDBTransactionDriver::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
 {
         // Ignored; this db provider does not need locking
-        return Unchanged;
+        return LockResult::Unchanged;
 }
 
 void RecordDBTransactionDriver::UnlockRow(CursorId /*id*/, unsigned /*row*/)

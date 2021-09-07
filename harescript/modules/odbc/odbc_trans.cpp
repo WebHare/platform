@@ -64,6 +64,7 @@ ODBCTransactionDriver::ODBCTransactionDriver(HSVM *hsvm, SQLHDBC hdbc)
         description.supports_nulls = true;
         description.supports_data_modify = (GetDriverInfoStr(hdbc, SQL_DATA_SOURCE_READ_ONLY) == "N");
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = false;
 }
 
@@ -651,7 +652,7 @@ unsigned ODBCTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return querydata.resultset.BlockRowCount();
 }
 
-void ODBCTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
+void ODBCTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &/*rowlist*/, bool /*is_last_fase2_req_for_block*/)
 {
         ODBCQueryData &querydata = *queries.Get(id);
         StackMachine &varmem = vm->GetStackMachine();

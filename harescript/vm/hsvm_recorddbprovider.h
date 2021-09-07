@@ -99,7 +99,7 @@ class RecordDBTransactionDriver : public DatabaseTransactionDriverInterface
             @param recarr Array in which the records must be stored
             @param rowlist List of rows for which the fase 2 records must be retrieved
             @param is_last_fase2_req_for_block If true, no more fase 2 requests will be done for this block */
-        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block);
+        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block);
 
         /** Locks the specified row within the current block for update or delete. Only called when
             'needs_locking_and_recheck' is true in the description member. The values of

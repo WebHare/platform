@@ -16,6 +16,7 @@
 #include <string_view>
 #include <limits>
 #include <iomanip>
+#include <variant>
 
 #define SHOW_PGSQL
 
@@ -59,9 +60,14 @@ using namespace std::literals::string_view_literals;
 */
 std::string_view max_indexed_size("264"sv); // Keep in sync with constant in dbase/postgresql.whlib!!
 
+// Maximum block size
+const unsigned fase1_max_blocksize = 8;
+
+
 // Copied from /usr/include/pgsql/server/catalog/pg_type.h (can't be included due to path issues)
-enum class OID
+enum class OID : int32_t
 {
+        unknown = 0,
         BOOL = 16,
         BYTEA = 17,
         CHAR = 18,
@@ -82,20 +88,34 @@ enum class OID
         FLOAT4 = 700,
         FLOAT8 = 701,
         INET = 869,
+        BOOLARRAY = 1000,
         BYTEAARRAY = 1001,
         CHARARRAY = 1002,
         INT2ARRAY = 1005,
         INT4ARRAY = 1007,
         INT8ARRAY = 1016,
         TEXTARRAY = 1009,
+        FLOAT8ARRAY = 1022,
         TIMESTAMPARRAY = 1115,
         OIDARRAY = 1028,
+        TIDARRAY = 1010,
         TIMESTAMP = 1114,
         TIMESTAMPTZ = 1184,
+        NUMERICARRAY = 1231,
         NUMERIC = 1700,
         ANY = 2276,
-        ANYARRAY = 2277
+        ANYARRAY = 2277,
+        RECORD = 2249,
+        RECORDARRAY = 2287,
 };
+
+struct PostgresqlTid
+{
+        unsigned blocknumber;
+        unsigned tupleindex;
+};
+
+inline bool operator==(PostgresqlTid const &lhs, PostgresqlTid const &rhs) { return lhs.blocknumber == rhs.blocknumber && lhs.tupleindex == rhs.tupleindex; }
 
 /** Blob in wh blob storage, stored in type 'webhare_blob'
 */
@@ -410,10 +430,23 @@ enum Flags
 struct ParamsEncoder
 {
     public:
-        ParamsEncoder(PGSQLTransactionDriver &_driver) : driver(_driver), buildingarray(false) {}
+        enum BuildMode
+        {
+                Top,
+                Array,
+                Record
+        };
+
+        ParamsEncoder(PGSQLTransactionDriver &_driver) : driver(_driver), buildmode(Top) {}
 
         PGSQLTransactionDriver &driver;
-        bool buildingarray;
+
+        /** Controls how parameters are added
+            - Top: as top-level parameter
+            - Array: as array element
+            - Record: as record element
+        */
+        BuildMode buildmode;
 
         static const int staticparams = 16;
         Blex::SemiStaticPodVector< Oid, staticparams > types;
@@ -423,10 +456,23 @@ struct ParamsEncoder
 
         Blex::SemiStaticPodVector< char, 32768 > alldata;
 
-        char *RegisterParameter(OID type, unsigned len);
+        /// Register a new (sub-)parameter. Use -1 as len for NULL
+        char *RegisterParameter(OID type, signed len);
         std::string AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
         std::string AddParameter(VirtualMachine *vm, std::string_view str, ParamEncoding::Flags flags = ParamEncoding::None);
 
+        struct FinalizeData
+        {
+                BuildMode orgbuildmode;
+                unsigned datastart;
+                bool hasnull;
+        };
+
+        FinalizeData AddArrayParameter(OID type, OID elttype, unsigned eltcount);
+        FinalizeData AddRecordParameter(OID type, unsigned eltcount);
+        void FinalizeParameter(FinalizeData const &finalizedata);
+
+        /// Finalize all added parameters, prepare dataptrs and formats arrays
         void Finalize();
 };
 
@@ -455,10 +501,14 @@ struct TuplesReader
 
         std::vector< Field > fields;
 
+        typedef std::variant< std::nullptr_t, int, std::string, PostgresqlTid > Value;
+
         void ReadColumns(QueryData *querydata);
         ReadResult ReadValue(VarId id_set, int row, int col);
         ReadResult ReadBinaryValue(VarId id_set, OID oid, int len, const char *data, VariableTypes::Type wanttype, ColumnNameId colname);
         ReadResult ReadSimpleTuple(VarId id_set, int row);
+        void AddAsParameter(ParamsEncoder *encoder, int row, int col);
+        Value ReadValue(int row, int col);
 };
 
 /** Describes a query (query string, parameters, requested return value) needed to send a query to PostgreSQL
@@ -478,10 +528,10 @@ class QueryData
     public:
         QueryData(PGSQLTransactionDriver &driver)
         : query(driver)
+        , usefase2(false)
         , tablecount(0)
         , blockstartrow(0)
         , currow(0)
-        , ctidcol(-1)
         {
         }
 
@@ -496,6 +546,15 @@ class QueryData
 
         std::vector< ResultColumn > resultcolumns;
 
+        std::string querystrfase2;
+        std::vector< ResultColumn > resultcolumnsfase2;
+
+        struct KeyColumn
+        {
+                unsigned resultcolumn;
+        };
+        std::optional< KeyColumn > keycolumn;
+
         struct UpdateColumn
         {
                 ColumnNameId nameid;
@@ -506,32 +565,46 @@ class QueryData
         std::vector< UpdateColumn > updatecolumns;
 
         std::string updatedtable;
+        bool usefase2;
         unsigned tablecount;
         unsigned blockstartrow;
         unsigned currow;
-        signed ctidcol;
+
+        Blex::SemiStaticPodVector< PostgresqlTid, fase1_max_blocksize > ctids;
 
         PGPtr< PGresult > resultset;
         std::unique_ptr< TuplesReader > reader;
 };
 
-char *ParamsEncoder::RegisterParameter(OID type, unsigned len)
+char *ParamsEncoder::RegisterParameter(OID type, signed len)
 {
         auto curdatalen = alldata.size();
-        if (!buildingarray)
+        switch (buildmode)
         {
-                types.push_back(static_cast< int >(type));
-                lengths.push_back(len);
+                case Top:
+                {
+                        types.push_back(static_cast< int >(type));
+                        lengths.push_back(len);
 
-                alldata.resize(curdatalen + len);
-                return &alldata[curdatalen];
+                        if (len > 0)
+                            alldata.resize(curdatalen + len);
+                        return &alldata[curdatalen];
+                }
+                case Array:
+                {
+                        alldata.resize(curdatalen + (len > 0 ? len : 0) + 4);
+                        Blex::puts32msb(&alldata[curdatalen], len);
+                        return &alldata[curdatalen + 4];
+                }
+                case Record:
+                {
+                        alldata.resize(curdatalen + (len > 0 ? len : 0) + 8);
+                        Blex::puts32msb(&alldata[curdatalen], static_cast< int32_t >(type));
+                        Blex::puts32msb(&alldata[curdatalen + 4], len);
+                        return &alldata[curdatalen + 8];
+                }
         }
-        else
-        {
-                alldata.resize(curdatalen + len + 4);
-                Blex::puts32msb(&alldata[curdatalen], len);
-                return &alldata[curdatalen + 4];
-        }
+        throw std::logic_error("Unknown buildmode");
 }
 
 #ifdef DUMP_BINARY_ENCODING
@@ -745,17 +818,9 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
                                         }
                                 }
 
-                                auto headerpos = alldata.size();
-                                char *header = RegisterParameter(arrayoid, 20); // 20 is the header size
-
                                 unsigned eltcount = stackm.ArraySize(var);
 
-                                buildingarray = true;
-                                Blex::puts32msb(header, 1); // 1 dimension
-                                Blex::puts32msb(header + 4, 0); // has null
-                                Blex::puts32msb(header + 8, static_cast< int32_t >(eltoid)); // has null
-                                Blex::puts32msb(header + 12, eltcount); // first dimension size
-                                Blex::puts32msb(header + 16, 0); // lower bound
+                                auto finalizedata = AddArrayParameter(arrayoid, eltoid, eltcount);
 
                                 for (unsigned i = 0; i < eltcount; ++i)
                                 {
@@ -767,14 +832,11 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
                                                 auto lenpos = alldata.size();
                                                 alldata.resize(lenpos + 4); // reserve space for the size
                                                 Blex::puts32msb(&alldata[lenpos], -1);
-                                                Blex::puts32msb(&alldata[headerpos + 4], 1); // has null
+                                                finalizedata.hasnull = true;
                                         }
                                 }
 
-                                buildingarray = false;
-
-                                // Adjust length
-                                *lengths.rbegin() = alldata.size() - headerpos;
+                                FinalizeParameter(finalizedata);
                         }
                         else
                         {
@@ -827,11 +889,60 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, 
         return "$" + Blex::AnyToString(lengths.size());
 }
 
+ParamsEncoder::FinalizeData ParamsEncoder::AddArrayParameter(OID type, OID eltoid, unsigned eltcount)
+{
+        BuildMode orgbuildmode = buildmode;
+
+        unsigned datastart = alldata.size();
+        char *header = RegisterParameter(type, 20); // 20 is the header size
+
+        buildmode = Array;
+        Blex::puts32msb(header, 1); // 1 dimension
+        Blex::puts32msb(header + 4, 0); // has null
+        Blex::puts32msb(header + 8, static_cast< int32_t >(eltoid)); // has null
+        Blex::puts32msb(header + 12, eltcount); // first dimension size
+        Blex::puts32msb(header + 16, 0); // lower bound
+
+        return FinalizeData{ orgbuildmode, datastart, false };
+}
+
+ParamsEncoder::FinalizeData ParamsEncoder::AddRecordParameter(OID type, unsigned eltcount)
+{
+        BuildMode orgbuildmode = buildmode;
+
+        unsigned datastart = alldata.size();
+        char *header = RegisterParameter(type, 4); // 4 bytes for eltcount
+
+        buildmode = Record;
+        Blex::puts32msb(header, eltcount); // 1 dimension
+
+        return FinalizeData{ orgbuildmode, datastart, false };
+}
+
+void ParamsEncoder::FinalizeParameter(FinalizeData const &finalizedata)
+{
+        if (buildmode == Array && finalizedata.hasnull)
+            Blex::puts32msb(&alldata[finalizedata.datastart + 4], 1); // has null
+
+        buildmode = finalizedata.orgbuildmode;
+        if (buildmode == Top)
+        {
+                // Adjust length
+                *lengths.rbegin() = alldata.size() - finalizedata.datastart;
+        }
+        else
+        {
+                Blex::puts32msb(&alldata[finalizedata.datastart - 4], alldata.size() - finalizedata.datastart);
+        }
+}
 
 void ParamsEncoder::Finalize()
 {
         if (!lengths.empty())
         {
+                dataptrs.clear();
+                formats.clear();
+
                 // Make sure alldata isn't empty, so dataptr won't become nullptr (indicating a NULL)
                 // This can happen when adding only empty strings
                 if (alldata.size() == 0)
@@ -846,7 +957,6 @@ void ParamsEncoder::Finalize()
                 }
         }
 }
-
 
 void TuplesReader::ReadColumns(QueryData *querydata)
 {
@@ -889,6 +999,17 @@ TuplesReader::ReadResult TuplesReader::ReadValue(VarId id_set, int row, int col)
             return retval;
 
         return retval;
+}
+
+void TuplesReader::AddAsParameter(ParamsEncoder *encoder, int row, int col)
+{
+        int len = PQgetlength(res, row, col);
+        char const *data = PQgetvalue(res, row, col);
+        bool isnull = PQgetisnull(res, row, col);
+
+        char *writepos = encoder->RegisterParameter(fields[col].type, isnull ? -1 : len);
+        if (!isnull && len)
+            std::copy(data, data + len, writepos);
 }
 
 TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, int len, const char *data, VariableTypes::Type wanttype, ColumnNameId colname)
@@ -950,7 +1071,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                 case OID::TID:
                 {
                         stackm.SetSTLString(id_set, len == 6
-                                ? "'(" + Blex::AnyToString(Blex::gets32msb(data)) + "," + Blex::AnyToString(Blex::gets16msb(data + 4)) + ")'"
+                                ? "'(" + Blex::AnyToString(Blex::getu32msb(data)) + "," + Blex::AnyToString(Blex::getu16msb(data + 4)) + ")'"
                                 : "");
                 } break;
                 case OID::TIMESTAMP:
@@ -1126,6 +1247,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                 case OID::OIDVECTOR:
                 case OID::TIMESTAMPARRAY:
                 case OID::ANYARRAY:
+                case OID::RECORDARRAY:
                 {
                         OID elttype;
                         VariableTypes::Type vartype;
@@ -1142,6 +1264,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         case OID::BYTEAARRAY:   elttype = OID::BYTEA; vartype = VariableTypes::StringArray; break;
                         case OID::TIMESTAMPARRAY: elttype = OID::TIMESTAMP; vartype = VariableTypes::DateTimeArray; break;
                         case OID::ANYARRAY:     elttype = OID::ANY; vartype = VariableTypes::VariantArray; break;
+                        case OID::RECORDARRAY:  elttype = OID::RECORD; vartype = VariableTypes::VariantArray; break;
                         default:
                                 {
                                         HSVM_ThrowException(*vm, ("Cannot determine element type variables of array type " + Blex::AnyToString(static_cast< unsigned >(type))).c_str());
@@ -1187,6 +1310,31 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                 data += 4;
                                 VarId elt = stackm.ArrayElementRef(id_set, i);
                                 ReadResult readres = ReadBinaryValue(elt, elttype, len, data, varelttype, colname);
+                                if (readres == ReadResult::Exception)
+                                    return readres;
+
+                                if (len > 0) // negative len is NULL
+                                   data += len;
+                        }
+                } break;
+                case OID::RECORD:
+                {
+                        int32_t eltcount = len >= 4 ? Blex::gets32msb(data) : 0;
+                        data += 4;
+                        len -= 4;
+
+                        stackm.ArrayInitialize(id_set, eltcount, VariableTypes::VariantArray);
+                        for (int32_t i = 0; i < eltcount; ++i)
+                        {
+                                if (len < 8)
+                                    break;
+
+                                OID elttype = static_cast< OID >(Blex::gets32msb(data));
+                                int32_t len = Blex::gets32msb(data + 4);
+                                data += 8;
+
+                                VarId elt = stackm.ArrayElementRef(id_set, i);
+                                ReadResult readres = ReadBinaryValue(elt, elttype, len, data, VariableTypes::Variant, colname);
                                 if (readres == ReadResult::Exception)
                                     return readres;
 
@@ -1311,6 +1459,66 @@ TuplesReader::ReadResult TuplesReader::ReadSimpleTuple(VarId id_set, int row)
         return ReadResult::Value;
 }
 
+TuplesReader::Value TuplesReader::ReadValue(int row, int col)
+{
+        int len = PQgetlength(res, row, col);
+        char const *data = PQgetvalue(res, row, col);
+        bool isnull = PQgetisnull(res, row, col);
+
+        if (isnull)
+            return Value(nullptr);
+
+        //PQ_PRINT("Read row: " << row << ", col: " << col << ", len: " << len << ", isnull: " << isnull << " type " << static_cast< int >(fields[col].type));
+
+        if (!fields[col].isbinary)
+            return Value(std::string(data, len));
+
+        switch (fields[col].type)
+        {
+                case OID::BOOL:
+                {
+                        return Value(len == 1 ? *data != 0 : false);
+                } break;
+                case OID::BYTEA:
+                case OID::CHAR:
+                case OID::NAME:
+                case OID::TEXT:
+                case OID::VARCHAR:
+                {
+                        if (len > 0)
+                            return Value(std::string(data, len));
+                        else
+                            return Value(std::string());
+                } break;
+                case OID::INT2:
+                {
+                        return Value(int32_t(len == 2 ? Blex::gets16msb(data) : 0));
+                } break;
+                case OID::CID:
+                case OID::OID:
+                case OID::REGPROC:
+                case OID::XID:
+                {
+                        return Value(int32_t(len == 4 ? Blex::gets32msb(data) : 0));
+                } break;
+                case OID::INT4:
+                {
+                        return Value(int32_t(len == 4 ? Blex::gets32msb(data) : 0));
+                } break;
+                case OID::TID:
+                {
+                        if (len != 6)
+                            return Value(nullptr);
+                        return Value(PostgresqlTid{ Blex::getu32msb(data), Blex::getu16msb(data + 4) });
+                }
+                default:
+                {
+                        // ADDME: use different class for this return type?
+                        return Value(nullptr);
+                }
+        }
+}
+
 inline std::string HSVM_GetStringCell(HSVM *hsvm, HSVM_VariableId id_get, HSVM_ColumnId colid)
 {
         HSVM_VariableId var = HSVM_RecordGetRef(hsvm, id_get, colid);
@@ -1377,6 +1585,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 , prepared_statements_counter(0)
 , isworkopen(false)
 , webhare_blob_oid(0)
+, webhare_blobarray_oid(0)
 , blobfolder(options.blobfolder)
 , allowwriteerrordelay(false)
 , logstacktraces(options.logstacktraces)
@@ -1387,6 +1596,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
         description.supports_nulls = true;
         description.supports_limit = true;
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = true;
         description.needs_uppercase_names = false;
         description.max_joined_tables = 0;
         description.max_multiinsertrows = 64;
@@ -1429,7 +1639,7 @@ void PGSQLTransactionDriver::ScanTypes()
         // Scan all declared RECORD types in the database
         Query query(*this);
         query.querystr =
-                "SELECT t.oid, t.typname"
+                "SELECT t.oid, t.typname, t.typarray"
                 "  FROM pg_catalog.pg_type t"
                 "       JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid"
                 "       JOIN pg_catalog.pg_proc p ON t.typinput = p.oid"
@@ -1441,11 +1651,15 @@ void PGSQLTransactionDriver::ScanTypes()
         {
                 // reset current stored data
                 webhare_blob_oid = 0;
+                webhare_blobarray_oid = 0;
 
                 for (unsigned row = 0, rowcount = PQntuples(resultset.get()); row != rowcount; ++row)
                 {
                         if (ReadResultCell(resultset, row, 1) == "webhare_blob")
+                        {
                                 webhare_blob_oid = ReadResultCellInt(resultset, row, 0);
+                                webhare_blobarray_oid = ReadResultCellInt(resultset, row, 2);
+                        }
                 }
         }
 }
@@ -1481,9 +1695,11 @@ bool PGSQLTransactionDriver::BuildQueryString(
 
                 if (!it->handled)
                 {
-                        query.tables[it->table].columns[it->column].fase = Fases::Fase1;
+                        query.tables[it->table].columns[it->column].fase = Fases::Fase1 | Fases::Recheck;
                         all_handled = false;
                 }
+                else
+                    query.tables[it->table].columns[it->column].fase |= Fases::Recheck;
         }
 
         for (std::vector<JoinCondition>::iterator it = query.joinconditions.begin(); it != query.joinconditions.end(); ++it)
@@ -1498,14 +1714,67 @@ bool PGSQLTransactionDriver::BuildQueryString(
 
                 if (!it->handled)
                 {
-                        query.tables[it->table1].columns[it->column1].fase = Fases::Fase1;
-                        query.tables[it->table2].columns[it->column2].fase = Fases::Fase1;
+                        query.tables[it->table1].columns[it->column1].fase = Fases::Fase1 | Fases::Recheck;
+                        query.tables[it->table2].columns[it->column2].fase = Fases::Fase1 | Fases::Recheck;
                         all_handled = false;
+                }
+                else
+                {
+                        query.tables[it->table1].columns[it->column1].fase |= Fases::Recheck;
+                        query.tables[it->table2].columns[it->column2].fase |= Fases::Recheck;
                 }
         }
 
+        std::string select, selectfase2base, selectfase2cols, from, where, fase2key;
 
-        std::string select, from, where;
+        if (cursortype != DatabaseTransactionDriverInterface::Select)
+        {
+                // For updating queries, get the 'ctid' column as column 0
+                QueryData::ResultColumn rcol;
+                rcol.tableidx = -1;
+                rcol.nameid = 0;
+                rcol.vartype = VariableTypes::Variant;
+                querydata.resultcolumns.push_back(rcol);
+                querydata.resultcolumnsfase2.push_back(rcol);
+                select = "T0.ctid"sv;
+                selectfase2base = "T0.ctid"sv;
+
+                // in fase2, the row position is returned as column 1
+                rcol.vartype = VariableTypes::Integer;
+                querydata.resultcolumnsfase2.push_back(rcol);
+
+                // find the keys for this table
+                unsigned keycount = 0;
+                for (unsigned colidx = 0, e = query.tables[0].columns.size(); colidx < e; ++colidx)
+                {
+                        auto &coltype = query.tables[0].ColType(colidx);
+                        if (coltype.flags & ColumnFlags::Key)
+                        {
+                                ++keycount;
+                                AddTableAndColumnName(query, 0, colidx, true, &fase2key);
+                        }
+                }
+
+                /* Only need fase2 if some conditions (HareScript code or single/joinconditions)
+                   can't be checked by PostgreSQL
+                */
+                bool need_fase2 = query.has_fase1_hscode || !all_handled;
+
+                /* Can't get lookups for multiple columns to work, so using fase2 is off in
+                   that case. Comparing anonymous records returns a 'comparison not implemented'
+                   error
+                */
+                if (keycount == 1 && need_fase2)
+                {
+                        // querydata.keycolumn will be filled during result column building
+                        querydata.usefase2 = true;
+                }
+                else
+                {
+                        fase2key = "T0.ctid";
+                        querydata.keycolumn = QueryData::KeyColumn{0};
+                }
+        }
 
         unsigned tableidx = 0;
         for (auto &tbl: query.tables)
@@ -1522,20 +1791,60 @@ bool PGSQLTransactionDriver::BuildQueryString(
                 unsigned colidx = 0;
                 for (auto &col: tbl.columns)
                 {
-                        // Any interaction?
-                        if (col.fase & (Fases::Fase1 | Fases::Fase2))
+                        auto &coltype = tbl.ColType(colidx);
+                        if (!querydata.usefase2)
                         {
-                                if (!select.empty())
-                                    select.append(", "sv);
+                                // For SELECT or when fase2 isn't used, do everything in fase 1
+                                if (col.fase & Fases::Fase2)
+                                    col.fase |= Fases::Fase1;
+                        }
+                        else
+                        {
+                                if (coltype.flags & ColumnFlags::Key)
+                                {
+                                        // for update and delete, we need the primary key in fase 1 for the fase2 lookup
+                                        col.fase |= Fases::Fase1;
+                                }
+                        }
 
-                                ColumnNameId nameid = tbl.ColType(colidx).nameid;
+                        // Any interaction?
+                        if (col.fase & (Fases::Fase1 | Fases::Fase2 | Fases::Recheck))
+                        {
+                                auto &coltype = tbl.ColType(colidx);
+                                ColumnNameId nameid = coltype.nameid;
                                 QueryData::ResultColumn rcol;
                                 rcol.tableidx = tableidx;
                                 rcol.nameid = nameid;
-                                rcol.vartype = tbl.ColType(colidx).type;
-                                querydata.resultcolumns.push_back(rcol);
+                                rcol.vartype = coltype.type;
 
-                                AddTableAndColumnName(query, tableidx, colidx, true, &select);
+                                if (col.fase & Fases::Fase1)
+                                {
+                                        if (!select.empty())
+                                            select.append(", "sv);
+
+                                        if ((coltype.flags & ColumnFlags::Key) && querydata.usefase2)
+                                        {
+                                                // INV: exactly one key column present in list, and Fase1 is set for it
+                                                querydata.keycolumn = QueryData::KeyColumn{ static_cast< unsigned >(querydata.resultcolumns.size()) };
+                                        }
+
+                                        querydata.resultcolumns.push_back(rcol);
+                                        AddTableAndColumnName(query, tableidx, colidx, true, &select);
+
+                                        if (querydata.usefase2)
+                                        {
+                                                // We're abusing fase2 for re-getting locked rows, so always reget fase1 cols in fase2
+                                                selectfase2cols.append(", "sv);
+                                                querydata.resultcolumnsfase2.push_back(rcol);
+                                                AddTableAndColumnName(query, tableidx, colidx, true, &selectfase2cols);
+                                        }
+                                }
+                                else if (querydata.usefase2 && (col.fase & (Fases::Fase1 | Fases::Fase2 | Fases::Recheck)))
+                                {
+                                        selectfase2cols.append(", "sv);
+                                        querydata.resultcolumnsfase2.push_back(rcol);
+                                        AddTableAndColumnName(query, tableidx, colidx, true, &selectfase2cols);
+                                }
                         }
 
                         if (col.fase & Fases::Updated)
@@ -1702,19 +2011,6 @@ bool PGSQLTransactionDriver::BuildQueryString(
                     where.append(")");
         }
 
-        if (cursortype != DatabaseTransactionDriverInterface::Select)
-        {
-                QueryData::ResultColumn rcol;
-                rcol.tableidx = -1;
-                rcol.nameid = 0;
-                rcol.vartype = VariableTypes::Variant;
-                querydata.ctidcol = querydata.resultcolumns.size();
-                querydata.resultcolumns.push_back(rcol);
-                if (!select.empty())
-                    select += ", "sv;
-                select += "T0.ctid"sv;
-        }
-
         querydata.query.querystr = "SELECT " + select + " FROM " + from;
         if (!where.empty())
             querydata.query.querystr += " WHERE " + where;
@@ -1722,7 +2018,19 @@ bool PGSQLTransactionDriver::BuildQueryString(
             querydata.query.querystr += " LIMIT " + Blex::AnyToString(query.limit);
 
         if (cursortype == DatabaseTransactionDriverInterface::Update || cursortype == DatabaseTransactionDriverInterface::Delete)
-            querydata.updatedtable = query.tables[0].name;
+        {
+                querydata.updatedtable = query.tables[0].name;
+                if (querydata.usefase2)
+                {
+                        // The WHERE is not repeated (so we don't have to copy the entire paramencoder. sqllib will handle recheck for all conditions, even the handled ones)
+                        querydata.querystrfase2 = "SELECT T0.ctid, array_position($1, " + fase2key + ")" + selectfase2cols + " FROM " + from + " WHERE (" + fase2key + " = ANY($1)) FOR UPDATE";
+                }
+                else
+                {
+                        // Lock rows in fase1
+                        querydata.query.querystr += " FOR UPDATE";
+                }
+        }
 
         querydata.tablecount = query.tables.size();
         return true;
@@ -1751,6 +2059,28 @@ std::string PGSQLTransactionDriver::GetBlobDiskpath(int64_t blobid)
         return path.str();
 }
 
+OID PGSQLTransactionDriver::GetTypeArrayOID(OID elt)
+{
+        switch (elt)
+        {
+                case OID::INT4:         return OID::INT4ARRAY; break;
+                case OID::INT8:         return OID::INT8ARRAY; break;
+                case OID::BOOL:         return OID::BOOLARRAY; break;
+                case OID::FLOAT8:       return OID::FLOAT8ARRAY; break;
+                case OID::TIMESTAMP:    return OID::TIMESTAMPARRAY; break;
+                case OID::NUMERIC:      return OID::NUMERICARRAY; break;
+                case OID::TEXT:         return OID::TEXTARRAY; break;
+                case OID::BYTEA:        return OID::BYTEAARRAY; break;
+                case OID::OID:          return OID::OIDARRAY; break;
+                case OID::TID:          return OID::TIDARRAY; break;
+                default:
+                {
+                        if (elt == static_cast< OID >(webhare_blob_oid))
+                            return static_cast< OID >(webhare_blobarray_oid);
+                        return OID::unknown;
+                }
+        }
+}
 
 void PGSQLTransactionDriver::ExecuteInsert(DatabaseQuery const &query, VarId newrecord)
 {
@@ -1866,28 +2196,37 @@ unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         int totaltuples = PQntuples(querydata.resultset.get());
 
         unsigned rowcount = totaltuples - querydata.currow;
-        if (rowcount > 8)
-            rowcount = 8;
+        if (rowcount > fase1_max_blocksize)
+            rowcount = fase1_max_blocksize;
 
         unsigned elt_count = rowcount * querydata.tablecount;
         stackm.ArrayInitialize(recarr, elt_count, VariableTypes::RecordArray);
         for (unsigned idx = 0; idx < elt_count; ++idx)
             stackm.RecordInitializeEmpty(stackm.ArrayElementRef(recarr, idx));
 
+        // Read ctids for non-select
+        if (!querydata.updatedtable.empty())
+        {
+                querydata.ctids.resize(rowcount);
+                for (unsigned row = 0; row < rowcount; ++row)
+                    querydata.ctids[row] = std::get< PostgresqlTid >(querydata.reader->ReadValue(querydata.currow + row, 0));
+        }
+
         unsigned colidx = 0;
         for (auto &resultcol: querydata.resultcolumns)
         {
-                if (resultcol.tableidx < 0) // non-export column
-                    continue;
-                for (unsigned row = 0; row < rowcount; ++row)
+                if (resultcol.tableidx >= 0) // exported column
                 {
-                        VarId rec = stackm.ArrayElementRef(recarr, row * querydata.tablecount + resultcol.tableidx);
-                        VarId cell = stackm.RecordCellCreate(rec, resultcol.nameid);
-                        TuplesReader::ReadResult readres = querydata.reader->ReadValue(cell, querydata.currow + row, colidx);
-                        if (readres == TuplesReader::ReadResult::Exception)
-                            return 0;
-                        if (readres == TuplesReader::ReadResult::Null)
-                             stackm.RecordCellDelete(rec, resultcol.nameid);
+                        for (unsigned row = 0; row < rowcount; ++row)
+                        {
+                                VarId rec = stackm.ArrayElementRef(recarr, row * querydata.tablecount + resultcol.tableidx);
+                                VarId cell = stackm.RecordCellCreate(rec, resultcol.nameid);
+                                TuplesReader::ReadResult readres = querydata.reader->ReadValue(cell, querydata.currow + row, colidx);
+                                if (readres == TuplesReader::ReadResult::Exception)
+                                    return 0;
+                                if (readres == TuplesReader::ReadResult::Null)
+                                    stackm.RecordCellDelete(rec, resultcol.nameid);
+                        }
                 }
                 ++colidx;
         }
@@ -1896,17 +2235,89 @@ unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return rowcount;
 }
 
-void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block)
+void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool /*is_last_fase2_req_for_block*/)
 {
-        // No fase2
-        (void)id;
-        (void)recarr;
-        (void)rowlist;
-        (void)is_last_fase2_req_for_block;
-        return;
+        StackMachine &stackm = vm->GetStackMachine();
+
+        if (rowlist.empty())
+            return;
+
+        QueryData &querydata = *queries.Get(id);
+        if (!querydata.usefase2)
+            return;
+
+        assert(querydata.keycolumn.has_value());
+
+        OID keycoltype = querydata.reader->fields[querydata.keycolumn->resultcolumn].type;
+        OID keyarraytype = GetTypeArrayOID(keycoltype);
+
+        if (keyarraytype == OID::unknown)
+        {
+                // ADDME: we could do a request per row
+                HSVM_ThrowException(*vm, ("Cannot determine the array type for type #" + Blex::AnyToString(static_cast< int32_t >(keycoltype))).c_str());
+                return;
+        }
+
+        QueryData f2query(*this);
+        f2query.query.querystr = querydata.querystrfase2;
+        f2query.resultcolumns = querydata.resultcolumnsfase2;
+
+        auto paramdata = f2query.query.params.AddArrayParameter(keyarraytype, keycoltype, rowlist.size());
+        for (auto &itr: rowlist)
+             querydata.reader->AddAsParameter(&f2query.query.params, querydata.blockstartrow + itr.rownum, querydata.keycolumn->resultcolumn);
+        f2query.query.params.FinalizeParameter(paramdata);
+
+        f2query.resultset = ExecQuery(f2query.query, false);
+        if (!f2query.resultset.get())
+        {
+                HSVM_ThrowException(*vm, "Error returned by fase2 query");
+                return;
+        }
+
+        Blex::SemiStaticPodVector< LockResult, fase1_max_blocksize > lockresults;
+        lockresults.resize(rowlist.size());
+        std::fill(lockresults.begin(), lockresults.end(), LockResult::Removed);
+
+        f2query.reader.reset(new TuplesReader(vm, *this, f2query.resultset.get(), &f2query));
+
+        int numresults = PQntuples(f2query.resultset.get());
+        for (int f2row = 0; f2row < numresults; ++f2row)
+        {
+                int arraypos = std::get< int32_t >(f2query.reader->ReadValue(f2row, 1));
+
+                if (arraypos < 0 || static_cast< unsigned >(arraypos) >= rowlist.size())
+                    continue;
+
+                unsigned row = rowlist[arraypos].rownum;
+                PostgresqlTid ctid = std::get< PostgresqlTid >(f2query.reader->ReadValue(f2row, 0));
+                lockresults[arraypos] = querydata.ctids[row] == ctid ? LockResult::Unchanged : LockResult::Changed;
+                querydata.ctids[row] = ctid;
+
+                unsigned colidx = 0;
+                for (auto &resultcol: f2query.resultcolumns)
+                {
+                        if (resultcol.tableidx == 0) // non-export column
+                        {
+                                VarId rec = stackm.ArrayElementRef(recarr, row * f2query.tablecount + resultcol.tableidx);
+                                VarId cell = stackm.RecordCellCreate(rec, resultcol.nameid);
+                                TuplesReader::ReadResult readres = f2query.reader->ReadValue(cell, f2row, colidx);
+                                if (readres == TuplesReader::ReadResult::Exception)
+                                {
+                                        HSVM_ThrowException(*vm, "Error while reading fase2 results");
+                                        return;
+                                }
+                                if (readres == TuplesReader::ReadResult::Null)
+                                    stackm.RecordCellDelete(rec, resultcol.nameid);
+                        }
+                        ++colidx;
+                }
+        }
+
+        for (unsigned i = 0, e = rowlist.size(); i < e; ++i)
+            rowlist[i].lockresult = lockresults[i];
 }
 
-DatabaseTransactionDriverInterface::LockResult PGSQLTransactionDriver::LockRow(CursorId, VarId, unsigned)
+LockResult PGSQLTransactionDriver::LockRow(CursorId, VarId, unsigned)
 {
         // No locking in this driver
         throw std::logic_error("locking not needed in PostgreSQL driver");
@@ -1922,15 +2333,7 @@ void PGSQLTransactionDriver::DeleteRecord(CursorId id, unsigned row)
 {
         QueryData &querydata = *queries.Get(id);
 
-        int len = PQgetlength(querydata.resultset.get(), querydata.blockstartrow + row, querydata.ctidcol);
-        char const *data = PQgetvalue(querydata.resultset.get(), querydata.blockstartrow + row, querydata.ctidcol);
-
-        std::string ctid = len == 6
-                ? "'(" + Blex::AnyToString(Blex::gets32msb(data)) + "," + Blex::AnyToString(Blex::gets16msb(data + 4)) + ")'"
-                : "";
-
-        if (ctid.empty())
-           throw VMRuntimeError(Error::DatabaseException, "Could not read 'ctid' from row to delete");
+        std::string ctid = "'(" + Blex::AnyToString(querydata.ctids[row].blocknumber) + "," + Blex::AnyToString(querydata.ctids[row].tupleindex) + ")'";
 
         QueryData delquery(*this);
         delquery.query.querystr = "DELETE FROM ";
@@ -1945,15 +2348,7 @@ void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfi
         StackMachine &stackm = vm->GetStackMachine();
         QueryData &querydata = *queries.Get(id);
 
-        int len = PQgetlength(querydata.resultset.get(), querydata.blockstartrow + row, querydata.ctidcol);
-        char const *data = PQgetvalue(querydata.resultset.get(), querydata.blockstartrow + row, querydata.ctidcol);
-
-        std::string ctid = len == 6
-                ? "'(" + Blex::AnyToString(Blex::gets32msb(data)) + "," + Blex::AnyToString(Blex::gets16msb(data + 4)) + ")'"
-                : "";
-
-        if (ctid.empty())
-           throw VMRuntimeError(Error::DatabaseException, "Could not read 'ctid' from row to delete");
+        std::string ctid = "'(" + Blex::AnyToString(querydata.ctids[row].blocknumber) + "," + Blex::AnyToString(querydata.ctids[row].tupleindex) + ")'";
 
         QueryData updatequery(*this);
         updatequery.query.querystr = "UPDATE ";
@@ -1980,7 +2375,7 @@ void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfi
 
         if (!updates.empty())
         {
-                updatequery.query.querystr += updates + " WHERE ctid = " + ctid;
+                updatequery.query.querystr += updates + " WHERE ctid = " + ctid + " RETURNING *";
 
                 ExecQuery(updatequery.query, allowwriteerrordelay);
         }
@@ -2211,6 +2606,21 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
                 stackm.InitVariable(id_set, VariableTypes::RecordArray);
                 if (query == "__internal:scantypes")
                     this->ScanTypes();
+                if (query == "__internal:lastresult")
+                {
+                        PGPtr< PGresult > res = GetLastResult().first;
+                        if (!res)
+                            return;
+
+                        TuplesReader reader(vm, *this, res.get(), nullptr);
+
+                        for (unsigned i = 0, e = PQntuples(res.get()); i < e; ++i)
+                        {
+                                VarId elt = stackm.ArrayElementAppend(id_set);
+                                if (reader.ReadSimpleTuple(elt, i) == TuplesReader::ReadResult::Exception)
+                                    return;
+                        }
+                }
                 return;
         }
 

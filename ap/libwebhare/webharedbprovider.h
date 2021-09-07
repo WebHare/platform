@@ -170,7 +170,7 @@ class WebHareDBTransaction : public DatabaseTransactionDriverInterface
         int32_t InsertAutoNumber(std::string const &tablename, std::string const &columnname);
 
         unsigned RetrieveNextBlock(CursorId id, VarId recarr);
-        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool allow_direct_close);
+        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool allow_direct_close);
         LockResult LockRow(CursorId id, VarId recarr, unsigned row);
         void UnlockRow(CursorId id, unsigned row);
         void DeleteRecord(CursorId id, unsigned row);

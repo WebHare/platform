@@ -1,18 +1,25 @@
 <?wh
 
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
+IF (IsWithinFunctionRunningJob())
+  RETURN;
 
 TABLE
 < INTEGER id
 , STRING val
+, INTEGER ival
+; KEY id
 > table1;
 
 TABLE table2 LIKE table1;
+
 
 MACRO TestLocking()
 {
@@ -51,4 +58,181 @@ MACRO TestLocking()
   trans2->CommitWork();
 }
 
-RunTestframework([ PTR TestLocking ]);
+BOOLEAN FUNCTION SlowWhere(INTEGER wait, INTEGER id)
+{
+  Sleep(wait);
+  RETURN TRUE;
+}
+
+STRING FUNCTION SlowCalc(STRING invalue, INTEGER wait, STRING append)
+{
+  Sleep(wait);
+  RETURN invalue || append;
+}
+
+PUBLIC MACRO TestChaseWorker(RECORD options)
+{
+  options := ValidateOptions(
+      [ action := ""
+      , beforewait := 0
+      , wherewait :=  0
+      , updatewait := 0
+      , commitwait := 0
+      ], options,
+      [ required :=   [ "action" ]
+      ]);
+
+  OBJECT trans1 := OpenPrimary();
+  table1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.locktest");
+
+  trans1->BeginWork();
+  Sleep(options.beforewait);
+  SWITCH (options.action)
+  {
+    CASE "delete"
+    {
+      DELETE FROM table1 WHERE (options.wherewait = 0 ? TRUE : SlowWhere(options.wherewait, id));
+    }
+    CASE "append-2"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "2"), ival := 1 WHERE (options.wherewait = 0 ? TRUE : SlowWhere(options.wherewait, id));
+    }
+    CASE "append-3"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "3") WHERE (options.wherewait = 0 ? TRUE : SlowWhere(options.wherewait, id));
+    }
+    CASE "append-4-ival=0"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "4") WHERE ival = 0 AND (options.wherewait = 0 ? TRUE : SlowWhere(options.wherewait, id));
+    }
+    CASE "append-5"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "5");
+    }
+    CASE "append-6-ival=0"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "6") WHERE ival = 0;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown action ${options.action}`);
+    }
+  }
+
+  IF (options.commitwait != 0)
+    Sleep(options.commitwait);
+
+  trans1->CommitWork();
+}
+
+MACRO TestChase()
+{
+  OBJECT trans1 := GetPrimary();
+  table1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.locktest");
+
+  trans1->BeginWork();
+
+  // Cleanup
+  IF (trans1->SchemaExists("webhare_testsuite_testschema"))
+    trans1->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  trans1->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(trans1, "webhare_testsuite_testschema", "locktest",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 100 ]
+                        , [ column_name := "val", data_type :=  "VARCHAR", character_octet_length := 256 ]
+                        , [ column_name := "ival", data_type :=  "INTEGER" ]
+                        , [ column_name := "unused", data_type :=  "BOOLEAN" ]
+                        ]
+      ]);
+
+  trans1->CommitWork();
+
+  /* current impl:
+     fase1 select
+     fase2 select for update
+     update by ctid?
+
+     with supported primary key
+       concurrent updates where both update before commit
+       concurrent updates where first update commits before second f2 retrieve & update
+       concurrent updates where first update commits before second update
+       concurrent updates where first update deletes before second f2 retrieve & update
+       concurrent updates where first update deletes before second update
+  */
+
+  RECORD ARRAY tests :=
+      [ [ title :=  "concurrent updates where both update before commit"
+        , t1 :=   [ action := "append-2", wherewait :=    100, updatewait := 200, commitwait := 200 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200, updatewait := 200, commitwait := 200 ]
+        , expect := [ [ id := 1, val := "123", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent updates where first update commits before second f2 retrieve & update"
+        , t1 :=   [ action := "append-2", wherewait :=    100 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200 ]
+        , expect := [ [ id := 1, val := "123", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent updates where first update commits before second update"
+        , t1 :=   [ action := "append-2", wherewait :=    100, commitwait := 200 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200, updatewait := 200 ]
+        , expect := [ [ id := 1, val := "123", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent delete & update where both actions before commit"
+        , t1 :=   [ action := "delete", wherewait :=    100, updatewait := 200, commitwait := 200 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200, updatewait := 200, commitwait := 200 ]
+        , expect := RECORD[]
+        ]
+      , [ title :=  "concurrent delete & update where first update deletes before second f2 retrieve & update"
+        , t1 :=   [ action := "delete", wherewait :=    100 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200 ]
+        , expect := RECORD[]
+        ]
+      , [ title :=  "concurrent delete & update where first update deletes before second update"
+        , t1 :=   [ action := "delete", wherewait :=    100, commitwait := 200 ]
+        , t2 :=   [ action := "append-3", wherewait :=    200, updatewait := 200 ]
+        , expect := RECORD[]
+        ]
+      , [ title :=  "concurrent updates where first update commits and invalidates where of second before f2 retrieve"
+        , t1 :=   [ action := "append-2", wherewait :=    100 ]
+        , t2 :=   [ action := "append-4-ival=0", wherewait :=    300 ]
+        , expect := [ [ id := 1, val := "12", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent updates where first update commits before second (that skips fase2) update"
+        , t1 :=   [ action := "append-2", commitwait := 200 ]
+        , t2 :=   [ action := "append-5", beforewait := 100 ]
+        , expect := [ [ id := 1, val := "125", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent updates where first update commits before second (that skips fase2) update"
+        , t1 :=   [ action := "append-2", commitwait := 200 ]
+        , t2 :=   [ action := "append-6-ival=0", beforewait := 100 ]
+        , expect := [ [ id := 1, val := "12", ival := 1 ] ]
+        ]
+      ];
+
+  FOREVERY (RECORD test FROM tests)
+  {
+    trans1->BeginWork();
+    DELETE FROM table1;
+    INSERT [ id := 1, val := "1", ival := 0 ] INTO table1;
+    trans1->CommitWork();
+
+    OBJECT test1 := AsyncCallFunctionFromJob(Resolve("#TestChaseWorker"), test.t1);
+    OBJECT test2 := AsyncCallFunctionFromJob(Resolve("#TestChaseWorker"), test.t2);
+
+    WaitForPromise(CreatePromiseAll([ test1, test2 ]));
+
+    RECORD ARRAY intable := SELECT * FROM table1;
+
+    TestEQ(test.expect, intable, test.title);
+  }
+
+  trans1->BeginWork();
+  DELETE FROM table1;
+  INSERT [ id := 1, val := "1", ival := 0 ] INTO table1;
+  trans1->CommitWork();
+}
+
+
+RunTestframework([ PTR TestLocking
+                 , PTR TestChase
+                 ]);

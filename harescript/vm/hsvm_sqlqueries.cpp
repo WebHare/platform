@@ -164,6 +164,8 @@ unsigned SubQuery::RetrieveNextBlock()
                         block_pos = 0;
                         row_is_fase_2.resize(block_length);
                         std::fill(row_is_fase_2.begin(), row_is_fase_2.end(), false);
+                        fase_2_lockresult.resize(block_length);
+                        std::fill(fase_2_lockresult.begin(), fase_2_lockresult.end(), LockResult::Unchanged);
 
                         AdvanceWhileInvalid();
 
@@ -189,19 +191,19 @@ unsigned SubQuery::RetrieveNextBlock()
                 return 0;
 }
 
-void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements_org, bool allow_direct_close)
+void SubQuery::RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements_org, bool allow_direct_close)
 {
-        Blex::SemiStaticPodVector< unsigned, 16 > subelements(subelements_org);
+        Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > subelements(subelements_org);
         if (trans)
         {
                 // Filter out all rows for which we already fetched fase 2.
                 auto wit = subelements.begin();
-                for (auto itr: subelements)
+                for (auto &itr: subelements)
                 {
-                        if (!row_is_fase_2[itr])
+                        if (!row_is_fase_2[itr.rownum])
                         {
                                 *(wit++) = itr;
-                                row_is_fase_2[itr] = true;
+                                row_is_fase_2[itr.rownum] = true;
                         }
                 }
                 subelements.erase(wit, subelements.end());
@@ -209,6 +211,10 @@ void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelemen
                 if (!subelements.empty())
                 {
                         trans->RetrieveFase2Records(cursorid, rec_array, subelements, allow_direct_close);
+
+                        // store lockresult
+                        for (auto &itr: subelements)
+                            fase_2_lockresult[itr.rownum] = itr.lockresult;
 
                         if (trans->description.supports_nulls)
                         {
@@ -220,45 +226,49 @@ void SubQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelemen
                                         TableSource &tc = querydef.tables[tabidx];
                                         for (auto rowitr: subelements)
                                         {
-                                                VarId rec = stackm.ArrayElementRef(rec_array, rowitr * tabcount + tabidx);
+                                                VarId rec = stackm.ArrayElementRef(rec_array, rowitr.rownum * tabcount + tabidx);
                                                 FillWithNullDefaults(stackm, tc, rec, Fases::Fase2);
                                         }
                                 }
                         }
                 }
+
+                for (auto &itr: subelements_org)
+                    itr.lockresult = fase_2_lockresult[itr.rownum];
         }
 }
 
-bool SubQuery::IsCurrentRowInvalid()
+bool SubQuery::IsCurrentRowValid(bool fullcheck)
 {
         // Const varmem, so it is somewhat safer to use arrayelementget operations
         StackMachine const &varmem = mainquery->vm->GetStackMachine();
 
-        bool is_ok = true;
-        // Check all not handled singleconditions
-        for (std::vector<SingleCondition>::iterator it = querydef.singleconditions.begin(); it != querydef.singleconditions.end(); ++it)
-           if (!it->handled)
+        // Check all singleconditions
+        for (auto &itr: querydef.singleconditions)
+           if (fullcheck || !itr.handled)
            {
-                    VarId rec = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table);
-                    is_ok = is_ok && SatisfiesSingle(varmem, *it, rec);
+                    VarId rec = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table);
+                    if (!SatisfiesSingle(varmem, itr, rec))
+                        return false;
            }
-        if (!is_ok)
-            return true;
-        // Check all not handled joinconditions
-        for (std::vector<JoinCondition>::iterator it = querydef.joinconditions.begin(); it != querydef.joinconditions.end(); ++it)
-           if (!it->handled)
-           {
-                    VarId rec1 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table1);
-                    VarId rec2 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table2);
-                    is_ok = is_ok && SatisfiesJoin(varmem, *it, rec1, rec2);
-           }
-        return !is_ok;
+
+        // Check all joinconditions
+        for (auto &itr: querydef.joinconditions)
+            if (fullcheck || !itr.handled)
+            {
+                    VarId rec1 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table1);
+                    VarId rec2 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table2);
+                    if (!SatisfiesJoin(varmem, itr, rec1, rec2))
+                        return false;
+            }
+        return true;
 }
 
 bool SubQuery::AdvanceWhileInvalid()
 {
+        // Handled conditions are checked by the db driver, only need to check the unhandled conditions
         for (;block_pos < block_length; ++block_pos)
-            if (!IsCurrentRowInvalid())
+            if (IsCurrentRowValid(false))
                 break;
 
         return block_pos != block_length;
@@ -310,14 +320,14 @@ void SubQuery::ReadAndCache()
 
                 Open();
                 unsigned cursorsize = querydef.tables.size();
-                Blex::SemiStaticPodVector< unsigned, 16 > row_request;
+                Blex::SemiStaticPodVector< Fase2RetrieveRow, 16 > row_request;
                 while (RetrieveNextBlock() != 0)
                 {
                         // Retrieve only fase 2 records for single-condition matching thingies
                         row_request.clear();
                         while (true)
                         {
-                                row_request.push_back(block_pos);
+                                row_request.push_back(Fase2RetrieveRow{ block_pos, LockResult::Unchanged });
                                 if (!AdvanceCursorWithinBlock())
                                     break;
                         }
@@ -328,8 +338,18 @@ void SubQuery::ReadAndCache()
 
                                 // Copy the results to the resultset
                                 for (auto itr: row_request)
-                                    for (unsigned idx = 0; idx < cursorsize; ++idx)
-                                        varmem.CopyFrom(varmem.ArrayElementAppend(results), varmem.ArrayElementRef(rec_array, idx + itr * cursorsize));
+                                {
+                                        if (itr.lockresult == LockResult::Removed)
+                                            continue;
+                                        if (itr.lockresult == LockResult::Changed)
+                                        {
+                                                SetCurrentRow(itr.rownum);
+                                                if (!IsCurrentRowValid(true))
+                                                    continue;
+                                        }
+                                        for (unsigned idx = 0; idx < cursorsize; ++idx)
+                                                varmem.CopyFrom(varmem.ArrayElementAppend(results), varmem.ArrayElementRef(rec_array, idx + itr.rownum * cursorsize));
+                                }
                         }
                 }
                 Close();
@@ -339,14 +359,14 @@ void SubQuery::ReadAndCache()
         }
 }
 
-DatabaseTransactionDriverInterface::LockResult SubQuery::LockRow()
+LockResult SubQuery::LockRow()
 {
         if (trans)
             return trans->LockRow(cursorid, rec_array, block_pos);
         else
         {
                 // What to do in record array case?
-                return DatabaseTransactionDriverInterface::Unchanged;
+                return LockResult::Unchanged;
         }
 }
 
@@ -430,6 +450,7 @@ OpenQuery::OpenQuery(VirtualMachine *_vm, DatabaseTransactionDriverInterface::Cu
         limitcounter = -1;
         use_blocks = false;
         fase2needslock = false;
+        fase2_locks_implicitly = false;
         locked = false;
 }
 
@@ -606,6 +627,7 @@ void OpenQuery::Open(QueryDefinition &querydef, std::vector<VarId> &_values)
                 fase2needslock = subqueries[0].GetTransaction() && subqueries[0].GetTransaction()->description.needs_locking_and_recheck;
                 if (fase2needslock)
                     use_blocks = false;
+                fase2_locks_implicitly = subqueries[0].GetTransaction() && subqueries[0].GetTransaction()->description.fase2_locks_implicitly;
         }
 }
 
@@ -726,7 +748,7 @@ bool OpenQuery::AdvanceCursor(bool stopatblockboundary)
         return AdvanceWhileInvalid(advanced_sq, stopatblockboundary);
 }
 
-void OpenQuery::RetrieveFase2Records(Blex::PodVector< unsigned > const &subelements)
+void OpenQuery::RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelements)
 {
         for (std::vector<SubQuery>::iterator it = subqueries.begin(); it != subqueries.end(); ++it)
             it->RetrieveFase2Records(subelements, use_blocks);
@@ -812,13 +834,13 @@ QueryActions::_type OpenQuery::GetNextAction()
                                                 // Try to lock the current row
                                                 switch (sq0.LockRow())
                                                 {
-                                                case DatabaseTransactionDriverInterface::Unchanged:
+                                                case LockResult::Unchanged:
                                                     {
                                                             // Inv: evaluated_where_ok == true
                                                             locked = true;
                                                             // Add this to fase2 set (use_blocks is false, so fase2 will be entered immediately)
                                                     } break;
-                                                case DatabaseTransactionDriverInterface::Changed:
+                                                case LockResult::Changed:
                                                     {
                                                             locked = true;
                                                             want_fase_1 = true;
@@ -843,8 +865,8 @@ QueryActions::_type OpenQuery::GetNextAction()
                         if (evaluated_where_ok)
                         {
                                 // Just did fase1, it was a match. Add to matching rows
-                                matchingrows.push_back(sq0.GetCurrentRow());
-                                if (limitcounter > 0)
+                                matchingrows.push_back(Fase2RetrieveRow{ sq0.GetCurrentRow(), LockResult::Unchanged });
+                                if (limitcounter > 0 && !fase2_locks_implicitly)
                                     --limitcounter;
                                 if (!use_blocks || limitcounter == 0)
                                 {
@@ -873,7 +895,7 @@ QueryActions::_type OpenQuery::GetNextAction()
                 else
                 {
                         // We just got back from a fase2 evaluation. Unlock if it didn't do that
-                        if (locked)
+                        if (fase2needslock && locked)
                         {
                                 sq0.UnlockRow();
                                 locked = false;
@@ -887,9 +909,62 @@ QueryActions::_type OpenQuery::GetNextAction()
                 if (!matchingrows.empty())
                 {
                         // Get the first matching row
-                        sq0.SetCurrentRow(matchingrows[0]);
+                        sq0.SetCurrentRow(matchingrows[0].rownum);
+
+                        if (fase2_locks_implicitly)
+                        {
+                                switch (matchingrows[0].lockresult)
+                                {
+                                        case LockResult::Unchanged:     break;
+                                        case LockResult::Removed:
+                                        {
+                                                // skip this row
+                                                matchingrows.erase(matchingrows.begin());
+                                                continue;
+                                        }
+                                        case LockResult::Changed:
+                                        {
+                                                /* we'll do 2 rounds
+                                                - round 1 (want_fase_1 == false): trigger fase1 reevaluation by setting locked and want_fase_1, then continue
+                                                  locked is saved between calls, so it can be used to see if we've already done the fase1 action
+                                                - round 2 (want_fase_1 == false): process evaluated_where_ok, return Fase2Action if true
+                                                */
+                                                if (!locked)
+                                                {
+                                                        /* check all conditions, even handled ones
+                                                           Only postgresql uses the fase2_locks_implicitly mode, and it won't recheck the conditions in fase 2
+                                                        */
+                                                        Blex::ErrStream() << "** recheck";
+                                                        if (!sq0.IsCurrentRowValid(true))
+                                                        {
+                                                                Blex::ErrStream() << "** invalid";
+                                                                matchingrows.erase(matchingrows.begin());
+                                                                continue;
+                                                        }
+
+                                                        Blex::ErrStream() << "** valid!";
+
+                                                        locked = true;
+                                                        want_fase_1 = true;
+                                                        continue;
+                                                }
+                                                else
+                                                {
+                                                        locked = false;
+                                                        if (!evaluated_where_ok)
+                                                        {
+                                                                matchingrows.erase(matchingrows.begin());
+                                                                continue;
+                                                        }
+                                                }
+                                        } break;
+                                }
+
+                                if (limitcounter > 0)
+                                    --limitcounter;
+                        }
+
                         matchingrows.erase(matchingrows.begin());
-        //                --limitcounter;
                         return QueryActions::Fase2Action;
                 }
                 else

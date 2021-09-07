@@ -37,6 +37,7 @@ template < class T > using PGPtr = std::unique_ptr< T, PGPtrDeleter >;
 class Query;
 class QueryData;
 struct ParamsEncoder;
+enum class OID;
 
 /** PostgreSQL transaction object */
 class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
@@ -94,11 +95,13 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         PGSQLTransactionDriver(HSVM *vm, PGconn *conn, Options const &options);
         ~PGSQLTransactionDriver();
 
+        OID GetTypeArrayOID(OID elt);
+
         virtual void ExecuteInsert(DatabaseQuery const &query, VarId newrecord);
         virtual void ExecuteInserts(DatabaseQuery const &query, VarId newrecord);
         virtual CursorId OpenCursor(DatabaseQuery &query, CursorType cursortype);
         virtual unsigned RetrieveNextBlock(CursorId id, VarId recarr);
-        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block);
+        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block);
         virtual LockResult LockRow(CursorId id, VarId recarr, unsigned row);
         virtual void UnlockRow(CursorId id, unsigned row);
         virtual void DeleteRecord(CursorId id, unsigned row);
@@ -118,6 +121,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         bool isworkopen;
         int32_t webhare_blob_oid;
+        int32_t webhare_blobarray_oid;
         std::string blobfolder;
         bool allowwriteerrordelay;
         int32_t logstacktraces;

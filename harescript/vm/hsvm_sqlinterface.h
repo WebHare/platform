@@ -17,6 +17,7 @@ struct DBDescription
         bool supports_nulls;
         bool supports_limit;
         bool needs_locking_and_recheck;
+        bool fase2_locks_implicitly;
         bool needs_uppercase_names;
         bool add_missing_default_columns;
         unsigned max_joined_tables;             ///< Maximum number of joined tables per query (0 for no limit)
@@ -34,8 +35,10 @@ enum _type
         Updated =       0x08, ///< Updated
         __Scratch1 =    0x10, ///< For sqllib usage only, must be ignored by db driver
 };
-inline Fases::_type operator |(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs | (unsigned)rhs); }
-inline Fases::_type operator |=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs | rhs); }
+constexpr inline Fases::_type operator |(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs | (unsigned)rhs); }
+constexpr inline Fases::_type operator |=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs | rhs); }
+constexpr inline Fases::_type operator &(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs & (unsigned)rhs); }
+constexpr inline Fases::_type operator &=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs & rhs); }
 
 } // End of namespace Fases
 
@@ -156,9 +159,31 @@ struct DatabaseQuery
         /** List of join conditions (two columns having a certain relation to each other (A.x OP B.y) . */
         std::vector<JoinCondition> joinconditions;
 
+        /** Is harescript evaluation used on the fase1 results? */
+        bool has_fase1_hscode;
+
 //        TypeInfo const *update_columns;
 
-        DatabaseQuery() : limit(-1), maxblockrows(0) {}
+        DatabaseQuery() : limit(-1), maxblockrows(0), has_fase1_hscode(true) {}
+};
+
+/** Result of locking a row
+    - Unchanged: The record hasn't changed from the fase1 result
+    - Changed: The record was updated since the fase1 result was obtained
+    - Removed: The record was deleted since the fase1 result was obtained.
+    When updating a lockresult, only increase it!
+*/
+enum class LockResult
+{
+        Unchanged =     0,
+        Changed =       1,
+        Removed =       2
+};
+
+struct Fase2RetrieveRow
+{
+        unsigned rownum;
+        LockResult lockresult;
 };
 
 /** Base class for a transaction interface.
@@ -179,13 +204,6 @@ struct BLEXLIB_PUBLIC DatabaseTransactionDriverInterface
                 Select = 0,
                 Delete = 1,
                 Update = 2
-        };
-
-        enum LockResult
-        {
-                Unchanged,
-                Changed,
-                Removed
         };
 
         DatabaseTransactionDriverInterface(VirtualMachine *vm);
@@ -225,9 +243,9 @@ struct BLEXLIB_PUBLIC DatabaseTransactionDriverInterface
             function (for different rows) must be allowed.
             @param id Id identifying query
             @param recarr Array in which the records must be stored. Missing columns indicate NULL.
-            @param rowlist List of rows for which the fase 2 records must be retrieved
+            @param rowlist List of rows for which the fase 2 records must be retrieved, increasing the lockresult (unchanged->updated->deleted if needed)
             @param is_last_fase2_req_for_block If true, no more fase 2 requests will be done for this block */
-        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block) = 0;
+        virtual void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block) = 0;
 
         /** Locks the specified row within the current block for update or delete. Only called when
             'needs_locking_and_recheck' is true in the description member. The values of

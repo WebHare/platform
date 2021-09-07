@@ -167,7 +167,7 @@ class OCITransaction : public SQLLib::DatabaseTransactionDriverInterface
         void ExecuteInsert(SQLLib::DatabaseQuery const &query, VarId newrecord);
         CursorId OpenCursor(SQLLib::DatabaseQuery &query, CursorType cursortype);
         unsigned RetrieveNextBlock(CursorId id, VarId recarr);
-        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool is_last_fase2_req_for_block);
+        void RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool is_last_fase2_req_for_block);
         LockResult LockRow(CursorId id, VarId recarr, unsigned row);
         void UnlockRow(CursorId id, unsigned row);
         void DeleteRecord(CursorId id, unsigned row);

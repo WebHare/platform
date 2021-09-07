@@ -262,7 +262,7 @@ unsigned LoopbackDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recar
         return rowcount;
 }
 
-void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< unsigned > const &rowlist, bool /*is_last_fase2_req_for_block*/)
+void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool /*is_last_fase2_req_for_block*/)
 {
         HSVM_VariableId obj = GetCursor(id).obj;
 
@@ -274,19 +274,37 @@ void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr
         HSVM_OpenFunctionCall(*vm, 1);
         HSVM_VariableId rowlistvar = HSVM_CallParam(*vm, 0);
         HSVM_SetDefault(*vm, rowlistvar, HSVM_VAR_IntegerArray);
-        for (auto itr: rowlist)
-            HSVM_IntegerSet(*vm, HSVM_ArrayAppend(*vm, rowlistvar), itr);
+        for (auto &itr: rowlist)
+            HSVM_IntegerSet(*vm, HSVM_ArrayAppend(*vm, rowlistvar), itr.rownum);
 //        HSVM_BooleanSet(*vm, HSVM_CallParam(*vm, 1), is_last_fase2_req_for_block);
 
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "GETFASE2DATA"), true, true);
         if (!res)
             throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB GetFase2Data failed");
+
+        unsigned len = HSVM_ArrayLength(*vm, res);
+        for (unsigned i = 0; i < len && i < rowlist.size(); ++i)
+        {
+                std::string result = HSVM_StringGetSTD(*vm, HSVM_ArrayGetRef(*vm, res, i));
+                LockResult lockres;
+                if (result == "REMOVED")
+                    lockres = LockResult::Removed;
+                else if (result == "UNCHANGED")
+                    lockres = LockResult::Unchanged;
+                else if (result == "CHANGED")
+                    lockres = LockResult::Changed;
+                else
+                    throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB illegal result for RetrieveFase2Records lock result: '" + result + "'");
+                if (lockres > rowlist[i].lockresult)
+                    rowlist[i].lockresult = lockres;
+        }
+
         HSVM_CloseFunctionCall(*vm);
 
         HSVM_CopyFrom(*vm, recarr, block);
 }
 
-LoopbackDBTransactionDriver::LockResult LoopbackDBTransactionDriver::LockRow(CursorId id, VarId /*recarr*/, unsigned row)
+LockResult LoopbackDBTransactionDriver::LockRow(CursorId id, VarId /*recarr*/, unsigned row)
 {
         HSVM_VariableId obj = GetCursor(id).obj;
 
@@ -302,11 +320,11 @@ LoopbackDBTransactionDriver::LockResult LoopbackDBTransactionDriver::LockRow(Cur
         // FIXME: is it necessary to copy pvt_current_block when result == changed??
 
         if (result == "REMOVED")
-            return Removed;
+            return LockResult::Removed;
         else if (result == "UNCHANGED")
-            return Unchanged;
+            return LockResult::Unchanged;
         else if (result == "CHANGED")
-            return Changed;
+            return LockResult::Changed;
         else
             throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB illegal result for LockRow: '" + result + "'");
 }
@@ -383,6 +401,7 @@ void RegisterTransaction(VarId id_set, VirtualMachine *vm)
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = true;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
         description.max_joined_tables = 32;
 
