@@ -9,7 +9,6 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -80,6 +79,12 @@ MACRO PrepareServer()
               VALUES(thirdpartytest.webservers[0].id,"/",1,6,"webhare_testsuite:securityheaders");
   INSERT INTO system.access(webserver,path,matchtype,hostingsrc,hostingpath)
               VALUES(thirdpartytest.webservers[0].id,"/",1,6,"webhare_testsuite:thirdpartytest");
+
+  INTEGER extusersid := MakeAutonumber(system.access,"ID");
+  INSERT INTO system.access(id,webserver,path,matchtype,authtype,authrequirement,authlist, hostingsrc, hostingpath)
+              VALUES(extusersid,thirdpartytest.webservers[0].id,"/wrd/authtest/extusers/",1,1,TRUE,TRUE,3,GetModuleInstallationRoot("webhare_testsuite") || "web/tests/");
+  INSERT INTO system.access_externalusers(accessid,username,userpassword)
+              VALUES(extusersid,"testwrdauthplugin-username","testwrdauthplugin-password");
 
   testfw->CommitWork();
 
@@ -432,7 +437,6 @@ MACRO TestRequireExternalLoggedinUser()
   testfw->browser->DeleteCookies("webharelogin-*");
 
   STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
-  STRING accessrulelogin := thirdpartybaseurl || "accessruleaccounts/";
 
   testfw->browser->autofollow := FALSE;
 
@@ -564,6 +568,26 @@ MACRO TestCrossDomainLogin()
 
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submitinstruction");
   TestEq(accessrulelogin, testfw->browser->url, "Should be redirected back to the original location, but now we should see things");
+  TestEqLike("*WebHare testsuite /web/tests/ root*", BlobToString(testfw->browser->content));
+
+  testfw->browser->DeleteCookies("webharelogin-*"); //force logout otherwise can't access the reset
+
+  // Go to accessrule which allows both webhare and ext users. It should send us to the webhare login page)
+  STRING extuserslogin := thirdpartybaseurl || "extusers/";
+  testfw->browser->autofollow := TRUE;
+  TestEq(TRUE, testfw->browser->GotoWebPage(extuserslogin));
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || "*wrdauth_logincontrol=*", testfw->browser->url, "verify we were redirected to WebHare");
+  logincontrol := GetVariableFromURL(testfw->browser->url, "wrdauth_logincontrol");
+  rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
+                  VARIANT[testfw->browser->url, "testwrdauthplugin-username", "testwrdauthplugin-password", FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
+
+  TestEq(TRUE, rec.success);
+  TestEq("redirect", rec.result.submitinstruction.type);
+  TestEq(TRUE, GetVariableFromURL(rec.result.submitinstruction.url, "wrdauth_proof") != "");
+  TestEq(extuserslogin, DeleteVariableFromUrl(rec.result.submitinstruction.url, "wrdauth_proof"));
+
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submitinstruction");
+  TestEq(extuserslogin, testfw->browser->url, "Should be redirected back to the original location, but now we should see things");
   TestEqLike("*WebHare testsuite /web/tests/ root*", BlobToString(testfw->browser->content));
 }
 
