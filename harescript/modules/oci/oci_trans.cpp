@@ -449,9 +449,9 @@ void OCITransaction::RetrieveFase2Records(CursorId /*id*/, VarId /*recarr*/, Ble
         // ADDME: Add support for fase2 records
         return;
 }
-OCITransaction::LockResult OCITransaction::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
+LockResult OCITransaction::LockRow(CursorId /*id*/, VarId /*recarr*/, unsigned /*row*/)
 {
-        return OCITransaction::Removed;
+        return LockResult::Removed;
 }
 void OCITransaction::UnlockRow(CursorId /*id*/, unsigned /*row*/)
 {
