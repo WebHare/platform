@@ -164,11 +164,17 @@ struct DatabaseQuery
         DatabaseQuery() : limit(-1), maxblockrows(0) {}
 };
 
+/** Result of locking a row
+    - Unchanged: The record hasn't changed from the fase1 result
+    - Changed: The record was updated since the fase1 result was obtained
+    - Removed: The record was deleted since the fase1 result was obtained.
+    When updating a lockresult, only increase it!
+*/
 enum class LockResult
 {
-        Unchanged,
-        Changed,
-        Removed
+        Unchanged =     0,
+        Changed =       1,
+        Removed =       2
 };
 
 struct Fase2RetrieveRow
