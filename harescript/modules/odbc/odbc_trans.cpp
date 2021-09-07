@@ -64,6 +64,7 @@ ODBCTransactionDriver::ODBCTransactionDriver(HSVM *hsvm, SQLHDBC hdbc)
         description.supports_nulls = true;
         description.supports_data_modify = (GetDriverInfoStr(hdbc, SQL_DATA_SOURCE_READ_ONLY) == "N");
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = false;
 }
 
