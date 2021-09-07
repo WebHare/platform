@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -59,23 +60,37 @@ PUBLIC MACRO RunABTest()
   IF(abinfo.abgroup = "" OR Length(abinfo.aboptions) = 0)
     AbortWithHTTPError(404, "A/B not properly configured");
 
-  //Do we have to generate a cookie ?
-  STRING cookiename := "webhare-abtest-" || abinfo.abgroup;
-  RECORD usevariant := SELECT * FROM abinfo.aboptions WHERE aboption = GetWebCookie(cookiename);
-  IF(NOT RecordExists(usevariant))
+  RECORD usevariant;
+  STRING selectvariant := GetWebVariable("wh.variant");
+  IF(selectvariant != "")
   {
-    //Throw a dice!
-    INTEGER64 weightsum;
-    FOREVERY(RECORD abgroup FROM abinfo.aboptions)
-    {
-      INSERT CELL weightstart := weightsum INTO abinfo.aboptions[#abgroup];
-      weightsum := weightsum + abgroup.weight;
-    }
-
-    INTEGER64 selected := INTEGER64(weightsum * RandomFloat());
-    usevariant := SELECT * FROM abinfo.aboptions WHERE weightstart <= selected ORDER BY weightstart DESC LIMIT 1;
-    UpdateWebCookie(cookiename, usevariant.aboption, [ lifetime := 86400 * abinfo.duration_days, secure := TRUE ]);
+    RECORD sel := DecryptForThisServer("publisher:abvariant", selectvariant, [ fallback := DEFAULT RECORD ]);
+    IF(RecordExists(sel))
+      usevariant := SELECT * FROM abinfo.aboptions WHERE target = sel.t;
   }
+  ELSE
+  {
+    //Do we have to generate a cookie ?
+    STRING cookiename := "webhare-abtest-" || abinfo.abgroup;
+    usevariant := SELECT * FROM abinfo.aboptions WHERE aboption = GetWebCookie(cookiename);
+    IF(NOT RecordExists(usevariant))
+    {
+      //Throw a dice!
+      INTEGER64 weightsum;
+      FOREVERY(RECORD abgroup FROM abinfo.aboptions)
+      {
+        INSERT CELL weightstart := weightsum INTO abinfo.aboptions[#abgroup];
+        weightsum := weightsum + abgroup.weight;
+      }
+
+      INTEGER64 selected := INTEGER64(weightsum * RandomFloat());
+      usevariant := SELECT * FROM abinfo.aboptions WHERE weightstart <= selected ORDER BY weightstart DESC LIMIT 1;
+      UpdateWebCookie(cookiename, usevariant.aboption, [ lifetime := 86400 * abinfo.duration_days, secure := TRUE ]);
+    }
+  }
+
+  IF(NOT RecordExists(usevariant))
+    AbortWithHTTPError(404, "Variant not found");
 
   BLOB myvariant := GetAdhocCached([ file := myfileid, num := usevariant.num ], PTR GetMyVariant(myfileid, usevariant));
   Sendblobto(0,myvariant);

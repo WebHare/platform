@@ -11,3 +11,8 @@ When publishing an A/B test, the `navigationobject` (which is new in 4.32) will
 point to the A/B test file itself. `targetobject` will point to the variant.
 `contentobject` will also point to the variant, unless the variant is itself
 a content link.
+
+A content link to an A/B test will always show the first variant.
+
+Use %GetABTestVariantLink to link to specific A/B test variants (eg to link
+back to a results page from email).

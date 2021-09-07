@@ -8,6 +8,8 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
@@ -73,13 +75,18 @@ MACRO TestABTest()
   TestEq("myabtest", testfw->browser->document->documentelement->GetAttribute("data-experiment-id"));
   TestEq("B", testfw->browser->document->documentelement->GetAttribute("data-experiment-variant"));
 
+  //Test direct variant links
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetABTestVariantLink(abtester->id, variant1->id)));
+  TestEq("A", testfw->browser->document->documentelement->GetAttribute("data-experiment-variant"));
+  TestEq("B", testfw->browser->GetCookie("webhare-abtest-myabtest"), "Session cookie should be unaffected by variant selection");
+
   //Access it through content links
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtester_contentlink")->indexurl));
   TestEqLike("*This is variant 1.*", testfw->browser->QS("#content")->textcontent);
   TestEq(FALSE, testfw->browser->document->documentelement->HasAttribute("data-experiment-id"));
   TestEq(FALSE, testfw->browser->document->documentelement->HasAttribute("data-experiment-variant"));
 
-  //It should not be setting a cookie
+  //Content links should not be setting a cookie
   OBJECT subbrowser := NEW WebBrowser;
   TestEq(TRUE, subbrowser->GotoWebPage(abtestfolder->OpenByName("abtester_contentlink")->indexurl));
   TestEqLike("*This is variant 1.*", subbrowser->QS("#content")->textcontent);
@@ -89,6 +96,20 @@ MACRO TestABTest()
   TestEq(TRUE, subbrowser->GotoWebPage(abtestfolder->OpenByPath("subfolder/subfolder_contentlink")->indexurl));
   TestEqLike("*This is variant 1.*", subbrowser->QS("#content")->textcontent);
   TestEq("", subbrowser->GetCookie("webhare-abtest-myabtest"));
+
+  TestEq(TRUE, subbrowser->GotoWebPage(GetABTestVariantLink(abtester->id, variant1->id)));
+  TestEq("A", subbrowser->document->documentelement->GetAttribute("data-experiment-variant"));
+  TestEq("", subbrowser->GetCookie("webhare-abtest-myabtest"), "Direct variant links should not set cookies");
+
+  TestEq(TRUE, subbrowser->GotoWebPage(GetABTestVariantLink(abtester->id, variant2->id)));
+  TestEq("B", subbrowser->document->documentelement->GetAttribute("data-experiment-variant"));
+  TestEq("", subbrowser->GetCookie("webhare-abtest-myabtest"), "Direct variant links should not set cookies");
+
+  TestEq(FALSE, subbrowser->GotoWebPage(GetABTestVariantLink(abtester->id, abtester->id)));
+  TestEq(404, subbrowser->GetHTTPStatusCode());
+
+  TestEq(FALSE, subbrowser->GotoWebPage(GetABTestVariantLink(abtester->id, otherdoc->id)));
+  TestEq(404, subbrowser->GetHTTPStatusCode());
 
   OBJECT service; //FIXME try to get rid of it, outputanalyzer sohuldnt conflict with publishers...
   TRY service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
