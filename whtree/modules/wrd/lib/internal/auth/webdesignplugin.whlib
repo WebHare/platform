@@ -23,6 +23,7 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -42,8 +43,20 @@ LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 
 RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)
 {
-  RECORD rule := SELECT * FROM DownloadWebserverConfig().rules WHERE id = uselist;
-  RETURN [ value := RecordExists(rule) ? rule.data.accounts : RECORD[]
+  RECORD ARRAY accounts;
+  IF(uselist < 0)
+  {
+    RECORD rule := SELECT * FROM DownloadWebserverConfig().rules WHERE id = uselist;
+    IF(RecordExists(rule))
+      accounts := rule.data.accounts;
+  }
+  ELSE
+  {
+    accounts := SELECT username, password := userpassword
+                  FROM system_internal.access_externalusers
+                 WHERE accessid = VAR uselist;
+  }
+  RETURN [ value := accounts
          , ttl := 15 * 60 * 1000
          , eventmasks := [ "system:internal.webserver.didconfigreload" ]
          ];
