@@ -19,8 +19,13 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 MACRO TestTestSite()
 {
   //some things can already be tested using the webhare testsuite site, so do those first
+  OBJECT staticpage := OpenTestsuiteSite()->OpenByPath("testpages/staticpage");
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage"));
   OBJECT contentdiv := testfw->browser->document->GetElementById("content");
+
+  TestEq(staticpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-navigationobjectpath"));
+  TestEq(staticpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
+  TestEq(staticpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-contentobjectpath"));
 
   TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-en'));
   TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));

@@ -102,6 +102,7 @@ PUBLIC STATIC OBJECTTYPE WebContext
   RECORD __config;
 
   RECORD ARRAY pvt_plugins;
+  OBJECT pvt_navigationobject;
   OBJECT pvt_contentobject;
   OBJECT pvt_targetobject;
   OBJECT pvt_targetfolder;
@@ -114,6 +115,8 @@ PUBLIC STATIC OBJECTTYPE WebContext
   PUBLIC STRING languagecode;
   ///The country code for the language (eg 'GB', 'US'), uppercase, if set.
   PUBLIC STRING languagecountry;
+  /// The object we've navigated to. The same as the targetobject unless this is an A/B test
+  PUBLIC PROPERTY navigationobject(pvt_navigationobject, -);
   /// The object being published/displayed
   PUBLIC PROPERTY targetobject(pvt_targetobject, -);
   /// @type(object %WHFSFolder) The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
@@ -221,6 +224,7 @@ PUBLIC STATIC OBJECTTYPE WebContext
   PUBLIC MACRO __SetObjectId(INTEGER objectid, OBJECT applytester)
   {
     this->pvt_targetobject := OpenWHFSObject(objectid);
+    this->pvt_navigationobject := (RecordExists(this->__config) ? this->__config.navigationobject : DEFAULT OBJECT) ?? this->pvt_targetobject;
     this->pvt_targetfolder := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->isfolder ? this->pvt_targetobject : this->pvt_targetobject->parentobject : DEFAULT OBJECT;
     this->pvt_targetsite := ObjectExists(this->pvt_targetobject) ? OpenSite(this->pvt_targetobject->parentsite) : DEFAULT OBJECT;
     this->pvt_targetapplytester := applytester;
