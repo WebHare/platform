@@ -159,9 +159,12 @@ struct DatabaseQuery
         /** List of join conditions (two columns having a certain relation to each other (A.x OP B.y) . */
         std::vector<JoinCondition> joinconditions;
 
+        /** Is harescript evaluation used on the fase1 results? */
+        bool has_fase1_hscode;
+
 //        TypeInfo const *update_columns;
 
-        DatabaseQuery() : limit(-1), maxblockrows(0) {}
+        DatabaseQuery() : limit(-1), maxblockrows(0), has_fase1_hscode(true) {}
 };
 
 /** Result of locking a row

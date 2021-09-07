@@ -74,6 +74,7 @@ PUBLIC MACRO TestChaseWorker(RECORD options)
 {
   options := ValidateOptions(
       [ action := ""
+      , beforewait := 0
       , wherewait :=  0
       , updatewait := 0
       , commitwait := 0
@@ -85,6 +86,7 @@ PUBLIC MACRO TestChaseWorker(RECORD options)
   table1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.locktest");
 
   trans1->BeginWork();
+  Sleep(options.beforewait);
   SWITCH (options.action)
   {
     CASE "delete"
@@ -102,6 +104,14 @@ PUBLIC MACRO TestChaseWorker(RECORD options)
     CASE "append-4-ival=0"
     {
       UPDATE table1 SET val := SlowCalc(val, options.updatewait, "4") WHERE ival = 0 AND (options.wherewait = 0 ? TRUE : SlowWhere(options.wherewait, id));
+    }
+    CASE "append-5"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "5");
+    }
+    CASE "append-6-ival=0"
+    {
+      UPDATE table1 SET val := SlowCalc(val, options.updatewait, "6") WHERE ival = 0;
     }
     DEFAULT
     {
@@ -187,6 +197,16 @@ MACRO TestChase()
         , t2 :=   [ action := "append-4-ival=0", wherewait :=    300 ]
         , expect := [ [ id := 1, val := "12", ival := 1 ] ]
         ]
+      , [ title :=  "concurrent updates where first update commits before second (that skips fase2) update"
+        , t1 :=   [ action := "append-2", commitwait := 200 ]
+        , t2 :=   [ action := "append-5", beforewait := 100 ]
+        , expect := [ [ id := 1, val := "125", ival := 1 ] ]
+        ]
+      , [ title :=  "concurrent updates where first update commits before second (that skips fase2) update"
+        , t1 :=   [ action := "append-2", commitwait := 200 ]
+        , t2 :=   [ action := "append-6-ival=0", beforewait := 100 ]
+        , expect := [ [ id := 1, val := "12", ival := 1 ] ]
+        ]
       ];
 
   FOREVERY (RECORD test FROM tests)
@@ -196,18 +216,20 @@ MACRO TestChase()
     INSERT [ id := 1, val := "1", ival := 0 ] INTO table1;
     trans1->CommitWork();
 
-    PRINT(`*\n*\n* test: ${test.title}\n*\n*\n`);
-
     OBJECT test1 := AsyncCallFunctionFromJob(Resolve("#TestChaseWorker"), test.t1);
     OBJECT test2 := AsyncCallFunctionFromJob(Resolve("#TestChaseWorker"), test.t2);
 
     WaitForPromise(CreatePromiseAll([ test1, test2 ]));
 
     RECORD ARRAY intable := SELECT * FROM table1;
-    DumpValue(intable);
 
     TestEQ(test.expect, intable, test.title);
   }
+
+  trans1->BeginWork();
+  DELETE FROM table1;
+  INSERT [ id := 1, val := "1", ival := 0 ] INTO table1;
+  trans1->CommitWork();
 }
 
 

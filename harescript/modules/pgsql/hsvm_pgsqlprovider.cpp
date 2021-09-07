@@ -1755,11 +1755,16 @@ bool PGSQLTransactionDriver::BuildQueryString(
                         }
                 }
 
+                /* Only need fase2 if some conditions (HareScript code or single/joinconditions)
+                   can't be checked by PostgreSQL
+                */
+                bool need_fase2 = query.has_fase1_hscode || !all_handled;
+
                 /* Can't get lookups for multiple columns to work, so using fase2 is off in
                    that case. Comparing anonymous records returns a 'comparison not implemented'
                    error
                 */
-                if (keycount == 1)
+                if (keycount == 1 && need_fase2)
                 {
                         // querydata.keycolumn will be filled during result column building
                         querydata.usefase2 = true;
@@ -1770,11 +1775,6 @@ bool PGSQLTransactionDriver::BuildQueryString(
                         querydata.keycolumn = QueryData::KeyColumn{0};
                 }
         }
-
-        /* FIXME: propagate has_hs_code from sqllib to database query - if it is false
-           and all the single/join conditations are handled we won't need fase2
-        */
-        // if (!query.has_hs_code && all_handled) usefase2 = false;
 
         unsigned tableidx = 0;
         for (auto &tbl: query.tables)
