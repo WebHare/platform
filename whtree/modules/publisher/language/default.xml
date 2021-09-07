@@ -1557,6 +1557,21 @@
     </textgroup>
   </textgroup>
   <textgroup gid="siteprofile" limitlanguages="en nl">   <!-- siteprofile -->
+    <textgroup gid="abtest">   <!-- siteprofile.abtest -->
+      <text tid="abgroup">Experiment ID</text>
+      <text tid="aboption">Option name</text>
+      <text tid="aboptions">Variants</text>
+      <text tid="cannotpublish_abtesttarget">Cannot publish this file as it is part of an A/B test on <param p="1"/></text>
+      <text tid="contentlinkspickfirst">Any content links to this file will always use the first variant.</text>
+      <text tid="duration_days">Cookie lifetime</text>
+      <text tid="editaboption">Variant</text>
+      <text tid="filetype">A/B test (experimental!)</text>
+      <text tid="tab">AB-Test</text>
+      <text tid="target">Target page</text>
+      <text tid="usedforcookie">(used for cookie)</text>
+      <text tid="weight">Relative weight</text>
+      <text tid="zeroissessioncookie">days (0=session cookie)</text>
+    </textgroup>
     <textgroup gid="contentlibraries">   <!-- siteprofile.contentlibraries -->
       <text tid="beacon">Beacon</text>
       <text tid="beacons">Beacon folder</text>

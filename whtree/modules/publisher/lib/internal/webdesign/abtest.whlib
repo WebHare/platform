@@ -1,0 +1,127 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+RECORD FUNCTION GetABtestInfo(INTEGER fileid)
+{
+  OBJECT trans;
+  IF(NOT HavePrimaryTransaction())
+    trans := OpenPrimary();
+
+  RECORD fileinfo := SELECT type, filelink FROM system.fs_objects WHERE id = fileid;
+  INTEGER abtestfile := fileinfo.type = 20 ? fileinfo.filelink : fileid;
+
+  OBJECT settingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
+  RECORD settings := settingstype->GetInstanceData(abtestfile);
+
+  settings.aboptions := SELECT *, num := #aboptions FROM settings.aboptions;
+
+  //trans->Close(); //FIXME want to close!
+
+  RETURN [ value := settings
+         , ttl := 15 * 60 * 1000
+         , eventmasks := OpenWHFSObject(fileid)->GetEventMasks()
+         ];
+}
+
+RECORD FUNCTION GetMyVariant(INTEGER fileid, RECORD variantinfo)
+{
+  OBJECT trans;
+  IF(NOT HavePrimaryTransaction())
+    trans := OpenPrimary();
+
+  BLOB data := GetPublishedDBFile(fileid, "variant-" || variantinfo.num || ".html");
+  //trans->Close();//FIXME want to close!
+
+  RETURN [ value := data
+         , ttl := 15 * 60 * 1000
+         , eventmasks := OpenWHFSObject(fileid)->GetEventMasks()
+         ];
+}
+
+FLOAT FUNCTION RandomFloat()
+{
+  FLOAT res := FLOAT(INTEGER64(Random(0,65000)) * 65000 + Random(0,65000)) / (65000i64*65000);
+  RETURN res < 0 ? 0f : res > 1 ? 1f : res; //should never happen but we need a better randomfloat function :)
+}
+
+PUBLIC MACRO RunABTest()
+{
+  INTEGER myfileid := GetStoredScriptProperty("FILEID");
+  RECORD abinfo := GetAdhocCached([ abtestinfo := myfileid ], PTR GetABtestInfo(myfileid));
+  IF(abinfo.abgroup = "" OR Length(abinfo.aboptions) = 0)
+    AbortWithHTTPError(404, "A/B not properly configured");
+
+  RECORD usevariant;
+  STRING selectvariant := GetWebVariable("wh.variant");
+  IF(selectvariant != "")
+  {
+    RECORD sel := DecryptForThisServer("publisher:abvariant", selectvariant, [ fallback := DEFAULT RECORD ]);
+    IF(RecordExists(sel))
+      usevariant := SELECT * FROM abinfo.aboptions WHERE target = sel.t;
+  }
+  ELSE
+  {
+    //Do we have to generate a cookie ?
+    STRING cookiename := "webhare-abtest-" || abinfo.abgroup;
+    usevariant := SELECT * FROM abinfo.aboptions WHERE aboption = GetWebCookie(cookiename);
+    IF(NOT RecordExists(usevariant))
+    {
+      //Throw a dice!
+      INTEGER64 weightsum;
+      FOREVERY(RECORD abgroup FROM abinfo.aboptions)
+      {
+        INSERT CELL weightstart := weightsum INTO abinfo.aboptions[#abgroup];
+        weightsum := weightsum + abgroup.weight;
+      }
+
+      INTEGER64 selected := INTEGER64(weightsum * RandomFloat());
+      usevariant := SELECT * FROM abinfo.aboptions WHERE weightstart <= selected ORDER BY weightstart DESC LIMIT 1;
+      UpdateWebCookie(cookiename, usevariant.aboption, [ lifetime := 86400 * abinfo.duration_days, secure := TRUE ]);
+    }
+  }
+
+  IF(NOT RecordExists(usevariant))
+    AbortWithHTTPError(404, "Variant not found");
+
+  BLOB myvariant := GetAdhocCached([ file := myfileid, num := usevariant.num ], PTR GetMyVariant(myfileid, usevariant));
+  Sendblobto(0,myvariant);
+}
+
+BOOLEAN FUNCTION CheckABTestOnSave(INTEGER objectid, OBJECT contexts, FUNCTION PTR next_onconfirmsave, BOOLEAN ispublish)
+{
+  IF(ispublish)
+  {
+    OBJECT settingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
+    INTEGER ARRAY hitobjects := settingstype->FindObjectsByMemberValue("aboptions.target", objectid);
+    IF(Length(hitobjects) > 0)
+    {
+      RECORD ARRAY abtesthits := SELECT link := link ?? whfspath
+                                   FROM system.fs_objects
+                                  WHERE id IN hitobjects
+                                        AND parentsite != 0;
+      IF(Length(abtesthits) > 0)
+      {
+        contexts->screen->RunSimpleScreen("error", GetTid("publisher:siteprofile.abtest.cannotpublish_abtesttarget", abtesthits[0].link));
+        RETURN FALSE;
+      }
+    }
+  }
+  RETURN next_onconfirmsave != DEFAULT MACRO PTR ? next_onconfirmsave(ispublish) : TRUE;
+}
+
+//This is hooked into all editdocuments at the UT to check if any ABtest refers to us
+PUBLIC RECORD FUNCTION CheckABTestPublishHook(RECORD editorinfo)
+{
+  IF(editorinfo.objectid != 0)
+    editorinfo.contexts->editdocumentapi->onconfirmsave := PTR CheckABTestOnSave(editorinfo.objectid, editorinfo.contexts, editorinfo.contexts->editdocumentapi->onconfirmsave, #1);
+  RETURN editorinfo;
+}

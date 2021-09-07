@@ -1,0 +1,64 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+BOOLEAN iscontentlink := file.type = 20;
+OBJECT settingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
+INTEGER abtestfile := iscontentlink ? file.filelink : file.id;
+RECORD settings := settingstype->GetInstanceData(abtestfile);
+
+MACRO CreateVariant(RECORD abvariant)
+{
+  OBJECT design := GetWebDesign(file.id);
+
+  OBJECT abapplytester := GetApplyTesterForObject(file.id);
+  OBJECT targetapplytester := GetApplyTesterForObject(abvariant.target);
+  RECORD renderinfo := targetapplytester->GetObjRenderInfo();
+  OBJECT targetobject := OpenWHFSObject(abvariant.target);
+  IF(NOT iscontentlink AND targetobject->parent != file.parent) //to work around this... we'll need to supply different navigationparent and navigationsites too. we didn't test that!
+    THROW NEW Exception("All A/B variants MUST be in the same folder as the page combining them!");
+
+  OBJECT pageobject := MakeObject(renderinfo.objectname, targetobject);
+  RECORD webdesignobjinfo := abapplytester->GetWebDesignObjinfo();
+  webdesignobjinfo.renderinfo := renderinfo;
+
+  OBJECT webdesign := InstantiateWebDesign(targetapplytester, webdesignobjinfo, 200, targetobject, pageobject, FALSE, [ navigationobject := OpenWHFSObject(file.id) ]);
+  pageobject := webdesign->pageobject;
+  webdesign->canonicalurl := file.indexurl;
+  IF(NOT iscontentlink) //don't tag contentlinks as experiments
+  {
+    webdesign->htmldata := CELL[ ...webdesign->htmldata
+                               , "experiment-id" := settings.abgroup
+                               , "experiment-variant" := abvariant.aboption
+                               ];
+  }
+  webdesign->RunPageWithContents(PTR pageobject->RunBody(webdesign));
+}
+
+IF(iscontentlink)
+{
+  //Only create the first variant
+  OpenFile(1);
+  CreateVariant(settings.aboptions[0]);
+  CloseFile();
+}
+ELSE
+{
+  RenamePage(1,"index.shtml");
+
+  FOREVERY(RECORD abvariant FROM settings.aboptions) //Note! can't distinct these... we need to set the exact optiongroups in the html/data tags
+  {
+    CreateDBFile("variant-" || #abvariant || ".html");
+    CreateVariant(abvariant);
+    CloseFile();
+  }
+
+  OpenFile(1);
+  //INTEGER redirectoutputid := OpenOutputFile("index.shtml",FALSE);
+  //PrintTrustedCode("<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
+  PrintTrustedCode(`<?wh LOADLIB "${Resolve("abtest.whlib")}"; RunABTest(); ?>`);
+  closefile();
+}

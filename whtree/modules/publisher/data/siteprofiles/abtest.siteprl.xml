@@ -1,0 +1,80 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             gid="siteprofile.abtest">
+
+  <filetype namespace="http://www.webhare.net/xmlns/publisher/abtest/abtestfile"
+            blobiscontent="false"
+            isacceptableindex="true"
+            ispublishable="true"
+            ispublishedassubdir="true"
+            tid=".filetype">
+    <members>
+      <string name="abgroup" />
+      <integer name="duration_days" />
+      <array name="aboptions">
+        <string name="aboption" />
+        <integer name="weight" />
+        <whfsref name="target" />
+      </array>
+    </members>
+
+    <!-- only the real test should show the tab -->
+    <extendproperties extension="#abtest" />
+  </filetype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="abtest">
+    <newtab tid=".tab">
+      <textedit composition="contentdata" cellname="abgroup" required="true" suffixtid=".usedforcookie" />
+      <textedit composition="contentdata"
+                cellname="duration_days"
+                minvalue="0"
+                required="true"
+                suffixtid=".zeroissessioncookie"
+                valuetype="integer" />
+      <heading tid=".aboptions" />
+      <arrayedit composition="contentdata"
+                 cellname="aboptions"
+                 minheight="8gr"
+                 errorlabeltid=".aboptions"
+                 minrows="1"
+                 orderable="true"
+                 roweditscreen="#editaboption">
+        <column name="aboption" type="text" />
+        <column name="weight" type="integer" />
+        <p:whfsrefcolumn name="target" />
+      </arrayedit>
+      <line layout="left">
+        <text valuetid=".contentlinkspickfirst" />
+      </line>
+    </newtab>
+  </tabsextension>
+
+  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
+          name="editaboption"
+          footerbuttons="ok cancel"
+          implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row" cellname="aboption" required="true" />
+      <textedit composition="row" cellname="weight" minvalue="1" emptyvalue="0" required="true" valuetype="integer" />
+      <p:browseforobject composition="row" cellname="target" acceptfiles="true" acceptfolders="false" required="true" />
+    </body>
+  </screen>
+
+  <apply>
+    <!-- we need to control both contentlinks and normal publication -->
+    <to type="file" contentfiletype="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" />
+    <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
+  </apply>
+
+  <apply>
+    <to type="all" />
+    <intercept name="checkabtestpublish"
+               interceptfunction="/lib/internal/webdesign/abtest.whlib#checkabtestpublishHook"
+               target="publisher:documenteditor" />
+  </apply>
+
+</siteprofile>
