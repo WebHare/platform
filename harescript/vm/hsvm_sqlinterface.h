@@ -17,6 +17,7 @@ struct DBDescription
         bool supports_nulls;
         bool supports_limit;
         bool needs_locking_and_recheck;
+        bool fase2_locks_implicitly;
         bool needs_uppercase_names;
         bool add_missing_default_columns;
         unsigned max_joined_tables;             ///< Maximum number of joined tables per query (0 for no limit)

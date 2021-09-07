@@ -352,6 +352,7 @@ struct OpenQuery
         bool use_blocks;
         bool use_fase1;
         bool fase2needslock;
+        bool fase2_locks_implicitly;
 
         friend struct SubQuery;
 };

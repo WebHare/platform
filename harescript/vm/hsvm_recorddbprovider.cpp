@@ -38,6 +38,7 @@ RecordDBTransactionDriver::RecordDBTransactionDriver(VirtualMachine *vm)
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = false;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
 }
 

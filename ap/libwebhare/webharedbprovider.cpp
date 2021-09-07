@@ -572,6 +572,7 @@ WebHareDBTransaction::WebHareDBTransaction(Connection *conn, std::unique_ptr< Da
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = true;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
 
         //DEBUGPRINT("Creating WHDB transaction " << this);

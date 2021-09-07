@@ -147,6 +147,22 @@ MACRO TestPrimitiveValues()
 
       TestEQ(id, found);
 
+      // Test IN search
+      found :=
+          SELECT AS INTEGER COLUMN id
+            FROM testtable
+           WHERE (CellExists(toinsert, "normalint") ? normalint IN INTEGER[ toinsert.normalint ] : TRUE)
+             AND (CellExists(toinsert, "normalbool") ? normalbool IN BOOLEAN[ toinsert.normalbool ] : TRUE)
+             AND (CellExists(toinsert, "normalvarchar") ? normalvarchar IN STRING[ toinsert.normalvarchar ] : TRUE)
+             AND (CellExists(toinsert, "normaldatetime") ? normaldatetime IN DATETIME[ toinsert.normaldatetime ] : TRUE)
+             AND (CellExists(toinsert, "normalint64") ? normalint64 IN INTEGER64[ toinsert.normalint64 ] : TRUE)
+             AND (CellExists(toinsert, "normalmoney") ? normalmoney IN MONEY[ toinsert.normalmoney ] : TRUE)
+             AND (CellExists(toinsert, "normalfloat") ? normalfloat IN FLOAT[ toinsert.normalfloat ] : TRUE)
+             AND (CellExists(toinsert, "normalblob") ? normalblob IN BLOB[ toinsert.normalblob ] : TRUE)
+             AND (CellExists(toinsert, "binaryvarchar") ? binaryvarchar IN STRING[ toinsert.binaryvarchar ] : TRUE);
+
+      TestEQ(id, found);
+
       // ADDME: test dynquery!
     }
   }

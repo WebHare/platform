@@ -401,6 +401,7 @@ void RegisterTransaction(VarId id_set, VirtualMachine *vm)
         description.supports_data_modify = true;
         description.supports_nulls = false;
         description.needs_locking_and_recheck = true;
+        description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
         description.max_joined_tables = 32;
 

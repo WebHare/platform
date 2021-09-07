@@ -340,7 +340,13 @@ void SubQuery::ReadAndCache()
                                 for (auto itr: row_request)
                                 {
                                         if (itr.lockresult == LockResult::Removed)
-                                                continue;
+                                            continue;
+                                        if (itr.lockresult == LockResult::Changed)
+                                        {
+                                                SetCurrentRow(itr.rownum);
+                                                if (!IsCurrentRowValid(true))
+                                                    continue;
+                                        }
                                         for (unsigned idx = 0; idx < cursorsize; ++idx)
                                                 varmem.CopyFrom(varmem.ArrayElementAppend(results), varmem.ArrayElementRef(rec_array, idx + itr.rownum * cursorsize));
                                 }
@@ -444,6 +450,7 @@ OpenQuery::OpenQuery(VirtualMachine *_vm, DatabaseTransactionDriverInterface::Cu
         limitcounter = -1;
         use_blocks = false;
         fase2needslock = false;
+        fase2_locks_implicitly = false;
         locked = false;
 }
 
@@ -620,6 +627,7 @@ void OpenQuery::Open(QueryDefinition &querydef, std::vector<VarId> &_values)
                 fase2needslock = subqueries[0].GetTransaction() && subqueries[0].GetTransaction()->description.needs_locking_and_recheck;
                 if (fase2needslock)
                     use_blocks = false;
+                fase2_locks_implicitly = subqueries[0].GetTransaction() && subqueries[0].GetTransaction()->description.fase2_locks_implicitly;
         }
 }
 
@@ -858,7 +866,7 @@ QueryActions::_type OpenQuery::GetNextAction()
                         {
                                 // Just did fase1, it was a match. Add to matching rows
                                 matchingrows.push_back(Fase2RetrieveRow{ sq0.GetCurrentRow(), LockResult::Unchanged });
-                                if (limitcounter > 0)
+                                if (limitcounter > 0 && !fase2_locks_implicitly)
                                     --limitcounter;
                                 if (!use_blocks || limitcounter == 0)
                                 {
@@ -887,7 +895,7 @@ QueryActions::_type OpenQuery::GetNextAction()
                 else
                 {
                         // We just got back from a fase2 evaluation. Unlock if it didn't do that
-                        if (locked)
+                        if (fase2needslock && locked)
                         {
                                 sq0.UnlockRow();
                                 locked = false;
@@ -902,8 +910,61 @@ QueryActions::_type OpenQuery::GetNextAction()
                 {
                         // Get the first matching row
                         sq0.SetCurrentRow(matchingrows[0].rownum);
+
+                        if (fase2_locks_implicitly)
+                        {
+                                switch (matchingrows[0].lockresult)
+                                {
+                                        case LockResult::Unchanged:     break;
+                                        case LockResult::Removed:
+                                        {
+                                                // skip this row
+                                                matchingrows.erase(matchingrows.begin());
+                                                continue;
+                                        }
+                                        case LockResult::Changed:
+                                        {
+                                                /* we'll do 2 rounds
+                                                - round 1 (want_fase_1 == false): trigger fase1 reevaluation by setting locked and want_fase_1, then continue
+                                                  locked is saved between calls, so it can be used to see if we've already done the fase1 action
+                                                - round 2 (want_fase_1 == false): process evaluated_where_ok, return Fase2Action if true
+                                                */
+                                                if (!locked)
+                                                {
+                                                        /* check all conditions, even handled ones
+                                                           Only postgresql uses the fase2_locks_implicitly mode, and it won't recheck the conditions in fase 2
+                                                        */
+                                                        Blex::ErrStream() << "** recheck";
+                                                        if (!sq0.IsCurrentRowValid(true))
+                                                        {
+                                                                Blex::ErrStream() << "** invalid";
+                                                                matchingrows.erase(matchingrows.begin());
+                                                                continue;
+                                                        }
+
+                                                        Blex::ErrStream() << "** valid!";
+
+                                                        locked = true;
+                                                        want_fase_1 = true;
+                                                        continue;
+                                                }
+                                                else
+                                                {
+                                                        locked = false;
+                                                        if (!evaluated_where_ok)
+                                                        {
+                                                                matchingrows.erase(matchingrows.begin());
+                                                                continue;
+                                                        }
+                                                }
+                                        } break;
+                                }
+
+                                if (limitcounter > 0)
+                                    --limitcounter;
+                        }
+
                         matchingrows.erase(matchingrows.begin());
-        //                --limitcounter;
                         return QueryActions::Fase2Action;
                 }
                 else
