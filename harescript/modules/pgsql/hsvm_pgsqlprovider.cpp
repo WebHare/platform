@@ -20,7 +20,7 @@
 
 #define SHOW_PGSQL
 
-#define DUMP_BINARY_ENCODING
+//#define DUMP_BINARY_ENCODING
 
 
 #ifdef SHOW_PGSQL
