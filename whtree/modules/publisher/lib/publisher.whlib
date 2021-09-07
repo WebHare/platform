@@ -898,3 +898,16 @@ PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTST
   STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
   RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
 }
+
+/** @short Get a link that will show a specific A/B test variant
+    @param navigationobject ID of the fsobject implementing the A/B test
+    @param targetobject ID Of the target to show. If not a current target, returns a 404.
+    @return Link that will select the requested target. Empty link if the navigationobject is not being published */
+PUBLIC STRING FUNCTION GetABTestVariantLink(INTEGER navigationobject, INTEGER targetobject)
+{
+  STRING baselink := SELECT AS STRING link FROM system.fs_objects WHERE id = navigationobject;
+  IF(baselink = "")
+    RETURN "";
+
+  RETURN UpdateURLVariables(baselink, [ "wh.variant" := EncryptForThisServer("publisher:abvariant", [ t := targetobject])]);
+}

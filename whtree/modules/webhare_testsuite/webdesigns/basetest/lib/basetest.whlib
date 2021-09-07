@@ -26,7 +26,7 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
     IF(IsRequest())
       ProcessWHDebugVariablesUnchecked();
 
-    IF(this->IsStaticPublication())
+    IF(this->IsStaticPublication() AND this->targetobject->fullpath NOT LIKE "*/abtestfolder/*") //staticfiles are not compatible with abtesting.
     {
       STRING deeperlink := this->GetStaticFileLink("test.txt");
       STRING compareroot := Substring(this->targetsite->webroot, this->targetsite->webroot LIKE "https:*" ? 6 : 5);
@@ -68,6 +68,9 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
                           //we'll enable comments if we see the plugin
                         , comments := ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
                         , sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
+                        , targetobjectpath := ObjectExists(this->targetobject) ? this->targetobject->whfspath : ""
+                        , contentobjectpath := ObjectExists(this->contentobject) ? this->contentobject->whfspath : ""
+                        , navigationobjectpath := ObjectExists(this->navigationobject) ? this->navigationobject->whfspath : ""
                         ];
 
     RETURN wittydata;

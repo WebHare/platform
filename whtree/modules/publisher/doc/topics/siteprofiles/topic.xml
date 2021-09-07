@@ -1,6 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Site profiles"
-       docorder="objectproperties sharedblocks seo-settings types linkhandlers rtdtype publisher-tweaks plugins">
+       docorder="objectproperties sharedblocks seo-settings types linkhandlers rtdtype publisher-tweaks abtest plugins">
   <section name="api" title="Site profiles" />
   <section name="rtd" title="RTD file/structure management" />
 </topic>

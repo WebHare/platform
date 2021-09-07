@@ -9,6 +9,7 @@
   <test script="testcdn-moduledesign.whscr"/>
   <test script="webfeatures.whscr"/>
   <test script="test_forms.whscr"/>
+  <test script="test_abtest.whscr"/>
   <test script="test_widgets.whscr"/>
   <test script="test_widget_preview.whscr"/>
   <test script="test-nodesign.whscr"/>
