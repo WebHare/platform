@@ -238,36 +238,37 @@ void SubQuery::RetrieveFase2Records(Blex::PodVector< Fase2RetrieveRow > &subelem
         }
 }
 
-bool SubQuery::IsCurrentRowInvalid()
+bool SubQuery::IsCurrentRowValid(bool fullcheck)
 {
         // Const varmem, so it is somewhat safer to use arrayelementget operations
         StackMachine const &varmem = mainquery->vm->GetStackMachine();
 
-        bool is_ok = true;
-        // Check all not handled singleconditions
-        for (std::vector<SingleCondition>::iterator it = querydef.singleconditions.begin(); it != querydef.singleconditions.end(); ++it)
-           if (!it->handled)
+        // Check all singleconditions
+        for (auto &itr: querydef.singleconditions)
+           if (fullcheck || !itr.handled)
            {
-                    VarId rec = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table);
-                    is_ok = is_ok && SatisfiesSingle(varmem, *it, rec);
+                    VarId rec = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table);
+                    if (!SatisfiesSingle(varmem, itr, rec))
+                        return false;
            }
-        if (!is_ok)
-            return true;
-        // Check all not handled joinconditions
-        for (std::vector<JoinCondition>::iterator it = querydef.joinconditions.begin(); it != querydef.joinconditions.end(); ++it)
-           if (!it->handled)
-           {
-                    VarId rec1 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table1);
-                    VarId rec2 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + it->table2);
-                    is_ok = is_ok && SatisfiesJoin(varmem, *it, rec1, rec2);
-           }
-        return !is_ok;
+
+        // Check all joinconditions
+        for (auto &itr: querydef.joinconditions)
+            if (fullcheck || !itr.handled)
+            {
+                    VarId rec1 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table1);
+                    VarId rec2 = varmem.ArrayElementGet(rec_array, block_pos * querydef.tables.size() + itr.table2);
+                    if (!SatisfiesJoin(varmem, itr, rec1, rec2))
+                        return false;
+            }
+        return true;
 }
 
 bool SubQuery::AdvanceWhileInvalid()
 {
+        // Handled conditions are checked by the db driver, only need to check the unhandled conditions
         for (;block_pos < block_length; ++block_pos)
-            if (!IsCurrentRowInvalid())
+            if (IsCurrentRowValid(false))
                 break;
 
         return block_pos != block_length;

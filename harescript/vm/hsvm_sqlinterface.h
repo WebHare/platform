@@ -34,8 +34,10 @@ enum _type
         Updated =       0x08, ///< Updated
         __Scratch1 =    0x10, ///< For sqllib usage only, must be ignored by db driver
 };
-inline Fases::_type operator |(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs | (unsigned)rhs); }
-inline Fases::_type operator |=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs | rhs); }
+constexpr inline Fases::_type operator |(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs | (unsigned)rhs); }
+constexpr inline Fases::_type operator |=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs | rhs); }
+constexpr inline Fases::_type operator &(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs & (unsigned)rhs); }
+constexpr inline Fases::_type operator &=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs & rhs); }
 
 } // End of namespace Fases
 

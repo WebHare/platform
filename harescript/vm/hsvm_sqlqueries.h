@@ -161,9 +161,6 @@ struct SubQuery
         unsigned inpartlimit;
         unsigned inpartquerynr;
 
-        // Returns whether the current row is invalid
-        bool IsCurrentRowInvalid();
-
         /** Advances the block_pos counter while the current row does not match the query definition. Does not retrieve
             next block.
             @return Whether a matching row has been found in the rest of the block */
@@ -232,6 +229,11 @@ struct SubQuery
 
         /// Sets current row
         void inline SetCurrentRow(unsigned row) { block_pos = row; }
+
+        /** Check if current row is valid wrt single- and joinconditions
+            @param fullcheck If true, also recheck conditions handled by the database driver
+        */
+        bool IsCurrentRowValid(bool fullcheck);
 
         /// Returns the transaction (0 if record array!)
         inline DatabaseTransactionDriverInterface * GetTransaction() { return trans; }
