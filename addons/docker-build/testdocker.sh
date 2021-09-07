@@ -410,7 +410,7 @@ do
   fi
 
   echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$TARGETDIR'$CLONEINFO"
-  if ! git clone -–recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
+  if ! git clone --recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
     echo "Failed to clone $CLONEURL"
     exit 1
   fi
