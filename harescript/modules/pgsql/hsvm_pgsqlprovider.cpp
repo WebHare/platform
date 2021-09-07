@@ -2618,7 +2618,7 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
                         {
                                 VarId elt = stackm.ArrayElementAppend(id_set);
                                 if (reader.ReadSimpleTuple(elt, i) == TuplesReader::ReadResult::Exception)
-                                return;
+                                    return;
                         }
                 }
                 return;
