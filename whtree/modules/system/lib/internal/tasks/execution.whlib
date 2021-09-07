@@ -94,7 +94,8 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
              , taskdata    := RecordExists(resolution.options.newdata) ? EncodeHSON(resolution.options.newdata) : managedtasks.taskdata
              , auxdata     := RecordExists(resolution.options.auxdata) ? EncodeHSONBlob(resolution.options.auxdata) : managedtasks.auxdata
              , lasterrors  := ""
-           WHERE id = taskinfo.dbid;
+           WHERE id = taskinfo.dbid
+                 AND NOT iscancelled; //do not restart tasks marked as cancelled (which may happen in parallel, especially in CI)
   }
   ELSE IF(resolution.type="finished")
   {
