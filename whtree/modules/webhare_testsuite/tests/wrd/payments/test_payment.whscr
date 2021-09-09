@@ -423,9 +423,10 @@ MACRO TestPaymentOverview()
   TestEq(DEFAULT DATETIME, enrichedpayments[1].paymentdate);
 
   //these require clearing
-  TestEq("000000000001", enrichedpayments[2].paymentref);
+  TestEq(22, Length(enrichedpayments[2].paymentref));
   TestEq(pm2_guidprefix || "__NOISSUER", enrichedpayments[2].paymentmethodtag);
-  TestEq("000000000002", enrichedpayments[3].paymentref);
+  TestEq(22, Length(enrichedpayments[3].paymentref));
+  TestEq(TRUE, enrichedpayments[2].paymentref != enrichedpayments[3].paymentref);
 
   RECORD cashpay := SELECT * FROM enrichedpayments WHERE paymentref="KASSABON:3232";
   TestEq("approved", cashpay.status);
@@ -441,7 +442,7 @@ MACRO TestPaymentOverview()
   //test storing in subcell
   altpayments := paymentapi->EnrichWithExplainedPayments( (SELECT *, altcell := data, DELETE data FROM payments), [ cellname := "altcell", explaincell := "explanation"]);
   TestEq((SELECT *, altcell := data, DELETE data FROM payments),(SELECT *, DELETE explanation FROM altpayments));
-  TestEq(paymentapi->ExplainPayment(altpayments[0].altcell), altpayments.explanation);
+  TestEq(paymentapi->ExplainPayment(altpayments[0].altcell), altpayments[0].explanation);
 }
 
 MACRO TestPaymentPersonEntity()
@@ -545,52 +546,6 @@ MACRO TestPaymentOrderLines()
   TestEq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
   TestEq(bigrequest.orderlines[1].title, payment.__bestpayment.__paymentdata.m.orderlines[1].title, "white-box inspection of stored orderlines failed");
   TestEq("approved", payment.status);
-}
-
-MACRO TestOrderNrFormats()
-{
-  //TODO this test will probably fail at UTC midnight. sleep if it's a few seconds before ?
-
-  testfw->BeginWork();
-  TestEq('%012n', paymentapi->GetConfig().ordernrformat);
-  paymentapi->UpdateConfig([ ordernrformat := "BETATEST-%d%03n"]);
-  TestEq('BETATEST-%d%03n', paymentapi->GetConfig().ordernrformat);
-  //FIXME test setting illegal formats
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  DATETIME now_cet := UTCToLocal(GetCurrentDateTime(), "CET");
-  RECORD paymentmethod := [ paymentprovider := testfw->wrdschema->^payprov->Search("WRD_TITLE", "TestMethod")
-                          , paymentoptiontag := "NOISSUER"
-                          ];
-
-  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", GetPaymentAPINextOrderNr(paymentapi->wrdschema));
-  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
-
-  // Update lastorderdate in separate transaction, or else we'll deadlock with the ordernr service
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  testfw->wrdschema->SetSchemaSetting("wrd:payments.paymentrefstate", [ ...testfw->wrdschema->GetSchemaSetting("wrd:payments.paymentrefstate"), lastordernumber := 15 ]);
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "016", paymentapi->AllocateOrderNumber());
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  testfw->wrdschema->SetSchemaSetting("wrd:payments.paymentrefstate", [ ...testfw->wrdschema->GetSchemaSetting("wrd:payments.paymentrefstate"), lastorderdate := AddDaysToDate(-1, now_cet)]);
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "001", paymentapi->AllocateOrderNumber());
-  testfw->CommitWork();
-
-  //Try manually setting order nr
-  SetPaymentAPINextOrderNr(paymentapi->wrdschema, "BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004");
-  testfw->BeginWork();
-  TestEq("BETATEST-"||FormatDateTime("%Y%m%d", now_cet) || "004", paymentapi->AllocateOrderNumber());
-  testfw->CommitWork();
 }
 
 ASYNC MACRO TestPendingPaymentsDialog()
@@ -835,7 +790,6 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestPaymentOverview
                  , PTR TestPaymentPersonEntity
                  , PTR TestPaymentOrderLines
-                 , PTR TestOrderNrFormats
                  , PTR TestPendingPaymentsDialog
                  , PTR TestPaymentProvidersDialog
                  , PTR TestPaymentDetailsDialog

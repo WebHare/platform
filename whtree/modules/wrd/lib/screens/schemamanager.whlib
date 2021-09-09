@@ -183,9 +183,6 @@ PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
 <
-  RECORD origpaymentapiconfig;
-  STRING orignextordernr;
-
   MACRO Init(RECORD data)
   {
     IF(NOT this->tolliumuser->HasRightOn("wrd:metadata", this->contexts->wrdschema->id))
@@ -201,12 +198,6 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
     ^wrdschema->value := SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationsource, creationdate
                            FROM wrd.schemas
                           WHERE id = this->contexts->wrdschema->id;
-
-    this->origpaymentapiconfig := GetPaymentAPIConfig(this->contexts->wrdschema);
-    ^paymentapiconfig->value := this->origpaymentapiconfig;
-
-    this->orignextordernr := GetPaymentAPINextOrderNr(this->contexts->wrdschema);
-    ^nextordernr->value := this->orignextordernr;
 
     ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop");
 
@@ -244,18 +235,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
       this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationsource, DELETE creationdate]);
     }
 
-    RECORD paymentapiupdates;
-    IF(this->origpaymentapiconfig.ordernrformat != ^paymentapiconfig->value.ordernrformat)
-      INSERT CELL ordernrformat := ^paymentapiconfig->value.ordernrformat INTO paymentapiupdates;
-
-    IF(RecordExists(paymentapiupdates))
-      UpdatePaymentAPIConfig(this->contexts->wrdschema, paymentapiupdates);
-
-    BOOLEAN success := work->Finish();
-    IF(success AND this->orignextordernr != ^nextordernr->value)
-      SetPaymentAPINextOrderNr(this->contexts->wrdschema, ^nextordernr->value);
-
-    RETURN success;
+    RETURN work->Finish();
   }
 >;
 
