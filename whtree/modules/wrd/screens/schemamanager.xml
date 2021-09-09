@@ -130,10 +130,6 @@
         <tab name="addressvalidation">
           <wrd:addressvalidation name="validationsettings" />
         </tab>
-        <tab name="payments">
-          <textedit composition="paymentapiconfig" cellname="ordernrformat" required="true" />
-          <textedit name="nextordernr" required="true" />
-        </tab>
       </tabs>
     </body>
     <footer>
