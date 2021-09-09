@@ -1796,7 +1796,10 @@ bool PGSQLTransactionDriver::BuildQueryString(
                         {
                                 // For SELECT or when fase2 isn't used, do everything in fase 1
                                 if (col.fase & Fases::Fase2)
-                                    col.fase |= Fases::Fase1;
+                                {
+                                        col.fase |= Fases::Fase1;
+                                        col.fase &= ~Fases::Fase2;
+                                }
                         }
                         else
                         {
@@ -1805,6 +1808,10 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                         // for update and delete, we need the primary key in fase 1 for the fase2 lookup
                                         col.fase |= Fases::Fase1;
                                 }
+
+                                // We'll return everthing in fase2, registring that is needed for correct null translation
+                                if (col.fase & (Fases::Fase1 | Fases::Recheck))
+                                    col.fase |= Fases::Fase2;
                         }
 
                         // Any interaction?
@@ -2261,6 +2268,7 @@ void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Ble
         QueryData f2query(*this);
         f2query.query.querystr = querydata.querystrfase2;
         f2query.resultcolumns = querydata.resultcolumnsfase2;
+        f2query.tablecount = querydata.tablecount;
 
         auto paramdata = f2query.query.params.AddArrayParameter(keyarraytype, keycoltype, rowlist.size());
         for (auto &itr: rowlist)

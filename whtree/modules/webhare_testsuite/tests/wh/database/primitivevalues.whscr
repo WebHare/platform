@@ -26,6 +26,8 @@ MACRO TestReflectValue(VARIANT v, STRING encoding)
   }
 }
 
+BOOLEAN FUNCTION ReturnTRUE() { RETURN TRUE; }
+
 
 MACRO TestPrimitiveValues()
 {
@@ -37,6 +39,12 @@ MACRO TestPrimitiveValues()
   IF (trans->SchemaExists("webhare_testsuite_testschema"))
     trans->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
   trans->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(trans, "webhare_testsuite_testschema", "refvalues",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 111 ]
+                        ]
+      ]);
 
   __LegacyCreateTable(trans, "webhare_testsuite_testschema", "primitives",
       [ primarykey :=   "id"
@@ -50,10 +58,15 @@ MACRO TestPrimitiveValues()
                         , [ column_name := "normalfloat", data_type := "FLOAT" ]
                         , [ column_name := "normalblob", data_type := "BLOB" ]
                         , [ column_name := "binaryvarchar", data_type := "BYTEA" ]
+                        , [ column_name := "nullint", data_type := "INTEGER", referenced_table_schema := "webhare_testsuite_testschema", referenced_table_name := "refvalues" ]
                         ]
       ]);
 
   trans->CommitWork();
+
+  TABLE
+  < INTEGER id
+  > refvaluesable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.refvalues");
 
   TABLE
   < INTEGER id
@@ -66,6 +79,8 @@ MACRO TestPrimitiveValues()
   , FLOAT normalfloat
   , BLOB normalblob
   , STRING binaryvarchar __ATTRIBUTES__(BINARY)
+  , INTEGER nullint NULL := 0
+  ; KEY id
   > testtable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.primitives");
 
   RECORD tests :=
@@ -86,7 +101,17 @@ MACRO TestPrimitiveValues()
       , normalfloat :=        [ 0f, -987654321.123456789, 1000 ]
       , normalblob :=         [ DEFAULT BLOB, StringToBlob("testblob") ]
       , binaryvarchar :=      [ "", DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ]
+      , nullint :=            [ 0, -2147483648, 2147483647 ]
       ];
+
+  trans->BeginWork();
+  FOREVERY (INTEGER id FROM tests.nullint)
+    IF (IsValueSet(id))
+      INSERT INTO refvaluesable(id) VALUES (id);
+  FOR (INTEGER id := 1; id <= 128; id := id + 1)
+    IF (id NOT IN tests.nullint)
+      INSERT INTO refvaluesable(id) VALUES (id);
+  trans->CommitWork();
 
   RECORD defaultrec;
   FOREVERY (RECORD rec FROM UnpackRecord(tests))
@@ -96,13 +121,13 @@ MACRO TestPrimitiveValues()
   {
     // These types must be sent to postgresql as parameter, for IN optimization support
     IF (TypeID(rec.value) IN [ TYPEID(INTEGER ARRAY), TYPEID(INTEGER64 ARRAY), TYPEID(DATETIME ARRAY), TYPEID(STRING ARRAY) ])
-      TestReflectValue(rec.value, rec.name LIKE "NORMAL*" ? "normal" : "binary");
+      TestReflectValue(rec.value, rec.name NOT LIKE "BINARY*" ? "normal" : "binary");
 
     FOREVERY (VARIANT val FROM rec.value)
     {
       trans->BeginWork();
 
-      TestReflectValue(val, rec.name LIKE "NORMAL*" ? "normal" : "binary");
+      TestReflectValue(val, rec.name NOT LIKE "BINARY*" ? "normal" : "binary");
 
       DELETE FROM testtable;
 
@@ -211,6 +236,78 @@ MACRO TestPrimitiveValues()
   TestEQ(`U&"\xC0a"`, PostgreSQLEscapeIdentifier('\xC0a'));
 
   trans->RollbackWork();
+
+  // ADDME: spin off into its own test
+  /* tests if fase2 updates of a table *with primary key* are properly processed
+  */
+  {
+    trans->BeginWork();
+
+    DELETE FROM testtable;
+
+    FOR (INTEGER i := 1; i <= 128; i := i + 1)
+      INSERT [ id := i, normalint := i, normalint64 := i % 4 ] INTO testtable;
+
+    RECORD ARRAY local := SELECT * FROM testtable;
+
+    UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1;
+
+    UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 = 0;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 = 0;
+
+    UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 + 1 = 2;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 + 1 = 2;
+
+    UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0;
+
+    UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0 AND ReturnTRUE();
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0 AND ReturnTRUE();
+
+    TestEQ(local, SELECT * FROM testtable ORDER BY id);
+
+    trans->RollbackWork();
+  }
+
+  /* same test, table without primary key (doesn't do fase2, everything locked and returned in fase1)
+  */
+  {
+    TABLE
+    < INTEGER id
+    , INTEGER normalint
+    , INTEGER64 normalint64
+    , INTEGER nullint NULL := 0
+    > testtable_nopk := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.primitives");
+
+    trans->BeginWork();
+
+    DELETE FROM testtable_nopk;
+
+    FOR (INTEGER i := 1; i <= 128; i := i + 1)
+      INSERT [ id := i, normalint := i, normalint64 := i % 4 ] INTO testtable_nopk;
+
+    RECORD ARRAY local := SELECT * FROM testtable_nopk;
+
+    UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1;
+
+    UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 = 0;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 = 0;
+
+    UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 + 1 = 2;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint64 + 1 = 2;
+
+    UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0;
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0;
+
+    UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0 AND ReturnTRUE();
+    UPDATE local SET normalint := normalint + 1, nullint := nullint + 1 WHERE normalint > 0 AND ReturnTRUE();
+
+    TestEQ(local, SELECT * FROM testtable_nopk ORDER BY id);
+
+    trans->RollbackWork();
+  }
 }
 
 
