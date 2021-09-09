@@ -126,7 +126,7 @@ PUBLIC STATIC OBJECTTYPE SisowPaymentProvider EXTEND WRDPaymentProviderBase
     RECORD vars := [ shopid := "0"
                    , merchantid := this->settings.merchantid
                    , payment := this->paymentoptiontag = "ideal" ? "" : this->paymentoptiontag
-                   , purchaseid := Left(this->paymentref,16) //purchaseid Het betalingskenmerk, maximaal 16 karakters Ja
+                   , purchaseid := Left(this->paymentref,16) //purchaseid Het betalingskenmerk, maximaal 16 karakters
                    , amount := ToString(INTEGER(this->amountpayable*100))
                    , issuerid := this->issuer
                    , testmode := this->settings.testmode ? "true" : ""
