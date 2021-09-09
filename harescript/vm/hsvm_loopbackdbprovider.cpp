@@ -201,9 +201,7 @@ void LoopbackDBTransactionDriver::ExecuteInsert(DatabaseQuery const &query, VarI
         TranslateDBQuery(query, HSVM_CallParam(*vm, 0));
         HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), newrecord);
 
-        HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "INSERTRECORD"), true, true);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB ExecuteInsert failed");
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "INSERTRECORD"), true, true);
         HSVM_CloseFunctionCall(*vm);
 }
 
@@ -224,9 +222,12 @@ LoopbackDBTransactionDriver::CursorId LoopbackDBTransactionDriver::OpenCursor(Da
         HSVM_VariableId copy = HSVM_AllocateVariable(*vm);
 
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "OPENCURSOR"), true, false);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB OpenCursor failed to return a cursor");
-
+        if(!res)
+        {
+                HSVM_CloseFunctionCall(*vm);
+                HSVM_DeallocateVariable(*vm, copy);
+                return 0;
+        }
         HSVM_CopyFrom(*vm, copy, res);
 
         CursorData data;
@@ -245,10 +246,9 @@ unsigned LoopbackDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recar
 
         HSVM_OpenFunctionCall(*vm, 0);
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "RETRIEVENEXTBLOCK"), true, true);
+        HSVM_CloseFunctionCall(*vm);
         if (!res)
             return 0;
-//            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB RetrieveNextBlock failed");
-        HSVM_CloseFunctionCall(*vm);
 
         HSVM_VariableId block = HSVM_ObjectMemberRef(*vm, obj, HSVM_GetColumnId(*vm, "PVT_CURRENTBLOCK"), true);
         if (!block)
@@ -280,7 +280,10 @@ void LoopbackDBTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr
 
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "GETFASE2DATA"), true, true);
         if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB GetFase2Data failed");
+        {
+                HSVM_CloseFunctionCall(*vm);
+                return;
+        }
 
         unsigned len = HSVM_ArrayLength(*vm, res);
         for (unsigned i = 0; i < len && i < rowlist.size(); ++i)
@@ -312,7 +315,10 @@ LockResult LoopbackDBTransactionDriver::LockRow(CursorId id, VarId /*recarr*/, u
         HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), row);
         HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "LOCKROW"), true, false);
         if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB LockRow failed");
+        {
+                HSVM_CloseFunctionCall(*vm);
+                return LockResult::Removed;
+        }
 
         std::string result = HSVM_StringGetSTD(*vm, res);
         HSVM_CloseFunctionCall(*vm);
@@ -336,9 +342,7 @@ void LoopbackDBTransactionDriver::UnlockRow(CursorId id, unsigned row)
 
         HSVM_OpenFunctionCall(*vm, 1);
         HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), row);
-        HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "UNLOCKROW"), true, true);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB UnlockRow failed");
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "UNLOCKROW"), true, true);
         HSVM_CloseFunctionCall(*vm);
 }
 
@@ -349,9 +353,7 @@ void LoopbackDBTransactionDriver::DeleteRecord(CursorId id, unsigned row)
 
         HSVM_OpenFunctionCall(*vm, 1);
         HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), row);
-        HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "DELETERECORD"), true, true);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB DeleteRecord failed");
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "DELETERECORD"), true, true);
         HSVM_CloseFunctionCall(*vm);
 }
 
@@ -363,9 +365,7 @@ void LoopbackDBTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId 
         HSVM_OpenFunctionCall(*vm, 2);
         HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), row);
         HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), newfields);
-        HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "UPDATERECORD"), true, true);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB UpdateRecord failed");
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "UPDATERECORD"), true, true);
         HSVM_CloseFunctionCall(*vm);
 }
 
@@ -374,9 +374,7 @@ void LoopbackDBTransactionDriver::CloseCursor(CursorId id)
         HSVM_VariableId obj = GetCursor(id).obj;
 
         HSVM_OpenFunctionCall(*vm, 0);
-        HSVM_VariableId res = HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "CLOSE"), true, true);
-        if (!res)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB Close failed");
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "CLOSE"), true, true);
         HSVM_CloseFunctionCall(*vm);
 
         cursors.erase(id);
