@@ -1051,14 +1051,24 @@ PUBLIC STATIC OBJECTTYPE SyncOptions EXTEND TolliumScreenBase
   {
     IF (this->BeginFeedback()->Finish())
     {
+      STRING exporttype;
       STRING ARRAY includetypes;
       IF (^synctype->value = "nonpersonaldata")
+      {
         includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE haspersonaldata != 1;
+        exporttype := "nopersonaldata";
+      }
       ELSE IF (^synctype->value = "selecttypes")
+      {
         includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE selected;
+        exporttype := "partial";
+      }
       ELSE
+      {
         includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows;
-      RETURN CELL[ includetypes ];
+        exporttype := "all";
+      }
+      RETURN CELL[ includetypes, exporttype ];
     }
     RETURN DEFAULT RECORD;
   }

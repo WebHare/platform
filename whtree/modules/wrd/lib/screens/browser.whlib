@@ -180,7 +180,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           , syncoptions.includetypes
           ]);
 
-      STRING filename := GetSafeFilename("wrd_export_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".wrdschema";
+      STRING filename := GetSafeFilename(`wrd-export-${this->contexts->wrdschema->tag}-${FormatDateTime("%Y%m%d", now)}-${syncoptions.exporttype}.wrdschema`);
       this->frame->SendFileToUser(file, "application/octet-stream", filename, now);
     }
   }
