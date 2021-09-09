@@ -114,7 +114,7 @@ ASYNC MACRO TestPaymentIngenico()
   TestThrowsLike("*must be an absolute*", PTR paymentapi->StartPayment(entity->id, 250, CELL[...properrequest, ingenicotemplate := "/mypage.shtml" ]));
 
   RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 247.72, properrequest);
-  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq(22, Length(entity->GetField("DATA").paymentref));
   TestEq("pending", entity->GetField("DATA").status);
   //dumpvalue(paymentinstruction,'tree');
   TestEq("John Doe", (SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="CN"));
@@ -170,7 +170,7 @@ ASYNC MACRO TestPaymentIngenico()
   entity := paymentapi->paymenttype->CreateEntity(CELL[]);
   testfw->CommitWork();
   paymentinstruction := paymentapi->StartPayment(entity->id, 214.21, properrequest);
-  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq(22, Length(entity->GetField("DATA").paymentref));
   TestEq("pending", entity->GetField("DATA").status);
 
   paymentapi->CancelPendingPayment(entity->id);

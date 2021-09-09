@@ -846,8 +846,6 @@
       <text tid="accounttype">Type voor logins</text>
       <text tid="addressvalidation">Adresvalidatie</text>
       <text tid="creationsource">Bron</text>
-      <text tid="nextordernr">Volgend ordernummer</text>
-      <text tid="ordernrformat">Ordernummer formaat</text>
       <text tid="payments">Betalingen</text>
       <text tid="protect">Bescherm dit schema tegen imports en verwijdering</text>
       <text tid="schema">Schema</text>

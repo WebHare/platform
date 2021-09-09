@@ -977,7 +977,7 @@ PUBLIC STATIC OBJECTTYPE IdealPaymentProvider EXTEND WRDPaymentProviderBase
     OBJECT transreq := NEW IdealTransactionRequest(this->__GetIdealConfigRecord());
     STRING returnurl := GetInternalReturnURL(paymenttok);
 
-    transreq->orderid          := this->paymentref; // <purchaseID> in iDeal
+    transreq->orderid          := Left(this->paymentref, 35); // <purchaseID> in iDeal. max 35 chars
     transreq->orderdescription := this->orderid;
     transreq->orderamount      := this->amountpayable;
     transreq->issuerid         := this->issuer;

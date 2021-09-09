@@ -3,6 +3,7 @@
     @topic payments/payments
 */
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::money.whlib";
@@ -135,14 +136,6 @@ STATIC OBJECTTYPE PaymentAPI
     RECORD paymentinfo := GetCell(paymententity, this->providerattribute).__paymentprovider;
     OBJECT psp := OpenPSPHandler(paymentinfo.type, paymentinfo.meta);
     RETURN psp;
-  }
-
-  PUBLIC STRING FUNCTION AllocateOrderNumber()
-  {
-    RETURN GetWRDSequenceNext(this->pvt_providertype->wrdschema->id, "wrd:payments.paymentrefstate",
-                              [ mutex := "wrd:source_ordernr_alloc"
-                              , nrformat := this->GetConfig().ordernrformat
-                              ]);
   }
 
   RECORD FUNCTION FixupPaymentMethod(RECORD paymentmethod)
@@ -370,7 +363,7 @@ STATIC OBJECTTYPE PaymentAPI
       handler := InstantiatePaymentHandler(paymententity, options.paymenthandler);
 
     IF(psp->needspaymentref AND psp->pvt_paymentref="")
-      psp->pvt_paymentref := this->AllocateOrderNumber();
+      psp->pvt_paymentref := GenerateUFS128bitid();
 
     GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entity);
     TRY
@@ -769,14 +762,6 @@ STATIC OBJECTTYPE PaymentAPI
     }
     RETURN payments;
   }
-  PUBLIC RECORD FUNCTION GetConfig()
-  {
-    RETURN GetPaymentAPIConfig(this->pvt_providertype->wrdschema);
-  }
-  PUBLIC MACRO UpdateConfig(RECORD updates)
-  {
-    UpdatePaymentAPIConfig(this->pvt_providertype->wrdschema, updates);
-  }
 
   //Get payment information from the URL on a return page
   PUBLIC RECORD FUNCTION GetReturnInfo(STRING url)
@@ -812,42 +797,4 @@ PUBLIC RECORD FUNCTION GetMethodFromPayment(RECORD indata)
          , paymentoptiontag := indata.__bestpayment.__paymentdata.o
          , issuer := RecordExists(indata.__bestpayment.__paymentdata.m) AND CellExists(indata.__bestpayment.__paymentdata.m,'issuer') ? indata.__bestpayment.__paymentdata.m.issuer : ""
          ];
-}
-
-RECORD FUNCTION ValidateConfig(RECORD inconfig)
-{
-  //FIXME rename to paymentrefformat for less ambiguity? these are not really ordernubmers
-  RETURN ValidateOptions( [ ordernrformat := "%012n"
-                          , nextordernr := ""
-                          ], inconfig);
-}
-
-PUBLIC RECORD FUNCTION GetPaymentAPIConfig(OBJECT wrdschema)
-{
-  RECORD settings := wrdschema->GetSchemaSetting("wrd:payments.config", [ fallback := DEFAULT RECORD ]);
-  RETURN ValidateConfig(settings);
-}
-PUBLIC MACRO UpdatePaymentAPIConfig(OBJECT wrdschema, RECORD updates)
-{
-  ValidateConfig(updates);
-  RECORD settings := CELL[ ...GetPaymentAPIConfig(wrdschema), ...updates ];
-  wrdschema->SetSchemaSetting("wrd:payments.config", settings);
-}
-
-PUBLIC STRING FUNCTION GetPaymentAPINextOrderNr(OBJECT wrdschema)
-{
-  RETURN GetWRDSequenceNext(wrdschema->id, "wrd:payments.paymentrefstate",
-                              [ mutex := "wrd:source_ordernr_alloc"
-                              , nrformat := GetPaymentAPIConfig(wrdschema).ordernrformat
-                              , peek := TRUE
-                              ]);
-
-}
-PUBLIC MACRO SetPaymentAPINextOrderNr(OBJECT wrdschema, STRING newordernr)
-{
-  UpdateWRDSequenceParameters(wrdschema->id, "wrd:payments.paymentrefstate",
-                               [ mutex := "wrd:source_ordernr_alloc"
-                               , nrformat := GetPaymentAPIConfig(wrdschema).ordernrformat
-                               , next := newordernr
-                               ]);
 }
