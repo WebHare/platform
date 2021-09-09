@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "wh::dbase/loopback.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+
+LOADLIB "wh::internal/hsselftests.whlib";
+
+OBJECTTYPE DemoCursor EXTEND TransactionCursorBase
+<
+  BOOLEAN didblock;
+
+  MACRO NEW(OBJECT trans, RECORD query)
+  {
+  }
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+    IF(NOT this->didblock)
+    {
+      this->didblock := TRUE;
+      this->pvt_currentblock := [[ dn := "DN", associateddomain := "mailto.test" ]];
+    }
+    ELSE
+    {
+      this->pvt_currentblock := RECORD[];
+    }
+  }
+  UPDATE /*FIXME PRIVATE*/PUBLIC MACRO Close()
+  {
+
+  }
+  UPDATE /*FIXME PRIVATE*/PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rowlist)
+  {
+    RETURN STRING[];
+  }
+>;
+
+OBJECTTYPE DemoTransaction EXTEND TransactionBase <
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "demo";
+  }
+  UPDATE /*FIXME PRIVATE*/PUBLIC OBJECT/*< LowLevelCursor >*/ FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+    IF(type!="SELECT")
+      THROW NEW Exception("DEMO transactions only support SELECTs");
+    RETURN NEW DemoCursor(PRIVATE this, query);
+  }
+
+  >;
+
+OBJECT demotrans := CreateForwardingLoopbackTransactionFromObject(NEW DemoTransaction, CELL[]);
+TABLE < STRING dn, STRING associateddomain > acceptdomains;
+acceptdomains := BindTransactionToTable(demotrans->id,"");
+TestEq(1, Length(SELECT * FROM acceptdomains WHERE associateddomain="mailto.test"), "webhare mail");

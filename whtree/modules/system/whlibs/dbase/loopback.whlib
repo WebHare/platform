@@ -302,9 +302,9 @@ MACRO WLC_RetrieveNextBlock(INTEGER cursorid)
   GetCursorObject(cursorid)->RetrieveNextBlock();
 }
 
-MACRO WLC_GetFase2Data(INTEGER cursorid, INTEGER ARRAY rowlist)
+STRING ARRAY FUNCTION WLC_GetFase2Data(INTEGER cursorid, INTEGER ARRAY rowlist)
 {
-  GetCursorObject(cursorid)->GetFase2Data(rowlist);
+  RETURN GetCursorObject(cursorid)->GetFase2Data(rowlist);
 }
 
 STRING FUNCTION WLC_LockRow(INTEGER cursorid, INTEGER row)

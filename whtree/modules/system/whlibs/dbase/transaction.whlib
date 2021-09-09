@@ -38,7 +38,7 @@ PUBLIC OBJECTTYPE TransactionCursorBase
   PUBLIC MACRO RetrieveNextBlock()
   {
     this->pvt_currentblock := DEFAULT RECORD ARRAY;
-    THROW NEW Exception("LowLevelCursor::GetNextBlock not implemented");
+    THROW NEW Exception("LowLevelCursor::RetrieveNextBlock not implemented");
   }
 
 

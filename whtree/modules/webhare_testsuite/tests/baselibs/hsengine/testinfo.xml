@@ -32,6 +32,7 @@
   <test script="test_libdump.whscr" />
   <test script="test_loadlib.whscr" />
   <test script="test_localization.whscr" />
+  <test script="test_loopbackdb.whscr" />
   <test script="test_map.whscr" />
   <test script="test_mime.whscr" />
   <test script="test_money.whscr" />
