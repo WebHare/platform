@@ -127,6 +127,12 @@ export class DialogBase
 
 export function setupDialogs(newdialogconstructor, options)
 {
+  if(dialogconstructor)
+  {
+    console.error("Duplicate setupDialogs call!");
+    return;
+  }
+
   dialogconstructor = newdialogconstructor;
   dialogoptions = { messageboxclassbase: 'dompack-messagebox__', ...options };
 }
