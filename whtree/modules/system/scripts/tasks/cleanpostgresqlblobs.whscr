@@ -1,4 +1,11 @@
 <?wh
+/* Cleanup postgresql blobs
+
+   wh run mod::system/scripts/tasks/cleanpostgresqlblobs.whscr
+
+   For emergency cleanup (risks breaking transactions lasting longer than 5 minutes!)
+   wh run mod::system/scripts/tasks/cleanpostgresqlblobs.whscr --expeditecleanup
+*/
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
