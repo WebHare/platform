@@ -311,7 +311,6 @@ MACRO TestSchemaSettings()
       , [ name := "webhare_testsuite:c", value := "f" ]
       , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
-      , [ name := "wrd:payments.paymentrefstate", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:payments.paymentrefstate") ]
       , [ name := "wrd:sync.history", value :=  [ [ type :=               "fullsync"
                                                   , creationsource :=     testfw->GetWRDSchema()->creationsource
                                                   , remoteschema :=       `local schema ${testfw->GetWRDSchema()->tag}`
@@ -330,7 +329,6 @@ MACRO TestSchemaSettings()
       , [ name := "webhare_testsuite:c", value := "f" ]
       , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
-      , [ name := "wrd:payments.paymentrefstate", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:payments.paymentrefstate") ]
       ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*" AND name NOT IN [ "wrd:schemaresources" ]);
 }
 
