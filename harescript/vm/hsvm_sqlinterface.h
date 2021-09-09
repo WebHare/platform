@@ -39,6 +39,7 @@ constexpr inline Fases::_type operator |(Fases::_type lhs, Fases::_type rhs) { r
 constexpr inline Fases::_type operator |=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs | rhs); }
 constexpr inline Fases::_type operator &(Fases::_type lhs, Fases::_type rhs) { return (Fases::_type)((unsigned)lhs & (unsigned)rhs); }
 constexpr inline Fases::_type operator &=(Fases::_type &lhs, Fases::_type rhs) { return (Fases::_type)(lhs = lhs & rhs); }
+constexpr inline Fases::_type operator ~(Fases::_type lhs) { return (Fases::_type)(~(unsigned)lhs); }
 
 } // End of namespace Fases
 
