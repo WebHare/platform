@@ -116,10 +116,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->thousandsep->SetValueIfValid(locale.thousandseparator);
     this->browsertitleprefix->value := this->pvt_user->GetRegistryKey("system.prefs.browsertitleprefix", "");
 
-    this->showpdfpreview->value := this->pvt_user->GetRegistryKey("system.prefs.showpdfpreview", FALSE);
-    IF(NOT this->showpdfpreview->value)
-      this->showpdfpreview->onchange := PTR this->onshowpdfpreviewchange;
-
     this->showdeveloperapps->visible := ObjectExists(this->tolliumuser) AND this->tolliumuser->HasRight("system:sysop");
     this->showdeveloperapps->value := this->pvt_user->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
 
@@ -140,12 +136,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   //
   // Callbacks
   //
-
-  MACRO OnShowPDFPreviewChange()
-  {
-    this->showpdfpreview->onchange := DEFAULT MACRO PTR;
-    this->RunMessageBox(".confirmpdfpreview");
-  }
 
   MACRO GotInterval()
   {
@@ -316,7 +306,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
       }
     }
     user->SetRegistryKey("system.prefs.showdeveloperapps", this->showdeveloperapps->value);
-    user->SetRegistryKey("system.prefs.showpdfpreview", this->showpdfpreview->value);
 
     //get the original rows, but overwrite the title inside them
     RECORD ARRAY shortcuts := SELECT AS RECORD ARRAY CELL[...row, title] FROM this->shortcuts->value;

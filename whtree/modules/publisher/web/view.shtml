@@ -59,13 +59,7 @@ STRING ARRAY preview_image_mimetypes :=
 
 // MIME types for which we show the contents directly
 STRING ARRAY preview_direct_mimetypes :=
-    [ "text/html", "text/plain", "application/json" ];
-
-IF(GetWebVariable('wh-forcepdfpreview') = '1')
-{
-  AddHTTPHeader("Content-Disposition", "inline", FALSE);
-  INSERT "application/pdf" INTO preview_direct_mimetypes AT END;
-}
+    [ "text/html", "text/plain", "application/json", "application/pdf" ];
 
 IF(GetWebHeader("X-WHPub-IsPreview") != "")
   ABORT("view.shtml loop detected, X-WHPub-IsPreview header is set!");
@@ -154,11 +148,7 @@ IF (lang != "")
   // For file types that cannot be shown directly in the browser, show the message page
   ELSE IF (browser->mimetype NOT IN preview_direct_mimetypes)
   {
-    RECORD opts;
-    IF(browser->mimetype="application/pdf")
-      INSERT CELL pdflink := UpdateURLVariables(clienturl, [ "wh-forcepdfpreview" := "1" ]) INTO opts;
-
-    NEW ShowMessagePage(lang,clienturl,"notviewable",browser->mimetype,"",opts)->RunPageForWHFSId(GetRootindexDoc());
+    NEW ShowMessagePage(lang,clienturl,"notviewable",browser->mimetype,"")->RunPageForWHFSId(GetRootindexDoc());
     RETURN;
   }
   ELSE IF (browser->mimetype = "text/plain" AND NOT IsValidPlainText(browser->content))
@@ -166,6 +156,9 @@ IF (lang != "")
     NEW ShowMessagePage(lang,clienturl,"notviewable","","")->RunPageForWHFSId(GetRootindexDoc());
     RETURN;
   }
+
+  //try to prevent downloads when trying to do an inline view (mostly matters for PDF, and might not matter anymore?)
+  AddHTTPHeader("Content-Disposition", "inline", FALSE);
 }
 
 STRING ARRAY sentheaders;

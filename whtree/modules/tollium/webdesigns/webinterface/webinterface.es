@@ -17,15 +17,6 @@ if(document.documentElement.classList.contains('wh-tollium--app'))
     window.$shell = new IndyShell;
   }
 }
-else if(window.parent && document.documentElement.classList.contains("previewframe")) //plain preview interface
-{
-  if(window.parent.suggestRenderingPDF)
-  {
-    let whpdfnode = document.querySelector('wh-pdf');
-    if(whpdfnode)
-      window.parent.suggestRenderingPDF(whpdfnode.getAttribute("url"));
-  }
-}
 else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual"))
 {
   document.documentElement.addEventListener("click", event =>

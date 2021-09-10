@@ -23,11 +23,9 @@ PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
   STRING type;
   STRING location;
   STRING lang;
-  RECORD opts;
 
-  MACRO NEW(STRING lang, STRING url, STRING msg, STRING type, STRING location, RECORD opts DEFAULTSTO DEFAULT RECORD)
+  MACRO NEW(STRING lang, STRING url, STRING msg, STRING type, STRING location)
   {
-    this->opts := ValidateOptions([ pdflink := "" ], opts);
     this->url := url;
     this->msg := msg;
     this->type := type;
@@ -39,9 +37,6 @@ PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
   {
     //ADDME share directly with applicationportal.whlib
     INSERT "previewframe" INTO webdesign->htmlclasses AT END;
-
-    IF(this->opts.pdflink != "")
-      webdesign->InsertHTML('<wh-pdf url="' || EncodeValue(this->opts.pdflink) || '"></wh-pdf>','dependencies-top');
   }
 
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
