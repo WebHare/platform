@@ -1781,6 +1781,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
         }
 
         unsigned tableidx = 0;
+        bool updatingkey = false;
         for (auto &tbl: query.tables)
         {
                 // from-part
@@ -1865,6 +1866,10 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 ucol.colname = query.tables[tableidx].typeinfo->columnsdef[colidx].dbase_name;
                                 ucol.encodingflags = query.tables[tableidx].typeinfo->columnsdef[colidx].flags & ColumnFlags::Binary ? ParamEncoding::Binary : ParamEncoding::None;
                                 querydata.updatecolumns.push_back(ucol);
+
+                                if (coltype.flags & ColumnFlags::Key)
+                                    updatingkey = true;
+
                         }
 
                         ++colidx;
@@ -2030,16 +2035,20 @@ bool PGSQLTransactionDriver::BuildQueryString(
 
         if (cursortype == DatabaseTransactionDriverInterface::Update || cursortype == DatabaseTransactionDriverInterface::Delete)
         {
+                //PG will lock target rows of foreign references with FOR KEY SHARE to ensure the key remains valid
+                //If we're only updating and not touching the primary key, we should use the lighter FOR NO KEY UPDATE lock
+                bool fornokeyupdate = cursortype == DatabaseTransactionDriverInterface::Update && !updatingkey;
+                char const *updatetype = fornokeyupdate ? " FOR NO KEY UPDATE" : " FOR UPDATE";
                 querydata.updatedtable = query.tables[0].name;
                 if (querydata.usefase2)
                 {
                         // The WHERE is not repeated (so we don't have to copy the entire paramencoder. sqllib will handle recheck for all conditions, even the handled ones)
-                        querydata.querystrfase2 = "SELECT T0.ctid, array_position($1, " + fase2key + ")" + selectfase2cols + " FROM " + from + " WHERE (" + fase2key + " = ANY($1)) FOR UPDATE";
+                        querydata.querystrfase2 = "SELECT T0.ctid, array_position($1, " + fase2key + ")" + selectfase2cols + " FROM " + from + " WHERE (" + fase2key + " = ANY($1))" + updatetype;
                 }
                 else
                 {
                         // Lock rows in fase1
-                        querydata.query.querystr += " FOR UPDATE";
+                        querydata.query.querystr += updatetype;
                 }
         }
 
