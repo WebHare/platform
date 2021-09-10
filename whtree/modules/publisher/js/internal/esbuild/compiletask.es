@@ -196,8 +196,10 @@ async function runTask(taskcontext, data)
 
     for(let file of buildresult.outputFiles)
     {
-      let subpath = file.path.substr(esbuild_configuration.outdir.length + 1).toLowerCase();
-      fs.writeFileSync(path.join(esbuild_configuration.outdir, subpath), file.contents);
+      //write to disk in lowercase because that's how WebHare wants it. but register the original names in the manifest in case it needs to be exported/packaged
+      let subpath = file.path.substr(esbuild_configuration.outdir.length + 1);
+      let diskpath = path.join(esbuild_configuration.outdir, subpath.toLowerCase());
+      fs.writeFileSync(diskpath, file.contents);
       assetoverview.assets.push({ subpath: subpath
                                 , compressed: false
                                 , sourcemap:  subpath.endsWith(".map")
@@ -205,7 +207,7 @@ async function runTask(taskcontext, data)
 
       if(!bundle.isdev)
       {
-        fs.writeFileSync(path.join(esbuild_configuration.outdir, subpath) + '.gz', await compressGz(file.contents, { level: 9 }));
+        fs.writeFileSync(diskpath + '.gz', await compressGz(file.contents, { level: 9 }));
         assetoverview.assets.push({ subpath: subpath + '.gz'
                                   , compressed: true
                                   , sourcemap:  subpath.endsWith(".map")
