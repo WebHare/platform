@@ -1589,6 +1589,8 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 , blobfolder(options.blobfolder)
 , allowwriteerrordelay(false)
 , logstacktraces(options.logstacktraces)
+, logcommands(0)
+, commandlog(0)
 {
         description.supports_block_cursors = false;
         description.supports_single = true; // unused!!
@@ -1608,6 +1610,8 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 
 PGSQLTransactionDriver::~PGSQLTransactionDriver()
 {
+        if(commandlog)
+            HSVM_DeallocateVariable(*vm, commandlog);
         PQfinish(conn);
 }
 
@@ -2416,13 +2420,18 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
         if (PGSQLTransactionDriver::GetLastResult().second)
             return PGPtr< PGresult >();
 
+        HSVM_VariableId logentry = 0;
+        if(commandlog != 0)
+            logentry = HSVM_ArrayAppend(*vm, commandlog);
+
         std::string logprefix;
         if (logstacktraces > 0)
         {
                 logprefix = "/*whlog:t[";
 
                 std::vector< StackTraceElement > elements;
-                vm->GetStackTrace(&elements, true, false);
+                const bool fullstacktrace = false;
+                vm->GetStackTrace(&elements, true, fullstacktrace);
 
                 int32_t eltcount = 0;
                 for (auto itr: elements)
@@ -2434,6 +2443,12 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                         logprefix += itr.filename + "#" + Blex::AnyToString(itr.position.line) + "#" + Blex::AnyToString(itr.position.column) + "(" + itr.func + ")";
                 }
                 logprefix += "]*/";
+
+                if(logentry)
+                {
+                        HSVM_VariableId col_stacktrace = HSVM_RecordCreate(*vm, logentry, HSVM_GetColumnId(*vm, "STACKTRACE"));
+                        GetVMStackTraceFromElements(vm, col_stacktrace, elements, vm, fullstacktrace);
+                }
         }
 
         Blex::SHA1 sha1;
@@ -2498,6 +2513,12 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                     query.params.lengths.begin(),
                     query.params.formats.begin(),
                     !query.astext);
+        }
+
+        if(logentry)
+        {
+                HSVM_VariableId col_query = HSVM_RecordCreate(*vm, logentry, HSVM_GetColumnId(*vm, "QUERY"));
+                HSVM_StringSetSTD(*vm, col_query, query.querystr);
         }
 
         if (!res)
@@ -2939,9 +2960,32 @@ void PGSQL_GetUploadedBlobId(HSVM *hsvm, HSVM_VariableId id_set)
             stackm.SetSTLString(id_set, context->blobid);
 }
 
+void PGSQL_GetDebugSettings(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
+
+        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        if (!driver)
+        {
+                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
+                return;
+        }
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGSTACKTRACES")), driver->logstacktraces);
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGCOMMANDS")), driver->logcommands);
+
+        HSVM_VariableId commandlog = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "COMMANDLOG"));
+        if(driver->commandlog != 0)
+            HSVM_CopyFrom(hsvm, commandlog, driver->commandlog);
+        else
+            HSVM_SetDefault(hsvm, commandlog, HSVM_VAR_RecordArray);
+}
+
 void PGSQL_UpdateDebugSettings(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
+
         auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
@@ -2950,6 +2994,18 @@ void PGSQL_UpdateDebugSettings(HSVM *hsvm)
         }
 
         driver->logstacktraces = HSVM_IntegerGet(hsvm, HSVM_Arg(1));
+        driver->logcommands = HSVM_IntegerGet(hsvm, HSVM_Arg(2));
+
+        if(driver->logcommands > 0 && !driver->commandlog) //create the log
+        {
+                driver->commandlog = HSVM_AllocateVariable(hsvm);
+                HSVM_SetDefault(hsvm, driver->commandlog, HSVM_VAR_RecordArray);
+        }
+        else if(driver->logcommands <= 0 && driver->commandlog) //remove the log
+        {
+                HSVM_DeallocateVariable(hsvm, driver->commandlog);
+                driver->commandlog = 0;
+        }
 }
 
 
@@ -3044,7 +3100,8 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN:WH_PGSQL:B:I", PGSQL_GetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
-        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::II", PGSQL_UpdateDebugSettings);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETDEBUGSETTINGS:WH_PGSQL:R:I", PGSQL_GetDebugSettings);
+        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::III", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
 

@@ -34,9 +34,6 @@
 
 namespace HareScript {
 
-void GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, VirtualMachine *testvm, bool full);
-void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, VirtualMachine *testvm, bool full);
-
 
 namespace Baselibs {
 
