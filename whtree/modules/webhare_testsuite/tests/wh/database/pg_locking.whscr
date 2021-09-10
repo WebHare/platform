@@ -52,10 +52,47 @@ MACRO TestLocking()
   // Updating independent records with unoptimizable wheres shouldn't interfere
   trans1->BeginWork();
   trans2->BeginWork();
+
   UPDATE table1 SET val := "2b" WHERE id + 1 = 3;
+
   UPDATE table2 SET val := "1b" WHERE id + 1 = 2;
+
   trans1->CommitWork();
   trans2->CommitWork();
+
+  //Test that we're using proper lock modes
+
+  //not updating primarykey so it should be a FOR NO KEY UPDATE
+  trans1->BeginWork();
+  trans1->__UpdateDebugConfig([logcommands := 1]);
+  UPDATE table1 SET val := "2c" WHERE id = 2;
+
+  RECORD ARRAY trans1log := trans1->__GetCommandLog();
+  TestEq(3, Length(trans1log));
+  TestEqLike("SELECT*FOR NO KEY UPDATE", trans1log[1].query);
+  trans1->RollbackWork();
+
+  //updating primarykey so it should be a FOR UPDATE
+  trans1->BeginWork();
+  trans1->__UpdateDebugConfig([logcommands := 0]);
+  trans1->__UpdateDebugConfig([logcommands := 1]);
+  UPDATE table1 SET id := 3 WHERE id = 2;
+
+  trans1log := trans1->__GetCommandLog();
+  TestEq(3, Length(trans1log));
+  TestEqLike("SELECT*FOR UPDATE", trans1log[1].query);
+  trans1->RollbackWork();
+
+  //deleting the row (which is sort of a primary key update, at least making references impossible) so it should be a FOR UPDATE
+  trans1->BeginWork();
+  trans1->__UpdateDebugConfig([logcommands := 0]);
+  trans1->__UpdateDebugConfig([logcommands := 1]);
+  DELETE FROM table1 WHERE id = 2;
+  trans1log := trans1->__GetCommandLog();
+
+  TestEq(3, Length(trans1log));
+  TestEqLike("SELECT*FOR UPDATE", trans1log[1].query);
+  trans1->RollbackWork();
 }
 
 BOOLEAN FUNCTION SlowWhere(INTEGER wait, INTEGER id)

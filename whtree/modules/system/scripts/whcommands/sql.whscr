@@ -358,18 +358,28 @@ Lines not beginning with these commands will be executed as normal HareScript co
 }
 
 
-BOOLEAN FUNCTION Connect()
+BOOLEAN FUNCTION Connect(BOOLEAN logcommands)
 {
+  OBJECT trans;
   TRY
   {
-    OpenPrimary( [ fallbacktorecoverymode := TRUE ]);
-    RETURN TRUE;
+    trans := OpenPrimary( [ fallbacktorecoverymode := TRUE ]);
   }
   CATCH(OBJECT e)
   {
     Print("Connecting failed: " || e->what || "\n");
-    RETURN TRUE;
+    RETURN FALSE;
   }
+
+  IF(logcommands)
+  {
+    IF(trans->type != "postgresql")
+      THROW NEW Exception(`Option --logcommands is only available on postgresql`);
+
+    trans->__UpdateDebugConfig([ logcommands := 1, logstacktraces := 1 ]);
+  }
+
+  RETURN TRUE;
 }
 
 MACRO Run(STRING ARRAY loadlibs)
@@ -391,6 +401,7 @@ RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type
                                                      , [ name := "showmode", type := "stringopt" ]
                                                      , [ name := "t", type := "switch" ]
                                                      , [ name := "query", type := "param", required := FALSE ]
+                                                     , [ name := "logcommands", type := "switch" ]
                                                      ]);
 IF(NOT RecordExists(call))
 {
@@ -404,10 +415,13 @@ ELSE IF(call.t)
 
 BOOLEAN havecmd := call.query != "";
 
-IF(NOT Connect()) //connect first, GetDTAPStage may need it
+IF(NOT Connect(call.logcommands)) //connect first, GetDTAPStage may need it
   RETURN;
 
 IF(havecmd) //explicitly require one argument, because permitting "wh sql select * ..." isn't going to work anyway
   ParseAndExecute(call.query, FALSE, call."loadlib");
 ELSE
   Run(call."loadlib");
+
+IF(call.logcommands)
+  DumpValue(GetPrimary()->__GetCommandLog(),'tree:2');

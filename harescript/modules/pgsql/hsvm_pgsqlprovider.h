@@ -125,6 +125,8 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         std::string blobfolder;
         bool allowwriteerrordelay;
         int32_t logstacktraces;
+        int32_t logcommands;
+        HSVM_VariableId commandlog;
 
         friend struct ParamsEncoder;
 };
