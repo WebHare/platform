@@ -141,7 +141,7 @@ MACRO TestABTest()
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
   TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
 
-  //Let's remove variant 2 as an option. The user should now be sent to otherdoc, not see a 404 because  he's still bound to variant B!
+  //Let's remove variant 2 as an option. The user should now be sent to otherdoc, not see a 404 because he's still bound to variant B!
   testfw->BeginWork();
   abtesttype->SetInstanceData(abtester->id,
     [ abgroup := "myabtest"
