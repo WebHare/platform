@@ -26,10 +26,6 @@ ASYNC MACRO SetupAfterpay()
   TT("paymentextension->testmode")->value := true;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
-
-  testfw->BeginWork();
-  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
-  testfw->CommitWork();
 }
 
 ASYNC MACRO SetupAfterpay_BE()

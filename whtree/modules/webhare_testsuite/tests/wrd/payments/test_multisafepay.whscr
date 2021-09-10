@@ -72,8 +72,6 @@ ASYNC MACRO TestPaymentMultiSafePay()
       , wrd_contact_phone := "+31513744112"
       ]);
 
-  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
-
   RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
 
   RECORD idealmethod := SELECT * FROM methods WHERE title="iDEAL";

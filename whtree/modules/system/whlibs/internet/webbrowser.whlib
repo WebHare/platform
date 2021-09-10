@@ -1402,7 +1402,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   }
 
   /** @short Open a URL in the webbrowser (GET request)
-      @param url URL to go to
+      @param url URL to go to. May not be empty
       @cell(record array) options.headers Additional headers to send in the request
       @cell(string) options.headers.field Header name
       @cell(string) options.headers.value Header contents
@@ -1415,6 +1415,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
     IF(options.method NOT IN ["GET","HEAD"])
       THROW NEW Exception('GotoWebPage only supports GET and HEAD'); //ADDME think we can just start adding others ?
+    IF(url = "")
+      THROW NEW Exception(`Empty URL passed to GotoWebPage. If you want to reload the current page, pass browser->href`);
 
     this->pvt_document := DEFAULT OBJECT;
     this->pvt_lasterror := "";

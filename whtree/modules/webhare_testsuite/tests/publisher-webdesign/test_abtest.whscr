@@ -111,7 +111,7 @@ MACRO TestABTest()
   TestEq(FALSE, subbrowser->GotoWebPage(GetABTestVariantLink(abtester->id, otherdoc->id)));
   TestEq(404, subbrowser->GetHTTPStatusCode());
 
-  OBJECT service; //FIXME try to get rid of it, outputanalyzer sohuldnt conflict with publishers...
+  OBJECT service; //FIXME try to get rid of it, outputanalyzer shouldn't conflict with publishers...
   TRY service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
   CATCH ;
 
@@ -140,6 +140,22 @@ MACRO TestABTest()
 
   TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
   TestEqLike("*This is variant 2.*", testfw->browser->QS("#content")->textcontent);
+
+  //Let's remove variant 2 as an option. The user should now be sent to otherdoc, not see a 404 because he's still bound to variant B!
+  testfw->BeginWork();
+  abtesttype->SetInstanceData(abtester->id,
+    [ abgroup := "myabtest"
+    , duration_days := 1
+    , aboptions := [[ aboption := "A", weight := 1, target := variant1->id ]
+                   ,[ aboption := "C", weight := 999999999, target := otherdoc->id ]
+                   ]
+    ]);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(abtestfolder->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(abtestfolder->OpenByName("abtest")->indexurl));
+  TestEq("C", testfw->browser->GetCookie("webhare-abtest-myabtest"));
+  TestEq("C", testfw->browser->document->documentelement->GetAttribute("data-experiment-variant"));
 }
 
 RunTestframework([ PTR TestABTest

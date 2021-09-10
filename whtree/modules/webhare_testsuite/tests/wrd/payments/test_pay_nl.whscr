@@ -98,7 +98,7 @@ ASYNC MACRO TestPaymentPayNL()
     Print("Planned return url: " || properrequest.returnurl || "\n");
 
   RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 131.20, properrequest);
-  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq(22, Length(entity->GetField("DATA").paymentref));
   TestEq("pending", entity->GetField("DATA").status);
 
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));

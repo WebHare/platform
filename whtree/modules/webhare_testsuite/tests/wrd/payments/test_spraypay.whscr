@@ -69,7 +69,6 @@ ASYNC MACRO TestPaymentSprayPay()
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
-  paymentapi->UpdateConfig([ ordernrformat := "TST|" || GenerateUFS128BitId() || "|%d%03n"]);
 
   RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
   RECORD spraypaymethod := SELECT * FROM methods WHERE title="Spray Your Pay!";
