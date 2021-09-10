@@ -56,7 +56,6 @@ async function compileAdhocTestBundle(entrypoint, isdev)
         if(!fs.existsSync(fullpath))
           throw new Error(`Missing file ${fullpath}`);
       });
-    manifest.assets.forEach(file => file.subpath == file.subpath.toLowerCase());
    }
 
   return result;
