@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
 LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
@@ -48,6 +49,15 @@ INTEGER FUNCTION GetRootindexDoc()
 {
   INTEGER rootindexdoc := (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = 16) ?? 16;
   RETURN rootindexdoc;
+}
+
+IF(GetClientWebserver() = whwebserverconfig_rescuewebserverid)
+{
+  /* Setting the __whpub_preview cookie breaks the rescue interface, the trustedport can't route it. Rescue mode is often
+     tunneled over a 127.0.0.1 port which may have an enabled previewmode because of something on a different port (as cookies
+     are shared between ports). So just disable preview mode on rescue ports to be safe */
+  UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE ]);
+  Redirect(GetRequestURL());
 }
 
 // Headers which we should never forward
