@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -81,9 +82,9 @@ MACRO ReconfigureProxies(RECORD config)
 
     STRING verificationurl := AddVariableToURL(GetPrimaryWebhareInterfaceURL(), "proxy_test", data);
 
-    IF(RecordExists(SELECT FROM system.proxies))
+    IF(RecordExists(SELECT FROM system_internal.proxies))
     {
-      FOREVERY (RECORD rec FROM SELECT id, url, password, reverseaddress, hostswhitelist FROM system.proxies ORDER BY Random(1, 1000))
+      FOREVERY (RECORD rec FROM SELECT id, url, password, reverseaddress, hostswhitelist FROM system_internal.proxies ORDER BY Random(1, 1000))
       {
         RECORD reg := GenerateNginxProxyRegistrationRequest(config, rec.reverseaddress, verificationurl, rec.hostswhitelist,  rec.id);
 
@@ -108,7 +109,7 @@ MACRO ReconfigureProxies(RECORD config)
                   ? "password"
                   : "connecterror";
 
-        UPDATE system.proxies
+        UPDATE system_internal.proxies
            SET status :=                  type
              , lastregistration :=        GetCurrentDateTime()
              , lasterror :=               CellExists(result,'error') ? Left(result.error.message,4096) : ''

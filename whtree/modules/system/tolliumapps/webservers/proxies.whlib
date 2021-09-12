@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 
@@ -38,7 +39,7 @@ PUBLIC STATIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
         SELECT *
              , lastregistration
              , status :=  ^proxylist->GetIcon(this->GetStatusIcon(status))
-          FROM system.proxies;
+          FROM system_internal.proxies;
 
     ^proxylist->rows :=
         SELECT rowkey := id
@@ -98,7 +99,7 @@ PUBLIC STATIC OBJECTTYPE UpdateProxy EXTEND TolliumScreenBase
     this->proxyid := data.id;
     IF (this->proxyid != 0)
     {
-      ^row->value := SELECT * FROM system.proxies WHERE id = data.id;
+      ^row->value := SELECT * FROM system_internal.proxies WHERE id = data.id;
       this->tested := ^row->value;
     }
     ^reverseaddress->placeholder := "http://.....:" || GetWebHareConfiguration().baseport + 5;
