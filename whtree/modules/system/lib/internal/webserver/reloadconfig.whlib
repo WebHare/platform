@@ -84,9 +84,9 @@ MACRO ReconfigureProxies(RECORD config)
 
     IF(RecordExists(SELECT FROM system_internal.proxies))
     {
-      FOREVERY (RECORD rec FROM SELECT id, url, password, reverseaddress, hostswhitelist FROM system_internal.proxies ORDER BY Random(1, 1000))
+      FOREVERY (RECORD rec FROM SELECT id, url, password, reverseaddress, hostswhitelist, lastset FROM system_internal.proxies ORDER BY Random(1, 1000))
       {
-        RECORD reg := GenerateNginxProxyRegistrationRequest(config, rec.reverseaddress, verificationurl, rec.hostswhitelist,  rec.id);
+        RECORD reg := GenerateNginxProxyRegistrationRequest(config, rec.reverseaddress, verificationurl, rec.hostswhitelist, rec.id, rec.lastset);
 
         trans->BeginWork();
         OBJECT browser := NEW WebBrowser;

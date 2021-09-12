@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -150,7 +151,7 @@ PUBLIC MACRO SetWebhareProxies(RECORD proxyconfig)
     RECORD proxydata := ValidateOptions([url := "", password := "", callback := "", description := ""]
                                         , proxydef, [ title := "proxy", optional := ["description"] ]);
     //rename callbakc cell
-    proxydata := CELL[...proxydata, reverseaddress := proxydata.callback, DELETE callback];
+    proxydata := CELL[...proxydata, reverseaddress := proxydata.callback, DELETE callback, lastset := GetCurrentDatetime() ];
 
     //proxy passwords are unique, so it's a good method to identify an existing proxy
     RECORD match := SELECT * FROM currentproxies WHERE password = proxydef.password;
@@ -203,11 +204,15 @@ BOOLEAN FUNCTION DoUnregister(RECORD proxyinfo)
     LogRPCForWebbrowser("system:webservers.proxies", "delete", browser);
     browser->onauth := PTR AuthHandler(#1, #2, proxyinfo.password);
     browser->timeout := 10000;
-    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",
-        [ GetServerName()
-        , proxyinfo.reverseaddress
-        , verificationurl
-        ]);
+
+    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/admin/rpc"), "unregisterProxyClient",
+      [ GetServerName() , proxyinfo.reverseaddress , verificationurl ]);
+
+    IF (browser->GetHTTPStatusCode() IN [ 403, 404 ] AND NOT RecordExists(result))
+    {
+      result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",
+        [ GetServerName() , proxyinfo.reverseaddress , verificationurl ]);
+    }
   }
   FINALLY
   {
@@ -225,7 +230,9 @@ PUBLIC INTEGER FUNCTION SetWebHareProxy(INTEGER existingid, RECORD proxydata)
   }
 
   DELETE CELL id FROM proxydata;
-  UPDATE system_internal.proxies SET RECORD proxydata WHERE COLUMN id = existingid;
+  UPDATE system_internal.proxies SET RECORD CELL[ ...proxydata
+                                                , lastset := GetCurrentDatetime()
+                                                ] WHERE COLUMN id = existingid;
 
   GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
   GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));

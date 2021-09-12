@@ -685,6 +685,11 @@ True if this port should support virtual hosting.
           Password for this proxy
         </d:documentation>
       </d:varchar>
+      <d:datetime name="lastset">
+        <d:documentation>
+          Last time this proxy was set/configured (used in the case of duplicate registrations for the same name to ensure the 'newer' configuration wins)
+        </d:documentation>
+      </d:datetime>
       <d:datetime name="lastregistration">
         <d:documentation>
           Last successfull registration

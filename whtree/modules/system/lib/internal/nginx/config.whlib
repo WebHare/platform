@@ -13,7 +13,7 @@ LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 /** Generate a Nginx proxy configuration
     @param data Current webserver configuration
 */
-PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING reverseaddress, STRING verificationurl, STRING hostswhitelist, INTEGER proxyid)
+PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING reverseaddress, STRING verificationurl, STRING hostswhitelist, INTEGER proxyid, DATETIME lastset)
 {
   STRING ARRAY whitelistmasks := ParseXSList(hostswhitelist);
   IF(reverseaddress LIKE "*/")
@@ -67,6 +67,7 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
       , reverseaddress :=           reverseaddress
       , verificationurl :=          verificationurl
       , proxyid :=                  proxyid
+      , lastset :=                  lastset
       ];
 
   // Get all the usable certificates on the system

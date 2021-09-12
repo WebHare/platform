@@ -30,7 +30,7 @@ checkdata.rules :=
 
 IF (args.proxy)
 {
-  RECORD proxyreg := GenerateNginxProxyRegistrationRequest(data, "http://reverseaddress.example.com", "http://verification.example.com", "*", -123);
+  RECORD proxyreg := GenerateNginxProxyRegistrationRequest(data, "http://reverseaddress.example.com", "http://verification.example.com", "*", -123, DEFAULT DATETIME);
 
   Print("\nProxy registrations\n\n");
   DumpValue(proxyreg, "tree");
