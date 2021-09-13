@@ -336,7 +336,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   }
 
   //Stuck proxy servers
-  RECORD ARRAY brokenproxies := SELECT url FROM system.proxies WHERE status != "ok" ORDER BY url;
+  RECORD ARRAY brokenproxies := SELECT url FROM system_internal.proxies WHERE status != "ok" ORDER BY url;
   FOREVERY(RECORD brokenproxy FROM brokenproxies)
   {
     INSERT [ msg := ":No control over proxy " || brokenproxy.url ] INTO messages AT END;

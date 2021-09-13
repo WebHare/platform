@@ -11,6 +11,7 @@ LOADLIB "wh::dbase/whdb.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 
@@ -158,7 +159,7 @@ IF (NOT args.norenumber)
 }
 
 // Delete ALL proxies
-DELETE FROM system.proxies;
+DELETE FROM system_internal.proxies;
 
 // Rewrite base url to be a prefix of the current hostname
 // Rewrite output url to be located within current outputroot

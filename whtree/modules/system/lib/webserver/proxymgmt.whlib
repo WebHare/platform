@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -10,6 +11,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 
@@ -24,7 +26,7 @@ RECORD FUNCTION AuthHandler(STRING realm, STRING url, STRING password)
 PUBLIC RECORD ARRAY FUNCTION ListWebHareProxies()
 {
   RETURN SELECT id, url, status, reverseaddress
-           FROM system.proxies;
+           FROM system_internal.proxies;
 }
 
 STRING FUNCTION SetAVerificationURL()
@@ -136,12 +138,12 @@ MACRO DoReloadWebhare(BOOLEAN iscommit)
 PUBLIC RECORD FUNCTION GetWebHareProxies()
 {
   RETURN [ proxies := SELECT url, password, callback := reverseaddress, description
-                        FROM system.proxies ];
+                        FROM system_internal.proxies ];
 }
 PUBLIC MACRO SetWebhareProxies(RECORD proxyconfig)
 {
   INTEGER ARRAY blindkill; //proxies we can remove without deregistration
-  RECORD ARRAY currentproxies := SELECT * FROM system.proxies ORDER BY id;
+  RECORD ARRAY currentproxies := SELECT * FROM system_internal.proxies ORDER BY id;
   BOOLEAN mustregister;
 
   FOREVERY(RECORD proxydef FROM RECORD ARRAY(proxyconfig.proxies))
@@ -149,33 +151,33 @@ PUBLIC MACRO SetWebhareProxies(RECORD proxyconfig)
     RECORD proxydata := ValidateOptions([url := "", password := "", callback := "", description := ""]
                                         , proxydef, [ title := "proxy", optional := ["description"] ]);
     //rename callbakc cell
-    proxydata := CELL[...proxydata, reverseaddress := proxydata.callback, DELETE callback];
+    proxydata := CELL[...proxydata, reverseaddress := proxydata.callback, DELETE callback, lastset := GetCurrentDatetime() ];
 
     //proxy passwords are unique, so it's a good method to identify an existing proxy
     RECORD match := SELECT * FROM currentproxies WHERE password = proxydef.password;
     IF(RecordExists(match))
     {
       //add any other proxies with matching url to the kill list
-      blindkill := blindkill CONCAT SELECT AS INTEGER ARRAY id FROM system.proxies WHERE id != match.id AND (proxies.url=proxydef.url OR proxies.password=proxydef.password);
+      blindkill := blindkill CONCAT SELECT AS INTEGER ARRAY id FROM system_internal.proxies WHERE id != match.id AND (proxies.url=proxydef.url OR proxies.password=proxydef.password);
 
-      UPDATE system.proxies SET RECORD proxydata WHERE id = match.id;
+      UPDATE system_internal.proxies SET RECORD proxydata WHERE id = match.id;
       mustregister := TRUE;
 
       DELETE FROM currentproxies WHERE password = proxydef.password;
     }
     ELSE
     {
-      INSERT proxydata INTO system.proxies;
+      INSERT proxydata INTO system_internal.proxies;
       mustregister := TRUE;
     }
   }
 
   IF(Length(blindkill)>0)
-    DELETE FROM system.proxies WHERE id IN blindkill;
+    DELETE FROM system_internal.proxies WHERE id IN blindkill;
   FOREVERY(RECORD proxy FROM currentproxies)
   {
     GetPrimary()->RegisterCommitHandler("", PTR DoUnregisterOnCommit(#1, proxy));
-    DELETE FROM system.proxies WHERE id = proxy.id;
+    DELETE FROM system_internal.proxies WHERE id = proxy.id;
   }
   IF(mustregister)
   {
@@ -202,11 +204,15 @@ BOOLEAN FUNCTION DoUnregister(RECORD proxyinfo)
     LogRPCForWebbrowser("system:webservers.proxies", "delete", browser);
     browser->onauth := PTR AuthHandler(#1, #2, proxyinfo.password);
     browser->timeout := 10000;
-    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",
-        [ GetServerName()
-        , proxyinfo.reverseaddress
-        , verificationurl
-        ]);
+
+    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/admin/rpc"), "unregisterProxyClient",
+      [ GetServerName() , proxyinfo.reverseaddress , verificationurl ]);
+
+    IF (browser->GetHTTPStatusCode() IN [ 403, 404 ] AND NOT RecordExists(result))
+    {
+      result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(proxyinfo.url, "/rpc"), "unregisterProxyClient",
+        [ GetServerName() , proxyinfo.reverseaddress , verificationurl ]);
+    }
   }
   FINALLY
   {
@@ -219,12 +225,14 @@ PUBLIC INTEGER FUNCTION SetWebHareProxy(INTEGER existingid, RECORD proxydata)
 {
   IF (existingid = 0)
   {
-    existingid := MakeAutonumber(system.proxies, "ID");
-    INSERT INTO system.proxies(id) VALUES (existingid);
+    existingid := MakeAutonumber(system_internal.proxies, "ID");
+    INSERT INTO system_internal.proxies(id) VALUES (existingid);
   }
 
   DELETE CELL id FROM proxydata;
-  UPDATE system.proxies SET RECORD proxydata WHERE COLUMN id = existingid;
+  UPDATE system_internal.proxies SET RECORD CELL[ ...proxydata
+                                                , lastset := GetCurrentDatetime()
+                                                ] WHERE COLUMN id = existingid;
 
   GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
   GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));
@@ -237,7 +245,7 @@ PUBLIC BOOLEAN FUNCTION UnregisterWebHareProxy(INTEGER proxyid)
        SELECT url
             , password
             , reverseaddress
-        FROM system.proxies
+        FROM system_internal.proxies
       WHERE id = proxyid;
   IF(NOT RecordExists(proxydata))
     THROW NEW Exception("No such proxy #" || proxyid);
@@ -245,7 +253,7 @@ PUBLIC BOOLEAN FUNCTION UnregisterWebHareProxy(INTEGER proxyid)
 }
 PUBLIC MACRO DeleteWebHareProxy(INTEGER proxyid)
 {
-  DELETE FROM system.proxies WHERE id = proxyid;
+  DELETE FROM system_internal.proxies WHERE id = proxyid;
   GetPrimary()->BroadcastOnCommit("system:webserver.proxies", DEFAULT RECORD);
   GetPrimary()->RegisterCommitHandler("system:reloadwebhareconfig-true-false", PTR DoReloadWebhare(#1));
 }

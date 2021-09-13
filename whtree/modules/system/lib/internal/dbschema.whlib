@@ -52,6 +52,7 @@ PUBLIC SCHEMA
     , STRING "proxy_ips"
     , STRING "status"
     , STRING "reverseaddress"
+    , DATETIME "lastset"
     , DATETIME "lastregistration"
     , BLOB "registrationresultdata"
     , STRING "lasterror"

@@ -66,20 +66,6 @@ PUBLIC SCHEMA
     > ports
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "url"
-    , STRING "password"
-    , STRING "description"
-    , STRING "proxy_ips"
-    , STRING "status"
-    , STRING "reverseaddress"
-    , DATETIME "lastregistration"
-    , BLOB "registrationresultdata"
-    , STRING "lasterror"
-    , STRING "hostswhitelist"
-    ; KEY id
-    > proxies
-  , TABLE
-    < INTEGER "id" NULL := 0
     , INTEGER "type"
     , STRING "diskfolder"
     , STRING "baseurl"
