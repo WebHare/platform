@@ -416,9 +416,9 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      IF (options.destination)
+      IF (options.destination = "")
         THROW NEW Exception("Option 'DESTINATION' is required for HTTP-Redirect binding");
-     IF (options.relaystate)
+     IF (options.relaystate = "")
         THROW NEW Exception("Option 'RELAYSTATE' is required for HTTP-Redirect binding");
 
       STRING returnurl := options.destination;

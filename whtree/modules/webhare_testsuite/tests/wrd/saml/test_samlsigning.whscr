@@ -121,7 +121,24 @@ MACRO TestSAMLSigning()
       [ [ acceptuntil :=    MakeDate(2100, 1, 1)
         , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
         ]
-      ]);
+      ], CELL[]);
+
+  // test optional signature handling
+  webdata.signature := "";
+  webdata.sigalg := "";
+  decoded := DecodeSAMLMessage(webdata, TRUE);
+  TestThrows(PTR decoded.validate(
+      [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+        , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+        ]
+      ], CELL[]));
+
+  decoded.validate(
+      [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+        , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+        ]
+      ], CELL[ signature_optional := TRUE ]);
+
 
 
   encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", TRUE,
@@ -184,7 +201,7 @@ MACRO TestSAMLSigning()
       [ [ acceptuntil :=    MakeDate(2100, 1, 1)
         , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
         ]
-      ]);
+      ], DEFAULT RECORD);
 
   FOREVERY (STRING signalg FROM
         [ "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
@@ -210,7 +227,7 @@ MACRO TestSAMLSigning()
         [ [ acceptuntil :=    MakeDate(2100, 1, 1)
           , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
           ]
-        ]);
+        ], DEFAULT RECORD);
 
     encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", TRUE,
         [ sign :=         privatekey
@@ -227,7 +244,7 @@ MACRO TestSAMLSigning()
         [ [ acceptuntil :=    MakeDate(2100, 1, 1)
           , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
           ]
-        ]);
+        ], DEFAULT RECORD);
   }
 }
 
