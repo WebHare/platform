@@ -3,20 +3,17 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::internal/saml.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
-LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/samlsupport.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
@@ -400,18 +397,6 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
   // Helper functions
   //
 
-  RECORD ARRAY FUNCTION GetMetaDocEntityDescriptors(RECORD root)
-  {
-    IF (root.type = "EntityDescriptor")
-      RETURN [ root ];
-
-    RECORD ARRAY result := root.entitydescriptor;
-    FOREVERY (RECORD rec FROM root.entitiesdescriptor)
-      result := result CONCAT this->GetMetaDocEntityDescriptors(rec);
-
-    RETURN result;
-  }
-
   RECORD ARRAY FUNCTION OnMapServiceEndpointRows(RECORD ARRAY rows)
   {
     // ADDME: binding -> use tid with 'HTTP-POST' / 'Redirect'
@@ -443,24 +428,25 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
 
   MACRO ImportMetadataDocument(OBJECT feedback, OBJECT doc)
   {
-    RECORD ARRAY errors := VerifySAMLMetadataDocument(doc);
-    IF (LENGTH(errors) != 0)
+    RECORD parsed := ParseConnectedSAMLProviderMetadata(doc);
+    IF (NOT parsed.success)
     {
-      DumpValue(errors,'tree');
-      feedback->AddError(this->GetTid(".metadatadocumentdoesnotvalidate"));
+      FOREVERY (STRING message FROM parsed.messages)
+        feedback->AddError(message);
+
       RETURN;
     }
 
-    OBJECT coder := NEW SAMLCoder;
-
-    RECORD mdoc := coder->ParseMetadataDocument(doc->documentelement);
-    RECORD ARRAY entitydescriptors := this->GetMetaDocEntityDescriptors(mdoc);
-    IF (LENGTH(entitydescriptors) = 0)
-      feedback->AddError(this->GetTid(".noentitydescriptors"));
-    ELSE IF (LENGTH(entitydescriptors) = 1)
+    RECORD ARRAY providers := SELECT * FROM parsed.providers WHERE type = this->type;
+    IF (NOT RecordExists(providers))
     {
-      IF (^entity->value.samlentityid != "" AND entitydescriptors[0].entityid != ^entity->value.samlentityid)
-        feedback->AddError(this->GetTid(".samlentityiddiffers", ^entity->value.samlentityid, entitydescriptors[0].entityid));
+      feedback->AddError(this->GetTid(".norelevantservicesfound"));
+      RETURN;
+    }
+    IF (LENGTH(providers) = 1)
+    {
+      IF (^entity->value.samlentityid != "" AND providers[0].value.entityid != ^entity->value.samlentityid)
+        feedback->AddError(this->GetTid(".samlentityiddiffers", ^entity->value.samlentityid, providers[0].value.entityid));
     }
     ELSE
     {
@@ -468,164 +454,60 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
         feedback->AddError(this->GetTid(".multipledescriptorsnofilter"));
       ELSE
       {
-        entitydescriptors :=
+        providers :=
             SELECT *
-              FROM entitydescriptors
-             WHERE entityid = ^entity->value.samlentityid;
+              FROM providers
+             WHERE value.entityid = ^entity->value.samlentityid;
 
-        IF (LENGTH(entitydescriptors) != 1)
+        IF (LENGTH(providers) != 1)
           feedback->AddError(this->GetTid(".multipledescriptorsbutnotfound", ^entity->value.samlentityid));
       }
     }
 
-    RECORD ARRAY serviceendpoints;
-    RECORD ARRAY descriptors;
-    RECORD ARRAY contacts := entitydescriptors[0].contactperson;
-    RECORD ARRAY supportednameidformats;
-
-    BOOLEAN have_idp;
-    IF (this->type = "idp")
-    {
-      FOREVERY (RECORD idpssodesc FROM entitydescriptors[0].idpssodescriptor)
-      {
-        // Only SAML 2
-        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN idpssodesc.protocolSupportEnumeration)
-          CONTINUE;
-
-        INSERT idpssodesc INTO descriptors AT END;
-
-        serviceendpoints := serviceendpoints CONCAT
-           (SELECT *
-                 , type :=    "SingleLogoutService"
-              FROM idpssodesc.singlelogoutservice) CONCAT
-           (SELECT *
-                 , type :=    "SingleSignOnService"
-              FROM idpssodesc.singlesignonservice) CONCAT
-           (SELECT *
-                 , type :=    "ArtifactResolutionService"
-              FROM idpssodesc.artifactresolutionservice);
-
-        contacts := contacts CONCAT idpssodesc.contactperson;
-        supportednameidformats := supportednameidformats CONCAT ToRecordArray(idpssodesc.nameidformat, "NAMEIDFORMAT");
-
-        have_idp := TRUE;
-      }
-    }
-
-    BOOLEAN have_sp;
-    IF (this->type = "sp")
-    {
-      FOREVERY (RECORD spssodesc FROM entitydescriptors[0].spssodescriptor)
-      {
-        // Only SAML 2
-        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN spssodesc.protocolSupportEnumeration)
-          CONTINUE;
-
-        INSERT spssodesc INTO descriptors AT END;
-
-        serviceendpoints := serviceendpoints CONCAT
-           (SELECT *
-                 , type :=    "SingleLogoutService"
-              FROM spssodesc.singlelogoutservice) CONCAT
-           (SELECT *
-                 , type :=    "ArtifactResolutionService"
-              FROM spssodesc.artifactresolutionservice) CONCAT
-           (SELECT *
-                 , type :=    "AssertionConsumerService"
-              from spssodesc.assertionconsumerservice) CONCAT
-           (SELECT *
-                 , type :=    "AttributeConsumingService"
-              from spssodesc.attributeconsumingservice);
-
-        contacts := contacts CONCAT spssodesc.contactperson;
-        have_sp := TRUE;
-      }
-    }
-
-    IF (this->type = "sp" ? NOT have_sp : NOT have_idp)
-      feedback->AddError(this->GetTid(".norelevantservicesfound"));
-    ELSE IF (LENGTH(descriptors) > 1)
-      feedback->AddError(this->GetTid(".bothidpandspfoundindescriptor"));
-
     IF (feedback->HasFailed())
       RETURN;
 
+    RECORD provider := providers[0];
+
     RECORD ARRAY certs := ^entity->value.certificates;
 
-    IF (LENGTH(descriptors[0].keydescriptor) != 0)
+    IF (RecordExists(provider.value.certificates))
     {
-      // Ignore 2+ keydescriptors
-      RECORD keyinfo := descriptors[0].keydescriptor[0].keyinfo;
+      RECORD certrow := provider.value.certificates[0];
+      STRING cert := BlobToString(certrow.data.data);
 
-      IF (keyinfo.type = "X509Certificate")
+      BOOLEAN found;
+      FOREVERY (RECORD rec FROM certs)
+        IF (BlobToString(rec.data.data) = cert)
+          found := TRUE;
+
+      IF (NOT found)
       {
-        // Create certificate PEM
-        STRING cert := EncodeRawPEMFile("CERTIFICATE", DecodeBase64(keyinfo.value));
-
-        BOOLEAN found;
-        FOREVERY (RECORD rec FROM certs)
-          IF (BlobToString(rec.data.data) = cert)
-            found := TRUE;
-
-        IF (NOT found)
+        IF (LENGTH(certs) != 0)
         {
-          IF (LENGTH(certs) != 0)
-          {
-            OBJECT dialog := this->LoadScreen(".importchangedcertificate",
-                [ newcert :=    cert
-                ]);
+          OBJECT dialog := this->LoadScreen(".importchangedcertificate",
+              [ newcert :=    cert
+              ]);
 
-            IF (dialog->RunModal() != "ok")
-              RETURN;
+          IF (dialog->RunModal() != "ok")
+            RETURN;
 
-            IF (dialog->choice = "replace")
-              certs := DEFAULT RECORD ARRAY;
-            ELSE
-              UPDATE certs SET useuntil := dialog->useuntil WHERE useuntil > dialog->useuntil;
-          }
-
-          INSERT [ data := WrapBlob(StringToBlob(cert), "certificate.crt"), acceptuntil := MAX_DATETIME ] INTO certs AT END;
-
-          // Try longest accepted certificates first
-          certs := SELECT * FROM certs ORDER BY acceptuntil DESC;
+          IF (dialog->choice = "replace")
+            certs := DEFAULT RECORD ARRAY;
+          ELSE
+            UPDATE certs SET useuntil := dialog->useuntil WHERE useuntil > dialog->useuntil;
         }
+
+        INSERT certrow INTO certs AT END;
+
+        // Try longest accepted certificates first
+        certs := SELECT * FROM certs ORDER BY acceptuntil DESC;
       }
     }
 
-    RECORD defaultservicerec :=
-        [ type :=               ""
-        , binding :=            ""
-        , location :=           ""
-        , responselocation :=   ""
-        , "index" :=            0
-        , isdefault :=          FALSE
-        ];
-
-    serviceendpoints := SELECT AS RECORD ARRAY MakeReplacedRecord(defaultservicerec, serviceendpoints) FROM serviceendpoints;
-    contacts :=
-        SELECT type :=      contacttype
-             , company
-             , givenname
-             , surname
-             , email :=     (emailaddress CONCAT [ "" ])[0]
-             , telephone := (telephonenumber CONCAT [ "" ])[0]
-          FROM contacts;
-
-    RECORD org := entitydescriptors[0].organization ??
-        [ organizationname :=         ""
-        , organizationdisplayname :=  ""
-        , organizationurl :=          ""
-        ];
-
-    RECORD value :=
-        [ samlentityid :=               entitydescriptors[0].entityid
-        , organization_name :=          org.organizationname
-        , organization_displayname :=   org.organizationdisplayname
-        , organization_url :=           org.organizationurl
-        , contacts :=                   contacts
-        , serviceendpoints :=           (SELECT * FROM serviceendpoints ORDER BY type, COLUMN "index", NOT isdefault)
+    RECORD value := CELL
+        [ ...provider.value
         , certificates :=               certs
-        , supportednameidformats :=     supportednameidformats
         ];
 
     ^entity->value := MakeReplacedRecord(^entity->value, value);
@@ -669,6 +551,7 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     this->LoadScreen(".entermetadata", [ func := PTR this->ImportMetadataDocument ])->RunModal();
   }
 >;
+
 
 PUBLIC OBJECTTYPE EnterMetadata EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
