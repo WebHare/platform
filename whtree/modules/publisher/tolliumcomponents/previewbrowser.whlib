@@ -396,7 +396,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     //PDF sandboxing is broken in chrome, https://bugs.chromium.org/p/chromium/issues/detail?id=413851 - so drop sandbox for PDFs
     RETURN CELL[ ...data
-               , sandbox := NOT(contentfile.type = 11 AND ToUppercasE(contentfile.name) LIKE "*.PDF")
+               , sandbox := NOT(contentfile.type = 11 AND ToUppercase(contentfile.name) LIKE "*.PDF")
                ];
   }
 
