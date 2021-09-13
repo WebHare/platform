@@ -1,0 +1,172 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/testfw/forms.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/samlsupport.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO Init()
+{
+  OBJECT testsite := OpenTestsuiteSite();
+
+  testfw->BeginWork();
+
+  // create wrdschema with user for the login
+  OBJECT wrdschema_idp := CreateWRDSchema("webhare_testsuite:saml-idp-formlogin",
+        [ initialize := TRUE
+        , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
+        , usermgmt := TRUE
+        ]);
+
+  OBJECT wrdschema_sp := CreateWRDSchema("webhare_testsuite:saml-sp",   [ initialize := TRUE
+                                                                        , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
+                                                                        , usermgmt := TRUE
+                                                                        ]);
+  OBJECT wrdschema_idp_unit := wrdschema_idp->^whuser_unit->CreateEntity([wrd_title := "Testunit"]);
+  OBJECT person := wrdschema_idp->GetType("WRD_PERSON")->CreateEntity(
+      [ wrd_contact_email :=      "idpaccount@allow2fa.test.webhare.net"
+      , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash("a"))
+      , whuser_unit :=            wrdschema_idp_unit->id
+      ]);
+
+  // Create key/cert for IDP
+  RECORD keypair_idp := testfw->GenerateKeyPair("idp");
+
+  OBJECT idp := wrdschema_idp->^wrd_authdomain_saml_idp->CreateEntity(CELL
+      [ wrd_tag :=                "TEST-IDP"
+//      , wrd_title :=              "Test IDP"
+      , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/idp-formlogin"
+      , keypair :=                MakeIntExtInternalLink(keypair_idp.id, "")
+      , hashmethod :=             "SHA-256"
+      , organization_name :=      "webhare_testsuite IDP"
+      , organization_displayname := "webhare_testsuite IDP"
+      , organization_url :=       "http://b-lex.com"
+      , allow_redirectbinding :=  TRUE
+      ]);
+
+  BLOB metadata_blob := GetWebhareResource(Resolve("goodhabitz-metadata.xml"));
+
+  RECORD parsedmetadata := ParseConnectedSAMLProviderMetadata(MakeXMLDocument(metadata_blob));
+
+  wrdschema_idp->^wrd_authdomain_saml_connected_entity->CreateEntity(CELL
+      [ wrd_leftentity :=       idp->id
+      , ...parsedmetadata.providers[0].value
+      , signature_optional :=   TRUE
+      ]);
+
+  OBJECT ARRAY waitfor;
+  FOREVERY(STRING repubpath FROM [ "test-saml/portal-idp-formlogin" ])
+  {
+    OBJECT torepub := testsite->OpenByPath(repubpath);
+    IF(NOT ObjectExists(torepub))
+      THROW NEW Exception("Cannot find folder '" || repubpath || "' in the testsite");
+
+    ScheduleFolderRepublish(torepub->id, TRUE);
+    INSERT torepub INTO waitfor AT END;
+  }
+
+  testfw->CommitWork();
+
+  FOREVERY(OBJECT folder FROM waitfor)
+    testfw->WaitForPublishCompletion(folder->id);
+}
+
+
+MACRO TestGoodHabitz()
+{
+  OBJECT testsite := OpenTestsuiteSite();
+
+  STRING idp_service_url := testsite->OpenByPath("test-saml/portal-idp-formlogin/saml-idp")->url || "!/ssoservice";
+  STRING request := Substitute(NormalizeWhitespace(
+  `<samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+                       AssertionConsumerServiceURL="https://example.com/Shibboleth.sso/SAML2/POST"
+                       Destination="${idp_service_url}"
+                       ID="_9daf7a021d66980c9a172de28702e107"
+                       IssueInstant="2021-09-13T07:35:28Z"
+                       ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                       Version="2.0">
+     <saml:Issuer xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">https://example.com/shibboleth</saml:Issuer>
+     <samlp:NameIDPolicy AllowCreate="1"/>
+   </samlp:AuthnRequest>`), " <", "<");
+
+  STRING encodedreq := EncodeBase64(BlobToString(MakeZlibCompressedFile(StringToBlob(request), "ZLIBRAW", 5),-1));
+
+  testfw->browser->GotoWebPage(AddVariableToURL(AddVariableToURL(idp_service_url, "SAMLRequest", encodedreq), "RelayState", "myrelaystate"));
+
+  OBJECT form := OpenFormsapiFormTester(testfw->browser);
+  RECORD formresult := form->SubmitForm([ username := "idpaccount@allow2fa.test.webhare.net", password := "a" ]);
+  TestEqMembers(
+      [ success :=    TRUE
+      , result :=     [ submitinstruction :=
+                            [ type := "form"
+                            , form :=
+                                [ action := "https://example.com/Shibboleth.sso/SAML2/POST"
+                                , method := "POST"
+                                , vars :=
+                                      [ [ name := "SAMLResponse"
+                                        ]
+                                      , [ name := "RelayState"
+                                        , value := "myrelaystate"
+                                        ]
+                                      ]
+                                ]
+                            ]
+                      ]
+      ], formresult, "*");
+
+  RECORD postdata := EncodeSAMLDocument(
+      [ type :=               "AuthnRequest"
+      , id :=                 "_9daf7a021d66980c9a172de28702e107"
+      , version :=            "2.0"
+      , issueinstant :=       MakeDateFromText("2021-09-13T07:35:28Z")
+      , issuer :=             [ value := "https://example.com/shibboleth" ]
+      , assertionconsumerserviceurl := "https://example.com/Shibboleth.sso/SAML2/POST"
+      ], "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", TRUE,
+      [ destination :=    idp_service_url
+      , RelayState :=     "myrelaystate"
+      ]);
+
+  testfw->browser->ExecuteSubmitInstruction(postdata);
+
+  TestEqMembers(
+      [ success :=    TRUE
+      , result :=     [ submitinstruction :=
+                            [ type := "form"
+                            , form :=
+                                [ action := "https://example.com/Shibboleth.sso/SAML2/POST"
+                                , method := "POST"
+                                , vars :=
+                                      [ [ name := "SAMLResponse"
+                                        ]
+                                      , [ name := "RelayState"
+                                        , value := "myrelaystate"
+                                        ]
+                                      ]
+                                ]
+                            ]
+                      ]
+      ], formresult, "*");
+
+}
+
+RunTestFramework([
+                     PTR Init
+                 , PTR TestGoodHabitz
+                 ]);
