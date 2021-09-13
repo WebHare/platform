@@ -2125,7 +2125,6 @@
       <text tid="cantdeletetoplevelunit">Eenheden van het hoogste niveau kunnen niet worden verwijderd. Alleen een systeembeheerder of beheerder van een bovenliggende eenheid kan dit doen.</text>
       <text tid="confirmdeletemenuitem">Weet je zeker dat je de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
       <text tid="confirmdeletenotification">Weet je zeker dat je de melding '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="confirmpdfpreview">De beschikbaarheid van PDF-voorvertoningen is afhankelijk van de browser(instellingen) en of er een PDF-lezer op het systeem is geïnstalleerd. <br/><br/>Indien PDF-voorvertoningen niet beschikbaar zijn raden we aan om contact opnemen met je systeembeheerder of browserleverancier voor verdere ondersteuning.</text>
       <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wil je alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
       <text tid="dangerousrightsrevoke">Als je deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul je rechten verliezen die niet op een andere manier zijn toegekend. Wil je hier mee doorgaan?</text>
       <text tid="deletefailedbecause"><param p="1"/> <param p="2"/> kon niet worden verwijderd: <param p="3"/></text>
@@ -2231,7 +2230,6 @@
       <text tid="savedstate">Opgeslagen instellingen</text>
       <text tid="settingswerereset">De standaardinstellingen zijn teruggezet</text>
       <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
-      <text tid="showpdfpreview">Toon PDF voorvertoningen</text>
       <text tid="space">Spatie ( )</text>
       <text tid="thousandsep">Cijfergroeperingssymbool</text>
       <text tid="timezone">Tijdzone</text>

@@ -302,6 +302,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     config.wrdschema := ExpandContextVariables(webdesign, config.wrdschema);
     this->cookiename := ExpandContextVariables(webdesign, config.cookiename) ?? "webharelogin-" || GetSafeName(config.wrdschema, [ tohyphens := ":" ]);
+
+    /* If you're accessing us on the rescue port, add whatever hostname+port you think we're running on to the cookie name.
+       This solves the problem of users tunneling and accessing multiple servers over localhost and them overwriting the login cookie */
+    IF(IsRequest() AND GetClientWebserver() = whwebserverconfig_rescuewebserverid)
+    {
+      RECORD unp := UnpackURL(GetClientRequestURL());
+      this->cookiename := this->cookiename || "-" || unp.port || "-" || unp.host;
+    }
+
     this->wrdauthconfig := GetWRDAuthConfig(config.wrdschema);
 
     this->supportobjectname := config.supportobjectname;

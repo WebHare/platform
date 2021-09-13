@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
 LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
@@ -50,6 +51,15 @@ INTEGER FUNCTION GetRootindexDoc()
   RETURN rootindexdoc;
 }
 
+IF(GetClientWebserver() = whwebserverconfig_rescuewebserverid)
+{
+  /* Setting the __whpub_preview cookie breaks the rescue interface, the trustedport can't route it. Rescue mode is often
+     tunneled over a 127.0.0.1 port which may have an enabled previewmode because of something on a different port (as cookies
+     are shared between ports). So just disable preview mode on rescue ports to be safe */
+  UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE ]);
+  Redirect(GetRequestURL());
+}
+
 // Headers which we should never forward
 STRING ARRAY forbiddenheaders := ["CONTENT-LENGTH", "TRANSFER-ENCODING", "CONNECTION", "ACCEPT-ENCODING" ];
 
@@ -59,13 +69,7 @@ STRING ARRAY preview_image_mimetypes :=
 
 // MIME types for which we show the contents directly
 STRING ARRAY preview_direct_mimetypes :=
-    [ "text/html", "text/plain", "application/json" ];
-
-IF(GetWebVariable('wh-forcepdfpreview') = '1')
-{
-  AddHTTPHeader("Content-Disposition", "inline", FALSE);
-  INSERT "application/pdf" INTO preview_direct_mimetypes AT END;
-}
+    [ "text/html", "text/plain", "application/json", "application/pdf" ];
 
 IF(GetWebHeader("X-WHPub-IsPreview") != "")
   ABORT("view.shtml loop detected, X-WHPub-IsPreview header is set!");
@@ -154,11 +158,7 @@ IF (lang != "")
   // For file types that cannot be shown directly in the browser, show the message page
   ELSE IF (browser->mimetype NOT IN preview_direct_mimetypes)
   {
-    RECORD opts;
-    IF(browser->mimetype="application/pdf")
-      INSERT CELL pdflink := UpdateURLVariables(clienturl, [ "wh-forcepdfpreview" := "1" ]) INTO opts;
-
-    NEW ShowMessagePage(lang,clienturl,"notviewable",browser->mimetype,"",opts)->RunPageForWHFSId(GetRootindexDoc());
+    NEW ShowMessagePage(lang,clienturl,"notviewable",browser->mimetype,"")->RunPageForWHFSId(GetRootindexDoc());
     RETURN;
   }
   ELSE IF (browser->mimetype = "text/plain" AND NOT IsValidPlainText(browser->content))
@@ -166,6 +166,9 @@ IF (lang != "")
     NEW ShowMessagePage(lang,clienturl,"notviewable","","")->RunPageForWHFSId(GetRootindexDoc());
     RETURN;
   }
+
+  //try to prevent downloads when trying to do an inline view (mostly matters for PDF, and might not matter anymore?)
+  AddHTTPHeader("Content-Disposition", "inline", FALSE);
 }
 
 STRING ARRAY sentheaders;

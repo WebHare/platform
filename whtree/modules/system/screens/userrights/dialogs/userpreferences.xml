@@ -10,7 +10,6 @@
     <messagebox name="confirmdeletenotification" dontshowagain="yes" buttons="yes no" icon="warning" />
     <messagebox name="confirmdeletemenuitem" buttons="yes no" icon="warning" />
     <messagebox name="noprefsforoverride" buttons="ok" icon="error" />
-    <messagebox name="confirmpdfpreview" buttons="ok" icon="information" />
   </messageboxes>
 
   <screen name="userpreferences" gid=".edituser" interval="2000" oninterval="gotinterval" icon="tollium:users/user">
@@ -47,7 +46,6 @@
             <webapis:timezoneedit name="timezone" />
             <textedit name="browsertitleprefix" visible="true"/>
             <lines layout="left">
-              <checkbox name="showpdfpreview" title="" labeltid=".showpdfpreview" />
               <checkbox name="showdeveloperapps" title="" labeltid=".showdeveloperapps" />
             </lines>
             <heading tid=".savedstate" />

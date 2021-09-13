@@ -4,7 +4,6 @@ var iframe;       // The content iframe
 var margins = {}; // Precalculated margins
 var todd;         // Todd communication object
 var onload;       // iframe load event listener
-var previewpdf = false;
 
 var was_user_interaction = false; //time of last interaction with the iframe.
 
@@ -38,20 +37,6 @@ window.domReady = function()
   iframe.addEventListener("load", onIframeLoad);
 };
 
-window.suggestRenderingPDF = function(pdfurl)
-{
-  if(!previewpdf)
-    return;
-
-  /* With the current sandbox settings, there isn't anything to stop a script
-     from removing the sandbox attributes by itself, so we don't see any need
-     to protect the pdfurl either. We'll just have to trust our own users
-     (and WebHare should be in a different origin anyway) */
-  var iframe = document.getElementById("contentframe");
-  iframe.removeAttribute("sandbox");
-  iframe.src = pdfurl;
-}
-
 function getPreviewCookie()
 {
   var value = document.cookie.match('(?:^|;)\\s*__whpub_preview=([^;]*)');
@@ -73,9 +58,6 @@ function onIframeData()
 {
   var cursrc = curdata ? curdata.src : null;
   curdata = todd.getData();
-
-  if(curdata)
-    previewpdf = curdata.previewpdf;
 
   if (curdata && curdata.src !== cursrc)
   {
@@ -101,7 +83,10 @@ function onIframeData()
     }
 
     // Load the src into the iframe (the cookie makes sure the view proxy will handle the request)
-    iframe.sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts";
+    if(curdata.sandbox)
+      iframe.sandbox = "allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts";
+    else
+      iframe.removeAttribute("sandbox");
     iframe.src = curdata.src || "about:blank";
   }
   applySize();

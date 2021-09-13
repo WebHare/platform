@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -40,6 +41,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   INTEGER previewfileid;
   ///Actual URL we want to show
   STRING currenturl;
+  BOOLEAN currentsandbox;
   ///Suppress page rendering?
   BOOLEAN suppressrendering;
 
@@ -82,7 +84,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   UPDATE MACRO PreInitComponent()
   {
-    ^browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, previewpdf := FALSE, dontnavigate := FALSE ];
+    ^browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, dontnavigate := FALSE ];
   }
 
   UPDATE MACRO PostInitComponent()
@@ -221,7 +223,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   RECORD FUNCTION GetPreviewData(INTEGER fileid)
   {
-    RECORD selectedfile := SELECT id, url, type, published, filelink, externallink FROM system.fs_objects WHERE id = VAR fileid;
+    RECORD selectedfile := SELECT id, name, url, type, published, filelink, externallink FROM system.fs_objects WHERE id = VAR fileid;
     IF(NOT RecordExists(selectedfile))
       RETURN DEFAULT RECORD;
 
@@ -229,12 +231,17 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     RECORD data := [ fileid := fileid
                    ];
 
+    RECORD contentfile := selectedfile;
+
     IF(selectedfile.type IN [ 19, 20 ]) //19: internallink, 20: contentlink
     {
       // Find internal or content link target
-      RECORD target := SELECT type, published, parentsite, indexurl, fullpath FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
+      RECORD target := SELECT name, type, published, parentsite, indexurl, fullpath FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
       IF(RecordExists(target))
       {
+        IF(selectedfile.type = 20 ) //contentlink
+          contentfile := target;
+
         // Show link target
         RECORD site := SELECT name FROM system.sites WHERE id = target.parentsite;
         STRING message := selectedfile.type = 19 ? (target.indexurl = "" ? GetTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
@@ -387,7 +394,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       }
     }
 
-    RETURN data;
+    //PDF sandboxing is broken in chrome, https://bugs.chromium.org/p/chromium/issues/detail?id=413851 - so drop sandbox for PDFs
+    RETURN CELL[ ...data
+               , sandbox := NOT(contentfile.type = 11 AND ToUppercase(contentfile.name) LIKE "*.PDF")
+               ];
   }
 
   MACRO ShowErrors()
@@ -485,9 +495,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                       , "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
 
-    //ADDME cache this
-    BOOLEAN previewpdf := this->owner->tolliumuser->GetRegistryKey("system.prefs.showpdfpreview", FALSE);
-    ^browserframe->data := MakeUpdatedRecord(^browserframe->data, CELL[ src, previewpdf, dontnavigate := was_iframe_interaction ]);
+    ^browserframe->data := CELL[ ...^browserframe->data, src, dontnavigate := was_iframe_interaction, sandbox := this->currentsandbox ];
   }
 
   MACRO ReloadCurrent(BOOLEAN reloadmessages, BOOLEAN reloadsource)
@@ -513,13 +521,14 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
 
     this->currenturl := ""; //reset for building new url
+    this->currentsandbox := TRUE;
 
     RECORD baseinfo;
     IF(fileid>0)
       baseinfo := SELECT id, name, type, parent, indexdoc, url, isfolder, parentsite FROM system.fs_objects WHERE id = fileid AND (isactive OR parent = 17);/// Allow history
 
     // Test if site isn't locked (but allow history entries)
-    IF (RecordExists(baseinfo) AND baseinfo.parent != 17)
+    IF (RecordExists(baseinfo) AND baseinfo.parent != whconstant_whfsid_versionhistory)
     {
       RECORD site := SELECT locked FROM system.sites WHERE id = baseinfo.parentsite;
       IF (NOT RecordExists(site) OR site.locked)
@@ -542,6 +551,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       RECORD previewdata := this->GetPreviewData(previewfile.id);
       this->previewfileid := previewdata.fileid;
+      this->currentsandbox := previewdata.sandbox;
 
       INTEGER warninglevel := SELECT AS INTEGER MAX(level) FROM this->previewmessages;
       //STRING previewicon := [ "messageboxes/information", "status/warning", "status/serious_error"][warninglevel];

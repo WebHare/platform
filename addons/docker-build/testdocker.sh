@@ -319,7 +319,7 @@ if [ -n "$ISMODULETEST" ]; then
 
   echo "`date` Pulling dependency information for module $TESTINGMODULE"
   # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
-  MODSETTINGS="`$SUDO docker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net $WEBHAREIMAGE wh run mod::system/scripts/internal/tests/explainmodule.whscr < $TESTINGMODULEDIR/moduledefinition.xml`"
+  MODSETTINGS="`$SUDO docker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net -l webharecitype=testdocker $WEBHAREIMAGE wh run mod::system/scripts/internal/tests/explainmodule.whscr < $TESTINGMODULEDIR/moduledefinition.xml`"
   ERRORCODE="$?"
 
   if [ "$ERRORCODE" != "0" ]; then
