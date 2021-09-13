@@ -547,7 +547,11 @@ export async function expectWindowOpen(code)
   {
     let promise = new Promise((resolve, reject) =>
     {
-      test.getWin().open = (url, target) => resolve({ url, target });
+      test.getWin().open = (url, target) =>
+      {
+        console.log("window.open request", {url,target});
+        resolve({ url, target })
+      };
       setTimeout(() => reject(new Error("Timeout waiting for window.open")), 30000);
     });
     if (code)
