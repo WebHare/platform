@@ -107,6 +107,26 @@ MACRO TestMetadata()
       "*");
 }
 
+MACRO TestRequest()
+{
+  OBJECT doc := MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/tests/wrd/saml/goodhabitz-request.xml"));
+
+  OBJECT coder := NEW SAMLCoder;
+
+  RECORD parsed := coder->ParseProtocolDocument(doc->documentelement);
+  TestEqMembers(
+      [ Id :=               "_9daf7a021d66980c9a172de28702e107"
+      , Version :=          "2.0"
+      , Destination :=      "https://alumniportal.utwente.nl/en/endpoints/saml-idp/!/ssoservice"
+      , AssertionConsumerServiceIndex := -1
+      , IssueInstant :=     MakeDateFromText("2021-09-13T07:35:28Z")
+      , AssertionConsumerServiceURL := "https://my.goodhabitz.com/Shibboleth.sso/SAML2/POST"
+      , ProtocolBinding :=  "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+      , Issuer :=           [ value := "https://my.goodhabitz.com/shibboleth" ]
+      , NameIdPolicy :=     [ AllowCreate := TRUE ]
+      ], parsed, "*");
+}
+
 MACRO TestResponse()
 {
   OBJECT doc := MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/tests/wrd/saml/ut-sso-response.xml"));
@@ -153,5 +173,8 @@ MACRO TestResponse()
 
 
 RunTestFramework([ PTR TestMetadata
+                 , PTR TestRequest
                  , PTR TestResponse
+                 ],
+                 [ usedatabase := FALSE
                  ]);
