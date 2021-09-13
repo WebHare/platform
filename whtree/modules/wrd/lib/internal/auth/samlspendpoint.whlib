@@ -182,7 +182,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
           THROW NEW Exception("Response wasn't issued by the configured IDP");
 
         // Check signature
-        resdata.validate(idp->GetCertificates());
+        resdata.validate(idp->GetCertificates(), DEFAULT RECORD);
 
         IF (NOT RecordExists(response) OR response.type != "Response")
           THROW NEW Exception("Only Response allowed here, but got a '" || response.type || "'");
