@@ -88,6 +88,8 @@
         <email tag="EMAIL" title="Email address" />
         <telephone tag="TELEPHONE" title="Telephone" />
       </array>
+
+      <boolean tag="SIGNATURE_OPTIONAL" title="if TRUE, don't require a signature from this entity" />
     </attributes>
   </attachment>
 

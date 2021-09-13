@@ -378,6 +378,9 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     ^nameidformatsheading->visible := is_idp;
     ^supportednameidformats->visible := is_idp;
 
+    ^othersettingsheading->visible := NOT is_idp;
+    ^signature_optional->visible := NOT is_idp;
+
     ^entity->LoadEntity(data.wrdtype, data.id);
   }
 

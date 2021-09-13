@@ -684,10 +684,12 @@
       <text tid="organization_name">Organisatienaam</text>
       <text tid="organization_url">Organisatie URL</text>
       <text tid="organizationinfo">Organisatiegegevens</text>
+      <text tid="othersettings">Verdere instellingen</text>
       <text tid="responselocation">Antwoordlocatie URL</text>
       <text tid="samlentityid">SAML Entiteit ID</text>
       <text tid="samlentityiddiffers">De in de metadata beschreven SAML entititeit heeft een andere ID dan verwacht (verwachtte '<param p="1"/>', maar vond '<param p="2"/>').</text>
       <text tid="serviceendpoints">Service eindpunten</text>
+      <text tid="signature_optional">Aanvragen hoeven niet ondertekend te worden</text>
       <text tid="supportednameidformats">Ondersteunde naam-identifier formaten</text>
       <text tid="surname">Achternaam</text>
       <text tid="telephone">Telefoon</text>
