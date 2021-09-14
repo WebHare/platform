@@ -30,7 +30,7 @@
     "optimize-css-assets-webpack-plugin": "^5.0.3",
     "resolve-url-loader": "^3.1.1",
     "rimraf": "^3.0.2",
-    "sass": "^1.32.12",
+    "sass": "^1.40.1",
     "sass-loader": "^8.0.2",
     "stack-trace": "0.0.10",
     "stacktrace-js": "^2.0.2",
