@@ -722,16 +722,12 @@ function sleep(delay)
   return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-async function wait(...waits)
+async function wait(waitfor, annotation)
 {
-  for (let waitelt of waits)
-    if (Array.isArray(waitelt))
-    {
-      console.error("wait()ing on an Array is deprecated (so we can support annotation parameters)");
-      await wait(...waitelt);
-    }
-    else
-      await callbacks.executeWait(waitelt);
+  if(annotation && typeof annotation !== "string")
+    throw new Error("wait()ing on multiple things is no longer supported");
+
+  return await callbacks.executeWait(waitfor);
 }
 
 // email: The email address to look for

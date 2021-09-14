@@ -952,6 +952,8 @@ class TestFramework
   */
   async executeWait(step, item, signals)
   {
+    if(Array.isArray(item))
+      throw new Error(`executeWait incorrectly invoked with array`);
     var text = "Wait: " + (typeof item == "function" ? "function" : item);
     this.currentwaitstack = new Error;
     document.getElementById('currentwait').textContent = text;

@@ -75,7 +75,7 @@ test.registerTests(
       // droptarget--hover should be gone
       test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.eq("list move-local:type1", getLogComponent().value);
       getLogComponent().value = "";
@@ -93,7 +93,7 @@ test.registerTests(
 
       test.false(ctable.querySelector("td.droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.eq("table move-local:type1", getLogComponent().value);
       getLogComponent().value = "";
@@ -110,7 +110,7 @@ test.registerTests(
 
       test.false(cpanel.classList.contains("droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.eq("panel move-local:type1", getLogComponent().value);
       getLogComponent().value = "";
@@ -151,7 +151,7 @@ test.registerTests(
       test.false(ctable.querySelector("td.droptarget--hover"));
       test.false(cpanel.classList.contains("droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.subtest("panel-copy");
       getLogComponent().value = "";
@@ -168,7 +168,7 @@ test.registerTests(
 
       test.false(cpanel.classList.contains("droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.eq("panel copy-local:type1", getLogComponent().value);
 
@@ -187,7 +187,7 @@ test.registerTests(
 
       test.false(cpanel.classList.contains("droptarget--hover"));
 
-      await test.wait([ "ui" ]);
+      await test.wait("ui");
 
       test.eq("panel link-local:type1", getLogComponent().value);
     }
@@ -216,7 +216,7 @@ test.registerTests(
       // droptarget--hover should be gone
       test.false(clist.querySelector(".listbodyholder.droptarget--hover"));
 
-      await test.wait([ "ui", "ui" ]);
+      await test.wait("ui");
 
       test.eq("list move-file test1.txt text/plain 'test1'", getLogComponent().value);
 
@@ -238,7 +238,7 @@ test.registerTests(
       // droptarget--hover should be gone
       test.false(ctable.querySelector("td.droptarget--hover"));
 
-      await test.wait([ "ui", "ui" ]);
+      await test.wait("ui");
 
       test.eq("table move-file test2.txt text/plain 'test2'", getLogComponent().value);
 
@@ -260,7 +260,7 @@ test.registerTests(
       // droptarget--hover should be gone
       test.false(cpanel.classList.contains("droptarget--hover"));
 
-      await test.wait([ "ui", "ui" ]);
+      await test.wait("ui");
 
       test.eq("panel move-file test3.txt text/plain 'test3'", getLogComponent().value);
       getLogComponent().value = "";

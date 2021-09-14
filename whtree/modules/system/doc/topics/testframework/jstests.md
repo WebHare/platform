@@ -98,7 +98,7 @@ Don't do this anymore, but replace with....
 
 ```javascript
  { loadpage: "xxx" }      => await test.load("xxx");
- { waits: ["x", "y"] }    => await test.wait("x", "y");
+ { waits: ["x", "y"] }    => await test.wait("x"); await test.wait("y");
  await test.waitUIFree()  => await test.wait("ui");
  $qS                      => test.qS
  $qSA                     => test.qSA

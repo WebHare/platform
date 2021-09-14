@@ -355,7 +355,15 @@ async function selectListRow(listname, textinrow, options = {})
    else
      test.sendMouseGesture([ {el:el, down:button}, {up: button} ]);
 
-  await test.wait(options && options.waits ? options.waits : ['ui-nocheck']); //there may be UI interaction..
+  if(options && options.waits)
+  {
+    for(let waitstep of options.waits)
+      await test.wait(waitstep);
+  }
+  else
+  {
+    await test.wait('ui-nocheck'); //there may be UI interaction..
+  }
 }
 
 function testSelectListRow(listname, textinrow, options = {})
