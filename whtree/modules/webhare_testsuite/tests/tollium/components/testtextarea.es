@@ -68,7 +68,8 @@ test.registerTests(
       test.false(counter.classList.contains("wh-counter--underflow"));
 
       test.click(test.compByTitle("Required").querySelector("label"));
-      await test.wait("events", "ui");
+      await test.wait("events");
+      await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
       textedit = textedit_comp.querySelector("input");

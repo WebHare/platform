@@ -337,7 +337,7 @@ test.registerTests(
 
         let htmlnode = rtenode.querySelector(".wh-rtd-editor-htmlnode");
         test.click(htmlnode, { y: "99%" });
-        await test.wait([ "events" ]);
+        await test.wait("events");
 
         test.eq("p", body.lastElementChild.nodeName.toLowerCase());
         let firstp = body.lastElementChild;
@@ -346,7 +346,7 @@ test.registerTests(
         rte.getEditor().insertTable(2, 2);
 
         test.click(htmlnode);
-        await test.wait([ "events" ]);
+        await test.wait("events");
 
         // new p?
         test.eq("p", body.lastElementChild.nodeName.toLowerCase());

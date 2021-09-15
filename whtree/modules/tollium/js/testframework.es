@@ -355,7 +355,15 @@ async function selectListRow(listname, textinrow, options = {})
    else
      test.sendMouseGesture([ {el:el, down:button}, {up: button} ]);
 
-  await test.wait(options && options.waits ? options.waits : ['ui-nocheck']); //there may be UI interaction..
+  if(options && options.waits)
+  {
+    for(let waitstep of options.waits)
+      await test.wait(waitstep);
+  }
+  else
+  {
+    await test.wait('ui-nocheck'); //there may be UI interaction..
+  }
 }
 
 function testSelectListRow(listname, textinrow, options = {})
@@ -547,7 +555,11 @@ export async function expectWindowOpen(code)
   {
     let promise = new Promise((resolve, reject) =>
     {
-      test.getWin().open = (url, target) => resolve({ url, target });
+      test.getWin().open = (url, target) =>
+      {
+        console.log("window.open request", {url,target});
+        resolve({ url, target })
+      };
       setTimeout(() => reject(new Error("Timeout waiting for window.open")), 30000);
     });
     if (code)
