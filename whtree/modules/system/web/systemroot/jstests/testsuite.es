@@ -906,13 +906,14 @@ class TestFramework
     this.animationframerequest = 0;
     try
     {
-      if (!func())
+      let result = func();
+      if (!result)
       {
         this.animationframerequest = requestAnimationFrame(() => this.repeatedFunctionTestIterate(func, deferred));
       }
       else
       {
-        deferred.resolve();
+        deferred.resolve(result);
       }
     }
     catch (e)
