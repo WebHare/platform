@@ -509,7 +509,7 @@ websocketbase = 'ws' + location.origin.substr(4) + "/.publisher/common/outputtoo
 
 outputtoolsnode = outputtoolsnode.previousElementSibling;
 for(;outputtoolsnode;outputtoolsnode=outputtoolsnode.previousElementSibling)
-  if(outputtoolsnode.src && outputtoolsnode.src.match(/ap.js$/))
+  if(outputtoolsnode.src && outputtoolsnode.src.match(/ap\.js$/))
   {
     bundlecssnode = outputtoolsnode;
     while(bundlecssnode && bundlecssnode.tagName!="LINK")
