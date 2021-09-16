@@ -923,7 +923,7 @@ INTEGER ARRAY FUNCTION GetCronVals(STRING crontokpart, INTEGER min, INTEGER max,
     {
       timeslot := TrimWhitespace(timeslot);
       INTEGER val := ToInteger(timeslot,-1);
-      IF(val < 0 OR val > max)
+      IF(val < min OR val > max)
         THROW NEW Exception(`Invalid value '${timeslot}' in '${crontokpart}' for ${title}`);
 
       INSERT val INTO res AT END;
@@ -944,7 +944,7 @@ INTEGER ARRAY FUNCTION GetCronVals(STRING crontokpart, INTEGER min, INTEGER max,
   }
 
   INTEGER val := ToInteger(crontokpart,-1);
-  IF(val < 0 OR val > max)
+  IF(val < min OR val > max)
     THROW NEW Exception(`Invalid value '${crontokpart}' for ${title}`);
   RETURN [val];
 }
@@ -1036,7 +1036,7 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
       INSERT 7 INTO limit_dayofweek AT END;
   }
 
-  WHILE(TRUE) //brute forcing for now.. time spent should be tolerable
+  FOR(INTEGER maxiterations := 8*366; maxiterations > 0; maxiterations := maxiterations - 1)  //brute forcing for now.. time spent should usually be tolerable
   {
     unpnow := UnpackDateTime(now);
     IF(Length(limit_month) = 0 OR unpnow.month IN limit_month)
@@ -1046,13 +1046,13 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
           OR (Length(limit_dayofweek) != 0 AND unpnow.dayofweek IN limit_dayofweek)
           OR (Length(limit_dayofmonth) != 0 AND unpnow.dayofmonth IN limit_dayofmonth))
       {
-        BREAK;
+        RETURN now;
       }
     }
     now := AddDaysTodate(1,now);
   }
 
-  RETURN now;
+  THROW NEW Exception("Invalid cron mask - no date matches that criteria");
 }
 
 /** Calculate oh which day a specific yearly holiday will fall

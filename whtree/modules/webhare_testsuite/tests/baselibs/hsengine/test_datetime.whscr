@@ -660,7 +660,10 @@ MACRO CronTest()
   //Play with month lenths
   TestEq(MakeDatetime(2018,10,31,5,4,0), GetNextCronTime(MakeDatetime(2018,10,11,0,0,0), "4 5 31 * *"));
   TestEq(MakeDatetime(2018,12,31,5,4,0),  GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 31 * *"));
+  TestThrowsLike("Invalid value '0' for day of month", PTR GetNextCronTime(MakeDatetime(2018,11,11,5,3,0), "0 0 0 1 0"));
+  TestThrowsLike("Invalid value '0' for month", PTR GetNextCronTime(MakeDatetime(2018,11,11,5,3,0), "0 0 1 0 0"));
   TestThrowsLike("Invalid value '32' for day of month", PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 32 * *"));
+  TestThrowsLike("Invalid cron mask - no date matches that criteria", PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 30 2 *"));
 
   //Repeats
   TestEq(MakeDatetime(2018,11,11,0,2,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "*/2 */3 * * *"));
@@ -683,6 +686,10 @@ MACRO CronTest()
   TestEq(MakeDatetime(2020,12,29,17,10,0), GetNextCronTime(MakeDatetime(2020,12,29,16,59,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
   TestEq(MakeDatetime(2020,12,29,18,40,0), GetNextCronTime(MakeDatetime(2020,12,29,18,39,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
   TestEq(MakeDatetime(2020,12,30,8,10,0), GetNextCronTime(MakeDatetime(2020,12,29,18,40,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
+
+  //furthest leap day jump ahead..
+  TestEq(MakeDate(1904,2,29), GetNextCronTime(MakeDate(1896,2,29), "0 0 29 2 *"));
+  TestEq(MakeDate(1904,2,29), GetNextCronTime(MakeDate(1896,3,1), "0 0 29 2 *"));
 }
 
 MACRO HolidayTest()
