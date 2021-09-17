@@ -473,18 +473,22 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                           , toddiframeurl := this->iframecomp->toddiframeurl
                           , lang := this->owner->tolliumuser->language
                           , apikey := LookupAPIKey("google", this->owner->tolliumcontroller->baseurl, [ scope := "client" ]).apikey
-                          , maptype := this->pvt_maptype
-                          , initial_pos := LatLngObjectToString(this->pvt_center)
-                          , initial_zoom := this->pvt_zoom
-                          , restrictto := BoundsToString(this->pvt_restrictto)
-                          , moveable := this->pvt_moveable
-                          , showcontrols := this->pvt_showcontrols
-                          , backgroundcolor := this->pvt_backgroundcolor
-                          , iconsize := iconsize
-                          , icons := icons
-                          , newcontextmenu := ObjectExists(this->newcontextmenu) ? this->newcontextmenu->name : ""
-                          , selectcontextmenu := ObjectExists(this->selectcontextmenu) ? this->selectcontextmenu->name : ""
                           , loadingtext := GetTid("socialite:components.map.loading")
+                          , mapdata :=
+                              [ maptype := this->pvt_maptype
+                              , initial_pos := LatLngObjectToString(this->pvt_center)
+                              , zoom := this->pvt_zoom
+                              , restrictto := BoundsToString(this->pvt_restrictto)
+                              , moveable := this->pvt_moveable
+                              , showcontrols := this->pvt_showcontrols
+                              , backgroundcolor := this->pvt_backgroundcolor
+                              , iconsize := iconsize
+                              , icons := icons
+                              , newcontextmenu := ObjectExists(this->newcontextmenu) ? this->newcontextmenu->name : ""
+                              , selectcontextmenu := ObjectExists(this->selectcontextmenu) ? this->selectcontextmenu->name : ""
+                              , lang := this->owner->tolliumuser->language
+                              , imgbase := "/tollium_todd.res/socialite/img/"
+                              ]
                           ];
 
       TRY
@@ -632,7 +636,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     IF (this->clusteroverlays)
       overlays := ClusterOverlays(overlays, this->zoom, overlayimagesize / 2, (SELECT AS STRING name FROM this->pvt_icons WHERE ToUppercase(name) = ToUppercase(this->pvt_clusteredicon)));
     IF (ObjectExists(this->iframecomp))
-      this->iframecomp->CallJavascript("CallMapFunction", "UpdateAllOverlays", overlays);
+      this->iframecomp->PostMessage(CELL[ type := "UpdateAllOverlays", overlays ], "*");
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
@@ -717,7 +721,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     {
       this->pvt_maptype := maptype;
       IF (ObjectExists(this->iframecomp))
-        this->iframecomp->CallJavascript("CallMapFunction", "SetMapType", maptype);
+        this->iframecomp->PostMessage(CELL[ type := "SetMapType", maptype ], "*");
     }
   }
 
@@ -731,7 +735,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     IF (ObjectExists(this->pvt_center))
     {
       IF (ObjectExists(this->iframecomp))
-        this->iframecomp->CallJavascript("CallMapFunction", "SetCenter", LatLngObjectToString(this->pvt_center));
+        this->iframecomp->PostMessage([ type := "SetCenter", center := LatLngObjectToString(this->pvt_center) ], "*");
       this->UpdateAllOverlays();
     }
   }
@@ -751,7 +755,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
       ELSE IF (this->pvt_zoom > maxzoomlevel)
         this->pvt_zoom := maxzoomlevel;
       IF (ObjectExists(this->iframecomp))
-        this->iframecomp->CallJavascript("CallMapFunction", "SetZoom", this->pvt_zoom);
+        this->iframecomp->PostMessage([ type := "SetZoom", zoom := this->pvt_zoom ], "*");
       this->UpdateAllOverlays();
     }
   }
@@ -764,7 +768,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
   {
     this->pvt_restrictto := RecordToBounds(coordinates);
     IF (ObjectExists(this->iframecomp))
-      this->iframecomp->CallJavascript("CallMapFunction", "SetRestrictTo", BoundsToString(this->pvt_restrictto));
+      this->iframecomp->PostMessage([ type := "SetRestrictTo", restrictto := BoundsToString(this->pvt_restrictto) ], "*");
   }
 
   MACRO SetMoveable(BOOLEAN moveable)
@@ -773,7 +777,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     {
       this->pvt_moveable := moveable;
       IF (ObjectExists(this->iframecomp))
-        this->iframecomp->CallJavascript("CallMapFunction", "SetMoveable", this->pvt_moveable);
+        this->iframecomp->PostMessage([ type := "SetMoveable", moveable := this->pvt_moveable ], "*");
     }
   }
 
@@ -783,7 +787,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     {
       this->pvt_showcontrols := showcontrols;
       IF (ObjectExists(this->iframecomp))
-        this->iframecomp->CallJavascript("CallMapFunction", "SetShowControls", this->pvt_showcontrols);
+        this->iframecomp->PostMessage([ type := "SetShowControls", showcontrols := this->pvt_showcontrols ], "*");
     }
   }
 
@@ -990,7 +994,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     this->pvt_directions := directions;
 
     IF (ObjectExists(this->iframecomp))
-      this->iframecomp->CallJavascript("CallMapFunction", "LoadDirections", RecordExists(this->pvt_directions) ? this->pvt_directions.waypoints : DEFAULT RECORD ARRAY, this->directionsoptions);
+      this->iframecomp->PostMessage([ type := "LoadDirections", directions := RecordExists(this->pvt_directions) ? this->pvt_directions.waypoints : DEFAULT RECORD ARRAY, options := this->directionsoptions ], "*");
   }
 
   MACRO SetDirectionsOptions(RECORD options)
@@ -1022,7 +1026,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
   {
     OBJECT bounds := RecordToBounds(viewport);
     IF (ObjectExists(bounds))
-      this->iframecomp->CallJavascript("CallMapFunction", "SetViewport", BoundsToString(bounds));
+      this->iframecomp->PostMessage([ type := "SetViewport", viewport := BoundsToString(bounds) ], "*");
   }
 
   /** Update a single overlay. Use this function if you want to change the properties of one overlay instead of updating the
@@ -1040,7 +1044,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
   PUBLIC MACRO LoadDirections(STRING origin, STRING destination)
   {
     IF (ObjectExists(this->iframecomp))
-      this->iframecomp->CallJavascript("CallMapFunction", "LoadDirections", [ origin, destination ], this->directionsoptions);
+      this->iframecomp->PostMessage([ type := "LoadDirections", directions := [ origin, destination ], options := this->directionsoptions ], "*");
   }
 
   PUBLIC MACRO PrintMap()
