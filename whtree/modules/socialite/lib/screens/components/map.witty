@@ -4,50 +4,6 @@
 <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
 <title>Google Map</title>
 
-<script type="text/javascript">
-[! This is the interface between tollium/todd and WebHare's Google Map implementation. It only serves as the 'glue' between
-   the HTML here, the Witty variables from the Tollium component and the toddGoogleMap object, which controls the general
-   toddGM_Map component. Functions called directly by HareScript go here, as well as HTML load and unload event handlers.
-!]
-
-// Our todd map wrapper object
-var toddmap;
-
-// Called by body.onunload: Deinitialize the map
-function UnloadMap()
-{
-  toddmap.DeInit();
-}
-
-// Called by HareScript: Call a toddGM_Map function with the given name
-function CallMapFunction(name /* other arguments are read by the arguments object */)
-{
-  try
-  {
-    // Get arguments for called function
-    var args = Array.prototype.slice.call(arguments);
-    // Strip first element (function name)
-    args.splice(0, 1);
-
-    toddmap.CallMapFunction(name, args);
-  }
-  catch(e)
-  {
-    var what = "";
-    if (typeof e == "string")
-      what = e;
-    else if (typeof e == "object" && typeof e[["message"] == "string")
-      what = e.message
-    var msg = "Error calling map function '" + name + "'" + (what ? ": " + what : "");
-    if (toddDebugging)
-      toddAlert(msg);
-    else if (window.console)
-      console.error(msg);
-  }
-}
-
-</script>
-
 <style type="text/css">
 
 html, body, #map_canvas
@@ -75,36 +31,7 @@ was thrown (from UpdateAllOverlays calling fromLatLngToDivPixel), so it's been d
 <script src="[googleresourcebase]markermanager-v3.js" type="text/javascript"></script>!]
 [! version 1.1.4 !]<script src="[googleresourcebase]markerwithlabel.js" type="text/javascript"></script>
 
-<script type="text/javascript">
-toddmap = new toddGoogleMap({ mapdiv: "map_canvas"
-                            , maptype: "[maptype]"
-                            , center: "[initial_pos]"
-                            , zoom: [initial_zoom]
-                            , restrictto: "[restrictto]"
-                            , moveable: [if moveable]true[else]false[/if]
-                            , showcontrols: [if showcontrols]true[else]false[/if]
-                            , backgroundcolor: "[backgroundcolor]"
-                            , shapecolor: "#457188" //ADDME: Use skin color
-                            , iconsize: [iconsize]
-                            , icons: [[[forevery icons][if first][else],[/if] { name: "[name:java]"
-                                       , icon: "[icon:java]"
-                                       , shadow: "[if shadow][shadow:java][/if]"
-                                       , anchor_x: [anchor_x]
-                                       , anchor_y: [anchor_y]
-                                       , label_x: [label_x]
-                                       , label_y: [label_y]
-                                       , popup_x: [popup_x]
-                                       , popup_y: [popup_y]
-                                       , width: [width]
-                                       , height: [height]
-                                       }
-                                     [/forevery]]
-                            , markermanager: true
-                            , newcontextmenu: "[newcontextmenu]"
-                            , selectcontextmenu: "[selectcontextmenu]"
-                            , lang: "[lang]"
-                            , imgbase: "[googleresourcebase]img/"
-                            });
-</script>
+<script src="[googleresourcebase]mapcomp.js" type="text/javascript" data-mapdata='[mapdata:json]'></script>
+
 </body>
 </html>
