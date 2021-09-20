@@ -115,6 +115,9 @@ PUBLIC STRING FUNCTION __GetSubpageBaseUrl(RECORD typeinfo, RECORD fileinfo)
 
 RECORD ARRAY FUNCTION GenerateSitemapCandidates(RECORD basefolder, INTEGER ARRAY limitobjects, RECORD context)
 {
+  IF(NOT ObjectExists(seosettingstype))
+    seosettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings");
+
   RECORD ARRAY allfiles := SELECT id, name, title, type, link, objecturl, published, modificationdate
                                 , isindex := id = basefolder.indexdoc
                              FROM system.fs_objects
