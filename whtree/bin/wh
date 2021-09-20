@@ -124,17 +124,6 @@ if [ ! -d "$WEBHARE_DIR" ]; then
   die "Cannot find WebHare installation"
 fi
 
-fixup_remotes()
-{
-  if grep -q gitlab.b-lex.com "$1/.git/config" ; then
-    mv -f "$1/.git/config" "$1/.git/config.preconvert"
-    sed -e 's/gitlab.b-lex.com/gitlab.webhare.com/' "$1/.git/config.preconvert" > "$1/.git/config"
-    rm -f "$1/.git/config.preconvert"
-
-    echo "Switched repository $1 to use gitlab.webhare.com instead of gitlab.b-lex.com"
-  fi
-}
-
 deprecation_sleep()
 {
   for P in 1 2 3 4 5 ; do
@@ -505,114 +494,6 @@ getscripttorun()
   eval $VARNAME=\$1
 }
 
-git_update_all()
-{
-  pushd $WEBHARE_CHECKEDOUT_TO >/dev/null
-  UPDATEERRORS=""
-  UPDATEFATAL=0
-
-  if ! git merge-base --is-ancestor master origin/master && ! git merge-base --is-ancestor master upstream/master 2> /dev/null; then
-    die "It seems you have modified the master branch, but you can't commit there. Move your changes to a branch"
-  fi
-
-  if [ -z "$1" ] || [[ "webhare" =~ $1 ]]; then
-
-    fixup_remotes $WEBHARE_CHECKEDOUT_TO
-
-    # Update automatically only when current branch is 'master' or 'release/*'
-    WEBHARE_BRANCH=$(git symbolic-ref --short HEAD 2> /dev/null)
-    if [[ "$WEBHARE_BRANCH" =~ ^master$|^release/ ]]; then
-      echo "Update $WEBHARE_CHECKEDOUT_TO"
-      if ! git pull --rebase && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
-        UPDATEERRORS="$UPDATEERRORS webhare"
-        UPDATEFATAL=1
-      fi
-    elif [ "$WEBHARE_REBASE_EDGE_BRANCH" == "1" ] && [[ "$WEBHARE_BRANCH" =~ ^edge/ ]]; then
-      # if the edge branche forked of a release branch, rebase on that, otherwise on origin/master
-      local TESTBRANCHES=$(git show-ref | grep -o origin/release/.*)
-      local EDGEPARENT=origin/master
-      for TESTBRANCH in $TESTBRANCHES; do
-        MERGEBASE=$(git merge-base $TESTBRANCH HEAD)
-        if [ -n "$MERGEBASE" ] && ! git merge-base --is-ancestor $MERGEBASE origin/master; then
-          EDGEPARENT="$TESTBRANCH"
-          break;
-        fi
-      done
-      echo "Rebasing branch $WEBHARE_BRANCH to origin branch $EDGEPARENT"
-
-      if ( ! git fetch || ! git rebase $EDGEPARENT ) && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
-        UPDATEERRORS="$UPDATEERRORS webhare"
-        UPDATEFATAL=1
-      fi
-    fi
-  fi
-
-  # If your current branch isnt "master", update "master" with the origins hash. you're not supposed to manually commit to it anyway
-  if [ "`git rev-parse --abbrev-ref HEAD`" != "master" -a -f ".git/refs/remotes/origin/master" ]; then
-    git branch -f master `git rev-parse remotes/origin/master`
-  fi
-
-  # Check sublime package
-  for PACKAGEDIR in "$HOME/Library/Application Support/Sublime Text/Packages/WebHare"\
-                    "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare"; do
-    if [ -d "$PACKAGEDIR/.git" ]; then
-      echo
-      echo "Updating Sublime WebHare package"
-      if ! ( cd "$PACKAGEDIR" && git pull --rebase ) ; then
-        UPDATEERRORS="$UPDATEERRORS sublime-webhare-package"
-      fi
-    fi
-  done
-
-  # Check webhare-connect-helper
-  if [ -d "$HOME/projects/connect-helper/.git" ]; then
-    echo
-    echo "Updating WebHare connect helper"
-    if ! ( cd "$HOME/projects/connect-helper" && git pull --rebase ) ; then
-      UPDATEERRORS="$UPDATEERRORS connect-helper"
-    fi
-  fi
-
-  # Check packages
-  cd whtree/node_modules
-  for P in `find . -maxdepth 1 -type l` ; do
-    echo "Updating $P"
-    if ! ( cd $P && git pull --rebase ) ; then
-      UPDATEERRORS="$UPDATEERRORS $P"
-      UPDATEFATAL=1
-    fi
-  done
-
-  get_installable_moduledirs DIRS
-
-  for P in $DIRS; do
-    if [ -d "$P/.git/refs/remotes" ]; then
-      cd "$P"
-      MODNAME=${P##*/}
-
-      # Convert remotes, if needed
-      fixup_remotes "$P"
-
-      if [ -z "$1" ] || [[ "$MODNAME" =~ $1 ]]; then
-        echo
-        echo "Updating module '$MODNAME': "
-        if ! git pull --rebase ; then
-          UPDATEERRORS="$UPDATEERRORS $MODNAME"
-        fi
-      fi
-    fi
-  done
-  popd >/dev/null
-
-  if [ -n "$UPDATEERRORS" ]; then
-    echo ""
-    echo "The following packages were not updated:$UPDATEERRORS"
-  fi
-  if [ "$UPDATEFATAL" == "1" ]; then
-    die "This appears to be fatal, please fix!"
-  fi
-}
-
 setup_for_console()
 {
   mkdir -p "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
@@ -631,15 +512,16 @@ INSTR="${1:-help}"
 shift
 OPTIONS=("$@")
 
-# Install dev hooks/commands only with a checked-out webhare (TODO: move code over ?)
-if [ -n "$WEBHARE_CHECKEDOUT_TO" -a -f "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh" ]; then
-  source "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh"
-fi
-
-# External hook which may replace implementations in wh
-if [ -n "$WEBHARE_WH_HOOK" ]; then
-  source "$WEBHARE_WH_HOOK"
-fi
+# Find the 'dev' module, and if present, load its hooks. Not sure if we should trust random modules to install hooks.. especially as we may run under different UIDs ?
+# WEBHARE_WH_HOOK is an external hook which may replace implementations in wh.
+for EXT in "$WEBHARE_DATAROOT/installedmodules/dev/scripts/wh-hook.sh" \
+           "$WEBHARE_DATAROOT/installedmodules/webhare/dev/scripts/wh-hook.sh" \
+           "$WEBHARE_WH_HOOK" ; do
+  if [ -n "$EXT" ] && [ -f "$EXT" ]; then
+    # shellcheck source=/dev/null
+    source "$EXT"
+  fi
+done
 
 case $INSTR in
   "exec")
@@ -1049,31 +931,10 @@ HERE
     exit 0
     ;;
 
-  "up")
-    eval `$WEBHARE_DIR/bin/webhare printparameters`
-    if [ -z "$*" ]; then
-      echo "=== Updating $WEBHARE_CHECKEDOUT_TO and modules ==="
-      git_update_all
-    else
-      git_update_all "$1"
-    fi
-    exit 0
-    ;;
-
-  "st" | "status")
-    eval `$WEBHARE_DIR/bin/webhare printparameters`
-    echo "=== Status of $WEBHARE_CHECKEDOUT_TO ==="
-    for P in $WEBHARE_CHECKEDOUT_TO $WEBHARE_DATAROOT/installedmodules/* ; do
-      git status $P
-    done
-    exit 0
-    ;;
-
-  "mic" | "umic")
+  "mic")
     setup_buildsystem
     eval `$WEBHARE_DIR/bin/webhare printparameters`
     check_webhare_not_running
-    [ "$INSTR" == "umic" ] && git_update_all
     estimate_buildj
     cd $WEBHARE_BUILDDIR
     if ! make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile install ; then
@@ -1123,6 +984,11 @@ HERE
   "__listcommands")
     list_commands | sort -u
     exit 0
+    ;;
+
+  "up" | "st" | "status" | "umic")
+    echo "The command '$INSTR' is now provided by the 'dev' module, please install it first"
+    exit 255
     ;;
 
   *)
