@@ -29,6 +29,8 @@ TABLE
 
 TABLE deadlocktable2 LIKE deadlocktable1;
 
+BOOLEAN FUNCTION ReturnTRUE() { RETURN TRUE; }
+
 MACRO TestLocking()
 {
   OBJECT trans1 := GetPrimary();
@@ -76,8 +78,8 @@ MACRO TestLocking()
   UPDATE table1 SET val := "2c" WHERE id = 2;
 
   RECORD ARRAY trans1log := trans1->__GetCommandLog();
-  TestEq(3, Length(trans1log));
-  TestEqLike("SELECT*FOR NO KEY UPDATE", trans1log[1].query);
+  TestEq(2, Length(trans1log));
+  TestEqLike("SELECT*FOR NO KEY UPDATE", trans1log[0].query);
   trans1->RollbackWork();
 
   //updating primarykey so it should be a FOR UPDATE
@@ -87,15 +89,15 @@ MACRO TestLocking()
   UPDATE table1 SET id := 3 WHERE id = 2;
 
   trans1log := trans1->__GetCommandLog();
-  TestEq(3, Length(trans1log));
-  TestEqLike("SELECT*FOR UPDATE", trans1log[1].query);
+  TestEq(2, Length(trans1log));
+  TestEqLike("SELECT*FOR UPDATE", trans1log[0].query);
   trans1->RollbackWork();
 
   //deleting the row (which is sort of a primary key update, at least making references impossible) so it should be a FOR UPDATE
   trans1->BeginWork();
   trans1->__UpdateDebugConfig([logcommands := 0]);
   trans1->__UpdateDebugConfig([logcommands := 1]);
-  DELETE FROM table1 WHERE id = 2;
+  DELETE FROM table1 WHERE id = 2 AND ReturnTRUE(); // force fase1 + fase2
   trans1log := trans1->__GetCommandLog();
 
   TestEq(3, Length(trans1log));
