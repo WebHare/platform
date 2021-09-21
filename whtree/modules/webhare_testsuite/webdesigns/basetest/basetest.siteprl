@@ -671,6 +671,16 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="/test-saml/portal-idp-formlogin/*" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             api2017="true"
+             cookiename="webharelogin-testsuite-saml-idp"
+             loginpage="currentsite::/test-saml/portal-idp-formlogin/"
+             wrdschema="webhare_testsuite:saml-idp-formlogin" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="/testpages/wrdauthtest-router-protected/*" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" loginpage="currentsite::/testpages/wrdauthtest-router" />
   </apply>

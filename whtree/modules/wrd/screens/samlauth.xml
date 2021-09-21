@@ -256,6 +256,12 @@
         <column name="acceptuntil" type="date" />
       </arrayedit>
 
+      <!-- connected sp only -->
+      <heading name="othersettingsheading" tid=".othersettings" />
+      <line layout="left">
+        <checkbox composition="entity" cellname="signature_optional" name="signature_optional" title="" labeltid=".signature_optional" />
+      </line>
+
       <heading tid=".organizationinfo" />
       <textedit composition="entity" cellname="organization_name" />
       <textedit composition="entity" cellname="organization_displayname" />

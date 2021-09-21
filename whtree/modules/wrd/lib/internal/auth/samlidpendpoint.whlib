@@ -131,7 +131,8 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
 
       OBJECT sp := idp->GetConnectedSP(request.issuer.value);
 
-      reqdata.validate(sp->GetCertificates());
+      RECORD spdata := sp->entity->GetFields([ "SIGNATURE_OPTIONAL" ]);
+      reqdata.validate(sp->GetCertificates(), CELL[ spdata.signature_optional ]);
 
       // Validate the rest of the request
       IF (NOT RecordExists(request) OR request.type != "AuthnRequest")
@@ -149,8 +150,19 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
       IF (RecordExists(request.requestedauthncontext))
         THROW NEW Exception("Requesting of a specific authncontext not supported.");
 
-      IF (request.AssertionConsumerServiceIndex = -1)
-        THROW NEW Exception("Setting the AssertionConsumerServiceIndex is required for this service");
+      IF (request.AssertionConsumerServiceIndex = -1 AND request.AssertionConsumerServiceURL != "")
+      {
+        INTEGER idx := SELECT AS INTEGER COLUMN "index"
+                         FROM sp->GetEndpointsOfType("AssertionConsumerService")
+                        WHERE location = request.AssertionConsumerServiceURL
+                     ORDER BY COLUMN binding = VAR binding ? 0 : 1;
+        IF (idx = 0)
+          THROW NEW Exception("Could not find AssertionConsumerService by URL");
+
+        request.AssertionConsumerServiceIndex := idx;
+      }
+      ELSE IF (request.AssertionConsumerServiceIndex = -1)
+        THROW NEW Exception("Setting the AssertionConsumerServiceIndex or the AssertionConsumerServiceURL is required for this service");
 
       IF (binding IN
           [ "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"

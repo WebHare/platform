@@ -292,6 +292,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->flags.right_readwrite := this->tolliumuser->HasRightOn("wrd:readwrite", this->contexts->wrdschema->id);
     this->frame->flags.has_accounts := ObjectExists(this->contexts->wrdschema->accounttype);
     this->frame->flags.has_usermgmt := this->contexts->wrdschema->usermgmt;
+    this->frame->flags.has_saml := ObjectExists(this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE"));
 
     this->RefreshSearchOptions();
 

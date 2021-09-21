@@ -21,6 +21,9 @@ LOADLIB "mod::system/lib/webserver.whlib";
 // SAML coder (to generate SAML documents)
 OBJECT coder;
 
+STRING ns_xmldsig := "http://www.w3.org/2000/09/xmldsig#";
+
+
 STRING FUNCTION GetVar(RECORD ARRAY vars, STRING name)
 {
   RETURN SELECT AS STRING value FROM vars WHERE COLUMN name = VAR name;
@@ -183,9 +186,14 @@ PUBLIC STRING FUNCTION GetHTTPRedirectSAMLSignableValue(STRING url)
     @param certificates List of certificates to use
     @cell certificates.data Wrapped certificate blob
     @cell certificates.acceptuntil Date until the vertificate mey be used
+    @cell options.signature_optional Do not require a signature
 */
-MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
+MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates, RECORD options)
 {
+  options := ValidateOptions(
+      [ signature_optional :=   FALSE
+      ], options);
+
   BOOLEAN validated;
   OBJECT laste;
   FOREVERY (RECORD cert FROM certificates)
@@ -199,6 +207,14 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
       {
         CASE "redirect"
         {
+          IF (data.signaturealgorithm = "" AND data.signature = "")
+          {
+            IF (options.signature_optional)
+              RETURN;
+
+            THROW NEW Exception(`The SAML document is not signed`);
+          }
+
           STRING publickey := GetCertificateData(BlobToString(cert.data.data)).publickey;
           IF (VerifyXMLSignature(data.signaturealgorithm, data.signvalue, data.signature, publickey))
           {
@@ -208,6 +224,14 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
         }
         CASE "xml"
         {
+          IF (NOT ObjectExists(data.scontext))
+          {
+            IF (options.signature_optional)
+              RETURN;
+
+            THROW NEW Exception(`The SAML document is not sufficiently signed`);
+          }
+
           data.scontext->SetX509Certificate(BlobToString(cert.data.data));
           data.scontext->ValidateSignature();
           validated := TRUE;
@@ -239,7 +263,8 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
     @cell(string) return.binding Binding type
     @cell(string) return.message Message
     @cell(string) return.relaystate Relay state
-    @cell(function ptr) return.validate Validation function (signature: MACRO validate(RECORD ARRAY certificates))
+    @cell(function ptr) return.validate Validation function (signature: MACRO validate(RECORD ARRAY certificates, RECORD options))
+      Options: BOOLEAN signature_optional
 */
 PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
 {
@@ -271,7 +296,7 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
                 , signvalue :=  data.signvalue
                 , signature :=  data.signature
                 , signaturealgorithm := data.sigalg
-                ], #1)
+                ], #1, #2)
           ];
     }
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
@@ -288,9 +313,13 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
       // Fallback to the whole document
       signednodes := signednodes ?? [ OBJECT(xmldoc->documentelement) ];
 
-      OBJECT scontext := GetXMLSignatureContextByNodes(signednodes);
+      // No signature at all is an error at the validation stage
+      OBJECT scontext;
+      OBJECT ARRAY signatures := xmldoc->documentelement->GetElementsByTagNameNS(ns_xmldsig, "Signature")->GetCurrentElements();
+      IF (IsValueSet(signatures))
+        scontext := GetXMLSignatureContextByNodes(signednodes);
 
-      OBJECT signeddoc := scontext->GetSignedXMLDocument();
+      OBJECT signeddoc := ObjectExists(scontext) ? scontext->GetSignedXMLDocument() : xmldoc;
       RECORD signedmessage := coder->ParseProtocolDocument(signeddoc->documentelement);
 
       RETURN
@@ -301,7 +330,7 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
           , validate :=     PTR ValidateSAMLDocument(
                 [ type :=       "xml"
                 , scontext :=   scontext
-                ], #1)
+                ], #1, #2)
           ];
     }
   DEFAULT
@@ -333,9 +362,9 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
   // Just use the digest algorithm used by the the signature algorithm
   STRING digestalgorithm := GetDigestAlgorithmFromSignatureAlgorithm(options.signaturealgorithm);
 
-  BOOLEAN to_sign := CellExists(options, "SIGN");
+  BOOLEAN to_sign := options.sign != "";
 
-  IF (CellExists(options, "DESTINATION"))
+  IF (options.destination != "")
     INSERT CELL destination := options.destination INTO data;
 
   // Add signature template when missing & signing the XML document (not for http-redirect, uses other signature mechanism)
@@ -387,9 +416,9 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      IF (NOT CellExists(options, "DESTINATION"))
+      IF (options.destination = "")
         THROW NEW Exception("Option 'DESTINATION' is required for HTTP-Redirect binding");
-     IF (NOT CellExists(options, "RELAYSTATE"))
+     IF (options.relaystate = "")
         THROW NEW Exception("Option 'RELAYSTATE' is required for HTTP-Redirect binding");
 
       STRING returnurl := options.destination;
@@ -412,7 +441,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
     }
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
     {
-      IF (NOT CellExists(options, "DESTINATION"))
+      IF (options.destination = "")
         THROW NEW Exception("Option 'DESTINATION' is required for HTTP-Post binding");
 
       RETURN
@@ -692,14 +721,16 @@ OBJECTTYPE SAMLConnectedEntity
   //
 
   /// WRD entity
-  OBJECT entity;
+  OBJECT _entity;
 
   // ---------------------------------------------------------------------------
   //
   // Public properties
   //
 
-  PUBLIC PROPERTY id(entity->id, -);
+  PUBLIC PROPERTY id(_entity->id, -);
+
+  PUBLIC PROPERTY entity(_entity, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -708,7 +739,7 @@ OBJECTTYPE SAMLConnectedEntity
 
   MACRO NEW(OBJECT entity)
   {
-    this->entity := entity;
+    this->_entity := entity;
   }
 
   // ---------------------------------------------------------------------------

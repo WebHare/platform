@@ -409,7 +409,7 @@ PUBLIC OBJECTTYPE SAMLCoder
           , attributes :=
                 [ [ name := "ForceAuthn",     type := "boolean" ]
                 , [ name := "IsPassive",      type := "boolean" ]
-                , [ name := "AssertionConsumerServiceIndex", type := "integer" ]
+                , [ name := "AssertionConsumerServiceIndex", type := "integer", defaultvalue := -1 ]
                 , [ name := "AssertionConsumerServiceURL", type := "string" ]
                 , [ name := "ProtocolBinding", type := "string" ]
                 , [ name := "AttributeConsumingServiceIndex", type := "integer" ]

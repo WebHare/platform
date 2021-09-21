@@ -1,0 +1,221 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internal/saml.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+
+RECORD ARRAY FUNCTION GetMetaDocEntityDescriptors(RECORD root)
+{
+  IF (root.type = "EntityDescriptor")
+    RETURN [ root ];
+
+  RECORD ARRAY result := root.entitydescriptor;
+  FOREVERY (RECORD rec FROM root.entitiesdescriptor)
+    result := result CONCAT GetMetaDocEntityDescriptors(rec);
+
+  RETURN result;
+}
+
+
+/** Parses a SAML metadatadocument in a format that can be pasted in to
+    a connected provider WRD entity
+    @param doc Metadata document
+    @return Parse result
+    @cell(boolean) return.success TRUE if parsing succeeded
+    @cell(string array) return.messages Localized error messages
+    @cell(record array) return.providers List of parsed providers
+    @cell(string) return.providers.type "sp", "idp", "error"
+    @cell(string array) return.providers.messages Localized error messages, when type = "error"
+    @cell return.providers.value Entity value
+    @cell return.providers.value.samlentityid SAML entity id
+    @cell return.providers.value.organization_name Organization name
+    @cell return.providers.value.organization_displayname Organization display name
+    @cell return.providers.value.organization_url Organization URL
+    @cell return.providers.value.contacts Contacts
+    @cell return.providers.value.serviceendpoints Service endpoints
+    @cell return.providers.value.certificates List of certificates
+    @cell return.providers.value.supportednameidformats List of supported NameID formats
+*/
+PUBLIC RECORD FUNCTION ParseConnectedSAMLProviderMetadata(OBJECT doc)
+{
+  RECORD ARRAY errors := VerifySAMLMetadataDocument(doc);
+  IF (LENGTH(errors) != 0)
+  {
+    RETURN
+        [ succes :=         FALSE
+        , messages :=       STRING[ GetTid("wrd:samlauth.editconnectedprovider.metadatadocumentdoesnotvalidate") ]
+        ];
+  }
+
+  OBJECT coder := NEW SAMLCoder;
+
+  RECORD mdoc := coder->ParseMetadataDocument(doc->documentelement);
+  RECORD ARRAY entitydescriptors := GetMetaDocEntityDescriptors(mdoc);
+
+  IF (LENGTH(entitydescriptors) = 0)
+  {
+    RETURN
+        [ success :=  FALSE
+        , messages := [ GetTid("wrd:samlauth.editconnectedprovider.noentitydescriptors") ]
+        ];
+  }
+
+  RECORD ARRAY providers;
+
+  FOREVERY (RECORD entitydescriptor FROM entitydescriptors)
+  {
+    RECORD ARRAY serviceendpoints;
+    RECORD ARRAY descriptors;
+    RECORD ARRAY contacts := entitydescriptor.contactperson;
+    RECORD ARRAY supportednameidformats;
+
+    STRING type;
+    STRING ARRAY messages;
+    IF (IsValueSet(entitydescriptor.idpssodescriptor))
+    {
+      type := "idp";
+      FOREVERY (RECORD idpssodesc FROM entitydescriptor.idpssodescriptor)
+      {
+        // Only SAML 2
+        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN idpssodesc.protocolSupportEnumeration)
+          CONTINUE;
+
+        INSERT idpssodesc INTO descriptors AT END;
+
+        serviceendpoints := serviceendpoints CONCAT
+           (SELECT *
+                 , type :=    "SingleLogoutService"
+              FROM idpssodesc.singlelogoutservice) CONCAT
+           (SELECT *
+                 , type :=    "SingleSignOnService"
+              FROM idpssodesc.singlesignonservice) CONCAT
+           (SELECT *
+                 , type :=    "ArtifactResolutionService"
+              FROM idpssodesc.artifactresolutionservice);
+
+        contacts := contacts CONCAT idpssodesc.contactperson;
+        supportednameidformats := supportednameidformats CONCAT ToRecordArray(idpssodesc.nameidformat, "NAMEIDFORMAT");
+      }
+
+      IF (IsValueSet(entitydescriptor.spssodescriptor))
+      {
+        type := "error";
+        messages := [ GetTid("wrd:samlauth.editconnectedprovider.bothidpandspfoundindescriptor") ];
+      }
+    }
+    ELSE IF (IsValueSet(entitydescriptor.spssodescriptor))
+    {
+      type := "sp";
+
+      FOREVERY (RECORD spssodesc FROM entitydescriptor.spssodescriptor)
+      {
+        // Only SAML 2
+        IF ("urn:oasis:names:tc:SAML:2.0:protocol" NOT IN spssodesc.protocolSupportEnumeration)
+          CONTINUE;
+
+        INSERT spssodesc INTO descriptors AT END;
+
+        serviceendpoints := serviceendpoints CONCAT
+           (SELECT *
+                 , type :=    "SingleLogoutService"
+              FROM spssodesc.singlelogoutservice) CONCAT
+           (SELECT *
+                 , type :=    "ArtifactResolutionService"
+              FROM spssodesc.artifactresolutionservice) CONCAT
+           (SELECT *
+                 , type :=    "AssertionConsumerService"
+              from spssodesc.assertionconsumerservice) CONCAT
+           (SELECT *
+                 , type :=    "AttributeConsumingService"
+              from spssodesc.attributeconsumingservice);
+
+        contacts := contacts CONCAT spssodesc.contactperson;
+      }
+    }
+    ELSE
+    {
+      type := "error";
+      messages := [ GetTid("wrd:samlauth.editconnectedprovider.norelevantservicesfound") ];
+    }
+
+    IF (type = "error")
+    {
+      INSERT CELL[ type, messages ] INTO providers AT END;
+      CONTINUE;
+    }
+
+    RECORD ARRAY certs;
+    IF (LENGTH(descriptors[0].keydescriptor) != 0)
+    {
+      // Ignore 2+ keydescriptors
+      RECORD keyinfo := descriptors[0].keydescriptor[0].keyinfo;
+
+      IF (keyinfo.type = "X509Certificate")
+      {
+        // Create certificate PEM
+        STRING cert := EncodeRawPEMFile("CERTIFICATE", DecodeBase64(keyinfo.value));
+
+        INSERT [ data := WrapBlob(StringToBlob(cert), "certificate.crt"), acceptuntil := MAX_DATETIME ] INTO certs AT END;
+      }
+    }
+
+    RECORD defaultservicerec :=
+        [ type :=               ""
+        , binding :=            ""
+        , location :=           ""
+        , responselocation :=   ""
+        , "index" :=            0
+        , isdefault :=          FALSE
+        ];
+
+    serviceendpoints := SELECT AS RECORD ARRAY MakeReplacedRecord(defaultservicerec, serviceendpoints) FROM serviceendpoints;
+    contacts :=
+        SELECT type :=      contacttype
+             , company
+             , givenname
+             , surname
+             , email :=     (emailaddress CONCAT [ "" ])[0]
+             , telephone := (telephonenumber CONCAT [ "" ])[0]
+          FROM contacts;
+
+    RECORD org := entitydescriptor.organization ??
+        [ organizationname :=         ""
+        , organizationdisplayname :=  ""
+        , organizationurl :=          ""
+        ];
+
+    INSERT CELL
+        [ type
+        , messages
+        , value :=
+            [ samlentityid :=               entitydescriptor.entityid
+            , organization_name :=          org.organizationname
+            , organization_displayname :=   org.organizationdisplayname
+            , organization_url :=           org.organizationurl
+            , contacts :=                   contacts
+            , serviceendpoints :=           (SELECT * FROM serviceendpoints ORDER BY COLUMN type, COLUMN "index", NOT isdefault)
+            , certificates :=               certs
+            , supportednameidformats :=     supportednameidformats
+            ]
+        ] INTO providers AT END;
+  }
+
+  IF (LENGTH(providers) = 0 OR NOT RecordExists(SELECT FROM providers WHERE type != "error"))
+  {
+    RETURN
+        [ success :=    FALSE
+        , messages :=   providers[0].messages
+        ];
+  }
+
+  RETURN CELL
+      [ success :=    TRUE
+      , messages :=   STRING[]
+      , providers
+      ];
+}

@@ -684,10 +684,12 @@
       <text tid="organization_name">Organization name</text>
       <text tid="organization_url">Organization URL</text>
       <text tid="organizationinfo">Organization info</text>
+      <text tid="othersettings">Other settings</text>
       <text tid="responselocation">Response location URL</text>
       <text tid="samlentityid">SAML Entity ID</text>
       <text tid="samlentityiddiffers">The SAML entity described in the metadata differs from the specified id (expected '<param p="1"/>', but found '<param p="2"/>').</text>
       <text tid="serviceendpoints">Service endpoints</text>
+      <text tid="signature_optional">Requests can be unsigned</text>
       <text tid="supportednameidformats">Supported name identifier formats</text>
       <text tid="surname">Surname</text>
       <text tid="telephone">Telephone</text>
