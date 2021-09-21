@@ -2260,6 +2260,7 @@ The full base URL on which this site will be published, calculated by combining 
           <integer name="zombietimeout" description="Zombie timeout in msecs" initialval="60000" />
           <obsoletekey name="indexsourcecode" />
           <string name="npmlinkroots" description="Directories that contain npm linked modules" initialval="" />
+          <string name="watchdirs" description="Extra directories to watch source changes" initialval="" />
           <string name="whconnectroots" description="Directories where connectinfo should be written to" initialval="" />
         </node>
         <node name="tuning">
