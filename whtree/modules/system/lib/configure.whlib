@@ -123,6 +123,17 @@ PUBLIC STRING FUNCTION GetServerName()
   RETURN GetcachedWebHareConfig().servername;
 }
 
+/** @short Get the name for this process
+    @return Process info
+    @cell(integer) return.pid Process PID
+    @cell(integer64) return.processcode Process code (from whmanager registration)
+    @cell(string) return.clientname Client name of this process
+*/
+PUBLIC RECORD FUNCTION GetProcessInfo()
+{
+  RETURN __SYSTEM_GETPROCESSINFO();
+}
+
 /** @short Get the installation directory
     @long Retrieve the WebHare installation directory
     @return The WebHare installation directory (eg "/opt/webhare or "C:/b-lex/program files/webhare") */

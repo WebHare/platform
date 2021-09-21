@@ -120,6 +120,8 @@ class BLEXLIB_PUBLIC ManagerConnection
         */
         void WaitForDebugInit();
 
+        uint64_t GetProcessCode() const;
+
         bool ConfigureLogs(std::vector< LogConfig > const &config, std::vector< bool > *result);
         bool FlushLog(std::string const &name);
         void Log(std::string const &name, std::string const &line);
@@ -428,13 +430,18 @@ class BLEXLIB_PUBLIC Connection
                 mgrconn.SetSystemConfig(data, datalen);
         }
 
+        uint64_t GetProcessCode() const
+        {
+                return mgrconn.GetProcessCode();
+        }
+
         std::unique_ptr<SHTMLWebserverCallbacks> shtmlcallbacks;
 
         Blex::NotificationEventManager & GetNotificationEventMgr() { return notificationeventmgr; }
 
     private:
         ///Client name
-        std::string clientname;
+        std::string const clientname;
         ///Database connecting to the WebHare database
         std::unique_ptr<Database::TCPFrontend> dbaseptr;
         ///Where is webhare

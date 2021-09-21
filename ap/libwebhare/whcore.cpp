@@ -1610,6 +1610,11 @@ void ManagerConnection::WaitForDebugInit()
         }
 }
 
+uint64_t ManagerConnection::GetProcessCode() const
+{
+        return LockedMgrData::ReadRef(mgrdata)->processcode;
+}
+
 void ManagerConnection::DistributeNotificationEvent(std::shared_ptr< Blex::NotificationEvent > const &event)
 {
         IOBufferPtr iobuf(new Database::IOBuffer);

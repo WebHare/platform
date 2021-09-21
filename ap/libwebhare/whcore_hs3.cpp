@@ -682,6 +682,22 @@ void GetWHCoreParameters(HSVM *vm, HSVM_VariableId id_set)
         HSVM_StringSetSTD(vm, rootdirvar, Blex::MergePath(webhare.GetWebHareRoot(), "modules") + "/");
 }
 
+void GetProcessInfo(HSVM *vm, HSVM_VariableId id_set)
+{
+        ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
+        Connection const &webhare = scriptcontext->GetWebHare();
+
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+
+        HSVM_ColumnId c_clientname = HSVM_GetColumnId(vm, "CLIENTNAME");
+        HSVM_ColumnId c_pid = HSVM_GetColumnId(vm, "PID");
+        HSVM_ColumnId c_processcode = HSVM_GetColumnId(vm, "PROCESSCODE");
+
+        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, id_set, c_clientname), webhare.GetClientName());
+        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, c_pid), getpid());
+        HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, id_set, c_processcode), webhare.GetProcessCode());
+}
+
 void DetermineCacheCallingLibrary(HSVM *vm, std::string *library, Blex::DateTime *modtime)
 {
         const char cachelib[] = "wh::adhoccache.whlib";
@@ -1146,6 +1162,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "GETMODULEINSTALLATIONROOT::S:S",SYSTEM_GetModuleInstallationRoot);
 
         HSVM_RegisterFunction(regdata,"__SYSTEM_WHCOREPARAMETERS::R:", GetWHCoreParameters);
+        HSVM_RegisterFunction(regdata,"__SYSTEM_GETPROCESSINFO::R:", GetProcessInfo);
 
         HSVM_RegisterFunction(regdata,"GETADHOCCACHEDATA::R:R", GetAdhocCacheData);
         HSVM_RegisterMacro(regdata,"SETADHOCCACHEDATA:::RVDSAI", SetAdhocCacheData);
