@@ -29,7 +29,7 @@ BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETDEBUGSETTINGS(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
-MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands, INTEGER commandtimeout) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 /** Escapes a literal string for direct insertion into a query string
     @param toencode String to encode
@@ -1650,9 +1650,10 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     RECORD curconfig := __PGSQL_GETDEBUGSETTINGS(this->id);
     newconfig := ValidateOptions(CELL[ curconfig.logstacktraces
                                      , curconfig.logcommands
+                                     , curconfig.commandtimeout
                                      , readonly := FALSE //ignored
                                      ], newconfig);
-    __PGSQL_UPDATEDEBUGSETTINGS(this->id, newconfig.logstacktraces, newconfig.logcommands);
+    __PGSQL_UPDATEDEBUGSETTINGS(this->id, newconfig.logstacktraces, newconfig.logcommands, newconfig.commandtimeout);
   }
 >;
 

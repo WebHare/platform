@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
@@ -20,6 +21,13 @@ TABLE
 
 TABLE table2 LIKE table1;
 
+TABLE
+< INTEGER id
+, INTEGER ival
+; KEY id
+> deadlocktable1;
+
+TABLE deadlocktable2 LIKE deadlocktable1;
 
 MACRO TestLocking()
 {
@@ -269,7 +277,94 @@ MACRO TestChase()
   trans1->CommitWork();
 }
 
+RECORD got_result;
+
+MACRO StoreResult(VARIANT e)
+{
+  got_result := [ value := e ];
+}
+
+PUBLIC STRING FUNCTION TestDeadlockWorker(INTEGER commandtimeout)
+{
+  OBJECT trans1 := OpenPrimary();
+  OBJECT trans2 := __StartWHPostgreSQLTransaction([ auto := TRUE ]);
+
+  deadlocktable1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.deadlocktest");
+  deadlocktable2 := BindTransactionToTable(trans2->id, "webhare_testsuite_testschema.deadlocktest");
+
+  trans2->__UpdateDebugConfig(CELL[ commandtimeout ]);
+
+  trans1->BeginWork();
+  trans2->BeginWork();
+
+  UPDATE deadlocktable1 SET ival := ival + 1 WHERE id = 1;
+  UPDATE deadlocktable2 SET ival := ival + 1 WHERE id = 1; // will deadlock
+
+  RETURN "Update returned without error";
+}
+
+MACRO TestDeadlockBreaking()
+{
+  GetPrimary()->BeginWork();
+
+  // Cleanup
+  IF (GetPrimary()->SchemaExists("webhare_testsuite_testschema"))
+    GetPrimary()->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  GetPrimary()->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(GetPrimary(), "webhare_testsuite_testschema", "deadlocktest",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 100 ]
+                        , [ column_name := "ival", data_type :=  "INTEGER" ]
+                        ]
+      ]);
+
+  deadlocktable1 := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_testschema.deadlocktest");
+  INSERT INTO deadlocktable1(id, ival) VALUES (1, 1);
+
+  GetPrimary()->CommitWork();
+
+  got_result := DEFAULT RECORD;
+  OBJECT test2 := AsyncCallFunctionFromJob(Resolve("#TestDeadlockWorker"), 10);
+
+  test2->Then(PTR StoreResult, PTR StoreResult);
+
+  // Wait for the deadlock to occur
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(200, GetCurrentDateTime()));
+  TestEQ(FALSE, IsValueSet(got_result));
+
+  test2->Cancel(); // will close the yob, must succeed!
+
+  // Wait for the cancel to come through
+  FOR (INTEGER i := 0; i < 20; i := i + 1)
+  {
+    IF (IsValueSet(got_result))
+      BREAK;
+    WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+  }
+
+  TestEQ(TRUE, IsValueSet(got_result), "Expected the job to have terminated");
+  TestEqLike("*has been cancelled*", got_result.value->what);
+
+  got_result := DEFAULT RECORD;
+  OBJECT test3 := AsyncCallFunctionFromJob(Resolve("#TestDeadlockWorker"), 1);
+  test3->Then(PTR StoreResult, PTR StoreResult);
+
+  // Wait for the command timeout to come through
+  FOR (INTEGER i := 0; i < 20; i := i + 1)
+  {
+    IF (IsValueSet(got_result))
+      BREAK;
+    WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+  }
+
+  TestEQ(TRUE, IsValueSet(got_result), "Expected the PostgreSQL command timeout to have triggered");
+  TestEQ(TypeID(OBJECT), TypeID(got_result.value));
+  TestEqLike("*timeout*", got_result.value->what);
+}
+
 
 RunTestframework([ PTR TestLocking
                  , PTR TestChase
+                 , PTR TestDeadlockBreaking
                  ]);

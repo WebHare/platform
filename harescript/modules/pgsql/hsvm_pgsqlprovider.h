@@ -27,7 +27,8 @@ namespace PGSQL
 struct PGPtrDeleter
 {
         inline void operator()(PGconn *conn) { PQfinish(conn); }
-        inline void operator()(PGresult *conn) { PQclear(conn); }
+        inline void operator()(PGresult *result) { PQclear(result); }
+        inline void operator()(PGcancel *cancel) { PQfreeCancel(cancel); }
 };
 
 template < class T > using PGPtr = std::unique_ptr< T, PGPtrDeleter >;
@@ -66,6 +67,9 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         /// PostgreSQL database connection
         PGconn *conn;
 
+        /// Cancellation structure
+        PGPtr< PGcancel > cancel;
+
         /// List of active queries
         QueryStorage queries;
 
@@ -83,6 +87,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         PGPtr< PGresult > ExecQuery(Query &query, bool asyncresult);
         bool CheckResultStatus(PGPtr< PGresult > const &res);
+        bool WaitForResult();
         std::pair< PGPtr< PGresult >, bool > GetLastResult();
 
         void GetErrorField(VarId id_set, ColumnNameId col, const PGresult *res, int fieldcode);
@@ -127,6 +132,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         int32_t logstacktraces;
         int32_t logcommands;
         HSVM_VariableId commandlog;
+        int32_t command_timeout_secs;
 
         friend struct ParamsEncoder;
 };
