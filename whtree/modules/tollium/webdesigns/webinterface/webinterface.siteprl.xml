@@ -55,7 +55,6 @@
         <addheader header="X-XSS-Protection" value="1; mode=block" />
         <addheader header="X-Content-Type-Options" value="nosniff" />
         <addheader header="Referrer-Policy" value="no-referrer" />
-        <csp policy="script-src maps.googleapis.com" />
       </webrule>
       <!-- protect the testportal page from being accessed on non-development servers -->
       <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
