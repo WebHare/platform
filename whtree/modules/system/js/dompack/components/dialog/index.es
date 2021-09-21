@@ -19,6 +19,9 @@ export class BasicDialog extends dialogapi.DialogBase
                           , childNodes: [ this.holdernode ]
                           , on: { click: evt => this._onModalityClick(evt) }
                           });
+
+    if(options?.theme)
+      this.modalitynode.classList.add(options.theme);
   }
 
   _openDialog()
@@ -34,27 +37,26 @@ export class BasicDialog extends dialogapi.DialogBase
 
   _onModalityClick(evt)
   {
-    if(dompack.contains(this.holdernode, evt.target))
+    if(this.holdernode.contains(evt.target))
       return; //event was targetted at our holder
 
-    evt.preventDefault();
-    evt.stopPropagation();
+    dompack.stop(evt);
     if(this.options.allowcancel)
       this.resolve(null);
   }
 
   _onKeyDown(evt)
   {
-    if(evt.keyCode == 27 && this.options.allowcancel)
+    if(evt.keyCode == 27 && this.options.allowcancel) //allow escape to cancel the dialog
     {
-      evt.preventDefault();
-      evt.stopPropagation();
+      dompack.stop(evt);
       this.resolve(null);
     }
 
-    if(dompack.contains(this.holdernode, evt.target))
+    if(this.holdernode.contains(evt.target))
       return; //key events targetted to our dialog are okay
 
+    //FIXME this causes open dialogs to even block reloads etc...
     evt.preventDefault();
     evt.stopPropagation();
   }
