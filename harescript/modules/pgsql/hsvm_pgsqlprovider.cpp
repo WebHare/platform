@@ -63,6 +63,9 @@ std::string_view max_indexed_size("264"sv); // Keep in sync with constant in dba
 // Maximum block size
 const unsigned fase1_max_blocksize = 8;
 
+// Command timeout (15 minutes)
+const unsigned default_command_timeout_secs = 15 * 60;
+
 
 // Copied from /usr/include/pgsql/server/catalog/pg_type.h (can't be included due to path issues)
 enum class OID : int32_t
@@ -1591,6 +1594,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 , logstacktraces(options.logstacktraces)
 , logcommands(0)
 , commandlog(0)
+, command_timeout_secs(default_command_timeout_secs)
 {
         description.supports_block_cursors = false;
         description.supports_single = true; // unused!!
@@ -1606,12 +1610,15 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
         PQsetNoticeReceiver(conn, &NoticeReceiverCallback, this);
 
         this->ScanTypes();
+        cancel.reset(PQgetCancel(conn));
 }
 
 PGSQLTransactionDriver::~PGSQLTransactionDriver()
 {
         if(commandlog)
             HSVM_DeallocateVariable(*vm, commandlog);
+
+        cancel.reset();
         PQfinish(conn);
 }
 
@@ -1814,7 +1821,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                         col.fase |= Fases::Fase1;
                                 }
 
-                                // We'll return everthing in fase2, registring that is needed for correct null translation
+                                // We'll return everthing in fase2, registering that is needed for correct null translation
                                 if (col.fase & (Fases::Fase1 | Fases::Recheck))
                                     col.fase |= Fases::Fase2;
                         }
@@ -2607,6 +2614,54 @@ bool PGSQLTransactionDriver::CheckResultStatus(PGPtr< PGresult > const &res)
         return true;
 }
 
+bool PGSQLTransactionDriver::WaitForResult()
+{
+        if (HSVM_TestMustAbort(*vm))
+            return false;
+
+        int sock = PQsocket(conn);
+        if (sock < 0)
+            return true;
+
+        // check shouldabort every 100ms
+        int32_t counter = 0;
+        while (true)
+        {
+                PQconsumeInput(conn);
+                if (!PQisBusy(conn))
+                    return true;
+
+                fd_set input_mask;
+                FD_ZERO(&input_mask);
+                FD_SET(sock, &input_mask);
+
+                timeval timeout;
+                timeout.tv_sec = 0;
+                timeout.tv_usec = 100000;
+
+                int res = select(sock + 1, &input_mask, NULL, NULL, &timeout);
+                if (res != 0)
+                    return true;
+
+                if (HSVM_TestMustAbort(*vm))
+                {
+                        char errbuf[256];
+                        PQcancel(cancel.get(), errbuf, sizeof(errbuf));
+                        return false;
+                }
+
+                if (counter >= command_timeout_secs * 10)
+                {
+                        char errbuf[256];
+                        PQcancel(cancel.get(), errbuf, sizeof(errbuf));
+                        HSVM_ThrowException(*vm, std::string("PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds").c_str());
+                        return false;
+                }
+
+                ++counter;
+        }
+}
+
 std::pair< PGPtr< PGresult >, bool > PGSQLTransactionDriver::GetLastResult()
 {
         PGPtr< PGresult > lastres;
@@ -2615,6 +2670,9 @@ std::pair< PGPtr< PGresult >, bool > PGSQLTransactionDriver::GetLastResult()
         // Read results until the PQgetResult returns nullptr, return the last one
         while (true)
         {
+                if (!WaitForResult())
+                    return std::make_pair(PGPtr< PGresult >(), true);
+
                 PGPtr< PGresult > res(PQgetResult(conn));
                 if (!res)
                     break;
@@ -2983,6 +3041,7 @@ void PGSQL_GetDebugSettings(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGSTACKTRACES")), driver->logstacktraces);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LOGCOMMANDS")), driver->logcommands);
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "COMMANDTIMEOUT")), driver->command_timeout_secs);
 
         HSVM_VariableId commandlog = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "COMMANDLOG"));
         if(driver->commandlog != 0)
@@ -3004,6 +3063,7 @@ void PGSQL_UpdateDebugSettings(HSVM *hsvm)
 
         driver->logstacktraces = HSVM_IntegerGet(hsvm, HSVM_Arg(1));
         driver->logcommands = HSVM_IntegerGet(hsvm, HSVM_Arg(2));
+        driver->command_timeout_secs = HSVM_IntegerGet(hsvm, HSVM_Arg(3));
 
         if(driver->logcommands > 0 && !driver->commandlog) //create the log
         {
@@ -3110,7 +3170,7 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETDEBUGSETTINGS:WH_PGSQL:R:I", PGSQL_GetDebugSettings);
-        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::III", PGSQL_UpdateDebugSettings);
+        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::IIII", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
 

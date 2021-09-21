@@ -532,6 +532,7 @@ void OpenQuery::DistributeSources(QueryDefinition const &querydef)
                         }
                         SubQuery query(*this, recarr, it->trans, it->partition_id);
                         table_to_sq_table.push_back(std::make_pair(subqueries.size(), query.querydef.tables.size()));
+                        query.querydef.has_fase1_hscode = querydef.has_fase1_hscode;
                         query.querydef.tables.push_back(*it);
                         subqueries.push_back(query);
                 }

@@ -42,6 +42,8 @@ OBJECT trans := OpenPrimary();
 
 UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
 
+WaitForCompiledAssetpack("webhare_testsuite:basetest");
+
 trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
@@ -371,8 +373,6 @@ IF(ObjectExists(alttestsite))
     DumpValue(reloadstatus.broken_listeners,'boxed');
   }
 }
-
-WaitForCompiledAssetpack("webhare_testsuite:basetest");
 
 WaitForPublishCompletion(testsite->id); //the testsite better be published as tests will be using it!
 IF(ObjectExists(alttestsite))

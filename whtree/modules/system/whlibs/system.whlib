@@ -3844,7 +3844,7 @@ PUBLIC FUNCTION PTR FUNCTION __HS_REBINDFUNCTIONPTR(FUNCTION PTR fptr, INTEGER A
     @param firstunusedsource Number of first passed argument that isn't used by
       a source. If this number of arguments (or more) are passed for a normal
       function (not vararg) an error is issued
-    @param keep_vararg If the original function is a vararg function (the
+    @param keepvararg If the original function is a vararg function (the
       last parameter is vararg), copy all passed arguments starting at the
       firstunusedsource into the vararg argument.
     @return Rebound function pointer

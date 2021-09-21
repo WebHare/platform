@@ -212,7 +212,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
                 , events := obj.events
                 ] INTO to_reindex AT END;
 
-          IF("rep" IN obj.events)
+          IF("rep" IN obj.events AND NOT ArrayIsSetEqual(obj.events, [ "rep", "del" ]))
             INSERT obj.file INTO to_republish_ids AT END;
         }
       }

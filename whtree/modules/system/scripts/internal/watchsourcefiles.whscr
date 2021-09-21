@@ -44,6 +44,7 @@ STRING FUNCTION LookupExecutable(STRING executable)
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "v", type := "switch" ]
     , [ name := "o", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
     , [ name := "fswatch", type := "stringopt" ]
     , [ name := "inotifywait", type := "stringopt" ]
     ]);
@@ -54,6 +55,9 @@ IF (NOT RecordExists(args))
   SetConsoleExitCode(1);
   RETURN;
 }
+
+args.o := args.o OR args.debug;
+args.v := args.v OR args.debug;
 
 OBJECT trans := OpenPrimary();
 
@@ -153,6 +157,13 @@ STRING ARRAY moduledirs :=
 
 STRING ARRAY watchdirs := moduledirs;
 
+// Ensure the set begins with ""
+STRING ARRAY extradirs :=
+    SELECT AS STRING ARRAY TEMPORARY trimmedpath := TrimWhitespace(path)
+         , trimmedpath LIKE "*/" ? trimmedpath : trimmedpath || "/"
+      FROM ToRecordArray(Tokenize(ReadRegistryKey("system.backend.development.watchdirs"), ","), "PATH")
+     WHERE TrimWhitespace(path) != "";
+
 // Also watch all nodejs dirs
 INSERT MergePath(GetWebHareConfiguration().basedataroot, "nodejs") INTO watchdirs AT END;
 INSERT MergePath(GetWebHareConfiguration().installationroot, "node_modules") INTO watchdirs AT END;
@@ -164,7 +175,7 @@ STRING ARRAY npmlinkroots :=
       FROM ToRecordArray(Tokenize(ReadRegistryKey("system.backend.development.npmlinkroots"), ","), "PATH")
      WHERE TrimWhitespace(path) != "";
 
-watchdirs := watchdirs CONCAT npmlinkroots;
+watchdirs := watchdirs CONCAT extradirs CONCAT npmlinkroots;
 
 // Omit dirs that have another dir as prefix
 FOR (INTEGER i := 1; i < LENGTH(watchdirs);)
@@ -354,10 +365,10 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
 
         IF (NOT is_module)
         {
-          path := Left(path, SearchLastSubString(path, "/") + 1);
+          STRING dir := Left(path, SearchLastSubString(path, "/") + 1);
           IF (args.v)
             PRINT(`Other file changed: ${path}\n`);
-          BroadcastEvent("system:modulefolder." || path, DEFAULT RECORD);
+          BroadcastEvent("system:modulefolder." || dir, [ resourcename := `direct::${path}` ]);
         }
       }
     }
