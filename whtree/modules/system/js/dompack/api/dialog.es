@@ -149,13 +149,15 @@ export function createDialog(options)
   return dialog;
 }
 
-/** question:
-      if a string, will be wrapped as textContent into a <p> and presented as the question
-      if a html node, will appear as the question (allowing you to insert html)
-      if an array of nodes, all these nodes will be inserted
-
-  options.allowcancel: Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
-  options.focusonclose: Element to focus on closing the dialog
+/** @param question - if a string, will be wrapped as textContent into a <p> and presented as the question
+                    - if a html node, will appear as the question (allowing you to insert html)
+                    - if an array of nodes, all these nodes will be inserted
+    @param choices
+    @cell choices.title Title for the choice
+    @cell choices.result Override result to return if clicked (otherwise you'll just receive the title)
+    @cell(boolean) options.allowcancel Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
+    @cell(object) options.focusonclose Element to focus on closing the dialog
+    @cell(string) options.theme Additional class to set on the dialog
 */
 export async function runMessageBox(question, choices, options)
 {
@@ -175,14 +177,16 @@ export async function runMessageBox(question, choices, options)
     question = dompack.create("p", { textContent: question });
 
   if(Array.isArray(question))
-    question.forEach(node => dialog.contentnode.appendChild(node));
+    dialog.contentnode.append(...question);
   else
-    dialog.contentnode.appendChild(question);
+    dialog.contentnode.append(question);
 
-  dialog.contentnode.appendChild(dompack.create("div", { className: dialogoptions.messageboxclassbase + "buttongroup"
-                                                       , childNodes: choicebuttons
-                                                       }));
+  if(dialog.buttonsnode) //this dialog has a separte node for the button area
+    dialog.buttonsnode.append(...choicebuttons);
+  else
+    dialog.contentnode.append(dompack.create("div", { className: dialogoptions.messageboxclassbase + "buttongroup"
+                                                    , childNodes: choicebuttons
+                                                    }));
 
   return dialog.runModal();
 }
-
