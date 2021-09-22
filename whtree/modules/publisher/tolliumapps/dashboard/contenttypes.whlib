@@ -29,7 +29,7 @@ RECORD ARRAY FUNCTION ListFSContentTypes(STRING mask)
      WHERE (VAR mask != "*" ? ToUppercase(namespace) LIKE ToUppercase(mask) : TRUE);
 
   RECORD ARRAY iconinfo := SELECT id
-                                , tolliumicon := RecordExists(filetype) ? filetype.tolliumicon : foldertype.tolliumicon
+                                , tolliumicon
                              FROM GetCachedSiteProfiles().contenttypes
                             WHERE RecordExists(filetype) OR RecordExists(foldertype);
 
