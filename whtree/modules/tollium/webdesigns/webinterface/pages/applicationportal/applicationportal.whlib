@@ -256,8 +256,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
      ORDER BY type != "saml", ordering;
 
     STRING overridetoken := GetWebVariable('overridetoken');
-    STRING openas := GetWebVariable("openas");
+    IF(overridetoken != "")
+    {
+      this->useexternalwebharelogin := FALSE; //an override token doesn't need to follow such redirect flows
+      this->usewrdauthloginpage := FALSE; //and may ignore any wrd page
+    }
 
+    STRING openas := GetWebVariable("openas");
     STRING language := GetWebVariable("language");
 
     DATETIME sessionexpires;
@@ -274,7 +279,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         this->wrdauthplugin := DEFAULT OBJECT;
       IF(ObjectExists(this->wrdauthplugin))
       {
-        IF(this->usewrdauthloginpage AND overridetoken = "") //Override tokens should not go through external WRD
+        IF(this->usewrdauthloginpage)
           this->currentuser := this->wrdauthplugin->RequireLoggedinUser();
         ELSE
           this->currentuser := this->wrdauthplugin->GetCurrentWebhareUser();
