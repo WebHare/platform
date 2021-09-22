@@ -22,7 +22,16 @@
         </xs:simpleType>
       </xs:attribute>
       <xs:attribute name="wrdschema" type="xs:string"/>
-      <xs:attribute name="cookiename" type="xs:string"/>
+      <xs:attribute name="cookiename" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The cookie name. Must start with `webharelogin-` and not contain any underscores</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="cookiedomain" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The domain to use for the wrdauth cookies</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="supportobjectname" type="xs:string"/>
       <xs:attribute name="sitetag">
         <xs:annotation>
