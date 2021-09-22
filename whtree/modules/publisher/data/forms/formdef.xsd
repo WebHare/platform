@@ -631,6 +631,7 @@
             parserfunc="/lib/webtools/formcomponents/textarea.whlib#parseformtextarea"
             fieldobject="/lib/webtools/formcomponents/textarea.whlib#TextAreaField"
             ordering="2"
+            supportedvalues="string"
             />
         </xs:appinfo>
       </xs:annotation>
@@ -712,6 +713,7 @@
             editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
             parserfunc="/lib/webtools/formcomponents/password.whlib#parseformpassword"
             fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
+            supportedvalues="string"
             />
         </xs:appinfo>
       </xs:annotation>
