@@ -17,6 +17,7 @@
 #include <limits>
 #include <iomanip>
 #include <variant>
+#include <poll.h>
 
 #define SHOW_PGSQL
 
@@ -2631,15 +2632,13 @@ bool PGSQLTransactionDriver::WaitForResult()
                 if (!PQisBusy(conn))
                     return true;
 
-                fd_set input_mask;
-                FD_ZERO(&input_mask);
-                FD_SET(sock, &input_mask);
+                pollfd input_fd;
+                input_fd.fd = sock;
+                input_fd.events = POLLERR | POLLIN;
+                input_fd.revents = 0;
 
-                timeval timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 100000;
-
-                int res = select(sock + 1, &input_mask, NULL, NULL, &timeout);
+                // wait max 100ms
+                int res = poll(&input_fd, 1, 100);
                 if (res != 0)
                     return true;
 
