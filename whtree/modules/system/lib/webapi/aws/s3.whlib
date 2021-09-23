@@ -10,6 +10,7 @@ LOADLIB "relative::awsbase.whlib";
 
 STRING ns_s320060301 := "http://s3.amazonaws.com/doc/2006-03-01/";
 
+/** @deprecated Use AmazonAWSS3Service instead */
 PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 <
   STRING endpoint;
@@ -529,6 +530,552 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
         THROW NEW Exception(`Failed to upload part #${#url}`);
 
       STRING etag := this->browser->GetResponseHeader("ETag");
+      IF(etag = "")
+        THROW NEW Exception(`Did not get an ETag for part #${#url}`);
+
+      INSERT etag INTO etags AT END;
+    }
+
+    RECORD uploadresult := this->CompleteMultipartUpload(uploadinfo, etags);
+    RETURN CELL [ uploadurls
+                , uploadresult.objectkey
+                ];
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSS3Service EXTEND AmazonAWSService
+<
+  STRING endpoint;
+
+  /** Create a new S3 interface
+      @param awsconfig AWS Configuration
+      @param zone S3 zone
+      @cell options.endpoint Endpoint override
+  */
+  MACRO NEW(OBJECT awsconfig, STRING zone, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : AmazonAWSService(awsconfig, zone, "s3")
+  {
+    options := ValidateOptions(
+        [ endpoint :=     ""
+        ], options);
+
+    this->endpoint := options.endpoint ?? `https://s3.${zone}.amazonaws.com/`;
+  }
+
+  RECORD FUNCTION PrepareAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    STRING region := CellExists(options,"region") ? options.region : this->region;
+    DELETE CELL region FROM options;
+    RETURN this->config->BuildAWS4Request(service, region, method, url, options);
+  }
+
+  OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    STRING region := CellExists(options,"region") ? options.region : this->region;
+    DELETE CELL region FROM options;
+    RECORD result := this->config->RequestXML(service, region, method, url, options);
+    RETURN RecordExists(result) ? result.doc : DEFAULT OBJECT;
+  }
+
+  /** List all buckets
+      @return List of buckets
+      @cell return.name Bucket name
+      @cell return.creationdate Bucket creation date
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListAllBuckets()
+  {
+    OBJECT doc := this->RawAWS4Request("s3","GET",this->endpoint);
+
+    RECORD ARRAY buckets;
+    FOREVERY(OBJECT bucket FROM doc->GetElementsByTagNameNS(ns_s320060301, "Bucket")->GetCurrentElements())
+    {
+      RECORD bucketrec := [ name := bucket->GetElementsBytagNameNS(ns_s320060301, "Name")->childrentext
+                          , creationdate := MakeDateFromText(bucket->GetElementsBytagNameNS(ns_s320060301, "CreationDate")->childrentext)
+                          ];
+      INSERT bucketrec INTO buckets AT END;
+    }
+    RETURN buckets;
+  }
+
+  /** Get bucket tags
+      @param bucket Bucket name
+      @return List of tags
+      @cell(string) return.tag Key name
+      @cell(string) return.value Key value
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetBucketTagging(STRING bucket)
+  {
+    STRING url := this->endpoint || bucket;
+
+    OBJECT doc := this->RawAWS4Request("s3", "GET", url
+                                    , [ urlparameters := [ [ name := "tagging", value := "" ]
+                                                         ]]);
+
+    RECORD ARRAY tags;
+    FOREVERY(OBJECT tag FROM doc->ListElements("*","Tag"))
+    {
+      INSERT CELL [ tag := tag->ListChildren("*", "Key")[0]->textcontent
+                  , value := tag->ListChildren("*", "Value")[0]->textcontent
+                  ] INTO tags AT END;
+    }
+    RETURN tags;
+  }
+
+  //PUBLIC MACRO MakeBucketPublic(STRING bucket)
+  //{
+  //  STRING id := "MakePublic" || EncodeBase16(GetMD5Hash(bucket));
+  //  STRING req :=  '{'
+  //                || '"Version": "2008-10-17",'
+  //                || '"Id": "' || EncodEJava(id) || '",'
+  //                || '"Statement": ['
+  //                  || '{ "Sid": "AllowPublicRead",'
+  //                    || '"Effect": "Allow",'
+  //                    || '"Principal": {"AWS": ["*"] },'
+  //                    || '"Action": ["s3:GetObject"],'
+  //                    || '"Resource": "arn:aws:s3:::' || EncodeJava(bucket) || '/*"'
+  //                  || '}]'
+  //              || '}';
+  //  this->S3Request("PUT","/?policy",[[ field := "Host", value := bucket ]],StringToBlob(req));
+  //}
+
+/*
+      {
+ "Version": "2008-10-17",
+ "Id": "Public",
+ "Statement": [
+              {
+                "Sid": "AllowPublicRead",
+                "Effect": "Allow",
+                "Principal": { "AWS": ["*"] },
+              "Action": ["s3:GetObject"],
+              "Resource": "arn:aws:s3:::MyBucketName/*"
+              }
+              ]
+}*/
+
+  /** List the contents of a bucket, paginated.
+      @param bucket Bucket name
+      @cell(string) options.delimiter Delimiter
+      @cell(string) options.prefix Return only objects with this prefix
+      @cell(string) options.marker Start listing at this marker (pass 'nextmarker' returned
+          by a previous call)
+      @cell(integer) options.maxkeys Maximum number of objects to return (limited to 1000)
+      @return Bucket contents
+      @cell(record array) return.objects List of objects
+      @cell(string) return.objects.name Object name
+      @cell(datetime) return.objects.lastmodified Last modification of the object
+      @cell(integer) return.objects.size Size of the object
+      @cell(integer64) return.objects.size64 Size of the object
+      @cell(string) return.objects.etag Etag
+      @cell(string array) return.commonprefixes Common prefixes grouped by delimiter (eg 'subdirectories')
+      @cell(boolean) return.truncated Whether more objects are present in the bucket
+      @cell(string) return.nextmarker Marker to pass to this function to get the next list of objects
+  */
+  PUBLIC RECORD FUNCTION GetBucket(STRING bucket, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ delimiter := "", prefix := "", marker := "", maxkeys := 1000 ], options);
+
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html
+
+    STRING url := this->endpoint || bucket;
+
+    OBJECT doc := this->RawAWS4Request("s3", "GET", url
+                          , [ urlparameters := [ [ name := "delimiter", value := options.delimiter ]
+                                               , [ name := "marker", value := options.marker ]
+                                               , [ name := "prefix", value := options.prefix ]
+                                               , [ name := "max-keys", value := ToString(options.maxkeys) ]
+                                               ]]);
+
+    RECORD ARRAY objects;
+    STRING ARRAY commonprefixes;
+    BOOLEAN truncated := ParseXSBoolean(doc->GetElementsByTagNameNS(ns_s320060301, "IsTruncated")->Item(0)->textcontent);
+
+    OBJECT ARRAY contents := doc->GetElementsByTagNameNS(ns_s320060301, "Contents")->GetCurrentElements();
+    FOREVERY(OBJECT content FROM contents)
+    {
+      STRING sizestr := content->GetElementsBytagNameNS(ns_s320060301, "Size")->childrentext;
+      RECORD objectrec := [ name := content->GetElementsBytagNameNS(ns_s320060301, "Key")->childrentext
+                          , lastmodified := MakeDateFromText(content->GetElementsBytagNameNS(ns_s320060301, "LastModified")->childrentext)
+                          , size := ParseXSInt(sizestr)
+                          , size64 := ParseXSInt64(sizestr)
+                          , etag := content->GetElementsBytagNameNS(ns_s320060301, "ETag")->childrentext
+                          //ADDME owner id, displayname
+                          ];
+      INSERT objectrec INTO objects AT END;
+    }
+
+    FOREVERY (OBJECT commonprefixesnode FROM doc->ListElements(ns_s320060301, "CommonPrefixes"))
+      FOREVERY(OBJECT prefix FROM commonprefixesnode->ListChildren(ns_s320060301, "Prefix"))
+        INSERT prefix->textcontent INTO commonprefixes AT END;
+
+    STRING nextmarker;
+    IF (truncated)
+    {
+      /* https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_ResponseSyntax
+         When response is truncated (the IsTruncated element value in the response is true), you can use the key name
+         in this field as marker in the subsequent request to get next set of objects. Amazon S3 lists objects in
+         alphabetical order Note: This element is returned only if you have delimiter request parameter specified. If
+         response does not include the NextMarker and it is truncated, you can use the value of the last Key in the
+         response as the marker in the subsequent request to get the next set of object keys. */
+      OBJECT nextmarker_elt := doc->GetElementsByTagNameNS(ns_s320060301, "NextMarker")->Item(0);
+      IF (ObjectExists(nextmarker_elt))
+        nextmarker := nextmarker_elt->textcontent;
+      ELSE
+        nextmarker := objects[END-1].name;
+    }
+
+    RETURN [ objects := objects
+           , truncated := truncated
+           , nextmarker := nextmarker
+           , commonprefixes := commonprefixes
+           ];
+  }
+
+  /** List the full contents of a bucket
+      @param bucket Bucket name
+      @param path Directory name
+      @return @includecelldef #GetBucket.return.objects
+      @cell(boolean) return.isfolder True if this object is a subdirectory (a common prefix as S3 does not have real subdirectories)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetDirectory(STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := CELL[ delimiter := "/", prefix := path, ...options ];
+
+    IF(options.delimiter = "/")
+    {
+      IF(Left(path,1) = "/")
+        path := Substring(path,1);
+      IF(path != "" AND Right(path,1) != "/") //without a slash terminator you're not getting the directory contents and might even trigger accessdenieds
+        path := path || "/";
+    }
+
+    RECORD ARRAY results;
+    STRING marker;
+    WHILE (TRUE)
+    {
+      RECORD res := this->GetBucket(bucket, CELL[...options,prefix := path, marker]);
+
+      /* Seen AWS return the prefix as an object, and then nothing inside the prefix? Not sure how we can find a prefix without objects, but just ignore any name matching our path
+         happened for eg: webharetv-prod-meta:log/adhoccdn/LC-RdxRyVRtcJ-MUhSecGA_XQ-cf/AWSLogs/164204408054/
+      */
+      results := results
+                 CONCAT (SELECT *, isfolder := FALSE FROM res.objects WHERE name != path)
+                 CONCAT (SELECT name := Left(name,Length(name)-1), lastmodified := DEFAULT DATETIME, size := 0, size64 := 0i64, etag := "", isfolder := TRUE FROM ToRecordArray(res.commonprefixes,'name'));
+      IF (NOT res.truncated)
+        BREAK;
+      marker := res.nextmarker;
+      IF (marker = "") // just in case
+        BREAK;
+    }
+
+    RETURN results;
+  }
+
+  /** Describe the object without retrieving its contents
+      @param bucket Bucket name
+      @param path Path of the object
+      @return Body of object, DEFAULT RECORD if the object does not exist
+  */
+  PUBLIC RECORD FUNCTION HeadObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "HEAD", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
+    IF(this->__config->__browser->GetHTTPStatusCode()=404)
+      RETURN DEFAULT RECORD;
+
+    RETURN [ contentlength := ToInteger64(this->__config->__browser->GetResponseHeader("Content-Length"),-1)
+           , contenttype := this->__config->__browser->GetResponseHeader("Content-Type")
+           , cachecontrol := this->__config->__browser->GetResponseHeader("Cache-Control")
+           ];
+  }
+
+  /** Get the contents of an object
+      @param bucket Bucket name
+      @param path Path of the object
+      @return Body of object, DEFAULT RECORD if the object does not exist
+      @cell return.body Object contents
+  */
+  PUBLIC RECORD FUNCTION GetObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
+    IF(this->__config->__browser->GetHTTPStatusCode()=404)
+      RETURN DEFAULT RECORD;
+
+    RETURN [ body := this->__config->__browser->content
+           , contenttype := this->__config->__browser->GetResponseHeader("Content-Type")
+           , cachecontrol := this->__config->__browser->GetResponseHeader("Cache-Control")
+           ];
+  }
+
+  STRING FUNCTION PathToURL(STRING bucket, STRING path)
+  {
+    IF(Left(path,1)='/')
+      path := Substring(path,1);
+    RETURN this->endpoint || bucket || "/" || path;
+  }
+
+  /** Stores an object
+      @param bucket Bucket name
+      @param path Path of the object
+      @param data Data for the object
+      @cell(string) options.contenttype Mime-type for the object (determined automatically with %ScanBlob when not set)
+      @cell(string) options.cachecontrol Optional cachecontrol settings
+      @return
+      @cell(string) return.etag Etag
+      @cell(string) return.amzid2
+      @cell(string) return.contentmd5 MD5 hash of the data
+  */
+  PUBLIC RECORD FUNCTION PutObject(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ contenttype := ""
+                                , cachecontrol := ""
+                                ], options);
+
+    IF(options.contenttype = "")
+      options.contenttype := ScanBlob(data, path).mimetype;
+
+    STRING md5 := EncodeBase64(GetHashForBlob(data, "MD5"));
+    RECORD ARRAY headers := [[ field := "Content-Type", value := options.contenttype ]
+                            ,[ field := "Content-MD5", value := md5 ]
+                            ];
+
+    IF(options.cachecontrol != "")
+      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+
+    this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket,path), CELL[ headers, body := data]);
+
+    RETURN [ etag := this->__config->__browser->GetResponseHeader("ETag")
+           , amzid2 := this->__config->__browser->GetResponseHeader("x-amz-id-2")
+           , contentmd5 := md5
+           ];
+  }
+
+  /** Copies an object
+      @param sourcebucket Name of the source bucket
+      @param sourcepath Path of the object to copy
+      @param targetbucket Name of the new bucket
+      @param targetpath Path for the new copy
+      @cell(string) options.contenttype Set new contenttype. Resets other metadata on the copy (such as cache-control) unless explicitly specified too
+      @cell(string) options.cachecontrol Set new cachecontrol. Requires contenttype to be set too
+      @return
+      @cell(string) return.etag Etag
+  */
+  PUBLIC RECORD FUNCTION CopyObject(STRING sourcebucket, STRING sourcepath, STRING targetbucket, STRING targetpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ contenttype := ""
+                                   , cachecontrol := ""
+                                   ], options);
+
+    IF(Left(sourcepath,1) = '/') //fix initial slash (for targetpath, PathToURL fixes this)
+      sourcepath := Substring(sourcepath,1);
+
+    RECORD ARRAY headers := [[ field := "x-amz-copy-source", value := `${sourcebucket}/${sourcepath}` ]
+                            ];
+
+    IF(options.contenttype != "")
+    {
+      headers := RECORD[ ...headers
+                       , [ field := "x-amz-metadata-directive", value := "REPLACE" ]
+                       , [ field := "Content-Type", value := options.contenttype ]
+                       ];
+
+      IF(options.cachecontrol != "")
+        INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+    }
+    ELSE
+    {
+      IF(options.cachecontrol != "")
+        THROW NEW Exception(`Cannot set Cache-Control on the copy without also setting a new Content-Type`);
+
+    }
+    this->RawAWS4Request("s3", "PUT", this->PathToUrl(targetbucket, targetpath), CELL[ headers, body := DEFAULT BLOB ]);
+
+    RETURN [ etag := this->__config->__browser->GetResponseHeader("ETag")
+           ];
+  }
+
+  /** Deletes an object
+      @param bucket Bucket name
+      @param path Path of the object to delete
+  */
+  PUBLIC MACRO DeleteObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "DELETE", this->PathToUrl(bucket,path));
+  }
+
+  /** Sync the contents of a S3 directory locally (eg to grab logfiles for local processing)
+      @param destpath Destination path (will be created if necessary)
+      @param bucket Bucket to read from
+      @param path Path to download
+      @cell(datetime) options.notbefore Do not download files modified before this date
+      @cell(boolean) options.printdownloads Print rpgoress
+  */
+  PUBLIC MACRO SyncToLocal(STRING destpath, STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ notbefore := DEFAULT DATETIME
+                               , printdownloads := FALSE
+                               , recursive := FALSE
+                               ], options);
+
+    CreateDiskDirectoryRecursive(destpath,TRUE);
+
+    RECORD ARRAY remotefiles := this->GetDirectory(bucket, path);
+    remotefiles := SELECT *, lastmodified := GetRoundedDatetime(lastmodified, 1000) FROM remotefiles;
+
+    RECORD ARRAY localfiles := ReadDiskDirectory(destpath, "*");
+    FOREVERY(RECORD aborteddownload FROM SELECT * FROM localfiles WHERE name LIKE "*.tmpdownload")
+      DeleteDiskFile(aborteddownload.path);
+
+    FOREVERY (RECORD remotefile FROM remotefiles)
+    {
+      STRING filename := GetNameFromPath(remotefile.name);
+      IF(remotefile.isfolder)
+      {
+        IF(options.recursive)
+          this->SyncToLocal(MergePath(destpath, filename), bucket, MergePath(path, filename), options);
+        CONTINUE;
+      }
+
+      IF(remotefile.lastmodified < options.notbefore)
+        CONTINUE; //too old, not interested
+
+      RECORD match := SELECT * FROM localfiles WHERE localfiles.name = VAR filename;
+
+      IF(RecordExists(match) AND match.size = remotefile.size AND match.modified >= remotefile.lastmodified) //our version is up to date
+        CONTINUE;
+
+      IF(options.printdownloads)
+        PRINT(`Downloading ${RecordExists(match) ? "updated" : "new"} file '${remotefile.name}'... `);
+
+      RECORD file := this->GetObject(bucket, remotefile.name);
+      STRING finalname := MergePath(destpath, filename);
+      STRING tempname := finalname || '.tmpdownload';
+
+      StoreDiskFile(tempname, file.body, [ overwrite := TRUE ]);
+      SetFileModificationDate(tempname, remotefile.lastmodified);
+      IF(NOT MoveDiskPath(tempname, finalname))
+        THROW NEW Exception(`Failed to move ${tempname} into place`);
+
+      IF(options.printdownloads)
+        PRINT(`done\n`);
+    }
+  }
+
+  PUBLIC RECORD FUNCTION ListMultipartUploads(STRING bucket, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ ], options);
+
+    OBJECT doc := this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,"")
+                       , [ urlparameters := [[ name := "uploads", value := ""]]
+                                            ]);
+
+    RECORD retval := [ uploads := RECORD[] ];
+    FOREVERY(OBJECT upload FROM doc->ListElements("*", "Upload"))
+    {
+      RECORD uploadinfo := [ uploadid := PickFirst(upload->listChildren("*", "UploadId"))->textcontent
+                           , uploadkey := PickFirst(upload->listChildren("*", "Key"))->textcontent
+                           ];
+      INSERT uploadinfo INTO retval.uploads AT END;
+    }
+    RETURN retval;
+  }
+
+  PUBLIC MACRO AbortMultipartUpload(STRING bucket, STRING path, STRING uploadid)
+  {
+    this->RawAWS4Request("s3", "DELETE", this->PathToUrl(bucket, path)
+                       , [ urlparameters := [[ name := "uploadId", value := uploadid]]
+                                            ]);
+  }
+
+  PUBLIC RECORD FUNCTION CreateMultipartUpload(STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ contenttype := ""
+                                , cachecontrol := ""
+                                ], options);
+
+    RECORD ARRAY headers;
+    IF(CellExists(options, "contenttype"))
+      INSERT [ field := "Content-Type", value := options.contenttype ] INTO headers AT END;
+    IF(CellExists(options, "cachecontrol"))
+      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+
+
+    OBJECT doc := this->RawAWS4Request("s3", "POST", this->PathToUrl(bucket,path)
+                       , [ headers := headers
+                         , urlparameters := [[ name := "uploads", value := ""]]
+                                            ]);
+    OBJECT initiatemultipartuploadresult := doc->documentelement;
+    RETURN CELL[ bucket := Pickfirst(initiatemultipartuploadresult->ListChildren("*","Bucket"))->textcontent
+               , uploadkey := Pickfirst(initiatemultipartuploadresult->ListChildren("*","Key"))->textcontent
+               , uploadid := Pickfirst(initiatemultipartuploadresult->ListChildren("*","UploadId"))->textcontent
+               ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GenerateUploadPartURLs(RECORD upload, INTEGER64 expectedsize)
+  {
+    //divide in up to 1000 parts, but never smaller than 5MB
+    INTEGER64 partsize := MAX[](INTEGER64[5*1024*1024, expectedsize / 999]);
+
+    //and generate the parts!
+    RECORD ARRAY urls;
+    INTEGER64 off := 0, bytesleft := expectedsize;
+    WHILE(bytesleft > 0)
+    {
+      RECORD req := this->PrepareAWS4Request("s3", "PUT", this->PathToUrl(upload.bucket, upload.uploadkey),
+          [ signedrequest := TRUE
+          , urlparameters := [[ name := "partNumber", value := ToString(Length(urls) + 1) ]
+                             ,[ name := "uploadId", value := upload.uploadid ]
+                             ]
+          , expires := 86400 //one day
+          , unsignedpayload := TRUE
+          ]);
+
+      INTEGER size := INTEGER(MIN[]([bytesleft, partsize]));
+      INSERT CELL[ off := off
+                 , size := size
+                 , req.url
+                 ] INTO urls AT END;
+
+      bytesleft := bytesleft - size;
+      off := off + size;
+    }
+    RETURN urls;
+  }
+
+  PUBLIC RECORD FUNCTION CompleteMultipartUpload(RECORD upload, STRING ARRAY etags)
+  {
+    RECORD ARRAY parts := SELECT partnumber := #etags + 1
+                               , etag
+                            FROM ToRecordArray(etags,"etag") AS etags;
+    BLOB body := LoadWittyLibrary(Resolve("s3.witty"), "XML")->RunComponentToBlob("completemultipartupload", CELL[ parts ]);
+    OBJECT doc := this->RawAWS4Request("s3", "POST", this->PathToUrl(upload.bucket, upload.uploadkey)
+                       , [ urlparameters := [[ name := "uploadId", value := upload.uploadid]
+                                            ]
+                         , body := body
+                         , headers := [[ field := "Content-Type", value := "text/xml" ]]
+                         ]);
+
+    OBJECT completemultipartuploadresult := doc->documentelement;
+    RETURN CELL[ bucket := Pickfirst(completemultipartuploadresult->ListChildren("*","Bucket"))->textcontent
+               , location := Pickfirst(completemultipartuploadresult->ListChildren("*","Location"))->textcontent
+               , objectkey := Pickfirst(completemultipartuploadresult->ListChildren("*","Key"))->textcontent
+               , etag := Pickfirst(completemultipartuploadresult->ListChildren("*","ETag"))->textcontent
+               ];
+  }
+
+  /** Upload an object using the multipart API */
+  PUBLIC RECORD FUNCTION PutObjectInParts(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD uploadinfo := this->CreateMultipartUpload(bucket, path, options);
+    RECORD ARRAY uploadurls := this->GenerateUploadPartURLs(uploadinfo, Length64(data));
+
+    STRING ARRAY etags;
+    FOREVERY(RECORD url FROM uploadurls)
+    {
+      IF(NOT this->__config->__browser->SendRawRequest("PUT", url.url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(data, url.off, url.size)))
+        THROW NEW Exception(`Failed to upload part #${#url}`);
+
+      STRING etag := this->__config->__browser->GetResponseHeader("ETag");
       IF(etag = "")
         THROW NEW Exception(`Did not get an ETag for part #${#url}`);
 

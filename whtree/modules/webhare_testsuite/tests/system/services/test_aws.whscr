@@ -6,8 +6,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webapi/aws/s3.whlib";
+LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
 LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
-
 
 /* This test requires various environment variables to be set
    In Sublime, set these under User preferences > build_env, eg
@@ -38,6 +38,7 @@ LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
 
 */
 
+OBJECT aws;
 OBJECT s3;
 STRING apizone := GetEnvironmentVariable("TESTSECRET_AWS_APIZONE") ?? "eu-west-1";
 STRING apikey := GetEnvironmentVariable("TESTSECRET_AWS_APIKEY");
@@ -49,7 +50,8 @@ MACRO Prepare_S3()
   IF(apikey="" OR apisecret="")
     THROW NEW Exception("TESTSECRET_AWS_APIKEY or TESTSECRET_AWS_APISECRET not set, cannot test S3!");
 
-  s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
+  aws := NEW AmazonAWSConfig(apikey, apisecret);
+  s3 := NEW AmazonAWSS3Service(aws, apizone);
 }
 
 MACRO Test_S3()
