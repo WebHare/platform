@@ -1022,8 +1022,10 @@ void MultiHasher::Process(const void *data,unsigned length)
 
 Blex::StringPair MultiHasher::FinalizeHash()
 {
-        unsigned int outlen;
-        EVP_DigestFinal(evp_md_ctx, digest, &outlen);
+        unsigned int outlen = 0;
+        int retval = EVP_DigestFinal(evp_md_ctx, digest, &outlen);
+        if (!retval)
+            throw std::runtime_error("EVP_DigestFinal returned error: " + GetLastSSLErrors());
         return Blex::StringPair(reinterpret_cast<char*>(&digest), reinterpret_cast<char*>(&digest) + outlen);
 }
 
