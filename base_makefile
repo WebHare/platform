@@ -50,7 +50,7 @@ else
 	CPPFLAGS += -I/usr/include/postgresql/
 endif
 
-PKGCONFIG = PKG_CONFIG_PATH=$(PKGCONFIGPATHS) pkg-config
+PKGCONFIG = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(PKGCONFIGPATHS) pkg-config
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	DLL_SUFFIX=.dylib
