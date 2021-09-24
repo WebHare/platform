@@ -31,6 +31,10 @@
 #error openssl < 1.1 is not supported
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/provider.h>
+#endif
+
 //FIXME Where is the code the below copyright message actually applies to ?
 
 /*
@@ -133,6 +137,11 @@ extern "C"
         }
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+       OSSL_PROVIDER *legacy;
+       OSSL_PROVIDER *deflt;
+#endif
+
 void InitSSL()
 {
         DEBUGSSLPRINT("EnsureSSLInit");
@@ -144,6 +153,32 @@ void InitSSL()
         CRYPTO_set_dynlock_create_callback(dyn_create_function);
         CRYPTO_set_dynlock_lock_callback(dyn_lock_function);
         CRYPTO_set_dynlock_destroy_callback(dyn_destroy_function);
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        /* https://wiki.openssl.org/index.php/OpenSSL_3.0 says:
+
+           Some cryptographic algorithms that were available via the EVP APIs are now considered legacy and their use is
+           strongly discouraged. These legacy EVP algorithms are still available in OpenSSL 3.0 but not by default. If you
+           want to use them then you must load the legacy provider. This can be as simple as a config file change, or can be
+           done programmatically (see below).
+
+           Our NTLM support requires MD4, so we need the legacy provider */
+
+        // Load Multiple providers into the default (NULL) library context
+        legacy = OSSL_PROVIDER_load(NULL, "legacy");
+        if (legacy == NULL)
+        {
+            printf("Failed to load Legacy provider\n");
+            exit(EXIT_FAILURE);
+        }
+        deflt = OSSL_PROVIDER_load(NULL, "default");
+        if (deflt == NULL)
+        {
+            printf("Failed to load Default provider\n");
+            OSSL_PROVIDER_unload(legacy);
+            exit(EXIT_FAILURE);
+        }
+#endif
 
         DEBUGSSLPRINT("EnsureSSLInit: SSL_load_error_strings");
         SSL_load_error_strings(); //allows readable error messages...
@@ -160,6 +195,11 @@ void InitSSL()
 }
 void FinishSSL()
 {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+       OSSL_PROVIDER_unload(legacy);
+       OSSL_PROVIDER_unload(deflt);
+#endif
+
         CRYPTO_set_locking_callback(NULL);
         delete[] lock_cs;
 }
@@ -1022,8 +1062,10 @@ void MultiHasher::Process(const void *data,unsigned length)
 
 Blex::StringPair MultiHasher::FinalizeHash()
 {
-        unsigned int outlen;
-        EVP_DigestFinal(evp_md_ctx, digest, &outlen);
+        unsigned int outlen = 0;
+        int retval = EVP_DigestFinal(evp_md_ctx, digest, &outlen);
+        if (!retval)
+            throw std::runtime_error("EVP_DigestFinal returned error: " + GetLastSSLErrors());
         return Blex::StringPair(reinterpret_cast<char*>(&digest), reinterpret_cast<char*>(&digest) + outlen);
 }
 
