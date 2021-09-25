@@ -970,7 +970,7 @@
         <text tid="round_longlogins_to">Afronden naar</text>
         <text tid="round_longlogins_tz">Volgens tijdzone</text>
         <text tid="round_minduration">Minimum duur</text>
-        <text tid="roundlogins">Rond de verlooptijd af naar een specifiek momemt</text>
+        <text tid="roundlogins">Rond de verlooptijd af naar een specifiek moment</text>
         <text tid="wrdauthsettings">Authenticatie en inlog instellingen</text>
       </textgroup>
     </textgroup>

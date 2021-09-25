@@ -1273,12 +1273,6 @@ export function click(element, options)
 {
   element = _resolveToSingleElement(element);
 
-  if(element.retrieve)
-  {
-    var replacedby = element.retrieve("wh-ui-replacedby");
-    if(replacedby)
-      element=replacedby;
-  }
   var x = options && "x" in options ? options.x : "50%";
   var y = options && "y" in options ? options.y : "50%";
   var button = options && "button" in options ? options.button : 0;
