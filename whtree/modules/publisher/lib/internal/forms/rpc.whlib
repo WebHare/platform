@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -107,8 +108,8 @@ PUBLIC STRING FUNCTION RPC_GetUploadedFileFinalURL(STRING uploadurl)
 
   RECORD wrapped := WrapBlob(files[0].data, files[0].filename);
   OpenPrimary();
-  RETURN wrapped.mimetype LIKE "image/*" ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
-                                         : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
+  RETURN IsSupportedImageResizeType(wrapped.mimetype) ? GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE])
+                                                      : GetCachedFSFileURL("", CreateTempUploadedFile(wrapped)->id);
 }
 PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
 {
