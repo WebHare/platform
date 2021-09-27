@@ -827,6 +827,7 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
+$(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.o: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
 $(ALLPCHS) $(LIBHSVM_OBJS): $(BREWPREFIX)/opt/aws-sdk-cpp/INSTALL_RECEIPT.json
 
 endif # end darwin check
