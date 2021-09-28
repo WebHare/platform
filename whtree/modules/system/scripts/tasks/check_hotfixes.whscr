@@ -82,23 +82,18 @@ BLOB curdata := GetDiskResource(hotfixfile, [ allowmissing := TRUE ]);
 
 IF (IsValueSet(curdata))
 {
-  TRY
-  {
-    // Decode hotfix data
-    RECORD decoded := EnforceStructure(
-        [ modules :=    [ [ module := "", messages := STRING[] ] ]
-        , calculated := DEFAULT DATETIME
-        ], DecodeJSONBlob(curdata));
+  // Decode hotfix data
+  RECORD decoded := EnforceStructure(
+      [ modules :=    [ [ module := "", messages := STRING[] ] ]
+      , calculated := DEFAULT DATETIME
+      ], DecodeJSONBlob(curdata));
 
-    // Audit log is logged in UTC, so we can just use daycount to determine the first check going to a new log file
-    daychange := GetDayCount(decoded.calculated) != GetDayCount(hotfixstate.calculated);
-    curmodules :=
-        SELECT module
-             , curmessages :=   messages
-          FROM decoded.modules;
-  }
-  CATCH (OBJECT e)
-    LogHarescriptException(e);
+  // Audit log is logged in UTC, so we can just use daycount to determine the first check going to a new log file
+  daychange := GetDayCount(decoded.calculated) != GetDayCount(hotfixstate.calculated);
+  curmodules :=
+      SELECT module
+           , curmessages :=   messages
+        FROM decoded.modules;
 }
 
 RECORD ARRAY joined := JoinArrays(hotfixstate.modules, "module", curmodules, [ curmessages := STRING[] ],
