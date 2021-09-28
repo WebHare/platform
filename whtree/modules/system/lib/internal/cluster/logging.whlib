@@ -760,6 +760,7 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
         [ user_entityid :=    effectiveuser->entityid
         , user_authobject :=  effectiveuser->authobjectid
         , user_login :=       effectiveuser->login
+        , wrdschema :=        ObjectExists(effectiveuser->wrdschema) ? effectiveuser->wrdschema->tag : ""
         ];
   }
   ELSE IF (IsConsoleSupportAvailable())
@@ -796,6 +797,7 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
       , user_login :=             ""
       , affecteduser_entityid :=  0
       , affecteduser_login :=     ""
+      , wrdschema :=              ""
       ], CELL[ ...curuser, ...__auditcontext, ...auditcontext ]);
 
   IF (auditcontext.country = "" AND auditcontext.remoteip != "")
