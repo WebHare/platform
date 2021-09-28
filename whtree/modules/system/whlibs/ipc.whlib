@@ -1036,14 +1036,41 @@ PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY
 }
 PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFAULTSTO DEFAULT VARIANT ARRAY) __ATTRIBUTES__(VARARG)
 {
-  VARIANT ARRAY xargs;
+  IF(func NOT LIKE "*#*") //backwards-compatible syntax
+  {
+    IF(Length(args) = 0)
+      THROW NEW Exception(`Illegal function name '${func}'`);
 
-  /* FIXME would be nicer if callanyptrva just appended arguments ?*/
-  INSERT func INTO xargs AT END;
-  FOREVERY(VARIANT el FROM args)
-    INSERT el INTO xargs AT END;
+    func := func || "#" || args[0];
+    DELETE FROM args AT 0;
+  }
 
-  RETURN WaitForPromise(CallAnyPtrVA(PTR AsyncCallFunctionFromJob, xargs));
+  RECORD res := CreateJob("wh::internal/asyncrunner.whscr", "");
+  IF (NOT ObjectExists(res.job))
+    THROW NEW HarescriptErrorException(res.errors);
+
+
+  TRY
+  {
+    RECORD sent := res.job->ipclink->SendMessage(CELL[ task := "runfunction", func, args ]);
+    res.job->Start();
+
+    RECORD reply := res.job->ipclink->ReceiveMessage(MAX_DATETIME);
+    IF (reply.status = "gone")
+      THROW NEW HarescriptErrorException(res.job->GetErrors());
+
+    IF (reply.msg.task != "reply" OR sent.msgid != reply.replyto)
+      THROW NEW Exception("Got message that wasn't reply to request");
+
+    RETURN reply.msg.value;
+  }
+  FINALLY
+  {
+    IF (IsDebugTagEnabled("apr") OR IsDebugTagEnabled("system-apr") OR IsDebugTagEnabled("cov") OR IsDebugTagEnabled("system-cov"))
+      res.job->Release(); // allow reporting to run
+    ELSE
+      res.job->Close();
+  }
 }
 
 PUBLIC BOOLEAN FUNCTION IsWithinFunctionRunningJob()
