@@ -692,8 +692,8 @@ async function invoke(libfunc, ...params)
   {
     libfunc += '#' + params[0];
     params.shift();
+    console.warn("The two-parameter form of test.invoke() is deprecated. Replace the first two parameters with:",libfunc);
   }
-
 
   console.log(`test.invoke ${libfunc}`,params);
   let result = await jstestsrpc.invoke(libfunc, params);
