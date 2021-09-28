@@ -811,7 +811,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** Updates an attribute, does not reload types
       @param tag Tag of the attribute to update
       @param newsettings Updates to the attribute metadata @includecelldef #__InternalUpdateAttribute.newsettings
-      @return Whether the settings did actually change (FALSE if no settuing was modified)
+      @return Whether the settings did actually change (FALSE if no setting was modified)
   */
   PUBLIC BOOLEAN FUNCTION UpdateAttribute(STRING tag, RECORD newsettings)
   {
@@ -836,7 +836,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell newsettings.description Description of the attribute
       @cell newsettings.allowedvalues List of allowed values for this attribute (for enumerations)
       @cell newsettings.attributetypename Type of the attribute
-      @return Whether the settings did actually change (FALSE if no settuing was modified)
+      @return Whether the settings did actually change (FALSE if no setting was modified)
   */
   BOOLEAN FUNCTION __InternalUpdateAttribute(STRING tag, RECORD newsettings)
   {
