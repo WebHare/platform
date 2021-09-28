@@ -1,10 +1,12 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
@@ -12,6 +14,7 @@ LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 
 RECORD hotfixstate :=
     [ modules :=      RECORD[]
+    , calculated :=   GetCurrentDatetime()
     ];
 
 FOREVERY (STRING module FROM GetSortedSet(GetInstalledModulenames()))
@@ -71,4 +74,48 @@ IF (LENGTH(hotfixstate.modules) != 0)
   PRINT(`The following modules have problems: ${Detokenize((SELECT AS STRING ARRAY module FROM hotfixstate.modules), ", ")}\n`);
 
 STRING hotfixfile := GetWebHareConfiguration().ephemeralroot || "hotfixstate.json";
+
+// Log audit events for every change + hotfixes present at audit log file switch
+RECORD ARRAY curmodules;
+BOOLEAN daychange;
+BLOB curdata := GetDiskResource(hotfixfile, [ allowmissing := TRUE ]);
+
+IF (IsValueSet(curdata))
+{
+  TRY
+  {
+    // Decode hotfix data
+    RECORD decoded := EnforceStructure(
+        [ modules :=    [ [ module := "", messages := STRING[] ] ]
+        , calculated := DEFAULT DATETIME
+        ], DecodeJSONBlob(curdata));
+
+    // Audit log is logged in UTC, so we can just use daycount to determine the first check going to a new log file
+    daychange := GetDayCount(decoded.calculated) != GetDayCount(hotfixstate.calculated);
+    curmodules :=
+        SELECT module
+             , curmessages :=   messages
+          FROM decoded.modules;
+  }
+  CATCH (OBJECT e)
+    LogHarescriptException(e);
+}
+
+RECORD ARRAY joined := JoinArrays(hotfixstate.modules, "module", curmodules, [ curmessages := STRING[] ],
+    [ rightouterjoin := TRUE
+    , leftouterjoin := [ messages := STRING[] ]
+    ]);
+
+FOREVERY (RECORD rec FROM joined)
+{
+  // Record in audit log when messages changed or messages present at first check of the day
+  IF (NOT ArrayIsSetEqual(rec.curmessages, rec.messages) OR (IsValueSet(rec.messages) AND daychange))
+  {
+    LogAuditEvent("system:hotfix-state", CELL
+          [ rec.module
+          , rec.messages
+          ]);
+  }
+}
+
 StoreDiskFile(hotfixfile, EncodeJSONBlob(hotfixstate), [ overwrite := TRUE ]);
