@@ -614,7 +614,7 @@ STATIC OBJECTTYPE ASN1Parser EXTEND StringParser
     }
 
     RECORD ARRAY enumvalues;
-    IF (type IN [ "INTEGER", "ENUMERATED" ])
+    IF (type IN [ "INTEGER", "ENUMERATED", "BIT STRING" ])
       enumvalues := this->ParseEnumeration();
     ELSE
       this->SkipBracedSection(); // record fields
@@ -1098,9 +1098,10 @@ STATIC OBJECTTYPE ASN1BERDecoder
       CASE "0:3"
         {
           RETURN
-              [ bits :=   0
-              , bytes :=  0
-              , data :=   ""
+              [ bits :=       0
+              , bytes :=      0
+              , data :=       ""
+              , enumvalues := STRING[]
               ];
         }
       CASE "0:4", "0:12", "0:19"
@@ -1248,10 +1249,16 @@ STATIC OBJECTTYPE ASN1BERDecoder
       CASE "0:3"
         {
           STRING data := berdecoder->ReadOctetString();
-          RETURN
+          STRING ARRAY enumvalues;
+          FOREVERY (RECORD rec FROM type.enumvalues)
+            IF (GetByteValue(SubString(data, 1 + rec.intvalue / 8, 1)) BITAND (1 BITLSHIFT 7 - (rec.intvalue % 8)) != 0)
+              INSERT rec.text INTO enumvalues AT END;
+
+          RETURN CELL
               [ bits :=   LENGTH(data) * 8 - 8 - GetByteValue(data)
               , bytes :=  LENGTH(data) - 1
               , data :=   SubString(data, 1)
+              , enumvalues
               ];
         }
       CASE "0:4"
