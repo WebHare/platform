@@ -762,7 +762,7 @@
       <text tid="certchoice">Vervangen</text>
       <text tid="certchoice-expireold">Gebruik de oude certificaten tot</text>
       <text tid="certchoice-replace">Verwijder alle voorgaande certificaten</text>
-      <text tid="explain">De metadata bevat een certificaat dat nog in de huidige lijst van certificaten zit. Wat moet er gedaan worden met de oude certificaten?</text>
+      <text tid="explain">De metadata bevat een certificaat dat niet in de huidige lijst van certificaten zit. Wat moet er gedaan worden met de oude certificaten?</text>
       <text tid="importchangedcertificate">Nieuw certificaat importeren</text>
     </textgroup>
     <textgroup gid="main">   <!-- samlauth.main -->
