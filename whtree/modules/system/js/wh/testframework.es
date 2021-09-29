@@ -862,6 +862,7 @@ module.exports = { registerTests: registerJSTests
                  , getWebhareVersionNumber
                  , waitForEvent: test.waitForEvent
                  , eq: testEq
+                 , eqFloat: testEqFloat
                  , eqMatch: testEqMatch
                  , eqMembers: testEqMembers
                  , eqIn: testEqIn
