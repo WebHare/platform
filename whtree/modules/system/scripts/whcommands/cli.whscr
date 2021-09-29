@@ -54,7 +54,7 @@ MACRO RunGetOverride(STRING ARRAY params)
   IF(subargs.reason = "")
     TerminateScriptWithError("`wh cli getoverride` requires you to specify a reason (which will be specified in the audit log)");
 
-  LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
+  LogAuditEvent("system:cli", CELL[ action :=       "getoverridetoken"
                                   , duration
                                   , subargs.reason
                                   ]);
