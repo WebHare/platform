@@ -490,11 +490,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
          img-src blob: is required by the image editor to process uploaded images client side
          img-src https: is required for eg the video browser to load thumbnails from youtube
          style-src unsafe-inline is required for the RTD which sets element styles through innerHTML
+         style-src * so RTDs can load fonts.google.com and similar sites
          safari doesn't allow websocket connections with just connect-src 'self' (see https://bugs.webkit.org/show_bug.cgi?id=201591 and https://github.com/w3c/webappsec-csp/issues/7)
             so we'll add the client's origin with a 'ws' protocol
       */
       STRING connectsrc := "connect-src 'self' http://127.0.0.1:7521 ws" || Substring(UnpackURL(GetClientRequestURL()).origin,4);
-      AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' ;${connectsrc}; frame-src *`, FALSE);
+      AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ;${connectsrc}; frame-src *`, FALSE);
     }
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
