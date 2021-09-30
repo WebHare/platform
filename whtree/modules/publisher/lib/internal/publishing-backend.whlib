@@ -158,9 +158,6 @@ STATIC OBJECTTYPE PublicationRun
     //First verify if there is a design node
     OBJECT applytester := GetApplyTesterForObject(this->filedata.fileid);
     RECORD webdesign := applytester->GetWebDesignObjinfo();
-    IF(NOT RecordExists(webdesign))
-      RETURN retval;
-
     retval.webdesign := webdesign;
 
     RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
