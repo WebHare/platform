@@ -287,52 +287,8 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
                                      ];
 
     RECORD screendata := this->policy.screenextension;
-
-    TRY
-    {
-      IF (RecordExists(screendata))
-      {
-        RECORD basepage := RetrieveCachedXMLResource(screendata.file);
-        STRING selector := '//*[local-name()="tabsextension"][@name="' || screendata.name || '"]';
-
-        OBJECT fragmentnode := basepage.doc->GetEvaluatedElement(DEFAULT OBJECT, selector);
-        IF (NOT ObjectExists(fragmentnode))
-          THROW NEW Exception("Could not find the user edit screen extention '" || screendata.name || "' in file '" || screendata.file || "'");
-
-        __usereditcomposition := ^userobj;
-
-        // Load the fragment, save it for future reference
-        RECORD loadresult := ^screentabs->LoadTabsExtension(screendata.file, '__selector:' || selector);
-        this->loadedfragment := loadresult.fragment;
-
-        RECORD fields;
-        FOREVERY (RECORD rec FROM ^screentabs->extendcomponents)
-          fields := CellInsert(fields, rec.name, rec.component);
-
-        // Modify some components. Allow only components from the extendcomponents list.
-        FOREVERY (OBJECT node FROM fragmentnode->GetEvaluatedElements(DEFAULT OBJECT, '*[local-name()="modifycomponent"]'))
-        {
-          RECORD res := SELECT * FROM ^screentabs->extendcomponents WHERE name = node->GetAttribute("name");
-          IF (NOT RecordExists(res))
-            CONTINUE;
-
-          IF (node->HasAttribute("required"))
-            res.component->required := ParseXSBoolean(node->GetAttribute("required"));
-
-          IF (node->HasAttribute("visible"))
-          {
-            res.component->visible := ParseXSBoolean(node->GetAttribute("visible"));
-            IF (NOT res.component->visible)
-              res.component->required := FALSE;
-          }
-        }
-      }
-    }
-    CATCH (OBJECT e)
-    {
-      __usereditcomposition := DEFAULT OBJECT;
-      RunExceptionReportDialog(this, e);
-    }
+    IF (RecordExists(screendata))
+      ^screentabs->LoadTabsExtension(screendata.file || "#" || screendata.name);
   }
 
   // -----------------------------------------------------------------------------
