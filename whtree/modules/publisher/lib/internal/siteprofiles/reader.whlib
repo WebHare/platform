@@ -1364,13 +1364,10 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC RECORD FUNCTION GetWebDesignObjinfo()
   {
-    RECORD webdesign;
+    RECORD webdesign := GetDefaultWebDesignInfo();
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("WEBDESIGN"))
     {
-      IF (NOT RecordExists(webdesign))
-        webdesign := GetDefaultWebDesignInfo();
-
       webdesign.objectname      := apply.webdesign.objectname      ?? webdesign.objectname;
       webdesign.witty           := apply.webdesign.witty           ?? webdesign.witty;
       webdesign.designfolder    := apply.webdesign.designfolder    ?? webdesign.designfolder;
