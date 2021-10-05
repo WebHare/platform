@@ -514,9 +514,9 @@ OPTIONS=("$@")
 
 # Find the 'dev' module, and if present, load its hooks. Not sure if we should trust random modules to install hooks.. especially as we may run under different UIDs ?
 # WEBHARE_WH_HOOK is an external hook which may replace implementations in wh.
-for EXT in "$WEBHARE_DATAROOT/installedmodules/dev/scripts/wh-hook.sh" \
-           "$WEBHARE_DATAROOT/installedmodules/webhare/dev/scripts/wh-hook.sh" \
-           "$WEBHARE_WH_HOOK" ; do
+for EXT in "$WEBHARE_WH_HOOK" \
+           "$WEBHARE_DATAROOT/installedmodules/dev/scripts/wh-hook.sh" \
+           "$WEBHARE_DATAROOT/installedmodules/webhare/dev/scripts/wh-hook.sh" ; do
   if [ -n "$EXT" ] && [ -f "$EXT" ]; then
     # shellcheck source=/dev/null
     source "$EXT"
