@@ -21,16 +21,23 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database 
   RUNAS="chpst -u postgres:whdata"
   PSBIN="/usr/lib/postgresql/11/bin/"
 elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
-  PGVERSION=$(cat $PSROOT/db/PG_VERSION 2>/dev/null )
-  if [ -n "$PGVERSION" -a  "$PGVERSION" != "13" ]; then
-    if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
-      PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
-    else
-      echo "This database requires postgres version @${PGVERSION}. Please install it"
-    fi
+  # The PostgreSQL version is locked to 'postgresql@13' in webhare.rb
+  PGVERSION=13
+  if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
+    PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
   else
-    PSBIN="$(brew --prefix)/bin/"
+    echo "This database requires postgres version @${PGVERSION}. Please install it"
   fi
+  # PGVERSION=$(cat $PSROOT/db/PG_VERSION 2>/dev/null )
+  # if [ -n "$PGVERSION" -a  "$PGVERSION" != "14" ]; then
+  #   if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
+  #     PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
+  #   else
+  #     echo "This database requires postgres version @${PGVERSION}. Please install it"
+  #   fi
+  # else
+  #   PSBIN="$(brew --prefix)/bin/"
+  # fi
 else
   PSBIN="/usr/pgsql-11/bin/"
 fi
