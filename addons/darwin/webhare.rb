@@ -23,7 +23,7 @@ class Webhare < Formula
   depends_on "openssl"
   depends_on "pixman"
   depends_on "pkg-config"
-  depends_on "postgresql"
+  depends_on "postgresql@13"
   depends_on "rapidjson"
   depends_on "unixodbc"
 end
