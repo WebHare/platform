@@ -657,6 +657,15 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
   RETURN method;
 }
 
+/** Is the content type supported as input by the resizer ?
+    @param contenttype Type to check
+    @return true if it is */
+PUBLIC BOOLEAN FUNCTION IsSupportedImageResizeType(STRING contenttype)
+{
+  contenttype := TrimWhitespace(Tokenize(contenttype,';')[0]);
+  RETURN contenttype IN [ "image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff" ];
+}
+
 /** @topic graphics/canvas
     @short Explain how this image will be processed
     @public
