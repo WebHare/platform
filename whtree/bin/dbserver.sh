@@ -28,16 +28,6 @@ elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
   else
     echo "This database requires postgres version @${PGVERSION}. Please install it"
   fi
-  # PGVERSION=$(cat $PSROOT/db/PG_VERSION 2>/dev/null )
-  # if [ -n "$PGVERSION" -a  "$PGVERSION" != "14" ]; then
-  #   if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
-  #     PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
-  #   else
-  #     echo "This database requires postgres version @${PGVERSION}. Please install it"
-  #   fi
-  # else
-  #   PSBIN="$(brew --prefix)/bin/"
-  # fi
 else
   PSBIN="/usr/pgsql-11/bin/"
 fi
