@@ -169,6 +169,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->list->empty := description.empty;
     this->list->icons := description.icons;
     this->list->rowiconname := description.rowiconname;
+    this->list->rowiconhintname := description.rowiconhintname;
     this->list->highlightname := description.highlightname;
     this->list->onfocusin := description.onfocusin;
     IF(description.openaction != DEFAULT OBJECT)
