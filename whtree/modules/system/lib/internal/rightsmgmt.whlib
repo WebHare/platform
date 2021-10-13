@@ -197,10 +197,6 @@ PUBLIC OBJECTTYPE ObjectTypeDescriber
     STRING objecttypename := this->pvt_typerec.objecttypename;
 
     RECORD typedata := GetObjectTypeDataByNameInternal(objecttypename);
-
-    IF (this->pvt_typerec.parentfield = "" AND obj != 0)
-      RETURN DEFAULT INTEGER ARRAY;
-
     INTEGER trans := GetBindingFromSchema(system_internal).transaction;
 
     OBJECT query := NEW DynamicQuery;
