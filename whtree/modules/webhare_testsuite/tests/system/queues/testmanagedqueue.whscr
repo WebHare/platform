@@ -44,6 +44,12 @@ ASYNC MACRO TestWaitableAction()
   TestEq(TRUE, taskinfo.finished <= GetCurrentDatetime(), 'task should be marked as finished');
 
   testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:pingretry2", [ ping := "CANCEL" ]);
+  testfw->CommitWork();
+
+  TestThrowsLike("*ping=CANCEL*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //cancels because we told it to
+
+  testfw->BeginWork();
   taskid := ScheduleManagedTask("webhare_testsuite:pingretry2", [ ping := "ABORT" ]);
   testfw->CommitWork();
 

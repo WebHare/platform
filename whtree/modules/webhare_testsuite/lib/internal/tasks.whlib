@@ -33,6 +33,11 @@ PUBLIC OBJECTTYPE PingTask EXTEND ManagedTaskBase
 
     IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="ABORT")
       ABORT("PING-TASK-Abort");
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="CANCEL")
+    {
+      this->ResolveByCancellation(CELL[ data ], "ping=CANCEL");
+      RETURN;
+    }
     IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROW")
       THROW NEW Exception("PING-TASK-Throw");
     IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROWNOW" AND ReadRegistryKey("webhare_testsuite.tests.taskthrownow"))
