@@ -3556,8 +3556,8 @@ PUBLIC VARIANT FUNCTION GetStoredScriptProperty(STRING propertyname) __ATTRIBUTE
 
 RECORD ARRAY spothitcounts;
 
-/** Return the number of times this functions was called from, fro the caller's location
-    @return Hit count
+/** Return the number of times this functions was called from, from the caller's location
+    @return Hit count, 1 for the first call
     @example
 // prints '1-1\n2-2\n'
 FOR (INTEGER i := 0; i < 2; i := i + 1)
