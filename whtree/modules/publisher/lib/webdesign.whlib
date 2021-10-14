@@ -130,8 +130,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //content nav stops
   STRING ARRAY pvt_contentnavstops;
   RECORD ARRAY __invokedwitties;
-  //enable ecmascript modules. experimental and likely broken
-  PUBLIC BOOLEAN __esm;
 
   OBJECT defaultformrenderer;
   /// Extra resource dependencies (for automatic outputtools reload)
@@ -1082,7 +1080,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
       designroot := data.designcdnroot;
 
-    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss, this->__esm);
+    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss);
 
     this->DoInserts("dependencies-bottom");
 
