@@ -145,7 +145,7 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
     content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
 
     STRING injection;
-    IF(insertoutputtools)
+    IF(insertoutputtools AND content NOT LIKE `*<script src="/.dev/debug.js" async></script>*`)
       injection := GetOutputtoolsJSCode();
 
     INTEGER headclose := SearchSubstring(content,'</head>');
