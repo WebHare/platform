@@ -153,6 +153,7 @@ RECORD data := [ printheaders :=    PTR depsolver->PrintHeaders(DEFAULT OBJECT,"
                , testlisturl :=     testlisturl
                , testsiteroot :=    testsiteroot
                , webhareversionnumber := GetWebhareVersionNumber()
+               , hasdevmodule := IsModuleInstalled("dev")
                ];
 
 testrunwitty->RunComponent("hostingpage", data);
