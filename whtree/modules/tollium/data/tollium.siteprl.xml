@@ -13,7 +13,7 @@
   <apply priority="50">
     <to type="file" filetype="http://www.webhare.net/xmlns/tollium/applicationportal" />
 
-    <!-- Setup default webdesign. Sync with webinterface.siteprl -->
+    <!-- Setup default webdesign. Sync with webinterface.siteprl.xml -->
     <webdesign assetpack="webinterface"
                async="false"
                designfolder="mod::tollium/webdesigns/webinterface"
@@ -21,7 +21,8 @@
                objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"
                supportsaccessdenied="true"
                supportserrors="true"
-               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty" />
+               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
+               wittyencoding="HTML-NI" />
   </apply>
 
 </siteprofile>

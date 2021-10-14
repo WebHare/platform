@@ -13,12 +13,11 @@
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
-             api2017="true"
+             wrdschema="system:usermgmt"
              cookiename="webharelogin-webharebackend"
-             loginpage="currentsite::/"
-             supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport"
              lastloginfield="WHUSER_LASTLOGIN"
-             wrdschema="system:usermgmt" />
+             loginpage="currentsite::/"
+             supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport" />
 
     <!-- Setup default webdesign. Sync with tollium/data/siteprofile.xml. We need it here for 404 and /.publisher/debug pages -->
     <webdesign assetpack="webinterface"
@@ -27,7 +26,8 @@
                objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"
                supportsaccessdenied="true"
                supportserrors="true"
-               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty" />
+               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
+               wittyencoding="HTML-NI" />
 
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
@@ -40,9 +40,9 @@
     <to type="file" pathmask="/testportal" />
     <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" allowwebhareinstall="false" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             wrdschema="wrd:testschema"
              cookiename="webharelogin-testportal"
-             loginpage="currentsite::/testportal"
-             wrdschema="wrd:testschema" />
+             loginpage="currentsite::/testportal" />
   </apply>
 
   <applysiteprofile path="pages/manual/manual.siteprl.xml" />
@@ -56,6 +56,7 @@
         <addheader header="X-Content-Type-Options" value="nosniff" />
         <addheader header="Referrer-Policy" value="no-referrer" />
       </webrule>
+
       <!-- protect the testportal page from being accessed on non-development servers -->
       <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
       <webrule path="/" match="initial" maxservertype="development">
