@@ -395,8 +395,8 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
 
     ^users->value :=
         SELECT id := user->authobjectid
-             , name := user->realname ?? user->login
-             , email := user->emailaddress
+             , name := user->type = 1 ? (user->realname ?? user->login) : user->GetUncachedUserRightsName()
+             , email := user->type = 1 ? user->emailaddress : user->GetUncachedUserRightsName()
              , obj := user
           FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
     ^name->value := worklistinfo.name;
