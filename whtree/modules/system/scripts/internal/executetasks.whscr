@@ -719,6 +719,34 @@ OBJECT ASYNC FUNCTION GotIncomingLink()
         RunStartupScripts(rec.msg.modulename);
         link->SendReply([ status := "ok" ], rec.msgid);
       }
+      CASE "listprocesses"
+      {
+        link->SendReply(CELL
+            [ status := "ok"
+            , processes :=
+                 (SELECT procid
+                       , taskid :=  task.id
+                       , script :=  task.script
+                       , tag :=     task.tag
+                       , starttime
+                       , killtime
+                       , timeout
+                    FROM processes)
+            , uncompleted_startup_scripts :=
+                 (SELECT script
+                       , tag
+                    FROM system_internal.tasks
+                   WHERE tag IN uncompleted_startup_scripts)
+            , module_startup_scripts :=
+                 (SELECT script
+                       , tag
+                    FROM module_startup_scripts)
+            ], rec.msgid);
+      }
+      DEFAULT
+      {
+        link->SendReply([ status := "unknowntask" ]);
+      }
     }
   }
 
