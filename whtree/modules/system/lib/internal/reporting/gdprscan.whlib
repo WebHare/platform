@@ -44,7 +44,7 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
     IF(RecordExists(personstats))
     {
       IF (personstats.testpersons != personstats.numactive + personstats.inactive)
-        Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+        Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive, ${personstats.testpersons} test), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
       ELSE
         PRINT(`- only test persons: ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive)\n`);
     }
@@ -183,6 +183,8 @@ PUBLIC RECORD FUNCTION GetGDPRScanReport()
           , testpersons
           ];
     }
+
+
 
     wrdschema := CELL[ ...wrdschema
                      , personstats
