@@ -2308,7 +2308,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         CONTINUE;
 
       TRY
-        INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode AND FALSE) INTO settings AT END;
+        INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode) INTO settings AT END;
       CATCH (OBJECT e)
       {
         e->what := e->what || ` while parsing value for attribute ${EncodeJSON(attr.tag)}`;
