@@ -28,7 +28,6 @@ MACRO TestViewInterceptions()
   Testeq(RECORD[],doc->GetParseErrors());
   TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
   TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
-  TestEq(TRUE, ObjectExists(doc->QuerySelector(`script[src$="outputtools.js"]`)));
 
   res := RewriteAssetpackCode(StringToBlob(
 `<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`),FALSE);
@@ -38,10 +37,6 @@ MACRO TestViewInterceptions()
   TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
   TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
   TestEq('<script async="" src="/.ap/webhare_testsuite.basetest.dev/ap.js"><\/script>', doc->GetElements("script")[1]->outerhtml);
-  TestEq(FALSE, ObjectExists(doc->QuerySelector(`script[src$="outputtools.js"]`)));
-
-//  res := RewriteAssetpackCode(StringToBlob(
-//`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head>mbody></body></html>`));
 }
 
 RECORD FUNCTION GetCSSStuff()

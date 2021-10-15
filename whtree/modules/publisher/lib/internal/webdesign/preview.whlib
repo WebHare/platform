@@ -135,25 +135,17 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
 
     //matches[5] == JS options (async, crossorigin=anonymous)
     STRING toinsert;
-    IF(matches[0].value LIKE "*/.esm-experimental/*")
-    {
-      toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
-                  || `<script src="/.esm-experimental/!/${outputtag}/ap.js"${matches[5].value}`;
-    }
-    ELSE
-    {
-      STRING espolyfill;
-      IF(compileresult.lastcompiler = "webpack")
-        espolyfill := `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`;
+    STRING espolyfill;
+    IF(compileresult.lastcompiler = "webpack")
+      espolyfill := `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`;
 
-      toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
-                  || espolyfill
-                  || `<script src="${matches[3].value}/.ap/${outputtag}/ap.js"${matches[5].value}`;
-    }
+    toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
+                || espolyfill
+                || `<script src="${matches[3].value}/.ap/${outputtag}/ap.js"${matches[5].value}`;
     content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
 
     STRING injection;
-    IF(insertoutputtools)
+    IF(insertoutputtools AND content NOT LIKE `*<script src="/.dev/debug.js" async></script>*`)
       injection := GetOutputtoolsJSCode();
 
     INTEGER headclose := SearchSubstring(content,'</head>');

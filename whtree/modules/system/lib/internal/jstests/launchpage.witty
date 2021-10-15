@@ -1,10 +1,11 @@
 [component hostingpage]<!DOCTYPE html>
 <html data-testsiteroot="[testsiteroot]" data-webhareversionnumber="[webhareversionnumber]">
   <head>
-     <link rel="shortcut icon" href="favicon.ico" />
+    <link rel="shortcut icon" href="favicon.ico" />
     <title>[forevery mask][if first][else],[/if][mask][/forevery] (JSTests)</title>
     [printheaders]
     <script src="testdata.shtml?type=js"></script>
+    [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
   </head>
   <body data-testslist="[testlisturl]"
         >

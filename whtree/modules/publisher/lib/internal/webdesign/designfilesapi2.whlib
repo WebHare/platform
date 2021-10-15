@@ -228,17 +228,17 @@ STATIC OBJECTTYPE Resolver
     this->polyfillbundlebaseurl := "/.ap/tollium.polyfills/";
   }
 
-  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE, BOOLEAN esm DEFAULTSTO FALSE)
+  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE)
   {
     this->EnsurePackingInfo();
 
     STRING jssettings;
-    IF(ObjectExists(webdesign) AND webdesign->asyncbundle AND NOT esm)
+    IF(ObjectExists(webdesign) AND webdesign->asyncbundle)
       jssettings := jssettings || ' async';
     IF(ObjectExists(webdesign) AND webdesign->designcdnrooturl != webdesign->designrooturl)
       jssettings := jssettings || ' crossorigin="anonymous"';
 
-    IF (this->devversion AND NOT esm)
+    IF (this->devversion)
     {
       STRING polyfillbundlebaseurl := this->polyfillbundlebaseurl;
       IF(cachebuster != "")
@@ -260,10 +260,7 @@ STATIC OBJECTTYPE Resolver
     {
       Print(`<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`);
     }
-    IF(esm) //experimental ESM support. requiers external code to actually provide the ESM loader!
-      Print(`<script src="/.esm-experimental/!${EncodeValue(bundlebaseurl)}ap.js" type="module"${jssettings}></script>`);
-    ELSE
-      Print(`<script src="${EncodeValue(bundlebaseurl)}ap.js"${jssettings}></script>`);
+    Print(`<script src="${EncodeValue(bundlebaseurl)}ap.js"${jssettings}></script>`);
     IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
       Print('\n');
   }
