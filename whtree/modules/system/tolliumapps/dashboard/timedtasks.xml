@@ -18,19 +18,33 @@
       </menu>
     </menus>
     <body height="1pr">
-      <panel height="1pr">
-        <list name="tasks"
-              selectmode="single"
-              borders="top right bottom"
-              openaction="taskproperties"
-              selectcontextmenu="taskmenu"
-              flags="isenabled" >
-          <column type="text" name="script" iconname="icon" />
-          <column name="running" type="icon" />
-          <column type="datetime" name="nexttime" storeutc="true" width="16x" />
-          <column type="text" name="description" />
-        </list>
-      </panel>
+      <split type="vertical">
+        <part height="1pr">
+          <list name="tasks"
+                selectmode="single"
+                borders="top right"
+                openaction="taskproperties"
+                selectcontextmenu="taskmenu"
+                flags="isenabled">
+            <column type="text" name="script" iconname="icon" />
+            <column name="running" type="icon" />
+            <column type="datetime" name="nexttime" storeutc="true" width="16x" />
+            <column type="text" name="description" />
+          </list>
+        </part>
+        <part height="10x">
+          <heading tid=".nowrunning" />
+          <list name="runningtasks"
+                selectmode="single"
+                borders="top right bottom"
+                sortcolumn="starttime">
+            <column name="script" type="text" />
+            <column name="tag" type="text" />
+            <column type="datetime" name="starttime" precision="seconds" storeutc="true" width="18x" />
+            <column type="datetime" name="killtime" precision="seconds" storeutc="true" width="18x" />
+          </list>
+        </part>
+      </split>
     </body>
   </screen>
 

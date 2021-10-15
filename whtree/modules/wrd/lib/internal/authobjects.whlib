@@ -55,7 +55,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   /// Type of object (1: user, 2: unit, 3: role, 5: database role)
   PUBLIC PROPERTY type(pvt_type, -);
 
-  // WRD schema containing the entity
+  /// @type(object %WRDSchema2017) WRD schema containing the entity
   PUBLIC PROPERTY wrdschema(GetWRDSchema, -);
 
   /// Authentication API (only set when this object was made through the authapi

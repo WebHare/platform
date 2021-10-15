@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogSt
 LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";
 
 /** Flushes a specific module log
-    @param name Name of the log (module:logname) to flush
+    @param name Name of the log (module:logname) to flush, or "*" to flush all log files
     @return Whether the flush succeeded
 */
 PUBLIC BOOLEAN FUNCTION FlushModuleLog(STRING name)

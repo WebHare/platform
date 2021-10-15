@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "proxy", type := "switch" ]
+    , [ name := "accessrules", type := "stringopt" ]
     ]);
 
 OBJECT trans := OpenPrimary();
@@ -34,6 +35,19 @@ IF (args.proxy)
 
   Print("\nProxy registrations\n\n");
   DumpValue(proxyreg, "tree");
+  RETURN;
+}
+
+IF (args.accessrules != "")
+{
+  STRING ARRAY id_strs := Tokenize(NormalizeWhitespace(Substitute(args.accessrules, ",", " ")), " ");
+  INTEGER ARRAY ids;
+  FOREVERY (STRING id_str FROM id_strs)
+    INSERT ToInteger(id_str, 0) INTO ids AT END;
+
+  Print("\nRules\n\n");
+  DumpValue((SELECT * FROM checkdata.rules WHERE id IN ids), "boxed");
+  DumpValue((SELECT * FROM checkdata.rules WHERE id IN ids), "tree");
   RETURN;
 }
 

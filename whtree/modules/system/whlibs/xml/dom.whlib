@@ -488,9 +488,6 @@ PUBLIC STATIC OBJECTTYPE XmlNode
 
   PRIVATE OBJECT FUNCTION GetFirstElementChild()
   {
-    IF(NOT this->HasChildNodes())
-      RETURN DEFAULT OBJECT;
-
     OBJECT node := this->GetFirstChild();
     WHILE(ObjectExists(node) AND node->nodeType != 1)
     {
@@ -502,9 +499,6 @@ PUBLIC STATIC OBJECTTYPE XmlNode
 
   PRIVATE OBJECT FUNCTION GetLastElementChild()
   {
-    IF(NOT this->HasChildNodes())
-      RETURN DEFAULT OBJECT;
-
     OBJECT node := this->GetLastChild();
     WHILE(ObjectExists(node) AND node->nodeType != 1)
     {

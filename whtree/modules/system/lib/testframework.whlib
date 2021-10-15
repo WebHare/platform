@@ -13,6 +13,7 @@ LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestRejectedLike, TestEqLike, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException;
@@ -2404,4 +2405,53 @@ PUBLIC MACRO SnoozeRateLimits()
   IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
     WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
   GetPrimary()->CommitWork();
+}
+
+/** Wait for timed tasks to finish
+    @cell(string array) options.tags Masks for task tags to wait on
+    @cell(string array) options.scripts Masks for task scripts to wait on
+    @cell(datetime) options.timeout Timeout, defaults to 30 seconds
+*/
+PUBLIC MACRO WaitForTimedTasks(RECORD options)
+{
+  options := ValidateOptions(
+      [ tags :=     STRING[]
+      , scripts :=  STRING[]
+      , timeout :=  AddTimeToDate(30000, GetCurrentDatetime())
+      ], options);
+
+  // If nothing is supplied, wait for all tasks
+  IF (IsDefaultValue(options.tags) AND IsDefaultValue(options.scripts))
+    options.tags := [ "*" ];
+
+  DATETIME start := GetCurrentDateTime();
+  FOR (INTEGER iter := 0;; iter := iter + 1)
+  {
+    OBJECT link := ConnectToGlobalIPCPort("system:executetasks");
+    RECORD retval := link->DoRequest([ task := "listprocesses" ]);
+    link->Close();
+
+    IF (retval.status != "ok" OR retval.msg.status != "ok")
+      THROW NEW Exception(`Connection to system:executetasks service lost`);
+
+    IF (NOT RecordExists(
+          SELECT
+            FROM retval.msg.processes CONCAT retval.msg.module_startup_scripts CONCAT retval.msg.uncompleted_startup_scripts
+           WHERE __MatchesAnyMask(script, options.scripts) OR __MatchesAnyMask(tag, options.tags)))
+      RETURN;
+
+    DATETIME now := GetCurrentDatetime();
+    IF (((iter + 1) % 50) = 0 OR now >= options.timeout)
+    {
+      PRINT(`** ${now >= options.timeout ? "timeout " : iter<50 ? "" : "still "}waiting for executetasks to finish (waited ${GetDateTimeDifference(start, now).msecs / 1000} secs)\n`);
+      PRINT(`Waiting for tags [${Detokenize(options.tags, ", ")}], scripts [${Detokenize(options.scripts, ", ")}]\n`);
+      PRINT(`Now running:\n${AnyToString((SELECT script, tag, starttime, ismatch := __MatchesAnyMask(script, options.scripts) OR __MatchesAnyMask(tag, options.tags) FROM retval.msg.processes ORDER BY starttime), "boxed")}`);
+      PRINT(`Module startup scripts:\n${AnyToString((SELECT script, tag, ismatch := __MatchesAnyMask(script, options.scripts) OR __MatchesAnyMask(tag, options.tags) FROM retval.msg.module_startup_scripts ORDER BY tag), "boxed")}`);
+      PRINT(`Uncompleted startup scripts:\n${AnyToString((SELECT script, tag, ismatch := __MatchesAnyMask(script, options.scripts) OR __MatchesAnyMask(tag, options.tags) FROM retval.msg.uncompleted_startup_scripts ORDER BY tag), "boxed")}`);
+      IF (now >= options.timeout)
+        THROW NEW Exception(`Timeout waiting for timed tasks to finish`);
+    }
+
+    Sleep(100);
+  }
 }

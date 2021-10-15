@@ -795,11 +795,20 @@ Database::RPCResponse::Type Connection::RemoteFlushLog(Database::IOBuffer *iobuf
         {
                 WHManager::LockedLogData::WriteRef lock(manager->logdata);
 
-                std::map< std::string, WHManager::LogFileData >::iterator it = lock->logs.find(logname);
-                if (it != lock->logs.end()) // hmm, problem!
+                if (logname == "*")
                 {
-                        it->second.logfile->Flush();
+                        for (auto itr: lock->logs)
+                            itr.second.logfile->Flush();
                         found_log = true;
+                }
+                else
+                {
+                        std::map< std::string, WHManager::LogFileData >::iterator it = lock->logs.find(logname);
+                        if (it != lock->logs.end()) // hmm, problem!
+                        {
+                                it->second.logfile->Flush();
+                                found_log = true;
+                        }
                 }
         }
 

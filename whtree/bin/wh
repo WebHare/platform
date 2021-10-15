@@ -914,6 +914,9 @@ HERE
     rm -rf -- "$WEBHARE_DATAROOT"/dbase/index* "$WEBHARE_DATAROOT"/dbase/db-*.* "$WEBHARE_DATAROOT"/dbase/translog.* "$WEBHARE_DATAROOT"/dbase/blob*
     rm -rf -- "$WEBHARE_DATAROOT"/log "$WEBHARE_DATAROOT"/system.cache "$WEBHARE_DATAROOT"/publisher.pb "$WEBHARE_DATAROOT"/publisher.pd "$WEBHARE_DATAROOT"/system.last-shrinkwrap-var
     rm -rf -- "$WEBHARE_DATAROOT"/index -- "$WEBHARE_DATAROOT"/elasticsearch
+    if [ -x "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" ]; then
+      "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" &
+    fi
     exec $WEBHARE_DIR/bin/wh "$@" console
     exit 255
     ;;
