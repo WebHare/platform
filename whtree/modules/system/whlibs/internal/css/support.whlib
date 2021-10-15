@@ -787,6 +787,7 @@ STATIC OBJECTTYPE CSSSelectorParser
   }
 
   /** Parses a compound selector
+      @param required If no compound selector was found, throw an error if TRUE. Otherwise return DEFAULT RECORD
       @return Compound selector
       @cell(string) return.tagname Expected tag name ('*' if all match)
       @cell(record array) return.subclasses Subclass tests. Pseudo-class tests can have custom fields, returned
@@ -1214,11 +1215,12 @@ STATIC OBJECTTYPE CSSSelectorParser
 
 /** Returns the 1-based index of a node (filtered with compoundselector)
     @param node Node
+    @param ishtml Whether the node is from a HTML document
     @param fromstart If TRUE, get the index from the start, else from the end
     @param compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
     @return 1-based index of this node within its matching siblings list
 */
-INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselector)
+INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD compoundselector)
 {
   INTEGER idx := 1;
   WHILE (TRUE)
@@ -1227,7 +1229,7 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselecto
     IF (NOT ObjectExists(node))
       RETURN idx;
 
-    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node))
+    IF (NOT RecordExists(compoundselector) OR TestCompoundSelector(compoundselector, node, ishtml))
       idx := idx + 1;
   }
 
@@ -1236,6 +1238,7 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselecto
 
 /** Test an index-based function (nth-child of)
     @param node Node
+    @param ishtml Whether the node is from a HTML document
     @param fromstart If TRUE, get the index from the start, else from the end
     @param sc Test data
     @cell(integer) sc.factor A from An+B expression
@@ -1243,9 +1246,9 @@ INTEGER FUNCTION GetIndex(OBJECT node, BOOLEAN fromstart, RECORD compoundselecto
     @cell sc.compoundselector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
     @return Whether the node matches the index-based functions
 */
-BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
+BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN ishtml, BOOLEAN fromstart, RECORD sc)
 {
-  INTEGER idx := GetIndex(node, fromstart, sc.compoundselector);
+  INTEGER idx := GetIndex(node, ishtml, fromstart, sc.compoundselector);
   INTEGER todiv := idx - sc.ofs;
   BOOLEAN ismatch := sc.factor = 0
         ? todiv = 0
@@ -1258,13 +1261,14 @@ BOOLEAN FUNCTION TestIndex(OBJECT node, BOOLEAN fromstart, RECORD sc)
 /** Tests if a node matches a compound selector
     @param selector Compound selector @includecelldef #CSSSelectorParser::ParseCompoundSelector.return
     @param node Node to test
+    @param ishtml Whether the node is from a HTML document
     @return TRUE if the node matches
 */
-PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
+PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLEAN ishtml)
 {
   // tag name test
   IF (selector.tagname != "*" AND
-      (MemberExists(node->ownerdocument, "__IS_HTML_DOCUMENT")
+      (ishtml
           ? ToUppercase(node->localname ?? node->nodename) != ToUppercase(selector.tagname)
           : (node->localname ?? node->nodename) != selector.tagname))
     RETURN FALSE;
@@ -1296,8 +1300,6 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
           attrvals := STRING[ node->GetAttributeNS(sc.attrns, sc.attr) ];
         ELSE
         {
-          BOOLEAN ishtml := MemberExists(node->ownerdocument, "__IS_HTML_DOCUMENT");
-
           // XML documents must have exact matches for the ns and the name, so no need to search if no ns wildcard is present
           // HTML has case-insensitive matching for the attribute name
           IF (NOT ishtml AND sc.attrns != "*")
@@ -1353,17 +1355,17 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
         {
           CASE "not"
           {
-            IF (TestCompoundSelector(sc.compoundselector, node))
+            IF (TestCompoundSelector(sc.compoundselector, node, ishtml))
               RETURN FALSE;
           }
           CASE "nth-child"
           {
-            IF (NOT TestIndex(node, TRUE, sc))
+            IF (NOT TestIndex(node, ishtml, TRUE, sc))
               RETURN FALSE;
           }
           CASE "nth-last-child"
           {
-            IF (NOT TestIndex(node, FALSE, sc))
+            IF (NOT TestIndex(node, ishtml, FALSE, sc))
               RETURN FALSE;
           }
           CASE "nth-of-type"
@@ -1374,7 +1376,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
                 , subclasses :=   RECORD[]
                 ];
 
-            IF (NOT TestIndex(node, TRUE, CELL[ ...sc, compoundselector ]))
+            IF (NOT TestIndex(node, ishtml, TRUE, CELL[ ...sc, compoundselector ]))
               RETURN FALSE;
           }
           CASE "nth-last-of-type"
@@ -1385,7 +1387,7 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
                 , subclasses :=   RECORD[]
                 ];
 
-            IF (NOT TestIndex(node, FALSE, CELL[ ...sc, compoundselector ]))
+            IF (NOT TestIndex(node, ishtml, FALSE, CELL[ ...sc, compoundselector ]))
               RETURN FALSE;
           }
           DEFAULT
@@ -1428,9 +1430,9 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
           {
             // use nth-first-child and nth-last-child evaluations
             RECORD test := [ factor := 0, ofs := 1, compoundselector := DEFAULT RECORD ];
-            IF (NOT TestIndex(node, TRUE, test))
+            IF (NOT TestIndex(node, ishtml, TRUE, test))
               RETURN FALSE;
-            IF (NOT TestIndex(node, FALSE, test))
+            IF (NOT TestIndex(node, ishtml, FALSE, test))
               RETURN FALSE;
           }
           CASE "only-of-type"
@@ -1442,9 +1444,9 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node)
                 ];
 
             RECORD test := CELL[ factor := 0, ofs := 1, compoundselector ];
-            IF (NOT TestIndex(node, TRUE, test))
+            IF (NOT TestIndex(node, ishtml, TRUE, test))
               RETURN FALSE;
-            IF (NOT TestIndex(node, FALSE, test))
+            IF (NOT TestIndex(node, ishtml, FALSE, test))
               RETURN FALSE;
           }
           DEFAULT
@@ -1600,6 +1602,8 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
     min_return_depth := mode = "closest" ? 0 : scopepath.pathlen - 1;
   }
 
+  BOOLEAN ishtml := MemberExists(rootnode->ownerdocument, "__IS_HTML_DOCUMENT");
+
   /* Evaluation stack
      Contains a record for every node in the path to the current node
      @cell node Node to test next (is set to nextsibling before recursing into children)
@@ -1656,7 +1660,7 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         CONTINUE;
 
       // Test the rule part
-      BOOLEAN test := TestCompoundSelector(rec.compoundselector, testnode);
+      BOOLEAN test := TestCompoundSelector(rec.compoundselector, testnode, ishtml);
       IF (NOT test)
         CONTINUE;
 
