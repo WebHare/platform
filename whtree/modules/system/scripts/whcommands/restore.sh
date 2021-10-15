@@ -1,3 +1,4 @@
+#!/bin/bash
 source $WEBHARE_DIR/lib/wh-functions.sh
 
 BLOBIMPORTMODE="hardlink"
@@ -17,6 +18,9 @@ while true; do
   elif [ "$1" == "--softlink" ]; then
     BLOBIMPORTMODE="softlink"
     shift
+  elif [ "$1" == "--hardlink" ]; then
+    BLOBIMPORTMODE="hardlink"
+    shift
   elif [ "$1" == "--restoreto" ]; then
     shift
     RESTORETO="$1"
@@ -31,9 +35,10 @@ while true; do
 done
 
 if [ -z "$1" ]; then
-  echo "Syntax: wh restore [ --softlink ] [ --copy ] [ --webhareimage image ] [ --restoreto newdbasedir ] <srcdir>"
-  echo "  --softlink:     softlink blobs, don't try to hardlink"
-  echo "  --copy:         copy blobs, don't try to hardlink"
+  echo "Syntax: wh restore [ --hardlink | --softlink | --copy ] [ --webhareimage image ] [ --restoreto newdbasedir ] <srcdir>"
+  echo "  --hardlink:     hardlink blobs. this is the default"
+  echo "  --softlink:     softlink blobs"
+  echo "  --copy:         copy blobs"
   echo "  --webhareimage: use docker to restore. full docker image name or just a version, eg 4.19"
   exit 1
 fi

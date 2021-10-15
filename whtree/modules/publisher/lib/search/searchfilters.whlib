@@ -177,7 +177,7 @@ PUBLIC OBJECTTYPE SearchFilterContext
   {
     RECORD filter := SELECT * FROM this->filterdefinitions WHERE rowkey = filterrowkey;
     IF(NOT RecordExists(filter))
-      THROW NEW Exception(`No such filter '${filterrowkey}`);
+      RETURN DEFAULT RECORD;
 
     IF(NOT RecordExists(filter.descr))
     {
