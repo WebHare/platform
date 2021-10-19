@@ -613,7 +613,12 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
     {
       RETURN ToInteger64(rawdata,0);
     }
-    CASE 12,6 /* Datetime / date */
+    CASE 6 // Date
+    {
+      STRING ARRAY toks := Tokenize(rawdata,',');
+      RETURN MakeDateFromParts(ToInteger(toks[0],0), 0);
+    }
+    CASE 12 // Datetime
     {
       STRING ARRAY toks := Tokenize(rawdata,',');
       RETURN Length(toks) = 2 ? MakeDateFromParts(ToInteger(toks[0],0), ToInteger(toks[1],0)) : DEFAULT DATETIME;

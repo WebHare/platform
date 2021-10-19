@@ -2286,7 +2286,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             IF(rec.value!="")
               newsets := [[ rawdata := rec.value ]];
           }
-          CASE 6/*date*/, 12 /*datetime*/
+          CASE 6/*date*/
+          {
+            IF(rec.value != DEFAULT DATETIME) //TODO perhaps we can stop storing msecondcounts, but do query engines agree ?
+              newsets := [[ rawdata := GetDayCount(rec.value) || "," || 0 ]];
+          }
+          CASE 12 /*datetime*/
           {
             IF(rec.value != DEFAULT DATETIME)
               newsets := [[ rawdata := GetDayCount(rec.value) || "," || GetMsecondCount(rec.value) ]];
