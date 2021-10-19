@@ -763,16 +763,6 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
 
 >;
 
-PUBLIC STRING FUNCTION ResolveRichDocLink(RECORD ARRAY links, STRING src)
-{
-  RECORD split := SplitIntLink(src);
-  RECORD matchlink := SELECT * FROM links WHERE "x-richdoclink:" || tag = split.link;
-  IF(NOT RecordExists(matchlink))
-    RETURN "";
-
-  RETURN GetIntExtLinkTarget(MakeIntExtInternalLink(matchlink.linkref, split.append));
-}
-
 PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
 <
   OBJECT ARRAY richobjects;
