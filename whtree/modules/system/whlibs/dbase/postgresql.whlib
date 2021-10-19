@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 /**
 */
@@ -1814,7 +1814,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   }
   CATCH (OBJECT e)
   {
+    //Map 'db not ready' (or not started) errors to simply returing a default object
     IF (e->what LIKE "Connection failed: could not connect to server: *")
+      RETURN DEFAULT OBJECT;
+    IF (e->what LIKE "Connection failed: connection to server on socket *")
       RETURN DEFAULT OBJECT;
     IF (e->what LIKE "Connection failed: FATAL:  the database system is starting up*")
       RETURN DEFAULT OBJECT;
