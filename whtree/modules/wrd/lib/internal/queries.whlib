@@ -3731,7 +3731,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
   CASE 3 /* Address */
     { RETURN NEW WRDDBAddressValue(wrd_type, attrinfo); }
 
-  CASE 6 /* Date and/or time types */
+  CASE 6 /* Date */
      , 12 /* datetime */
     { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo, attributetype = 12); }
 
@@ -3741,7 +3741,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
   CASE 10 /* File */
     { RETURN NEW WRDDBFileValue(wrd_type, attrinfo, options); }
 
-  CASE 11 /* Date and/or time types */
+  CASE 11 /* time */
      , 15 /* Integer */
     { RETURN NEW WRDDBIntegerValue(wrd_type, attrinfo); }
 
