@@ -2636,7 +2636,14 @@ STRING FUNCTION GetDateTimeSharedPrefix(STRING range_from, STRING range_to)
 
 /// Object accessor for datetimes
 STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
-< PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+< BOOLEAN isdatetime;
+
+  MACRO NEW(OBJECT wrdtype, RECORD attr, BOOLEAN isdatetime) : WRDDBValue(wrdtype, attr)
+  {
+    this->isdatetime := isdatetime;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
   {
     RETURN DEFAULT DATETIME;
   }
@@ -2652,8 +2659,15 @@ STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
     STRING rawdata := entity_settings[settings_start].rawdata;
-    INTEGER colpos := SearchSubstring(rawdata,',');
-    RETURN MakeDateFromParts(ToInteger(Left(rawdata, colpos), -1), ToInteger(Substring(rawdata, colpos+1), -1));
+    IF(this->isdatetime)
+    {
+      INTEGER colpos := SearchSubstring(rawdata,',');
+      RETURN MakeDateFromParts(ToInteger(Left(rawdata, colpos), -1), ToInteger(Substring(rawdata, colpos+1), -1));
+    }
+    ELSE
+    {
+      RETURN MakeDateFromParts(ToInteger(Tokenize(rawdata,',')[0], -1), 0);
+    }
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
@@ -3717,9 +3731,9 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
   CASE 3 /* Address */
     { RETURN NEW WRDDBAddressValue(wrd_type, attrinfo); }
 
-  CASE 6 /* Date and/or time types */
+  CASE 6 /* Date */
      , 12 /* datetime */
-    { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo); }
+    { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo, attributetype = 12); }
 
   CASE 9 /* Image */
     { RETURN NEW WRDDBImageValue(wrd_type, attrinfo, options); }
@@ -3727,7 +3741,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
   CASE 10 /* File */
     { RETURN NEW WRDDBFileValue(wrd_type, attrinfo, options); }
 
-  CASE 11 /* Date and/or time types */
+  CASE 11 /* time */
      , 15 /* Integer */
     { RETURN NEW WRDDBIntegerValue(wrd_type, attrinfo); }
 

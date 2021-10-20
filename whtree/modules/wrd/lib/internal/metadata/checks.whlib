@@ -11,50 +11,54 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
   {
     RECORD ARRAY msgs;
     RECORD ARRAY wrdschemas := SELECT name
+                                    , id
                                     , module := ToLowercase(name LIKE "*:*" ? Tokenize(name, ':')[0] : "")
                                  FROM wrd.schemas
                                 WHERE name NOT LIKE "$wrd$deleted*";
 
     RECORD ARRAY definedschemas;
-    STRING ARRAY moduleschemas;
-    FOREVERY(RECORD permodule FROM SELECT module, names := GroupedValues(name) FROM wrdschemas GROUP BY module)
+    RECORD ARRAY moduleschemas;
+    FOREVERY(RECORD permodule FROM SELECT module, schemas := GroupedValues(CELL[name,id]) FROM wrdschemas GROUP BY module)
     {
       IF(permodule.module = "")
       {
-        FOREVERY(STRING name FROM permodule.names)
-          INSERT CELL[ msg := `:WRD Schema '${name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
+        FOREVERY(RECORD wrdschema FROM permodule.schemas)
+          INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
                      , checktypes := ["gdpr"]
+                     , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                      ] INTO msgs AT END;
         CONTINUE;
       }
 
       IF(NOT IsModuleInstalled(permodule.module))
       {
-        FOREVERY(STRING name FROM permodule.names)
-          INSERT CELL[ msg := `:WRD Schema '${name}' does not have its corresponding module installed and should be deleted`
+        FOREVERY(RECORD wrdschema FROM permodule.schemas)
+          INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' does not have its corresponding module installed and should be deleted`
                      , checktypes := ["gdpr"]
+                     , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                      ] INTO msgs AT END;
         CONTINUE;
       }
 
       definedschemas := definedschemas CONCAT GetModuleDefinedWRDSchemas(permodule.module);
-      moduleschemas := moduleschemas CONCAT permodule.names;
+      moduleschemas := moduleschemas CONCAT permodule.schemas;
     }
 
     definedschemas := SELECT *, seen := FALSE FROM definedschemas;
 
     //we need to analyze all schemas together, eg module example can request schema 'newsletter:examplemailings'
-    FOREVERY(STRING name FROM moduleschemas)
+    FOREVERY(RECORD wrdschema FROM moduleschemas)
     {
-      RECORD matchschema := SELECT * FROM definedschemas WHERE name LIKE definedschemas.tag;
+      RECORD matchschema := SELECT * FROM definedschemas WHERE wrdschema.name LIKE definedschemas.tag;
       IF(NOT RecordExists(matchschema))
       {
-        INSERT CELL[ msg := `:WRD Schema '${name}' is not claimed by module '${Tokenize(name,':')[0]}' and should be deleted`
+        INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' is not claimed by module '${Tokenize(wrdschema.name,':')[0]}' and should be deleted`
                    , checktypes := ["gdpr"]
+                   , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                    ] INTO msgs AT END;
         CONTINUE;
       }
-      UPDATE definedschemas SET seen := TRUE WHERE name LIKE definedschemas.tag;
+      UPDATE definedschemas SET seen := TRUE WHERE wrdschema.name LIKE definedschemas.tag;
     }
 
     FOREVERY(RECORD defschema FROM SELECT * FROM definedschemas WHERE NOT seen AND autocreate AND tag LIKE "*:*")

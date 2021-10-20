@@ -84,7 +84,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     //loop as long as we have rights, and not selected a schema
     WHILE(NOT ObjectExists(this->contexts->wrdschema))
     {
-      OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := 0 ]);
+      INTEGER curschema;
+      IF(RecordExists(data.message) AND data.message.task = "selectschema")
+        curschema := data.message.id;
+
+      OBJECT dialog := this->LoadScreen("schemamanager.main", [ curschema := curschema ]);
+      data.message := DEFAULT RECORD;
       IF(dialog->RunModal() != "ok")
       {
         this->tolliumresult := "cancel";

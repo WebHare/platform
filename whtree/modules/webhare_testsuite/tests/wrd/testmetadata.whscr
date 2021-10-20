@@ -679,7 +679,10 @@ MACRO TestConversion()
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update2")));
 
   TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
-  TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME")); //does not actually change existing data
+  TestEq(MakeDatetime(2017,5,4,0,0,0), testperson->GetField("TEST_DATETIME")); //excess data is now hidden
+
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("TEST_DATETIME", [ attributetypename := "DATETIME" ]);
+  TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME")); //but it did not actually change existing data
 
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml"), skipmigrations := TRUE ]);
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
