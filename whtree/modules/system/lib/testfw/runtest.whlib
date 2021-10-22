@@ -813,6 +813,7 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
     IF(this->options.outputdebugmode)
       AWAIT this->conn->^Network->^setCookie([ name := "__whpub_preview", value := "debug", url := ResolveToAbsoluteURL(testurl,"/"), path := "/" ]);
 
+    AWAIT this->page->setCacheEnable(FALSE);
     AWAIT this->page->Navigate(testurl);
   }
 
