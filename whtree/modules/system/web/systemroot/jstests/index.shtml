@@ -24,7 +24,6 @@ STRING ARRAY skips;
 STRING urlbase := DecodeURL(Tokenize(GetRequestURL(),'?')[0]);
 IF(urlbase LIKE "*/!/*")
 {
-
   STRING ARRAY suburltoks := Tokenize(Tokenize(urlbase,'/!/')[1], '/');
   SWITCH (suburltoks[0])
   {
@@ -80,16 +79,9 @@ IF(urlbase LIKE "*/!/*")
                        ];
 
         //We need to generate a full page for the specified test
-        BOOLEAN isv2test := affectedtest.testscript.scriptpath LIKE "*.es";
-        IF(affectedtest.testscript.scriptpath LIKE "*.es")
-        {
-          OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(affectedtest.testscript.scriptpath));
-          data.printheaders := PTR depsolver->printheaders(DEFAULT OBJECT,"");
-        }
-        ELSE
-        {
-          ABORT("SUPPORT FOR V1 DESIGNFILES HAS BEEN REMOVED");
-        }
+        AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE); //allow testscripts to do/load whatever they want (this was needed for LIVE testing, but perhaps move scriptframe CSPs to testinfo.xml instead?)
+        OBJECT depsolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(affectedtest.testscript.scriptpath));
+        data.printheaders := PTR depsolver->printheaders(DEFAULT OBJECT,"");
         testwitty->RunComponent("emptytestpage", data);
         RETURN;
       }
