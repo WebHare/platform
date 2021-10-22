@@ -69,8 +69,8 @@ IF(urlbase LIKE "*/!/*")
       {
         RECORD data := [ printheaders := DEFAULT MACRO PTR
                        , harescripttestdata := affectedtest.harescripttestdata
+                       , hasdevmodule := IsModuleInstalled("dev")
                        , exclusive :=    affectedtest.exclusive ? "1" : "0"
-                       , outputtools := AreOutputToolsActive() ? GetOutputtoolsJSCode() : ""
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"
