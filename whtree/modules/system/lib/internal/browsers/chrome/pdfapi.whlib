@@ -246,6 +246,8 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
   ASYNC FUNCTION GotoThePage(STRING url, RECORD options)
   {
     AWAIT this->StartSession();
+    AWAIT this->page->setCacheEnable(FALSE);
+
     IF(CellExists(options,'cookies'))
       FOREVERY(RECORD cookie FROM options.cookies)
         AWAIT this->conn->^Network->^setCookie([ name := cookie.name, value := cookie.value, url := ResolveToAbsoluteURL(url,"/"), path := "/" ]);
