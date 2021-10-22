@@ -135,6 +135,11 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
               ]);
   }
 
+  PUBLIC ASYNC MACRO setCacheEnable(BOOLEAN enable)
+  {
+    AWAIT this->pvt_client->^Network->^setCacheDisabled([ cacheDisabled := NOT enable ]);
+  }
+
   PUBLIC ASYNC MACRO Navigate(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) // Goto in puppeteer
   {
     OBJECT watcher;

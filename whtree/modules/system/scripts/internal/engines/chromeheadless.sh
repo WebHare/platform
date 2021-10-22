@@ -16,6 +16,9 @@ fi
 
 mkdir -p -- "$PROFILEDIR"
 
+# --disk-cache-dir=/dev/null seems to be the preferred method on the interwebs but is now crashing - https://bugs.chromium.org/p/chromium/issues/detail?id=1262129
+# as far as I know there's no officially sanctioned way to fully disable the cache so we'll go for session-level enabling in tests/pdf rendering
+
 ARGS="--disable-gpu
       --no-first-run
       --disable-translate
@@ -25,7 +28,7 @@ ARGS="--disable-gpu
       --disable-sync
       --metrics-recording-only
       --disable-default-apps
-      --disk-cache-dir=/dev/null
+      --disk-cache-size=1
       --window-size=1280,1024
       --force-color-profile=srgb
       --disable-dev-shm-usage

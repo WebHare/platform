@@ -132,10 +132,12 @@ STATIC OBJECTTYPE ChromeHeadlessController
     IF(NOT noheadless)
       args := args CONCAT ["--headless"];
 
-
     args := args CONCAT [ `--remote-debugging-port=${this->port}`
                         , ...extra_params
                         ];
+
+    IF (debug)
+      DumpValue(STRING[executable, ...args]);
 
     this->process := CreateProcess(executable, args, FALSE, FALSE, FALSE, FALSE);
 
