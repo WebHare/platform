@@ -222,16 +222,15 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       {
         IF (tries != 0)
           MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Retry failed flaky test " || testinfo.testname  || " (try " || tries + 1 || ")\n");
-        success := run_in_job ? RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail) : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail);
+        success := run_in_job ? RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail) : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env);
         IF (success OR NOT testinfo.flaky)
           BREAK;
       }
 
-      //BOOLEAN success := RunTestProcess(runner, arguments, script, testinfo.xfail);
       IF (NOT success)
       {
         INSERT
-            [ test :=     SubStitute(testinfo.testname, ".all", "")
+            [ test :=     Substitute(testinfo.testname, ".all", "")
             ] INTO result.failed AT END;
         result.status := "fail";
       }
@@ -387,7 +386,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 }
 
 
-BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
+BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, RECORD ARRAY addenv)
 {
   BOOLEAN success := TRUE;
 
@@ -400,15 +399,13 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   }
 
   // Ensure the BABEL_CACHE_PATH is set for babel-node
-  RECORD ARRAY env := GetEnvironment();
   INSERT
       [ name :=     "BABEL_CACHE_PATH"
       , value :=    GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(GetWebHareConfiguration().varroot, "ephemeral/babelcache/babel-node")
-      ] INTO env AT END;
+      ] INTO addenv AT END;
 
   IF (profiling != "")
   {
-    DELETE FROM env WHERE name = "WEBHARE_DEBUG";
     IF (profiling LIKE "system-*")
     {
       __SYSTEM_SETSYSTEMCONFIG(CELL
@@ -420,8 +417,15 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
           ]);
     }
     ELSE
-      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+    {
+      addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+    }
   }
+
+  RECORD ARRAY env := GetEnvironment();
+  FOREVERY(RECORD envvar FROM addenv) //Remove vars from environment we're overwriting
+    DELETE FROM env WHERE name = envvar.name;
+  env := env CONCAT addenv;
 
   OBJECT process;
   TRY

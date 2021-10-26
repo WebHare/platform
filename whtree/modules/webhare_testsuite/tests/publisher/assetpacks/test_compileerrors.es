@@ -18,6 +18,9 @@ const bridge = require('@mod-system/js/wh/bridge');
 let baseconfig;
 let assetCompiler = require('@mod-publisher/js/internal/assetcompile.es');
 
+if(!process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY) //as long as we do both esnext AND modern... run the test twice
+  throw new Error("WEBHARE_ASSETPACK_FORCE_COMPATIBILITY *must* be set to ensure you're running the test you want");
+
 async function compileAdhocTestBundle(entrypoint, isdev)
 {
   let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', isdev ? "tollium:webinterface.dev" : "tollium:webinterface");
