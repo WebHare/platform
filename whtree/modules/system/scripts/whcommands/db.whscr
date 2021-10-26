@@ -23,10 +23,16 @@ MACRO ShowSyntax(STRING error)
   PRINT(`Error: ${error}\n`);
   PRINT("Syntax: wh db <command>\n");
   PRINT("Commands:\n");
-  PRINT("  locks                      List contended locks\n");
+  PRINT("  locks [ --raw ]            List contended locks\n");
   PRINT("  sequences [ --reset ]      List/reset sequences\n");
   PRINT("  setserver                  Get/set read-write status (readwrite / readonly)\n");
-  PRINT("  transactions [ --allinfo ] Show transaction list\n");
+  PRINT("  transactions [ --raw ]     Show transaction list\n");
+
+  IF (GetDatabaseType() = "postgresql")
+  {
+    PRINT("  cancel <pid>               Cancel the specified transaction (graceful)\n");
+    PRINT("  kill <pid>                 Kill the specified transaction\n");
+  }
   TerminateScriptWithError("");
 }
 
@@ -44,7 +50,7 @@ SWITCH (args.command)
   {
     OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.args,
-        [ [ name := "allinfo", type := "switch" ]
+        [ [ name := "raw", type := "switch" ]
         ]);
 
     IF (NOT RecordExists(subargs))
@@ -78,7 +84,7 @@ SWITCH (args.command)
   {
     OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.args, RECORD
-        [
+        [ [ name := "raw", type := "switch" ]
         ]);
 
     IF (NOT RecordExists(subargs))
@@ -88,6 +94,13 @@ SWITCH (args.command)
     IF (GetDatabaseType() = "whdb")
     {
       PRINT(`Not supported for database type whdb\n`);
+      RETURN;
+    }
+
+    IF(subargs.raw)
+    {
+      RECORD ARRAY locks := trans->__ExecSQL("select * FROM pg_locks");
+      DumpValue(locks, 'tree');
       RETURN;
     }
 
@@ -198,6 +211,26 @@ SWITCH (args.command)
       DumpValue(sequences, "boxed");
   }
 
+  CASE "cancel", "kill"
+  {
+    OBJECT trans := OpenPrimary();
+    IF (GetDatabaseType() != "postgresql")
+       TerminateScriptWithError(`Not implemented for database type ${GetDatabaseType()}`);
+
+    RECORD subargs := ParseArguments(args.args, RECORD
+        [ [ name := "pid", type := "param" ]
+        ]);
+
+    IF (NOT RecordExists(subargs))
+      ShowSyntax(`Illegal syntax for command '${args.command}'`);
+
+    INTEGER pid := ToInteger(subargs.pid,0);
+    IF(pid <= 0)
+      TerminateScriptWithError("Invalid pid");
+
+    STRING cmd := `SELECT ${args.command = "kill" ? "pg_terminate_backend" : "pg_cancel_backend"}(${pid})`;
+    trans->__ExecSQL(cmd);
+  }
   DEFAULT
   {
     ShowSyntax(`Unknown command '${args.command}'`);

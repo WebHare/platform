@@ -130,7 +130,6 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
       RECORD compinfo := [ unmasked_events := GetUnmask(this,["select"])
                          , required := this->required
                          , options := this->TolliumWebPrintOptions()
-                         , hint := this->hint
                          ];
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
     }
@@ -171,8 +170,6 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
                 , selected := tolliumselected
                 , enabled
                 , title
-                , hint := CellExists(currentrows, "hint") ? hint : ""
-                , icon := CellExists(currentrows, "icon") ? icon : ""
                 , isdivider := CellExists(currentrows, "isdivider") AND isdivider
                 , indent := CellExists(currentrows, "indent") ? indent : 0
              FROM this->storage->rows AS currentrows;

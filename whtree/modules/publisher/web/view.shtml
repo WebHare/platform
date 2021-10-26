@@ -194,7 +194,7 @@ IF(previewcookie IN ["debug","devpackage"])
 {
   IF(mimetype = "TEXT/HTML")
   {
-    RECORD rewritten := RewriteAssetpackCode(outgoingcontent, previewcookie="debug");
+    RECORD rewritten := RewriteAssetpackCode(outgoingcontent);
     IF(RecordExists(rewritten))
       outgoingcontent := rewritten.content;
   }

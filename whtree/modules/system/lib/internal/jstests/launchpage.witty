@@ -42,7 +42,7 @@
   <head>
     <script type="application/json" id="wh-config">[whconfig:json]</script>
     [printheaders]
-    [outputtools:none]
+    [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
     [if harescripttestdata]<script src="/.webhare_testsuite/jstests/testdata.shtml"></script>[/if]
   </head>
   <body>

@@ -572,11 +572,8 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
           INSERT CELL title := "" INTO opt;
       }
       // title is required for selects, enabled is added by SetStaticRows
-      // hint(tid) and indent optional for selects, so add them here
-      //FIXME? STRING hint := ; //FIXME? CellExists(opt, "hinttp") ? ResolveTextPointer(opt.hinttp) : "";
+      // indent is optional for selects, so add here
 
-      IF (NOT CellExists(opt, "hint"))
-        INSERT CELL hint := "" INTO opt;
       IF (NOT CellExists(opt, "indent"))
         INSERT CELL indent := 0 INTO opt;
       newrows[#opt] := opt;
@@ -945,7 +942,6 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
         }
         thebutton->value := opt.tolliumselected;
         thebutton->label := opt.title;
-        thebutton->hint := opt.hint;
         thebutton->enabled := opt.enabled AND this->enabled;
         thebutton->readonly := this->readonly;
         thebutton->defaultbutton := this->defaultbutton;
@@ -1039,13 +1035,10 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
                        , tree := FALSE
                        , title := ""
                        , name := "title"
-                       , hintname := "hint"
                        , width := ""
                        , minwidth := ""
                        , storeutc := FALSE
                        ];
-      IF (RecordExists(SELECT FROM this->options WHERE CellExists(options, "icon") ? icon != "" : FALSE ))
-        INSERT CELL iconname := "__select_icon" INTO coldef;
 
       INSERT CELL checkboxname := "__select_checked" INTO coldef;
       INSERT CELL checkboxvisible := "__select_showswitch" INTO coldef;
@@ -1082,7 +1075,6 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
       pulldown->enabled := this->enabled;
       pulldown->readonly := this->readonly;
       pulldown->required := this->required;
-      pulldown->hint := this->hint;
       pulldown->flags := this->flags;
       pulldown->width := this->width;
       pulldown->title := this->title;
@@ -1110,7 +1102,6 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     //ADDME: Also select flags!
     this->pvt_list->rows :=
         SELECT *
-             , __select_icon := CellExists(options, "ICON") ? this->pvt_list->GetIcon(icon) : 0
              , __select_checked := tolliumselected
              , __select_showswitch := enabled
              , __select_switchenabled := this->pvt_enabled

@@ -118,12 +118,7 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
   webdesign->RunPage();
 }
 
-PUBLIC STRING FUNCTION GetOutputtoolsJSCode()
-{
-  RETURN `<link href="/.publisher/common/outputtools/outputtools.css" rel="stylesheet"><script src="/.publisher/common/outputtools/outputtools.js"></script>`;
-}
-
-PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insertoutputtools)
+PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent)
 {
   OBJECT findpattern := NEW RegEx('<link rel="stylesheet" href="([^"]*)/.ap/([^/"]*)/ap.css"><script src="([^"]*)/.ap/([^/"]*)/ap.js"([^>]*)');
   STRING content := BlobToString(outgoingcontent);
@@ -145,9 +140,6 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent, BOOLEAN insert
     content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
 
     STRING injection;
-    IF(insertoutputtools AND content NOT LIKE `*<script src="/.dev/debug.js" async></script>*`)
-      injection := GetOutputtoolsJSCode();
-
     INTEGER headclose := SearchSubstring(content,'</head>');
     IF(headclose != -1)
     {

@@ -22,15 +22,7 @@ MACRO TestViewInterceptions()
   OBJECT doc;
 
   res := RewriteAssetpackCode(StringToBlob(
-`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`),TRUE);
-
-  doc := MakeXMLDocumentFromHTML(res.content); //convert to HTML so we also have a validation
-  Testeq(RECORD[],doc->GetParseErrors());
-  TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
-  TestEq('<script src="/.ap/tollium.polyfills/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
-
-  res := RewriteAssetpackCode(StringToBlob(
-`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`),FALSE);
+`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`));
 
   doc := MakeXMLDocumentFromHTML(res.content); //convert to HTML so we also have a validation
   Testeq(RECORD[],doc->GetParseErrors());
@@ -136,7 +128,7 @@ MACRO TestDevVersion()
 
   OBJECT doc := testfw->browser->document;
   OBJECT ARRAY links := doc->getElements('link[rel="stylesheet"]');
-  TestEq(2, Length(links), testfw->browser->href); //one from webdesign and one from the outputtools
+  TestEq(1, Length(links), testfw->browser->href); //one from webdesign
 
   STRING csslink := links[0]->GetAttribute("href");
   TestEqLike("*/*.dev/*", csslink);
