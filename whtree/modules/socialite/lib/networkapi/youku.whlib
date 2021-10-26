@@ -70,10 +70,10 @@ PUBLIC STATIC OBJECTTYPE YoukuConnection EXTEND OauthNetworkConnection
         , player :=       entry.player
         , public_type :=  entry.public_type
         , copyright_type := entry.copyright_type
-        , user :=         [ id :=     entry.user.id
-                          , name :=   entry.user.name
-                          , link :=   entry.user.link
-                          ]
+        , user :=         RecordExists(entry.user) ? [ id :=     entry.user.id
+                                                     , name :=   entry.user.name
+                                                     , link :=   entry.user.link
+                                                     ] : DEFAULT RECORD
         , operation_limit := entry.operation_limit
         , streamtypes :=  entry.streamtypes
         ];
@@ -90,10 +90,10 @@ PUBLIC STATIC OBJECTTYPE YoukuConnection EXTEND OauthNetworkConnection
         , category :=     entry.category
         , published :=    MakeDateFromText(Substitute(entry.published, " ", "T") || "Z")
         , public_type :=  entry.public_type
-        , user :=         [ id :=     entry.user.id
-                          , name :=   entry.user.name
-                          , link :=   entry.user.link
-                          ]
+        , user :=         RecordExists(entry.user) ? [ id :=     entry.user.id
+                                                     , name :=   entry.user.name
+                                                     , link :=   entry.user.link
+                                                     ] : DEFAULT RECORD
         , operation_limit := entry.operation_limit
         , streamtypes :=  entry.streamtypes
         ];
