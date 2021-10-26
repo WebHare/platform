@@ -54,7 +54,7 @@ async function compileAdhocTestBundle(entrypoint, isdev)
         if(subpath.startsWith('st/') && result.compiler=='webpack') //the move to 'st/' isnt done during build, but after... so don't look for st/ here. esbuild stops bothering with the st/ folder
           subpath = subpath.substr(3);
 
-        let fullpath = path.join("/tmp/compileerrors-build-test/build/", subpath);
+        let fullpath = path.join("/tmp/compileerrors-build-test/build/", subpath.toLowerCase());
         if(!fs.existsSync(fullpath))
           throw new Error(`Missing file ${fullpath}`);
       });
