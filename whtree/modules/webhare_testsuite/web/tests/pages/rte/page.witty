@@ -2,6 +2,7 @@
   <head>
     <link href="editor.css" rel="stylesheet" />
     [if csstext]<style>[csstext:none]</style>[/if]
+    <script src="/.dev/debug.js"></script>
   </head>
   <body>
     <div id="toolbar"></div>

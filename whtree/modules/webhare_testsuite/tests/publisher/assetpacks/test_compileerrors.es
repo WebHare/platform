@@ -6,6 +6,8 @@
 
    WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=esnext wh runtest publisher.assetpacks.test_compileerrors
    WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=modern wh runtest publisher.assetpacks.test_compileerrors
+
+   add WEBHARE_ASSETPACK_DEBUGREWRITES=1  for rewrite debug info
 */
 
 const assert = require("assert");
@@ -143,6 +145,7 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/js/gettid.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);
     assert(missingdeps.length == 0);

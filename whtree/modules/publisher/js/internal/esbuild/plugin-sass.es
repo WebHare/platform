@@ -49,7 +49,7 @@ function lookupSassURL(startingpoint, url)
       fs.access(target + ".scss", fs.F_OK, err2 =>
       {
         if(err2)
-          return resolve(target); //then resolve to the original path and let it fial
+          return resolve(target); //then resolve to the original path and let it fail
         return resolve(target + ".scss"); //found it as '.scss'
       });
     });
@@ -67,73 +67,93 @@ function sassImporter(startingpoint, url, prev, done)
   return undefined;
 }
 
-async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
-    const ast = csstree.parse(css);
-    csstree.walk(ast, {
-        enter(node) {
-            /* Special case for import, since it supports raw strings as url.
-               Plain css imports (eg @import "~dompack/browserfix/reset.css")
-               goes through US not the import callback!
+function rewriteSassURL(newCssFileName, inputurl)
+{
+  if (inputurl.startsWith('http:') || inputurl.startsWith('https:') || inputurl.startsWith('/')) //TODO or move this to
+    return;
 
-               see https://sass-lang.com/documentation/at-rules/import#plain-css-imports for why this is */
-            if (node.type === "Atrule" &&
-                node.name === "import" &&
-                node.prelude != null &&
-                node.prelude.type === "AtrulePrelude") {
-                if (!node.prelude.children.isEmpty()) {
-                    const urlNode = node.prelude.children.first();
-                    if (urlNode != null && urlNode.type === "String")
-                    {
-                        const normalizedUrl = normalizeQuotes(urlNode.value);
-                        if(normalizedUrl.startsWith('~'))
-                        {
-                            // this is a module lookup
-                            let trypath = compileutils.resolveWebHareAssetPath(newCssFileName, normalizedUrl.substr(1));
-                            if(trypath)
-                                urlNode.value = `"${fixCssUrl(trypath)}"`;
+  if(inputurl.startsWith('~'))
+  {
+    //try NOT rewriting these and let the upper level deal with it
+    return inputurl.substr(1);
 
-                            return;
-                        }
+    // this is a module lookup
+    let trypath = compileutils.resolveWebHareAssetPath(newCssFileName, inputurl.substr(1));
+    if(trypath)
+      return trypath;
+  }
+  if (isLocalFileUrl(inputurl))
+    return inputurl;
+  return null;
+}
 
-                        if (isLocalFileUrl(normalizedUrl))
-                            urlNode.value = `"${fixCssUrl(normalizedUrl)}"`;
-                    }
-                }
+async function replaceUrls(css, newCssFileName, sourceDir, rootDir)
+{
+  console.log("replaceUrls", newCssFileName, sourceDir, rootDir);
+
+  const ast = csstree.parse(css);
+  csstree.walk(ast,
+  {
+    enter(node)
+    {
+      /* Special case for import, since it supports raw strings as url.
+      Plain css imports (eg @import "~dompack/browserfix/reset.css")
+      goes through US not the import callback!
+
+      see https://sass-lang.com/documentation/at-rules/import#plain-css-imports for why this is */
+      if (node.type === "Atrule"
+          && node.name === "import"
+          && node.prelude != null
+          && node.prelude.type === "AtrulePrelude")
+      {
+        if (!node.prelude.children.isEmpty())
+        {
+          const urlNode = node.prelude.children.first();
+          if (urlNode != null && urlNode.type === "String")
+          {
+            const normalizedUrl = normalizeQuotes(urlNode.value);
+            let rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+            if(rewritten)
+            {
+              if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+                console.log(`[plugin-sass] replaceUrls: @import rewrote ${normalizedUrl} to ${rewritten}`);
+              urlNode.value = `"${fixCssUrl(rewritten)}"`;
             }
-            if (node.type === "Url") {
-                const value = node.value;
-                const normalizedUrl = value.type === "String" ? normalizeQuotes(value.value) : value.value;
-
-                if (normalizedUrl.startsWith('http:') || normalizedUrl.startsWith('https:') || normalizedUrl.startsWith('/'))
-                    return;
-
-                if(normalizedUrl.startsWith('~'))
-                {
-                    // this is a module lookup
-                    let trypath = compileutils.resolveWebHareAssetPath(newCssFileName, normalizedUrl.substr(1));
-                    if(trypath)
-                        node.value = {
-                            ...node.value,
-                            type: "String",
-                            value: `"${fixCssUrl(trypath)}"`,
-                        };
-
-                    return;
-                }
-                if (isLocalFileUrl(normalizedUrl))
-                {
-                    node.value = {
-                        ...node.value,
-                        type: "String",
-                        // disable keeping query and hash parts of original url, since esbuild doesn't support it yet
-                        // value: `"${relativePath}${resolved.query}${resolved.hash}"`,
-                        value: `"${fixCssUrl(normalizedUrl)}"`
-                    };
-                }
+            else
+            {
+              if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+                console.log(`[plugin-sass] replaceUrls: @import did not rewrite ${normalizedUrl}`);
             }
-        },
-    });
-    return csstree.generate(ast);
+          }
+        }
+      }
+
+      if (node.type === "Url")
+      {
+        const value = node.value;
+        const normalizedUrl = value.type === "String" ? normalizeQuotes(value.value) : value.value;
+        let rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+        if(rewritten)
+        {
+          if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+            console.log(`[plugin-sass] replaceUrls: url() rewrote ${normalizedUrl} to ${rewritten}`);
+
+          node.value =
+          {
+            ...node.value,
+            type: "String",
+            value: `"${fixCssUrl(rewritten)}"`
+          };
+        }
+        else
+        {
+          if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+            console.log(`[plugin-sass] replaceUrls: url() did not rewrite ${normalizedUrl}`);
+        }
+      }
+    }
+  });
+  return csstree.generate(ast);
 }
 function isLocalFileUrl(url) {
     if (/^https?:\/\//i.test(url)) {

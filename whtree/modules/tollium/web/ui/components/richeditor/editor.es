@@ -4,7 +4,6 @@ import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as browser from "dompack/extra/browser";
 
-require('@mod-publisher/js/richcontent/styling.css');
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
 import FreeEditor from './internal/free-editor';
@@ -12,7 +11,7 @@ var TableEditor = require('./internal/tableeditor');
 import RTEToolbar from './internal/toolbar';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import getTid from "@mod-tollium/js/gettid";
-require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json");
+import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
 
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
