@@ -162,7 +162,7 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
   mkdir -p "$RESTORETO" 2>/dev/null
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown postgres:root "$WEBHARE_DATAROOT/postgresql/"
+    chown postgres:root "$RESTORETO/"
     chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
 
