@@ -206,7 +206,15 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , flaky := ParseXSBoolean(testnode->GetAttribute("flaky"))
                          , xfail := ParseXSBoolean(testnode->GetAttribute("xfail"))
                          , validationconfig := validationconfig
+                         , env := RECORD[]
                          ]);
+
+          FOREVERY(OBJECT env FROM testnode->GetElements("env"))
+          {
+            INSERT CELL[ name := env->GetAttribute("name")
+                       , value := env->GetAttribute("value")
+                       ] INTO test.env AT END;
+          }
           INSERT test INTO tests AT END;
         }
 
@@ -279,6 +287,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                 , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
                 , runmode := elt->GetAttribute("runmode")
                 , validationconfig := validationconfig
+                , env := RECORD[]
                 ]) INTO tests AT END;
           }
         }
