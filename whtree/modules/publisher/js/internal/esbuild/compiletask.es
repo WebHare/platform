@@ -38,21 +38,33 @@ let whResolverPlugin =
   name: 'example',
   setup(build)
   {
-    //debug line, capture all resovles
-    //build.onResolve({ filter: /./ }, args => console.log(args));
-
     build.onResolve({ filter: /^\// }, args => // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
     {
       if(args.kind == 'url-token' || args.kind == 'import-rule' )
+      {
+        if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+          console.log(`[esbuild-compiletask] kind '${args.kind}' considering as external url: ${args.path}`);
         return { path: args.path, external: true};
+      }
     });
 
-    build.onResolve({filter:/~@mod-/ }, args =>
+    build.onResolve({filter:/@mod-/ }, args =>
     {
       let target = compileutils.resolveWebHareAssetPath('',args.path);
       if(target)
+      {
+        if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+          console.log(`[esbuild-compiletask] kind '${args.kind}' resolved module path ${args.path} to ${target}`);
         return { path: target };
+      }
+
+      if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+        console.log(`[esbuild-compiletask] kind '${args.kind}' failed to resolve potential module path ${args.path}`);
     });
+
+    //debug line, capture all resolves
+    if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+      build.onResolve({ filter: /./ }, args => console.log(`[esbuild-compiletask] kind '${args.kind}' did not help resolve ${args.path}`));
   }
 };
 

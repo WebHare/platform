@@ -2,7 +2,7 @@
 import * as dompack from 'dompack';
 
 //we delay load the RTE, but we still need its styling - we don't have a delayed load for SCSS yet
-import '@mod-tollium/web/ui/components/richeditor/richeditor.scss';
+import '@mod-tollium/web/ui/components/richeditor/styling.es';
 
 let richeditor;
 
@@ -57,7 +57,10 @@ export default class RTDField
   async setupRTE(node, rtdoptions)
   {
     if(!richeditor)
-      richeditor = await System.import('@mod-tollium/web/ui/components/richeditor');
+      if(typeof System !== 'undefined')
+        richeditor = await System.import('@mod-tollium/web/ui/components/richeditor/editor.es');
+      else
+        richeditor = await import('@mod-tollium/web/ui/components/richeditor/editor.es');
 
     this.rte = new richeditor.RTE(node, { ...rtdoptions
                                         , enabled: this._getEnabled() //initial enabled state

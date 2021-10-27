@@ -57,15 +57,18 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
     INTEGER ARRAY ruleswithips := SELECT AS INTEGER ARRAY DISTINCT(accessid) FROM system.access_ips;
     RECORD ARRAY rolesets := GetAvailableModuleRoleSets();
 
-    RECORD ARRAY rows := SELECT rowkey := id
-                              , type := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? "login"
-                                        : hostingsrc = 4 ? "redirect"
-                                        : hostingsrc = 5 ? "redirect-keep-suburl"
-                                        : hostingsrc = 6 ? "module"
-                                        : hostingsrc = 2 ? "folder"
-                                        : ""
+    RECORD ARRAY rows := SELECT TEMPORARY type := (authtype > 0 OR authlist OR authscript != "" OR id IN ruleswithips) ? "login"
+                                                  : hostingsrc = 4 ? "redirect"
+                                                  : hostingsrc = 5 ? "redirect-keep-suburl"
+                                                  : hostingsrc = 6 ? "module"
+                                                  : hostingsrc = 2 ? "folder"
+                                                  : ""
+                              , rowkey := id
+                              , icon := hostingsrc IN [4,5] ? (redirectcode = 301 ? 4 : 5)  //for these, we take icon based on permanent/temp status
+                                                            : SearchElement([ "", "login", "folder","module" ], type) //for these we go just by the type
                               , matchtype := matchtype = 0 ? "exact" : matchtype = 1 ? "initial" : matchtype = 2 ? "wildcard" : ""
                               , path
+                              , type := type
                               , webhareusers := (authtype = 2)
                               , externalusers := authlist
                               , description
@@ -86,7 +89,6 @@ PUBLIC STATIC OBJECTTYPE AccessRules EXTEND TolliumScreenBase
   MACRO Reload()
   {
     RECORD ARRAY rows := SELECT *
-                              , icon := SearchElement([ "", "login", "folder", "redirect", "redirect-keep-suburl", "module" ], type)
                               , canview := this->webserverid != 0 AND matchtype IN [ "exact", "initial" ]
                               , listrowclasses := disabled ? [ "grayedout" ] : STRING[]
                            FROM this->GetAccessRules();

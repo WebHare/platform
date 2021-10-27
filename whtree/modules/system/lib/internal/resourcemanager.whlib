@@ -169,7 +169,7 @@ PUBLIC STRING ARRAY FUNCTION GetModuleDependencyIssues()
   {
     IF(mod.circulairdependency)
     {
-      INSERT "Module " || mod.name || " is involved in a circulair dependency (requires " || Detokenize(mod.dependencies,",") INTO errors AT END;
+      INSERT "Module " || mod.name || " is involved in a circular dependency (requires " || Detokenize(mod.dependencies,",") INTO errors AT END;
     }
     FOREVERY(RECORD dep FROM mod.requiredmodules)
     {
