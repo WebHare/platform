@@ -76,11 +76,6 @@ function rewriteSassURL(newCssFileName, inputurl)
   {
     //try NOT rewriting these and let the upper level deal with it
     return inputurl.substr(1);
-
-    // this is a module lookup
-    let trypath = compileutils.resolveWebHareAssetPath(newCssFileName, inputurl.substr(1));
-    if(trypath)
-      return trypath;
   }
   if (isLocalFileUrl(inputurl))
     return inputurl;
@@ -89,7 +84,8 @@ function rewriteSassURL(newCssFileName, inputurl)
 
 async function replaceUrls(css, newCssFileName, sourceDir, rootDir)
 {
-  console.log("replaceUrls", newCssFileName, sourceDir, rootDir);
+  if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+    console.log("replaceUrls", newCssFileName, sourceDir, rootDir);
 
   const ast = csstree.parse(css);
   csstree.walk(ast,

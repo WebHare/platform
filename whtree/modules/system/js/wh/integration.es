@@ -131,7 +131,7 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
     dompack.onDomReady(() => setTimeout(() =>
     {
       if(!dompack.qS('wh-outputtools'))
-       console.log("You may want to enable the debugging tools for faster CSS/JS updates at", location.origin + "/.publisher/common/debug/");
+       console.log("You may want to install the .dev module and republish this page to enable the debugging tools for faster CSS/JS updates");
     },200));
   }
 
