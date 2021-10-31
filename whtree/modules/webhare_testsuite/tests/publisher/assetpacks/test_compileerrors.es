@@ -4,8 +4,9 @@
 
    to manually run this testset for both webpack and esbuild:
 
-   WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=esnext wh runtest publisher.assetpacks.test_compileerrors
-   WEBHARE_ASSETPACK_FORCE_COMPATIBILITY=modern wh runtest publisher.assetpacks.test_compileerrors
+   wh runtest publisher.assetpacks.test_compileerrors_webpack
+   wh runtest publisher.assetpacks.test_compileerrors_es2016
+   wh runtest publisher.assetpacks.test_compileerrors_esnext
 
    add WEBHARE_ASSETPACK_DEBUGREWRITES=1  for rewrite debug info
 */
@@ -120,7 +121,7 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
   });
 
-  it("lang.json files pull in tollium/js/gettid.es as dependency", async function()
+  it("lang.json files pull in extra dependencies", async function()
   {
     this.timeout(60000);
 
@@ -130,6 +131,8 @@ describe("test_compileerrors", (done) =>
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
     assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.lang.json")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/js/gettid.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/language/default.xml")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/language/nl.xml")));
   });
 
   it("combine-deps pulls all these in as dependencies", async function()
@@ -148,6 +151,8 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/js/gettid.es")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/language/default.xml")));
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/language/nl.xml")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);

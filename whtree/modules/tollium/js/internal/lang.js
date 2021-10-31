@@ -487,7 +487,7 @@ module.exports.parseLanguageFile = parseLanguageFile;
 module.exports.generateTexts = generateTexts;
 module.exports.overrideFile = overrideFile;
 
-module.exports.getESBuildPlugin = (config) => ({
+module.exports.getESBuildPlugin = (config, captureplugin) => ({
     name: "languagefile",
     setup: function (build)
     {
@@ -496,9 +496,12 @@ module.exports.getESBuildPlugin = (config) => ({
         let source = await fs.promises.readFile(args.path);
         let result = await runLangLoader(config, args.path, source, null);
 
+        result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
+
         return { contents: result.output
                , warnings: result.warnings.map(_ => ({text:_}))
                , errors: result.errors.map(_ => ({text:_}))
+               , watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
                };
       });
     },

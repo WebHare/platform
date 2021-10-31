@@ -92,7 +92,7 @@ async function runTask(taskcontext, data)
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
                  , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin()
-                 , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig)
+                 , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
 
                  // , sassPlugin({ importer: sassImporter
                               // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
