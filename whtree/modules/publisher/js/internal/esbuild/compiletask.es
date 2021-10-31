@@ -133,15 +133,6 @@ async function runTask(taskcontext, data)
     esbuild_configuration.inject.push(extrarequired);
   }
 
-  if(!bundle.isdev) //running in prod
-  {
-  }
-  else //dev
-  {
-    if(bundle.bundleconfig.environment == 'window')
-      esbuild_configuration.inject.push(path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/devhelper/index.es"));
-  }
-
   let buildresult;
   let start = Date.now();
   try
