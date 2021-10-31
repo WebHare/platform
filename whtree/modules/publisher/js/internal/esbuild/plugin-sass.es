@@ -175,25 +175,30 @@ function fixCssUrl(filePath) {
 }
 
 
-module.exports = (options = {}) => ({
+module.exports = (captureplugin, options = {}) => ({
     name: "sass",
     setup: function (build) {
         const { rootDir = process.cwd(), } = options;
-        const { external = [] } = build.initialOptions;
+
         build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args) =>
         {
             const sourceFullPath = path.resolve(args.resolveDir, args.path);
             const sourceDir = path.dirname(sourceFullPath);
 
             // Compile SASS to CSS
-            let css = (await sassRender({ importer: function (url, prev, done) { sassImporter(sourceFullPath, url, prev, done); }
-                                        , file: sourceFullPath
-                                        })).css.toString();
+            let result = await sassRender({ importer: function (url, prev, done) { sassImporter(sourceFullPath, url, prev, done); }
+                                          , file: sourceFullPath
+                                          });
+
+            let css = result.css.toString();
             // Replace all relative urls
             css = await replaceUrls(css, sourceFullPath, sourceDir, rootDir);
+            result.stats.includedFiles.forEach(dep => captureplugin.loadcache.add(dep));
 
-            return { contents: css, loader: "css" };
-                    // watchFiles: [sourceFullPath],
+            return { contents: css
+                   , loader: "css"
+                   , watchFiles: result.stats.includedFiles
+                   };
         });
     },
 });

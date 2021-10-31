@@ -98,7 +98,7 @@ async function runTask(taskcontext, data)
                               // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
                               // })
 
-                 , whSassPlugin()
+                 , whSassPlugin(captureplugin)
                  ]
       , loader: { ".es": "jsx"
                 , ".woff": "file"

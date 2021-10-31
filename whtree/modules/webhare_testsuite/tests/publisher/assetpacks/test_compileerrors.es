@@ -8,7 +8,7 @@
    wh runtest publisher.assetpacks.test_compileerrors_es2016
    wh runtest publisher.assetpacks.test_compileerrors_esnext
 
-   add WEBHARE_ASSETPACK_DEBUGREWRITES=1  for rewrite debug info
+   set WEBHARE_ASSETPACK_DEBUGREWRITES=1 for rewrite debug info
 */
 
 const assert = require("assert");
@@ -49,8 +49,11 @@ async function compileAdhocTestBundle(entrypoint, isdev)
     //verify the manifest
     let manifest = JSON.parse(fs.readFileSync("/tmp/compileerrors-build-test/build/apmanifest.json"));
     assert(1, manifest.version);
-    assert(manifest.assets.find(file => file.subpath == 'ap.js' && !file.compressed && !file.sourcemap));
-    assert(!!isdev === !manifest.assets.find(file => file.subpath == 'ap.js.gz' && file.compressed && !file.sourcemap));
+    if(!entrypoint.endsWith('.scss'))
+    {
+      assert(manifest.assets.find(file => file.subpath == 'ap.js' && !file.compressed && !file.sourcemap));
+      assert(!!isdev === !manifest.assets.find(file => file.subpath == 'ap.js.gz' && file.compressed && !file.sourcemap));
+    }
 
     manifest.assets.forEach(file =>
       {
@@ -107,6 +110,19 @@ describe("test_compileerrors", (done) =>
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
     assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.es")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
+  });
+
+  it("scss files dependencies", async function()
+  {
+    this.timeout(60000);
+
+    let result = await compileAdhocTestBundle(path.join(__dirname,"dependencies/regressions.scss"), false);
+    assert(result.haserrors === false);
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/regressions.scss")));
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/deeper/deeper.scss")));
+
   });
 
   it("rpc.json files pull in system/js/wh/rpc.es as dependency (prod)", async function()
