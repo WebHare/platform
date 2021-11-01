@@ -164,12 +164,13 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
     fi
   fi
 
+  mkdir -p "$RESTORETO" 2>/dev/null
+
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown postgres:root "$WEBHARE_DATAROOT/postgresql/"
+    chown postgres:root "$RESTORETO/"
     chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
 
-  mkdir -p "$RESTORETO" 2>/dev/null
   mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
   rmdir "$WEBHARE_DATAROOT/postgresql.restore"
 fi
