@@ -1,13 +1,16 @@
 # Building WebHare from source
 
 ## Getting started
-Clone the repository (the examples assume we're extracting to `$HOME/projects`)
+Clone the repository (the examples assume we're extracting to `$HOME/projects`). You will need to have setup your ssh
+keys to communicate with gitlab.com
 
 ```bash
 mkdir ~/projects
 cd ~/projects
 git clone git@gitlab.com:webhare/platform.git webhare
 ```
+
+You can use `git clone https://gitlab.com/webhare/platform.git webhare` if you do not want to set up a SSH key.
 
 Now setup the `wh` tool by adding this to your `~/.profile` (or equivalent .bashrc of .bash_profile):
 and relogging in or restarting your terminal session.
@@ -16,14 +19,22 @@ and relogging in or restarting your terminal session.
 eval `~/projects/webhare/whtree/bin/wh setupmyshell`
 ```
 
+setupmyshell currently requires the use of `bash` as your shell (macOS uses `zsh` as its shell by default)
+
 See [wh](wh.md) for more information about the wh tool. All other documentation
 will assume you've set this up and just refer to `wh` when they want you to
 invoke the `webhare/whree/bin/wh` tool.
+
+If you do not setup your shell as above, you will need to type the full path to the wh script in all the examples below,
+ie `~/projects/webhare/whtree/bin/wh` instead of just `wh`.
 
 Make and install:
 ```bash
 wh mic
 ```
+
+You may need to install further dependencies before the make can complete. On macOS, you will need to install brew (see https://brew.sh).
+On Linux the necessary packages will depend on your distribution. You may want to check our Dockerfile for hints.
 
 The build process will attempt to estimate a proper number of parallel jobs to use (`make -j...`) but you can control the
 number of processors used by `wh make` and `wh mic` by setting a `WHBUILD_NUMPROCS=nnn` variable eg `WHBUILD_NUMPROCS=4 wh mic`.
@@ -33,18 +44,20 @@ You should never set the number of build processors too high - the build process
 Run `wh fixmodules` once to update NPM dependencies.
 
 If you want to run the WebHare webserver on ports 80 and/or 443 (the default ports) without having to set up a [proxy](https://gitlab.com/webhare/proxy#readme)
-you will need to either run WebHare as `root` (not recommend) or install the socketbinder by running `wh installsocketbinder`.
-The socket binder is a small daemon that runs as root and allows WebHare to access portnumbers below 1024.
+you will need to either run WebHare as `root` (not recommended) or install the socketbinder by running `wh installsocketbinder`.
+The socket binder is a small daemon that runs as root and allows WebHare to listen on port numbers below 1024.
 
 From this point you should be able to use the [Getting started](https://www.webhare.dev/manuals/getting-started/) manual
 to configure your WebHare - you can just leave out all the `docker exec webhare` parts. You may need to use higher numbered
-ports (eg 8000) for the webinterface if you didn't install the socketbinder of if you're running multiple webservers.
+ports (eg 8000) for the webinterface if you didn't install the socketbinder or if you're running multiple webservers.
+
+If the webinterface doesn't load due to missing `ap.js` files, try `wh assetpacks recompile "tollium:*"`
 
 ## Getting Java to work
 Some of the software used by WebHare (eg PDFBox for printer.whlib) requires Java. You will need to install that yourself.
 Installation of any software mentioned here is at your own risk!
 
-For OSX, you can install openjdk through Homebrew (see also: https://github.com/AdoptOpenJDK/homebrew-openjdk)
+For macOS, you can install openjdk through Homebrew (see also: https://github.com/AdoptOpenJDK/homebrew-openjdk)
 
 ```bash
 brew cask install adoptopenjdk
@@ -94,7 +107,7 @@ These errors are usually fixed by running `wh make clean-deps`
 If tests are failing and you want to ignore this, run `NOTEST=1 wh mic`.
 
 #### "TestLocalization: VersionTest yielded errors"
-If 'got' is lower than 'expected', you need to update your ICU library. On OSX, a 'brew update' will update your brew definitions, after which it should carry out this update.
+If 'got' is lower than 'expected', you need to update your ICU library. On macOS, a 'brew update' will update your brew definitions, after which it should carry out this update.
 
 If 'got' is higher than 'expected', update or let us know.
 
@@ -102,9 +115,9 @@ If 'got' is higher than 'expected', update or let us know.
 This error, and similar errors, may be caused by updating libraries (especially when the error refers to an older version of the library, like icu v55 above). Try `wh make clean-libs` to remove all compiled libraries
 
 #### lib/hsm_wh_icu.dylib Error 1
-There were probably errors building the icu provider, and the autodependency checking tends to be bad at picking up icu recompiles, at least on OSX.
+There were probably errors building the icu provider, and the autodependency checking tends to be bad at picking up icu recompiles, at least on macOS.
 
-Run `wh make clean-icu-provider` to specifically reset the ICU module. If ICU issues persist, consider downgrading to an earlier version. On OSX with brew:
+Run `wh make clean-icu-provider` to specifically reset the ICU module. If ICU issues persist, consider downgrading to an earlier version. On macOS with brew:
 
 ```bash
 # Show available versions
@@ -116,7 +129,7 @@ brew switch icu4c 59.1_1
 ```
 
 #### libssh2: Unknown `--is-lightweight` option
-This is usually caused by broken or out-of-date command line tools on OSX.
+This is usually caused by broken or out-of-date command line tools on macOS.
 
 Update Xcode, start Xcode and make sure you accepted the EULA and it got a chance to download updated command line tools.
 
@@ -126,6 +139,9 @@ After this, you'll probably have to go through a 'wh fixbuild'.
 Ensure your compiler (gcc orclang) is up-to-date.
 
 On macOS, check that the OS, XCode and XCode's developer tools are up-to-date.
+
+#### hsvm_pgsqlprovider.h:18: fatal error: 'libpq-fe.h' file not found
+When using Homebrew, you may need to 'link' the version of postgresql you want to use, eg `brew link postgresql@13`.
 
 #### If you're about to give up:
 ```bash

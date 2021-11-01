@@ -389,8 +389,6 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
                    };
 
   let extrarequires = bundle.bundleconfig.extrarequires.filter(node => !!node);
-  if(bundle.isdev && bundle.bundleconfig.environment == 'window')
-    extrarequires.push('@mod-publisher/js/internal/devhelper');
 
   let modsystemroot = baseconfig.installedmodules.find(_ => _.name == "system").root;
   let builderconfig =

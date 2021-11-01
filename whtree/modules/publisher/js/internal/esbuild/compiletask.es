@@ -92,13 +92,13 @@ async function runTask(taskcontext, data)
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
                  , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin()
-                 , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig)
+                 , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
 
                  // , sassPlugin({ importer: sassImporter
                               // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
                               // })
 
-                 , whSassPlugin()
+                 , whSassPlugin(captureplugin)
                  ]
       , loader: { ".es": "jsx"
                 , ".woff": "file"
@@ -131,15 +131,6 @@ async function runTask(taskcontext, data)
   for(const extrarequired of bundle.bundleconfig.extrarequires.filter(node => !!node))
   {
     esbuild_configuration.inject.push(extrarequired);
-  }
-
-  if(!bundle.isdev) //running in prod
-  {
-  }
-  else //dev
-  {
-    if(bundle.bundleconfig.environment == 'window')
-      esbuild_configuration.inject.push(path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/devhelper/index.es"));
   }
 
   let buildresult;
