@@ -1116,6 +1116,8 @@ PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
           INSERT CELL width := 12 INTO colprops;
         ELSE IF(col.type="datetime")
           INSERT CELL width := 20 INTO colprops;
+        ELSE IF(col.type="time")
+          INSERT CELL width := 12 INTO colprops;
 
         this->sheet->SetColumn(#col + 1, colprops);
       }
