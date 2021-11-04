@@ -63,6 +63,11 @@ OBJECTTYPE TolliumWebAsyncDownload EXTEND TolliumAsyncDownloadBase
     this->pvt_msgid := msgid;
   }
 
+  PUBLIC MACRO GotLinkClosed()
+  {
+    this->pvt_link := DEFAULT OBJECT;
+  }
+
   UPDATE PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)
   {
     TolliumAsyncDownloadBase::SendFile(data, mimetype, filename);
@@ -122,6 +127,11 @@ OBJECTTYPE TolliumWebAsyncWindowOpen EXTEND TolliumAsyncWindowOpenBase
   {
     this->pvt_link := link;
     this->pvt_msgid := msgid;
+  }
+
+  PUBLIC MACRO GotLinkClosed()
+  {
+    this->pvt_link := DEFAULT OBJECT;
   }
 
   UPDATE PUBLIC MACRO SendFile(BLOB data, STRING mimetype, STRING filename)

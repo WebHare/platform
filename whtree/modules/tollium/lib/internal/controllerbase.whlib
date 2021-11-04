@@ -2784,7 +2784,10 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         FOR (INTEGER i := 0; i < LENGTH(this->asyncobjects);)
         {
           IF (this->asyncobjects[i]->link = link)
+          {
+            this->asyncobjects[i]->GotLinkClosed();
             DELETE FROM this->asyncobjects AT i;
+          }
           ELSE
             i := i + 1;
         }
