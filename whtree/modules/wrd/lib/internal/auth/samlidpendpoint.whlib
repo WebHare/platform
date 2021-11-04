@@ -78,9 +78,9 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
           , spssodescriptor :=    DEFAULT RECORD ARRAY
           ];
 
-      RECORD data :=
-          [ type :=                 "EntitiesDescriptor"
-          , entitydescriptor :=     [ descriptor ]
+      RECORD data := CELL
+          [ type :=                 "EntityDescriptor"
+          , ...descriptor
           ];
 
       OBJECT coder := NEW SAMLCoder;
@@ -108,10 +108,28 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
       IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" AND NOT idp->IsRedirectBindingAllowed())
         THROW NEW Exception("SAML HTTP-Redirect binding is not allowed for this service");
 
-      RECORD webdata := GetSAMLDataFromWebData(binding);
-      STRING transid;
+      /* With the POST-binding, SameSite=lax cookies aren't passed at the first request (and its immediate redirects)
+         Make a client-side post to the current page to lift that restriction
+      * /
+      IF (binding = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" AND GetWebVariable("reloaded") = "")
+      {
+        // Execute a client-side form post to get rid of SameSite=lax restrictions on cookies
+        ExecuteSubmitInstruction(
+            [ type :=   "form"
+            , url :=    GetClientRequestURL()
+            , form :=   [ method := "POST"
+                        , action := ""
+                        , vars :=   RECORD
+                                    [ ...GetAllWebVariables()
+                                    , [ name := "reloaded", value := "1" ]
+                                    ]
+                        ]
+            ]);
+      }// */
 
+      RECORD webdata := GetSAMLDataFromWebData(binding);
       // Try to get id of request
+      STRING transid;
       IF (ObjectExists(webdata.requestdoc->documentelement))
         transid := webdata.requestdoc->documentelement->GetAttribute("ID");
       transid := transid ?? GenerateUFS128BitId();

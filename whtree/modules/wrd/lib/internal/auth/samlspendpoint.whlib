@@ -121,9 +121,9 @@ PUBLIC MACRO RunSAMLSpEndpoint()
                                   ]
           ];
 
-      RECORD data :=
-          [ type :=                 "EntitiesDescriptor"
-          , entitydescriptor :=     [ descriptor ]
+      RECORD data := CELL
+          [ type :=                 "EntityDescriptor"
+          , ...descriptor
           ];
 
       OBJECT coder := NEW SAMLCoder;
