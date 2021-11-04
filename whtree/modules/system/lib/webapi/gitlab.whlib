@@ -66,6 +66,11 @@ CONSTANT RECORD gitlab_projectstructure :=
     [ default_branch :=               ""
     ];
 
+CONSTANT RECORD gitlab_customattribute :=
+    [ "key" :=                ""
+    , value :=                ""
+    ];
+
 
 PUBLIC STATIC OBJECTTYPE GitLabAPI
 <
@@ -744,5 +749,61 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
         ]);
 
     RETURN EnforceStructure(gitlab_mergerequeststructure, this->GetProjectResource(project, `merge_requests/${iid}`));
+  }
+
+  /** Returns the list of custom attributes of a project
+      @param project Project
+      @return List of custom attributes @includecelldef #GetProjectCustomAttribute.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetProjectCustomAttributes(STRING project)
+  {
+    RETURN EnforceStructure([ gitlab_customattribute ], this->GetProjectResource(project, `custom_attributes`));
+  }
+
+  /** Returns a custom attribute of a project
+      @param project Project
+      @param attrkey Custom attribute key
+      @cell options.allowmissing Allow missing key
+      @return Custom attribute key and value, throws if the attribute does not exist and allowmissing is FALSE
+      @cell(string) return.key Attribute key (always returned, empty if not found)
+      @cell(string) return.value Attribute value (always returned)
+  */
+  PUBLIC RECORD FUNCTION GetProjectCustomAttribute(STRING project, STRING attrkey, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ allowmissing := FALSE ], options);
+    IF (attrkey = "")
+      THROW NEW Exception(`Custom attribute key may not be empty`);
+
+    RECORD getopts := options.allowmissing ? [ maperrorcodes := [ "404" := "" ] ] : DEFAULT RECORD;
+
+    RETURN EnforceStructure(gitlab_customattribute, this->GetProjectResource(project, `custom_attributes/${EncodeURL(attrkey)}`, getopts));
+  }
+
+  /** Sets a custom attribute of a project
+      @param project Project
+      @param attrkey Custom attribute key
+      @param value Custom attribute value
+  */
+  PUBLIC MACRO SetProjectCustomAttribute(STRING project, STRING attrkey, STRING value)
+  {
+    IF (attrkey = "")
+      THROW NEW Exception(`Custom attribute key may not be empty`);
+    this->SendModifyingRequest('PUT'
+                               , `projects/${EncodeURLGitlab(project)}/custom_attributes/${EncodeURL(attrkey)}`
+                               , [ [ name := "value", value := value ] ]
+                               );
+  }
+
+  /** Deletes a custom attribute of a project
+      @param project Project
+      @param attrkey Custom attribute key
+  */
+  PUBLIC MACRO DeleteProjectCustomAttribute(STRING project, STRING attrkey)
+  {
+    IF (attrkey = "")
+      THROW NEW Exception(`Custom attribute key may not be empty`);
+    this->SendModifyingRequest('DELETE'
+                               , `projects/${EncodeURLGitlab(project)}/custom_attributes/${EncodeURL(attrkey)}`
+                               , RECORD[]);
   }
 >;
