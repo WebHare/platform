@@ -227,7 +227,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
     // Restart assetpackmanager, purge caches
     OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
-    RECORD response := WaitForPromise(link->Restart("publisher:assetpackmgr"));
+    RECORD response := WaitForPromise(link->Restart("publisher:assetpackcontrol"));
     link->CloseService();
 
     // Schedule compile for all bundles
