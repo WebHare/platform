@@ -1423,7 +1423,7 @@ class TestSuite
   toggleAutoStart()
   {
     var url = new URL(window.location.href);
-    url.set('autostart', this.autostart ? '0' : '1');
+    url.searchParams.set('autostart', this.autostart ? '0' : '1');
     location.href = url.toString();
   }
 
