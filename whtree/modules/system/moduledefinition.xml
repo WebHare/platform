@@ -2302,6 +2302,11 @@ The full base URL on which this site will be published, calculated by combining 
         <requireright right="sysop" />
       </accesscheck>
     </virtualfs>
+    <virtualfs name="home" library="internal/virtualfs/data.whlib" objectname="DataFSHomeFolder">
+      <accesscheck>
+        <requireright right="sysop" />
+      </accesscheck>
+    </virtualfs>
   </publisher>
 
   <services>
