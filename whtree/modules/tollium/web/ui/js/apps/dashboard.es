@@ -4,7 +4,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import * as whconnect from '@mod-system/js/wh/connect';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
-const $todd = require("../support");
+import $todd from '../support';
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const focuszones = require('../../components/focuszones');
 const toddImages = require("@mod-tollium/js/icons");
