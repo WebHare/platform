@@ -277,11 +277,20 @@ PUBLIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       RETURN;
     }
 
+    STRING errors := status.errors;
+    //TODO not sure how stable and well tested the status structure is..
+    IF (CellExists(status.info, "ERRORS") AND LENGTH(status.info.errors) > 0)
+    {
+      errors := "";
+      FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.info.errors))
+        errors := errors || `${error.resource}:${error.line}:${error.col}: ${error.message}\n`;
+    }
+
     this->filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
 
     this->outputtag->value := status.outputtag;
     this->stats->value := status.stats;
-    this->errors->value := status.errors;
+    this->errors->value := errors;
     this->entrypoint->value := status.entrypoint;
     IF (RecordExists(status.bundleconfig))
     {

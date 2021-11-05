@@ -5,7 +5,7 @@
   <mochanodetest name="test_compileerrors_es2016" file="test_compileerrors.es">
     <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="es2016" />
   </mochanodetest>
-  <mochanodetest name="test_compileerrors_next" file="test_compileerrors.es">
-    <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="next" />
+  <mochanodetest name="test_compileerrors_esnext" file="test_compileerrors.es">
+    <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="esnext" />
   </mochanodetest>
 </group>

@@ -4,6 +4,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/webserver/websocket.whlib";
@@ -25,10 +26,15 @@ handler->ondata := PTR OnData;
 
 //Greet it
 RECORD config := GetWebhareConfiguration();
-SendPacket([ version := GetWebhareVersionNumber()
-           , varroot := config.varroot
-           , installationroot := config.installationroot
-           ]);
+RECORD moduleroots;
+FOREVERY(STRING module FROM GetInstalledModuleNames())
+  moduleroots := CellInsert(moduleroots, module, GetModuleInstallationRoot(module));
+
+SendPacket(CELL[ version := GetWebhareVersionNumber()
+               , config.varroot
+               , config.installationroot
+               , moduleroots
+               ]);
 
 handler->Run();
 
