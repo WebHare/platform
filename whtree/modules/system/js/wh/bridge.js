@@ -428,6 +428,10 @@ class WebHareBridge extends Events.EventEmitter
       throw new Error("Requesting WebHare configuration data before the link was established");
     return this.versiondata.installationroot;
   }
+  getModuleInstallationRoot(module)
+  {
+    return this.versiondata.moduleroots[module] || null;
+  }
   getBaseDataRoot()
   {
     if(!this.versiondata)

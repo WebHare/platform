@@ -32,7 +32,7 @@ async function compileAdhocTestBundle(entrypoint, isdev)
   bundle.outputpath = "/tmp/compileerrors-build-test/";
 
   if(fs.existsSync(bundle.outputpath))
-    fs.rmdirSync(bundle.outputpath, {recursive:true});
+    fs.rmSync(bundle.outputpath, {recursive:true});
   fs.mkdirSync(bundle.outputpath);
 
     //we need a taskcontext to invoke the assetCompiler, as it thinks its an ephemeral task runner
@@ -88,7 +88,14 @@ describe("test_compileerrors", (done) =>
     assert(Array.isArray(result.info.errors));
     assert(result.info.errors.length >= 1);
     assert(result.info.errors[0].message);
-    assert(result.info.errors[0].resource); //note: esbuild creates relative paths, webpack absolute paths. does this matter anywhere?
+
+    //TODO preferably esbuild would also point to the SCSS, we'll re-investigate that once dart-sass improves its error output
+    let acceptablenames = [ bridge.getModuleInstallationRoot("webhare_testsuite") + "tests/publisher/assetpacks/broken-scss/broken-scss.scss" // <-- webpack
+                          , bridge.getModuleInstallationRoot("webhare_testsuite") + "tests/publisher/assetpacks/broken-scss/broken-scss.es"   // <-- esbuild
+                          ];
+    console.log("Acceptable locations:", acceptablenames);
+    console.log("Reported location:", result.info.errors[0].resource);
+    assert(acceptablenames.includes(result.info.errors[0].resource));
 
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
     assert(filedeps.includes(path.join(__dirname, "/broken-scss/broken-scss.scss")));
@@ -98,6 +105,30 @@ describe("test_compileerrors", (done) =>
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);
     assert(missingdeps.length == 0);
 
+  });
+
+  it("should properly report broken location", async function()
+  {
+    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
+
+    let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/include-import-fail.es"), true);
+    assert(result.haserrors === true);
+    assert(Array.isArray(result.info.errors));
+    assert(result.info.errors.length >= 1);
+    assert(result.info.errors[0].message);
+
+
+    let acceptablenames = [ bridge.getModuleInstallationRoot("webhare_testsuite") + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es" // <-- esbuild
+                          ];
+    console.log("Acceptable locations:", acceptablenames);
+    console.log("Reported location:", result.info.errors[0].resource);
+    assert(acceptablenames.includes(result.info.errors[0].resource));
+
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+
+    assert(filedeps.includes(path.join(__dirname, "dependencies/include-import-fail.es")));
+    assert(filedeps.includes(path.join(__dirname, "dependencies/deeper/import-fail.es")));
+    assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
   });
 
   it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
