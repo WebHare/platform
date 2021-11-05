@@ -1,7 +1,5 @@
 <?wh
 
-LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
-
 
 PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
 {

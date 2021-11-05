@@ -16,12 +16,12 @@
 
   <apply>
     <to type="folder" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/tollium/manual" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/tollium/manual" />
   </apply>
 
   <apply>
     <to type="file" parenttype="http://www.webhare.net/xmlns/tollium/manual" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/tollium/manualrtdtype" />
   </apply>
 

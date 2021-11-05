@@ -2,7 +2,6 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";

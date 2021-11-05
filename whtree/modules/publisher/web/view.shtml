@@ -8,11 +8,9 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/webserver/errors.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
 LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 
