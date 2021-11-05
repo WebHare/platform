@@ -68,6 +68,47 @@ let whResolverPlugin =
   }
 };
 
+function mapESBuildError(entrypoint, error)
+{
+  /* potential structure of buildresult.errors
+
+     detail: undefined,
+     location: {
+       column: 7,
+       file: '../../../../../webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.es',
+       length: 20,
+       line: 1,
+       lineText: 'import "./broken-scss.scss";',
+       namespace: '',
+       suggestion: ''
+     },
+     notes: [],
+     pluginName: 'sass-plugin',
+     text: 'expected "{".\n' +
+       '  ╷\n' +
+       '1 │ syntax-error;\n' +
+       '  │             ^\n' +
+       '  ╵\n' +
+       '  /Users/arnold/projects/webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.scss 1:13  root stylesheet'
+   }
+  */
+  let file = error.detail?.file ?? error.location?.file ?? "";
+  if(!file.startsWith('/'))
+    file = path.resolve(file);
+
+
+
+
+
+  //for sass errors, detail contains information about the SASS file but location about the ES file that included it
+  return { message:  error.detail?.formatted ?? error.text
+         , resource: file
+         , line:     error.detail?.line ?? error.location?.line ?? 0
+         , col:      error.detail?.column ?? error.location?.column ?? 0
+         , length:   error.detail?.line ? 0 //detail has no length, and it seems unsafe to take the one from location the
+                                        : error.location?.length ?? 0
+         };
+}
 
 async function runTask(taskcontext, data)
 {
@@ -149,41 +190,12 @@ async function runTask(taskcontext, data)
   }
   // console.log("BUILDRESULT", buildresult);
 
-  /* potential structure of buildresult.errors
-
-     detail: undefined,
-     location: {
-       column: 7,
-       file: '../../../../../webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.es',
-       length: 20,
-       line: 1,
-       lineText: 'import "./broken-scss.scss";',
-       namespace: '',
-       suggestion: ''
-     },
-     notes: [],
-     pluginName: 'sass-plugin',
-     text: 'expected "{".\n' +
-       '  ╷\n' +
-       '1 │ syntax-error;\n' +
-       '  │             ^\n' +
-       '  ╵\n' +
-       '  /Users/arnold/projects/webhare/whtree/modules/webhare_testsuite/tests/publisher/assetpacks/broken-scss/broken-scss.scss 1:13  root stylesheet'
-   }
-  */
-
   let info = { dependencies: { start: start
                              , fileDependencies:     Array.from(captureplugin.loadcache)
                              , contextDependencies:  []
                              , missingDependencies:  []
                              }
-             , errors:  buildresult.errors.map(_ => ({ message: _.text
-                                                     , resource: _.location ? _.location.file : ""
-                                                     , line: _.location ? _.location.line : 0
-                                                     , col: _.location ? _.location.column : 0
-                                                     , length: _.location ? _.location.length : 0
-                                                     // , lineText: _.location ? _.location.lineText : ""
-                                                     }))
+             , errors:  buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
              };
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
