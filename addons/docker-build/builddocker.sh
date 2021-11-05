@@ -199,11 +199,6 @@ mv whtree/bin/wh tocompile/whtree/bin
 # Fonts are also required in the tests
 mv whtree/fonts tocompile/whtree/
 
-# NPM package stuff
-[ -d whtree-npm ] && rm -rf whtree-npm
-mkdir whtree-npm
-mv whtree/package*.json whtree-npm/
-
 # Testsuite
 rm -rf webhare_testsuite # remove any already present testsuite
 if ! mv whtree/modules/webhare_testsuite . ; then

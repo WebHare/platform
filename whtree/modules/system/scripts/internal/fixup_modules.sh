@@ -2,13 +2,14 @@
 
 # This script is used when building WebHare to fixup modules and do other post-build tasks, before create-shrinkwrap is invoked
 
-cd `dirname $0`
 # We are in whtree/modules/system/scripts/internal, we need to find whtree, so 4 up!
-cd ../../../..
-WHTREE="`pwd`"
+cd "${BASH_SOURCE%/*}/../../../.." || exit 1
+WHTREE="$(pwd)"
 
 if [ -z "$WEBHARE_IN_DOCKER" ]; then #when in local build dir
-  npm install --no-save
+  if ! modules/system/scripts/internal/install_whtree_nodemodules.sh ; then
+    FAIL=1
+  fi
 fi
 
 FAIL=0
