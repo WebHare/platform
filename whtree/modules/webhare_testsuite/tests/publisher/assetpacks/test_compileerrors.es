@@ -32,7 +32,7 @@ async function compileAdhocTestBundle(entrypoint, isdev)
   bundle.outputpath = "/tmp/compileerrors-build-test/";
 
   if(fs.existsSync(bundle.outputpath))
-    fs.rmdirSync(bundle.outputpath, {recursive:true});
+    fs.rmSync(bundle.outputpath, {recursive:true});
   fs.mkdirSync(bundle.outputpath);
 
     //we need a taskcontext to invoke the assetCompiler, as it thinks its an ephemeral task runner
