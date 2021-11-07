@@ -21,7 +21,6 @@ RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "c", type := "switch" ]
     , [ name := "p", type := "switch" ]
     , [ name := "sp", type := "switch" ]
-    , [ name := "spv", type := "switch" ] //undocumented: siteprofile validate only
     , [ name := "web", type := "switch" ]
     , [ name := "debug", type := "switch" ]
     , [ name := "color", type := "switch" ]
@@ -52,23 +51,15 @@ IF (args.c OR args.p)
   Print("Clearing caches\n");
   BroadcastEvent("system:clearcaches", [ clearprecalccache := args.p ]);
 }
-ELSE IF(args.sp OR args.spv)
+ELSE IF(args.sp)
 {
   OpenPrimary();
   RECORD res;
-  IF(args.sp)
-  {
-    Print("Recompiling siteprofiles\n");
-    res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
-    IF(args.twice)
-      res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
-  }
-  ELSE
-  {
-    res := DecodeHSONBlob(GetWebHareResource("whfs::/webhare-private/publisher/compiled-siteprofiles.status"));
-    IF(Length(res.warnings) > 0 OR Length(res.errors) > 0)
-      Print("Issues reported by last siteprofile compilation\n");
-  }
+
+  Print("Recompiling siteprofiles\n");
+  res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
+  IF(args.twice)
+    res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
 
   IF(Length(res.errors) > 0)
     SetConsoleExitCode(1);
