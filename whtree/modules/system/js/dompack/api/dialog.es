@@ -37,6 +37,7 @@ export class DialogBase
   {
     this.options = { allowcancel: true
                    , borrow: null
+                   , signal: null
                    , ...options
                    };
 
@@ -53,6 +54,10 @@ export class DialogBase
       this._borrowedfrom = this.options.borrow.parentNode;
       this._borrowednext = this.options.borrow.nextSibling;
     }
+
+    if(this.options.signal)
+      this.options.signal.addEventListener("abort", () => { this.resolve(null); });
+
     this.contentnode = null;
     this._deferred = dompack.createDeferred();
     this.open = false;
@@ -157,6 +162,7 @@ export function createDialog(options)
     @cell choices.result Override result to return if clicked (otherwise you'll just receive the title)
     @cell(boolean) options.allowcancel Allow the dialog to be cancelled by clicking outside the dialog. Defaults to true if no choices are specified
     @cell(object) options.focusonclose Element to focus on closing the dialog
+    @cell(object) options.signal An AbortSignal which if set will close the dialog and resolve it with a null response
     @cell(string) options.theme Additional class to set on the dialog
 */
 export async function runMessageBox(question, choices, options)
