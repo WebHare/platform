@@ -4,6 +4,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -117,6 +119,12 @@ MACRO TestViewSHTML()
 
 MACRO TestDevVersion()
 {
+  IF(NOT IsModuleInstalled("dev"))
+  {
+    Print(`Testing '.dev' behavior requires the "dev" module. But these things depend on view.shtml hacks which are going away anyway\n`);
+    RETURN;
+  }
+
   //Now act like we're a preview
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
@@ -152,7 +160,6 @@ MACRO TestDevVersion()
   TestEq(devassetcache, testfw->browser->GetResponseHeader("Cache-Control"));
   TestEQ(FALSE, testfw->browser->GotoWebPage(backgroundurl||".bla"), "Unexpectedly able to retrieve " || backgroundurl||".bla");
   TestEq(notfoundcache, testfw->browser->GetResponseHeader("Cache-Control"), testfw->browser->href);
-  TestEq( ["-webkit-flex", "flex" ], cssstuff.display, "Missing webkit-flex in " || testfw->browser->href);
 }
 
 MACRO TestAssetpackManifest(BOOLEAN isdevversion)
