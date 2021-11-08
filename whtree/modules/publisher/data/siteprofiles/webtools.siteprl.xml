@@ -20,10 +20,10 @@
     - "http://www.webhare.net/xmlns/publisher/pollwidget"
   -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/pollwebtool"
+              icon="tollium:messageboxes/question"
               renderobjectname="mod::publisher/lib/webtools/internal/renderpoll.whlib#PollWidget"
               searchcontentprovider="publisher:webtoolform"
               tid="filetypes.webtool-poll"
-              icon="tollium:messageboxes/question"
               wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll">
     <members>
       <member name="allowvotestill" type="datetime" />  <!-- ADDME: implement this option -->
@@ -71,6 +71,7 @@
   <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
           name="editpoll"
           width="85x"
+          footerbuttons="ok cancel"
           lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib">
     <compositions>
       <p:whfsinstance name="fsobject" typedef="http://www.webhare.net/xmlns/publisher/pollwebtool" />
@@ -112,14 +113,11 @@
         </tab>
       </tabs>
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
           name="editpolloption"
+          footerbuttons="ok cancel"
           gid="webtools.editpolloption"
           implementation="lib"
           lib="mod::publisher/lib/screens/objectprops/webtools-poll.whlib"
@@ -135,10 +133,6 @@
       <textarea composition="row" cellname="title" width="40x" height="2x" />
       <textedit composition="row" cellname="guid" readonly="true" title="GUID" visible="false" />
     </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <!--

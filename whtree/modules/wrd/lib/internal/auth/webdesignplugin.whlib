@@ -35,7 +35,6 @@ LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
-LOADLIB "mod::wrd/lib/internal/legacy-wrdschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";

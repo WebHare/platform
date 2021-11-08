@@ -38,9 +38,9 @@
 
   <apply priority="10">
     <to type="all" parenttype="http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" />
-    <denyfoldertype typedef="*" />
-    <denyfiletype typedef="*" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlibraries/beacon" />
+    <denyfoldertype typemask="*" />
+    <denyfiletype typemask="*" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/contentlibraries/beacon" />
   </apply>
 
   <!-- Apply references to slots -->
@@ -80,9 +80,9 @@
     <republish scope="references" />
 
     <!-- permit only our snippets type, as we've adjusted the interface in these folders to only support these. -->
-    <denyfoldertype typedef="*" />
-    <denyfiletype typedef="*" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" />
+    <denyfoldertype typemask="*" />
+    <denyfiletype typemask="*" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet" />
   </apply>
 
 </siteprofile>
