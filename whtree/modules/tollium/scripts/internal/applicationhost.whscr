@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 

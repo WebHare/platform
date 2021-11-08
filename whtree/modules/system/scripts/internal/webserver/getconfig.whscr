@@ -6,7 +6,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
-LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 /* ADDME Throw in a FlushConfig() when we reconnect with the database after a disconnect, as we may have missed

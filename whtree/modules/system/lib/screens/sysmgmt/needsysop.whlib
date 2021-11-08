@@ -2,7 +2,6 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";

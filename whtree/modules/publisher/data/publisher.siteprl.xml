@@ -148,10 +148,10 @@
               webhare_builtintypeid="2" />
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/photoalbum"
+              icon="tollium:folders/photoalbum"
               indexfile="contentlisting"
               protectindexfile="true"
               tid="publisher:foldertypes.photoalbum"
-              icon="tollium:folders/photoalbum"
               webhare_builtintypeid="3">
     <members>
       <string name="rows" />
@@ -192,6 +192,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/mswordfile"
             kind="rawfile"
             extensions=".doc"
+            icon="tollium:files/application_msword"
             isacceptableindex="true"
             ispublishedassubdir="true"
             needstemplate="true"
@@ -199,7 +200,6 @@
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.msword"
-            icon="tollium:files/application_msword"
             webhare_builtintypeid="4">
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile" />
   </filetype>
@@ -207,11 +207,11 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/htmlfile"
             kind="rawfile"
             extensions=".html .htm"
+            icon="tollium:files/text_html"
             isacceptableindex="true"
             needstemplate="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.html"
-            icon="tollium:files/text_html"
             webhare_builtintypeid="5">
     <setobjecteditor name="publisher:texteditor" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
@@ -442,9 +442,9 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile"
             kind="virtualfile"
             extensions=".rtd"
+            icon="tollium:files/application_x-webhare-richdocument"
             searchcontentprovider="publisher:rtd"
-            tid="publisher:filetypes.richdocumentfile"
-            icon="tollium:files/application_x-webhare-richdocument">
+            tid="publisher:filetypes.richdocumentfile">
     <members>
       <file name="original" />
       <richdocument name="data" />
@@ -456,10 +456,10 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/msworddownload"
             kind="rawfile"
             extensions=".doc"
+            icon="tollium:files/application_msword"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.msworddownload"
-            icon="tollium:files/application_msword" />
+            tid="publisher:filetypes.msworddownload" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
             blobiscontent="false"
@@ -481,8 +481,8 @@
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/tagfile"
             kind="datafile"
-            tid="publisher:filetypes.tagfile"
-            icon="tollium:files/application_x-webhare-tag">
+            icon="tollium:files/application_x-webhare-tag"
+            tid="publisher:filetypes.tagfile">
     <members>
       <whfsrefarray name="belongstorepos" />
     </members>
@@ -490,8 +490,8 @@
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/tagrepository"
             kind="datafile"
-            tid="publisher:filetypes.tagrepository"
-            icon="tollium:folders/repository">
+            icon="tollium:folders/repository"
+            tid="publisher:filetypes.tagrepository">
     <members>
       <whfsrefarray name="tags" />
     </members>
@@ -569,19 +569,19 @@
     <republish indexonly="true" />
 
     <!-- Allow all WebHare file and folder types by default -->
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/systemfolder" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/*" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/systemfolder" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/*" />
 
     <!-- These are seldom used -->
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/tagfile" />
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/tagrepository" />
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/profilefile" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/tagfile" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/tagrepository" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/profilefile" />
 
     <!-- Disable for now, until we make this feature public -->
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwebtool" />
-    <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwidget" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/formwebtool" />
+    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/formwidget" />
     <extendproperties extension="mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle"
                       contenttype="http://www.webhare.net/xmlns/publisher/lifecycle"
                       requireright="system:supervisor" />
@@ -589,8 +589,8 @@
 
   <apply>
     <to type="all" sitemask="?*" />  <!-- limited to  sites -->
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/foreignfolder" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/photoalbum" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/foreignfolder" />
   </apply>
 
   <apply>
@@ -691,7 +691,7 @@
   ==== -->
   <apply priority="99999">
     <to type="folder" pathmask="/" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
   </apply>
 
   <!-- ======================================================================
@@ -716,7 +716,6 @@
       <integer name="warnexpirydays" />
     </members>
   </foldertype>
-
 
   <!-- ======================================================================
 
