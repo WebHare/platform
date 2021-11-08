@@ -1008,7 +1008,7 @@
     </textgroup>
     <textgroup gid="webdav">   <!-- sysmgmt.webdav -->
       <textgroup gid="data">   <!-- sysmgmt.webdav.data -->
-        <text tid="appmenu">Mappen</text>
+        <text tid="deletefolder">Weet je zeker dat je map '<param p="1"/>' wilt verwijderen?</text>
         <text tid="diskfolder">Gedeelde map</text>
         <text tid="foldername">Mapnaam</text>
         <text tid="rightsfolder">Rechten</text>
@@ -1021,11 +1021,6 @@
         <text tid="forcelowercase">Gebruik kleine letters op disk</text>
         <text tid="webdav_folder">WebDav-gegevensmap beheren</text>
         <text tid="webdavdata">WebDAV-map eigenschappen</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.webdav.messages -->
-        <text tid="deletefolder">Weet je zeker dat je map '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteuser">Weet je zeker dat je de geselecteerde gebruiker '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deleteusers">Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen?</text>
       </textgroup>
     </textgroup>
   </textgroup>

@@ -1199,7 +1199,7 @@
     </textgroup>
     <textgroup gid="webdav">   <!-- sysmgmt.webdav -->
       <textgroup gid="data">   <!-- sysmgmt.webdav.data -->
-        <text tid="appmenu">Folders</text>
+        <text tid="deletefolder">Are you sure you want to delete folder '<param p="1"/>'?</text>
         <text tid="diskfolder">Shared folder</text>
         <text tid="foldername">Folder name</text>
         <text tid="rightsfolder">Rights</text>
@@ -1212,11 +1212,6 @@
         <text tid="forcelowercase">Use lowercase names on disk</text>
         <text tid="webdav_folder">Manage WebDav data folder</text>
         <text tid="webdavdata">WebDAV folder properties</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.webdav.messages -->
-        <text tid="deletefolder">Are you sure you want to delete folder '<param p="1"/>'?</text>
-        <text tid="deleteuser">Are you sure you want to remove access for the user '<param p="1"/>'?</text>
-        <text tid="deleteusers">Are you sure you want to remove access for <param p="1"/> users?</text>
       </textgroup>
     </textgroup>
   </textgroup>
