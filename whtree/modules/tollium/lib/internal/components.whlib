@@ -2,8 +2,6 @@
 
 LOADLIB "mod::system/lib/resources.whlib";
 
-LOADLIB "mod::tollium/lib/internal/support.whlib";
-
 // attrs.name, attrs.data
 PUBLIC RECORD FUNCTION StoredAttrsJSON(RECORD element, STRING ARRAY flags)
 {

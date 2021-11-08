@@ -11,10 +11,8 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
-LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 
 OBJECT trans := OpenPrimary();

@@ -13,7 +13,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 
 

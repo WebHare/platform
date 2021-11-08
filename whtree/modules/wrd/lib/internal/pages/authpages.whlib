@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::witty.whlib";
 

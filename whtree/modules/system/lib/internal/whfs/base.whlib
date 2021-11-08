@@ -1,7 +1,5 @@
 <?wh
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
 

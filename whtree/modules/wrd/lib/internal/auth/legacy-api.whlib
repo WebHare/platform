@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
@@ -12,7 +11,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 

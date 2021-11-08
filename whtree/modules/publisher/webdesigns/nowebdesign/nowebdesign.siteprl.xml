@@ -8,27 +8,27 @@
                wittyencoding="HTML-NI" />
     <disablelegacysitesettings notemplateprofile="true" />
     <baseproperties keywords="false" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/msworddownload" />
     <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload" mimetypemask="application/msword" />
     <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload"
                        mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-    <denyfoldertype typedef="*" />
-    <denyfiletype typedef="*" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/unknownfile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/htmlfile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/javascriptfile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/imagefile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/pdffile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/cssfile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/externallink" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/plaintextfile" />
-    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/xmlfile" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/systemfolder" />
-    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/foreignfolder" />
+    <denyfoldertype typemask="*" />
+    <denyfiletype typemask="*" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/unknownfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/htmlfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/javascriptfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/imagefile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/pdffile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/cssfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/msworddownload" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/externallink" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/internallink" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/contentlink" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/plaintextfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/xmlfile" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/systemfolder" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/foreignfolder" />
   </apply>
 
 </siteprofile>

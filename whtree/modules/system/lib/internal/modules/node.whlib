@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::util/semver.whlib";
 
 

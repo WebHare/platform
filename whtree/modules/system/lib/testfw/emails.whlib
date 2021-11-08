@@ -7,7 +7,6 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
