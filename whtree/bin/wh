@@ -496,7 +496,7 @@ getscripttorun()
 
 setup_for_console()
 {
-  mkdir -p "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
+  mkdir -p "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
 }
 

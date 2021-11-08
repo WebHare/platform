@@ -49,16 +49,15 @@ RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
     --mount=type=tmpfs,target=/tmp/aws/build/ \
     /bin/bash /setup-awssdk.sh "1.7.231"
 
-# Add packaging stuff
-COPY whtree-npm/ /opt/wh/whtree/
-
 # Let's do the NPM work first, for better caching
 # RUN cd /opt/wh/whtree && npm install --no-save && npm prune && npm dedupe && npm cache clear --force && rm -rf ~/.ccache /tmp/*
 RUN --mount=type=tmpfs,target=/tmp/,readwrite \
     --mount=type=tmpfs,target=/root/,readwrite \
     --mount=type=cache,id=npmcache,target=/tmp/npmcache \
-   cd /opt/wh/whtree && \
-   npm_config_cache=/tmp/npmcache npm install --no-save
+    --mount=type=bind,source=/whtree/package.json,target=/opt/wh/whtree/package.json \
+    --mount=type=bind,source=/whtree/package-lock.json,target=/opt/wh/whtree/package-lock.json \
+    --mount=type=bind,source=/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh,target=/opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh \
+   npm_config_cache=/tmp/npmcache /opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh
 
 # Add base source code and stuff needed to compile it
 COPY tocompile/ /opt/wh/

@@ -1,4 +1,8 @@
 ﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/virtualfs/base.whlib";
 LOADLIB "mod::system/lib/virtualfs/modular.whlib";
@@ -38,4 +42,11 @@ PUBLIC OBJECTTYPE DataFS EXTEND VirtualModularFSBase
             WHERE (read_all_folders ? TRUE : webdav_datafolders.id IN readfolders);
   }
 
+>;
+
+PUBLIC STATIC OBJECTTYPE DataFSHomeFolder EXTEND DiskFolderFS
+<
+  MACRO NEW() : DiskFolderFS(MergePath(GetWebhareConfiguration().basedataroot,"home"), TRUE, TRUE)
+  {
+  }
 >;

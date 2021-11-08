@@ -1,3 +1,4 @@
+#!/bin/bash
 source $WEBHARE_DIR/lib/wh-functions.sh
 
 # command: fixmodules [ --onlymodules ] [modules]
@@ -39,7 +40,7 @@ FAIL=0
 if [ -z "$ONLYBROKEN" ]; then
   if [ -z "$ONLYMODULES" ] && [ "$#" == 0 ] && cd $WEBHARE_DIR 2>/dev/null ; then
     echo "Updating WebHare"
-    npm install --no-save
+    npm install --no-save --ignore-scripts
     NPMRETVAL=$?
     if [ "$NPMRETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $NPMRETVAL
@@ -56,9 +57,9 @@ if [ -z "$ONLYBROKEN" ]; then
     cd $MODULEDIR
     if [ -f package.json ]; then
       if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-        npm install # upgrade lockfile
+        npm install --ignore-scripts # upgrade lockfile
       else
-        npm install --no-save
+        npm install --ignore-scripts --no-save
       fi
     fi
 
@@ -68,9 +69,9 @@ if [ -z "$ONLYBROKEN" ]; then
 
         if [ -f package.json ]; then
           if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-            npm install # upgrade lockfile
+            npm install --ignore-scripts # upgrade lockfile
           else
-            npm install --no-save
+            npm install --ignore-scripts --no-save
           fi
           NPMRETVAL=$?
           if [ "$NPMRETVAL" != "0" ]; then
@@ -98,9 +99,9 @@ else
       echo "Updating $path"
       if [ -f package.json ]; then
         if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-          npm install # upgrade lockfile
+          npm install --ignore-scripts # upgrade lockfile
         else
-          npm install --no-save
+          npm install --ignore-scripts --no-save
         fi
         NPMRETVAL=$?
         if [ "$NPMRETVAL" != "0" ]; then
