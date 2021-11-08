@@ -442,14 +442,14 @@ PUBLIC STRING FUNCTION FormatValidationWarning(RECORD msg)
 */
 PUBLIC MACRO PrintValidationMessages(RECORD file)
 {
-  FOREVERY (RECORD error FROM file.errors)
+  FOREVERY (RECORD error FROM (SELECT * FROM file.errors ORDER BY resourcename, line, col))
     Print(`${AnsiCmd("red")}${error.resourcename = "" ? "" : `${error.resourcename}:${error.line}: `}Error: ${error.message}${AnsiCmd("reset")}\n`);
 
-  FOREVERY (RECORD warning FROM file.warnings)
-    PRINT(`${warning.resourcename = "" ? "" : `${warning.resourcename}:${warning.line}:${warning.col}: `}Warning: ${warning.message}\n`);
+  FOREVERY (RECORD warning FROM (SELECT * FROM file.warnings ORDER BY resourcename, line, col))
+    Print(`${warning.resourcename = "" ? "" : `${warning.resourcename}:${warning.line}:${warning.col}: `}Warning: ${warning.message}\n`);
 
-  FOREVERY (RECORD hint FROM file.hints)
-    PRINT(`${hint.resourcename = "" ? "" : `${hint.resourcename}:${hint.line}:${hint.col}: `}Hint: ${hint.message}\n`);
+  FOREVERY (RECORD hint FROM (SELECT * FROM file.hints ORDER BY resourcename, line, col))
+    Print(`${hint.resourcename = "" ? "" : `${hint.resourcename}:${hint.line}:${hint.col}: `}Hint: ${hint.message}\n`);
 }
 
 

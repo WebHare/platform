@@ -41,13 +41,13 @@ PUBLIC OBJECTTYPE Webdav_Data EXTEND TolliumScreenBase
   {
     STRING foldername := this->folders->selection.foldername;
 
-    IF (this->RunMessageBox(".deletefolder", foldername) = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      DELETE FROM system.webdav_datafolders WHERE id = this->folders->value;
-      work->Finish();
-      this->refreshFolders();
-    }
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletefolder", foldername)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginInvalidatedWork();
+    DELETE FROM system.webdav_datafolders WHERE id = this->folders->value;
+    work->Finish();
+    this->RefreshFolders();
   }
 
   PUBLIC MACRO DoRightsFolder()
