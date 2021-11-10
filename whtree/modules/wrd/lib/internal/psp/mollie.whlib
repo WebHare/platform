@@ -111,8 +111,11 @@ RECORD FUNCTION GetCacheableMethods(STRING apikey, STRING locale)
 
   RECORD ARRAY methods := SELECT rowkey := id
                                , title := description
-                               , issuers := CellExists(method,'issuers') ? (SELECT rowkey := id, title := name FROM method.issuers) : RECORD[]
-                            FROM methodsresponse._embedded.methods AS method;
+                               , issuers := (SELECT rowkey := id, title := name FROM method.issuers)
+                            FROM EnforceStructure([[ id := ""
+                                                   , title :=""
+                                                   , issuers := RECORD[]
+                                                  ]], methodsresponse._embedded.methods) AS method;
   RETURN CELL[ value := methods
              , ttl := 15*60*1000
              ];
