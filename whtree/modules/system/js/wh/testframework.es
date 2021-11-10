@@ -565,60 +565,9 @@ function setFormsapiFileElement (el, filedata, filename)
 //  $(el).destroy();
 }
 
-function _resolveToSingleElement(element)
-{
-  if(element instanceof NodeList)
-  {
-    if(element.length==0)
-      throw new Error("Passed an empty $$()");
-    if(element.length>1)
-    {
-      console.log(element);
-      throw new Error("Passed multiple elements using $$(), make sure the selector only matches one!");
-    }
-    return element[0];
-  }
-  else if(typeof element == "string")
-  {
-    var elements = qSA(element);
-    if(elements.length==0)
-    {
-      elements = qSA(`*[id="${CSS.escape(element)}]`);
-      if(elements.length != 0)
-      {
-        console.error(`Invoking _resolveToSingleElement with an id '${element}'`);
-        throw new Error(`Invoking _resolveToSingleElement with an id '${element}'`);
-      }
-    }
-    if(elements.length==0)
-    {
-      elements = qSA(`*[name="${CSS.escape(element)}"]`);
-      if(elements.length != 0)
-      {
-        console.error(`Invoking _resolveToSingleElement with a name '${element}'`);
-        throw new Error(`Invoking _resolveToSingleElement with a name '${element}'`);
-      }
-    }
-    if(elements.length==0)
-      throw new Error("Selector '" + element + "'' evaluated to no elements");
-    if(elements.length>1)
-    {
-      console.log(elements);
-      throw new Error("Selector '" + element + "'' evaluated to multiple elements, make sure the selector only matches one!");
-    }
-    return elements[0];
-  }
-
-  if(!element)
-  {
-    throw new Error("Invalid element passed");
-  }
-  return element;
-}
-
 function fill(element,newvalue)
 {
-  element = _resolveToSingleElement(element);
+  element = pointer._resolveToSingleElement(element);
   element.focus();
   dompack.changeValue(element, newvalue);
 }
