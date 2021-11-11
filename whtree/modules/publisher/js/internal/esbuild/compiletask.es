@@ -156,7 +156,7 @@ async function runTask(taskcontext, data)
       , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
-                 , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin()
+                 , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin(captureplugin)
                  , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
 
                  // , sassPlugin({ importer: sassImporter

@@ -166,6 +166,7 @@ describe("test_compileerrors", (done) =>
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
     assert(filedeps.includes(path.join(__dirname,"/dependencies/base-for-deps.rpc.json")));
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/wh/rpc.es")));
+    assert(filedeps.includes(bridge.getModuleInstallationRoot("webhare_testsuite") + "lib/webservicetest.whlib"));
   });
 
   it("lang.json files pull in extra dependencies", async function()
