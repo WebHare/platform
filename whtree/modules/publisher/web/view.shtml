@@ -188,7 +188,7 @@ BLOB outgoingcontent := browser->content;
 STRING mimetype := ToUppercase(Tokenize(browser->GetResponseHeader("Content-Type"),';')[0]);
 
 STRING previewcookie := GetWebCookie("__whpub_preview");
-IF(previewcookie IN ["debug","devpackage"])
+IF(previewcookie IN ["debug","devpackage"] AND IsModuleInstalled("dev")) //without 'dev' module there's no point in referring to .dev packages
 {
   IF(mimetype = "TEXT/HTML")
   {

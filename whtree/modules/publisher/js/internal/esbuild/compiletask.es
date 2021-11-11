@@ -38,6 +38,19 @@ let whResolverPlugin =
   name: 'example',
   setup(build)
   {
+    build.onResolve({ filter: /^\/\/:entrypoint\.js/}, args =>
+    {
+      return { path: args.path };
+    });
+    build.onLoad({ filter: /^\/\/:entrypoint\.js/}, args =>
+    {
+      let paths = JSON.parse(decodeURIComponent(args.path.split('?')[1]));
+      //TODO escape quotes and backslashes..
+      let imports = paths.map(_ => `import "${_}";`);
+      return { contents: imports.join("\n")
+             };
+    });
+
     build.onResolve({ filter: /^\// }, args => // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
     {
       if(args.kind == 'url-token' || args.kind == 'import-rule' )
@@ -119,8 +132,20 @@ async function runTask(taskcontext, data)
 
   // https://esbuild.github.io/api/#simple-options
   let captureplugin = new captureLoadPlugin;
+
+  /* 'inject' is *not* the proper way to pass on extra requires, seemed to work but triggers weird dependency ordering issues (dompack not getting initialized etc)
+     we'll compile a fake :entrypoint.js file,
+
+     TODO: switch to @mod- paths instead of full disk paths, a bit cleaner. even though the paths we leak into the source map are trivially guessable
+           so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
+  */
+  let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/modern.es")] : [])
+                  , bundle.entrypoint
+                  , ...bundle.bundleconfig.extrarequires.filter(node => !!node)
+                  ];
+
   let esbuild_configuration =
-      { entryPoints: [ bundle.entrypoint ]
+      { entryPoints: [ "//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles)) ]
       , bundle: true
       , minify: !bundle.isdev
       , sourcemap: true
@@ -129,7 +154,6 @@ async function runTask(taskcontext, data)
       , jsxFactory: 'dompack.jsxcreate'
       , write: false
       , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
-      , inject: []
       , plugins: [ captureplugin.getPlugin()
                  , whResolverPlugin
                  , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin()
@@ -164,16 +188,6 @@ async function runTask(taskcontext, data)
       , resolveExtensions: [".js",".es"]
       };
 
-  if(bundle.bundleconfig.webharepolyfills)
-  {
-    esbuild_configuration.inject.push(path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/modern.es"));
-  }
-
-  for(const extrarequired of bundle.bundleconfig.extrarequires.filter(node => !!node))
-  {
-    esbuild_configuration.inject.push(extrarequired);
-  }
-
   let buildresult;
   let start = Date.now();
   try
@@ -191,7 +205,7 @@ async function runTask(taskcontext, data)
   // console.log("BUILDRESULT", buildresult);
 
   let info = { dependencies: { start: start
-                             , fileDependencies:     Array.from(captureplugin.loadcache)
+                             , fileDependencies:     Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")) //exclude //:entrypoint.js or we'll recompile endlessly
                              , contextDependencies:  []
                              , missingDependencies:  []
                              }

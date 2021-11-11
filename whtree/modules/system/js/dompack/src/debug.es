@@ -1,5 +1,4 @@
 export let debugflags = {};
-import * as domevents from './events.es';
 import * as domcookie from '../extra/cookie.es';
 
 /** Extract a specific variable from the URL
@@ -29,17 +28,16 @@ export function addDebugFlags(flags)
 
   if(debugflags.dompack)
     console.log('[dompack] debugging flags: ' + Object.keys(debugflags).join(', '));
-
-  domevents.dispatchCustomEvent(document, 'dompack:debugflags-changed', {bubbles:true, cancelable:false});
 }
 
 export function initDebug()
 {
-  //initialize debugging support (read debugflags etc)
-  parseDebugURL('wh-debug');
-
-  let debugcookie = domcookie.read("wh-debug");
-  if(debugcookie)
-    addDebugFlags(debugcookie.split('.'));
+  //no-op but there are still external callers which need fixing
 }
 
+//initialize debugging support (read debugflags etc)
+parseDebugURL('wh-debug');
+
+let debugcookie = domcookie.read("wh-debug");
+if(debugcookie)
+  addDebugFlags(debugcookie.split('.'));
