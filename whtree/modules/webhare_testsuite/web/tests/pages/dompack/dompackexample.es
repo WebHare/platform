@@ -100,8 +100,6 @@ function updateRegCount(type, node)
   node.appendChild(counter);
 }
 
-dompack.initDebug();
-
 if(location.href.includes('addseqnr=1'))
 {
   dompack.register(".selectlist__item", node =>
