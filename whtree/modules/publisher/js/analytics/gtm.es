@@ -209,7 +209,6 @@ export function configureGTMFormSubmit(opts)
 if(!window.dataLayer)
   window.dataLayer=[];
 
-window.addEventListener('dompack:debugflags-changed', watchDataLayer);
 window.addEventListener('consilio:pxl', capturePxlEvent);
 window.addEventListener("wh:form-values", onFormSubmit);
 

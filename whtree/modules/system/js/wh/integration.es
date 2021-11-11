@@ -134,6 +134,4 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
        console.log("You may want to install the .dev module and republish this page to enable the debugging tools for faster CSS/JS updates");
     },200));
   }
-
-  dompack.initDebug();
 }
