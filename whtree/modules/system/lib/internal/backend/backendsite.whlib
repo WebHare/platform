@@ -27,11 +27,12 @@ PUBLIC MACRO UpdateSystemBackendSite()
   OBJECT backendsite := EnsureSystemBackendSite();
   OBJECT target := backendsite->rootobject;
 
-  OBJECT robotstxt := target->EnsureFile( [ name := "robots.txt"
-                                          , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
-                                          , publish := TRUE
-                                          ], [ data := StringToBlob("# No need to index the WebHare backend\n\nUser-agent: *\nDisallow: /\n")]
-                                          );
+  /* The WebHare backend is marked as noindex/nofollow. But if we set a robots.txt, Google will not be able to see the
+     noindex so existing Webhares will *remain* in the index. Now that google works that way, keeping the robots.txt is
+     counterproductive */
+  OBJECT robotstxt := target->OpenByName("robots.txt");
+  IF(ObjectExists(robotstxt) AND BlobToString(robotstxt->data,1024) = "# No need to index the WebHare backend\n\nUser-agent: *\nDisallow: /\n")
+    robotstxt->RecycleSelf();
 
   OBJECT portalfile := target->EnsureFile( [ name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ]);
   target->UpdateMetadata([indexdoc := portalfile->id ]);
