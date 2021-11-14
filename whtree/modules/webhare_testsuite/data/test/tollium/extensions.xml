@@ -19,6 +19,7 @@
             <t:text name="text1" title="Intoxication" value="0.8&#8240;" />
             <t:radiobutton name="addedgroup_k1" group="addedgroup" label="Radio button shared with the next tab" rowkey="k1" />
             <t:radiobutton name="externalgroup_k1" group="externalradiogroup" label="Radio button shared with main tab" rowkey="k1" />
+            <t:imgedit name="imgedit" />
           </t:newtab>
           <t:newtab gid="test" name="yattab" public="true">
             <t:radiobutton name="addedgroup_k2" group="addedgroup" label="Radio button shared with the previous tab" rowkey="k2" value="true" />
