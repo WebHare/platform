@@ -142,6 +142,12 @@ export function setupDialogs(newdialogconstructor, options)
   dialogoptions = { messageboxclassbase: 'dompack-messagebox__', ...options };
 }
 
+/** Verify whether the dialog api is initialized */
+export function isCreateDialogAvailable()
+{
+  return !!dialogconstructor;
+}
+
 /** Create a dialog */
 export function createDialog(options)
 {
