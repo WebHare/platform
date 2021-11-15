@@ -58,11 +58,12 @@ PUBLIC OBJECTTYPE TolliumButtonGroup EXTEND TolliumComponentBase
     this->pvt_buttons := SELECT AS OBJECT ARRAY component FROM definition.buttons;
   }
 
-  UPDATE PUBLIC MACRO DeleteComponent()
+  UPDATE PUBLIC MACRO __RemoveChildComponent(OBJECT oldcomponent)
   {
-    IF (ObjectExists(this->action))
-      this->action->UnregisterDependency(this);
-    TolliumComponentBase::DeleteComponent();
+    WHILE(oldcomponent IN this->pvt_buttons)
+      DELETE FROM this->pvt_buttons AT SearchElement(this->pvt_buttons, oldcomponent);
+
+    this->ExtUpdatedComponent();
   }
 
   UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
