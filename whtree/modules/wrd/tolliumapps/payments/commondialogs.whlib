@@ -90,7 +90,7 @@ PUBLIC OBJECTTYPE SelectPaymentprovider EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->methods->options := SELECT rowkey := tag
-                                   , title
+                                   , title := GetTid(title)
                                 FROM GetAvailablePSPs()
                             ORDER BY ToUppercase(title);
   }

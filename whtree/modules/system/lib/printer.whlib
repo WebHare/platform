@@ -169,6 +169,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                              , footertemplate := ""
                              , margin := DEFAULT RECORD
                              , timeout := 30 * 1000
+                             , devtoolsurl := ""
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
@@ -190,9 +191,10 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
 
   IF(options.pdfengine = "chrome")
   {
-    OBJECT pdfgenerator := NEW ChromePDFAPI([ debug := options.debug
-                                            , printbackground := options.printbackground
-                                            ]);
+    OBJECT pdfgenerator := NEW ChromePDFAPI(CELL[ options.debug
+                                                , options.printbackground
+                                                , options.devtoolsurl
+                                                ]);
     pdfgenerator->LoadRichBody(wittypath,"text/html");
     pdfgenerator->mergerecord := data;
     pdfgenerator->lookupresource := options.lookupresource;
