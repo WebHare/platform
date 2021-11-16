@@ -1,6 +1,10 @@
 #!/bin/bash
 
 # Inside the Docker image: /opt/wh/whtree/modules/system/scripts/internal/engines/chromeheadless.sh --no-sandbox --headless --remote-debugging-port=9002
+#
+# To manually run an instance of chrome, try running whtree/modules/system/scripts/internal/engines/chromeheadless.sh -remote-debugging-port=9999
+# And add eg `[ devtoolsurl := "http://127.0.0.1:9999/" ]` in the second parameter of GeneratePDF
+#
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   PROFILEDIR=/home/chrome/profile

@@ -222,6 +222,7 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
             , height := ""
             , margin := DEFAULT RECORD // [ top, left, bottom, right ]
             , prefercsspagesize := TRUE
+            , devtoolsurl := ""
             ], options, [ notypecheck := [ "width", "height" ] ]);
 
     MONEY paperwidth, paperheight;

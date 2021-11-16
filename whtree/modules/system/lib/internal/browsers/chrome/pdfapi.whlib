@@ -30,6 +30,7 @@ PUBLIC CONSTANT RECORD pdf_defaultsettings :=
     , height := ""
     , margin := DEFAULT RECORD // [ top := "", left := "", right := "", bottom := "" ]
     , preferCSSPageSize := TRUE
+    , devtoolsurl := ""
     ];
 
 //We should be called through printer.whlib, not directyl!
@@ -62,10 +63,18 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     IF (NOT RecordExists(this->session))
     {
       IF (NOT ObjectExists(this->runner))
-        this->runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+        IF(this->options.devtoolsurl != "")
+        {
+          this->connector := NEW ChromeConnector(this->options.devtoolsurl, [ debug := this->options.debug ]);
+          this->session := AWAIT this->connector->NewSession();
+        }
+        ELSE
+        {
+          this->runner := WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+          this->session := AWAIT this->runner->CreateSession();
+          this->connector := NEW ChromeConnector(this->session.connectorurl, [ debug := this->options.debug ]);
+        }
 
-      this->session := AWAIT this->runner->CreateSession();
-      this->connector := NEW ChromeConnector(this->session.connectorurl, [ debug := this->options.debug ]);
       this->conn := AWAIT this->connector->ConnectToSession(this->session);
 
       this->page := NEW Page(this->conn);
