@@ -97,7 +97,7 @@ function webpackJSONRPCLoader(source)
 module.exports = webpackJSONRPCLoader;
 
 
-module.exports.getESBuildPlugin = (options = {}) => ({
+module.exports.getESBuildPlugin = (captureplugin) => ({
     name: "jsonrpc",
     setup: function (build)
     {
@@ -106,8 +106,11 @@ module.exports.getESBuildPlugin = (options = {}) => ({
         let source = await fs.promises.readFile(args.path);
         let result = await generateRPCWrappers(args.path, source);
 
+        result.dependencies.forEach(dep => captureplugin.loadcache.add(dep));
+
         return { contents: result.output
                , warnings: result.warnings.map(_ => ({text:_}))
+               , watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
                };
         // console.log(require.resolve(args.path, ))
       });
