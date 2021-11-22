@@ -2047,7 +2047,6 @@
         <text tid="notenoughrightsonunit">Je heeft niet genoeg rechten op deze eenheid om deze operatie uit te voeren (het recht '<param p="1"/>' is benodigd).</text>
         <text tid="rolehasbeendeleted">Rol '<param p="1"/>' bestaat niet meer.</text>
         <text tid="useralreadyhasrole">Rol '<param p="2"/>' is al toegekend aan gebruiker '<param p="1"/>'.</text>
-        <text tid="usercannotviewunitofgrantablerole">Gebruiker '<param p="1"/>' zal rol '<param p="2"/>' niet aan anderen kunnen toekennen, want deze gebruiker heeft niet het recht om de eenheid van die rol te bekijken.</text>
         <text tid="usercannotviewunitofrole">Gebruiker '<param p="1"/>' zal zelf niet kunnen zien dat hij of zij rol '<param p="2"/>' heeft, want deze gebruiker heeft niet het recht om de eenheid van die rol te bekijken. De gebruiker heeft wel alle rechten die bij de rol horen.</text>
         <text tid="userhasbeendeleted">Gebruiker '<param p="1"/>' bestaat niet meer.</text>
       </textgroup>
