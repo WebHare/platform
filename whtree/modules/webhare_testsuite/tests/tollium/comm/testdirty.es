@@ -123,6 +123,7 @@ test.registerTests(
         await clearState();
 
         // Test list checkbox
+        test.focus(list_node.querySelector(".listrow input")); //needed since around 22nov.. the test scrolls things so the next click failed() but hard to reproduce when manually clicing...
         test.click(list_node.querySelector(".listrow input"));
         await test.wait("ui");
         test.eq("YES", status_comp.value);
@@ -155,6 +156,7 @@ test.registerTests(
 
         // Test arrayedit checkbox
         let arrayedit_node = test.compByName("arrayedit!list");
+        test.focus(arrayedit_node.querySelector(".listrow input")); //needed since around 22nov.. the test scrolls things so the next click failed() but hard to reproduce when manually clicing...
         test.click(arrayedit_node.querySelector(".listrow input"));
         await test.wait("ui");
         test.eq("YES", status_comp.value);
