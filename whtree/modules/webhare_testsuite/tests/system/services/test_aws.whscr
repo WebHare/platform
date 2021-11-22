@@ -94,7 +94,7 @@ MACRO Test_S3()
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testdeeper/testfile" AND isfolder = FALSE AND size=Length(testcontent)));
   TestEq(1, Length(dir));
 
-  //test delimiter trickery. this is sometimes needed to avoid excessive recursion (eg IVS files). ignore 'testmul(ipart)' which may linger from earlier tests
+  //test delimiter trickery. this is sometimes needed to avoid excessive recursion (eg IVS files). ignore 'testmult(ipart)' which may linger from earlier tests
   TestEq([[ name := "testd", isfolder := TRUE ]
          ,[ name := "testf", isfolder := TRUE ]
          ], SELECT name, isfolder FROM s3->GetDirectory(bucket,"", [ delimiter := "i" ]) WHERE name != "testmult" ORDER BY name);
