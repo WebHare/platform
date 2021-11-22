@@ -364,22 +364,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     }
     ELSE
     {
-      // Starting with single ?app=manualname? Then redirect to that manual
-      STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
-      IF (LENGTH(apps) = 1)
-      {
-        FOREVERY (RECORD grp FROM this->GetApplications())
-        {
-          RECORD app := SELECT * FROM grp.apps WHERE name = VAR apps[0] AND (apprec.ismanual OR apprec.iswindowopen);
-          IF (RecordExists(app))
-          {
-            Redirect(app.apprec.iswindowopen
-                ? app.apprec.link
-                : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webcontext->languagecode, app.apprec.supportedlanguages));
-          }
-        }
-      }
-
       RECORD ARRAY appinstructions;
 
       FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
@@ -457,6 +441,22 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     IF (GetWebVariable("language") != "")
       webdesign->languagecode := GetWebVariable("language");
+
+    // Starting with single ?app=manualname? Then redirect to that manual
+    STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
+    IF (LENGTH(apps) = 1)
+    {
+      FOREVERY (RECORD grp FROM this->GetApplications())
+      {
+        RECORD app := SELECT * FROM grp.apps WHERE name = VAR apps[0] AND (apprec.ismanual OR apprec.iswindowopen);
+        IF (RecordExists(app))
+        {
+          Redirect(app.apprec.iswindowopen
+              ? app.apprec.link
+              : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webdesign->languagecode, app.apprec.supportedlanguages));
+        }
+      }
+    }
 
     this->appserviceparams := [ overridetoken := ""
                               , openas := ""
