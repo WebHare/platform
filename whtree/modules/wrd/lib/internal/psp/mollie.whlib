@@ -271,6 +271,6 @@ PUBLIC RECORD FUNCTION CheckMollieMerchant(STRING apikey)
    */
   RECORD ARRAY methods := SELECT rowkey := id
                                , title := description
-                            FROM methodsresponse._embedded.methods;
+                            FROM RECORD ARRAY(methodsresponse._embedded.methods);
   RETURN CELL[methods];
 }
