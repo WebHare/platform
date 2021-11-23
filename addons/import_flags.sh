@@ -3,10 +3,10 @@
 SRCDIR=""
 DESTDIR=""
 
-# We assume you cloned https://github.com/lipis/flag-icon-css to ~/projects/flag-icon-css or ~/projects/external/flag-icon-css
+# We assume you cloned https://github.com/lipis/flag-icons to ~/projects/flag-icons or ~/projects/external/flag-icons
 
 # Add other potential dirs here
-for P in ~/projects/flag-icon-css ~/projects/external/flag-icon-css; do
+for P in ~/projects/flag-icons ~/projects/external/flag-icons; do
   if [ -d "$P/flags/1x1" -a -d "$P/flags/4x3" ]; then
     SRCDIR="$P"
     break
@@ -14,7 +14,7 @@ for P in ~/projects/flag-icon-css ~/projects/external/flag-icon-css; do
 done
 
 if [ -z "$SRCDIR" ]; then
-  echo "Cannot find flags source directory"
+  echo "Cannot find flag-icons source directory"
   exit 1
 fi
 
@@ -40,11 +40,10 @@ cp $SRCDIR/LICENSE $DESTDIR/ || ( echo "Failed to copy license" && exit 1 )
 cat >> $DESTDIR/README.md << HERE
 # Source
 
-These SVG flags come from https://github.com/lipis/flag-icon-css, which is
-MIT-licensed, see \`LICENSE\`. This license applies to all files in the current
-directory and below.
+These SVG flags come from https://github.com/lipis/flag-icon-css, which is MIT-licensed, see \`LICENSE\`. This license applies
+to all files in the current directory and below.
 
-Run \`~/projects/webhare/addons/import_flags.sh\` to update these flags
+Run \`~/projects/webhare/addons/import_flags.sh\` to update these flags.
 
 Last updated: `date` by $USER from $GITREF
 
