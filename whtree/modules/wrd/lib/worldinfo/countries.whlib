@@ -2,15 +2,9 @@
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
-
-/** @short Get the XML document describing all address fields */
-OBJECT FUNCTION GetCountryXMLDoc()
-{
-  RECORD rec := RetrieveCachedXMLResource("mod::wrd/data/worldinfo.xml");
-  RETURN RecordExists(rec) ? rec.doc : DEFAULT OBJECT;
-}
 
 STRING FUNCTION GetFirstSetCell(RECORD ARRAY options, STRING fieldname)
 {
@@ -40,6 +34,22 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDCountryList(STRING language, STRING selected,
   RETURN countries;
 }
 
+RECORD FUNCTION GetWRDCountryInfoFromXML()
+{
+  record res := RetrieveCachedXMLResource("mod::wrd/data/worldinfo.xml");
+  OBJECT xmldoc := res.doc;
+
+  OBJECT xpathcontext := xmldoc->CreateXPathQuery();
+  xpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
+
+  RECORD ARRAY results := xpathcontext->SelectXML(`/wi:worldinfo/wi:countrylist/wi:country`);
+
+  RETURN
+      [ value := results
+      , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
+      ];
+}
+
 PUBLIC RECORD ARRAY FUNCTION GetWRDCountryPhoneCodes(STRING language)
 {
   RETURN GetAdhocCached([ type := "phonecodes", language := language ], PTR GetCachedWRDCountryPhoneCodes(language));
@@ -52,50 +62,24 @@ RECORD FUNCTION GetCachedWRDCountryPhoneCodes(STRING language)
   RECORD ARRAY countrylist := SELECT code, title := GetCell(country,language) FROM GetCountryList(language) AS country;
 
   RECORD ARRAY phonecodes :=
-      SELECT code
-           , phone
-           , title := (SELECT AS STRING title FROM countrylist WHERE countrylist.code = info.code)
-        FROM GetAdhocCached(CELL[ type := "info" ], PTR GetWRDCountryInfoFromXML()) AS info
-       WHERE CellExists(info, "phone") ? phone != "" : FALSE;
+      SELECT code := id
+           , phone := countrycode
+        FROM GetAdhocCached(CELL[ type := "phone" ], PTR GetWRDPhoneDataFromXML()) AS info
+       WHERE CellExists(info, "countrycode") ? countrycode != "" : FALSE;
 
   RETURN
-      [ value := (SELECT * FROM phonecodes WHERE title != "" ORDER BY NormalizeText(title, language))
+      [ value := (SELECT * FROM JoinArrays(phonecodes, "code", countrylist, [ title := "" ]) ORDER BY NormalizeText(title, language))
       , eventmasks := [ "system:softreset" ]
       ];
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetWRDCountryBumperCodes(STRING language)
+RECORD FUNCTION GetWRDPhoneDataFromXML()
 {
-  RETURN GetAdhocCached([ type := "bumpercodes", language := language ], PTR GetCachedWRDCountryBumperCodes(language));
-}
+  OBJECT xmldoc := RetrieveCachedXMLResource("mod::wrd/data/phonedata/PhoneNumberMetadata.xml").doc;
 
-RECORD FUNCTION GetCachedWRDCountryBumperCodes(STRING language)
-{
-  language := ToUppercase(language);
+  OBJECT xpathcontext := xmldoc->CreateXPathQuery();
 
-  RECORD ARRAY countrylist := SELECT code, title := GetCell(country,language) FROM GetCountryList(language) AS country;
-
-  RECORD ARRAY bumpercodes :=
-      SELECT code
-           , bumpercode
-           , title := (SELECT AS STRING title FROM countrylist WHERE countrylist.code = info.code)
-        FROM GetAdhocCached(CELL[ type := "info" ], PTR GetWRDCountryInfoFromXML()) AS info
-       WHERE CellExists(info, "bumpercode") ? bumpercode != "" : FALSE;
-
-  RETURN
-      [ value := (SELECT * FROM bumpercodes WHERE title != "" ORDER BY NormalizeText(title, language))
-      , eventmasks := [ "system:softreset" ]
-      ];
-}
-
-RECORD FUNCTION GetWRDCountryInfoFromXML()
-{
-  OBJECT global_xmldoc := GetCountryXMLDoc();
-
-  OBJECT globalxpathcontext := global_xmldoc->CreateXPathQuery();
-  globalxpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
-
-  RECORD ARRAY results := globalxpathcontext->SelectXML(`/wi:worldinfo/wi:countrylist/wi:country`);
+  RECORD ARRAY results := xpathcontext->SelectXML(`/phoneNumberMetadata/territories/territory`);
 
   RETURN
       [ value := results
@@ -128,44 +112,44 @@ PUBLIC RECORD FUNCTION GetWRDAddressField(STRING tag, STRING language)
 }
 
 //Get props in this ordering: local specific first, then global specific, then local defaults first, then global defaults
-RECORD ARRAY FUNCTION SelectMultiDOC(OBJECT globaldoc, STRING countrycode, STRING subpath)
+RECORD ARRAY FUNCTION SelectMultiDOC(OBJECT xmldoc, STRING countrycode, STRING subpath)
 {
   STRING default_base := "/wi:worldinfo/wi:defaultaddressformat";
   STRING country_base := "/wi:worldinfo/wi:countrylist/wi:country[@code='" || EncodeValue(countrycode) || "']/wi:addressformat";
 
   RECORD ARRAY results;
-  OBJECT globalxpathcontext := globaldoc->CreateXPathQuery();
-  globalxpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
+  OBJECT xpathcontext := xmldoc->CreateXPathQuery();
+  xpathcontext->RegisterNamespace("wi","http://www.webhare.net/xmlns/wrd/worldinfo");
 
-  results := globalxpathcontext->SelectXML(country_base || subpath);
-  results := results CONCAT globalxpathcontext->SelectXML(default_base || subpath);
+  results := xpathcontext->SelectXML(country_base || subpath);
+  results := results CONCAT xpathcontext->SelectXML(default_base || subpath);
 
   RETURN results;
 }
 
 RECORD FUNCTION GetWRDAddressInfoFromXML(STRING countrycode, STRING language)
 {
-  OBJECT global_xmldoc := GetCountryXMLDoc();
+  OBJECT xmldoc := RetrieveCachedXMLResource("mod::wrd/data/worldinfo.xml").doc;
 
-  RECORD ARRAY addressformat_basesettings := SelectMultidoc(global_xmldoc, countrycode, "");
+  RECORD ARRAY addressformat_basesettings := SelectMultidoc(xmldoc, countrycode, "");
   RETURN
-      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, global_xmldoc, countrycode, language)
+      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, xmldoc, countrycode, language)
       , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
       ];
 }
 
 RECORD FUNCTION GetWRDAddressFieldFromXML(STRING tag, STRING language)
 {
-  OBJECT global_xmldoc := GetCountryXMLDoc();
+  OBJECT xmldoc := RetrieveCachedXMLResource("mod::wrd/data/worldinfo.xml").doc;
 
   RECORD ARRAY addressformat_basesettings := [ [ ordering := tag ] ];
   RETURN
-      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, global_xmldoc, "", language).fields
+      [ value := GetWRDAddressInfoFieldsFromXML(addressformat_basesettings, xmldoc, "", language).fields
       , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
       ];
 }
 
-RECORD FUNCTION GetWRDAddressInfoFieldsFromXML(RECORD ARRAY addressformat_basesettings, OBJECT global_xmldoc, STRING countrycode, STRING language)
+RECORD FUNCTION GetWRDAddressInfoFieldsFromXML(RECORD ARRAY addressformat_basesettings, OBJECT xmldoc, STRING countrycode, STRING language)
 {
   RECORD ARRAY fields;
 
@@ -182,8 +166,8 @@ RECORD FUNCTION GetWRDAddressInfoFieldsFromXML(RECORD ARRAY addressformat_basese
     }
 
     STRING field_selector := "/wi:field[@tag='" || EncodeValue(fld) || "']";
-    RECORD ARRAY tag_settings := SelectMultidoc(global_xmldoc, countrycode, field_selector);
-    RECORD ARRAY langinfo := SelectMultidoc(global_xmldoc, countrycode, field_selector || "/wi:title");
+    RECORD ARRAY tag_settings := SelectMultidoc(xmldoc, countrycode, field_selector);
+    RECORD ARRAY langinfo := SelectMultidoc(xmldoc, countrycode, field_selector || "/wi:title");
 
     RECORD english_fieldname := SELECT * FROM langinfo WHERE NOT CellExists(langinfo,"lang") LIMIT 1; //Get the first..
     IF(NOT RecordExists(english_fieldname))
