@@ -28,10 +28,7 @@ IF(NOT ObjectExists(ipclink))
   IF(debug_logcontroller)
     LogDebug("filetransfer", `IPC port ${portid}' not found`);
 
-  AddHTTPHeader("Content-Security-Policy", "script-src: self", FALSE);
-  AddHTTPHeader("Status", "404 Not found", FALSE);
-  IF(type="asyncwindowopen")
-    Print('<script>window.close();</script>');
+  ExecuteSubmitInstruction([ type := "close" ]);
   RETURN;
 }
 
@@ -197,17 +194,13 @@ SWITCH (type)
 
     IF (rec.status != "ok" OR NOT RecordExists(rec.msg))
     {
-      AddHTTPHeader("Content-Security-Policy", "script-src: self", FALSE);
-      AddHTTPHeader("Status", "404 Not found", FALSE);
-      Print('<script>window.close();</script>');
+      ExecuteSubmitInstruction([ type := "close" ]);
       RETURN;
     }
 
     IF (rec.msg.type = "cancel")
     {
-      AddHTTPHeader("Content-Security-Policy", "script-src: self", FALSE);
-      AddHTTPHeader("Content-Type", "text/html", FALSE);
-      Print('<script>window.close();</script>');
+      ExecuteSubmitInstruction([ type := "close" ]);
       RETURN;
     }
     IF (rec.msg.type = "file")

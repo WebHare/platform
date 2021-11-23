@@ -2238,7 +2238,6 @@
         <text tid="notenoughrightsonunit">You do not have enough rights on this unit for this operation (you need the right '<param p="1"/>').</text>
         <text tid="rolehasbeendeleted">Role '<param p="1"/>' does not exist anymore.</text>
         <text tid="useralreadyhasrole">User '<param p="1"/>' already has a grant for role '<param p="2"/>'.</text>
-        <text tid="usercannotviewunitofgrantablerole">User '<param p="1"/>' will not be able to grant role '<param p="2"/>' to others, because this user does not have the right to view the unit of this role.</text>
         <text tid="usercannotviewunitofrole">User '<param p="1"/>' will not be able to see he or she has been granted role '<param p="2"/>', because this user does not have the right to view the unit of this role. The user will have all rights granted to this role.</text>
         <text tid="userhasbeendeleted">User '<param p="1"/>' does not exist anymore.</text>
       </textgroup>

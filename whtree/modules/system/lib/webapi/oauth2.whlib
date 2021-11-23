@@ -448,7 +448,7 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   IF(ObjectExists(connection))
   {
     connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
-    Print("<script>window.close();</script>");
+    ExecuteSubmitInstruction([ type := "close" ]);
   }
   ELSE IF(CellExists(sessdata,"callback"))
   {
