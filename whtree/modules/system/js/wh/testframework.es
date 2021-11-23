@@ -518,7 +518,7 @@ function prepareUploadTest(node, files, donecallback)
 
   var uploadclass = new FakeUploadSession(files,donecallback);
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
-};
+}
 
 async function prepareUpload(files)
 {
@@ -694,6 +694,11 @@ async function subtest(name)
 
 async function load(page)
 {
+  if(typeof page != "string")
+  {
+    console.error(`test.load expects a string, got`,page);
+    throw new Error(`test.load exects a string`);
+  }
   getWin().location.href = page;
   await wait("load");
 }
