@@ -68,8 +68,11 @@ STATIC OBJECTTYPE EditDocumentAPI
   /// Callback invoked when the editor should write the edited object's instance data using SetInstanceData
   PUBLIC MACRO PTR onstoredata;
 
-  /// Callback BOOLEAN FUNCTION(BOOLEAN ispublish) invoked to verify whether the save should happen. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
-  PUBLIC MACRO PTR onconfirmsave;
+  /// Callback BOOLEAN FUNCTION(BOOLEAN ispublish) invoked to verify whether the save should happen. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!). This can be used to add additional confirmation dialogs, but does not replace any existing dialog
+  PUBLIC MACRO PTR onprechecksave;
+
+  /// Callback BOOLEAN FUNCTION() invoked to verify whether to publish. Overwrite this to replace the confirmsaveandpublish dialog
+  PUBLIC MACRO PTR onconfirmsaveandpublish;
 
   /// Callback invoked with a feedback object for validation before explicit save
   PUBLIC MACRO PTR onvalidate;
@@ -103,6 +106,7 @@ STATIC OBJECTTYPE EditDocumentAPI
   MACRO NEW(OBJECT editscreen)
   {
     this->editscreen := editscreen;
+    this->onconfirmsaveandpublish := PTR this->editscreen->DefaultConfirmAndSavePublishHandler;
   }
 
   /// Should be invoked by editors to mark the document as dirty, is implicitly called when using SetInstanceData
@@ -732,7 +736,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         RETURN FALSE;
     }
 
-    IF(this->contexts->editdocumentapi->onconfirmsave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onconfirmsave(withpublish))
+    IF(this->contexts->editdocumentapi->onprechecksave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onprechecksave(withpublish))
       RETURN FALSE; //aborted because some warning was scary enough
 
     OBJECT old_currentautosave := this->currentautosave;
@@ -992,14 +996,19 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE
     {
-      IF(this->RunSimpleScreen("confirm"
-                              , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandpublish")
-                              , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
-                                , dontshowbuttons := ["yes"]
-                                ]) != "yes")
+      IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
         RETURN;
     }
     this->ExecuteSave(TRUE, metadata);
+  }
+
+  BOOLEAN FUNCTION DefaultConfirmAndSavePublishHandler()
+  {
+    RETURN this->RunSimpleScreen("confirm"
+                              , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandpublish")
+                              , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
+                                , dontshowbuttons := ["yes"]
+                                ]) = "yes";
   }
 
   MACRO DoSendPreviewLink()
