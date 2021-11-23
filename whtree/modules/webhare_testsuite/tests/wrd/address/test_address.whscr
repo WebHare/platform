@@ -379,6 +379,12 @@ MACRO TestFallbackAPI()
   testfw->RollbackWork();
 }
 
+MACRO TestCountryCallingCodes()
+{
+  TestEq([ [ code := "NL", title := "Netherlands", phone := "31" ] ], SELECT * FROM GetWRDCountryPhoneCodes("en") WHERE code = "NL");
+  TestEq([ [ code := "SX", title := "Sint-Maarten", phone := "1" ] ], SELECT * FROM GetWRDCountryPhoneCodes("nl") WHERE code = "SX");
+}
+
 
 Runtestframework([ PTR GenericCodes
                  , PTR NLCodes
@@ -388,4 +394,5 @@ Runtestframework([ PTR GenericCodes
                  , PTR TestTolliumFieldsAPI
                  , PTR TestSiteprofileAddressVerify
                  , PTR TestFallbackAPI
+                 , PTR TestCountryCallingCodes
                  ]);
