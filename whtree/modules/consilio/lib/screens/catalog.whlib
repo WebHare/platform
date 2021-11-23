@@ -1180,6 +1180,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
 
     ^contentsourcetype->value := GetTid(contentprovider.title);
     ^folder->visible := cptype = "publisher:webhare";
+    ^folder->enabled := ^folder->visible;
     ^contentcheckinterval->placeholder := ToString(default_contentcheckinterval);
     ^maxgroupobjects->placeholder := ToString(default_maxgroupobjects);
 
