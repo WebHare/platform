@@ -156,7 +156,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
     this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
     this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;
-    this->contexts->editdocumentapi->onconfirmsave := PTR this->OnConfirmSave;
+    this->contexts->editdocumentapi->onprechecksave := PTR this->OnPrecheckSave;
     this->contexts->editdocumentapi->onvalidate := PTR this->ValidateFormFile;
     this->contexts->editdocumentapi->onsave := PTR this->OnSave;
 
@@ -195,7 +195,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       ^rabbitplaceholder->visible := FALSE;
   }
 
-  BOOLEAN FUNCTION OnConfirmSave(BOOLEAN ispublish)
+  BOOLEAN FUNCTION OnPrecheckSave(BOOLEAN ispublish)
   {
     IF(NOT ispublish)
       RETURN TRUE; //we don't care about drafts
