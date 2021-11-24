@@ -96,7 +96,7 @@ PUBLIC MACRO RunABTest()
   Sendblobto(0,myvariant);
 }
 
-BOOLEAN FUNCTION CheckABTestOnSave(INTEGER objectid, OBJECT contexts, FUNCTION PTR next_onconfirmsave, BOOLEAN ispublish)
+BOOLEAN FUNCTION CheckABTestOnSave(INTEGER objectid, OBJECT contexts, FUNCTION PTR next_prechecksave, BOOLEAN ispublish)
 {
   IF(ispublish)
   {
@@ -115,13 +115,13 @@ BOOLEAN FUNCTION CheckABTestOnSave(INTEGER objectid, OBJECT contexts, FUNCTION P
       }
     }
   }
-  RETURN next_onconfirmsave != DEFAULT MACRO PTR ? next_onconfirmsave(ispublish) : TRUE;
+  RETURN next_prechecksave != DEFAULT MACRO PTR ? next_prechecksave(ispublish) : TRUE;
 }
 
 //This is hooked into all editdocuments at the UT to check if any ABtest refers to us
 PUBLIC RECORD FUNCTION CheckABTestPublishHook(RECORD editorinfo)
 {
   IF(editorinfo.objectid != 0)
-    editorinfo.contexts->editdocumentapi->onconfirmsave := PTR CheckABTestOnSave(editorinfo.objectid, editorinfo.contexts, editorinfo.contexts->editdocumentapi->onconfirmsave, #1);
+    editorinfo.contexts->editdocumentapi->onprechecksave := PTR CheckABTestOnSave(editorinfo.objectid, editorinfo.contexts, editorinfo.contexts->editdocumentapi->onprechecksave, #1);
   RETURN editorinfo;
 }
