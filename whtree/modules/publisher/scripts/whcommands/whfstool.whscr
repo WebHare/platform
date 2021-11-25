@@ -18,7 +18,7 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", ty
                                                      ]);
 IF (NOT RecordExists(args) OR Length(args.paths) = 0)
 {
-  Print("Usage: sitetool path [path ...]\n");
+  Print("Usage: wh publisher:whfstool path [path ...]\n");
   Print("       path         The whfs path(s) to process, wildcards are permitted\n");
   SetConsoleExitCode(1);
   RETURN;
