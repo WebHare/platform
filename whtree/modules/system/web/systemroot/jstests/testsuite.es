@@ -863,9 +863,13 @@ class TestFramework
 
   async waitForEmails(email, options)
   {
-    options = { timeout: 0, count: 1, returnallmail: false, ...options };
+    options = { timeout: 0, count: 1, returnallmail: false, scanaheaduntil: null, ...options };
+    if(options.scanaheaduntil instanceof Date)
+      options.scanaheaduntil = options.scanaheaduntil.toISOString();
+    else if(!options.scanaheaduntil)
+      options.scanaheaduntil = "";
 
-    let emails = await testservice.retrieveEmails(email, options.timeout, options.count, options.returnallmail);
+    let emails = await testservice.retrieveEmails(email, options.timeout, options.count, options.scanaheaduntil, options.returnallmail);
     for (let email of emails)
     {
       email.doc = this.scriptframedoc.createElement('div');
