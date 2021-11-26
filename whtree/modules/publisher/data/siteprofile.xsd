@@ -515,7 +515,7 @@
     <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" use="required">
       <xs:annotation>
-        <xs:documentation>Path to the plugin objecte (must derive from %WebdesignPluginBase)</xs:documentation>
+        <xs:documentation>Path to the plugin object (must derive from %WebdesignPluginBase)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>

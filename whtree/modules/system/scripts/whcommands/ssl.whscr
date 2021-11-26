@@ -8,6 +8,7 @@ LOADLIB "wh::filetypes/pkcs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
+LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 
 
 MACRO CertBot(RECORD subargs)
@@ -24,9 +25,14 @@ MACRO CertBot(RECORD subargs)
 
 MACRO GetKeyInfo(BOOLEAN rawkeyname, STRING hostname, STRING which)
 {
-  IF(Left(hostname,2) = '*.')
-    hostname := "_wildcard" || Substring(hostname,1);
+  RECORD bestcert := GetBestCertificateForHost(ListCertficates(), hostname);
+  IF(RecordExists(bestcert))
+  {
+    Print((which="privatekey" ? bestcert.keyfile : bestcert.chainfile) || "\n");
+    RETURN;
+  }
 
+  STRING filename := rawkeyname ? hostname : GetCertbotFilenameForHostname(hostname);
   OBJECT keypair := OpenKeyPairByName(rawkeyname ? hostname : "certbot-" || hostname);
 
   //FIXME get by alias etc too, also get non-certbot keys, always get the latest
@@ -39,10 +45,8 @@ MACRO GetKeyInfo(BOOLEAN rawkeyname, STRING hostname, STRING which)
 
 MACRO SetKeyCertificate(BOOLEAN rawkeyname, STRING hostname, BLOB certdata)
 {
-  IF(Left(hostname,2) = '*.')
-    hostname := "_wildcard" || Substring(hostname,1);
-
-  OBJECT keypair := OpenKeyPairByName(rawkeyname ? hostname : "certbot-" || hostname);
+  STRING filename := rawkeyname ? hostname : GetCertbotFilenameForHostname(hostname);
+  OBJECT keypair := OpenKeyPairByName(filename);
 
   //FIXME get by alias etc too, also get non-certbot keys, always get the latest
   //FIXME cache the names that go into every key, instead of having to parse 'm all, if we can't make that performant!

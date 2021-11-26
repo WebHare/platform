@@ -19,6 +19,11 @@ PUBLIC STRING ARRAY FUNCTION GetCertifiableHostnames()
   RETURN allhostnames;
 }
 
+PUBLIC STRING FUNCTION GetCertbotFilenameForHostname(STRING hostname)
+{
+  RETURN Substitute("certbot-" || hostname, '*', '_wildcard');
+}
+
 PUBLIC RECORD FUNCTION RequestCertbotCertificate(STRING ARRAY hostnames, BOOLEAN staging)
 {
   //Make sure all these hostnames exist locally
@@ -30,7 +35,7 @@ PUBLIC RECORD FUNCTION RequestCertbotCertificate(STRING ARRAY hostnames, BOOLEAN
       RETURN [ success := FALSE, error := "hostnotlocal", errordata := name ];
   }
 
-  STRING filename := Substitute("certbot-" || hostnames[0], '*', '_wildcard');
+  STRING filename := GetCertbotFilenameForHostname(hostnames[0]);
   OBJECT keypair := OpenKeyPairByName(filename);
   IF(NOT ObjectExists(keypair))
   {
