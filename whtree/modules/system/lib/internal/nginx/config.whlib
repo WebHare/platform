@@ -9,6 +9,55 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
+PUBLIC RECORD ARRAY FUNCTION ListCertficates()
+{
+  RECORD ARRAY certificates;
+  FOREVERY (RECORD keypair_rec FROM ListKeyPairs())
+  {
+    OBJECT keypair := OpenKeyPair(keypair_rec.id);
+    IF(Length(keypair->certificate)=0)
+      CONTINUE;
+
+    RECORD certdata;
+
+    TRY
+    {
+      certdata := DecodePEMFile(BlobToString(keypair->certificate));
+      IF (NOT RecordExists(certdata))
+        CONTINUE;
+    }
+    CATCH(OBJECT e)
+    {
+      Print("Exception on keypair " || keypair->name || ": " || e->what || "\n");
+      CONTINUE;
+    }
+
+    INSERT
+        [ name :=         keypair_rec.name
+        , chainfile :=    BlobToString(keypair->certificatechain)
+        , keyfile :=      BlobToString(keypair->privatekey)
+        , valid_until :=  certdata.valid_until
+        , servernames :=  [ (SELECT AS STRING value FROM certdata.subjectfields WHERE fieldname="CN") ] CONCAT certdata.dns_altnames
+        ] INTO certificates AT END;
+  }
+  RETURN certificates;
+}
+
+PUBLIC RECORD FUNCTION GetBestCertificateForHost(RECORD ARRAY certificates, STRING hostname)
+{
+  RECORD best_cert;
+  STRING name := ToLowercase(hostname);
+  FOREVERY (RECORD cert FROM certificates)
+  {
+    BOOLEAN is_match := IsCertificateForHostname(cert, name);
+    IF (is_match)
+    {
+      IF (NOT RecordExists(best_cert) OR best_cert.valid_until < cert.valid_until)
+        best_cert := cert;
+    }
+  }
+  RETURN best_cert;
+}
 
 /** Generate a Nginx proxy configuration
     @param data Current webserver configuration
@@ -71,38 +120,9 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
       ];
 
   // Get all the usable certificates on the system
-  RECORD ARRAY certificates;
+  RECORD ARRAY certificates := ListCertficates();
 
   //PRINT("Reading all certificates\n");
-
-  FOREVERY (RECORD keypair_rec FROM ListKeyPairs())
-  {
-    OBJECT keypair := OpenKeyPair(keypair_rec.id);
-    IF(Length(keypair->certificate)=0)
-      CONTINUE;
-
-    RECORD certdata;
-
-    TRY
-    {
-      certdata := DecodePEMFile(BlobToString(keypair->certificate));
-      IF (NOT RecordExists(certdata))
-        CONTINUE;
-    }
-    CATCH(OBJECT e)
-    {
-      Print("Exception on keypair " || keypair->name || ": " || e->what || "\n");
-      CONTINUE;
-    }
-
-    INSERT
-        [ name :=         keypair_rec.name
-        , chainfile :=    BlobToString(keypair->certificatechain)
-        , keyfile :=      BlobToString(keypair->privatekey)
-        , valid_until :=  certdata.valid_until
-        , servernames :=  [ (SELECT AS STRING value FROM certdata.subjectfields WHERE fieldname="CN") ] CONCAT certdata.dns_altnames
-        ] INTO certificates AT END;
-  }
 
   RECORD ARRAY nonsecureportlist := [ [ port := 80 ], [ port := 80, ipv6 := TRUE ]];
   RECORD ARRAY secureportlist :=    [ [ port := 443, ssl := TRUE ], [ port := 443, ipv6 := TRUE, ssl := TRUE ]];
@@ -138,17 +158,8 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
           CONTINUE;
       }
 
-      RECORD best_cert;
+      RECORD best_cert := GetBestCertificateForHost(certificates, name);
       name := ToLowercase(name);
-      FOREVERY (RECORD cert FROM certificates)
-      {
-        BOOLEAN is_match := IsCertificateForHostname(cert, name);
-        IF (is_match)
-        {
-          IF (NOT RecordExists(best_cert) OR best_cert.valid_until < cert.valid_until)
-            best_cert := cert;
-        }
-      }
 
       //convert everything with a wildcard, except "*.server", to a regex.
       IF (SearchSubstring(name, "*" , 1) >= 0 OR (Substring(name,0,1)='*' AND Substring(name,0,2)!='*.'))
