@@ -16,10 +16,10 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 
 
-PUBLIC RECORD ARRAY FUNCTION RPC_RetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, BOOLEAN returnallmail)
+PUBLIC RECORD ARRAY FUNCTION RPC_RetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, STRING scanaheaduntil, BOOLEAN returnallmail)
 {
   OBJECT trans := OpenPrimary();
-  RETURN DoRetrieveEmails(emailaddress, timeout, count, FALSE, DEFAULT DATETIME, returnallmail);
+  RETURN DoRetrieveEmails(emailaddress, timeout, count, FALSE, MakeDateFromText(scanaheaduntil), returnallmail);
 }
 
 PUBLIC RECORD FUNCTION RPC_SubmitReport(STRING reportid, RECORD data)
