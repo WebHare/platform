@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
   {
     VARIANT ARRAY prefix := [ "system:websockets", this->localisclient ? "client" : "server" ];
     IF (logdebug = DEFAULT FUNCTION PTR)
-      logdebug := MakeFunctionPtr("mod::system/lib/cluster.whlib#LogDebug");
+      logdebug := MakeFunctionPtr("mod::system/lib/logging.whlib#LogDebug");
     CallMacroPtrVA(logdebug, prefix CONCAT data);
   }
 

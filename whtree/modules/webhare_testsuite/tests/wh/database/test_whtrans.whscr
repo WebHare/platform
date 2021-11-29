@@ -2,9 +2,9 @@
 
 LOADLIB "wh::dbase/dynquery.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 

@@ -2,7 +2,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
