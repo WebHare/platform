@@ -664,6 +664,11 @@ MACRO TestConversion()
     , wrd_contact_email := "testperson@beta.webhare.net"
     ]);
 
+  OBJECT testperson2 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MAX_DATETIME
+    , wrd_contact_email := "testperson2@beta.webhare.net"
+    ]);
+
   DATETIME now := GetCurrentDatetime();
 
   TestEq("DATETIME", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
@@ -679,10 +684,49 @@ MACRO TestConversion()
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update2")));
 
   TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
+
+  OBJECT testperson3 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MAX_DATETIME
+    , wrd_contact_email := "testperson3@beta.webhare.net"
+    ]);
+
+  OBJECT testperson4 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MakeDateFromParts(0x7FFFFFFF,0) // GetRoundedDatetime(MAX_DATETIME, 86400 * 1000) ... except that GetRoundedDatetime doesn't actually round a MAX_DATETIME
+    , wrd_contact_email := "testperson4@beta.webhare.net"
+    ]);
+
   TestEq(MakeDatetime(2017,5,4,0,0,0), testperson->GetField("TEST_DATETIME")); //excess data is now hidden
+  TestEq(MAX_DATETIME, testperson2->GetField("TEST_DATETIME"));
+  TestEq(MAX_DATETIME, testperson3->GetField("TEST_DATETIME"));
+  TestEq(MAX_DATETIME, testperson4->GetField("TEST_DATETIME"));
+
+  OBJECT testperson5 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MAX_DATETIME
+    , wrd_contact_email := "testperson5@beta.webhare.net"
+    ]);
+
+  OBJECT testperson6 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MakeDateFromParts(0x7FFFFFFF,0) // GetRoundedDatetime(MAX_DATETIME, 86400 * 1000) ... except that GetRoundedDatetime doesn't actually round a MAX_DATETIME
+    , wrd_contact_email := "testperson6@beta.webhare.net"
+    ]);
+
+  OBJECT testperson7 := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+    [ test_datetime := MakeDatetime(2017,5,4,3,2,1)
+    , wrd_contact_email := "testperson7@beta.webhare.net"
+    ]);
+
+  TestEq(MAX_DATETIME, testperson5->GetField("TEST_DATETIME"));
+  TestEq(MAX_DATETIME, testperson6->GetField("TEST_DATETIME"));
+  TestEq(MakeDatetime(2017,5,4,0,0,0), testperson7->GetField("TEST_DATETIME"));
 
   testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("TEST_DATETIME", [ attributetypename := "DATETIME" ]);
   TestEq(MakeDatetime(2017,5,4,3,2,1), testperson->GetField("TEST_DATETIME")); //but it did not actually change existing data
+  TestEq(MAX_DATETIME, testperson2->GetField("TEST_DATETIME"));
+  TestEq(MAX_DATETIME, testperson3->GetField("TEST_DATETIME"));
+  TestEq(MakeDateFromParts(0x7FFFFFFF,0), testperson4->GetField("TEST_DATETIME"));
+  TestEq(MAX_DATETIME, testperson5->GetField("TEST_DATETIME"));
+  TestEq(MakeDateFromParts(0x7FFFFFFF, 0), testperson6->GetField("TEST_DATETIME"));
+  TestEq(MakeDatetime(2017,5,4,3,2,1), testperson7->GetField("TEST_DATETIME")); //we kept the original data. we might change that at some point..
 
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml"), skipmigrations := TRUE ]);
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
