@@ -2658,16 +2658,7 @@ STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
-    STRING rawdata := entity_settings[settings_start].rawdata;
-    IF(this->isdatetime)
-    {
-      INTEGER colpos := SearchSubstring(rawdata,',');
-      RETURN MakeDateFromParts(ToInteger(Left(rawdata, colpos), -1), ToInteger(Substring(rawdata, colpos+1), -1));
-    }
-    ELSE
-    {
-      RETURN MakeDateFromParts(ToInteger(Tokenize(rawdata,',')[0], -1), 0);
-    }
+    RETURN DecodeWRDAttribute(entity_settings[settings_start].rawdata, this->isdatetime ? 12 : 6);
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)

@@ -615,8 +615,8 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
     }
     CASE 6 // Date
     {
-      STRING ARRAY toks := Tokenize(rawdata,',');
-      RETURN MakeDateFromParts(ToInteger(toks[0],0), 0);
+      INTEGER daynum := ToInteger(Tokenize(rawdata,',')[0], 0);
+      RETURN daynum = 0x7FFFFFFF ? MAX_DATETIME : MakeDateFromParts(daynum, 0);
     }
     CASE 12 // Datetime
     {
