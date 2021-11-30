@@ -225,15 +225,12 @@ class HTMLToPlainTextConverter
     if (this.hyperlink != "")
       this.hyperlink_text = this.hyperlink_text + text;
 
-    // Change newlines/tabs to spaces
-    text = text.replace(/\r/g, " ");
-    text = text.replace(/\n/g, " ");
-    text = text.replace(/\t/g, " ");
+    // Change newlines/tabs/nbsps to spaces
+    text = text.replace(/(\r|\n|\t|\u00A0)/g, " ");
 
     // Remove all extra spaces
-    text = text.replace(/\u00A0/g, " ");  // \u00A0 the UTF-8 sequence for the &#160; character (non-breaking space)
     while (text.indexOf("  ") >= 0)
-      text = text.replace(/ {2}/g, " ");
+      text = text.replaceAll("  ", " ");
 
     this.plain_text = this.plain_text + text;
   }
