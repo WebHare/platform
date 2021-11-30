@@ -1721,14 +1721,15 @@ STATIC OBJECTTYPE WHFSType
   }
 
   /** Get the shared blocks for a file or folder */
-  PUBLIC RECORD ARRAY FUNCTION GetSharedBlocks(INTEGER objectid, STRING membername)
+  PUBLIC RECORD ARRAY FUNCTION GetSharedBlocks(INTEGER startobjectid, STRING membername)
   {
     //Get at tree to the root
+    INTEGER objectid := startobjectid;
     INTEGER ARRAY objids := [objectid];
     WHILE(TRUE)
     {
       IF(Length(objids)>16)
-        THROW NEW WHFSException("LOOP", "Loop in WHFS - path from fsobject #" || objectid || " is too long");
+        THROW NEW WHFSException("LOOP", "Loop in WHFS - path from fsobject #" || startobjectid || " is too long");
 
       INTEGER parentid := SELECT AS INTEGER parent FROM system.fs_objects WHERE id=objectid;
       IF(parentid=0)
