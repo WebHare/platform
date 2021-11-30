@@ -8,13 +8,15 @@ function jsdom(code)
   return div;
 }
 
+// Synchronize with test_html.whscr
+
 test.registerTests(
   [
     function()
     {
       let dom = jsdom("<html><body> \r\n\ra\r\n\r\n\r\nb\r\n\r\n\r\n\r\nc \r\nd");
       // jsdom removes \r while parsing.
-      test.eq("a\r\n\r\nb\r\n\r\nc\r\nd", convertHtmlToPlainText(dom));
+      test.eq("a b c d", convertHtmlToPlainText(dom));
     }
   , function()
     {
@@ -22,7 +24,7 @@ test.registerTests(
 
       // coalescing
       dom = jsdom("a  \u00A0\t\r\nb\r\n");
-      test.eq("a b\r\n", convertHtmlToPlainText(dom));
+      test.eq("a b ", convertHtmlToPlainText(dom));
     }
 
   , function()
@@ -111,5 +113,15 @@ test.registerTests(
 
       dom = jsdom("<table><tr><td><ul><li>a</li></ul></td></tr>");
       test.eq("* a\r\n", convertHtmlToPlainText(dom));
+    }
+  , function()
+    {
+      let dom;
+
+      dom = jsdom("<p>a<br>b<br><br><br><br><br><br>c</p>");
+      test.eq("a\r\nb\r\n\r\nc", convertHtmlToPlainText(dom));
+
+      dom = jsdom("<p>a<br>b<br><br><br><br><br><br>c</p>");
+      test.eq("a\nb\n\nc", convertHtmlToPlainText(dom, { unix_newlines: true }));
     }
   ]);

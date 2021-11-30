@@ -588,6 +588,7 @@ PUBLIC MACRO RewriteHTMLDocumentTo(INTEGER outputid, BLOB htmldoc, RECORD callba
     @cell options.encoding Encoding for the HTML document (leave empty for autodetect)
     @cell options.linkresolver Macro ptr to hyperlink resolver object (needed for figuring out if witty links should be escaped)
     @cell options.suppress_urls Set to TRUE to prevent hyperlink url's from being printed
+    @cell options.unix_newlines Set to TRUE us use \n instead of \r\n as newlines
     @return The plain text document */
 PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAULTSTO DEFAULT RECORD, STRING encoding DEFAULTSTO "", FUNCTION PTR linkresolver DEFAULTSTO DEFAULT FUNCTION PTR)
 {
@@ -596,6 +597,7 @@ PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAUL
       , encoding := ""
       , linkresolver := DEFAULT FUNCTION PTR
       , suppress_urls := FALSE
+      , unix_newlines := FALSE
       ];
   IF (TypeID(options) = TypeID(INTEGER)) // fallback for legacy arguments
     conversion_options := ValidateOptions(conversion_options, CELL[ imagehandling := options, encoding, linkresolver ]);
@@ -629,6 +631,8 @@ PUBLIC BLOB FUNCTION ConvertHtmlToPlainText(BLOB htmldoc, VARIANT options DEFAUL
     plain_text := Substitute(plain_text, " \r\n", "\r\n");
   WHILE (SearchSubString(plain_text, "\r\n\r\n\r\n") >= 0)
     plain_text := Substitute(plain_text, "\r\n\r\n\r\n", "\r\n\r\n");
+  IF (conversion_options.unix_newlines)
+    plain_text := Substitute(plain_text, "\r\n", "\n");
 
   INTEGER plaindoc := CreateStream();
   PrintTo(plaindoc, plain_text);
