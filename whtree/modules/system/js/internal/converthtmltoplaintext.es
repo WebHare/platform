@@ -13,7 +13,7 @@ function convertHtmlToPlainText(doc, options = {})
     if (arguments.length > 2)
       options.linkresolver = arguments[2];
   }
-  options = Object.assign({ imagehandling: 0, linkresolver: null, suppress_urls: false }, options);
+  options = Object.assign({ imagehandling: 0, linkresolver: null, suppress_urls: false, unix_newlines: false }, options);
   let c = new HTMLToPlainTextConverter(doc, options);
   return c.plain_text;
 }
@@ -48,13 +48,15 @@ class HTMLToPlainTextConverter
       this.plain_text = this.plain_text.replace("\r\n", "\n");
     while (this.plain_text.indexOf("\r") >= 0)
       this.plain_text = this.plain_text.replace("\r", "\n");
-    this.plain_text = this.plain_text.split("\n").join("\r\n");
 
     // Remove triple line breaks
-    while (this.plain_text.indexOf(" \r\n") >= 0)
-      this.plain_text = this.plain_text.replace(" \r\n", "\r\n");
-    while (this.plain_text.indexOf("\r\n\r\n\r\n") >= 0)
-      this.plain_text = this.plain_text.replace("\r\n\r\n\r\n", "\r\n\r\n");
+    while (this.plain_text.indexOf(" \n") >= 0)
+      this.plain_text = this.plain_text.replace(" \n", "\n");
+    while (this.plain_text.indexOf("\n\n\n") >= 0)
+      this.plain_text = this.plain_text.replace("\n\n\n", "\n\n");
+
+    if (!this.options.unix_newlines)
+      this.plain_text = this.plain_text.split("\n").join("\r\n");
   }
 
   saxparse(node, callbacks)
@@ -224,14 +226,14 @@ class HTMLToPlainTextConverter
       this.hyperlink_text = this.hyperlink_text + text;
 
     // Change newlines/tabs to spaces
-    text = text.replace("\r", " ");
-    text = text.replace("\n", " ");
-    text = text.replace("\t", " ");
+    text = text.replace(/\r/g, " ");
+    text = text.replace(/\n/g, " ");
+    text = text.replace(/\t/g, " ");
 
     // Remove all extra spaces
-    text = text.replace("\u00A0", " ");  // \u00A0 the UTF-8 sequence for the &#160; character (non-breaking space)
+    text = text.replace(/\u00A0/g, " ");  // \u00A0 the UTF-8 sequence for the &#160; character (non-breaking space)
     while (text.indexOf("  ") >= 0)
-      text = text.replace("  ", " ");
+      text = text.replace(/ {2}/g, " ");
 
     this.plain_text = this.plain_text + text;
   }

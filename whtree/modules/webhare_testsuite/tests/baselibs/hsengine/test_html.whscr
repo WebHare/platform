@@ -368,13 +368,13 @@ MACRO TestCleanupHTML()
   rewritecontext := NEW HtmlRewriterContext;
 
   indoc := MakeXmlDocument(StringToBlob("<script>alert(1);</script>"));
-  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [ allowscript := FALSE ]));
+  TestThrowsLike("Cannot eliminate the root node of a document", PTR rewritecontext->CleanupHTML(indoc, [ allowscript := FALSE ]));
 
   indoc := MakeXmlDocument(StringToBlob("<script>alert(1);</script>"));
-  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [ removetags := ["SCRIPT"] ]));
+  TestThrowsLike("Cannot eliminate the root node of a document", PTR rewritecontext->CleanupHTML(indoc, [ removetags := ["SCRIPT"] ]));
 
   indoc := MakeXmlDocumentFromHtml(OpenTestFile("html/cleanup01.html"));
-  TestThrows(PTR rewritecontext->CleanupHTML(indoc, [bla := 1]));
+  TestThrowsLike("Unexpected option 'BLA'", PTR rewritecontext->CleanupHTML(indoc, [bla := 1]));
   rewritecontext->CleanupHTML(indoc, DEFAULT RECORD); //should not be changing anything interesting really..
   rewritecontext->CleanupHTML(indoc->GetElementById("removescript"), [ allowscript := FALSE ]);
   rewritecontext->CleanupHTML(indoc->GetElementById("removeembed"),  [ allowembed := FALSE ]);
@@ -414,6 +414,109 @@ MACRO TestElementTraversal()
   CloseTest("TestElementTraversal");
 }
 
+MACRO TestConvertHtmlToPlainText()
+{
+  // Synchronize with test_converthtmltoplaintext.es
+
+  BLOB dom;
+  {
+    dom := StringToBlob("<html><body> \r\n\ra\r\n\r\n\r\nb\r\n\r\n\r\n\r\nc \r\nd");
+    TestEq("a b c d", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    // coalescing
+    dom := StringToBlob("a  \u00A0\t\r\nb\r\n");
+    TestEq("a b ", BlobToString(ConvertHtmlToPlainText(dom, [ encoding := "UTF-8" ])));
+  }
+
+  {
+    dom := StringToBlob("a<br>b");
+    TestEq("a\r\nb", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<body><style>a</style></body>");
+    TestEq("", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<body><title>a</title></body>");
+    TestEq("", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<a href='http://a'>a</a>");
+    TestEq("a", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<a href='http://a/'>a</a>");
+    TestEq("a", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<a href='http://a'>b</a>");
+    TestEq("b <URL:http://a>", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<a href='http://a'>b</a>");
+    TestEq("b", BlobToString(ConvertHtmlToPlainText(dom, [ suppress_urls := true ])));
+
+    dom := StringToBlob("<a href='mailto:a'>a</a>");
+    TestEq("a", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<a href='a'>a</a>");
+    TestEq("a", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<img alt='' />");
+    TestEq("", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<img alt='alt' />");
+    TestEq("[alt]", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<img alt='alt' />");
+    TestEq("[[alt]", BlobToString(ConvertHtmlToPlainText(dom, [ imagehandling := 1 ])));
+
+    // legacy parameters
+    dom := StringToBlob("<img alt='alt' />");
+    TestEq("[[alt]", BlobToString(ConvertHtmlToPlainText(dom, 1)));
+  }
+
+  {
+    dom := StringToBlob("<ul><li>a</li><li>b</li></ul>");
+    TestEq("* a\r\n* b", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<ol><li>a</li><li>b</li></ol>");
+    TestEq("1. a\r\n2. b", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<ol><li>a</li><li value='3'>b</li><li>c</li></ol>");
+    TestEq("1. a\r\n3. b\r\n4. c", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<ol><li>a</li><li value='invalid'>b</li><li>c</li></ol>");
+    TestEq("1. a\r\n2. b\r\n3. c", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<ol start='2'><li>a</li></ol>");
+    TestEq("2. a", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<ol start='-1'><li>a</li></ol>");
+    TestEq("1. a", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<table><tr><th>a</th><td>b</td></tr><tr><td>c</td><td>d</td></tr>");
+    TestEq("a\tb\r\nc\td\r\n", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<table><tr><td><ul><li>a</li></ul></td></tr>");
+    TestEq("* a\r\n", BlobToString(ConvertHtmlToPlainText(dom)));
+  }
+
+  {
+    dom := StringToBlob("<p>a<br>b<br><br><br><br><br><br>c</p>");
+    TestEq("a\r\nb\r\n\r\nc", BlobToString(ConvertHtmlToPlainText(dom)));
+
+    dom := StringToBlob("<p>a<br>b<br><br><br><br><br><br>c</p>");
+    TestEq("a\nb\n\nc", BlobToString(ConvertHtmlToPlainText(dom, [ unix_newlines := true ])));
+  }
+}
+
 PRINT("\n === Running TestHTML\n");
 TestInternals();
 TestOpenHTML();
@@ -425,3 +528,5 @@ TestImageURLRewrite();
 TestDocumentMode();
 TestHTMLCleanup();
 TestElementTraversal();
+TestConvertHtmlToPlainText();
+
