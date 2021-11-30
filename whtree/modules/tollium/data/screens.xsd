@@ -2903,7 +2903,7 @@ To change a <xs:attribute /> for adding descriptions
               <xs:enumeration value="suppress_urls">
                 <xs:annotation>
                   <xs:documentation>
-                    Enable this option to prevent hyperlink url's from being printed, can be used for method 'converthtmltoplaintext'.
+                    Enable this option to prevent hyperlink urls from being printed, can be used for method 'converthtmltoplaintext'.
                   </xs:documentation>
                 </xs:annotation>
               </xs:enumeration>
