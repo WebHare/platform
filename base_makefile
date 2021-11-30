@@ -514,20 +514,12 @@ build.harescript: $(harescript_DEPLOYABLES)
 	>build.harescript
 
 
-ifeq ($(WEBHARE_IN_DOCKER),1)
-
 success.harescript: build.drawlib build.harescript build.parsers
 	> success.harescript
 
-else
-
-success.harescript harescript-test: build.drawlib build.harescript build.parsers bin/hsrun # we need hsrun for selftests, but don't need to deploy it for WHAP
+# harescript-test allows you to run HareScript tests without requiring `wh runtest`. but we might be able to remove this in the future?
+harescript-test: build.drawlib build.harescript build.parsers bin/hsrun
 	$(SRCDIR)/whtree/modules/webhare_testsuite/tests/baselibs/hsengine/runtests.sh $(abspath $(SRCDIR)) $(abspath .)
-ifeq ($(HSTEST),all)
-	> success.harescript
-endif
-
-endif
 
 build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
 	>build.harescriptvm
