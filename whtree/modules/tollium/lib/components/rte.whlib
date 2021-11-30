@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -134,6 +135,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   INTEGER pvt_warnlength;
   INTEGER pvt_maxlength;
   STRING pvt_toplaintextmethod;
+  STRING ARRAY pvt_toplaintextmethodoptions;
   STRING pvt_warnlengthexceededwarningtid;
 
   RECORD ARRAY loadcss;
@@ -215,6 +217,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   PUBLIC PROPERTY warnlength(pvt_warnlength, SetWarnLength);
   PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
   PUBLIC PROPERTY toplaintextmethod(pvt_toplaintextmethod, SetToPlainTextMethod);
+  PUBLIC PROPERTY toplaintextmethodoptions(pvt_toplaintextmethodoptions, SetToPlainTextMethodOptions);
 
   PUBLIC PROPERTY plaintext(GetPlainText, -);
 
@@ -264,6 +267,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     this->pvt_countmethod := def.countmethod;
     this->pvt_warnlength := def.warnlength;
     this->pvt_toplaintextmethod := def.toplaintextmethod;
+    this->pvt_toplaintextmethodoptions := def.toplaintextmethodoptions;
     this->pvt_warnlengthexceededwarningtid := def.warnlengthexceededwarningtid;
   }
 
@@ -497,6 +501,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
                          , countmethod := this->pvt_countmethod
                          , warnlength := this->pvt_warnlength ?? this->pvt_maxlength
                          , toplaintextmethod := this->pvt_toplaintextmethod
+                         , toplaintextmethodoptions := this->pvt_toplaintextmethodoptions
                          ];
 
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
@@ -654,12 +659,34 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     this->ExtUpdatedComponent();
   }
 
+  MACRO SetToPlainTextMethodOptions(STRING ARRAY newvalue)
+  {
+    IF (ArrayIsSetEqual(this->pvt_toplaintextmethodoptions, newvalue))
+    {
+      this->pvt_toplaintextmethodoptions := newvalue;
+      RETURN;
+    }
+    IF (NOT ArrayIsSubsetOf(newvalue, [ "suppress_urls", "unix_newlines" ]))
+      THROW NEW Exception(`Illegal value for 'ToPlainTextMethodOptions': ${EncodeJSON(newvalue)}. Allowed options: "suppress_urls", "unix_newlines"`);
+
+      this->pvt_toplaintextmethodoptions := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
   STRING FUNCTION GetPlainText()
   {
     RECORD value := this->value;
     IF (NOT RecordExists(value))
       RETURN "";
-    RETURN BlobToString(ConvertHtmlToPlainText(value.htmltext, 1, "utf-8", DEFAULT FUNCTION PTR));
+
+    BOOLEAN suppress_urls := "suppress_urls" IN this->pvt_toplaintextmethodoptions;
+    BOOLEAN unix_newlines := "unix_newlines" IN this->pvt_toplaintextmethodoptions;
+    RETURN BlobToString(ConvertHtmlToPlainText(value.htmltext, CELL
+        [ imagehandling :=  1
+        , encoding :=       "utf-8"
+        , suppress_urls
+        , unix_newlines
+        ]));
   }
 
   STRING FUNCTION GetWarnLengthExceededWarningTid()

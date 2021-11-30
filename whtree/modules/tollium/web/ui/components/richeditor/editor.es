@@ -906,13 +906,15 @@ export class RTE
     }
   }
 
-  getPlainText(method)
+  getPlainText(method, options = [])
   {
     switch (method)
     {
       case "converthtmltoplaintext":
       {
-        return convertHtmlToPlainText(this.bodydiv);
+        const suppress_urls = options.includes("suppress_urls");
+        const unix_newlines = options.includes("unix_newlines");
+        return convertHtmlToPlainText(this.bodydiv, { suppress_urls, unix_newlines });
       }
     }
     throw new Error("Unsupported method for plaintext conversion: " + method);

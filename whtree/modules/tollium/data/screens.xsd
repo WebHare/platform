@@ -2890,6 +2890,36 @@ To change a <xs:attribute /> for adding descriptions
       </xs:simpleType>
     </xs:attribute>
 
+    <xs:attribute name="toplaintextmethodoptions">
+      <xs:annotation>
+        <xs:documentation>
+          Options to for the chosen plaintext conversion method
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="suppress_urls">
+                <xs:annotation>
+                  <xs:documentation>
+                    Enable this option to prevent hyperlink urls from being printed, can be used for method 'converthtmltoplaintext'.
+                  </xs:documentation>
+                </xs:annotation>
+              </xs:enumeration>
+              <xs:enumeration value="unix_newlines">
+                <xs:annotation>
+                  <xs:documentation>
+                    Use unix newline style (only \n) instead of Windows style (\r\n)
+                  </xs:documentation>
+                </xs:annotation>
+              </xs:enumeration>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+
     <xs:attribute name="warnlengthexceededwarningtid" type="sc:TidPtr">
       <xs:annotation>
         <xs:documentation>

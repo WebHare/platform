@@ -48,6 +48,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^editorenabled->value := this->GetCurrentRTE()->enabled;
     ^editorreadonly->value := this->GetCurrentRTE()->readonly;
     ^showcounter->value := this->GetCurrentRTE()->showcounter;
+    ^suppress_urls->value := "suppress_urls" IN this->GetCurrentRTE()->toplaintextmethodoptions;
+    ^unix_newlines->value := "unix_newlines" IN this->GetCurrentRTE()->toplaintextmethodoptions;
   }
 
 
@@ -234,6 +236,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->GetCurrentRTE()->readonly := ^editorreadonly->value;
   }
 
+  MACRO GotPlaintextConversionOptionsChange()
+  {
+    this->GetCurrentRTE()->toplaintextmethodoptions := (^suppress_urls->value ? [ "suppress_urls" ] : STRING[]) CONCAT (^unix_newlines->value ? [ "unix_newlines" ] : STRING[]);
+  }
+
   MACRO GotShowCounterChange()
   {
     this->GetCurrentRTE()->showcounter := ^showcounter->value;
@@ -244,6 +251,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RECORD val := this->GetCurrentRTE()->value;
     OBJECT screen := this->LoadScreen(".editrawhtml");
     screen->code->value := RecordExists(val) ? BlobTostring(val.htmltext, -1) || "\n\n<!--\n" || anytostring(val,'tree') || "-->" : "";
+    screen->len->value := UCLength(screen->code->value);
     IF(screen->RunModal()="ok")
     {
       PRINT("NEW TEXT\n" || screen->code->value || "\n");
@@ -251,6 +259,15 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       dumpvalue(this->GetCurrentRTE()->value,'tree');
     }
     this->GotDirty();
+  }
+
+  MACRO DoViewPlainText()
+  {
+    RECORD val := this->GetCurrentRTE()->value;
+    OBJECT screen := this->LoadScreen(".editrawhtml");
+    screen->code->value := Substitute(EncodeJava(this->GetCurrentRTE()->plaintext), "\\n", "\\n\n");
+    screen->len->value := UCLength(this->GetCurrentRTE()->plaintext);
+    screen->RunModal();
   }
 
   MACRO DoInsertImage()
@@ -344,6 +361,7 @@ PUBLIC OBJECTTYPE AllowFormat EXTEND TolliumScreenBase
     OBJECT screen := this->LoadScreen(".editrawhtml");
     IF(RecordExists(val))
       screen->code->value := BlobTostring(val.htmltext, -1);
+    screen->len->value := UCLength(screen->code->value);
 
     IF(screen->RunModal()="ok")
     {
