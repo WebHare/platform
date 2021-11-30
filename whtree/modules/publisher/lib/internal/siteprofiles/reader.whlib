@@ -239,13 +239,14 @@ RECORD FUNCTION GetBaseInfoForApplyCheck(INTEGER fsobjectid)
 
   RECORD objectitself := fsobjinfo;
   RECORD parent := fsobjinfo.parentsite = fsobjectid ? objectitself : RECORD(SELECT * FROM system.fs_objects WHERE id = fsobjinfo.parent);
-  RETURN [ site := site
-         , parent := parent
-         , obj := objectitself
-         , isfile := fsobjinfo.isfolder = FALSE
-         , isfake := FALSE
-         , siteprofileids := siteapply.siteprofileids
-         ];
+  RETURN CELL[ site
+             , parent
+             , obj := objectitself
+             , isfile := fsobjinfo.isfolder = FALSE
+             , isfake := FALSE
+             , siteapply.siteprofileids
+             , siteapply.sitedesign
+             ];
 }
 
 RECORD FUNCTION GetFakeBaseInfoForApplyCheck(INTEGER parentfolder, BOOLEAN isfile, INTEGER ftypeid)
@@ -265,13 +266,14 @@ RECORD FUNCTION GetFakeBaseInfoForApplyCheck(INTEGER parentfolder, BOOLEAN isfil
     INSERT CELL type := siteapply.roottype INTO parentsite;
   }
 
-  RETURN [ site := parentsite
-         , parent := curparent
-         , obj := curitem
-         , isfile := isfile
-         , isfake := TRUE
-         , siteprofileids := siteapply.siteprofileids
-         ];
+  RETURN CELL[ site := parentsite
+             , parent := curparent
+             , obj := curitem
+             , isfile
+             , isfake := TRUE
+             , siteapply.siteprofileids
+             , siteapply.sitedesign
+             ];
 }
 
 PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
@@ -782,6 +784,9 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   /// @type(boolean) Are we applied to a folder?
   PUBLIC PROPERTY objisfolder(this->objinfo.obj.isfolder, -);
+
+  /// @type(string) Webdesign
+  PUBLIC PROPERTY webdesign(this->objinfo.sitedesign, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -1895,7 +1900,7 @@ RECORD FUNCTION GetCacheableCurrentProfileReferrals()
 {
   RECORD gathersp := GetCachedSiteProfiles();
   RECORD ARRAY referrals := GetSiteActiveProfileReferrals(gathersp);
-  referrals := SELECT id, name, roottype, webroot, siteprofileids FROM referrals ORDER BY id;
+  referrals := SELECT id, name, roottype, webroot, siteprofileids, sitedesign FROM referrals ORDER BY id;
   RETURN CELL[ value := referrals
              , ttl := 60*60*1000
              , eventmasks := site_referrals_mask
@@ -1952,7 +1957,7 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
       RETURN referrals[matchpos];
   }
 
-  RETURN [ siteprofileids := INTEGER[], roottype := 0 ];
+  RETURN [ siteprofileids := INTEGER[], roottype := 0, sitedesign := "" ];
 }
 
 PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)

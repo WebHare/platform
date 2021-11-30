@@ -14,6 +14,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
 {
@@ -59,6 +60,8 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
   OBJECT applytester := GetApplyTesterForObject(source);
   IF(NOT ObjectExists(applytester))
     THROW NEW Exception("Unable to locate the webdesign for #" || source);
+
+  __ValidateWebdesign(applytester);
 
   RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
   IF(NOT RecordExists(webdesigninfo))

@@ -3,6 +3,7 @@ LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/common-v2.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 OBJECT uplink := publishingbackendlink;
 STRING ARRAY pageloadlibs;
@@ -81,6 +82,7 @@ __publishwebdesign_callbacks := [ addloadlib := PTR AddLoadlibToOutput
                                 ];
 
 //Now get to work. GetWebDesign actually loads user code, but we should have done enough to disrupt any usage of template-v2 by now.
+__ValidateWebdesign(applytester);
 OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
 IF(NOT ObjectExists(webdesign))
   THROW NEW Exception("Unable to locate the webdesign for #" || publishfile.id);
