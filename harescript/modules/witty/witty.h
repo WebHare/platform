@@ -22,8 +22,6 @@ enum Commands
         C_EndIf,
         C_Forevery,
         C_EndForevery,
-        C_Repeat,
-        C_EndRepeat,
         C_Component,
         C_EndComponent,
         C_RawComponent,
@@ -98,8 +96,7 @@ struct ParsedPart
                 Component,
                 Embed,
                 GetTid,
-                GetHtmlTid,
-                Repeat
+                GetHtmlTid
         };
 
         ParsedPart(unsigned line, unsigned col, Type _type)

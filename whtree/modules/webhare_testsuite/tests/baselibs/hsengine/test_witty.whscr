@@ -302,14 +302,10 @@ MACRO SimpleTestWTE()
   TestEq("Test: ", CaptureWTE(scriptid, [ x := [ c := 3 ] ]));
   TestEq("No such cell 'C'", last_witty_error.text);
 
-  //Test repeat
-  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr],[/repeat]","HTML");
+  //Test repeat. No longer supported, just verify it's no longer reserved
+  scriptid := ParseWitty("Test: [repeat]","HTML");
   TestEq(FALSE, scriptid=0);
-  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ test := 5 ]));
-
-  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if even]E[/if][seqnr],[/repeat]","HTML");
-  TestEq(FALSE, scriptid=0);
-  TestEq("Test: FE0,1,E2,3,LE4,", CaptureWTE(scriptid,[ test := 5 ]));
+  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ repeat := "F0,O1,2,O3,L4," ]));
 
   scriptid := ParseWitty("Test: [test\\:2]","HTML");
   TestEq(FALSE, scriptid=0);
@@ -547,12 +543,8 @@ MACRO WittyErrorHandling()
   TestThrowsLike('*Unknown data*', PTR TestParse("[embed test test]", "HTML"));
   TestThrowsLike('*Missing*parameter*', PTR TestParse("[component]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[component test test]", "HTML"));
-  TestThrowsLike('*Missing*parameter*', PTR TestParse("[repeat]", "HTML"));
-  TestThrowsLike('*Unknown data*', PTR TestParse("[repeat test test]", "HTML"));
-  TestThrowsLike('*Unknown data*', PTR TestParse("[repeat test][/repeat test]", "HTML"));
   TestThrowsLike('*Missing*parameter*', PTR TestParse("[forevery]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[forevery test test]", "HTML"));
-  TestThrowsLike('*REPEAT must be inside a REPEAT*', PTR TestParse("[forevery test][/repeat test]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[seqnr test]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[if odd test]", "HTML"));
   TestThrowsLike('*Unknown data*', PTR TestParse("[if even test]", "HTML"));
