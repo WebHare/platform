@@ -211,11 +211,56 @@ test.registerTests(
         test.setTodd("showcounter", true);
         await test.wait("ui");
 
-        // Length is now 1001
+        // Length is now 989
         let counternode = test.compByName('editor').querySelector('.wh-counter__count');
-        test.eq("1001", counternode.textContent);
+        test.eq("989", counternode.textContent);
       }
     , waits: [ 'ui' ]
+    }
+
+  , "Plain text conversion options"
+  , async function()
+    {
+      test.clickTolliumButton("View plaintext");
+      await test.wait("ui");
+
+      let plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
+      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> <URL:mailto:a.hendriks@example.net> Postbus") !== -1);
+
+      test.clickTolliumButton("Cancel");
+      await test.wait("ui");
+
+      test.setTodd("suppress_urls", true);
+      await test.wait("ui");
+
+      test.clickTolliumButton("View plaintext");
+      await test.wait("ui");
+
+      plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
+      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
+      let plaintextlen = test.compByName('len').querySelector('input').value;
+
+      test.clickTolliumButton("Cancel");
+      await test.wait("ui");
+
+      let counternode = test.compByName('editor').querySelector('.wh-counter__count');
+      test.eq(plaintextlen, counternode.textContent);
+
+      test.setTodd("unix_newlines", true);
+      await test.wait("ui");
+
+      test.clickTolliumButton("View plaintext");
+      await test.wait("ui");
+
+      plaintext = rtetest.getRawHTMLTextArea(test.getWin()).value;
+      test.true(plaintext.indexOf("Arnold Hendriks <a.hendriks@example.net> Postbus") !== -1);
+      plaintextlen = test.compByName('len').querySelector('input').value;
+
+      test.clickTolliumButton("Cancel");
+      await test.wait("ui");
+
+      counternode = test.compByName('editor').querySelector('.wh-counter__count');
+      test.eq(plaintextlen, counternode.textContent);
     }
 
   , "Copy paste with <style>"
@@ -241,6 +286,23 @@ test.registerTests(
       await test.wait('tick');
       test.eq(null, rte.qS("style")); //should be removed!
       test.eq(null, rte.qS("script")); //should be removed!
+
+      // test counter
+      test.setTodd("showcounter", true);
+      await test.wait("ui");
+
+      test.clickTolliumButton("View plaintext");
+      await test.wait("ui");
+      //let plaintextlen = test.compByName('len').querySelector('input').value;
+      test.clickTolliumButton("Cancel");
+      await test.wait("ui");
+
+      /* FIXME: the counter is one off from the harescript plaintext character count, probably because of the
+         import of the rte value into a HTML document in HareScript removes the newline after the last </pre>
+      */
+
+      //let counternode = test.compByName('editor').querySelector('.wh-counter__count');
+      // test.eq(plaintextlen, counternode.textContent);
     }
 
   ]);

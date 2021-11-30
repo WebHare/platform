@@ -20,6 +20,7 @@
       <action name="insertinlineobject" onexecute="doinsertinlineobject" />
       <action name="insertimage" onexecute="doinsertimage" />
       <action name="inserttwocol" onexecute="doinserttwocol" />
+      <action name="viewplaintext" title="View plaintext" onexecute="doviewplaintext" />
     </actions>
     <menus>
       <menu name="menubar">
@@ -55,6 +56,8 @@
         <checkbox name="editorvisible" onchange="togglevisible" label="Visible" />
         <checkbox name="editorenabled" onchange="toggleenabled" label="Enabled" />
         <checkbox name="editorreadonly" onchange="togglereadonly" label="Readonly" />
+        <checkbox name="suppress_urls" onchange="GotPlaintextConversionOptionsChange" title="" label="Suppress urls" />
+        <checkbox name="unix_newlines" onchange="GotPlaintextConversionOptionsChange" title="" label="Unix newlines" />
         <checkbox name="showcounter" onchange="GotShowCounterChange" title="" label="Show counter" />
       </line>
       <line layout="left">
@@ -66,12 +69,14 @@
         <button name="sendbutton" action="send" />
         <button name="clearformattingbutton" action="clearformatting" />
         <button name="undirtybutton" action="undirty" />
+        <button name="viewplaintextbutton" action="viewplaintext" />
       </line>
     </footer>
   </screen>
 
   <screen name="editrawhtml" title="Edit raw html" allowresize="true" savestate="size" implementation="none">
     <body>
+      <textedit name="len" enabled="false" valuetype="integer" title="Length in characters"/>
       <codeedit public="true" name="code" width="1pr" height="1pr" />
     </body>
     <footer>

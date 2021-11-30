@@ -53,6 +53,7 @@ export default class ObjRTE extends ComponentBase
     this._showcounter= false;
     this._countmethod= "";
     this._toplaintextmethod= "";
+    this._toplaintextmethodoptions = [];
     this._textwarnlength= 0;
 
     this._counter= 0;
@@ -68,6 +69,7 @@ export default class ObjRTE extends ComponentBase
     this._showcounter = data.showcounter;
     this._countmethod = data.countmethod;
     this._toplaintextmethod = data.toplaintextmethod;
+    this._toplaintextmethodoptions = data.toplaintextmethodoptions;
     this._warnlength = data.warnlength;
     this.allowinspect = data.allowinspect;
 
@@ -294,7 +296,7 @@ export default class ObjRTE extends ComponentBase
 
     let count = 0;
 
-    let text = this.rte.getPlainText(this._toplaintextmethod);
+    let text = this.rte.getPlainText(this._toplaintextmethod, this._toplaintextmethodoptions);
     if (this._countmethod === "plaintext:characters")
       count = text.length;
     else if (this._countmethod === "plaintext:bytes")
