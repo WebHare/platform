@@ -6,7 +6,6 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
-MACRO PTR current_witty_callback;
 MACRO PTR ARRAY invocationhooks;
 INTEGER FUNCTION __ParseWittyBlob(BLOB data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
 INTEGER FUNCTION __ParseWitty(STRING data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
@@ -34,10 +33,6 @@ OBJECT currentwitty;
    embeds another file via [embed file:component], the currentscriptid is set to the handle
    of the loaded file.
 */
-
-// l_ prefix for legacy support stuff
-OBJECT ARRAY l_witties;
-RECORD ARRAY l_lastparseerrors;
 
 /// Base class for Witty exceptions
 PUBLIC OBJECTTYPE WittyException EXTEND Exception
@@ -135,7 +130,7 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
   RECORD ARRAY scriptinfo;
 
   /** Builds a new Witty template
-      @param encoding @includecelldef #ParseWittyBlob.encoding
+      @param encoding HTML, XML or TEXT
   */
   MACRO NEW(STRING encoding)
   {
@@ -514,117 +509,6 @@ PUBLIC OBJECT FUNCTION LoadWittyLibrary(STRING name, STRING encoding)
   RETURN templ;
 }
 
-/** @short Return the errors detected by a previously failed witty parse
-    @return a Record array of errors, if any
-    @cell return.line Line number
-    @cell return.col Column number
-    @cell return.text Plain text description of the error
-    @cell return.code Error code
-    @cell return.arg Error data
-    @private
-*/
-PUBLIC RECORD ARRAY FUNCTION GetWittyParseErrors() __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  RETURN l_lastparseerrors;
-}
-
-INTEGER FUNCTION LegacyLoader(OBJECT templ, FUNCTION PTR loadfunc)
-{
-  l_lastparseerrors := DEFAULT RECORD ARRAY;
-  TRY
-  {
-    loadfunc();
-    INSERT templ INTO l_witties AT END;
-    RETURN Length(l_witties);
-  }
-  CATCH(OBJECT<WittyParseException> e)
-  {
-    l_lastparseerrors := e->errors;
-    RETURN 0;
-  }
-}
-
-/** @short Parses a WITTY blob with the given encoding
-    @long This function parses a WITTY blob with a specified encoding. The encoding can be
-     HTML, XML or TEXT.
-     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
-     XML: Always uses value-encoding, unless specified otherwise
-     TEXT: Does not use any encoding unless specified
-    @param data a BLOB that contains WITTY code
-    @param encoding HTML, XML or TEXT
-    @return An integer refering to the parsed WITTY blob
-    @see ParseWitty, ParseWittyLibrary, RunWitty
-    @private
-*/
-PUBLIC INTEGER FUNCTION ParseWittyBlob(BLOB data, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  OBJECT temp := NEW WittyTemplate(encoding);
-  RETURN LegacyLoader(temp, PTR temp->LoadBlob(data, ""));
-}
-
-/** @short Parses a WITTY string with the given encoding
-    @long This function parses a WITTY string with a specified encoding. The encoding can be
-     HTML, XML or TEXT.
-     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
-     XML: Always uses value-encoding, unless specified otherwise
-     TEXT: Does not use any encoding unless specified
-    @param data a STRING that contains WITTY code
-    @param encoding HTML, XML or TEXT
-    @return An integer refering to the parsed WITTY string
-    @see ParseWittyBlob, ParseWittyLibrary, RunWitty
-    @private
-*/
-PUBLIC INTEGER FUNCTION ParseWitty(STRING data, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  OBJECT temp := NEW WittyTemplate(encoding);
-  RETURN LegacyLoader(temp, PTR temp->LoadCodeDirect(data));
-}
-
-/** @short Runs the WITTY code with the data record
-    @long This macro runs the WITTY code and fills the data fields with the data from the specified record
-    @param script The integer of parsed WITTY code
-    @param data The record containing the data needed by the WITTY code
-    @see ParseWitty, ParseWittyBlob, ParseWittyLibrary
-    @return Error status
-    @cell return.success True if the witty completed succesfully
-    @cell return.error Error record if an error occured (@link GetWittyParseErrors)
-    @private
-*/
-PUBLIC RECORD FUNCTION RunWitty(INTEGER script, RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  RETURN RunWittyComponent(script, "", data);
-}
-
-
-/** @short Runs just a component from a specified WITTY
-    @long This macro runs a WITTY component and fills the data fields with the data from the specified record
-    @param script The integer of parsed WITTY code
-    @param component The component to run
-    @param data The record containing the data needed by the WITTY code
-    @see ParseWitty, ParseWittyBlob, ParseWittyLibrary
-    @return Error status
-    @cell return.success True if the witty completed succesfully
-    @cell return.error Error record if an error occured (@link GetWittyParseErrors)
-    @private
-*/
-PUBLIC RECORD FUNCTION RunWittyComponent(INTEGER script, STRING component, RECORD data) __ATTRIBUTES__(EXECUTESHARESCRIPT, DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  IF(script<=0 OR script>Length(l_witties) OR l_witties[script-1] = DEFAULT OBJECT)
-    ABORT("Invalid Witty handle (parse errors?)");
-
-  TRY
-  {
-    l_witties[script-1]->RunComponent(component, data);
-    RETURN [ success := TRUE, error := DEFAULT RECORD ];
-  }
-  CATCH(OBJECT<WittyRuntimeException> e)
-  {
-    IF(current_witty_callback != DEFAULT FUNCTION PTR)
-      current_witty_callback([ success := FALSE, error := e->error ]);
-    RETURN [ success := FALSE, error := e->error ];
-  }
-}
-
 /** @short Get a variable using the witty's lookup rules
     @long This function takes a variable from the context of the currently running witty
     @param variablename Name of the variable or cell to look up
@@ -646,73 +530,6 @@ PUBLIC MACRO EmbedWittyComponent(STRING component, RECORD data DEFAULTSTO DEFAUL
   currentwitty->__CallWittyComponent(component, data);
 }
 
-///@private
-PUBLIC RECORD FUNCTION CallWittyComponent(STRING component, RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to the EmbedWittyComponent in WebHare v3")
-{
-  IF(NOT ObjectExists(currentwitty))
-    ABORT("CallWittyComponent invoked without having a running witty");
-  IF(component LIKE "*:*")
-    ABORT("CallWittyComponent does not support external components");
-
-  TRY
-  {
-    currentwitty->__CallWittyComponent(component, data);
-  }
-  CATCH(OBJECT<WittyRuntimeException> e)
-  {
-    IF(current_witty_callback != DEFAULT FUNCTION PTR)
-      current_witty_callback([ success := FALSE, error := e->error ]);
-    RETURN [ success := FALSE, error := e->error ];
-  }
-  RETURN [ success := TRUE, error := DEFAULT RECORD ];
-}
-
-/** @short Parses a WITTY library with the given encoding
-    @long This function parses a WITTY library with a specified encoding. The encoding can be
-     HTML, XML or TEXT.
-     HTML: Uses XHTML encoding outside tags, value-encoding inside tags. Recognizes < and > as tag start and end chararacters
-     XML: Always uses value-encoding, unless specified otherwise
-     TEXT: Does not use any encoding unless specified
-    @param name the name of a WITTY library
-    @param encoding HTML, XML or TEXT
-    @return An integer refering to the parsed WITTY library
-    @see ParseWittyBlob, ParseWitty. RunWitty
-    @private
-*/
-PUBLIC INTEGER FUNCTION ParseWittyLibrary(STRING name, STRING encoding) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  OBJECT temp := NEW WittyTemplate(encoding);
-  RETURN LegacyLoader(temp, PTR temp->LoadLibrary(name));
-}
-
-/** @short Handle a possible error response from a Witty function call
-    @param witty_retval Return value of a Call/RunWitty statement
-    @private */
-PUBLIC MACRO AbortOnWittyRunError(RECORD witty_retval) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  IF(NOT witty_retval.success)
-    ABORT(witty_retval.error.text || " (at line " || witty_retval.error.line || ":" || witty_retval.error.col || ")");
-}
-
-/** @short Set a callback function for witty errors
-    @long If the error callback is set to the default function ptr, the Run/Call functions will simply return the error record. AbortOnWittyRunError is the default error callback
-    @param callback Error callback function.
-    @see AbortOnWittyRunError, GetWittyErrorCallback
-    @private */
-PUBLIC MACRO SetWittyErrorCallback(FUNCTION PTR callback) __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  current_witty_callback := callback;
-}
-
-/** @short Get the current callback function for witty errors
-    @see SetWittyErrorCallback
-    @private */
-PUBLIC MACRO PTR FUNCTION GetWittyErrorCallback() __ATTRIBUTES__(DEPRECATED "Switch to the Witty object API in WebHare v3")
-{
-  RETURN current_witty_callback;
-}
-
-
 PUBLIC MACRO __WITTY_ERRORCALLBACK(RECORD error)
 {
   currentwitty->__ErrorCallback(error);
@@ -729,6 +546,3 @@ MACRO RunWittyInvocationHooks(OBJECT witty, INTEGER scriptid, STRING component, 
 }
 
 RECORD ARRAY FUNCTION __GetWittyTidsRawData(INTEGER scriptid) __ATTRIBUTES__(EXTERNAL "wh_witty");
-
-//default to AbortOnWittyRunError. error api only applies to legacy callbacks
-current_witty_callback := PTR AbortOnWittyRunError;

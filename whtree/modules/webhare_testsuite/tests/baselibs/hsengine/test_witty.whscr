@@ -10,7 +10,79 @@ LOADLIB "wh::internal/jobs.whlib";
 RECORD last_witty_error;
 RECORD ARRAY errors;
 RECORD result;
+OBJECT ARRAY l_witties;
+RECORD ARRAY l_lastparseerrors;
 
+RECORD ARRAY FUNCTION GetWittyParseErrors()
+{
+  RETURN l_lastparseerrors;
+}
+
+///@private
+RECORD FUNCTION CallWittyComponent(STRING component, RECORD data)
+{
+  TRY
+  {
+    EmbedWittyComponent(component, data);
+  }
+  CATCH(OBJECT<WittyRuntimeException> e)
+  {
+    RETURN [ success := FALSE, error := e->error ];
+  }
+  RETURN [ success := TRUE, error := DEFAULT RECORD ];
+}
+
+INTEGER FUNCTION LegacyLoader(OBJECT templ, FUNCTION PTR loadfunc)
+{
+  l_lastparseerrors := DEFAULT RECORD ARRAY;
+  TRY
+  {
+    loadfunc();
+    INSERT templ INTO l_witties AT END;
+    RETURN Length(l_witties);
+  }
+  CATCH(OBJECT<WittyParseException> e)
+  {
+    l_lastparseerrors := e->errors;
+    RETURN 0;
+  }
+}
+
+INTEGER FUNCTION ParseWittyLibrary(STRING name, STRING encoding)
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadLibrary(name));
+}
+INTEGER FUNCTION ParseWitty(STRING data, STRING encoding)
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadCodeDirect(data));
+}
+INTEGER FUNCTION ParseWittyBlob(BLOB data, STRING encoding)
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  RETURN LegacyLoader(temp, PTR temp->LoadBlob(data, ""));
+}
+RECORD FUNCTION RunWitty(INTEGER script, RECORD data)
+{
+  RETURN RunWittyComponent(script, "", data);
+}
+
+RECORD FUNCTION RunWittyComponent(INTEGER script, STRING component, RECORD data) __ATTRIBUTES__(EXECUTESHARESCRIPT, DEPRECATED "Switch to the Witty object API in WebHare v3")
+{
+  IF(script<=0 OR script>Length(l_witties) OR l_witties[script-1] = DEFAULT OBJECT)
+    ABORT("Invalid Witty handle (parse errors?)");
+
+  TRY
+  {
+    l_witties[script-1]->RunComponent(component, data);
+    RETURN [ success := TRUE, error := DEFAULT RECORD ];
+  }
+  CATCH(OBJECT<WittyRuntimeException> e)
+  {
+    RETURN [ success := FALSE, error := e->error ];
+  }
+}
 OBJECT FUNCTION ParseWittyInline(STRING data, STRING encoding)
 {
   OBJECT temp := NEW WittyTemplate(encoding);
@@ -44,7 +116,6 @@ STRING FUNCTION CaptureRun(OBJECT script, RECORD datarec, STRING component DEFAU
 
 STRING FUNCTION CaptureWTE(INTEGER script, RECORD datarec, STRING component DEFAULTSTO "" )
 {
-  SetWittyErrorCallback(DEFAULT FUNCTION PTR);
   INTEGER str := CreateStream();
   INTEGER save := redirectoutputto(str);
 
@@ -231,14 +302,10 @@ MACRO SimpleTestWTE()
   TestEq("Test: ", CaptureWTE(scriptid, [ x := [ c := 3 ] ]));
   TestEq("No such cell 'C'", last_witty_error.text);
 
-  //Test repeat
-  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if odd]O[/if][seqnr],[/repeat]","HTML");
+  //Test repeat. No longer supported, just verify it's no longer reserved
+  scriptid := ParseWitty("Test: [repeat]","HTML");
   TestEq(FALSE, scriptid=0);
-  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ test := 5 ]));
-
-  scriptid := ParseWitty("Test: [repeat test][if first]F[/if][if last]L[/if][if even]E[/if][seqnr],[/repeat]","HTML");
-  TestEq(FALSE, scriptid=0);
-  TestEq("Test: FE0,1,E2,3,LE4,", CaptureWTE(scriptid,[ test := 5 ]));
+  TestEq("Test: F0,O1,2,O3,L4,", CaptureWTE(scriptid,[ repeat := "F0,O1,2,O3,L4," ]));
 
   scriptid := ParseWitty("Test: [test\\:2]","HTML");
   TestEq(FALSE, scriptid=0);
@@ -458,35 +525,31 @@ MACRO WittyErrorHandling()
     TestEq(15, e->error.code);
   }
 
-  TestThrows(PTR TestParse("[/unknown]", "HTML"));
+  TestThrowsLike('*Invalid closing tag*', PTR TestParse("[/unknown]", "HTML"));
 
-  TestThrows(PTR LoadWittyLibrary("wh::tests/bestaatniet.witty","HTML"));
+  TestThrowsLike('*Cannot load library*', PTR LoadWittyLibrary("wh::tests/bestaatniet.witty","HTML"));
 
-  TestThrows(PTR TestParse("[:html]", "HTML"));
-  TestThrows(PTR TestParse("[data:]", "HTML"));
-  TestThrows(PTR TestParse("[data : boem]", "HTML"));
-  TestThrows(PTR TestParse("[data:html java]", "HTML"));
-  TestThrows(PTR TestParse("[gettid]", "HTML"));
-  TestThrows(PTR TestParse("[gettid data:html java]", "HTML"));
-  TestThrows(PTR TestParse("[if test test][/if]", "HTML"));
-  TestThrows(PTR TestParse("[if test][elseif test test][/if]", "HTML"));
-  TestThrows(PTR TestParse("[if test][/if test]", "HTML"));
-  TestThrows(PTR TestParse("[seqnr test]", "HTML"));
-  TestThrows(PTR TestParse("[embed]", "HTML"));
-  TestThrows(PTR TestParse("[embed test test]", "HTML"));
-  TestThrows(PTR TestParse("[component]", "HTML"));
-  TestThrows(PTR TestParse("[component test test]", "HTML"));
-  TestThrows(PTR TestParse("[repeat]", "HTML"));
-  TestThrows(PTR TestParse("[repeat test test]", "HTML"));
-  TestThrows(PTR TestParse("[repeat test][/repeat test]", "HTML"));
-  TestThrows(PTR TestParse("[forevery]", "HTML"));
-  TestThrows(PTR TestParse("[forevery test test]", "HTML"));
-  TestThrows(PTR TestParse("[forevery test][/repeat test]", "HTML"));
-  TestThrows(PTR TestParse("[seqnr test]", "HTML"));
-  TestThrows(PTR TestParse("[if odd test]", "HTML"));
-  TestThrows(PTR TestParse("[if even test]", "HTML"));
-  TestThrows(PTR TestParse("[if first test]", "HTML"));
-  TestThrows(PTR TestParse("[if list test]", "HTML"));
+  TestThrowsLike('*Missing*parameter*', PTR TestParse("[:html]", "HTML"));
+  TestThrowsLike('*Unknown encoding*', PTR TestParse("[data:]", "HTML"));
+  TestThrowsLike('*Unknown encoding*', PTR TestParse("[data : boem]", "HTML"));
+  TestThrowsLike('*Unknown encoding*', PTR TestParse("[data:html java]", "HTML"));
+  TestThrowsLike('*Missing*parameter*', PTR TestParse("[gettid]", "HTML"));
+  TestThrowsLike('*Unknown encoding*', PTR TestParse("[gettid data:html java]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if test test][/if]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if test][elseif test test][/if]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if test][/if test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[seqnr test]", "HTML"));
+  TestThrowsLike('*Missing*parameter*', PTR TestParse("[embed]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[embed test test]", "HTML"));
+  TestThrowsLike('*Missing*parameter*', PTR TestParse("[component]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[component test test]", "HTML"));
+  TestThrowsLike('*Missing*parameter*', PTR TestParse("[forevery]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[forevery test test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[seqnr test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if odd test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if even test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if first test]", "HTML"));
+  TestThrowsLike('*Unknown data*', PTR TestParse("[if list test]", "HTML"));
 
   CloseTest("WittyErrorHandling");
 }
@@ -712,9 +775,10 @@ MACRO WittyInfiniteCRecursion()
   OpenTest("WittyInfiniteCRecursion");
 
   result := TestCompileAndRun(
-        '<?wh LOADLIB "wh::witty.whlib"; LOADLIB "wh::files.whlib"; ' ||
-        'INTEGER scriptid := ParseWittyBlob(StringToBlob("[component test][body][/component]{[body]}"), "HTML");' ||
-        'AbortOnWittyRunError(RunWitty(scriptid, [ body := PTR CallWittyComponent( "test", [ body := PTR CallWittyComponent("test", DEFAULT RECORD) ]) ])); ?>');
+    `<?wh LOADLIB "wh::witty.whlib"; LOADLIB "wh::files.whlib";
+     OBJECT witty := NEW WittyTemplate("HTML");
+     witty->LoadCodeDirect("[component test][body][/component]{[body]}");
+     witty->Run([ body := PTR EmbedWittyComponent( "test", [ body := PTR EmbedWittyComponent("test", DEFAULT RECORD) ]) ]); `);
   MustContainError(1, result.errors, 215, "1024");
 
   CloseTest("WittyInfiniteCRecursion");
@@ -839,7 +903,7 @@ MACRO TestCallWithScope()
   TestEQ(4, script->CallWithScope(PTR ScopedCallbackFunc(), [ a := "3" ]));
   TestEQ(2, scopedcallbackcounter);
 
-  TestThrows(PTR script->CallWithScope(PTR ScopedCallback("throw"), [ a := "3" ]));
+  TestThrowsLike("thrown", PTR script->CallWithScope(PTR ScopedCallback("throw"), [ a := "3" ]));
   TestEQ(3, scopedcallbackcounter);
 
   TestEQ("yeey", CapturePTR(PTR script->CallWithScope(PTR ScopedCallback("embed-wittyvar"), [ invokewittyvar := "yeey" ])));

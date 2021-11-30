@@ -43,12 +43,12 @@ static const char *WittyMessages[]=
 , "Unterminated comment"
 , "No such cell '%0'"
 , "Cell '%0' did not evaluate to an array"
-, "Requesting '%0' outside a FOREVERY-block or a REPEAT-block"
+, "Requesting '%0' outside a FOREVERY-block"
 , "Don't know how to print cell '%0' of type '%1'"
 , "Don't know how to evaluate the truth value of cell '%0' of type '%1'"
 , "No such component '%0'" // 20
 , "Empty command" // 21
-, "/REPEAT must be inside a REPEAT-block"
+, "" //22, unused, formerly about /REPEAT
 , "Cell '%0' did not evaluate to an INTEGER"
 , "Invalid closing tag '%0'"
 , "Missing encoding after ':'"
@@ -101,8 +101,6 @@ Commands ReadCommand(char const *start, char const *limit)
         static const char instr_endif[]={"/if"};
         static const char instr_forevery[]={"forevery"};
         static const char instr_endforevery[]={"/forevery"};
-        static const char instr_repeat[]={"repeat"};
-        static const char instr_endrepeat[]={"/repeat"};
         static const char instr_component[]={"component"};
         static const char instr_endcomponent[]={"/component"};
         static const char instr_embed[]={"embed"};
@@ -123,10 +121,6 @@ Commands ReadCommand(char const *start, char const *limit)
             return C_Forevery;
         if (limit-start == (sizeof instr_endforevery-1) && Blex::MemCaseCompare(start,instr_endforevery,sizeof instr_endforevery-1)==0)
             return C_EndForevery;
-        if (limit-start == (sizeof instr_repeat-1) && Blex::MemCaseCompare(start,instr_repeat,sizeof instr_repeat-1)==0)
-            return C_Repeat;
-        if (limit-start == (sizeof instr_endrepeat-1) && Blex::MemCaseCompare(start,instr_endrepeat,sizeof instr_endrepeat-1)==0)
-            return C_EndRepeat;
         if (limit-start == (sizeof instr_component-1) && Blex::MemCaseCompare(start,instr_component,sizeof instr_component-1)==0)
             return C_Component;
         if (limit-start == (sizeof instr_endcomponent-1) && Blex::MemCaseCompare(start,instr_endcomponent,sizeof instr_endcomponent-1)==0)
@@ -700,29 +694,6 @@ void ParsedFile::AddInstruction(unsigned linenum, unsigned columnnum, char const
                         start = command_end;
                 } break;
 
-        case C_Repeat:
-                {
-                        parts.push_back(ParsedPart(linenum, columnnum, ParsedPart::Repeat));
-
-                        const char *param_end;
-                        ParseParameter(linenum, columnnum, command_end, limit, &parts.back().content, &parts.back().datatype, &param_end, false, true);
-                        if (parts.back().datatype != DT_Cell)
-                            throw Error(linenum, columnnum, 11,"");
-
-                        Blex::ToUppercase(parts.back().content.begin(), parts.back().content.end());
-                        blockstack.push(&parts.back());
-                        start = param_end;
-                } break;
-
-        case C_EndRepeat:
-                {
-                        if (blockstack.empty() || blockstack.top()->type != ParsedPart::Repeat)
-                            throw Error(linenum, columnnum, 22,"");
-                        blockstack.top()->cmd_limit = parts.size();
-                        parts.push_back(ParsedPart(linenum, columnnum, ParsedPart::Content));
-                        blockstack.pop();
-                        start = command_end;
-                } break;
 
         case C_Component:
         case C_RawComponent:
@@ -1455,33 +1426,6 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedFile::SM_Run(WittyExecution
                         }
                         break;
 
-                case ParsedPart::Repeat:
-                        if (HSVM_GetType(hsvm, varid) != HSVM_VAR_Integer)
-                        {
-                                throw Error(elt.itr->linenum, elt.itr->columnnum, 23, elt.itr->content);
-                        }
-                        else
-                        {
-                                if (elt.forevery_elt_limit == -1)
-                                {
-                                        elt.forevery_elt_limit = HSVM_IntegerGet(hsvm,varid);
-                                        elt.forevery_elt_nr = 0;
-                                }
-                                else
-                                    ++elt.forevery_elt_nr;
-
-                                if (elt.forevery_elt_nr == elt.forevery_elt_limit)
-                                {
-                                        elt.itr = parts.begin()+elt.itr->cmd_limit;
-                                        elt.forevery_elt_nr = -1;
-                                        elt.forevery_elt_limit = -1;
-                                }
-                                else
-                                {
-                                        SM_Push(wes, false, elt.itr+1, parts.begin()+elt.itr->cmd_limit, 0, false, NULL);
-                                }
-                        }
-                        break;
                 default:
                         throw std::runtime_error("Unknown WTE bytecode");
                 }
