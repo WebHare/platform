@@ -75,10 +75,10 @@ MACRO ResolveAbsoluteLibrary()
 
   STRING systempath := GetModuleInstallationRoot("system");
 
-  TestEq("mod::system/lib/tests/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::cluster.whlib"));
-  TestEq("mod::system/lib/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../cluster.whlib"));
-  TestEq("mod::system/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../../cluster.whlib"));
-  TestEq("mod::system/cluster.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::/cluster.whlib"));
+  TestEq("mod::system/lib/tests/logging.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::logging.whlib"));
+  TestEq("mod::system/lib/logging.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../logging.whlib"));
+  TestEq("mod::system/logging.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::../../logging.whlib"));
+  TestEq("mod::system/logging.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::/logging.whlib"));
   TestEq("mod::system/lib/tests/whfs.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "lib/tests/whfs.whlib", "relative::./whfs.whlib"));
 
   TestEq("wh::internal/jobs.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::jobs.whlib"));

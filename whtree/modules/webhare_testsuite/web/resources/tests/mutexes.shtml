@@ -1,6 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 /* Tests mutex implementation
 */

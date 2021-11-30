@@ -1789,6 +1789,9 @@ PUBLIC OBJECTTYPE TolliumIsComposableListener
     }
     IF(ObjectExists(newcomp))
     {
+      IF(NOT newcomp EXTENDSFROM TolliumCompositionBase)
+        THROW NEW TolliumException(newcomp, `This component does not support compositions (adding ${this->GetComponentIdentification()})`);
+
       newcomp->AddToComposition(this);
     }
     this->pvt_composition := newcomp;

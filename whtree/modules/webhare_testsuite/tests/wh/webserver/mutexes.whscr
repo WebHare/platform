@@ -6,8 +6,8 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
