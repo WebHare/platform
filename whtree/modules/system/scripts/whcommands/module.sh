@@ -36,6 +36,8 @@ fi
 ERROR=0
 
 getwhparameters
+
+NEWMODULES=""
 while [ -n "$1" ]; do
   CLONEURL="$1"
 
@@ -58,18 +60,26 @@ while [ -n "$1" ]; do
       TARGETDIR=`echo "$WEBHARE_GITMODULES/$PATHNAME" | tr '[:upper:]' '[:lower:]'`
     fi
 
-    mkdir -p $(dirname $TARGETDIR)
-    git clone --recurse-submodules "$CLONEURL" "$TARGETDIR" && ANYMODS=1 || ERROR=1
+    mkdir -p "$(dirname "$TARGETDIR")"
+    git clone --recurse-submodules "$CLONEURL" "$TARGETDIR"
+    ERRORCODE="$?"
+    if [ "$ERRORCODE" != "0" ]; then
+      echo "Error cloning module, git exited with code $ERRORCODE"
+      ERROR=1
+    else
+      NEWMODULES="$NEWMODULES $MODULENAME"
+    fi
   fi
   shift
 done
 
-if [ "$ANYMODS" == "1" ] && is_webhare_running ; then
-  echo -n "Fixing modules..."
-  $WEBHARE_DIR/bin/wh fixmodules --onlybroken
-  echo -n "Sending soft-reset request... "
-  runscript mod::system/scripts/whcommands/softreset.whscr
-  echo "done"
-fi
+for MOD in $NEWMODULES ; do
+  if is_webhare_running ; then
+    echo "Activating module '$MOD'"
+    wh apply "mod::$MOD/moduledefinition.xml"
+  fi
+  echo "Fixing module '$MOD'"
+  $WEBHARE_DIR/bin/wh fixmodules "$MOD"
+done
 
 exit $ERROR
