@@ -27,9 +27,6 @@ RECORD args;
 
 RECORD ARRAY cachedtaskmetadata;
 
-/// Soft reset id's to broadcast when done with startup scripts
-STRING ARRAY softresetfinishids;
-
 OBJECT trans;
 INTEGER maximum_process_count;
 
@@ -112,10 +109,6 @@ MACRO CheckModuleInitComplete()
 {
   IF (LENGTH(module_startup_scripts) = 0 AND LENGTH(uncompleted_startup_scripts) = 0)
   {
-    IF (LENGTH(softresetfinishids) != 0)
-      BroadcastEvent("system:internal.executetasks.softresetdone", [ softresetids := softresetfinishids ]);
-    softresetfinishids := DEFAULT STRING ARRAY;
-
     IF (module_init_resolve != DEFAULT FUNCTION PTR)
     {
       module_init_resolve(DEFAULT RECORD);
@@ -391,10 +384,6 @@ MACRO OnSoftReset(STRING event, RECORD data)
   }
 
   ReadConfiguration();
-
-  // Register the id
-  IF (CellExists(data, "ID") AND TypeID(data.id) = TypeID(STRING))
-    INSERT data.id INTO softresetfinishids AT END;
 
   IF(CellExists(data,"isdelete") AND data.isdelete)
     RETURN; //no need to run scripts in response to a deletion

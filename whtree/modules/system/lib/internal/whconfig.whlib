@@ -234,6 +234,7 @@ PUBLIC OBJECT FUNCTION CreateWHServiceStatePromise(STRING waitfor)
 PUBLIC MACRO SetWHServiceState(STRING waitingfor, RECORD state)
 {
   StoreDiskFile(__SYSTEM_WHCOREPARAMETERS().ephemeralroot || "system.servicestate/" || waitingfor, EncodeHSONBlob(state), [ overwrite := TRUE ]);
+  BroadcastEvent("system:internal.servicestate." || waitingfor, state);
 }
 
 PUBLIC RECORD FUNCTION GetAdhocCacheSettings()
