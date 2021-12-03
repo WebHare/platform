@@ -70,18 +70,6 @@ The repository https://github.com/WebHare/sublime-linter contains the source
 for SublimeLinter-contrib-hslint, a SublimeLinter plugin that provides
 linting for WebHare sourcecode.
 
-## WebDav extensions
-
-A hidden file with the name `.wh-webdavinfo-XXXXXX` where `XXXXXX` is a random
-string is available for sysops in every WebHare webdav folder. This file explains
-how to access the WebHare services for this server, and gives a shortlived access
-token.
-
-eg
-```
-cat /Volumes/webhare.moe.sf.b-lex.com/system/modules/system/.wh.webdavinfo-1234567
-```
-
 # Development etc
 Some parts of the integration still live in https://gitlab.b-lex.com/webhare/blex_alpha
 

@@ -88,57 +88,6 @@ MACRO TestToddService()
   Testeq(SearchSourceElementLine("mod::system/screens/userrights/userrights.xml", [ '<screen name="main"', '>']), searchres.data.line);
 }
 
-MACRO TestWebdavVirtualInfo()
-{
-  OBJECT webdavserver := NEW WebdavConnection(baseurl || "webdav/");
-  webdavserver->webbrowser->SetPassword(baseurl, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"));
-
-  STRING webdavinfopath := "system/modules/system/.wh.webdavinfo-" || Random(1,65535);
-
-  //OSX demands being able to propfind
-  RECORD ARRAY dirinfo := webdavserver->ListDirectory(webdavinfopath);
-  Testeq(0,Length(dirinfo));
-
-  BLOB webdavinfoblob := webdavserver->Get(webdavinfopath);
-  RECORD webdavinfo := DecodeJSONBlob(webdavinfoblob);
-
-  OBJECT barebrowser := NEW WebBrowser; //build a new browser that doesn't share login cookies with testfw so we know we're permitted access
-  barebrowser->SetAuthorization(webdavinfo.editorservice, "Bearer " || webdavinfo.accesstoken);
-
-  RECORD res;
-  STRING data := BlobToString(GetWebhareResource("mod::system/moduledefinition.xml"));
-  res  := barebrowser->CallJSONRPC(
-        webdavinfo.editorservice,
-        "Validate",
-        webdavinfo.translateinfo,
-        "mod::system/moduledefinition.xml",
-        data);
-
-
-  TestEq(RECORD[], RECORD ARRAY(res.errors) CONCAT RECORD ARRAY(res.warnings), 'mod::system/moduledefinition.xml should have remotely validated');
-
-  data := Substitute(data,'</module>','');
-  res  := barebrowser->CallJSONRPC(webdavinfo.editorservice, "Validate", webdavinfo.translateinfo, "mod::system/moduledefinition.xml", data);
-  TestEq(TRUE, Length(res.errors) > 0, 'There should be errors');
-}
-
-MACRO TestWebdavVirtualInfo_DavFS()
-{
-  //Linux insists on being able to PROPFIND the .wh.webdav-info file. PROPFIND should add it
-  OBJECT webdavserver := NEW WebdavConnection(baseurl || "webdav/");
-  webdavserver->webbrowser->SetPassword(baseurl, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"));
-  webdavserver->webbrowser->useragent := "davfs2/1.5.4 neon/0.30.1";
-
-  RECORD ARRAY dirinfo := webdavserver->ListDirectory("system/modules/system");
-  RECORD webdavinfofile := SELECT * FROM dirinfo WHERE name LIKE ".wh.webdavinfo-*";
-  TestEq(TRUE,RecordExists(webdavinfofile),'Linux clients mounting webdav require .wh.webdavinfo- in their directory listing');
-  TestEQ(TRUE, webdavinfofile.size > 0, "The size as reported by the propfind may not be zero (the file won't be retrieved if it is)");
-
-  BLOB webdavinfoblob := webdavserver->Get(webdavinfofile.path);
-  RECORD webdavinfo := DecodeJSONBlob(webdavinfoblob);
-  TestEq(TRUE, CellExists(webdavinfo,'editorservice'));
-}
-
 MACRO TestEditSupport()
 {
   RECORD retval;
@@ -319,13 +268,6 @@ MACRO TestEditSupport_NoDev()
   TestEq(FALSE, retval.result.available);
 }
 
-MACRO TestUnprivileged()
-{
-  OBJECT webdavserver := NEW WebdavConnection(baseurl || "webdav/");
-  webdavserver->webbrowser->SetPassword(baseurl, testfw->GetUserLogin("homer"), testfw->GetUserPassword("homer"));
-  TestThrowsLike('Failed to get*', PTR webdavserver->Get("system/modules/system/.wh.webdavinfo-" || Random(1,65535)));
-}
-
 MACRO TestNoticeLog()
 {
   DATETIME starttest := GetCurrentDatetime();
@@ -349,11 +291,8 @@ MACRO TestNoticeLog()
 RunTestFramework([ PTR TestDevAPIs
                  , PTR PrepareTests
                  , PTR TestToddService
-                 , PTR TestWebdavVirtualInfo
-                 , PTR TestWebdavVirtualInfo_DavFS
                  , PTR TestEditSupport
                  , PTR TestEditSupport_NoDev
-                 , PTR TestUnprivileged
                  , PTR TestNoticeLog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "homer" ]
