@@ -230,25 +230,25 @@ STATIC OBJECTTYPE PageParser
       CASE "none"
       {
         IF(retval != "http://www.webhare.net/xmlns/tollium/screens#none")
-          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#none - please fix");
+          this->AddFatalWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#none - please fix");
         RETURN "http://www.webhare.net/xmlns/tollium/screens#none";
       }
       CASE "lib"
       {
         IF(retval != "http://www.webhare.net/xmlns/tollium/screens#lib")
-          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#lib - please fix");
+          this->AddFatalWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#lib - please fix");
         RETURN "http://www.webhare.net/xmlns/tollium/screens#lib";
       }
       CASE "rowedit"
       {
         IF(retval != "http://www.webhare.net/xmlns/tollium/screens#rowedit")
-          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#rowedit - please fix");
+          this->AddFatalWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#rowedit - please fix");
         RETURN "http://www.webhare.net/xmlns/tollium/screens#rowedit";
       }
       CASE "wrd:entityedit"
       {
         IF(retval != "http://www.webhare.net/xmlns/wrd/components#entityedit")
-          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/wrd/components#entityedit - please fix");
+          this->AddFatalWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/wrd/components#entityedit - please fix");
         RETURN "http://www.webhare.net/xmlns/wrd/components#entityedit";
       }
       DEFAULT
@@ -689,6 +689,14 @@ STATIC OBJECTTYPE PageParser
   {
     INSERT INTO this->finalpage.errors(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
   }
+  ///A 'fatal' warning is an error on development servers but still a warning on further DTAP stages.
+  PUBLIC MACRO AddFatalWarning(INTEGER line, STRING error)
+  {
+    IF(GetDtapStage() = "development")
+      this->AddError(line,error);
+    ELSE
+      this->AddWarning(line,error);
+  }
   PUBLIC MACRO AddWarning(INTEGER line, STRING error)
   {
     INSERT INTO this->finalpage.warnings(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
@@ -904,7 +912,7 @@ STATIC OBJECTTYPE PageParser
       {
         colinfo.gid := this->bb_levels[0].gid;
         IF(col->HasAttribute("gid") AND NOT col->HasAttribute("titlefromrowkey"))
-          curpageparser->Addwarning(col->linenum, "This column defines a 'gid', but does not set the titlefromrowkey attribute. Future versions of WebHare will not perform automatic gid-base titlefromrowkey translations");
+          curpageparser->AddFatalWarning(col->linenum, "This column defines a 'gid', but does not set the titlefromrowkey attribute. Future versions of WebHare will not perform automatic gid-base titlefromrowkey translations");
       }
 
       //dumpvalue(colinfo.title,'boxed');
