@@ -265,20 +265,3 @@ PUBLIC RECORD FUNCTION SetupWebDesign(STRING template, STRING module, STRING des
 
   RETURN data;
 }
-
-PUBLIC BLOB FUNCTION GenerateWHConnectFile(STRING requesturl, INTEGER trustduration, STRING pathtype, STRING systempath)
-{
-  IF (pathtype NOT IN [ "webdav", "fs" ])
-    THROW NEW Exception(`Illegal path type: '${pathtype}', allowed: 'webdav'/'fs'`);
-
-  DATETIME expires := AddTimeToDate(trustduration, GetCurrentDatetime());
-  RECORD info :=
-      CELL[ editorservice :=    ResolveToAbsoluteURL(requesturl, "/wh_services/system/editorservice")
-          , accesstoken :=      EncryptForThisServer("system:editorservice", [ trusteditoruntil := expires ])
-          , translateinfo :=    EncryptForThisServer("system:translateinfo", CELL[ pathtype , systempath ])
-          , validuntil :=       GetUnixTimestamp(expires)
-          , serviceversion :=   1
-          ];
-
-  RETURN StringToBlob(EncodeJSON(info) || "\n");
-}

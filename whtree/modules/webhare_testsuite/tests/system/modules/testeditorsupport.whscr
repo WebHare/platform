@@ -30,43 +30,12 @@ INTEGER FUNCTION SearchSourceElementLine(STRING resource, STRING ARRAY searchpar
   RETURN LENGTH(Tokenize(Left(data, pos), "\n"));
 }
 
-RECORD port;
-STRING baseurl;
-STRING testfiledata;
-STRING testfilerelpath;
-RECORD connectinfo;
-
-MACRO TestDevAPIs()
-{
-  RECORD libinfo;
-  libinfo := ReadLibraryLoadlibs(StringToBlob(`<?wh LOADLIB "mod::mymod/stuff.whlib"; LOADLIB "relative::somethingelse.whlib"; `), "mod::mymod/test.whlib" );
-  TestEq(TRUE, RecordExists(SELECT FROM libinfo.loadlibs WHERE name = "wh::system.whlib"));
-  TestEq([[ col := 14, line := 1, name := "mod::mymod/stuff.whlib" ]], SELECT * FROM libinfo.loadlibs WHERE name = "mod::mymod/stuff.whlib");
-  TestEq([[ col := 48, line := 1, name := "mod::mymod/somethingelse.whlib" ]], SELECT * FROM libinfo.loadlibs WHERE name LIKE "*somethingelse*");
-}
-
-MACRO PrepareTests()
-{
-  port := testfw->GetLocalhostWebinterface();
-  baseurl := port.baseurl;
-
-  STRING connectinforoot := GetWebHareConfiguration().installationroot;
-  STRING connectinfopath := MergePath(connectinforoot, ".wh.connectinfo");
-  connectinfo := DecodeJSONBlob(GetDiskResource(connectinfopath));
-
-  STRING testfilepath := GetWebHareResourceDiskPath("mod::system/moduledefinition.xml");
-  testfiledata := BlobToString(GetDiskResource(testfilepath));
-  testfilerelpath := ResolveToRelativePath(connectinforoot, testfilepath);
-}
-
 MACRO TestToddService()
 {
   STRING portal := OpenTestsuiteSite()->webroot || 'portal1/';
   STRING toddrpc := ResolveToAbsoluteURL(portal, "/wh_services/tollium/todd");
   STRING wrdauthrpc := ResolveToAbsoluteURL(portal, "/wh_services/wrd/auth");
 
-  //ABORT(testfw->browser->CallJSONRPC(`${baseurl}wh_services/wrd/auth`, "Login", toddrpc, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"), FALSE));
-  //testfw->browser->Debug:=TRUE;
   TestEq(TRUE, testfw->browser->CallJSONRPC(wrdauthrpc, "Login", portal, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"), FALSE).success);
 
   RECORD searchres := InvokeRemoteFunctionWithBrowser(testfw->browser, `${toddrpc}/GetWebdavOpenInfo`, portal, 'wh::system.whlib', DEFAULT RECORD);
@@ -86,186 +55,6 @@ MACRO TestToddService()
   //dumpvalue(searchres);
   TestEq('/system/modules/system/screens/userrights/userrights.xml', searchres.item); //should give us the <screen>
   Testeq(SearchSourceElementLine("mod::system/screens/userrights/userrights.xml", [ '<screen name="main"', '>']), searchres.data.line);
-}
-
-MACRO TestEditSupport()
-{
-  RECORD retval;
-  OBJECT browser := NEW WebBrowser;
-  browser->SetAuthorization(connectinfo.editorservice, "bearer " || connectinfo.accesstoken);
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "validate",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , testfiledata
-             ]);
-
-  TestEQ(VARIANT[], retval.result.errors);
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "validate",
-      VARIANT[ connectinfo.translateinfo
-             , "mod::system/scripts/test.whscr"
-             , `<?wh\n\nPRINT(ThisFunctionDoesNotExist());`
-             ]);
-
-  TestEQMembers(
-      [ [ line :=     3
-        , col :=      7
-        , code :=     139 // Undefined function '%1'
-        , msg1 :=     "THISFUNCTIONDOESNOTEXIST"
-        ]
-      ], retval.result.errors, "*");
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "validate",
-      VARIANT[ connectinfo.translateinfo
-             , "mod::system/scripts/test.whscr"
-             , `<?wh\nLOADLIB "wh::witty.whlib";\nPRINT("Hello, World\\n");`
-             ]);
-
-  TestEq(RECORD[], RECORD ARRAY(retval.result.errors));
-
-  TestEQMembers(
-      [ [ line :=     2
-        , col :=      9
-        , code :=     29
-        , msg1 :=     "wh::witty.whlib"
-        ]
-      ], retval.result.warnings, "*"); //as long as sublime integration doenst support hints, report loadlib issues ws warnings
-
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "validate",
-      VARIANT[ connectinfo.translateinfo
-             , "mod::system/lib/witty.witty"
-             , `[embed nosuchcomponent]`
-             ]);
-
-  TestEQMembers(
-      [ [ line :=     1
-        , col :=      2
-        , message := "No such component 'nosuchcomponent'"
-        ]
-      ], retval.result.errors, "*");
-
-  // Test with corrupted moduledef
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "validate",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , Substitute(testfiledata, "</module>", "</xmodule>")
-             ]);
-
-  TestEq("modules/system/moduledefinition.xml", retval.result.errors[0].editorpath);
-  TestEq("mod::system/moduledefinition.xml", retval.result.errors[0].filename);
-  TestEq("Opening and ending tag mismatch: module line 2 and xmodule", retval.result.errors[0].message);
-
-
-  // Test inserting a loadlib
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "addloadlibtosource",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , "<?wh\n\n\n\nPrint('yeey\\n');"
-             , `mod::system/lib/configure.whlib`
-             ]);
-
-  TestEQ(5, retval.result.insertpos);
-  TestEQ(`\nLOADLIB \"mod::system/lib/configure.whlib\";\n`, retval.result.data);
-
-  FOR (INTEGER i := 0; i < 10; i := i + 1) // might be flaky due to other errors
-  {
-    TRY
-      THROW NEW Exception("errortest132442");
-    CATCH (OBJECT e)
-      LogHareScriptException(e);
-
-    retval := browser->InvokeJSONRPC(
-        connectinfo.editorservice,
-        "getremoteerrorlist",
-        VARIANT[ connectinfo.translateinfo
-               , testfilerelpath
-               ]);
-
-    // The errors should be somewhere in the last 8 errors, hopefully
-    RECORD teststack :=
-        SELECT *
-          FROM retval.result.errors
-         WHERE RecordExists(SELECT FROM stack WHERE CellExists(stack, "MESSAGE") ? message LIKE "*errortest132442*" : FALSE);
-
-    IF (NOT RecordExists(teststack))
-      CONTINUE;
-
-    TestEQ(TRUE, teststack.stack[0].editorpath IN [ "modules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
-                                                  , "../../whdata/installedmodules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr" //docker tests, TODO acceptable?
-                                                  ]);
-    BREAK;
-  }
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "resolveuri",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , "mod::webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
-             ]);
-
-  TestEQ(TRUE, retval.result.results[0].editorpath IN [ "modules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
-                                                      , "../../whdata/installedmodules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr" //docker tests, TODO acceptable?
-                                                      ]);
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "DocumentationSearch",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , "openprimary"
-             ]);
-
-  STRING refbaseurl := IsModuleInstalled("dev") ? ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/reference/") : "https://www.webhare.dev/reference/";
-  TestEQ(refbaseurl || "search/?fromeditor=1&query=openprimary", retval.result.url);
-}
-
-MACRO TestEditSupport_NoDev()
-{
-  IF(IsModuleInstalled("dev"))
-  {
-    Print("Skipping TestEditSupport_NoDev, dev module is installed\n");
-    RETURN;
-  }
-
-  RECORD retval;
-  OBJECT browser := NEW WebBrowser;
-  browser->SetAuthorization(connectinfo.editorservice, "bearer " || connectinfo.accesstoken);
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "SymbolSearch",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , "openprimary"
-             ]);
-
-  TestEq(FALSE, retval.result.available);
-
-  STRING whfilesrespath := ResolveToRelativePath(GetWebHareConfiguration().installationroot, GetWebHareResourceDiskPath("wh::files.whlib"));
-
-  retval := browser->InvokeJSONRPC(
-      connectinfo.editorservice,
-      "GetLoadLibSuggestions",
-      VARIANT[ connectinfo.translateinfo
-             , testfilerelpath
-             , "Tokenize"
-             ]);
-  TestEq(FALSE, retval.result.available);
 }
 
 MACRO TestNoticeLog()
@@ -288,11 +77,7 @@ MACRO TestNoticeLog()
   TestEq("Exception: test-notice-log", errors[0].data.errors[0].message);
 }
 
-RunTestFramework([ PTR TestDevAPIs
-                 , PTR PrepareTests
-                 , PTR TestToddService
-                 , PTR TestEditSupport
-                 , PTR TestEditSupport_NoDev
+RunTestFramework([ PTR TestToddService
                  , PTR TestNoticeLog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "homer" ]
