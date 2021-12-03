@@ -574,7 +574,16 @@ case $INSTR in
 
     getwhparameters
     setup_webhare_envsettings "$DEBUGTAGS"
-    echo "WebHare version: $WEBHARE_VERSION"
+
+    # Show version and restore information
+    echo -n "WebHare version: $WEBHARE_VERSION"
+    if [ "$WEBHARE_ISRESTORED" == "1" ]; then
+      echo " (restored)"
+    elif [ -n "$WEBHARE_ISRESTORED" ]; then
+      echo " ($WEBHARE_ISRESTORED)"
+    else
+      echo ""
+    fi
 
     if [ "$DEBUGTAGS" == "" ]; then
       # no processing needed, just exec

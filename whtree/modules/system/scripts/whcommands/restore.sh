@@ -81,7 +81,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
   fi
 
   cat > "$WEBHARE_DATAROOT/settings.sh" << EOF
-export WEBHARE_ISRESTORED=1
+export WEBHARE_ISRESTORED="Restored by 'wh restore'"
 export WEBHARE_BASEPORT=$WEBHARE_BASEPORT
 EOF
 fi
