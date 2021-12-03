@@ -26,16 +26,17 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 PUBLIC STATIC OBJECTTYPE PropertyEditorException EXTEND Exception
 <
-  PUBLIC STRING propertyeditor;
-  PUBLIC STRING siteprofile;
+  PUBLIC STRING extension;
   PUBLIC OBJECT originalexception;
 
-  MACRO NEW(STRING siteprofile, STRING propertyeditor, OBJECT originalexception)
+  MACRO NEW(STRING extension, OBJECT originalexception)
   : Exception(originalexception->what)
   {
+    IF(extension = "")
+      ABORT(`PropertyEditorException::extension may not be empty`); //ABORT because this is basically a double-exception..
+
     this->originalexception := originalexception;
-    this->siteprofile := siteprofile;
-    this->propertyeditor := propertyeditor;
+    this->extension := extension;
   }
 >;
 
@@ -696,8 +697,7 @@ PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, ST
     {
       // Exception is thrown when propertyeditor could not be loaded/initialized, try to create the dialog without this
       // propertyeditor
-      RECORD fault := [ name := e->propertyeditor
-                      , siteprofile := e->siteprofile
+      RECORD fault := [ extension := e->extension
                       , error := e->what
                       ];
       Print("Property editor exception:\n" || AnyToString(fault,'boxed'));

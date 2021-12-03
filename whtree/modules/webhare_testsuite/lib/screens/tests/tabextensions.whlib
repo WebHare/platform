@@ -14,7 +14,7 @@ PUBLIC STATIC OBJECTTYPE Test EXTEND TolliumScreenBase
   }
   MACRO DoLoadExtension2()
   {
-    this->loadinfo := ^tabs->LoadTabsExtension(`mod::webhare_testsuite/data/test/tollium/extensions.xml#__selector://*[local-name()="level43"]/*[local-name()="tabsextension"]`);
+    this->loadinfo := ^tabs->LoadTabsExtension(`mod::webhare_testsuite/data/test/tollium/extensions.xml#ExtensionWithcode`);
   }
 >;
 

@@ -324,7 +324,7 @@ RECORD FUNCTION ValidateScreenReference(STRING type, STRING absolutereference, S
   ELSE
   {
     OBJECT screendoc := MakeXMLDocument(resourcefile);
-    OBJECT screen := screendoc->GetEvaluatedElement(DEFAULT OBJECT, MakeSelector("screen", Tokenize(absolutereference, "#")[1]));
+    OBJECT screen := SelectPageNode(screendoc, Tokenize(absolutereference, "#")[1], "screen");
     IF (NOT ObjectExists(screen))
     {
       INSERT [ message := `Could not find ${type} ${EncodeJSON(orgref)}`

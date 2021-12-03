@@ -493,17 +493,10 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
       @return Record describing the loaded extension. Pass this to RemoveTabsExtension to remove the extension
       @cell return.extension The loaded tabs extension
   */
-  PUBLIC RECORD FUNCTION LoadTabsExtension(STRING extension, VARIANT options DEFAULTSTO "")
+  PUBLIC RECORD FUNCTION LoadTabsExtension(STRING extension, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     //You may load more than one tab, but not invoke any of the later stages while still loading
     this->runstate := "loadedtabs";
-
-    STRING subname;
-    IF (TypeID(options) = TypeID(STRING))
-    {
-      subname := options;
-      options := DEFAULT RECORD;
-    }
 
     RECORD retval := [ __extensionid := this->nextextensionid + 1
                      , done_postinit := FALSE
@@ -519,31 +512,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     RECORD ARRAY offered_comps := this->extendcomponents;
     RECORD ARRAY offered_handlers := this->extendhandlers;
 
-    STRING resourcename, extensionsname;
-    IF(subname="") //new, recommended calling syntax
-    {
-      resourcename := GetResourceNameFromScreenPath(extension);
-      extensionsname := GetScreenNameFromScreenPath(extension);
-    }
-    ELSE
-    {
-      STRING filename := GetStackTrace()[1].filename;
-      IF(GetDtapStage() = "development")
-        THROW NEW Exception(filename || " invoked old dual-parameter version of LoadTabsExtension, please switch to absolute resource names");
-
-      LogWarning("tollium", filename || " invoked old dual-parameter version of LoadTabsExtension, please switch to absolute resource names", [ filename := filename, call := "LoadTabsExtension" ]);
-
-      resourcename := extension;
-      extensionsname := subname;
-    }
-
     //RECORD compositions;
     //OBJECT compositionsnode := extensionselement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "compositions")->Item(0);
     //OBJECT ARRAY newtabs := extensionselement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "newtab")->GetCurrentElements();
-
-    IF(extensionsname NOT LIKE "__selector:*") //not something custom
-      extensionsname := '__selector://*[local-name()="tabsextension"][@name="' || extensionsname|| '"]';
-
     RECORD result;
 
     // pass the tabsextension_api to the next created tabs extension object
@@ -551,7 +522,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     __tabsextension_options := CELL[ options, this->extendcomponents ];
     TRY
     {
-      result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, extensionsname, TRUE);
+      result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, extension, "tabsextension");
       IF(Length(result.errors)>0) //then just throw the first..
         THROW NEW TolliumException(this, result.errors[0].line || ": " || result.errors[0].message);
     }

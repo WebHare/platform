@@ -2192,21 +2192,40 @@ PUBLIC RECORD FUNCTION ParseXMLPageNode(STRING resourcename, STRING scope, OBJEC
   }
 }
 
-PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, OBJECT screendoc, STRING pagetype, STRING initialgid)
+PUBLIC OBJECT FUNCTION SelectPageNode(OBJECT screendoc, STRING selector, STRING resourcetype)
 {
-  OBJECT screen := screendoc->GetEvaluatedElement(DEFAULT OBJECT, selector);
-  IF(NOT ObjectExists(screen))
-    RETURN DEFAULT RECORD;
+  selector := ToUppercase(selector);
+  IF(resourcetype IN ["screen", "fragment", "tabsextension"])
+  {
+    FOREVERY(OBJECT el FROM screendoc->documentelement->ListChildren(whconstant_xmlns_screens, resourcetype))
+      IF(selector = "" OR ToUppercase(el->GetAttribute("name")) = selector)
+        RETURN el;
+  }
 
-  RETURN ParseFoundXMLPage(resourcename, screen, pagetype, initialgid);
+  IF(resourcetype = "tabsextension" AND screendoc->documentelement->localname = "siteprofile") //backward compatibility with propertyeditors
+  {
+    FOREVERY(OBJECT el FROM screendoc->documentelement->ListChildren(whconstant_xmlns_publisher, "propertyeditor"))
+      IF(ToUppercase(el->GetAttribute("name")) = selector)
+        RETURN el;
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  RETURN DEFAULT OBJECT;
 }
 
-PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STRING pagetype, STRING initialgid)
+PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, STRING resourcetype, OBJECT screendoc, STRING initialgid)
 {
-  IF (pagetype NOT IN [ "fragment", "screen" ])
-    THROW NEW Exception("Illegal page type '" || pagetype || "'");
+  OBJECT node := SelectPageNode(screendoc, selector, resourcetype);
+  IF(NOT ObjectExists(node))
+    RETURN DEFAULT RECORD;
 
-  STRING scope := pagetype = "screen" ? "" : pagetype;
+  RETURN ParseFoundXMLPage(resourcename, resourcetype, node, initialgid);
+}
+
+PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, STRING resourcetype, OBJECT screen, STRING initialgid)
+{
+  STRING scope := resourcetype = "screen" ? "" : "fragment";
 
   OBJECT saveparser := curpageparser;
   TRY
@@ -2248,14 +2267,15 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
   }
 }
 
-RECORD FUNCTION GetCacheableParsedPage(STRING resourcename, STRING selector, STRING type)
+RECORD FUNCTION GetCacheableParsedPage(STRING resource, STRING resourcetype)
 {
-  RECORD docinfo := RetrieveCachedValidatedScreen(resourcename);
+  STRING ARRAY resourcetoks := Tokenize(resource || "#","#");
+  RECORD docinfo := RetrieveCachedValidatedScreen(resourcetoks[0]);
 
   STRING gid := docinfo.doc->documentelement->GetAttribute("gid");
-  RECORD parsedpage := ParseXMLPage(resourcename, selector, docinfo.doc, type, gid);
+  RECORD parsedpage := ParseXMLPage(resourcetoks[0], resourcetoks[1], resourcetype, docinfo.doc, gid);
   IF(NOT RecordExists(parsedpage))
-    THROW NEW Exception(`No screen ${selector} found in ${resourcename}`);
+    THROW NEW Exception(`Unable to open ${resourcetype} ${resource}`);
 
   parsedpage.files := parsedpage.files CONCAT docinfo.files;
 
@@ -2289,24 +2309,16 @@ RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
   RETURN screen;
 }
 
-
-PUBLIC STRING FUNCTION MakeSelector(STRING tolliumtype, STRING screenref)
-{
-  STRING sel := `//*[local-name()="${tolliumtype}" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"]`;
-  IF(screenref != "")
-    sel := sel || `[@name="${EncodeJava(screenref)}"]`;
-  RETURN sel;
-}
-PUBLIC RECORD FUNCTION GetParsedPage(STRING resourcename, STRING selector, STRING type)
+PUBLIC RECORD FUNCTION GetParsedPage(STRING resource, STRING resourcetype)
 {
   //Pages often get re-requested so it makes sense to cache them
   //(this does break some development workflows where some small changes (eg a width= change) don't require an app restart, but that will then have to be fixed without slowing down live...)
-  RECORD cachekey := CELL [resourcename, selector,type];
-  RECORD cachepos := RecordLowerBound(pagecache, cachekey, ["RESOURCENAME","SELECTOR","TYPE"]);
+  RECORD cachekey := CELL[ resource, resourcetype ];
+  RECORD cachepos := RecordLowerBound(pagecache, cachekey, ["RESOURCE","RESOURCETYPE"]);
   IF(cachepos.found)
     RETURN pagecache[cachepos.position].page;
 
-  RECORD page := GetAdhocCached([ type := "parsedpage", screenref := resourcename, selector := selector, pagetype := type ], PTR GetCacheableParsedPage(resourcename, selector, type));
+  RECORD page := GetAdhocCached(CELL[ type := "parsedpage", cachekey ], PTR GetCacheableParsedPage(resource,resourcetype));
   INSERT CELL[...cachekey, page] INTO pagecache AT cachepos.position;
   RETURN page;
 }

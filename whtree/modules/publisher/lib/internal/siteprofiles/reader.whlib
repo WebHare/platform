@@ -1507,19 +1507,9 @@ STATIC OBJECTTYPE ApplyRuleTester
         IF(NOT this->HasRequiredRight(user, extendprops.requireright))
           CONTINUE;
 
-        STRING selector;
-        IF (extendprops.extension != "")
-        {
-          selector := Tokenize(extendprops.extension,'#')[1];
-          INSERT CELL siteprofile := Tokenize(extendprops.extension,'#')[0] INTO extendprops;
-        }
-        ELSE
-        {
-          selector := '__selector://*[local-name()="propertyeditor"][@name="' || extendprops.name || '"]';
-          INSERT CELL siteprofile := apply.siteprofile INTO extendprops;
-        }
-        INSERT CELL selector := selector INTO extendprops;
-        INSERT extendprops INTO retval.propertyeditors AT END;
+        INSERT CELL[ ...extendprops
+                   , tabsextension := extendprops.extension ?? apply.siteprofile || "#" || extendprops.name
+                   ] INTO retval.propertyeditors AT END;
       }
 
     RETURN retval;

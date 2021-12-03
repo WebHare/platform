@@ -47,7 +47,11 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
         RECORD savescreenbuildinfo := __screenbuildinfo;
         TRY
         {
-          RECORD parsedelement := ParseFoundXMLPage(this->respath, topnode, topnode->localname = "screen" ? "screen" : "fragment", this->xml->documentelement->GetAttribute("gid"));
+          RECORD parsedelement := ParseFoundXMLPage( this->respath
+                                                   , topnode->localname = "propertyeditor" ? "tabsextension" : topnode->localname
+                                                   , topnode
+                                                   , this->xml->documentelement->GetAttribute("gid")
+                                                   );
           this->warnings := this->warnings CONCAT parsedelement.warnings;
           this->hints := this->hints CONCAT parsedelement.hints;
 
