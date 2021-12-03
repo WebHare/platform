@@ -92,8 +92,7 @@ PUBLIC BOOLEAN FUNCTION IsValidModuleName(STRING modulename)
 
 PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ gitinit := TRUE
-                             , defaultlanguage := "en"
+  options := ValidateOptions([ defaultlanguage := "en"
                              , description := ""
                              , aftermodulecreation := DEFAULT MACRO PTR
                              , moduledefinition := ""
@@ -126,13 +125,6 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                  ];
 
   CreateDiskDirectoryRecursive(destpath, TRUE);
-  IF(options.gitinit)
-  {
-    RECORD gitresult := ExecuteGitCommand(['init',destpath]);
-    IF(gitresult.exitcode != 0)
-      THROW NEW Exception(`git init failed, exit code ${gitresult.exitcode}: ${Left(gitresult.output,120)}`);
-  }
-
   InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/modules/templates/module/", destpath, data);
   RunModuleHookTarget("system:devtools_modulecreation", [ module := modulename
                                                         , destpath := destpath

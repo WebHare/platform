@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/internal/modules/support.whlib";
 MACRO PrintSyntaxAndTerminate()
 {
   Print("Syntax: wh module <command>\n");
-  Print("  create <module>:         Create a module\n");
   Print("  createwebdesign <name>:  Create a webdesign in a module\n");
   Print("  download <name>:         Download the specified module\n");
   Print("  get <giturl>:            Get a module from a git server\n"); //note - actually implemented in our wrapper module.sh
@@ -51,29 +50,7 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
 {
   CASE "create"
   {
-    RECORD subargs := ParseArguments(cmdargs.params,
-        [ [ name := "module", type := "param", required := TRUE ]
-        , [ name := "language", type := "stringopt"  ]
-        , [ name := "nogit", type := "switch"  ]
-        ]);
-
-    IF(NOT RecordExists(subargs))
-    {
-      Print("Syntax: wh module create [--language code] [--nogit] [subpath/]<modulename>\n");
-      TerminateScriptWithError("Invalid syntax");
-    }
-
-    STRING ARRAY modtokens := Tokenize(subargs.module,'/');
-    IF(Length(modtokens) > 2)
-      THROW NEW Exception(`Module name '${subargs.module}' may contain only one subpath component`);
-
-    OpenPrimary();
-    RECORD res := SetupModule(Length(modtokens)>1 ? modtokens[0] : "", modtokens[END-1],
-        [ defaultlanguage := subargs.language ?? "en"
-        , gitinit := NOT subargs.nogit
-        ]);
-
-    Print(`Created module in ${res.destpath}${subargs.nogit ? "" : " (with empty git repository)"}\n`);
+    TerminateScriptWithError("`wh module create` is no longer supported - use wh dev:createmodule");
   }
   CASE "createwebdesign"
   {

@@ -2013,7 +2013,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RECORD result := SetupModule(testfw_testmodule, testfw_testmodule,
                                  CELL[ description := "Test module"
                                      , defaultlanguage := "en"
-                                     , gitinit := FALSE
                                      , ...options
                                      ]);
     TestEq(testfw_testmodule, result.modulename);

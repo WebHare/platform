@@ -6,19 +6,10 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 
-MACRO TestGitInfo()
-{
-  testfw->SetupTestModule([gitinit := TRUE]);
-  ExecuteGitCommand(["-C", GetModuleInstallationRoot("webhare_testsuite_temp"), "add", "."]);
-  ExecuteGitCommand(["-C", GetModuleInstallationRoot("webhare_testsuite_temp"), "config", "user.email", "nobody@beta.webhare.net"]);
-  ExecuteGitCommand(["-C", GetModuleInstallationRoot("webhare_testsuite_temp"), "commit", "-m", "First commit"]);
-
-  RECORD gitinfo := GetRevisionOfSingleModule("webhare_testsuite_temp");
-  TestEq(1, Length(gitinfo.commits));
-}
-
 MACRO TestImExport()
 {
+  testfw->SetupTestModule();
+
   STRING moduleroot := GetModuleInstallationRoot("webhare_testsuite_temp");
   CreateDiskDirectoryRecursive(MergePath(moduleroot, "lib"), TRUE);
 
@@ -98,6 +89,5 @@ PUBLIC OBJECTTYPE TestObject2
   }
 }
 
-RunTestFramework([ PTR TestGitInfo
-                 , PTR TestImExport
+RunTestFramework([ PTR TestImExport
                  ]);
