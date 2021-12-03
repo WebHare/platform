@@ -28,7 +28,7 @@ BOOLEAN FUNCTION ValidateReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER cu
   RETURN TRUE;
 }
 
-RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfile)
+RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfile, BOOLEAN skipaccesscheck)
 {
   RECORD retval := [ errors := STRING[]
                    , newids := INTEGER[]
@@ -40,8 +40,10 @@ RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfi
     STRING useurl := NormalizeHistoryURL(url);
     RECORD existing := LookupPublisherURL(url);
     IF(existing.site = 0 AND existing.webserver = 0)
+    {
       INSERT GetTid("publisher:urlhistory.sitenotfound", UnpackURL(url).origin) INTO retval.errors AT END;
-    ELSE IF(NOT owner->contexts->user->HasRightOn("system:fs_fullaccess", existing.folder))
+    }
+    ELSE IF(NOT skipaccesscheck AND NOT owner->contexts->user->HasRightOn("system:fs_fullaccess", existing.folder))
     {
       url := (SELECT AS STRING objecturl FROM system.fs_objects WHERE id = existing.folder) ?? url;
       INSERT GetTid("publisher:urlhistory.nowriteaccess", url) INTO retval.errors AT END;
@@ -59,10 +61,12 @@ RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfi
 PUBLIC STATIC OBJECTTYPE URLHistory EXTEND TolliumScreenBase
 <
   INTEGER id;
+  BOOLEAN skipaccesscheck;
 
   MACRO Init(RECORD data)
   {
     this->id := data.id;
+    this->skipaccesscheck := data.skipaccesscheck;
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetChildren(RECORD data)
@@ -93,14 +97,14 @@ PUBLIC STATIC OBJECTTYPE URLHistory EXTEND TolliumScreenBase
 
   MACRO DoRowEdit(RECORD row)
   {
-    INTEGER newrowid := this->RunScreen("#editurlhistoryentrydlg", CELL[ id := this->id, row ]);
+    INTEGER newrowid := this->RunScreen("#editurlhistoryentrydlg", CELL[ this->id, this->skipaccesscheck, row ]);
     ^history->ReloadList();
     ^history->SetValueIfValid(newrowid);
   }
 
   MACRO DoBulkImport()
   {
-    this->RunScreen("#inputbulkhistorydlg", [ id := this->id ]);
+    this->RunScreen("#inputbulkhistorydlg", CELL[ this->id, this->skipaccesscheck ]);
     ^history->Invalidate();
   }
 >;
@@ -110,10 +114,12 @@ PUBLIC STATIC OBJECTTYPE EditURLHistoryEntryDlg EXTEND TolliumScreenBase
   INTEGER id;
   INTEGER editid;
   STRING origurl;
+  BOOLEAN skipaccesscheck;
 
   MACRO Init(RECORD data)
   {
     this->id := data.id;
+    this->skipaccesscheck := data.skipaccesscheck;
     IF(RecordExists(data.row))
     {
       this->editid := data.row.rowkey;
@@ -133,7 +139,7 @@ PUBLIC STATIC OBJECTTYPE EditURLHistoryEntryDlg EXTEND TolliumScreenBase
     INTEGER newid;
     IF(NOT work->HasFailed())
     {
-      RECORD replaceres := DoReplaceURLs(this, STRING[^url->value], this->id);
+      RECORD replaceres := DoReplaceURLs(this, STRING[^url->value], this->id, this->skipaccesscheck);
 
       IF(Length(replaceres.errors) > 0)
       {
@@ -150,20 +156,22 @@ PUBLIC STATIC OBJECTTYPE EditURLHistoryEntryDlg EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE InputBulkHistoryDlg EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE InputBulkHistoryDlg EXTEND TolliumScreenBase
 <
   INTEGER id;
+  BOOLEAN skipaccesscheck;
 
   PUBLIC MACRO Init(RECORD data)
   {
     this->id := data.id;
+    this->skipaccesscheck := data.skipaccesscheck;
   }
 
   PUBLIC BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginFeedback();
 
-    STRING ARRAY tosplit := Tokenize(this->urls->value, "");
+    STRING ARRAY tosplit := Tokenize(^urls->value, "");
     STRING ARRAY urls;
     STRING current;
     FOREVERY(STRING char FROM tosplit)
@@ -182,7 +190,7 @@ PUBLIC OBJECTTYPE InputBulkHistoryDlg EXTEND TolliumScreenBase
       }
       ELSE IF(Length(current) > 0)/// No reason to disallow empty lines (or, technically, a sequence of control characters like \r\n)
       {
-        work->AddErrorFor(this->urls, this->GetTid(".urlinvalid", current));
+        work->AddErrorFor(^urls, this->GetTid(".urlinvalid", current));
       }
       CONTINUE;
     }
@@ -199,7 +207,7 @@ PUBLIC OBJECTTYPE InputBulkHistoryDlg EXTEND TolliumScreenBase
     STRING ARRAY faults;
     work := this->BeginWork();
 
-    RECORD replaceres := DoReplaceURLs(this, urls, this->id);
+    RECORD replaceres := DoReplaceURLs(this, urls, this->id, this->skipaccesscheck);
     FOREVERY(STRING err FROM ArraySlice(replaceres.errors,0,10))
       work->AddError(err);
 
