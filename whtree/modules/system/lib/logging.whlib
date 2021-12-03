@@ -63,7 +63,7 @@ PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data)
 }
 
 /** @short Log an informational message to the 'notice' log
-    @long Log a message indicating an issue or odd event, that is probably not the system's fault, but may be relevant hwen investing issues ("FYI")
+    @long Log a message indicating an issue or odd event, that is probably not the system's fault, but may be relevant when investing issues ("FYI")
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */

@@ -2604,23 +2604,17 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
         <xs:attribute name="upload" type="xs:boolean" default="true">
           <xs:annotation>
-            <xs:documentation>
-              <html:p>If the user may upload an image file from disk</html:p>
-            </xs:documentation>
+            <xs:documentation>Set to false to disable uploading local image files (browser upload)</xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="publisher" type="xs:boolean" default="true">
           <xs:annotation>
-            <xs:documentation>
-              <html:p>If the user may select an image file from the Publisher</html:p>
-            </xs:documentation>
+            <xs:documentation>Set to false to disable selecting a file from the Publisher</xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="medialibrary" type="xs:string" default="media">
           <xs:annotation>
-            <xs:documentation>
-              <html:p>If the user may select an image file from a media library, if defined</html:p>
-            </xs:documentation>
+            <xs:documentation>An explicit medialibrary from which the user may select images (defaults to 'media'). Note that this does not require the user to have Publisher read access to the medialibrary folder(s)</xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attributeGroup ref="Onchange" />
