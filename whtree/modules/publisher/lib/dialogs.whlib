@@ -38,11 +38,12 @@ PUBLIC MACRO RunManageTagsDialog(OBJECT parentscreen, INTEGER tagfolder, RECORD 
     @param parentscreen Screen invoking us
     @param objectid Object for which we want to manage the history
     @param options Options
+    @cell(boolean) options.skipaccesscheck Do not verify whether the user has write access to the location
 */
 PUBLIC MACRO RunFSObjectHistoryDialog(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
-  parentscreen->RunScreen("mod::publisher/screens/commondialogs/urlhistory.xml#urlhistory", [ id := objectid ]);
+  options := ValidateOptions(CELL[ skipaccesscheck := FALSE ], options);
+  parentscreen->RunScreen("mod::publisher/screens/commondialogs/urlhistory.xml#urlhistory", CELL[ id := objectid, options.skipaccesscheck ]);
 }
 
 
