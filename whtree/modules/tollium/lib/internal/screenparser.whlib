@@ -157,8 +157,9 @@ STATIC OBJECTTYPE PageParser
 
         , formobjects    := DEFAULT RECORD ARRAY
         , allpublic      := allpublic
-        , errors         := DEFAULT RECORD ARRAY
-        , warnings       := DEFAULT RECORD ARRAY
+        , errors         := RECORD[]
+        , warnings       := RECORD[]
+        , hints          := RECORD[]
         , implementation := whconstant_xmlns_screens || "#lib"
 
         , rootnode       := DEFAULT RECORD
@@ -422,6 +423,10 @@ STATIC OBJECTTYPE PageParser
            , localname := nameinfo.givenname
            //, formpos := transparentnode ? -1 : Length(this->finalpage.formobjects)-1
            ] INTO this->bb_levels AT 0;
+
+    //We may need a more generic warning mechanism or other parse-time component hooks for a cleaner solution
+    IF(element->namespaceuri = whconstant_xmlns_screens AND element->localname = "imageedit")
+      this->AddHint(element->linenum, "<imageedit> may be removed in future versions - see https://gitlab.com/webhare/platform/-/issues/47");
 
     RECORD item := ParseXMLFields(element, compinfo);
     this->ValidateNodeXMLFields(element, item);
@@ -700,6 +705,10 @@ STATIC OBJECTTYPE PageParser
   PUBLIC MACRO AddWarning(INTEGER line, STRING error)
   {
     INSERT INTO this->finalpage.warnings(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
+  }
+  PUBLIC MACRO AddHint(INTEGER line, STRING error)
+  {
+    INSERT INTO this->finalpage.hints(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
   }
 
   /** Given a list of components, calculate the ordering. Form parts before forms, fragments after their components,
