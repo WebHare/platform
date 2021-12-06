@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/internal/modules/support.whlib";
 MACRO PrintSyntaxAndTerminate()
 {
   Print("Syntax: wh module <command>\n");
-  Print("  createwebdesign <name>:  Create a webdesign in a module\n");
   Print("  download <name>:         Download the specified module\n");
   Print("  get <giturl>:            Get a module from a git server\n"); //note - actually implemented in our wrapper module.sh
   Print("  install <path|url>:      Install a module\n");
@@ -54,28 +53,7 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
   }
   CASE "createwebdesign"
   {
-    RECORD subargs := ParseArguments(cmdargs.params,
-        [ [ name := "name", type := "param", required := TRUE ]
-        , [ name := "domainname", type := "param", required := TRUE ]
-        , [ name := "language", type := "stringopt"  ]
-        , [ name := "template", type := "stringopt" ]
-        ]);
-
-    IF(NOT RecordExists(subargs) OR subargs.name NOT LIKE "?*:?*")
-    {
-      Print("Syntax: wh module createwebdesign [--language langcode] [--template module:template] <module>:<name> <domainname>\n");
-      TerminateScriptWithError("Invalid syntax");
-    }
-
-    STRING module := Tokenize(subargs.name, ':')[0];
-    STRING designname := Tokenize(subargs.name, ':')[1];
-
-    RECORD setup := SetupWebDesign(subargs.template ?? "publisher:blank", module, designname,
-                                   [ title := designname
-                                   , defaultlanguage := subargs.language
-                                   , domainname := subargs.domainname
-                                   ]);
-
+    TerminateScriptWithError("`wh module createwebdesign` is no longer supported - use wh dev:createwebdesign");
   }
   CASE "download"
   {
