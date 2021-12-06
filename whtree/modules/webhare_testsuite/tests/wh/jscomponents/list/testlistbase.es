@@ -170,9 +170,9 @@ test.registerTests(
         test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
         test.true(test.getListViewRow('B-Lex').classList.contains("wh-list__row--selected"));
 
-        await test.pressKey(['ArrowRight']); //repeating right on a selected row sends us as line lower
+        await test.pressKey(['ArrowRight']); //now has no effect
         test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
-        test.true(test.getListViewRow('Designfiles b-lex').classList.contains("wh-list__row--selected"));
+        test.true(test.getListViewRow('B-Lex').classList.contains("wh-list__row--selected"));
     }
 
   , { name: 'multirow'

@@ -935,17 +935,7 @@ export default class ListView
     {
       // Get the current depth
       var depth = row.cells[this.depthidx];
-      if(expanding)
-      {
-        // Check if the next item has higher depth (i.e. is nested deeper) than the current depth
-        if (this.cursorrow < this.numvisiblerows - 1 && this.visiblerows[this.cursorrow + 1].cells[this.depthidx] > depth)
-        {
-          // Select the next item
-          this.setCursorRow(this.cursorrow + 1);
-          this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
-        }
-      }
-      else if (depth)
+      if (depth && !expanding) //go up, but not down!
       {
         let parentrownr = this.datasource.getRowParent(this.cursorrow, row);
         if (parentrownr !== null)
