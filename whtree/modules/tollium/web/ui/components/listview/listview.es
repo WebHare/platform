@@ -237,36 +237,37 @@ export default class ListView
                    };
     this._configureTopNode();
 
-    new Keyboard(this.node, { "ArrowUp":             this.onKeyboardUp.bind(this)
-                                 , "ArrowDown":           this.onKeyboardDown.bind(this)
-                                 , "Shift+ArrowUp":       this.onKeyboardUp.bind(this)
-                                 , "Shift+ArrowDown":     this.onKeyboardDown.bind(this)
+    new Keyboard(this.node,
+        { "ArrowUp":             this.onKeyboardUp.bind(this)
+        , "ArrowDown":           this.onKeyboardDown.bind(this)
+        , "Shift+ArrowUp":       this.onKeyboardUp.bind(this)
+        , "Shift+ArrowDown":     this.onKeyboardDown.bind(this)
 
-                                 , "PageUp":              this.onKeyboardPageUp.bind(this)
-                                 , "PageDown":            this.onKeyboardPageDown.bind(this)
+        , "PageUp":              this.onKeyboardPageUp.bind(this)
+        , "PageDown":            this.onKeyboardPageDown.bind(this)
 
-                                 , "Shift+PageUp":        this.onKeyboardPageUp.bind(this)
-                                 , "Shift+PageDown":      this.onKeyboardPageDown.bind(this)
+        , "Shift+PageUp":        this.onKeyboardPageUp.bind(this)
+        , "Shift+PageDown":      this.onKeyboardPageDown.bind(this)
 
-                                 // start/end (single select)
-                                 , "Home":                this.onKeyboardHome.bind(this)
-                                 , "End":                 this.onKeyboardEnd.bind(this)
-                                 , "Alt+ArrowUp":         this.onKeyboardHome.bind(this)
-                                 , "Alt+ArrowDown":       this.onKeyboardEnd.bind(this)
+        // start/end (single select)
+        , "Home":                this.onKeyboardHome.bind(this)
+        , "End":                 this.onKeyboardEnd.bind(this)
+        , "Alt+ArrowUp":         this.onKeyboardHome.bind(this)
+        , "Alt+ArrowDown":       this.onKeyboardEnd.bind(this)
 
-                                 // start/end (expand selection)
-                                 , "Shift+Home":          this.onKeyboardHome.bind(this)
-                                 , "Shift+End":           this.onKeyboardEnd.bind(this)
-                                 , "Alt+Shift+ArrowUp":   this.onKeyboardHome.bind(this)
-                                 , "Alt+Shift+ArrowDown": this.onKeyboardEnd.bind(this)
+        // start/end (expand selection)
+        , "Shift+Home":          this.onKeyboardHome.bind(this)
+        , "Shift+End":           this.onKeyboardEnd.bind(this)
+        , "Alt+Shift+ArrowUp":   this.onKeyboardHome.bind(this)
+        , "Alt+Shift+ArrowDown": this.onKeyboardEnd.bind(this)
 
-                                 , "Accel+A":             this.onKeyboardSelectAll.bind(this)
+        , "Accel+A":             this.onKeyboardSelectAll.bind(this)
 
-                                 , "ArrowLeft":           this.onKeyboardLeft.bind(this)
-                                 , "ArrowRight":          this.onKeyboardRight.bind(this)
+        , "ArrowLeft":           event => this.onKeyboardHorizontal(event, -1)
+        , "ArrowRight":          event => this.onKeyboardHorizontal(event, +1)
 
-                                 , "Enter":               this.onKeyboardEnter.bind(this)
-                                 });
+        , "Enter":               this.onKeyboardEnter.bind(this)
+        });
 
     new FindAsYouType(this.node, { searchtimeout: this.options.searchtimeout
                                  , onsearch: text => this._onFindAsYouTypeSearch(text)
@@ -904,23 +905,36 @@ export default class ListView
     event.preventDefault();
     this.moveRowCursorDown( event.shiftKey, false);
   }
-  onKeyboardLeft(event)
+  onKeyboardHorizontal(event, distance)
   {
-    event.stopPropagation();
-    event.preventDefault();
+    dompack.stop(event);
+
     // If the cursor is not active, we cannot collapse/navigate
     if (this.cursorrow < 0)
       return;
 
-    // If the row is expandable and currently expanded, collapse it, otherwise select the current row's parent
+
+    let expanding = distance > 0; //going right
     var row = this.visiblerows[this.cursorrow];
-    if (row.cells[this.expandedidx] === true)
-      this.datasource.setCell(row.propRow, row.cells, this.expandedidx, false);
-    else
+    if (row.cells[this.expandedidx] === !expanding)
+    { //expand mode being changed
+      this.datasource.setCell(row.propRow, row.cells, this.expandedidx, expanding);
+    }
+    else //already in the proper expand mode...
     {
       // Get the current depth
       var depth = row.cells[this.depthidx];
-      if (depth)
+      if(expanding)
+      {
+        // Check if the next item has higher depth (i.e. is nested deeper) than the current depth
+        if (this.cursorrow < this.numvisiblerows - 1 && this.visiblerows[this.cursorrow + 1].cells[this.depthidx] > depth)
+        {
+          // Select the next item
+          this.setCursorRow(this.cursorrow + 1);
+          this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
+        }
+      }
+      else if (depth)
       {
         let parentrownr = this.datasource.getRowParent(this.cursorrow, row);
         if (parentrownr !== null)
@@ -929,31 +943,6 @@ export default class ListView
           this.setCursorRow(parentrownr);
           this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
         }
-      }
-    }
-  }
-  onKeyboardRight(event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
-    // If the cursor is not active, we cannot collapse/navigate
-    if (this.cursorrow < 0)
-      return;
-
-    // If the row is expandable and currently not expanded, expand it
-    var row = this.visiblerows[this.cursorrow];
-    if (row.cells[this.expandedidx] === false)
-      this.datasource.setCell(row.propRow, row.cells, this.expandedidx, true);
-    else
-    {
-      // Get the current depth
-      var depth = row.cells[this.depthidx];
-      // Check if the next item has higher depth (i.e. is nested deeper) than the current depth
-      if (this.cursorrow < this.visiblerows.length - 1 && this.visiblerows[this.cursorrow + 1].cells[this.depthidx] > depth)
-      {
-        // Select the next item
-        this.setCursorRow(this.cursorrow + 1);
-        this.clickSelectRowByNumber(event, this.cursorrow, { immediate_select: true });
       }
     }
   }
