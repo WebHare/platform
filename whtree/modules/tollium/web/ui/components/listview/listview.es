@@ -913,6 +913,17 @@ export default class ListView
     if (this.cursorrow < 0)
       return;
 
+    if(this._columnselect)
+    {
+      if(this.cursorcol >= 0) //we had a selected column.
+      {
+        this.cursorcol = Math.max(0, Math.min(this.cols.length-1, this.cursorcol + distance));
+        this._selectedcellnumbers = [ this.cursorcol ];
+        dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
+        this.refreshSelectedRows();
+      }
+      return;
+    }
 
     let expanding = distance > 0; //going right
     var row = this.visiblerows[this.cursorrow];
