@@ -26,6 +26,7 @@ class TestBaseSource extends ListDataSource
   {
     super();
     this.numrows = 0;
+    this.selected = [];
   }
   getSelectableRowBefore(rownum)
   {
@@ -51,6 +52,50 @@ class TestBaseSource extends ListDataSource
 
     return -1; // no row found
   }
+
+  clearSelection()
+  {
+    var saveselected=this.selected;
+    this.selected=[];
+    saveselected.forEach(row=>this.sendRow(row));
+  }
+  setSelectionForRange(startrow, endrow, newvalue)
+  {
+    if (endrow < startrow)
+    {
+      var temp = startrow;
+      startrow = endrow;
+      endrow = temp;
+    }
+
+    //console.log("Setting selection for row", startrow, "to row", endrow, "to", newvalue);
+
+    if (newvalue)
+    {
+      for(let i=startrow; i <= endrow; ++i)
+      {
+        // add selection state if it wasn't selected yet
+        if (!this.selected.includes(i))
+        {
+          this.selected.push(i);
+          this.sendRow(i);
+        }
+      }
+    }
+    else
+    {
+      for(let i=startrow; i <= endrow; ++i)
+      {
+        // remove selection state if it was selected
+        if (this.selected.includes(i))
+        {
+          var idx = this.selected.indexOf(i);
+          this.selected.splice(idx, 1);
+          this.sendRow(i);
+        }
+      }
+    }
+  }
 }
 
 class EmptyDataSource extends TestBaseSource
@@ -74,7 +119,6 @@ class TestDataSource extends TestBaseSource
   {
     super();
     this.usedelay = -1;
-    this.selected = [];
     this.checked = [0,3,6,7];
     this.numrows = numrows;
     this.multirow = multirow;
@@ -126,50 +170,6 @@ class TestDataSource extends TestBaseSource
                  , (rownum%7)==6 ? null : this.selected.includes(rownum)  //2:selected
                  ];
     this.run(() => this.list.updateRow(rownum, newrow));
-  }
-  clearSelection()
-  {
-    var saveselected=this.selected;
-    this.selected=[];
-    saveselected.forEach(row=>this.sendRow(row));
-  }
-  setSelectionForRange(startrow, endrow, newvalue)
-  {
-    if (endrow < startrow)
-    {
-      var temp = startrow;
-      startrow = endrow;
-      endrow = temp;
-    }
-
-    //console.log("Setting selection for row", startrow, "to row", endrow, "to", newvalue);
-
-    if (newvalue)
-    {
-      for(let i=startrow; i <= endrow; ++i)
-      {
-        // add selection state if it wasn't selected yet
-        if (!this.selected.includes(i))
-        {
-          this.selected.push(i);
-          this.sendRow(i);
-          this.sendRow(i);
-        }
-      }
-    }
-    else
-    {
-      for(let i=startrow; i <= endrow; ++i)
-      {
-        // remove selection state if it was selected
-        if (this.selected.includes(i))
-        {
-          var idx = this.selected.indexOf(i);
-          this.selected.splice(idx, 1);
-          this.sendRow(i);
-        }
-      }
-    }
   }
 
   setCell(rownum, row, cellidx, newvalue)
@@ -269,6 +269,7 @@ class TreeDataSource extends TestBaseSource
   }
   sendRow(rownum)
   {
+    this.flatrows[rownum][0] = this.selected.includes(rownum);
     this.run(() => this.list.updateRow(rownum, this.flatrows[rownum]));
   }
   setCell(rownum, row, cellidx, newvalue)

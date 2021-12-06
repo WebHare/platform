@@ -158,6 +158,10 @@ test.registerTests(
         test.false(test.getListViewExpanded(test.getListViewRow('B-Lex')));
         test.eq(3, test.qSA('#listview .listrow').length);
         test.false(test.getListViewRow('Designfiles b-lex')!=null);
+
+        test.click(test.getListViewRow('Subitem'));
+        test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
+        test.true(test.getListViewRow('Subitem').classList.contains("wh-list__row--selected"));
       }
     }
 
