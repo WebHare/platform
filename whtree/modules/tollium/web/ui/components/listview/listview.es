@@ -8,7 +8,7 @@ import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 require('./listview.css');
 var ListColumn = require('./listcolumns');
-require('./listdatasource');
+
 
 let globallistcount = 0;
 /*

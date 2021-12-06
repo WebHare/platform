@@ -20,8 +20,45 @@ class OddRowkeyColumn extends ListColumn.Base
   }
 }
 
-class EmptyDataSource extends ListDataSource
-{ getDataStructure()
+class TestBaseSource extends ListDataSource
+{
+  constructor()
+  {
+    super();
+    this.numrows = 0;
+  }
+  getSelectableRowBefore(rownum)
+  {
+    if (this.numrows == 0)
+      return -1;
+
+    if (rownum < 1 || rownum > this.numrows)
+    {
+      console.error("Invalid row number");
+      return -1;
+    }
+
+    return rownum - 1;
+  }
+
+  getSelectableRowAfter(rownum)
+  {
+    if (this.numrows == 0)
+      return -1;
+
+    if (rownum < this.numrows - 1)
+      return rownum + 1;
+
+    return -1; // no row found
+  }
+}
+
+class EmptyDataSource extends TestBaseSource
+{ constructor()
+  {
+    super();
+  }
+  getDataStructure()
   {
     return { columns: [], colwidths: []};
   }
@@ -31,7 +68,7 @@ class EmptyDataSource extends ListDataSource
   }
 }
 
-class TestDataSource extends ListDataSource
+class TestDataSource extends TestBaseSource
 {
   constructor(multirow,numrows)
   {
@@ -44,7 +81,7 @@ class TestDataSource extends ListDataSource
   }
   run(callback)
   {
-    if(this.usedelay>=0)
+    if(this.usedelay >= 0)
       setTimeout(callback, this.usedelay);
     else
       callback();
@@ -77,7 +114,7 @@ class TestDataSource extends ListDataSource
 
   sendNumRows()
   {
-    this.run(this.list.updateNumRows.bind(this.list,this.numrows));
+    this.run(() => this.list.updateNumRows(this.numrows));
   }
   sendRow(rownum)
   {
@@ -88,7 +125,7 @@ class TestDataSource extends ListDataSource
                  , (rownum%7)==2 ? null : this.checked.includes(rownum)   //1:checked
                  , (rownum%7)==6 ? null : this.selected.includes(rownum)  //2:selected
                  ];
-    this.run(this.list.updateRow.bind(this.list, rownum, newrow));
+    this.run(() => this.list.updateRow(rownum, newrow));
   }
   clearSelection()
   {
@@ -170,7 +207,7 @@ class TestDataSource extends ListDataSource
   }
 }
 
-class TreeDataSource extends ListDataSource
+class TreeDataSource extends TestBaseSource
 {
   constructor(multirow, numrows)
   {
@@ -192,7 +229,7 @@ class TreeDataSource extends ListDataSource
   run(callback)
   {
     if(this.usedelay>=0)
-      callback.delay(this.usedelay)
+      setTimeout(callback, this.usedelay);
     else
       callback();
   }
@@ -228,11 +265,11 @@ class TreeDataSource extends ListDataSource
   sendNumRows()
   {
     this.flattenRows();
-    this.run(this.list.updateNumRows.bind(this.list, this.flatrows.length));
+    this.run(() => this.list.updateNumRows(this.flatrows.length));
   }
   sendRow(rownum)
   {
-    this.run(this.list.updateRow.bind(this.list, rownum, this.flatrows[rownum]));
+    this.run(() => this.list.updateRow(rownum, this.flatrows[rownum]));
   }
   setCell(rownum, row, cellidx, newvalue)
   {
@@ -243,7 +280,7 @@ class TreeDataSource extends ListDataSource
     this.flattenRows();
     this.list.invalidateAllRows();
   }
-};
+}
 
 class ColumnResizeDataSource extends ListDataSource
 {
