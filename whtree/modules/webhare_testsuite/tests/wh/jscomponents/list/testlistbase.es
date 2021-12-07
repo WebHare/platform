@@ -136,8 +136,8 @@ test.registerTests(
       }
     }
 
-  , { name: 'treeexpand'
-    , test:function(doc,win)
+  , 'treeexpand'
+  , async function(doc,win)
       {
         test.fill('#selectmode', 'single');
         test.fill('#datasource', 'treesource');
@@ -158,7 +158,21 @@ test.registerTests(
         test.false(test.getListViewExpanded(test.getListViewRow('B-Lex')));
         test.eq(3, test.qSA('#listview .listrow').length);
         test.false(test.getListViewRow('Designfiles b-lex')!=null);
-      }
+
+        test.click(test.getListViewRow('Subitem'));
+        test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
+        test.true(test.getListViewRow('Subitem').classList.contains("wh-list__row--selected"));
+
+        test.click(test.getListViewRow('B-Lex'));
+        test.false(test.getListViewExpanded(test.getListViewRow('B-Lex')));
+        await test.pressKey(['ArrowRight']);
+        test.true(test.getListViewExpanded(test.getListViewRow('B-Lex')));
+        test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
+        test.true(test.getListViewRow('B-Lex').classList.contains("wh-list__row--selected"));
+
+        await test.pressKey(['ArrowRight']); //now has no effect
+        test.eq(1, test.qSA("#listview .wh-list__row--selected").length);
+        test.true(test.getListViewRow('B-Lex').classList.contains("wh-list__row--selected"));
     }
 
   , { name: 'multirow'
