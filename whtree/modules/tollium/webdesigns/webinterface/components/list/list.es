@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import * as toddupload from '@mod-tollium/web/ui/js//upload';
+import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } from '@mod-tollium/web/ui/components/listview/listcolumns';
 import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ListView from '@mod-tollium/web/ui/components/listview/listview';
