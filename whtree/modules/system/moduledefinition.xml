@@ -19,7 +19,7 @@
     <runonce tag="initdb_20210813" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
 
     <!-- late cleanups that shouldn't block startup -->
-    <runonce tag="poststartcleanup_20210830" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+    <runonce tag="poststartcleanup_2021_12_03" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
     <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
 
@@ -39,7 +39,6 @@
     <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
 
     <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve" allowifrestore="true" />
-    <task runat="  33 * * * *" tag="updateconnectinfo" script="scripts/tasks/updateconnectinfo.whscr" runatstartup="true" />
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
     <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
@@ -2261,7 +2260,7 @@ The full base URL on which this site will be published, calculated by combining 
           <obsoletekey name="indexsourcecode" />
           <string name="npmlinkroots" description="Directories that contain npm linked modules" initialval="" />
           <string name="watchdirs" description="Extra directories to watch source changes" initialval="" />
-          <string name="whconnectroots" description="Directories where connectinfo should be written to" initialval="" />
+          <obsoletekey name="whconnectroots" />
         </node>
         <node name="tuning">
           <obsoletekey name="allowjscaching" />
@@ -2315,10 +2314,6 @@ The full base URL on which this site will be published, calculated by combining 
       </accesscheck>
     </webservice>
     <webservice name="admin" transports="whremoting" library="internal/adminservice.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
-      <accesscheck>
-      </accesscheck>
-    </webservice>
-    <webservice name="editorservice" transports="whremoting jsonrpc" library="internal/modules/editorservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>

@@ -405,36 +405,6 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
 
 OBJECT compilebrowser;
 
-PUBLIC RECORD FUNCTION ReadLibraryLoadlibs(BLOB doc_blob, STRING resourcename)
-{
-  IF (resourcename LIKE "whfs::*" OR resourcename LIKE "site::*")
-    THROW NEW Exception("Validation of HareScript code in the Publisher is no longer supported - future versions of WebHare will remove support for WHFS/site HareScript code completely!");
-
-  INTEGER compilerport := GetWebHareConfiguration().baseport + 1;
-
-  IF(NOT ObjectExists(compilebrowser))
-    compilebrowser := MakeObject("wh::internet/webbrowser.whlib", "WebBrowser");
-  BOOLEAN res := compilebrowser->PostWebPageBlob("http://127.0.0.1:"||compilerport||"/sourceloadlibs/" || EncodeURL(resourcename), DEFAULT RECORD ARRAY, doc_blob);
-  IF (NOT res)
-    THROW NEW Exception("Could not contact compile server");
-
-  RECORD ARRAY loadlibs;
-  FOREVERY (STRING line FROM Tokenize(BlobToString(compilebrowser->content), "\n"))
-  {
-    IF (line = "")
-      CONTINUE;
-
-    STRING ARRAY parts := Tokenize(line || "\t\t", "\t");
-    INSERT
-        [ name := parts[0]
-        , line := ToInteger(parts[1], 1)
-        , col := ToInteger(parts[2], 1)
-        ] INTO loadlibs AT END;
-  }
-
-  RETURN CELL[ loadlibs ];
-}
-
 RECORD FUNCTION CompileFromSource(STRING filename, BLOB source)
 {
   INTEGER compilerport := GetWebHareConfiguration().baseport + 1;

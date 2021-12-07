@@ -92,8 +92,7 @@ PUBLIC BOOLEAN FUNCTION IsValidModuleName(STRING modulename)
 
 PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ gitinit := TRUE
-                             , defaultlanguage := "en"
+  options := ValidateOptions([ defaultlanguage := "en"
                              , description := ""
                              , aftermodulecreation := DEFAULT MACRO PTR
                              , moduledefinition := ""
@@ -126,13 +125,6 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                  ];
 
   CreateDiskDirectoryRecursive(destpath, TRUE);
-  IF(options.gitinit)
-  {
-    RECORD gitresult := ExecuteGitCommand(['init',destpath]);
-    IF(gitresult.exitcode != 0)
-      THROW NEW Exception(`git init failed, exit code ${gitresult.exitcode}: ${Left(gitresult.output,120)}`);
-  }
-
   InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/modules/templates/module/", destpath, data);
   RunModuleHookTarget("system:devtools_modulecreation", [ module := modulename
                                                         , destpath := destpath
@@ -264,21 +256,4 @@ PUBLIC RECORD FUNCTION SetupWebDesign(STRING template, STRING module, STRING des
     InstantiateTemplateFolder(GetWebHareResourceDiskPath(srcdesign.designroot), designresourcebase, data);
 
   RETURN data;
-}
-
-PUBLIC BLOB FUNCTION GenerateWHConnectFile(STRING requesturl, INTEGER trustduration, STRING pathtype, STRING systempath)
-{
-  IF (pathtype NOT IN [ "webdav", "fs" ])
-    THROW NEW Exception(`Illegal path type: '${pathtype}', allowed: 'webdav'/'fs'`);
-
-  DATETIME expires := AddTimeToDate(trustduration, GetCurrentDatetime());
-  RECORD info :=
-      CELL[ editorservice :=    ResolveToAbsoluteURL(requesturl, "/wh_services/system/editorservice")
-          , accesstoken :=      EncryptForThisServer("system:editorservice", [ trusteditoruntil := expires ])
-          , translateinfo :=    EncryptForThisServer("system:translateinfo", CELL[ pathtype , systempath ])
-          , validuntil :=       GetUnixTimestamp(expires)
-          , serviceversion :=   1
-          ];
-
-  RETURN StringToBlob(EncodeJSON(info) || "\n");
 }

@@ -120,7 +120,4 @@ if ! [ -c /dev/null ] ; then
   EXITCODE=1
 fi
 
-# docker build with overlay2 storage driver fails when this file exists
-rm $WHTREE/.wh.connectinfo
-rm /opt/whmodules/.wh.connectinfo
 exit $EXITCODE

@@ -34,6 +34,10 @@ IF(GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "")
 //4.30 we've switched to system.uc2 some time ago, we can remove system.uc
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/system.uc");
 
+//4.33 we removed .wh.connectinfo
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().installationroot || ".wh.connectinfo");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().basedataroot || ".wh.connectinfo");
+
 OBJECT trans := OpenPrimary();
 trans->BeginWork();
 
@@ -69,5 +73,6 @@ STRING whdatamods := GetWebhareConfiguration().varroot || "nodejs/node_modules/"
 RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@webhare-*") CONCAT ReadDiskDirectory(whdatamods,"@__webhareroot-*");
 FOREVERY(RECORD tokill FROM deletelinks)
   DeleteDiskFile(whdatamods || tokill.name);
+
 
 trans->CommitWork();
