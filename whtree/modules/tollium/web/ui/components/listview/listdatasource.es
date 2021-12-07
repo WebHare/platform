@@ -1,3 +1,4 @@
+// looks like we've planned this as a base class for listdatasources, but tollium never used it!
 export default class ListDataSource
 { constructor()
   {
@@ -22,30 +23,13 @@ export default class ListDataSource
     return -1;
   }
 
-  // FIXME: test
   getSelectableRowBefore(rownum)
   {
-    if (this.list.length == 0)
-      return -1;
-
-    if (rownum < 1 || rownum > this.list.length)
-    {
-      console.error("Invalid row number");
-      return -1;
-    }
-
-    return rownum - 1;
+    return -1; // no row found
   }
 
-  // FIXME: test
   getSelectableRowAfter(rownum)
   {
-    if (this.list.length == 0)
-      return -1;
-
-    if (rownum < this.list.length - 1)
-      return rownum + 1;
-
     return -1; // no row found
   }
 
