@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -294,7 +295,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoLangEdit()
   {
-    this->tolliumcontroller->SendApplicationMessage("tollium:langedit", [ module := ^modules->selection.name ], DEFAULT RECORD, TRUE);
+    LaunchLanguageFileEditor(this, ^modules->selection.name);
   }
 
   MACRO DoUploadModule(RECORD upload_result)

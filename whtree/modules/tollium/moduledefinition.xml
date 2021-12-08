@@ -23,12 +23,6 @@
   </backend>
 
   <portal>
-    <application name="langedit" tid="tolliumapps.langedit.langedit.main" startmacro="tolliumapps/langedit.whlib#startlangedit">
-      <accesscheck>
-        <requireright right="system:sysop"/>
-      </accesscheck>
-    </application>
-
     <application name="editdocumentation" startmacro="tolliumapps/editdocumentation.whlib#editdocumentation">
       <accesscheck />
     </application>
@@ -76,7 +70,9 @@
   </validation>
 
   <hooking>
+    <target name="appstartup" />
     <target name="appmenu" />
+    <target name="controllermessage" />
   </hooking>
 
 </module>

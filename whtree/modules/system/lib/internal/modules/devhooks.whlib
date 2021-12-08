@@ -1,0 +1,18 @@
+<?wh
+/* devhooks.whlib defines points where the 'dev' module should hook us. We should probably completely replace it with APIs
+   or intercept/target so we don't have to make any assumptions on how 'dev' implements all this
+*/
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC MACRO LaunchLanguageFileEditor(OBJECT parent, STRING modulename)
+{
+  IF(NOT IsModuleVersionMatch("dev", ">= 1.0.0"))
+  {
+    //not translating, we intend to fully remove and replace this app with hooks by dev.
+    parent->RunSimpleScreen("error", "The language editor is no longer part of the base WebHare installation.\n\nYou need to install the 'dev' module (and it needs to be at least version 1.0.0)");
+    RETURN;
+  }
+
+  parent->contexts->controller->SendApplicationMessage("dev:langedit", [ module := modulename ], DEFAULT RECORD, TRUE);
+}

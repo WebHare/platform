@@ -177,36 +177,3 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
     }
   }
 >;
-
-
-
-PUBLIC OBJECTTYPE MissingTids EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    this->frame->flags :=
-        [ canopenlangedit := this->tolliumuser->HasRight("system:sysop")
-        ];
-
-    this->missingtids->rows :=
-        SELECT module
-             , tid
-             , stacktrace
-          FROM data.missingtids;
-  }
-
-  MACRO DoOpenStackTrace()
-  {
-    RunStackTraceDialog(this, this->missingtids->selection.stacktrace);
-  }
-
-  MACRO DoOpenLangedit()
-  {
-    this->tolliumcontroller->SendApplicationMessage(
-          "tollium:langedit",
-          [ module := this->missingtids->selection.module ],
-          [ gototid := this->missingtids->selection.tid ],
-          TRUE);
-  }
-
->;

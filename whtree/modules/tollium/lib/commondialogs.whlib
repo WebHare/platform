@@ -160,27 +160,3 @@ PUBLIC OBJECT FUNCTION CreateColorPickerDialog(OBJECT parent, STRING type, BOOLE
                     ];
   RETURN parent->LoadScreen("tollium:components/colorpicker.colorpicker", options);
 }
-
-PUBLIC MACRO RunStackTraceDialog(OBJECT parent, RECORD ARRAY stacktrace, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ value :=      0
-      ],
-      options,
-      [ notypecheck :=    [ "VALUE" ]
-      ]);
-
-  IF (LENGTH(stacktrace) = 0)
-    RETURN;
-
-  IF (CellExists(stacktrace[0], "ROWKEY"))
-  {
-    stacktrace := SELECT *, rowkey := #stacktrace + 1 FROM stacktrace;
-    options := [ ...options, value := 0 ];
-  }
-
-  parent->RunScreen("mod::system/screens/monitor/processlist.xml#codeview",
-      [ rows :=   stacktrace
-      , value :=  options.value
-      ]);
-}

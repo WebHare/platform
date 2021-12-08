@@ -1079,11 +1079,6 @@
     <textgroup gid="editdocumentation">   <!-- tolliumapps.editdocumentation -->
       <text tid="linkexpired">Deze wijzigingsactie is verlopen. Heropen deze aub vanaf het documentatiepaneel</text>
     </textgroup>
-    <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
-      <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
-        <text tid="main">Taaleditor</text>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->
     <textgroup gid="errors">   <!-- validation.errors -->
