@@ -32,6 +32,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -116,6 +117,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->frame->flags.fullpublisheraccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", 0);
     this->frame->flags.secureconnection := this->tolliumcontroller->secure;
     this->frame->flags.showpinning := this->showtemplatedev OR this->tolliumuser->HasRight("publisher:pinning");
+    this->frame->flags.haveopenineditor := CanOpenInEditor(this);
     this->frame->flags.havewhconnect := this->tolliumcontroller->IsConnectEnabled();
 
     // Generate a unique preview browser frame name (so a publisher opened in the preview browser of another publisher will
@@ -2384,7 +2386,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoOpenInEditor()
   {
     STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->GetCurrentlySelectedFSobject();
-    BroadcastEvent("editorsupport:openfile", [ path := "whfs::" || path ]);
+    LaunchOpenInEditor(this, "whfs::" || path);
   }
 
   MACRO DoSearch()

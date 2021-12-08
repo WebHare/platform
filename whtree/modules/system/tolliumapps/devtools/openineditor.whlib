@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 
 PUBLIC MACRO runopenineditor(OBJECT controller, RECORD initdata)
@@ -9,5 +10,5 @@ PUBLIC MACRO runopenineditor(OBJECT controller, RECORD initdata)
     THROW NEW Exception("This application cannot be directly invoked");
 
   RECORD openinfo := DecryptForThisServer("system:openineditor", initdata.params[0]);
-  controller->ExecuteClientCall("OpenInEditor", openinfo.filename, CELL[openinfo.line,openinfo.col], [ closewindow := TRUE ]);
+  LaunchOpenInEditor(controller, openinfo.filename, CELL[openinfo.line,openinfo.col, closewindow := TRUE ]);
 }

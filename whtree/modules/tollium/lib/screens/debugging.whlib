@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 
@@ -124,10 +125,7 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
   MACRO DoOpenInEditor()
   {
     RECORD sel := ^stacktrace->selection;
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename,
-          [ line := sel.line
-          , col := CellExists(sel, "COL") ? sel.col  : 1
-          ]);
+    LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := CellExists(sel, "COL") ? sel.col  : 1 ]);
   }
 
   // ---------------------------------------------------------------------------

@@ -4,6 +4,8 @@
 */
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
 
 PUBLIC MACRO LaunchLanguageFileEditor(OBJECT parent, STRING modulename)
 {
@@ -15,4 +17,18 @@ PUBLIC MACRO LaunchLanguageFileEditor(OBJECT parent, STRING modulename)
   }
 
   parent->contexts->controller->SendApplicationMessage("dev:langedit", [ module := modulename ], DEFAULT RECORD, TRUE);
+}
+
+PUBLIC BOOLEAN FUNCTION CanOpenInEditor(OBJECT parent)
+{
+  RETURN IsModuleVersionMatch("dev", ">= 1.1.0"); //TODO or probe the dev module?
+}
+
+PUBLIC MACRO LaunchOpenInEditor(OBJECT parent, STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ line := 1
+                             , col := 1
+                             , closewindow := FALSE //a 'hack' used by the the error page
+                             ], options);
+  RunModuleHookTarget("system:devtools_openreveal", CELL[ parent->contexts, resourcepath, options.col, options.line, options.closewindow, openineditor := TRUE ]);
 }

@@ -2285,6 +2285,7 @@ The full base URL on which this site will be published, calculated by combining 
     <target name="whfs_file_aftermetadataupdate" />
     <target name="whfs_object_afterinstancedataupdate" />
     <target name="devtools_modulecreation" />
+    <target name="devtools_openreveal" />
     <target name="moduleconfig_afterconnectchange" />
 
     <intercept name="whfs_file_defaultaftermetadataupdate" target="whfs_file_aftermetadataupdate" interceptfunction="lib/internal/whfs/hooks.whlib#DefaultAfterMetadataUpdate" />
