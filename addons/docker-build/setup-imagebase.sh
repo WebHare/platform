@@ -22,7 +22,8 @@ set +e
 export DEBIAN_FRONTEND=noninteractive
 export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
 
-# Add the postgres user before installing the postgresql packages
+# Setup users
+useradd --system --uid 20002 --user-group opensearch
 useradd --system --uid 20003 --user-group postgres
 
 apt-get update
@@ -55,9 +56,9 @@ groupadd --gid 20000 whdata
 groupadd --gid 20001 chrome
 useradd --create-home --uid 20001 --gid 20001 --shell /bin/false chrome
 
-# User and group for Elasticsearch. already created in dockerfile, we just need to make sure elasticsearch can access its data folder
+# User and group for opensearch. already created in dockerfile, we just need to make sure opensearch can access its data folder
 # ES has 20002
-adduser elasticsearch whdata
+adduser opensearch whdata
 
 # User and group for postgres. already created in dockerfile, we just need to make sure postgresql can access its data folder
 # postgres has 20003

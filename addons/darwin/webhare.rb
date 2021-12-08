@@ -26,4 +26,5 @@ class Webhare < Formula
   depends_on "postgresql@13"
   depends_on "rapidjson"
   depends_on "unixodbc"
+  depends_on "opensearch"
 end
