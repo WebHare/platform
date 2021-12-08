@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 
@@ -124,10 +125,7 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
   MACRO DoOpenInEditor()
   {
     RECORD sel := ^stacktrace->selection;
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename,
-          [ line := sel.line
-          , col := CellExists(sel, "COL") ? sel.col  : 1
-          ]);
+    LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := CellExists(sel, "COL") ? sel.col  : 1 ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -176,37 +174,4 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
       }
     }
   }
->;
-
-
-
-PUBLIC OBJECTTYPE MissingTids EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    this->frame->flags :=
-        [ canopenlangedit := this->tolliumuser->HasRight("system:sysop")
-        ];
-
-    this->missingtids->rows :=
-        SELECT module
-             , tid
-             , stacktrace
-          FROM data.missingtids;
-  }
-
-  MACRO DoOpenStackTrace()
-  {
-    RunStackTraceDialog(this, this->missingtids->selection.stacktrace);
-  }
-
-  MACRO DoOpenLangedit()
-  {
-    this->tolliumcontroller->SendApplicationMessage(
-          "tollium:langedit",
-          [ module := this->missingtids->selection.module ],
-          [ gototid := this->missingtids->selection.tid ],
-          TRUE);
-  }
-
 >;

@@ -339,11 +339,11 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
                              , type := "language"
                              , lang := ObjectExists(this->user) ? this->user->language : ""
                              ]);
-      this->QueueInstruction([ instr:="appupdate"
-                             , type:="apptab"
+      this->QueueInstruction([ instr := "appupdate"
+                             , type := "apptab"
                              , title := this->title ?? this->options.app
                              , icon := this->icon
-                             , hasissues := this->reportissues AND Length(this->appissues) > 0
+                             , hasissues := this->issueflag
                              , appmenu := this->GetAppMenu()
                              ]);
 

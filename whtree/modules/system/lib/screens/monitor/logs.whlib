@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -285,7 +286,7 @@ PUBLIC OBJECTTYPE Overview EXTEND TolliumScreenBase
 
   MACRO DoOpenInEditor()
   {
-    RECORD sel := this->trace->selection;
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+    RECORD sel := ^trace->selection;
+    LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 >;

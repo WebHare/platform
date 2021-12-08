@@ -1329,8 +1329,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   STRING controllertype;
 
-  BOOLEAN reportissues;
-
   /** Global drag types
       @cell name
       @cell handler
@@ -1347,11 +1345,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   RECORD ARRAY controllermessagequeue;
   STRING browsertitleprefix;
 
-  // List of any missing tids
-  PUBLIC RECORD ARRAY missingtids;
-
-  // List of issues with the application
-  RECORD ARRAY appissues;
+  // Set if there are issues to report with this application (appmenu should contain the issue)
+  BOOLEAN _issueflag;
 
   // Current open application
   RECORD currentapplication;
@@ -1431,6 +1426,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   /// Mark all errors as fatal. useful for debugging
   PUBLIC BOOLEAN intolerant;
 
+  /// Issue flag
+  PUBLIC PROPERTY issueflag(_issueflag, SetIssueFlag);
+
   /// @type(object %WHUserApi) The user api
   PUBLIC PROPERTY userapi(pvt_userapi, -);
 
@@ -1497,19 +1495,16 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     this->pvt_userapi := userapi;
     this->pvt_wrdauthplugin := wrdauthplugin;
     this->pvt_contexts := NEW TolliumContexts(DEFAULT OBJECT, this);
-    this->reportissues := HavePrimaryTransaction() AND NOT IsDtapLive();
 
     this->running := TRUE;
     this->lastclientcontact := GetCurrentDateTime();
     this->pvt_baseurl := "about:blank";
 
-    IF(this->reportissues)
-      SetMissingTidCallback(PTR this->OnMissingTid(#1, GetMissingTidCallback()));
-
     this->_sessionexpirytimer := NEW WaitableTimer;
     this->_sessionexpirytimer->WaitSignalled()->Then(PTR this->GotSessionExpired);
 
     this->KeepStorageAlive();
+    RunModuleHookTarget("tollium:appstartup", CELL [ this->contexts ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -1522,6 +1517,13 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RETURN GetEffectiveUser();
   }
 
+  MACRO SetIssueFlag(BOOLEAN newissueflag)
+  {
+    IF(this->_issueflag = newissueflag)
+      RETURN;
+    this->_issueflag := newissueflag;
+    this->ExtUpdatedController();
+  }
 
   MACRO SetApplicationTitle(STRING title)
   {
@@ -1636,18 +1638,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     TerminateScript();
   }
 
-  MACRO OnMissingTid(RECORD tidinfo, MACRO PTR prevcallback)
-  {
-    RECORD insertpos := RecordLowerBound(this->missingtids, tidinfo, ["module","tid"]);
-    IF(NOT insertpos.found)
-    {
-      INSERT tidinfo INTO this->missingtids AT insertpos.position;
-      this->AddAppIssue("missingtid");
-    }
-    IF(prevcallback != DEFAULT MACRO PTR)
-      prevcallback(tidinfo);
-  }
-
   RECORD ARRAY FUNCTION GetAppMenu()
   {
     RECORD ARRAY appmenu;
@@ -1657,28 +1647,15 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
                             , this->contexts
                             ]).appmenu;
 
-    IF(this->reportissues)
-      appmenu := appmenu CONCAT [[isdivider := TRUE]] CONCAT this->GetDevelopmentAppMenu();
-
+    RECORD ARRAY devitems := this->GetDevelopmentAppMenu();
+    IF(Length(devitems) > 0)
+      appmenu := appmenu CONCAT [[isdivider := TRUE]] CONCAT devitems;
     RETURN appmenu;
   }
 
   RECORD ARRAY FUNCTION GetDevelopmentAppMenu()
   {
     RECORD ARRAY items;
-    IF(RecordExists(this->currentapplication) AND this->currentapplication.name LIKE "*:*" AND this->tolliumuser->HasRight("system:sysop"))
-    {
-      STRING module := Tokenize(this->currentapplication.name,':')[0];
-      INSERT [ title := "Launch language editor for '" || module || "'"
-             , cmd := [ type := "appmessage", app := "tollium:langedit", reuse := FALSE, target := [ module := module ], message := DEFAULT RECORD ]
-             ] INTO items AT END;
-    }
-    IF(RecordExists(SELECT FROM this->appissues WHERE tag = "missingtid"))
-    {
-      INSERT [ title := "Show missing tids"
-             , cmd := [ type := "currentapp:controllermsg", msg := [ type := "showmissingtids"]  ]
-             ] INTO items AT END;
-    }
     IF (GetDtapStage() = "development" AND RecordExists(this->currentapplication))
     {
       STRING lib := Tokenize(this->currentapplication.appfunction,'#')[0];
@@ -1819,23 +1796,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       canedit := RecordExists(options.editinfo);
     }
     this->ExecuteClientCall("OpenDocumentation", url, canedit ? EncryptForThisServer("tollium:editdocumentation", CELL[...options.editinfo, cd := GetCurrentDateTime() ])  : "");
-  }
-
-  MACRO AddAppIssue(STRING issuetag)
-  {
-    INTEGER matchissue := (SELECT AS INTEGER #appissues+1 FROM this->appissues WHERE tag = issuetag)-1;
-    IF(matchissue = -1)
-    {
-      INSERT [ tag := issuetag
-             , count := 1
-             ] INTO this->appissues AT END;
-
-      this->ExtUpdatedController();
-    }
-    ELSE
-    {
-      this->appissues[matchissue].count := this->appissues[matchissue].count  + 1;
-    }
   }
 
   MACRO DeleteScreenFromWindowStack(OBJECT screen)
@@ -2428,13 +2388,12 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   PUBLIC MACRO HandleControllerMessage(RECORD msg)
   {
+    msg := RunModuleHookTarget("tollium:controllermessage", CELL[ ...msg, this->contexts ] );
+    IF(NOT RecordExists(msg))
+      RETURN; //handled
+
     SWITCH (msg.type)
     {
-      CASE "showmissingtids"
-      {
-        this->RunScreen("mod::tollium/screens/debugging.xml#missingtids", [ missingtids := this->missingtids ]);
-        RETURN;
-      }
       CASE "clientcallreply"
       {
         RECORD pos := RecordLowerBound(this->clientcalls, msg, [ "ID"]);

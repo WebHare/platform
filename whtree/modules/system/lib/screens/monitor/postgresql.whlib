@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 
 STRING FUNCTION FormatQuery(STRING query)
@@ -85,7 +86,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLTransactions EXTEND DashboardPanelBase
   MACRO DoOpenInEditor()
   {
     RECORD sel := ^trace->selection;
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+    LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 >;
 
@@ -133,7 +134,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
   MACRO DoOpenInEditor()
   {
     RECORD sel := ^trace->selection;
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+    LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 
 >;

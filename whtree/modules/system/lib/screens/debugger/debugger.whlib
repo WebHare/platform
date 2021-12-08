@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/debugger/compiledlibrary.whlib";
 LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
 LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
 LOADLIB "mod::system/lib/internal/debugger/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
@@ -1558,22 +1559,22 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoOpenFileInEditor()
   {
-    STRING resourcepath := GetResourceNameFromDiskPath(this->files->value, [ allowdiskpath := TRUE ]);
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, DEFAULT RECORD);
+    STRING resourcepath := GetResourceNameFromDiskPath(^files->value, [ allowdiskpath := TRUE ]);
+    LaunchOpenInEditor(this, resourcepath);
   }
 
   MACRO DoOpenStackTraceItemInEditor()
   {
-    RECORD sel := this->stacktrace->selection;
+    RECORD sel := ^stacktrace->selection;
     STRING resourcepath := GetResourceNameFromDiskPath(sel.filename, [ allowdiskpath := TRUE ]);
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, [ line := sel.line, col := sel.col ]);
+    LaunchOpenInEditor(this, resourcepath, [ line := sel.line, col := sel.col ]);
   }
 
   MACRO DoOpenBreakpointInEditor()
   {
     RECORD sel := this->breakpoints->selection;
     STRING resourcepath := GetResourceNameFromDiskPath(sel.filename, [ allowdiskpath := TRUE ]);
-    this->contexts->controller->ExecuteClientCall("OpenInEditor", resourcepath, [ line := sel.line, col := 1 ]);
+    LaunchOpenInEditor(this, resourcepath, [ line := sel.line, col := 1 ]);
   }
 
 >;

@@ -782,13 +782,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="debugging" limitlanguages="en">   <!-- debugging -->
-    <textgroup gid="missingtids">   <!-- debugging.missingtids -->
-      <text tid="missingtids">Missing tids</text>
-      <text tid="module">Module</text>
-      <text tid="openlangedit">Open language editor</text>
-      <text tid="showreference">Show stack trace</text>
-      <text tid="tid">TID</text>
-    </textgroup>
     <textgroup gid="reflect">   <!-- debugging.reflect -->
       <text tid="browse">Browse</text>
       <text tid="data">Data</text>
@@ -1105,11 +1098,6 @@
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="editdocumentation">   <!-- tolliumapps.editdocumentation -->
       <text tid="linkexpired">Your edit action has expired. Please reopen this application from its documentation panel</text>
-    </textgroup>
-    <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
-      <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
-        <text tid="main">Language editor</text>
-      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="validation">   <!-- validation -->

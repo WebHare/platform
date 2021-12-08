@@ -63,34 +63,4 @@
       </line>
     </footer>
   </screen>
-
-  <screen name="missingtids" gid=".missingtids" allowresize="true" width="80x" height="12gr" savestate="size" flags="canopenlangedit">
-    <actions>
-      <action name="openlangedit">
-        <enableon source="missingtids" min="1" frameflags="canopenlangedit" onexecute="doopenlangedit" />
-      </action>
-      <action name="showreference">
-        <enableon source="missingtids" min="1" onexecute="doopenstacktrace" />
-      </action>
-    </actions>
-    <menus>
-      <menu name="selectcontextmenu">
-        <item action="openlangedit" />
-        <item action="showreference" />
-      </menu>
-    </menus>
-    <body>
-      <list name="missingtids"
-            height="1pr"
-            selectmode="single"
-            openaction="openlangedit"
-            selectcontextmenu="selectcontextmenu">
-        <column name="module" type="text" width="20x" />
-        <column name="tid" type="text" />
-      </list>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
-  </screen>
 </screens>

@@ -33,7 +33,7 @@
           allowresize="true"
           menubar="menubar"
           icon="tollium:filemgr/mydocuments"
-          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults havewhconnect"
+          flags="issupervisor issysop showpinning fullpublisheraccess cancreate secureconnection outsiderecyclebin searchresults havewhconnect haveopenineditor"
           gid=".app"
           tid=".apptitle"
           onshow="onshow">
@@ -316,7 +316,7 @@
         <enableon source="foldertree" min="1" max="1" />
         <enableon source="filelist" min="1" max="1" />
       </action>
-      <action name="openineditor" onexecute="doopenineditor" frameflags="issysop havewhconnect">
+      <action name="openineditor" onexecute="doopenineditor" frameflags="issysop haveopenineditor">
         <enableon source="filelist" min="1" max="1" checkflags="candownload canedit canwrite" requirefocus="true" />
       </action>
 

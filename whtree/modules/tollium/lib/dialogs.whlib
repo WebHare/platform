@@ -30,13 +30,41 @@ PUBLIC MACRO RunColumnFileExportDialog(OBJECT parent, RECORD options DEFAULTSTO 
   scr->RunModal();
 }
 
-/** Show an dialog reporting an exception
+/** Show a dialog reporting an exception
     @param parent Parent window
     @param exceptionobject The exception
 */
 PUBLIC MACRO RunExceptionReportDialog(OBJECT parent, OBJECT exceptionobject, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   (parent->contexts->screen ?? parent->contexts->controller)->LoadScreen("tollium:commondialogs.exceptionscreen", CELL[ type := "exception", exception := exceptionobject, options ])->RunModal();
+}
+
+/** Show a dialog with a stack trace
+    @param parent Parent window
+    @param stacktrace The trace
+*/
+PUBLIC MACRO RunStackTraceDialog(OBJECT parent, RECORD ARRAY stacktrace, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ value :=      0
+      ],
+      options,
+      [ notypecheck :=    [ "VALUE" ]
+      ]);
+
+  IF (LENGTH(stacktrace) = 0)
+    RETURN;
+
+  IF (CellExists(stacktrace[0], "ROWKEY"))
+  {
+    stacktrace := SELECT *, rowkey := #stacktrace + 1 FROM stacktrace;
+    options := [ ...options, value := 0 ];
+  }
+
+  parent->RunScreen("mod::system/screens/monitor/processlist.xml#codeview",
+      [ rows :=   stacktrace
+      , value :=  options.value
+      ]);
 }
 
 /** Show a frame in a screen

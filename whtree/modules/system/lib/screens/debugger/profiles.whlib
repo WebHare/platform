@@ -10,6 +10,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/debugger/profilingsupport.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -507,7 +508,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     STRING library := GetResourceNameFromDiskPath(selection.library, [ allowdiskpath := TRUE ]);
     RECORD posinfo := SELECT * FROM DescribeCompiledLibrary(library).functions WHERE mangledname = selection.functionname;
     IF(RecordExists(posinfo))
-      this->contexts->controller->ExecuteClientCall("OpenInEditor", library, posinfo);
+      LaunchOpenInEditor(this, library, posinfo);
   }
 
   // ---------------------------------------------------------------------------
