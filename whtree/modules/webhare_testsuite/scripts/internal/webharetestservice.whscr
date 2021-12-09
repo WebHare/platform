@@ -1,8 +1,11 @@
 <?wh
+
 LOADLIB "wh::promise.whlib";
+
 LOADLIB "mod::system/lib/services.whlib";
 
-PUBLIC OBJECTTYPE ClusterTestLink
+
+PUBLIC OBJECTTYPE ClusterTestLink EXTEND WebHareServiceProxyBase
 <
   MACRO NEW(STRING testdata)
   {
@@ -31,6 +34,10 @@ PUBLIC OBJECTTYPE ClusterTestLink
     {
       RETURN CreateRejectedPromise(e);
     }
+  }
+  PUBLIC MACRO EmitTestEvent(RECORD data)
+  {
+    this->EmitEvent("testevent", data);
   }
 >;
 
