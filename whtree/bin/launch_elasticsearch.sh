@@ -1,41 +1,45 @@
 #!/bin/bash
+
+#
+# To locally test and debug changes to the opensearch buidprocess in docker:
+# wh builddocker && TESTFW_SETUP_ELASTICSEARCH=1 wh testdocker --nocleanup --tag=-external -w local consilio
+
+
 echo "Max open files: $(ulimit -n)"
 
 eval `$WEBHARE_DIR/bin/webhare printparameters`
-ELASTICSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
-ELASTICSEARCHROOT=$WEBHARE_DATAROOT/elasticsearch
+OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
+OPENSEARCHROOT=$WEBHARE_DATAROOT/elasticsearch
 
 if [ -z "$WEBHARE_ELASTICSEARCH_BINDHOST" ]; then
   WEBHARE_ELASTICSEARCH_BINDHOST=127.0.0.1
 fi
 
-mkdir -p $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
+mkdir -p $OPENSEARCHROOT/logs $OPENSEARCHROOT/data $OPENSEARCHROOT/repo
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  chown elasticsearch:elasticsearch $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
-else
-  # macOS ?
-  # correct broken brew config files
-  if [ -f /usr/local/etc/elasticsearch/jvm.options.default ] && grep -q "^-XX.*UseConcMarkSweepGC" /usr/local/etc/elasticsearch/jvm.options ; then
-    cp /usr/local/etc/elasticsearch/jvm.options.default /usr/local/etc/elasticsearch/jvm.options
-  fi
+  chown opensearch:opensearch $OPENSEARCHROOT/logs $OPENSEARCHROOT/data $OPENSEARCHROOT/repo
 fi
 
-if [ -x /opt/elasticsearch/bin/elasticsearch ]; then
+if [ -x  /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86
+  OPENSEARCHBINARY=/usr/local/opt/opensearch/bin/opensearch
+elif [ -x /opt/opensearch/bin/opensearch ]; then  #linux docker build
+  OPENSEARCHBINARY=/opt/opensearch/bin/opensearch
+elif [ -x /opt/elasticsearch/bin/elasticsearch ]; then
   export ESHOME=/opt/elasticsearch/
-  ELASTICSEARCHBINARY=/opt/elasticsearch/bin/elasticsearch
+  OPENSEARCHBINARY=/opt/elasticsearch/bin/elasticsearch
 elif [ -x /usr/share/elasticsearch/bin/elasticsearch ]; then
   if ! groups | grep &>/dev/null '\belasticsearch\b'; then
     echo "The current user must be member of the group 'elasticsearch'"
     exit 1
   fi
   # Installation via RPM
-  ELASTICSEARCHBINARY=/usr/share/elasticsearch/bin/elasticsearch
+  OPENSEARCHBINARY=/usr/share/elasticsearch/bin/elasticsearch
 else
   if ! which elasticsearch; then
     echo "No elasticsearch binary in path"
     exit 1
   fi
-  ELASTICSEARCHBINARY=elasticsearch #assume path lookup will find it
+  OPENSEARCHBINARY=elasticsearch #assume path lookup will find it
 fi
 
 INITIALMEMORY=`wh registry get consilio.builtinelasticsearch.initialmemorypool`
@@ -52,7 +56,14 @@ export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  CHPST="chpst -u elasticsearch:elasticsearch:whdata "
+  CHPST="chpst -u opensearch:opensearch:whdata "
 fi
 
-exec $CHPST "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ehttp.host=$WEBHARE_ELASTICSEARCH_BINDHOST -Ediscovery.type=single-node
+exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
+                                -Epath.logs="$OPENSEARCHROOT/logs" \
+                                -Epath.repo="$OPENSEARCHROOT/repo" \
+                                -Ehttp.port=$OPENSEARCHPORT \
+                                -Ehttp.host=$WEBHARE_ELASTICSEARCH_BINDHOST \
+                                -Ediscovery.type=single-node \
+                                -Eplugins.security.disabled=true \
+                                -Eplugins.security.ssl.http.enabled=false

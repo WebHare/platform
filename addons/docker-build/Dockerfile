@@ -38,10 +38,10 @@ RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
     /bin/bash /setup-pdfbox.sh
 
-# Install elasticsearch
-RUN --mount=type=bind,source=/setup-elasticsearch.sh,target=/setup-elasticsearch.sh \
-    --mount=type=cache,id=elasticsearch,target=/tmp/downloads \
-    /bin/bash /setup-elasticsearch.sh
+# Install opensearch (was elasticsearch)
+RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
+    --mount=type=cache,id=opensearch,target=/tmp/downloads \
+    /bin/bash /setup-opensearch.sh
 
 # Install AWS C++ API
 RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
