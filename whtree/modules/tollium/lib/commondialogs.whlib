@@ -97,21 +97,6 @@ PUBLIC OBJECT FUNCTION CreateOrderingDialog(OBJECT parent)
 // CSV Export dialog
 //
 
-/** Create a column file (eg CSV, XLSX) export dialog
-    @param parent Parent window
-    @param columns Column definition : FIXME : document
-    @cell columns.title Title of the column
-    @cell columns.name Name if the data cell in @a rows
-    @cell columns.type One of 'text', 'integer', 'date', 'boolean', 'type'
-    @cell columns.storeutc For type 'date' whether the date/time is stored as UTC
-    @param rows Data to export (for type 'time', mseconds within the current day)
-    @param title Title of screen to show?
-*/
-PUBLIC OBJECT FUNCTION CreateColumnFileExportDialog(OBJECT parent) __ATTRIBUTES__(DEPRECATED "commondialogs.whlib is deprecated - you should switch to RunColumnFileExportDialog")
-{
-  RETURN parent->LoadScreen("tollium:commondialogs.columnfileexport");
-}
-
 /** Create a standard progress dialog, with estimate timing
     @param parent Parent window
     @param backgroundtask Backgroundtask. The task must report its status in a record
