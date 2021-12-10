@@ -1,12 +1,37 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/eventemitter.whlib";
 
-PUBLIC OBJECTTYPE ClusteredServiceBase
+
+// Base object type for objects created by RunWebHareService's constructor. This interface is not made available to the
+// connecting client (i.e. through OpenWebHareService)
+PUBLIC STATIC OBJECTTYPE WebHareServiceProxyBase
+<
+  OBJECT __link;
+
+  // Called when the link is closed
+  PUBLIC MACRO OnClose()
+  {
+  }
+
+  // Emit an event to the client
+  PUBLIC MACRO EmitEvent(STRING event, RECORD data)
+  {
+    RECORD outmsg := CELL[ event, data ];
+    RECORD res := this->__link->SendMessage(outmsg);
+
+    IF (res.status != "ok")
+      THROW NEW ServiceDisconnectException;
+  }
+>;
+
+PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
 <
   OBJECT __link;
   RECORD ARRAY __promises;
@@ -64,6 +89,13 @@ PUBLIC OBJECTTYPE ClusteredServiceBase
     {
       //Uh oh. We are doomed. Reject all promises
       this->CloseService();
+      RETURN;
+    }
+
+    // This is an event emitted on the WebHareServiceProxyBase
+    IF (CellExists(msg.msg, "EVENT"))
+    {
+      this->EmitEvent(msg.msg.event, msg.msg.data);
       RETURN;
     }
 
@@ -199,14 +231,27 @@ PUBLIC MACRO ReconstructInvokables(OBJECT targetobject, RECORD description, FUNC
 
 PUBLIC RECORD FUNCTION DescribePublicInterface(OBJECT inobj)
 {
+  // If the object extends from WebHareServiceProxyBase, exclude all public methods from the base class, otherwise (for
+  // legacy objects) only exclude "ONCLOSE"
+  STRING ARRAY basemethods;
+  IF (inobj EXTENDSFROM WebHareServiceProxyBase)
+    basemethods :=
+        SELECT AS STRING ARRAY name
+          FROM __INTERNAL_DescribeObjectStructure(NEW WebHareServiceProxyBase).methods
+         WHERE is_public
+               AND name NOT LIKE "__*";
+  ELSE
+    basemethods := [ "ONCLOSE" ];
+
   RECORD ARRAY methods := __INTERNAL_DescribeObjectStructure(inobj).methods;
-  methods := SELECT name
-                  , signdata := GetRawFunctionPtrSignature(GetObjectMethodPtr(inobj, name))
-               FROM methods
-              WHERE is_public
-                    AND name != "ONCLOSE"
-                    AND name NOT LIKE "__*";
-  RETURN [ methods := methods ];
+  methods :=
+      SELECT name
+           , signdata := GetRawFunctionPtrSignature(GetObjectMethodPtr(inobj, name))
+        FROM methods
+       WHERE is_public
+             AND name NOT IN basemethods
+             AND name NOT LIKE "__*";
+  RETURN CELL[ methods ];
 }
 
 MACRO GotServiceStartEvent(FUNCTION PTR resolve, STRING event, RECORD data)
@@ -279,7 +324,7 @@ PUBLIC MACRO ScheduleCallbackOnServiceClose(OBJECT service, FUNCTION PTR onclose
 
 /** Synchronous version of service api, internal use only
 */
-OBJECTTYPE SyncClusteredServiceBase
+OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
 <
   OBJECT __link;
   RECORD ARRAY __promises;
@@ -350,6 +395,13 @@ OBJECTTYPE SyncClusteredServiceBase
       //Uh oh. We are doomed. Reject all promises
       this->CloseService();
       THROW NEW ServiceDisconnectException;
+    }
+
+    // This is an event emitted on the WebHareServiceProxyBase
+    IF (CellExists(msg.msg, "EVENT"))
+    {
+      this->EmitEvent(msg.msg.event, msg.msg.data);
+      RETURN;
     }
 
     IF (msg.replyto != 0)

@@ -1,9 +1,14 @@
 <?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 
-MACRO WebHareServiceTest()
+
+ASYNC MACRO WebHareServiceTest()
 {
   OBJECT exc := TestThrowsLike("*Service*nosuchservice*unavailable*", PTR WaitForPromise(OpenWebHareService("webhare_testsuite:nosuchservice","x")));
   TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
@@ -23,9 +28,15 @@ MACRO WebHareServiceTest()
 
   OBJECT promise2 := serverinstance->GetAsyncCrash();
   TestThrowsLike("Async crash()", PTR WaitForPromise(promise2));
+
+  RECORD deferred := CreateDeferredPromise();
+  serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
+  serverinstance->EmitTestEvent([ value := 42 ]);
+  RECORD testdata := AWAIT deferred.promise;
+  TestEq([ value := 42 ], testdata);
 }
 
-MACRO SyncWebHareServiceTest()
+ASYNC MACRO SyncWebHareServiceTest()
 {
   OBJECT exc:=TestThrowsLike("*Service*nosuchservice*unavailable*", PTR __OpenSynchronousWebHareService("webhare_testsuite:nosuchservice","x"));
   TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
@@ -42,6 +53,12 @@ MACRO SyncWebHareServiceTest()
   TestThrowsLike("Crash()", PTR (serverinstance->Crash()));
 
   TestThrowsLike("Async crash()", PTR serverinstance->GetAsyncCrash());
+
+  RECORD deferred := CreateDeferredPromise();
+  serverinstance->AddListener("testevent", PTR deferred.resolve(#1));
+  serverinstance->EmitTestEvent([ value := 42 ]);
+  RECORD testdata := AWAIT deferred.promise;
+  TestEq([ value := 42 ], testdata);
 }
 
 RunTestFramework([ PTR WebHareServiceTest

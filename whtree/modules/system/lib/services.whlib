@@ -11,7 +11,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
+LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, WebHareServiceProxyBase, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib" EXPORT EncryptForThisServer, DecryptForThisServer;
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
@@ -77,7 +77,7 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
       RETURN;
 
     OBJECT handler;
-    IF (MemberExists(this->links[pos].handler, "ONCLOSE"))
+    IF (this->links[pos].handler EXTENDSFROM WebHareServiceProxyBase OR MemberExists(this->links[pos].handler, "ONCLOSE"))
       handler := this->links[pos].handler;
 
     DELETE FROM this->links AT pos;
@@ -107,6 +107,9 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
 
       OBJECT handler := CallAnyPtrVA(this->constructor, msg.msg.__new);
       link->SendReply(DescribePublicInterface(handler), msg.msgid);
+      // Set the handler's link reference (used for sending events)
+      IF (handler EXTENDSFROM WebHareServiceProxyBase)
+        __HS_INTERNAL_MakeObjectReferencePrivileged(handler)->__link := link;
       INSERT [ handler := handler, link := link] INTO this->links AT END;
     }
     CATCH(OBJECT e)
