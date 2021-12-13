@@ -193,11 +193,11 @@ RECORD FUNCTION GetIconType(STRING findicon, INTEGER width, INTEGER height, STRI
 
 PUBLIC RECORD FUNCTION GetModuleIcon(STRING iconname, INTEGER width, INTEGER height, STRING color, BOOLEAN allowsvg DEFAULTSTO TRUE)
 {
-  // The special "tollium:countryflags/" namespace is mapped to the Publisher common assets
+  // The special "tollium:countryflags/" namespace is mapped to the flag data from https://www.npmjs.com/package/flag-icon-css
   IF (iconname LIKE "wrd:countryflags/*" OR iconname LIKE "tollium:countryflags/*")
   {
     STRING countrycode := Substring(iconname, SearchSubstring(iconname, "/") + 1);
-    STRING diskpath := GetModuleInstallationRoot("publisher") || "web/common/countryflags/1x1/" || countrycode || ".svg";
+    STRING diskpath := MergePath(GetInstallationRoot(), "node_modules/flag-icon-css/flags/1x1/" || countrycode || ".svg");
     TRY
     {
       RETURN [ type := "image/svg+xml"
@@ -266,7 +266,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableModuleIcons(STRING icon, INTEGER reques
              , color := countryicon.color
              , path := ""
              , data := countryicon.data
-             , eventmasks := GetResourceEventMasks([`mod::publisher/web/common/countryflags/1x1/`])
+             , eventmasks := [ "system:softrest" ]
              ]
            ];
   }

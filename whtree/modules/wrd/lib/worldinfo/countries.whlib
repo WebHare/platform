@@ -1,10 +1,14 @@
 ﻿<?wh
-LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
 
 STRING FUNCTION GetFirstSetCell(RECORD ARRAY options, STRING fieldname)
 {
@@ -62,10 +66,10 @@ RECORD FUNCTION GetCachedWRDCountryPhoneCodes(STRING language)
   RECORD ARRAY countrylist := SELECT code, title := GetCell(country,language) FROM GetCountryList(language) AS country;
 
   RECORD ARRAY phonecodes :=
-      SELECT code := id
-           , phone := countrycode
-        FROM GetAdhocCached(CELL[ type := "phone" ], PTR GetWRDPhoneDataFromXML()) AS info
-       WHERE CellExists(info, "countrycode") ? countrycode != "" : FALSE;
+      SELECT code
+           , phone
+        FROM GetAdhocCached(CELL[ type := "phone" ], PTR GetWRDPhoneData()) AS info
+       WHERE CellExists(info, "phone") ? phone != "" : FALSE;
 
   RETURN
       [ value := (SELECT * FROM JoinArrays(phonecodes, "code", countrylist, [ title := "" ]) ORDER BY NormalizeText(title, language))
@@ -73,17 +77,31 @@ RECORD FUNCTION GetCachedWRDCountryPhoneCodes(STRING language)
       ];
 }
 
-RECORD FUNCTION GetWRDPhoneDataFromXML()
+RECORD FUNCTION GetWRDPhoneData()
 {
-  OBJECT xmldoc := RetrieveCachedXMLResource("mod::wrd/data/phonedata/PhoneNumberMetadata.xml").doc;
+  // Retrieve phone number metadata from https://www.npmjs.com/package/libphonenumber-js
+  BLOB metadatajson := GetDiskResource(MergePath(GetInstallationRoot(), "node_modules/libphonenumber-js/metadata.full.json"));
+  RECORD metadata := DecodeJSONBlob(metadatajson);
 
-  OBJECT xpathcontext := xmldoc->CreateXPathQuery();
+  /*
+    A country looks like this:
 
-  RECORD ARRAY results := xpathcontext->SelectXML(`/phoneNumberMetadata/territories/territory`);
+      "NL": [
+        "31", // country calling code
+        "00", // international call prefix
+        // ... validation regexes and data follows
+      ],
+
+    We're only interested in the country calling code, which is the first value of the country's array of data
+  */
+  RECORD ARRAY results :=
+      SELECT code := name
+           , phone := value[0]
+        FROM UnpackRecord(metadata.countries);
 
   RETURN
       [ value := results
-      , eventmasks := [ "system:softreset" ]//ADDME: Event mask for file on disk changed?
+      , eventmasks := [ "system:softreset" ]
       ];
 }
 

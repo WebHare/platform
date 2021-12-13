@@ -1,5 +1,5 @@
-Images in this namespace are automatically mapped to the Publisher common assets. Specify the two-letter country code as the
-image name.
+Images in this namespace are automatically mapped to the flag data from https://www.npmjs.com/package/flag-icon-css. Specify
+the two-letter country code as the image name.
 
 Examples:
 

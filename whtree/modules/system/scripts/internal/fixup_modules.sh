@@ -31,8 +31,8 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
     FAIL=1
   fi
 
-  echo "Compress publisher common assets"
-  gzip --keep /opt/wh/whtree/modules/publisher/web/common/countryflags/*/*.svg
+  echo "Compress country flags"
+  gzip --keep /opt/wh/whtree/node_modules/flag-icon-css/flags/*/*.svg
 
   #Compile the rest parallel to fixmodules
   echo "Compiling the other core modules (parallel)"
