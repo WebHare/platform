@@ -10,6 +10,7 @@ echo "Max open files: $(ulimit -n)"
 eval `$WEBHARE_DIR/bin/webhare printparameters`
 OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
 OPENSEARCHROOT=$WEBHARE_DATAROOT/elasticsearch
+ADDOPTIONS=""
 
 if [ -z "$WEBHARE_ELASTICSEARCH_BINDHOST" ]; then
   WEBHARE_ELASTICSEARCH_BINDHOST=127.0.0.1
@@ -18,6 +19,8 @@ fi
 mkdir -p $OPENSEARCHROOT/logs $OPENSEARCHROOT/data $OPENSEARCHROOT/repo
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   chown opensearch:opensearch $OPENSEARCHROOT/logs $OPENSEARCHROOT/data $OPENSEARCHROOT/repo
+  # It seems the linux version has more plugins than the brew version, and needs these options:
+  ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
 fi
 
 if [ -x  /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86
@@ -65,5 +68,4 @@ exec $CHPST "$OPENSEARCHBINARY" -Epath.data="$OPENSEARCHROOT/data" \
                                 -Ehttp.port=$OPENSEARCHPORT \
                                 -Ehttp.host=$WEBHARE_ELASTICSEARCH_BINDHOST \
                                 -Ediscovery.type=single-node \
-                                -Eplugins.security.disabled=true \
-                                -Eplugins.security.ssl.http.enabled=false
+                                $ADDOPTIONS
