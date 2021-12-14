@@ -209,64 +209,6 @@
     </footer>
   </screen>
 
-  <screen name="columnfileexport" gid=".columnfileexport" lib="screens/commondialogs/columnfileexport.whlib" defaultbutton="downloadbutton">
-    <actions>
-      <downloadaction name="download" ondownload="ondownload" tid="~download" ondownloadstarted="ondownloadstarted"/>
-    </actions>
-    <body>
-      <heading tid=".selectoutputformat" />
-      <select type="radio" name="outputformat" flags="csv" title="">
-        <option rowkey="xlsx" />
-        <option rowkey="csv" flags="csv" />
-      </select>
-
-      <tabs name="exportprops" type="server">
-        <tab title="" name="csvoptions">
-          <visibleon source="outputformat" checkflags="csv" />
-          <heading tid=".csvoptions" />
-          <line layout="left">
-            <text valuetid=".csvinfo" wordwrap="true" />
-          </line>
-          <select type="pulldown" name="separator">
-            <option rowkey="semicolon" selected="1" tid=".semicolon"/>
-            <option rowkey="comma" tid=".comma"/>
-            <option rowkey="tab" tid=".tab" />
-          </select>
-          <select type="pulldown" name="decimal">
-            <option rowkey="period" selected="1" tid=".period"/>
-            <option rowkey="comma" tid=".comma"/>
-          </select>
-          <select type="pulldown" name="charset">
-            <option rowkey="ISO-8859-1" selected="1" title="ISO-8859-1" />
-            <option rowkey="UTF-8" title="UTF-8"/>
-          </select>
-        </tab>
-        <tab title="" name="emptytab">
-          <visibleon source="outputformat" checkflags="!csv" />
-        </tab>
-      </tabs>
-
-<!--
-
-      <panel layout="left">
-        <text valuetid=".exportdescr" wordwrap="true" width="50x" />
-      </panel>
-      <box>
-        <select type="pulldown" name="outputformat" flags="csv">
-          <option rowkey="csv" flags="csv" />
-          <option rowkey="xlsx" />
-        </select>
-
-  </box>-->
-    </body>
-    <footer>
-      <line layout="right">
-        <button action="download" tid="~download" name="downloadbutton" />
-        <button tolliumresult="cancel" tid="~cancel" />
-      </line>
-    </footer>
-
-  </screen>
 
 
   <screen name="progressscreen"

@@ -452,21 +452,8 @@
       <text tid="showpath">Path</text>
     </textgroup>
     <textgroup gid="columnfileexport">   <!-- commondialogs.columnfileexport -->
-      <text tid="charset">Character set</text>
-      <text tid="columnfileexport">Column file export</text>
-      <text tid="comma">Comma</text>
-      <text tid="csvinfo">If you will be using Microsoft Excel to read the CSV file, make sure the list separator matches the one specified in your Windows regional settings.</text>
-      <text tid="csvoptions">CSV export options</text>
-      <text tid="decimal">Decimal sign</text>
       <text tid="exportisempty">This export did not have any results</text>
       <text tid="exporttitle">Download export '<param p="1"/>'</text>
-      <text tid="outputformat-csv">CSV (Comma separated values, for older Excel versions and other software)</text>
-      <text tid="outputformat-xlsx">XLSX (Excel 2007 and up, optionally supported by older Excel versions)</text>
-      <text tid="period">Period</text>
-      <text tid="selectoutputformat">Select the export file type</text>
-      <text tid="semicolon">Semicolon</text>
-      <text tid="separator">Separator</text>
-      <text tid="tab">Tabs</text>
     </textgroup>
     <textgroup gid="editpassword">   <!-- commondialogs.editpassword -->
       <text tid="confirmpassword">Confirm new password</text>
@@ -1096,6 +1083,23 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="dialogs">   <!-- tolliumapps.dialogs -->
+      <textgroup gid="columnfileexport">   <!-- tolliumapps.dialogs.columnfileexport -->
+        <text tid="charset">Character set</text>
+        <text tid="columnfileexport">Column file export</text>
+        <text tid="comma">Comma</text>
+        <text tid="csvinfo">If you will be using Microsoft Excel to read the CSV file, make sure the list separator matches the one specified in your Windows regional settings.</text>
+        <text tid="csvoptions">CSV export options</text>
+        <text tid="decimal">Decimal sign</text>
+        <text tid="outputformat-csv">CSV (Comma separated values, for older Excel versions and other software)</text>
+        <text tid="outputformat-xlsx">XLSX (Excel 2007 and up, optionally supported by older Excel versions)</text>
+        <text tid="period">Period</text>
+        <text tid="selectoutputformat">Select the export file type</text>
+        <text tid="semicolon">Semicolon</text>
+        <text tid="separator">Separator</text>
+        <text tid="tab">Tabs</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="editdocumentation">   <!-- tolliumapps.editdocumentation -->
       <text tid="linkexpired">Your edit action has expired. Please reopen this application from its documentation panel</text>
     </textgroup>

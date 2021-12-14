@@ -1,0 +1,51 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.dialogs.columnfileexport"
+         library="columnfileexport.whlib">
+
+  <screen name="columnfileexport" defaultbutton="downloadbutton">
+    <actions>
+      <downloadaction name="download" ondownload="ondownload" ondownloadstarted="ondownloadstarted" tid="~download" />
+    </actions>
+
+    <body>
+      <heading tid=".selectoutputformat" />
+      <select name="outputformat" type="radio" flags="csv" title="">
+        <option rowkey="xlsx" />
+        <option rowkey="csv" flags="csv" />
+      </select>
+      <tabs name="exportprops" type="server">
+        <tab name="csvoptions" title="">
+          <visibleon checkflags="csv" source="outputformat" />
+          <heading tid=".csvoptions" />
+          <line layout="left">
+            <text valuetid=".csvinfo" wordwrap="true" />
+          </line>
+          <select name="separator" type="pulldown">
+            <option rowkey="semicolon" selected="1" tid=".semicolon" />
+            <option rowkey="comma" tid=".comma" />
+            <option rowkey="tab" tid=".tab" />
+          </select>
+          <select name="decimal" type="pulldown">
+            <option rowkey="period" selected="1" tid=".period" />
+            <option rowkey="comma" tid=".comma" />
+          </select>
+          <select name="charset" type="pulldown">
+            <option rowkey="ISO-8859-1" selected="1" title="ISO-8859-1" />
+            <option rowkey="UTF-8" title="UTF-8" />
+          </select>
+        </tab>
+        <tab name="emptytab" title="">
+          <visibleon checkflags="!csv" source="outputformat" />
+        </tab>
+      </tabs>
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button name="downloadbutton" action="download" tid="~download" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

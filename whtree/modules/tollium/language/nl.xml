@@ -452,21 +452,8 @@
       <text tid="showpath">Pad</text>
     </textgroup>
     <textgroup gid="columnfileexport">   <!-- commondialogs.columnfileexport -->
-      <text tid="charset">Karakterset</text>
-      <text tid="columnfileexport">Kolombestand export</text>
-      <text tid="comma">Komma</text>
-      <text tid="csvinfo">Als u gebruik maakt van Microsoft Excel om het CSV-bestand te lezen, zorgt u er dan voor dat het scheidingsteken overeenkomt met de gekozen optie in uw Windows Landinstellingen.</text>
-      <text tid="csvoptions">CSV export instellingen</text>
-      <text tid="decimal">Decimaalteken</text>
       <text tid="exportisempty">Deze export leverde geen resultaten op</text>
       <text tid="exporttitle">Download export '<param p="1"/>'</text>
-      <text tid="outputformat-csv">CSV (Kommagescheiden waardes, voor oudere Excel versies en andere software)</text>
-      <text tid="outputformat-xlsx">XLSX (Excel 2007 en later, optie in oudere Excel versies)</text>
-      <text tid="period">Punt</text>
-      <text tid="selectoutputformat">Kies het export bestandstype</text>
-      <text tid="semicolon">Puntkomma</text>
-      <text tid="separator">Scheidingsteken</text>
-      <text tid="tab">Tabs</text>
     </textgroup>
     <textgroup gid="editpassword">   <!-- commondialogs.editpassword -->
       <text tid="confirmpassword">Nogmaals nieuw wachtwoord</text>
@@ -1076,6 +1063,23 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="dialogs">   <!-- tolliumapps.dialogs -->
+      <textgroup gid="columnfileexport">   <!-- tolliumapps.dialogs.columnfileexport -->
+        <text tid="charset">Karakterset</text>
+        <text tid="columnfileexport">Kolombestand export</text>
+        <text tid="comma">Komma</text>
+        <text tid="csvinfo">Als u gebruik maakt van Microsoft Excel om het CSV-bestand te lezen, zorgt u er dan voor dat het scheidingsteken overeenkomt met de gekozen optie in uw Windows Landinstellingen.</text>
+        <text tid="csvoptions">CSV export instellingen</text>
+        <text tid="decimal">Decimaalteken</text>
+        <text tid="outputformat-csv">CSV (Kommagescheiden waardes, voor oudere Excel versies en andere software)</text>
+        <text tid="outputformat-xlsx">XLSX (Excel 2007 en later, optie in oudere Excel versies)</text>
+        <text tid="period">Punt</text>
+        <text tid="selectoutputformat">Kies het export bestandstype</text>
+        <text tid="semicolon">Puntkomma</text>
+        <text tid="separator">Scheidingsteken</text>
+        <text tid="tab">Tabs</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="editdocumentation">   <!-- tolliumapps.editdocumentation -->
       <text tid="linkexpired">Deze wijzigingsactie is verlopen. Heropen deze aub vanaf het documentatiepaneel</text>
     </textgroup>

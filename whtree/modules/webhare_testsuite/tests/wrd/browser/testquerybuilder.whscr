@@ -23,7 +23,7 @@ ASYNC FUNCTION TestQueryBuilder()
   TestEq(1,Length(TT("resultselect")->rows));
 
   AWAIT ExpectScreenChange(+1, PTR TT("exportresults")->TolliumClick);
-  topscreen->outputformat->value := "xlsx";
+  topscreen->^outputformat->value := "xlsx";
 
   RECORD file := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
 
