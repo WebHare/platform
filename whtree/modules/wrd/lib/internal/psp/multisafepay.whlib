@@ -191,7 +191,9 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     RECORD customer;
     IF(ObjectExists(paymentmethod.wrdpersonentity))
     {
-      customer := [ locale :=           ToUppercase(paymentmethod.language) = "NL" ? "nl_NL" : "en_US"
+      customer := [ locale :=           ToUppercase(paymentmethod.language) = "DE" ? "de_DE"
+                                        : ToUppercase(paymentmethod.language) = "NL" ? "nl_NL"
+                                        : "en_US"
                   , first_name :=       personfields.wrd_firstname
                   , last_name :=        TrimWhitespace(personfields.wrd_infix || " " || personfields.wrd_lastname)
                   , "phone1" :=         personfields.wrd_contact_phone
