@@ -274,7 +274,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     //
 
     RECORD versioninfo := GetWHVersionInfo();
-    ^txtServer->value      := versioninfo.versionname || " " || GetDTAPStage() || (IsRestoredWebHare() ? " / restored" : "");
+    STRING restoreinfo := GetEnvironmentVariable("WEBHARE_ISRESTORED");
+    IF(restoreinfo != "")
+      restoreinfo := restoreinfo = "1" ? " / restored" : " (" || restoreinfo || ")";
+
+    ^txtServer->value      := versioninfo.versionname || " " || GetDTAPStage() || restoreinfo;
     ^buildinfo->value      := versioninfo.built;
     ^buildinfo->visible    := versioninfo.built != "";
     ^txtPlatform->value    := systemdescr;

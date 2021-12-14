@@ -25,7 +25,8 @@ Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'devel
 Override the server name
 
 ### WEBHARE_ISRESTORED
-If non-zero, this WebHare is configured a 'restored' installation which may not run tasks with external effects.
+If set, this WebHare is configured a 'restored' installation which may not run tasks with external effects. It can be set
+to a short explanation about the restore (eg a date).
 
 ### WEBHARE_CLI_USER
 The user currently accessing the server. You should ensure this is set to the user executing commands for proper auditing.

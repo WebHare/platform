@@ -4,15 +4,7 @@ source $WEBHARE_DIR/lib/wh-functions.sh
 BLOBIMPORTMODE="hardlink"
 
 while true; do
-  if [ "$1" == "--webhareimage" ]; then
-    if [ -n "$WEBHARE_IN_DOCKER" ]; then
-      echo "Cannot pass --webhareimage if we're already running inside Docker"
-      exit 1
-    fi
-    shift
-    WEBHAREIMAGE="$1"
-    shift
-  elif [ "$1" == "--copy" ]; then
+  if [ "$1" == "--copy" ]; then
     BLOBIMPORTMODE="copy"
     shift
   elif [ "$1" == "--softlink" ]; then
@@ -24,7 +16,6 @@ while true; do
   elif [ "$1" == "--restoreto" ]; then
     shift
     RESTORETO="$1"
-    SET_RESTORETO=1
     shift
   elif [[ $1 =~ ^- ]]; then
     echo "Illegal option '$1'"
@@ -35,31 +26,16 @@ while true; do
 done
 
 if [ -z "$1" ]; then
-  echo "Syntax: wh restore [ --hardlink | --softlink | --copy ] [ --webhareimage image ] [ --restoreto newdbasedir ] <srcdir>"
+  echo "Syntax: wh restore [ --hardlink | --softlink | --copy ] [ --restoreto newdbasedir ] <srcdir>"
   echo "  --hardlink:     hardlink blobs. this is the default"
   echo "  --softlink:     softlink blobs"
   echo "  --copy:         copy blobs"
-  echo "  --webhareimage: use docker to restore. full docker image name or just a version, eg 4.19"
   exit 1
 fi
-if [ "$BLOBIMPORTMODE" == "softlink" -a -n "$WEBHAREIMAGE" ]; then
-  echo "Cannot use softlinks for docker-based restores. If you need softlinked backups inside a docker, move the data into "
-  echo "the container's /opt/whdata first, and run 'wh restore --softlink' inside the container"
-  exit 1
-fi
-if [ -n "$WEBHAREIMAGE" -a -n "$SET_RESTORETO" ]; then
-  echo "Docker based restore is not compatible with --restoreto"
-  exit 1
-fi
-
 
 TORESTORE="$1"
 
-if [[ "$WEBHAREIMAGE" =~ ^[0-9]+\.[0-9]+$ ]]; then
-  WEBHAREIMAGE="webhare/webhare-core:$WEBHAREIMAGE"
-fi
-
-if [ "`uname`" == "Darwin" ]; then
+if [ "$(uname)" == "Darwin" ]; then
   RSYNCOPTS="--progress"
 else
   RSYNCOPTS="--info=progress2"
@@ -99,21 +75,13 @@ if [ -d "$RESTORETO" ]; then
   exit 1
 fi
 
-if [ -n "$WEBHAREIMAGE" ]; then
-  # We'll be using the specified docker image to do the restore. This will not work with pre-4.20 images
-  # We'll force --copy - if you're doing rescue-type restores inside a docker container (with the dbase in /opt/whdata/restore)
-  #                      just invoke wh restore inside that docker.
-  exec docker run -ti --rm -v "$WEBHARE_DATAROOT":/opt/whdata -v "$TORESTORE":/backupsource $WEBHAREIMAGE wh restore --copy /backupsource/
-  exit 255
-fi
-
 if [ -z "$WEBHARE_IN_DOCKER" ]; then
   if [ -z "$WEBHARE_BASEPORT" -o "$WEBHARE_BASEPORT" == "13679" ]; then #If you've explicitly set a port, honor that, otherwise generate one
     WEBHARE_BASEPORT=$(( $RANDOM / 10 * 10 + 20000))
   fi
 
   cat > "$WEBHARE_DATAROOT/settings.sh" << EOF
-export WEBHARE_ISRESTORED=1
+export WEBHARE_ISRESTORED="Restored by 'wh restore'"
 export WEBHARE_BASEPORT=$WEBHARE_BASEPORT
 EOF
 fi
