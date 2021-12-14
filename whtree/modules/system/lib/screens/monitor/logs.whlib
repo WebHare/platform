@@ -286,7 +286,7 @@ PUBLIC OBJECTTYPE Overview EXTEND TolliumScreenBase
 
   MACRO DoOpenInEditor()
   {
-    RECORD sel := ^trace->selection;
+    RECORD sel := ^stacktrace->selection;
     LaunchOpeninEditor(this, sel.filename, [ line := sel.line, col := sel.col ]);
   }
 >;
