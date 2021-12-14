@@ -1065,6 +1065,16 @@
   <xs:element name="baseproperties">
     <xs:complexType>
       <xs:attribute name="title" type="xs:boolean" />
+      <xs:attribute name="seotitle" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>Enable the SEO title field</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="headertitle" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>Enable the Header title field</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="description" type="xs:boolean" />
       <xs:attribute name="keywords" type="xs:boolean" />
       <xs:attribute name="seotab" type="xs:boolean">
