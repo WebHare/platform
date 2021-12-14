@@ -213,7 +213,7 @@ PUBLIC MACRO RecompileSiteProfilesAsync()
 }
 
 /** @param issoftreset We're invoked by wh softreset, so we're supposed to be thorough, not fast as we would be during startup */
-PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
+PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
 {
   RECORD confinfo := LoadServerConfig();
   IF(Length(confinfo.errors) > 0)
@@ -234,7 +234,10 @@ PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
 
   // If the database is in readonly mode, there isn't much we can do anymore
   IF (NOT IsDatabaseWritable())
-    RETURN ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
+  {
+    ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
+    RETURN;
+  }
 
   //Ensure the index is finished, otherwise we will just interfere and further slow down system startup
   IF(GetPrimary()->__is_whdb)
@@ -306,25 +309,24 @@ PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   IF (debug)
     Print("Reloading WebHare configuration\n");
 
-  STRING softresetid := ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
-  RETURN softresetid;
+  ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
 }
 
 PUBLIC MACRO RunSoftReset(BOOLEAN debug)
 {
+  OBJECT eventmgr := NEW EventManager;
+  eventmgr->RegisterInterest("system:internal.servicestate.poststartdone");
+
   // Reload modules on all processes (updates module installation paths)
   ReloadWebhareConfig2("MODULES");
 
   OBJECT validationpromise;
-  validationpromise := AsyncCallFunctionFromJob("module::system/internal/restart_reset.whlib#ValidateModules");
-
-  OBJECT eventmgr := NEW EventManager;
-  eventmgr->RegisterInterest("system:internal.executetasks.softresetdone");
+  validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib#ValidateModules");
 
   IF (debug)
     Print("Running restart/reset\n");
 
-  STRING softresetid := RunRestartReset(debug, TRUE);
+  RunRestartReset(debug, TRUE);
 
   DATETIME waitlimit := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime());
 
@@ -341,14 +343,15 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
   WHILE(TRUE)
   {
     IF (debug)
-      Print("Waiting for softresetdone event\n");
+      Print("Waiting for poststart to be done\n");
+
     RECORD event := eventmgr->ReceiveEvent(waitlimit);
     IF (event.status = "timeout")
       ABORT("Module upgrade tasks are taking more than 5 minutes to complete");
-    IF (softresetid IN event.msg.softresetids)
+    IF(CellExists(event.msg,'finished'))
     {
       IF (debug)
-        Print("Got softresetdone event\n");
+        Print("Got poststartdone event\n");
       BREAK;
     }
   }

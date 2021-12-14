@@ -60,19 +60,17 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
 }
 
 ///Reload authentication data and/or modules
-PUBLIC STRING FUNCTION ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ isdelete := FALSE, nowait := FALSE ], options);
 
-  STRING id := GenerateUFS128BitId();
   STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
   IF("AUTHDATA" IN parts OR "ALL" IN parts)
     RefreshGlobalWebserverConfig([ nowait := options.nowait ]);
-  BroadcastEvent("system:softreset", [ toreload := parts, id := id, isdelete := options.isdelete ]);
-  RETURN id;
+  BroadcastEvent("system:softreset", [ toreload := parts, isdelete := options.isdelete ]);
 }
 
-PUBLIC STRING FUNCTION ReloadWebhareConfig(BOOLEAN authdata, BOOLEAN modules, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO ReloadWebhareConfig(BOOLEAN authdata, BOOLEAN modules, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   STRING ARRAY toks;
   IF(authdata)
@@ -82,7 +80,7 @@ PUBLIC STRING FUNCTION ReloadWebhareConfig(BOOLEAN authdata, BOOLEAN modules, RE
     INSERT "MODULES" INTO toks AT END;
     INSERT "MODULEINIT" INTO toks AT END;
   }
-  RETURN ReloadWebhareConfig2(Detokenize(toks,' '), options);
+  ReloadWebhareConfig2(Detokenize(toks,' '), options);
 }
 
 PUBLIC MACRO SetApplicationAndUserInAuthRecord(RECORD app, RECORD data, OBJECT user, RECORD options)
