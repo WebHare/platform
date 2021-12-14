@@ -316,6 +316,16 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*seotitle*" />
+    <baseproperties seotitle="true" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*headertitle*" />
+    <baseproperties headertitle="true" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*protected-seotab*" />
     <baseproperties seotabrequireright="system:supervisor" />
   </apply>

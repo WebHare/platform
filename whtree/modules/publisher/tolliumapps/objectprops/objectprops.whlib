@@ -40,6 +40,8 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 /* ADDME: andere types om te wijzigen
    ADDME: toevoegen/verwijderen van rijen */
 
+CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
+
 RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
 {
   RECORD res;
@@ -1097,6 +1099,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     this->onsubmits := extensions.onsubmits;
 
     ^maintabs->RunExtensionsPostInit();
+    this->InitSeoSettings(); //setup the SEO Tab and the 2 additional title fields
   }
 
 
@@ -1121,6 +1124,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     INTEGER ARRAY versioned_contenttypes := this->editingdraft AND ObjectExists(this->objectpolicy)
                                                 ? this->objectpolicy->GetFields().versioned_contenttypes
                                                 : DEFAULT INTEGER ARRAY;
+
+    ^seosettings->basefsobject := ^seosettings->type->id IN versioned_contenttypes ? this->draftitem : this->sourceitem;
+    ^seosettings->ReadInstanceFromFSObject();
 
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
@@ -1225,13 +1231,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                ];
 
     ^maintabs->extendposition := tab_insert_pos;
-
-    IF(this->basesettings.seotab
-       AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate())
-       AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright)))
-    {
-      this->contexts->objectpropsapi->AddTabsExtension(Resolve("seotab.xml#seosettings"), "http://www.webhare.net/xmlns/publisher/seosettings");
-    }
 
     IF (ObjectExists(this->webcontext))
     {
@@ -1562,6 +1561,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   MACRO WriteExtensionData(OBJECT work, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
   {
     //Grab siteprofile stuff
+    this->WriteInstanceData(work, ^seosettings, objid, draftid, versioned_contenttypes);
     FOREVERY(RECORD extendprop FROM this->extendprops)
     {
       IF (extendprop.contenttype="") // FIXME: all <propertyeditor>'s ?
@@ -2314,6 +2314,62 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       }
 
     RETURN DEFAULT OBJECT;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // SEO Tab
+  //
+
+  MACRO ApplyAnyLocks(RECORD settings)
+  {
+    FOREVERY(STRING field FROM lockablefields)
+      IF(GetCell(settings, field) AND GetMember(this, "^" || field)->enabled = TRUE) //still enabled...
+      {
+        GetMember(this, "^" || field)->enabled := FALSE;
+        GetMember(this, "^" || field)->value := TRUE;
+      }
+  }
+
+  MACRO InitSeoSettings()
+  {
+    ^seotitle->visible := this->isfolder = FALSE AND this->basesettings.seotitle;
+    ^headertitle->visible := this->isfolder = FALSE AND this->basesettings.headertitle;
+
+    IF(NOT (this->basesettings.seotab
+             AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate())
+             AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
+    {
+      ^seotab->visible := FALSE;
+      RETURN;
+    }
+
+    IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
+    {
+      //we are contained in a site, and need to check parents for forced noindex/nofollow
+      INTEGER ARRAY tree := this->contexts->objectpropsapi->targetfolder->GetFullTree();
+
+      RECORD ARRAY curseosettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(tree,"ID"), "ID", STRING[...lockablefields, "customrobots" ]);
+      FOREVERY(RECORD setting FROM curseosettings)
+      {
+        this->ApplyAnyLocks(setting);
+
+        IF(setting.customrobots != "")
+          ^customrobots->placeholder := setting.customrobots;
+      }
+    }
+
+    IF(NOT this->contexts->user->HasRight("system:supervisor"))
+      ^customrobots->visible := FALSE;
+
+    ^canonical->visible := NOT this->contexts->applytester->objisfolder;
+    IF(NOT this->contexts->applytester->objisfolder)
+    {
+      //Then fields can also be locked through the siteprofile
+      //TODO share GetBaseProperties with objectprops screen?
+      RECORD baseprops := GetBaseProperties(this->contexts->applytester);
+      this->ApplyAnyLocks(baseprops);
+    }
   }
 >;
 

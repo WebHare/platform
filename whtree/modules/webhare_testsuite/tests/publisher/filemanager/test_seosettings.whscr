@@ -29,12 +29,14 @@ ASYNC MACRO TestSeoSettings()
 
   testfw->BeginWork();
 
-  OBJECT tt_noindex, tt_nofollow, tt_customrobots, tt_canonical;
   OBJECT root := OpenTestsuiteSite()->rootobject;
   OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
 
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT headertitlefile := seotestroot->CreateFile([name := "headertitlefile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
   OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
   OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
@@ -72,6 +74,37 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ seotitlefile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(TRUE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TT("seotitle")->value := "The Seo Title";
+  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ headertitlefile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TestEq(TRUE, TT("headertitle", [ findinvisible := TRUE ])->visible);
+  TT("headertitle")->value := "The Heading Title";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ seoheadertitlefolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TestEq(FALSE, TT("headertitle", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -90,15 +123,11 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should appear!");
   TestEq("SEO", TT("maintabs")->pages[1]->title);
 
-  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
-  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
-  tt_canonical := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "canonical");
-
-  TestEq(TRUE, tt_noindex->value);
-  TestEq(TRUE, tt_noindex->enabled);
-  TestEq(FALSE, tt_nofollow->value);
-  TestEq(TRUE, tt_nofollow->enabled);
-  TestEq(FALSE, tt_canonical->visible,"Should not be visible on a folder");
+  TestEq(TRUE, TT("noindex")->value);
+  TestEq(TRUE, TT("noindex")->enabled);
+  TestEq(FALSE, TT("nofollow")->value);
+  TestEq(TRUE, TT("nofollow")->enabled);
+  TestEq(FALSE, TT("canonical", [ findinvisible := TRUE ])->visible,"Should not be visible on a folder");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -106,14 +135,11 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexsubfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
-  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
-
-  TestEq(TRUE, ObjectExists(tt_noindex));
-  TestEq(TRUE, tt_noindex->value);
-  TestEq(FALSE, tt_noindex->enabled);
-  TestEq(FALSE, tt_nofollow->value);
-  TestEq(TRUE, tt_nofollow->enabled);
+  TestEq(TRUE, ObjectExists(TT("noindex")));
+  TestEq(TRUE, TT("noindex")->value);
+  TestEq(FALSE, TT("noindex")->enabled);
+  TestEq(FALSE, TT("nofollow")->value);
+  TestEq(TRUE, TT("nofollow")->enabled);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -124,16 +150,13 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
-  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
+  TestEq(TRUE, ObjectExists(TT("noindex")));
+  TestEq(FALSE, TT("noindex")->value);
+  TestEq(TRUE, TT("noindex")->enabled);
+  TestEq(TRUE, TT("nofollow")->value);
+  TestEq(FALSE, TT("nofollow")->enabled);
 
-  TestEq(TRUE, ObjectExists(tt_noindex));
-  TestEq(FALSE, tt_noindex->value);
-  TestEq(TRUE, tt_noindex->enabled);
-  TestEq(TRUE, tt_nofollow->value);
-  TestEq(FALSE, tt_nofollow->enabled);
-
-  TestEq(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots")->visible);
+  TestEq(FALSE, TT("customrobots", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -160,10 +183,9 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  tt_customrobots := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots");
 
-  TestEq(TRUE, tt_customrobots->visible);
-  tt_customrobots->value := "ZwoBot";
+  TestEq(TRUE, TT("customrobots")->visible);
+  TT("customrobots")->value := "ZwoBot";
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -175,13 +197,10 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfile->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  tt_customrobots := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "customrobots");
-  tt_canonical := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "canonical");
-
-  TestEq(TRUE, tt_customrobots->visible);
-  TestEq(TRUE, tt_customrobots->enabled);
-  TestEq("ZwoBot", tt_customrobots->placeholder);
-  TestEq(TRUE, tt_canonical->visible, "Canonical should be visible on files");
+  TestEq(TRUE, TT("customrobots")->visible);
+  TestEq(TRUE, TT("customrobots")->enabled);
+  TestEq("ZwoBot", TT("customrobots")->placeholder);
+  TestEq(TRUE, TT("canonical")->visible, "Canonical should be visible on files");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -193,13 +212,10 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ forced_noindex_nofollow_yesfollow_file->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  tt_noindex := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex");
-  tt_nofollow := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "nofollow");
-
-  TestEq(TRUE, tt_noindex->value);
-  TestEq(FALSE, tt_noindex->enabled);
-  TestEq(FALSE, tt_nofollow->value);
-  TestEq(TRUE, tt_nofollow->enabled);
+  TestEq(TRUE, TT("noindex")->value);
+  TestEq(FALSE, TT("noindex")->enabled);
+  TestEq(FALSE, TT("nofollow")->value);
+  TestEq(TRUE, TT("nofollow")->enabled);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 

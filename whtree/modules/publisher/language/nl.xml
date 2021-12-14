@@ -2192,6 +2192,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
         <text tid="created">(Aangemaakt</text>
         <text tid="deleted">Verwijderd</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
@@ -2200,6 +2201,7 @@
         <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
         <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
         <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
+        <text tid="headertitle">Header titel</text>
         <text tid="info">Eigenschappen</text>
         <text tid="link">Link</text>
         <text tid="linkcheck">Linkcontrole</text>
@@ -2210,6 +2212,9 @@
         <text tid="newfile-name">Nieuw <param p="1"/></text>
         <text tid="newfile-title">Nieuw bestand</text>
         <text tid="newfolder-title">Nieuwe map</text>
+        <text tid="noarchive">Niet archiveren/cachen (noarchive)</text>
+        <text tid="nofollow">Volg geen links (nofollow)</text>
+        <text tid="noindex">Niet opslaan in index (noindex)</text>
         <text tid="originallocation">Oorspronkelijke locatie</text>
         <text tid="path">Pad</text>
         <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
@@ -2217,6 +2222,9 @@
         <text tid="publish">Publiceer dit bestand</text>
         <text tid="requestapproval">Indienen</text>
         <text tid="restrictions">Beperkingen</text>
+        <text tid="robottags">Robot-tags</text>
+        <text tid="seotab">SEO</text>
+        <text tid="seotitle">SEO titel</text>
         <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
         <text tid="tasksettings">Taken</text>
         <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
@@ -2250,12 +2258,7 @@
         <text tid="whfspath">Pad</text>
       </textgroup>
       <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
-        <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
         <text tid="indexing">Externe zoekmachine indexering</text>
-        <text tid="noarchive">Niet archiveren/cachen (noarchive)</text>
-        <text tid="nofollow">Volg geen links (nofollow)</text>
-        <text tid="noindex">Niet opslaan in index (noindex)</text>
-        <text tid="robottags">Robot-tags</text>
       </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Voeg taak toe</text>
