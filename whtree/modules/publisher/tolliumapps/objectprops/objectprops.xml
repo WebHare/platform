@@ -40,8 +40,8 @@
           <!-- general fields -->
           <textedit tid="~name" name="name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
           <textedit tid="tollium:common.labels.title" name="title" width="1pr" maxlength="256" />
-          <textedit name="headertitle" composition="seosettings" cellname="headertitle" width="1pr" maxlength="256" />
-          <textedit name="seotitle" composition="seosettings" cellname="seotitle" width="1pr" maxlength="256" />
+          <textedit name="headertitle" composition="seosettings" cellname="headertitle" width="1pr" maxlength="256" tid="common.seosettings.headertitle" />
+          <textedit name="seotitle" composition="seosettings" cellname="seotitle" width="1pr" maxlength="256" tid="common.seosettings.seotitle" />
           <textarea tid="tollium:common.labels.description" name="description" height="3gr" maxlength="2048" showcounter="true" />
           <textarea tid="tollium:common.labels.keywords" name="keywords" height="1gr" maxlength="1024" showcounter="true"/>
           <panel name="settings"></panel> <!-- this is just an insertion point. fixes #49 -->

@@ -231,6 +231,12 @@ ASYNC MACRO TestSeoSettings()
   TestEq("Is set", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+  TestEqStructure([[ seotitle := "The Seo Title", navigationtitle := "navtitle seotitlefile", headertitle := "" ]]
+                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/seotitlefile"
+                  , "*");
+  TestEqStructure([[ seotitle := "", navigationtitle := "navtitle headertitlefile", headertitle := "The Heading Title" ]]
+                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/headertitlefile"
+                  , "*");
   TestEq("> ", SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/noindex/noindexsub/noindexsubfile");
   TEstEq("> " || noindexsubfile->link, SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
 
