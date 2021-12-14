@@ -34,8 +34,8 @@ ASYNC MACRO TestSeoSettings()
 
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
-  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := rtdtype->id, publish := TRUE ]);
-  OBJECT headertitlefile := seotestroot->CreateFile([name := "headertitlefile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := rtdtype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
+  OBJECT headertitlefile := seotestroot->CreateFile([name := "headertitlefile", type := rtdtype->id, publish := TRUE, title := "navtitle headertitlefile" ]);
   OBJECT seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
   OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
@@ -282,6 +282,14 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, testfw->browser->GotoWebPage(forced_noindex_nofollow_yesfollow_file->link));
   metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
   TestEq("noindex,follow", metarobots->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(seotitlefile->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("The Seo Title", testfw->browser->document->QuerySelector("title")->textcontent);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(headertitlefile->link));
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq("The Heading Title", testfw->browser->document->QuerySelector("h1")->textcontent);
 }
 
 RunTestframework([ PTR PrepIt

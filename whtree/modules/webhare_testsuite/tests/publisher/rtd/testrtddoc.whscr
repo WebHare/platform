@@ -67,7 +67,7 @@ MACRO GenerateAnchorsExperimental()
   TestEq(TRUE, publishres.success);
 
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
-  OBJECT ARRAY h1s := doc->GetElements("h1");
+  OBJECT ARRAY h1s := doc->GetElements("h1:not(.headertitle)");
   print(doc->outerhtml||'\n\n');
   TestEq(8, Length(h1s));
   TestEq("eerste-kop",h1s[0]->QuerySelector("a")->GetAttribute("id"));
