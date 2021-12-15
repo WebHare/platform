@@ -37,5 +37,6 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
      CELL[ printheaders := PTR depresolver->PrintHeaders(DEFAULT OBJECT,"")
          , body := PTR pagebody(context)
          , options.isolatestorage
+         , hasdevmodule := IsModuleInstalled("dev")
          ]);
 }

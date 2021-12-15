@@ -2,6 +2,7 @@
 <html lang="en" [if isolatestorage]data-wh-isolate-storage[/if]>
   <head>
     [printheaders]
+    [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
   </head>
   <body>
     [body]
