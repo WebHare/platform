@@ -1,0 +1,81 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE StatusPanel EXTEND TolliumFragmentBase
+<
+  STRING _type;
+
+  PUBLIC PROPERTY contents(GetContents, SetContents);
+  PUBLIC PROPERTY type(_type, SetType);
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+    this->_type := "info";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->type := def.type;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->SetupForType();
+  }
+
+  MACRO SetType(STRING newtype)
+  {
+    IF(this->_type = newtype)
+      RETURN;
+
+    IF(newtype NOT IN ["error","warning","info"])
+      THROW NEW Exception(`Invalid type '${newtype}' for statuspanel`);
+    this->_type := newtype;
+    this->SetupForType();
+  }
+
+  MACRO SetupForType()
+  {
+    ^panel->backgroundcolor := this->_type = "error" ? "#F3D3D3" : "#FEFEDD";
+    IF(this->_type = "info") //no icon
+    {
+      ^icon->visible := FALSE;
+    }
+    ELSE
+    {
+      ^icon->visible := TRUE;
+      ^icon->SetImageSrc(this->_type = "error" ? "tollium:status/serious_error" : "tollium:status/warning","","b");
+    }
+  }
+
+  UPDATE OBJECT FUNCTION GetContents()
+  {
+    RETURN ^contents->contents;
+  }
+  UPDATE MACRO SetContents(OBJECT newcontents)
+  {
+    ^contents->contents := newcontents;
+  }
+  PUBLIC MACRO InsertLinesBefore(RECORD ARRAY lines, OBJECT before)
+  {
+    ^contents->InsertLinesBefore(lines, before);
+  }
+  PUBLIC MACRO InsertLinesAfter(RECORD ARRAY lines, OBJECT after)
+  {
+    ^contents->InsertLinesAfter(lines, after);
+  }
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllLines()
+  {
+    RETURN ^contents->ExtractAllLines();
+  }
+  PUBLIC MACRO InsertComponentBefore(OBJECT component, OBJECT before, BOOLEAN break_inbetween)
+  {
+    ^contents->InsertComponentBefore(component, before, break_inbetween);
+  }
+  PUBLIC MACRO InsertComponentAfter(OBJECT component, OBJECT after, BOOLEAN break_inbetween)
+  {
+    ^contents->InsertComponentAfter(component, after, break_inbetween);
+  }
+>;
