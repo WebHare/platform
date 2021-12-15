@@ -41,10 +41,14 @@ PUBLIC STATIC OBJECTTYPE StatusPanel EXTEND TolliumFragmentBase
     ^panel->backgroundcolor := this->_type = "error" ? "#F3D3D3" : "#FEFEDD";
     IF(this->_type = "info") //no icon
     {
+      ^iconcell->visible := FALSE;
+      ^contents->spacers.left := TRUE;
       ^icon->visible := FALSE;
     }
     ELSE
     {
+      ^iconcell->visible := TRUE;
+      ^contents->spacers.left := FALSE;
       ^icon->visible := TRUE;
       ^icon->SetImageSrc(this->_type = "error" ? "tollium:status/serious_error" : "tollium:status/warning","","b");
     }
