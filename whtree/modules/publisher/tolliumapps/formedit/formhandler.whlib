@@ -91,6 +91,8 @@ PUBLIC STATIC OBJECTTYPE EditHandler EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginFeedback();
+    IF(work->cancelled)
+      RETURN FALSE; //validate handlers can outright cancel submissino
 
     ^tabs->SubmitExtensions(work);
 
