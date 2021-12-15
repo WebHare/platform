@@ -511,6 +511,7 @@ PUBLIC OBJECTTYPE FormBase
             , obj := newfield
             , field.supportedvalues
             , field.conditionscope
+            , isneverrequired := NOT (field.required OR RecordExists(field.requiredcondition))
             ] INTO this->__formfields AT insertpos;
     RETURN newfield;
   }
