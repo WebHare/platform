@@ -27,17 +27,13 @@
       </panel>
       <split type="vertical" height="1pr">
         <part height="4pr" borders="top">
-          <panel name="sensitivecontent"
-                 backgroundcolor="#FEFFDE"
-                 borders="bottom"
-                 spacers="top bottom left right"
-                 visible="false">
+          <statuspanel name="sensitivecontent" type="warning" visible="false">
             <line>
               <text valuetid=".sensitivecontent" />
               <spacer width="1pr" />
               <button name="showsensitivecontentbutton" action="showsensitivecontent" tid=".showsensitivecontent" />
             </line>
-          </panel>
+          </statuspanel>
 
           <!-- we put the mail inside borders so you can see where the mail would be (possibly incorrectly) touching the edges on some mail clients -->
           <panel height="1pr" spacers="top bottom left right">
