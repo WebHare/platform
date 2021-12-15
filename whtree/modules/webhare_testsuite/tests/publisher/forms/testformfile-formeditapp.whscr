@@ -213,7 +213,9 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT("fragment1!attachments!files!addbutton")->action->ExecuteUpload([WrapBlob(img, "bob.jpg")]);
   TestEq(1, Length(TT("fragment1!attachments!files!list")->rows));
 
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("no", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]); //verify saying no doesn't crash
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   //Test adding a page and moving it to top. This crashed earlier once the form had handlers
   TTClick("doceditor->addpage");
@@ -245,7 +247,8 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TestEq(3, Length(TT(":Field")->options));
   TestEq("Page 2 \u2013 Renamed email field", TT(":Field")->options[0].title);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
@@ -261,7 +264,8 @@ ASYNC MACRO TestEditAsLisa()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
@@ -277,7 +281,8 @@ ASYNC MACRO TestEditAsLisa()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform-nomailtemplates" ], target := DEFAULT RECORD ]));
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

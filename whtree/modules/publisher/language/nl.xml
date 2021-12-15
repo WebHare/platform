@@ -1094,6 +1094,7 @@
       <text tid="name">Reactie naar bezoeker e-mailen</text>
     </textgroup>
     <textgroup gid="mailresults">   <!-- formhandlers.mailresults -->
+      <text tid="confirmmailfieldnotrequired">Het gekozen 'Verstuur naar' veld is niet (voorwaardelijk) verplicht. Er zal geen email verzonden worden als de bezoeker dit adres niet invult.<br/><br/>Weet je zeker dat je dit veld wil gebruiken?</text>
       <text tid="deletedfield">Geselecteerd veld niet meer beschikbaar</text>
       <text tid="description">Verstuurt de formulierresultaten per e-mail naar een vaste lijst van ontvangers en/of naar ingevulde e-mailadressen</text>
       <text tid="emptyconfirmationmail">U moet een berichtinhoud instellen.</text>

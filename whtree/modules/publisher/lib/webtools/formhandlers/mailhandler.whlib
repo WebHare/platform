@@ -181,6 +181,7 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
       component->options := component->options CONCAT
           SELECT rowkey := guid
                , title := GetTid(title)
+               , isneverrequired
             FROM candidates;
     }
   }
@@ -339,8 +340,10 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
     ^emailcontents->applytemplate->visible := Length(^emailcontents->applytemplate->options)>1;
   }
 
-  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
+    FormComponentExtensionBase::ValidateValue(work);
+
     IF(^emailcontents->templatetype->value = "rtd"
        AND NOT ^emailcontents->addresults->value
        AND NOT RecordExists(^emailcontents->rtd->value))
@@ -348,6 +351,10 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
       work->AddErrorFor(^emailcontents->rtd, GetTid("publisher:formhandlers.mailresults.emptymailandnoresults"));
     }
 
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
     IF (NOT work->HasFailed())
     {
       IF(^sender->value != "")
@@ -462,6 +469,14 @@ PUBLIC STATIC OBJECTTYPE MailConfirmFeedbackEditorBase EXTEND MailHandlerEditor
     ^bcc->value := this->node->GetAttribute("bcc");
   }
 
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    MailHandlerEditor::ValidateValue(work);
+    IF(NOT work->HasFailed() AND CellExists(^receiverfield->selection,'isneverrequired') AND ^receiverfield->selection.isneverrequired)
+      IF(this->owner->RunSimpleScreen("verify", GetTid("publisher:formhandlers.mailresults.confirmmailfieldnotrequired")) != "yes")
+        work->Cancel();
+  }
+
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
   {
     MailHandlerEditor::SubmitExtension(work);
@@ -548,8 +563,10 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailConfirmFeedbackEditor
     INSERT [ type := "http://www.webhare.net/xmlns/publisher/formconfirmfield", inherit := TRUE ] INTO ^emailcontents->^rtd->allowwidgettypes AT END;
   }
 
-  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
+    MailConfirmFeedbackEditorBase::ValidateValue(work);
+
     IF (^emailcontents->templatetype->value = "rtd")
     {
       IF (NOT RecordExists(^emailcontents->rtd->value))
@@ -570,7 +587,10 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationEditor EXTEND MailConfirmFeedbackEditor
         }
       }
     }
+  }
 
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
     MailConfirmFeedbackEditorBase::SubmitExtension(work);
 
     IF (^checkduplicates->value)

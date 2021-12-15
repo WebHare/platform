@@ -1094,6 +1094,7 @@
       <text tid="name">Email response to visitor</text>
     </textgroup>
     <textgroup gid="mailresults">   <!-- formhandlers.mailresults -->
+      <text tid="confirmmailfieldnotrequired">The selected 'Send to' field is not (conditionally) required. No email will be send if the visitor does not fill this address. <br/><br/>Are you sure you want to use this field?</text>
       <text tid="deletedfield">Selected field no longer available</text>
       <text tid="description">Sends the form results by email to a list of receivers and/or to a submitted email address</text>
       <text tid="emptyconfirmationmail">You need to set up the mail contents.</text>
