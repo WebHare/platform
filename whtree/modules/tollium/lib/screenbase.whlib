@@ -37,14 +37,6 @@ STRING FUNCTION FixupLocalTid(STRING localtid)
   RETURN localtid;
 }
 
-STRING FUNCTION GetSelector(STRING fragmentname)
-{
-  IF(fragmentname LIKE "__selector:*")
-    RETURN Substring(fragmentname, 11);
-  ELSE
-    RETURN '//*[local-name()="fragment" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(fragmentname) || '"]';
-}
-
 /** @short A tollium scope, which can contain static tollium objects and callback handlers */
 PUBLIC OBJECTTYPE TolliumScope EXTEND TolliumAppContextSystem
 <
@@ -655,12 +647,11 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   }
 
 
-  RECORD FUNCTION DoLoadFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resourcename, STRING fragmentname, BOOLEAN istabsextension, RECORD options)
+  RECORD FUNCTION DoLoadFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resource, STRING resourcetype, RECORD options)
   {
     options := ValidateOptions([ objtype := ""], options);
 
-    STRING selector := GetSelector(fragmentname);
-    RECORD fragment := GetParsedPage(resourcename, selector, "fragment");
+    RECORD fragment := GetParsedPage(resource, resourcetype);
     RECORD result := [ success := FALSE
                      , errors := fragment.errors
                      , rootnode := DEFAULT RECORD
@@ -681,8 +672,8 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     result.fragment := fragobj;
     INSERT fragobj INTO result.components AT END;
 
-    IF (istabsextension AND fragobj NOT EXTENDSFROM TolliumTabsExtensionBase)
-      THROW NEW Exception(`The implementation objecttype '${objtype}' for tab extension '${fragmentname}' should extend from TolliumTabsExtensionBase`);
+    IF (resourcetype = "tabsextension" AND fragobj NOT EXTENDSFROM TolliumTabsExtensionBase)
+      THROW NEW Exception(`The implementation objecttype '${objtype}' for tab extension '${resource}' should extend from TolliumTabsExtensionBase`);
 
     /* We do not prefix the element names at parse time, as we'd do with static
        fragments, as a dynamic fragment might be included in different locations
@@ -776,16 +767,17 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   /** Load a XML document fragment as a collection of tollium lines (experimental function, will be removed in the future)
       @param fragmentname Name of the file containing the fragment, used in error messages
   */
-  PUBLIC RECORD FUNCTION LoadTolliumBodyFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resourcename, STRING fragmentname, BOOLEAN istabsextension)
+  PUBLIC RECORD FUNCTION LoadTolliumBodyFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resource, STRING resourcetype)
   {
-    resourcename := MakeAbsoluteResourcePath("", resourcename);
+    IF(NOT IsAbsoluteResourcePath(resource))
+      THROW NEW Exception(`LoadTolliumBodyFragment requires an absolute resource path, got: ` || resource);
 
     //make them visible in our true scope
     UPDATE localrefs SET name := "FRAGMENT!" || name;
     RECORD savedrefs := this->tolliumscreenbuilder->SetLocalRefs(localrefs, localhandlers);
     TRY
     {
-      RETURN this->DoLoadFragment(localrefs, localhandlers, resourcename, fragmentname, istabsextension, DEFAULT RECORD);
+      RETURN this->DoLoadFragment(localrefs, localhandlers, resource, resourcetype, DEFAULT RECORD);
     }
     FINALLY
     {
@@ -795,7 +787,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   OBJECT FUNCTION InnerCreateFragment(STRING resourcename, STRING fragmentname, RECORD options)
   {
-    RECORD result := this->DoLoadFragment(RECORD[], RECORD[], resourcename, fragmentname, FALSE, options);
+    RECORD result := this->DoLoadFragment(RECORD[], RECORD[], resourcename || "#" || fragmentname, "fragment", options);
     RETURN result.fragment; //FIXME: Return error info properly
   }
 

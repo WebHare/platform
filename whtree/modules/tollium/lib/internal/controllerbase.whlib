@@ -1664,8 +1664,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         TRY
         {
           STRING screenref := MakeAbsoluteScreenReference("", this->currentapplication.screen);
-          STRING screenfile := GetResourceNameFromScreenPath(screenref);
-          RECORD parsedpage := GetParsedPage(screenfile, MakeSelector("screen",GetScreenNameFromScreenPath(screenref)), "screen");
+          RECORD parsedpage := GetParsedPage(screenref, "screen");
 
           lib := Tokenize(parsedpage.objtype,'#')[0];
         }
@@ -1973,7 +1972,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RECORD parsedpage;
     TRY
     {
-      parsedpage := GetParsedPage(GetResourceNameFromScreenPath(loaddata.screen), MakeSelector("screen",GetScreenNameFromScreenPath(loaddata.screen)),"screen");
+      parsedpage := GetParsedPage(loaddata.screen, "screen");
     }
     CATCH (OBJECT< RetrieveResourceException > e)
     {

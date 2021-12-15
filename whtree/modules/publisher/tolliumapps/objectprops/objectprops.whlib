@@ -142,12 +142,11 @@ OBJECTTYPE ObjectPropsAPI
   {
     STRING extensionsname := GetScreenNameFromScreenPath(extension);
     this->objectprops->__DoAddTab( CELL[ contenttype := whfstype
-                                       , extension := extensionsname
+                                       , tabsextension := extension
                                        , isundo := FALSE
                                        , mask := ""
                                        , name := extensionsname
                                        , selector := extensionsname
-                                       , siteprofile := GetResourceNameFromScreenPath(extension)
                                        , taboptions := taboptions
                                        ]);
   }
@@ -299,7 +298,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   {
     this->startdata := data;
     this->isduplicate := this->startdata.why = "duplicate";
-    this->pending_errors := SELECT AS STRING ARRAY `Extension '${name}' from '${siteprofile}' is not loaded, because it caused an error while loading:\n${error}`
+    this->pending_errors := SELECT AS STRING ARRAY `Extension '${extension}' is not loaded, because it caused an error while loading:\n${error}`
                               FROM data.faultypropeditors;
 
     // Read the user settings
@@ -1174,7 +1173,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       CATCH (OBJECT<TolliumException> e)
       {
         LogHarescriptException(e);
-        THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e);
+        THROW NEW PropertyEditorException(extendprop.extension, e);
       }
       CATCH (OBJECT e)
       {
@@ -1201,7 +1200,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         CATCH (OBJECT<TolliumException> e)
         {
           LogHarescriptException(e);
-          THROW NEW PropertyEditorException(extendprop.siteprofile, extendprop.name ?? extendprop.selector, e);
+          THROW NEW PropertyEditorException(extendprop.extension, e);
         }
         CATCH (OBJECT e)
         {
@@ -1262,7 +1261,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     FOREVERY(RECORD propeditor FROM this->extendprops)
     {
       // If we're not supposed to load the property editor because of an error, continue to the next
-      RECORD skipreason := SELECT error FROM skipeditors WHERE name = (propeditor.name ?? propeditor.selector);
+      RECORD skipreason := SELECT error FROM skipeditors WHERE extension = propeditor.tabsextension;
       IF (RecordExists(skipreason))
         CONTINUE;
 
@@ -1295,8 +1294,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         IF(isseotab)
           ^maintabs->extendposition := 1;
 
-        RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.siteprofile || "#" || propeditor.selector
-                                                              ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
+        RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.tabsextension
+                                                         ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
 
         IF(isseotab)
           ^maintabs->extendposition := currentinsertposition + 1;
@@ -1324,7 +1323,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         LogHarescriptException(e);
         // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
         // the component, so we can skip this propertyeditor in the next initialization.
-        THROW NEW PropertyEditorException(propeditor.siteprofile, propeditor.name ?? propeditor.selector, e);
+        THROW NEW PropertyEditorException(propeditor.extension, e);
       }
     }
   }

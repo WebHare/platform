@@ -308,7 +308,7 @@ PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECOR
     STRING resourcename := GetResourceNameFromScreenPath(item);
     STRING screenname := GetScreenNameFromSCreenPath(item);
     RECORD docinfo := RetrieveCachedXMLResource(resourcename);
-    RECORD parsedpage := ParseXMLPage(resourcename, `/*/*[@name="${EncodeJava(screenname)}"]`, docinfo.doc, "screen"/*type*/, "");
+    RECORD parsedpage := ParseXMLPage(resourcename, screenname, "screen", docinfo.doc, "");
 
     IF(NOT RecordExists(parsedpage))
       THROW NEW Exception(`Did not find screen ${screenname} in ${resourcename}`);
