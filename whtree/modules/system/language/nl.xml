@@ -2355,7 +2355,7 @@
       <text tid="viewsearchbar">Zoeken</text>
     </textgroup>
     <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
-      <text tid="deniedexplain">Bureaubladmeldingen in de browser worden geblokkeerd.</text>
+      <text tid="deniedexplain">U heeft meldingen op het bureaublad in uw browser geblokkeerd.</text>
       <text tid="displaybrowserexplain">Berichten worden in de browser getoond</text>
       <text tid="displaydesktopexplain">Berichten worden weergegeven op het bureaublad</text>
       <text tid="grantedexplain">Je hebt deze applicatie het recht gegeven om bureaubladmeldingen te tonen.</text>
