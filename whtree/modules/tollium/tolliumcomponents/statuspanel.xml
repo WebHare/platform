@@ -1,0 +1,16 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="statuspanel.whlib">
+
+  <fragment name="StatusPanel" contentpanel="contents">
+    <contents>
+      <panel name="panel" minheight="1gr" borders="bottom">
+        <grid>
+          <cell name="iconcell" spacers="left right">
+            <image name="icon" width="16px" height="16px" />
+          </cell>
+          <cell name="contents" width="1pr" spacers="right" />
+        </grid>
+      </panel>
+    </contents>
+  </fragment>
+
+</screens>

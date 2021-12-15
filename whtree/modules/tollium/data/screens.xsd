@@ -2036,6 +2036,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element ref="richdocument" />
       <xs:element name="rte" type="RTE"/>
       <xs:element name="split" type="Split"/>
+      <xs:element ref="statuspanel" />
       <xs:element name="table" type="Table" />
       <xs:element name="tabs" type="Tabs"/>
       <xs:element name="wizard" type="Wizard"/>
@@ -3800,6 +3801,31 @@ To change a <xs:attribute /> for adding descriptions
               Set to false to suppress the &lt;hr> closing a box
             </xs:documentation>
           </xs:annotation>
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="StatusPanel">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/statuspanel.xml#StatusPanel" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="Panel">
+        <xs:attribute name="type" default="info">
+          <xs:annotation>
+            <xs:documentation>Statuspanel type. Determines icon and/or background colors. 'info', 'warning' or 'error'
+            </xs:documentation>
+          </xs:annotation>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="info" />
+              <xs:enumeration value="warning" />
+              <xs:enumeration value="error" />
+            </xs:restriction>
+          </xs:simpleType>
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>
@@ -6149,6 +6175,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="select" type="Select"/>
   <xs:element name="slider" type="Slider" />
   <xs:element name="spacer" type="Spacer"/>
+  <xs:element name="statuspanel" type="StatusPanel"/>
   <xs:element name="split" type="Split"/>
   <xs:element name="table" type="Table" />
   <xs:element name="tabs" type="Tabs"/>

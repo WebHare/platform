@@ -86,28 +86,18 @@
     </toolbar>
 
     <body name="body" spacers="none">
-      <panel name="draftbar" height="1gr" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
-        <grid width="1pr" height="1gr">
-          <!-- col/ -->
-          <col width="1pr" />
-          <col />
-          <row>
-            <cell>
-              <line>
-                <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
-              </line>
-            </cell>
-            <cell>
-              <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
-              <text name="draftbar_cancelrequest"
-                    action="cancelrequest"
-                    title=""
-                    valuetid=".cancelrequestmenu"
-                    visible="false" />
-            </cell>
-          </row>
-        </grid>
-      </panel>
+      <statuspanel name="draftbar" visible="false">
+        <line>
+          <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
+          <spacer width="1pr" />
+          <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
+          <text name="draftbar_cancelrequest"
+                action="cancelrequest"
+                title=""
+                valuetid=".cancelrequestmenu"
+                visible="false" />
+        </line>
+      </statuspanel>
       <split name="editarea" height="1pr" type="horizontal">
         <part name="doceditor" width="2pr">
         </part>
