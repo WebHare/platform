@@ -11,4 +11,4 @@ MACRO RunBody(OBJECT testcontext)
 
 InvokeTestPage(PTR RunBody, [ jsfile := "dompackexample.es"
                             , isolatestorage := GetWebVariable("isolatestorage") != ""
-                             ]);
+                            ]);

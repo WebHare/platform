@@ -214,8 +214,16 @@
 [/component]
 
 [component dialog]
+  <div>
+    <label>input field 1: <input type="text" id="inputfield1"></label>
+  </div>
+  <div>
+    <label>input field 2: <input type="text" autofocus id="inputfield2"></label>
+  </div>
   <div data-dialog-counter="0">
     <button class="opendialog">Open a dialog</button>
+    <button class="opendialognoinputs">with no inputs</button>
+    <button class="opendialognocancel">without cancel</button>
   </div>
   <div id="dialoglog"></div>
 [/component]
