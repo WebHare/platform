@@ -77,7 +77,6 @@
             newcontextmenu="newcontextmenu"
             onselect="onselecthandler"
             openaction="edit"
-            icons="tollium:users/user tollium:users/mask tollium:status/checked tollium:status/unknown tollium:objects/lock tollium:users/manager tollium:status/positive"
             gid="userrights.columns"
             borders="all"
             emptytid="userrights.empty.usersinunits"

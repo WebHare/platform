@@ -232,7 +232,7 @@ PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
     RECORD ARRAY rows :=
         SELECT rowkey :=        "grant_" || grantid || "_" || grantedright
              , authobjectparentid := userrole.authobjectparentid
-             , icon :=          userrole.icon
+             , icon :=          ^authobjectlistbyobject->GetIcon(userrole.icon)
              , name :=          userrole.name
              , type :=          userrole.type
              , wrd_id :=        userrole.wrd_id
@@ -275,7 +275,7 @@ PUBLIC OBJECTTYPE ObjectRightsList EXTEND TolliumFragmentBase
     RECORD ARRAY tree :=
         SELECT *
              , rowkey :=        parentrow.rowkey || "_role_" || parentrow.wrd_id || "_user_" || wrd_id
-             , icon :=          1 // user
+             , icon :=          ^authobjectlistbyobject->GetIcon(icon)
              , objectpath :=    ""
              , canmanage :=     this->contexts->userapi->GetUser(wrd_id)->HasRightOn("system:manageroles", authobjectid)
              , isrole :=        FALSE

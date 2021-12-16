@@ -37,7 +37,6 @@
               borders="bottom "
               openaction="showobject"
               ongetchildren="showsearchresults"
-              icons="tollium:users/user tollium:users/mask tollium:users/users tollium:status/checked tollium:security/lock_closed tollium:users/manager"
               rowlayout="tworows"
               gid="userrights.columns"
               >

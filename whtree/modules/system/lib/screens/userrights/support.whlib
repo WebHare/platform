@@ -157,90 +157,6 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithUnitPath(RECORD ARRAY userlist, OBJECT us
 // Unit trees
 //
 
-/** Returns a tree of all units visible for a user
-    @param user
-    @return Tree of units (root has rowkey -1!)
-*/
-PUBLIC RECORD ARRAY FUNCTION GetStaticUnitTree(OBJECT authapi, OBJECT user)
-{
-  BOOLEAN root_manageunit := user->HasRightOn("system:manageunit", 0);
-  BOOLEAN root_manageroles := user->HasRightOn("system:manageroles", 0);
-
-  INTEGER ARRAY root_manageunit_ids := root_manageunit ? DEFAULT INTEGER ARRAY : GetRootObjectsForRights([ "system:manageunit" ], user->EnsureAuthObject());
-  INTEGER ARRAY root_manageroles_ids := root_manageroles ? DEFAULT INTEGER ARRAY : GetRootObjectsForRights([ "system:manageroles" ], user->EnsureAuthObject());
-
-  RECORD ARRAY allunits := authapi->wrd_unit->RunQuery(
-      [ outputcolumns :=
-            [ wrd_id :=       "WRD_ID"
-            , parent :=       "WRD_LEFTENTITY"
-            , title :=        "WRD_TITLE"
-            , description :=  "WHUSER_COMMENT"
-            , wrd_guid :=     "WRD_GUID"
-            ]
-      ]);
-
-  IF(NOT root_manageunit OR NOT root_manageroles) //for non-sysops, we need extra info because we need to do deep-tree right cehcks
-    allunits := EnrichWithAuthObjectIds(allunits);
-
-  RETURN
-      [ [ rowkey :=             -1
-        , wrd_id :=             0
-        , title :=              GetTid("system:userrights.unitroot")
-        , parent :=             0
-        , type :=               2
-        , subnodes :=           GetStaticUnitTreeIterate(0, user, root_manageunit, root_manageunit_ids, root_manageroles, root_manageroles_ids, allunits)
-        , icon :=               2
-        , iconoverlay :=        0
-        , expanded :=           TRUE
-        , canmanageunit :=      root_manageunit
-        , canmanageroles :=     root_manageroles
-        , candelete :=          FALSE
-        , canselect :=          TRUE
-        , isroot :=             TRUE
-        ]
-      ];
-}
-
-
-/** @param unitparent Id of parent
-    @param user User object
-    @param manageunit Whether user has has system:manageunit right on parent
-    @param root_manageunit_ids Ids of root right-objects for right system:manageunit
-    @param manageroles Whether user has has system:manageroles right on parent
-    @param root_manageroles_ids Ids of root right-objects for right system:manageroles
-*/
-RECORD ARRAY FUNCTION GetStaticUnitTreeIterate(INTEGER unitparent, OBJECT user, BOOLEAN manageunit, INTEGER ARRAY root_manageunit_ids, BOOLEAN manageroles, INTEGER ARRAY root_manageroles_ids, RECORD ARRAY allunits)
-{
-  BOOLEAN unbrowsable_root := unitparent = 0 AND NOT MyIsAuthObjectVisibleFor(0, user);
-
-  RECORD ARRAY nodes :=
-      SELECT rowkey :=          wrd_id
-           , wrd_id
-           , title
-           , parent
-           , icon :=            2
-           , iconoverlay :=     0
-           , expanded :=        FALSE
-           , canmanageunit :=   manageunit OR (authobjectid IN root_manageunit_ids)
-           , canmanageroles :=  manageroles OR (authobjectid IN root_manageroles_ids)
-           , canselect :=       TRUE
-           , candelete :=       manageunit
-           , isroot :=          FALSE
-           , draginfo :=        [ type := "system:unit"
-                                , data :=
-                                      [ wrd_id :=     wrd_id
-                                      , candelete :=  manageunit
-                                      ]
-                                ]
-        FROM allunits
-       WHERE (unbrowsable_root ? (authobjectid IN GetRootViewableUnitAuthobjects(user)) : (parent = unitparent))
-    ORDER BY ToUppercase(title);
-
-  RETURN
-      SELECT *
-           , subnodes :=        GetStaticUnitTreeIterate(rowkey, user, COLUMN canmanageunit, root_manageunit_ids, COLUMN canmanageroles, root_manageroles_ids, allunits)
-        FROM nodes;
-}
 
 PUBLIC STRING FUNCTION GetAuthObjectPresentationName(OBJECT context, OBJECT wrdauthobj)
 {
@@ -332,10 +248,8 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithOpenAs(RECORD ARRAY usersroles, OBJECT to
     @cell(integer) return.authobjectid Authobject id of the user
     @cell(integer) return.authobjectidparentid Authobject id of the parent unit
     @cell(datetime) return.lastlogin Last login date
-    @cell(integer) return.online Online status icon (3: online, 5: disabled)
     @cell(string) return.fullname Full name
     @cell(string) return.comment Comment
-    @cell(boolean) return.online_login Sort value for online status
     @cell(string) return.name Login name of the user
     @cell(string) return.email E-mail address
     @cell(integer) return.type Always 1 (user)
@@ -364,7 +278,6 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
         , filters :=       filters
        ]);
   userlist := EnrichWithAuthObjectIds(userlist);
-  INTEGER ARRAY onlineusers := GetOnlineUsersIDs();
 
   INTEGER ARRAY visible_authobjects := FilterAuthObjectsVisibleFor((SELECT AS INTEGER ARRAY authobjectid FROM userlist), tolliumuser);
   DELETE FROM userlist WHERE authobjectid NOT IN visible_authobjects;
@@ -386,14 +299,12 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
                    , authobjectparentid
                    , disabled :=        disabled
                    , lastlogin
-                   , online :=          disabled ? 5 : authobjectid IN onlineusers ? 3 : 0 //FIXME want to detect onlineusers by WRDID, not USERID
                    , fullname :=        realname
                    , comment :=         comment
-                   , online_login :=    (authobjectid IN onlineusers ? 0 : 1) || realname
                    , name :=            login
                    , email
                    , type :=            1 // user
-                   , icon :=            disabled ? 5 : issysop ? 6 : 1
+                   , icon :=            disabled ? "tollium:objects/lock" : issysop ? "tollium:users/manager" : "tollium:users/user"
                    , isrole :=          FALSE
                    , canedit :=         canedit
                    , candelete :=       candelete
@@ -416,10 +327,8 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
     @cell(integer) return.authobjectid Authobject id of the role
     @cell(integer) return.authobjectidparentid Authobject id of the parent unit
     @cell(datetime) return.lastlogin Last login date, always DEFAULT DATETIME
-    @cell(integer) return.online Online status icon, always 0
     @cell(string) return.fullname Full name, always empty
     @cell(string) return.comment Comment
-    @cell(boolean) return.online_login Sort value for online status
     @cell(string) return.name Name of the role
     @cell(string) return.email E-mail address
     @cell(integer) return.type Always 3 (role)
@@ -456,14 +365,12 @@ PUBLIC RECORD ARRAY FUNCTION GetRolesByFilter(OBJECT controller, RECORD ARRAY fi
            , authobjectid
            , authobjectparentid
            , lastlogin := DEFAULT DATETIME
-           , online :=          0
            , fullname :=        ""
            , comment :=         comment
-           , online_login :=    "2_" || wrd_title // used to make online column sort on online status+name
            , name :=            wrd_title
            , email :=           ""
            , type :=            3 // role
-           , icon :=            2
+           , icon :=            "tollium:users/mask"
            , isrole :=          TRUE
            , canedit :=         authobjectparentid IN canmanageroles OR authobjectid IN canmanageroles
            , candelete :=       authobjectparentid IN canmanageroles
@@ -483,7 +390,6 @@ PUBLIC RECORD ARRAY FUNCTION GetRolesByFilter(OBJECT controller, RECORD ARRAY fi
     @cell(integer) return.unit WRD id of the parent unit
     @cell(integer) return.authobjectid Authobject id of the unit
     @cell(integer) return.authobjectidparentid Authobject id of the parent unit
-    @cell(integer) return.online Online status icon, always 0
     @cell(string) return.fullname Full name, always empty
     @cell(string) return.comment Comment
     @cell(string) return.name Name of the unit
@@ -518,13 +424,12 @@ PUBLIC RECORD ARRAY FUNCTION GetUnitsByFilter(OBJECT controller, RECORD ARRAY fi
            , unit :=            wrd_id
            , authobjectid
            , authobjectparentid
-           , online :=          0
            , fullname :=        ""
            , comment :=         comment
            , name :=            wrd_title
            , email :=           ""
            , type :=            2 // unit
-           , icon :=            3
+           , icon :=            "tollium:users/users"
            , isrole :=          FALSE
            , canedit :=         authobjectid IN canmanageunits OR wrd_id IN canmanageunits
            , candelete :=       authobjectid IN canmanageunits

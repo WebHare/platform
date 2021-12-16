@@ -32,6 +32,7 @@ PUBLIC OBJECTTYPE UserRoleSearch EXTEND TolliumFragmentBase
                  filters := ConstructSearchFilters(term, "unit", GetFieldsFor(searchablefields.unit, "unit", this->tolliumcontroller));
     RECORD ARRAY filteredunits := GetUnitsByFilter(this->owner->tolliumcontroller, filters, this->owner->tolliumuser);
     this->results := EnrichWithUnitPath(filteredusers CONCAT filteredroles CONCAT filteredunits, this->owner->tolliumuser);
+    this->results := SELECT *, icon := ^searchresults->GetIcon(icon) FROM this->results;
 
     FOREVERY(RECORD result FROM this->results)
     {

@@ -34,7 +34,6 @@
             width="1pr"
             newcontextmenu="newcontextmenu"
             selectmode="multiple"
-            icons="tollium:users/user tollium:users/mask tollium:status/users tollium:status/unknown tollium:objects/lock tollium:users/manager"
             openaction="edit"
             ongetchildren="ongetchildrows"
             ongetpath="ongetpath"
