@@ -96,6 +96,7 @@ function validateKeyName(key)
     options.stopmapped - preventDefault and stopPropagation on any key we have in our map
     options.dontpropagate - string array of keys not to propagate out of this object
     options.onkeypress - when set, call for all keypresses. signature: function(event, key). Should always return true and preventDefault (and/or stop) the event to cancel its handling
+    options.listenoptions - addEventListener options (eg {capture:true})
 */
 export default class KeyboardHandler
 {

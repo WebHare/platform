@@ -173,7 +173,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
 
       ^sitedesign->value := sitesettings.sitedesign ?? "publisher:nodesign";
 
-      IF (this->cursite.versioningpolicy!="")
+      IF (this->cursite.versioningpolicy != "" AND ^outputweb->value != 0) //not allowed to change the output location of a versioned site, unless it's not published yet
       {
         ^outputweb->enabled := FALSE;
         ^outputfolder->enabled := FALSE;

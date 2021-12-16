@@ -126,10 +126,6 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
 
   CreateDiskDirectoryRecursive(destpath, TRUE);
   InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/modules/templates/module/", destpath, data);
-  RunModuleHookTarget("system:devtools_modulecreation", [ module := modulename
-                                                        , destpath := destpath
-                                                        ]);
-
   IF(options.moduledefinition != "")
     StoreDiskFile(MergePath(destpath, "moduledefinition.xml"), StringToBlob(options.moduledefinition), [ overwrite := TRUE ]);
   IF(options.aftermodulecreation != DEFAULT MACRO PTR)
