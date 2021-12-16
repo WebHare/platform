@@ -439,7 +439,7 @@ MACRO TestIconValidation()
     `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
         <screen name="listtest" implementation="none">
           <body>
-            <list name="iconstest" icons="webhare_testsuite:testicon_1 webhare_testsuite:nosuchicon_1 testicon_2 nosuchicon_2 badicon+badoverlay" />
+            <list name="iconstest" icons="webhare_testsuite:testicon_1 webhare_testsuite:nosuchicon_1 testicon_2 nosuchicon_2 badicon+badoverlay testicon_whiteonly" />
           </body>
         </screen>
      </screens>`) ]);
@@ -449,6 +449,19 @@ MACRO TestIconValidation()
          ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_1\'' ]
          ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_2\'' ]
          ], SELECT line, message FROM res.errors);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := StringToBlob(
+    `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+        <screen name="listtest" implementation="none">
+          <toolbar>
+            <button icon="testicon_whiteonly" />
+          </toolbar>
+          <body>
+          </body>
+        </screen>
+     </screens>`) ]);
+
+  TestEq(RECORD[], SELECT line, message FROM res.errors);
 }
 
 MACRO TestValidateWitty()
