@@ -151,24 +151,28 @@ let dialogcount = 0;
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
-dompack.register('.opendialog', node => node.addEventListener("click", async function(evt)
-  {
-    dompack.stop(evt);
+async function doOpenDialog(evt, {noinputs,allowcancel} = {})
+{
+  dompack.stop(evt);
 
-    let dialog = dialogapi.createDialog();
-    let mydialognr = ++dialogcount;
-    dialog.contentnode.innerHTML = `
-      <div data-dialog-counter="${mydialognr}">
-        <p>Dialog: <span class="dialogcounter">${mydialognr}</span> <input name="textedit${mydialognr}"/></p>
-        <button class="return1">Return 1</button>
-        <button class="returnyeey">Return 'yeey'</button>
-        <button class="opendialog">Open another!</button>
+  let dialog = dialogapi.createDialog({ allowcancel: allowcancel !== false});
+  let mydialognr = ++dialogcount;
+  dialog.contentnode.innerHTML = `
+    <div data-dialog-counter="${mydialognr}">
+      <p>Dialog: <span class="dialogcounter">${mydialognr}</span> ${noinputs ? "" : `<input id="textedit${mydialognr}">`}</p>
+      <button id="button_return1_${mydialognr}" class="return1">Return 1</button>
+      <button id="button_returnyeey_${mydialognr}" class="returnyeey">Return 'yeey'</button>
+      <button id="button_opendialog_${mydialognr}" class="opendialog">Open another!</button>
+    </div>`;
 
-      </div>`;
+  dialog.contentnode.querySelector('.return1').addEventListener("click", () => dialog.resolve(1));
+  dialog.contentnode.querySelector('.returnyeey').addEventListener("click", () => dialog.resolve("yeey"));
 
-    dialog.contentnode.querySelector('.return1').addEventListener("click", () => dialog.resolve(1));
-    dialog.contentnode.querySelector('.returnyeey').addEventListener("click", () => dialog.resolve("yeey"));
+  let response = await dialog.runModal();
+  dompack.qS("#dialoglog").innerHTML += `<div class="dialoglogentry" data-for-dialog="${mydialognr}">Dialog ${mydialognr}: <span class="dialogresponse" data-for-dialog="${mydialognr}">${JSON.stringify(response)}</div>`;
+}
 
-    let response = await dialog.runModal();
-    dompack.qS("#dialoglog").innerHTML += `<div class="dialoglogentry" data-for-dialog="${mydialognr}">Dialog ${mydialognr}: <span class="dialogresponse" data-for-dialog="${mydialognr}">${JSON.stringify(response)}</div>`;
-  }));
+//use mousedown so the buttons wont affect focus
+dompack.register('.opendialog', node => node.addEventListener("mousedown", evt => doOpenDialog(evt)));
+dompack.register('.opendialognoinputs', node => node.addEventListener("mousedown", evt => doOpenDialog(evt, { noinputs: true })));
+dompack.register('.opendialognocancel', node => node.addEventListener("mousedown", evt => doOpenDialog(evt, { allowcancel: false })));

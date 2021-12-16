@@ -5,30 +5,36 @@
 */
 
 import * as dompack from 'dompack';
+import * as domfocus from 'dompack/browserfix/focus';
+import KeyboardHandler from "dompack/extra/keyboard";
 
 let dialogstack;
-let havekeyhandler;
+let keyhandler;
 let dialogconstructor = null;
 let dialogoptions = null;
 
-function dialogKeyDownHandler(event)
+function onEscape(event)
 {
   if(!dialogstack.length)
     return;
 
-  let currentdialog = dialogstack[dialogstack.length-1];
-  if(event.keyCode == 27) //TODO this will break at some point once dialogs contain controls that need Esc to work
-  {
-    dompack.stop(event);
-    if(currentdialog.options.allowcancel)
-      currentdialog.resolve(null);
-    return;
-  }
+  dompack.stop(event);
+  if(dialogstack[dialogstack.length-1].options.allowcancel)
+    dialogstack[dialogstack.length-1].resolve(null);
+}
 
-  if(currentdialog.holdernode.contains(event.target))
-    return; //key events targetted to our dialog are okay
+function onTab(event, direction)
+{
+  if(!dialogstack.length)
+    return;
 
   dompack.stop(event);
+
+  let focusable = domfocus.getFocusableComponents(dialogstack[dialogstack.length-1].contentnode, true);
+  let tofocusidx = focusable.indexOf(domfocus.getCurrentlyFocusedElement()) + direction;
+  let tofocus = tofocusidx< 0 ? focusable[focusable.length-1] : tofocusidx >= focusable.length ? focusable[0] : focusable[tofocusidx];
+  if(tofocus)
+    dompack.focus(tofocus);
 }
 
 export class DialogBase
@@ -65,15 +71,19 @@ export class DialogBase
 
   async runModal()
   {
+    if(this.open)
+      throw new Error("Attempting to re-open already opened dialog");
+
     if(!dialogstack)
       dialogstack = [];
 
-    if(!havekeyhandler)
-    {
-      havekeyhandler = true;
-      document.addEventListener("keydown", dialogKeyDownHandler, true);
-    }
+    if(!keyhandler)
+      keyhandler = new KeyboardHandler(window, { "Escape": evt => onEscape(evt)
+                                               , "Tab": evt => onTab(evt, +1)
+                                               , "Shift+Tab": evt => onTab(evt, -1)
+                                               }, { captureunsafekeys: true, listenoptions: { capture: true }});
 
+    this._previousfocus = domfocus.getCurrentlyFocusedElement();
     this._openDialog();
 
     this.open = true;
@@ -82,6 +92,7 @@ export class DialogBase
     try
     {
       this.afterShow();
+      this._checkFocus();
       return await this._deferred.promise;
     }
     finally
@@ -94,6 +105,15 @@ export class DialogBase
   _openDialog()
   {
     throw new Error("_openDialog not overridden by dialog class");
+  }
+
+  _checkFocus()
+  {
+    let focusable = domfocus.getFocusableComponents(this.contentnode, true);
+    if(focusable.length != 0)
+      dompack.focus(focusable[0]);
+    else
+      dompack.focus(document.body);
   }
 
   //close the dialog. this may be invoked even when inside runModal to ensure synchronous dialog cleanup
@@ -115,6 +135,14 @@ export class DialogBase
 
     if(this.options.focusonclose)
       dompack.focus(this.options.focusonclose);
+    else if(this._previousfocus)
+      dompack.focus(this._previousfocus);
+
+    if(dialogstack.length == 0 && keyhandler)
+    {
+      keyhandler.destroy();
+      keyhandler = null;
+    }
   }
 
   //resolve the dialog with the specified answer

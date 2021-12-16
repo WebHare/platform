@@ -107,6 +107,7 @@ export default class KeyboardHandler
     this.dontpropagate = options && options.dontpropagate ? [...options.dontpropagate].map(name => name.toUpperCase()) : [];
     this.onkeypress = options&&options.onkeypress;
     this.captureunsafekeys = options&&options.captureunsafekeys;
+    this._listenoptions = (options && options.listenoptions) || {};
 
     Object.keys(keymap).forEach(keyname =>
     {
@@ -115,8 +116,16 @@ export default class KeyboardHandler
       this.keymap[keyname.toUpperCase()] = keymap[keyname];
     });
 
-    node.addEventListener('keydown',  (event) => this._onKeyDown(event) );
-    node.addEventListener('keypress', (event) => this._onKeyPress(event) );
+    this._onkeydown = (event) => this._onKeyDown(event);
+    this._onkeypress = (event) => this._onKeyPress(event);
+    node.addEventListener('keydown',  this._onkeydown, this._listenoptions);
+    node.addEventListener('keypress', this._onkeypress, this._listenoptions);
+  }
+
+  destroy()
+  {
+    this.node.removeEventListener('keydown',  this._onkeydown, this._listenoptions);
+    this.node.removeEventListener('keypress', this._onkeypress, this._listenoptions);
   }
 
   /** Returns thether the current pressed special key should be ignored for the current target node
