@@ -126,10 +126,14 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
   RECORD ARRAY all_errors;
   RECORD ARRAY all_warnings;
   BOOLEAN pvt_terminated;
+  BOOLEAN _cancelled;
 
   PUBLIC PROPERTY errors(all_errors, -);
   PUBLIC PROPERTY warnings(all_warnings, -);
   PUBLIC PROPERTY terminated(pvt_terminated, -);
+
+  ///(@type boolean) If true, this work has been explicitly Cancel()-ed
+  PUBLIC PROPERTY cancelled(_cancelled, -);
 
   MACRO NEW(OBJECT transaction, STRING mutex)
   {
@@ -280,24 +284,27 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
     }
     ELSE
     {
-      this->Cancel(); //ADDME: clean up, dubbel werk via de verschillende paden...
+      this->Terminate(); //ADDME: clean up, dubbel werk via de verschillende paden...
     }
   }
-  /** @short Cancel this work
 
-    @long This function cancels this work, and rolls back any changes made. It does not report
-          anything. If called after Finish, it is ignored.
+  /** @short Cancel this work
+      @long This function cancels this work, and rolls back any changes made. It does not report anything. If called after Finish, it is ignored.
   */
   PUBLIC MACRO Cancel()
   {
-    // Already committed?
+    this->_cancelled := TRUE;
+    this->Terminate();
+  }
+
+  MACRO Terminate()
+  {
     IF(this->terminated)
       RETURN;
 
     IF(ObjectExists(this->transaction))
-    {
       this->transaction->RollbackWork();
-    }
+
     this->pvt_terminated := TRUE;
   }
 >;
