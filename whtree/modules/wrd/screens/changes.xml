@@ -15,7 +15,7 @@
                 ongetchildren="OnGetChangeRows"
                 onselect="GotChangeSelect"
                 borders="left top bottom"
-                icons="tollium:status/new tollium:actions/edit tollium:actions/trash tollium:actions/unknown tollium:users/user tollium:objects/star"
+                icons="tollium:status/new tollium:actions/edit tollium:actions/trash tollium:status/unknown tollium:users/user tollium:objects/star"
                 >
             <column name="when" type="text" tree="true" iconname="icon" />
             <column name="user" type="text" />

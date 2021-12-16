@@ -134,6 +134,7 @@ STATIC OBJECTTYPE PageParser
   PUBLIC RECORD ARRAY bb_levels;
 
   PUBLIC RECORD ARRAY tolliumscopes;
+  PUBLIC RECORD ARRAY iconreferences;
   RECORD ARRAY seennames;
   PUBLIC STRING resourcename;
 
@@ -277,6 +278,21 @@ STATIC OBJECTTYPE PageParser
   PUBLIC STRING FUNCTION GetCurrentGid()
   {
     RETURN this->bb_levels[0].gid;
+  }
+
+  PUBLIC STRING FUNCTION ParseImageSrc(OBJECT node, STRING value)
+  {
+    STRING iconref := ReadIconRef(curpageparser->GetCurrentModule(), value);
+    IF(iconref != "")
+    {
+      INSERT CELL[ scope := CELL[ resourcename := this->GetCurrentResourceName()
+                                , line := node->linenum
+                                , col := 0
+                                ]
+                 , icon := iconref
+                 ] INTO this->iconreferences AT END;
+    }
+    RETURN iconref;
   }
 
   /** Parse a specific textpointer from a node. Captures used tids.
@@ -1137,17 +1153,6 @@ PUBLIC STRING FUNCTION ReadNameAttr(OBJECT el)
   ELSE
     RETURN curpageparser->CreateAnonymousName();
 }
-STRING FUNCTION ReadIconRef(STRING iconref)
-{
-  RETURN ParseIconPointer(curpageparser->GetCurrentModule(), iconref);
-}
-PUBLIC STRING FUNCTION ReadIconAttr(OBJECT el, STRING attrname, STRING defaultvalue)
-{
-  IF (el->HasAttribute(attrname))
-    RETURN ReadIconRef(el->GetAttribute(attrname));
-  ELSE
-    RETURN defaultvalue;
-}
 PUBLIC STRING FUNCTION ReadGidAttr(OBJECT el, STRING currentmodule, STRING gidsofar)
 {
   IF(NOT el->HasAttribute('gid'))
@@ -1175,7 +1180,7 @@ RECORD FUNCTION ReadHandlerRef(STRING handlername, INTEGER ARRAY callback_signat
   DELETE FROM callback_signature AT 0;
 
   RETURN [ name       := handlername // handlername defined in screen
-         , req_retval := callback_rettype   // expected returnvalue type
+         , req_retval := callback_rettype   // expected retval type
          , req_args   := callback_signature // types of expected arguments
          ];
 }
@@ -1787,7 +1792,11 @@ VARIANT FUNCTION GetXMLFieldStoreValue(OBJECT element, STRING ns, STRING attrnam
       }
       CASE "iconpointer"
       {
-        RETURN ReadIconRef(inputvalue);
+        RETURN curpageparser->ParseImageSrc(element, inputvalue);
+      }
+      CASE "iconpointerlist"
+      {
+        RETURN SELECT AS STRING ARRAY curpageparser->ParseImageSrc(element, val) FROM ToRecordArray(ParseXSList(inputvalue), "val");
       }
       CASE "componentreflist"
       {
@@ -2214,16 +2223,16 @@ PUBLIC OBJECT FUNCTION SelectPageNode(OBJECT screendoc, STRING selector, STRING 
   RETURN DEFAULT OBJECT;
 }
 
-PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, STRING resourcetype, OBJECT screendoc, STRING initialgid)
+PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, STRING resourcetype, OBJECT screendoc, STRING initialgid, BOOLEAN validating)
 {
   OBJECT node := SelectPageNode(screendoc, selector, resourcetype);
   IF(NOT ObjectExists(node))
     RETURN DEFAULT RECORD;
 
-  RETURN ParseFoundXMLPage(resourcename, resourcetype, node, initialgid);
+  RETURN ParseFoundXMLPage(resourcename, resourcetype, node, initialgid, FALSE);
 }
 
-PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, STRING resourcetype, OBJECT screen, STRING initialgid)
+PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, STRING resourcetype, OBJECT screen, STRING initialgid, BOOLEAN validating)
 {
   STRING scope := resourcetype = "screen" ? "" : "fragment";
 
@@ -2259,7 +2268,12 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, STRING resourcetyp
 
     curpageparser->FinishXMLNode(frame);
 
-    RETURN curpageparser->GetFinalPage();
+    RECORD retval := curpageparser->GetFinalPage();
+    IF(validating)
+      retval := CELL[ ...retval
+                    , iconreferences := curpageparser->iconreferences
+                    ];
+    RETURN retval;
   }
   FINALLY
   {
@@ -2273,7 +2287,7 @@ RECORD FUNCTION GetCacheableParsedPage(STRING resource, STRING resourcetype)
   RECORD docinfo := RetrieveCachedValidatedScreen(resourcetoks[0]);
 
   STRING gid := docinfo.doc->documentelement->GetAttribute("gid");
-  RECORD parsedpage := ParseXMLPage(resourcetoks[0], resourcetoks[1], resourcetype, docinfo.doc, gid);
+  RECORD parsedpage := ParseXMLPage(resourcetoks[0], resourcetoks[1], resourcetype, docinfo.doc, gid, FALSE);
   IF(NOT RecordExists(parsedpage))
     THROW NEW Exception(`Unable to open ${resourcetype} ${resource}`);
 

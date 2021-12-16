@@ -7,9 +7,94 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
-//LOADLIB "mod::system/lib/screens/userrights/exports.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 
+
+/** Returns a tree of all units visible for a user
+    @param user
+    @return Tree of units (root has rowkey -1!)
+*/
+RECORD ARRAY FUNCTION GetStaticUnitTree(OBJECT authapi, OBJECT user)
+{
+  BOOLEAN root_manageunit := user->HasRightOn("system:manageunit", 0);
+  BOOLEAN root_manageroles := user->HasRightOn("system:manageroles", 0);
+
+  INTEGER ARRAY root_manageunit_ids := root_manageunit ? DEFAULT INTEGER ARRAY : GetRootObjectsForRights([ "system:manageunit" ], user->EnsureAuthObject());
+  INTEGER ARRAY root_manageroles_ids := root_manageroles ? DEFAULT INTEGER ARRAY : GetRootObjectsForRights([ "system:manageroles" ], user->EnsureAuthObject());
+
+  RECORD ARRAY allunits := authapi->wrd_unit->RunQuery(
+      [ outputcolumns :=
+            [ wrd_id :=       "WRD_ID"
+            , parent :=       "WRD_LEFTENTITY"
+            , title :=        "WRD_TITLE"
+            , description :=  "WHUSER_COMMENT"
+            , wrd_guid :=     "WRD_GUID"
+            ]
+      ]);
+
+  IF(NOT root_manageunit OR NOT root_manageroles) //for non-sysops, we need extra info because we need to do deep-tree right cehcks
+    allunits := EnrichWithAuthObjectIds(allunits);
+
+  RETURN
+      [ [ rowkey :=             -1
+        , wrd_id :=             0
+        , title :=              GetTid("system:userrights.unitroot")
+        , parent :=             0
+        , type :=               2
+        , subnodes :=           GetStaticUnitTreeIterate(0, user, root_manageunit, root_manageunit_ids, root_manageroles, root_manageroles_ids, allunits)
+        , icon :=               2
+        , iconoverlay :=        0
+        , expanded :=           TRUE
+        , canmanageunit :=      root_manageunit
+        , canmanageroles :=     root_manageroles
+        , candelete :=          FALSE
+        , canselect :=          TRUE
+        , isroot :=             TRUE
+        ]
+      ];
+}
+
+
+/** @param unitparent Id of parent
+    @param user User object
+    @param manageunit Whether user has has system:manageunit right on parent
+    @param root_manageunit_ids Ids of root right-objects for right system:manageunit
+    @param manageroles Whether user has has system:manageroles right on parent
+    @param root_manageroles_ids Ids of root right-objects for right system:manageroles
+*/
+RECORD ARRAY FUNCTION GetStaticUnitTreeIterate(INTEGER unitparent, OBJECT user, BOOLEAN manageunit, INTEGER ARRAY root_manageunit_ids, BOOLEAN manageroles, INTEGER ARRAY root_manageroles_ids, RECORD ARRAY allunits)
+{
+  BOOLEAN unbrowsable_root := unitparent = 0 AND NOT MyIsAuthObjectVisibleFor(0, user);
+
+  RECORD ARRAY nodes :=
+      SELECT rowkey :=          wrd_id
+           , wrd_id
+           , title
+           , parent
+           , icon :=            2
+           , iconoverlay :=     0
+           , expanded :=        FALSE
+           , canmanageunit :=   manageunit OR (authobjectid IN root_manageunit_ids)
+           , canmanageroles :=  manageroles OR (authobjectid IN root_manageroles_ids)
+           , canselect :=       TRUE
+           , candelete :=       manageunit
+           , isroot :=          FALSE
+           , draginfo :=        [ type := "system:unit"
+                                , data :=
+                                      [ wrd_id :=     wrd_id
+                                      , candelete :=  manageunit
+                                      ]
+                                ]
+        FROM allunits
+       WHERE (unbrowsable_root ? (authobjectid IN GetRootViewableUnitAuthobjects(user)) : (parent = unitparent))
+    ORDER BY ToUppercase(title);
+
+  RETURN
+      SELECT *
+           , subnodes :=        GetStaticUnitTreeIterate(rowkey, user, COLUMN canmanageunit, root_manageunit_ids, COLUMN canmanageroles, root_manageroles_ids, allunits)
+        FROM nodes;
+}
 
 PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------

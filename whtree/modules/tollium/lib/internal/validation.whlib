@@ -3,6 +3,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
@@ -51,7 +52,15 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
                                                    , topnode->localname = "propertyeditor" ? "tabsextension" : topnode->localname
                                                    , topnode
                                                    , this->xml->documentelement->GetAttribute("gid")
+                                                   , TRUE
                                                    );
+          FOREVERY(RECORD iconref FROM parsedelement.iconreferences)
+            FOREVERY(STRING icon FROM Tokenize(iconref.icon,'+'))
+            {
+              IF(NOT RecordExists(GetImage(icon, 24, 24, "", "b", [ nobroken := TRUE ])))
+                this->AddErrorForScope(iconref.scope, `No such icon '${icon}'`);
+            }
+
           this->warnings := this->warnings CONCAT parsedelement.warnings;
           this->hints := this->hints CONCAT parsedelement.hints;
 

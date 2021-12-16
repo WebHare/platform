@@ -432,6 +432,25 @@ MACRO TestBasicValidate()
   TestEqLike("Cannot resolve reference*if no HareScript library is set",res.errors[0].message);
 }
 
+MACRO TestIconValidation()
+{
+  RECORD res;
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := StringToBlob(
+    `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+        <screen name="listtest" implementation="none">
+          <body>
+            <list name="iconstest" icons="webhare_testsuite:testicon_1 webhare_testsuite:nosuchicon_1 testicon_2 nosuchicon_2 badicon+badoverlay" />
+          </body>
+        </screen>
+     </screens>`) ]);
+
+  TestEq([[ line := 4, message := 'No such icon \'webhare_testsuite:badicon\'' ]
+         ,[ line := 4, message := 'No such icon \'webhare_testsuite:badoverlay\'' ]
+         ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_1\'' ]
+         ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_2\'' ]
+         ], SELECT line, message FROM res.errors);
+}
+
 MACRO TestValidateWitty()
 {
   BLOB witty_nosuchcomponent := StringToBlob(`
@@ -1016,6 +1035,7 @@ ASYNC MACRO TestLoadScreen()
 
 RunTestFramework([ PTR TestValidationValidates
                  , PTR TestBasicValidate
+                 , PTR TestIconValidation
                  , PTR TestValidateWitty
                  , PTR TestValidateModuleDef
                  , PTR TestSiteProfiles

@@ -5,7 +5,6 @@
 
   <screen name="googleapikeys"
           allowresize="true"
-          icon="socialite:favicon"
           width="130x" height="25x">
     <compositions>
       <s:registrynode name="localoverrides" node="socialite.localoverrides" />

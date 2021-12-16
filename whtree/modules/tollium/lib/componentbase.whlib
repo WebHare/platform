@@ -17,7 +17,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib" EXPORT ReadBoolAttr, ReadStringAttr, ReadTidAttr, ReadComponentAttr,
-    ReadStringListAttr, ReadAcceptDropsAttr, ReadIntAttr, ReadNameAttr, ReadIconAttr,
+    ReadStringListAttr, ReadAcceptDropsAttr, ReadIntAttr, ReadNameAttr,
     ReadGidAttr, ReadHandlerAttr;
 
 PUBLIC RECORD __pvt_nextcomponentinfo;

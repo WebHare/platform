@@ -484,7 +484,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
         newval := GetTid(newval);
       }
       ELSE IF(field.recordtype IN [ "screenfragmentref", "datafileref", "datafilerefs",
-                                    "iconpointer", "gid", "optionalgid",
+                                    "iconpointer", "iconpointerlist", "gid", "optionalgid",
                                     "color", "bordersspacers", "tidptr" ])
       {
         //already fine
@@ -514,7 +514,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
 
     IF(field.finaltype != 0  //not an extraparser, we didn't enrich those yet
        AND TYPEID(newval) != field.finaltype) //sanity check to verify the finaltype introduced for userattributes work, may go away if our tests have enough coverage through userattributes
-      THROW NEW Exception(`Reprocess for '${field.name}' returned unexpected type - expected ${GetTypeName(field.finaltype)} got ${GetTypeName(TYPEID(newval))}`);
+      THROW NEW Exception(`Reprocess for ${CellExists(field,'recordtype') ? field.recordtype || " " : ""}'${field.name}' returned unexpected type - expected ${GetTypeName(field.finaltype)} got ${GetTypeName(TYPEID(newval))}`);
     RETURN newval;
   }
 

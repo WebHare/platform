@@ -952,11 +952,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     this->ExtUpdatedQueuedMessages();
   }
 
-  PUBLIC STRING FUNCTION ParseIconPointer(STRING icon)
-  {
-    RETURN ParseIconPointer(this->module, icon);
-  }
-
   /** @short Get updated flag names, possibly remapped if these are embedded names */
   PUBLIC STRING ARRAY FUNCTION GetFlagNames(STRING ARRAY localnames)
   {

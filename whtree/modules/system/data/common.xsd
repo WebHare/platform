@@ -52,6 +52,10 @@
 -->
   </xs:simpleType>
 
+  <xs:simpleType name="ImageSrcList">
+    <xs:list itemType="ImageSrc" />
+  </xs:simpleType>
+
   <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> )
        See Tid explanation for more info -->
   <xs:simpleType name="Gid">

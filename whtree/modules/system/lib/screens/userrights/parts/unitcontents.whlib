@@ -298,9 +298,14 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
        WHERE fullname = "";
     }
 
-    RECORD ARRAY usersandroles := SELECT *
-                                       , online := wrd_id IN onlineusers ? 7 : 0
+    INTEGER icon_online := ^userandrolelist->GetIcon("tollium:status/positive");
+    RECORD ARRAY usersandroles := SELECT TEMPORARY online := type = 1 AND wrd_id IN onlineusers
+                                       , *
+                                       , online := online ? icon_online : 0
+                                       , online_login := (online ? 0 : type) || ToUppercase(name)
+                                       , icon := ^userandrolelist->GetIcon(icon)
                                     FROM usersbyunit CONCAT rolesbyunit;
+
 
     usersandroles := EnrichWithOpenAs(usersandroles, this->contexts->user);
 
