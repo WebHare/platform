@@ -350,7 +350,6 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
     {
       work->AddErrorFor(^emailcontents->rtd, GetTid("publisher:formhandlers.mailresults.emptymailandnoresults"));
     }
-
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
@@ -473,8 +472,10 @@ PUBLIC STATIC OBJECTTYPE MailConfirmFeedbackEditorBase EXTEND MailHandlerEditor
   {
     MailHandlerEditor::ValidateValue(work);
     IF(NOT work->HasFailed() AND CellExists(^receiverfield->selection,'isneverrequired') AND ^receiverfield->selection.isneverrequired)
+    {
       IF(this->owner->RunSimpleScreen("verify", GetTid("publisher:formhandlers.mailresults.confirmmailfieldnotrequired")) != "yes")
         work->Cancel();
+    }
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)

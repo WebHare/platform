@@ -132,7 +132,7 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
   PUBLIC PROPERTY warnings(all_warnings, -);
   PUBLIC PROPERTY terminated(pvt_terminated, -);
 
-  ///If true, this work ahs beeb explicitly Cancel()-ed
+  ///(@type boolean) If true, this work has been explicitly Cancel()-ed
   PUBLIC PROPERTY cancelled(_cancelled, -);
 
   MACRO NEW(OBJECT transaction, STRING mutex)
