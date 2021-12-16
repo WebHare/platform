@@ -58,13 +58,13 @@
                       selectcontextmenu="incolumnsmenu"
                       sortcolumn="columnname"
                       openaction="updatemapping"
-                      icons="webpack:components/id
-                             webpack:components/pulldown
-                             webpack:components/textedit
-                             webpack:components/textedit
-                             webpack:components/email
-                             webpack:components/textedit
-                             webpack:components/textedit
+                      icons="tollium:objects/idcard
+                             tollium:forms/pulldown
+                             tollium:forms/textedit
+                             tollium:forms/textedit
+                             tollium:objects/envelope
+                             tollium:forms/textedit
+                             tollium:forms/textedit
                              "
                       >
                   <acceptdrops ondrop="onincolumndrop">
