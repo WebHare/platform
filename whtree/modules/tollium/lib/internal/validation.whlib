@@ -57,7 +57,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
           FOREVERY(RECORD iconref FROM parsedelement.iconreferences)
             FOREVERY(STRING icon FROM Tokenize(iconref.icon,'+'))
             {
-              IF(NOT RecordExists(GetImage(icon, 24, 24, "", "b", [ nobroken := TRUE ])))
+              IF(NOT RecordExists(GetImage(icon, 24, 24, "", "b,w", [ nobroken := TRUE ])))
                 this->AddErrorForScope(iconref.scope, `No such icon '${icon}'`);
             }
 
