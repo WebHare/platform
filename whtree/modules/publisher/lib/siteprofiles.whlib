@@ -113,7 +113,11 @@ PUBLIC OBJECT FUNCTION GetWebContext(INTEGER objid)
 /** @short Get the language code for the specified objet, as specified by <sitelanguage> in the site profile */
 PUBLIC STRING FUNCTION GetSiteLanguage(INTEGER objectid)
 {
-  RETURN GetApplyTesterForObject(objectid)->GetSiteLanguage();
+  OBJECT applytester := GetApplyTesterForObject(objectid);
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("Unable to locate the webdesign for #" || objectid);
+
+  RETURN applytester->GetSiteLanguage();
 }
 
 /** @short Gather custom siteprofile settings for an object */
