@@ -7,7 +7,7 @@
 export { createDeferred } from './promise.es';
 export { flagUIBusy } from './busy.es';
 export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, normalizeKeyboardEventData
-       , allowEventProcessing, stop
+       , stop
        } from './events.es';
 export { qS, qSA, contains, closest, matches
        , empty, isDomReady, onDomReady, getJSONAttribute

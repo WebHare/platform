@@ -95,10 +95,6 @@ class InternetRequester extends EventEmitter
     if (this.conn.readyState != 4 || this.have_response)
       return;
 
-    // Seen IE11 javascript errors in onmouseleave event triggered after unload
-    if (!dompack.allowEventProcessing(event))
-      return;
-
     this.have_response = true;
 
     var datestr = this.conn.getResponseHeader("date");

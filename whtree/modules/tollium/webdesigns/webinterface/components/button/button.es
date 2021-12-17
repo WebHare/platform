@@ -283,9 +283,6 @@ export default class ObjButton extends ActionableBase
   }
   cancelActiveState(event)
   {
-    if (!dompack.allowEventProcessing(event))
-      return;
-
     this.isactive=false;
     this.updateActiveState();
     // FIXME: doesn't reactivate after leaving and reentering the button while keeping the mousebutton down

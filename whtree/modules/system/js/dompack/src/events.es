@@ -1,5 +1,4 @@
 let eventconstructor = null;
-let got_unload_event = false;
 
 if(typeof window !== 'undefined')
 {
@@ -307,21 +306,9 @@ export function normalizeKeyboardEventData(evt)
       });
 }
 
-/** Returns whether normal event processing is allowed (in IE11, it is dangerous to process events after
-    the unload event, the javascript context may have been partially destroyed)
-*/
-export function allowEventProcessing()
-{
-  return !got_unload_event;
-}
-
 /** Stop, fully, an event */
 export function stop(event)
 {
   event.preventDefault();
   event.stopImmediatePropagation();
 }
-
-// Might also be executed in nodejs context
-if (typeof window !== "undefined")
-  window.addEventListener("unload", () => got_unload_event = true);
