@@ -122,8 +122,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
     FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
       this->AddWarning(appcontext, "<appcontexts> have been deprecated");
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
-      IF(this->modulename != "system") // we need to make an exception as we can't remove this legacy attribute until everyone is 4.27+
-        this->AddHint(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
+      this->AddHint(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }
 >;
 
