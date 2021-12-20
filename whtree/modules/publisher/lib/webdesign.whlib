@@ -130,6 +130,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //content nav stops
   STRING ARRAY pvt_contentnavstops;
   RECORD ARRAY __invokedwitties;
+  RECORD _seosettings;
 
   OBJECT defaultformrenderer;
   /// Extra resource dependencies (for automatic outputtools reload)
@@ -158,8 +159,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING designcdnrooturl;
   ///URL of the image root folder. Passed as 'imgroot' to the Witty (if not set, [imgroot] = [designcdnroot]img/)
   PUBLIC STRING imgrooturl;
-  ///The page title
+  ///The page title (SEO title)
   PUBLIC STRING pagetitle;
+  ///The navigation title (fs_objects.title)
+  PUBLIC STRING navigationtitle;
+  ///The header title
+  PUBLIC STRING headertitle;
   ///The page description
   PUBLIC STRING pagedescription;
   ///The page keywords
@@ -180,6 +185,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING maxcontentwidth;
   ///The page canonical URL (eg, it's unique reference in a search engine). This is automatically set to file->url by static pages
   PUBLIC STRING canonicalurl;
+  ///File seo settings.
+  PUBLIC PROPERTY seosettings(_seosettings, -);
   ///HTML classes
   PUBLIC PROPERTY htmlclasses(pvt_htmlclasses, SetHTMLClasses);
   ///BODY classes
@@ -256,7 +263,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->IsStaticPublication())
       this->canonicalurl := this->pvt_targetobject->url;
 
-    this->_InitRobotsTag();
     this->relativelinksscope := "protocol";
 
     IF(ObjectExists(this->pvt_targetobject))
@@ -264,7 +270,18 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       IF(NOT ObjectExists(this->pvt_targetsite))
         THROW NEW Exception("A webdesign requires a target site, but target object " || this->pvt_targetobject->whfspath || " is outside any site");
 
-      this->pagetitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
+      this->_seosettings := this->pvt_targetobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings");
+      this->navigationtitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
+      IF(NOT this->pvt_targetobject->isfolder)
+      {
+        this->headertitle := this->_seosettings.headertitle ?? this->navigationtitle;
+        this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;
+      }
+      ELSE //SEO settings are only offered for files, so don't even read them for folders to avoid confusion
+      {
+        this->headertitle := this->navigationtitle;
+        this->pagetitle := this->navigationtitle;
+      }
       IF(this->pagetitle = "" AND this->pvt_targetfolder->id != this->pvt_targetfolder->parentsite) // try the site root folder's title
         this->pagetitle := this->pvt_targetsite->rootobject->title;
       IF(this->pagetitle = "") //still no title
@@ -273,6 +290,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       this->pagedescription := this->pvt_targetobject->description; //No fallback to folder. a folder's description is unlikely to apply to a file?
       this->pagekeywords := this->pvt_targetobject->keywords;
     }
+
+    this->_InitRobotsTag();
     SetTidLanguage(this->languagecode); //FIXME This should probably be done at instantiation, not just whenever NEW is called.
 
     IF(__errorrequesturl != "")
@@ -330,7 +349,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
     INTEGER ARRAY parents := this->_targetobject_fulltree;
+    IF(ObjectExists(this->targetobject))
+      DELETE FROM parents AT END - 1;
+
     RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", STRING[ ...lockablefields, "customrobots", "canonical"]);
+    IF(ObjectExists(this->targetobject))
+      INSERT this->_seosettings INTO seoitems AT END;
+
     FOREVERY(RECORD seoitem FROM seoitems)
     {
       FOREVERY(STRING field FROM lockablefields)
@@ -675,7 +700,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , bodyfinale := DEFAULT MACRO PTR
                    , languagecode := this->languagecode
                    , languagecountry := this->languagecountry
-                   , pagetitle := this->pagetitle
+                   , pagetitle       := this->pagetitle
+                   , navigationtitle := this->navigationtitle
+                   , headertitle     := this->headertitle
                    , pagedescription := this->pagedescription
                    , pagekeywords := this->pagekeywords
                    , canonicalurl := this->canonicalurl

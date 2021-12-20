@@ -911,7 +911,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "baseproperties"
             {
-              apply.baseproperties := [ haslist := GetHasList(node, [ "title", "description", "keywords", "striprtdextension", "seotab", "seotabrequireright", "noindex", "nofollow", "noarchive" ])
+              apply.baseproperties := [ haslist := GetHasList(node, [ "title", "description", "keywords", "striprtdextension", "seotab", "seotabrequireright", "noindex", "nofollow", "noarchive", "seotitle", "headertitle"])
                                       , title := ParseXSBoolean(node->GetAttribute("title"))
                                       , description := ParseXSBoolean(node->GetAttribute("description"))
                                       , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
@@ -921,6 +921,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                       , noindex := ParseXSBoolean(node->GetAttribute("noindex"))
                                       , nofollow := ParseXSBoolean(node->GetAttribute("nofollow"))
                                       , noarchive := ParseXSBoolean(node->GetAttribute("noarchive"))
+                                      , seotitle := ParseXSBoolean(node->GetAttribute("seotitle"))
+                                      , headertitle := ParseXSBoolean(node->GetAttribute("headertitle"))
                                       ];
               CONTINUE;
             }

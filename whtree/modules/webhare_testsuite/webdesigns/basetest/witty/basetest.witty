@@ -3,6 +3,7 @@
 [/component]
 
 [component htmlbody]
+  <h1 class="headertitle">[headertitle]</h1>
   <div id="basetitle">[gettid basetest.title]</div>
   <div id="whfspath">[whfspath]</div>
 

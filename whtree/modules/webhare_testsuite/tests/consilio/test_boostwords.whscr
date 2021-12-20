@@ -43,6 +43,10 @@ MACRO TestBoostWords()
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.rtd", title := "important", type := richdoctype->id, publish := TRUE]);
   OBJECT file_2 := siteroot->CreateFile([name:="testfile2.rtd", title := "blabla", type := richdoctype->id, publish := TRUE]);
 
+  //explicitly set a headertitle or the 'important' word will be re-boosted by being in a H1
+  file_1->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ headertitle := "file_1 headertitle" ]);
+  file_2->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ headertitle := "file_2 headertitle" ]);
+
   OBJECT myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob(
 `<html><head></head><body>

@@ -241,7 +241,7 @@ test.registerTests(
       test.eq("2014", test.qS('.datetime__picker__yearselect').value);
 
       //clicking outside the datepicker should kill it
-      test.click('h1');
+      test.click('h1:not(.headertitle)');
       test.false(test.qS('.datetime__picker'));
 
       //reopen it

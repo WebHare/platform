@@ -12,7 +12,7 @@ OBJECT ASYNC FUNCTION TestSEOTab()
   OBJECT seotab;
 
   AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), image->id)->RunModal);
-  seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
+  seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO" AND obj->visible;
   TestEq(FALSE, ObjectExists(seotab),"seotab should NOT appear on images");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 

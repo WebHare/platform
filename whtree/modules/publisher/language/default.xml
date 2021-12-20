@@ -51,6 +51,9 @@
       <text tid="canonical">Canonical URL</text>
       <text tid="customrobots">Additional robot tags</text>
       <text tid="customrobots-placeholder">Example: "nosnippet, notranslate" (comma separated).</text>
+      <text tid="headertitle">Header title</text>
+      <text tid="navigationtitle">Navigation title</text>
+      <text tid="seotitle">SEO title</text>
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
@@ -2193,6 +2196,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
+        <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
         <text tid="created">(Created</text>
         <text tid="deleted">Deleted</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
@@ -2211,6 +2215,9 @@
         <text tid="newfile-name">New <param p="1"/></text>
         <text tid="newfile-title">New file</text>
         <text tid="newfolder-title">New folder</text>
+        <text tid="noarchive">Do not archive/cache (noarchive)</text>
+        <text tid="nofollow">Don't follow links (nofollow)</text>
+        <text tid="noindex">Don't store in index (noindex)</text>
         <text tid="originallocation">Original location</text>
         <text tid="path">Path</text>
         <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
@@ -2218,6 +2225,8 @@
         <text tid="publish">Publish this file</text>
         <text tid="requestapproval">Submit for approval</text>
         <text tid="restrictions">Restrictions</text>
+        <text tid="robottags">Robot tags</text>
+        <text tid="seotab">SEO</text>
         <text tid="sitenotpublished">The 'live' version of this file has been updated. Please note that the website containing this file is not being published.</text>
         <text tid="tasksettings">Tasks</text>
         <text tid="trashnotpublished">Deleted files cannot be published</text>
@@ -2251,12 +2260,7 @@
         <text tid="whfspath">Path</text>
       </textgroup>
       <textgroup gid="seotab">   <!-- tolliumapps.objectprops.seotab -->
-        <text tid="comments-placeholder">Internal (not published) comment about why the settings above are chosen.</text>
         <text tid="indexing">External search engine indexing</text>
-        <text tid="noarchive">Do not archive/cache (noarchive)</text>
-        <text tid="nofollow">Don't follow links (nofollow)</text>
-        <text tid="noindex">Don't store in index (noindex)</text>
-        <text tid="robottags">Robot tags</text>
       </textgroup>
       <textgroup gid="tasks">   <!-- tolliumapps.objectprops.tasks -->
         <text tid="addtask">Add task</text>
