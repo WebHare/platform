@@ -94,6 +94,7 @@
             linecomponent="true"
             title="TwoLevel Comp"
             fieldobject="mod::webhare_testsuite/tests/publisher/forms/lib/testformcomponents.whlib#TwoLevelField"
+            supportedvalues="record"
             />
         </xs:appinfo>
       </xs:annotation>

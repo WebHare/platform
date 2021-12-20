@@ -195,10 +195,28 @@ PUBLIC STATIC OBJECTTYPE CustomSelectField EXTEND SelectFormFieldBase
   }
   RECORD ARRAY FUNCTION GetCountryOptions()
   {
-    RETURN [[ title := "", rowkey := "", selected := FALSE, enabled := FALSE ]
-           ,[ htmltitle := "A<b>b</b>c", title := "Abc", rowkey := "abc", selected := FALSE, enabled := TRUE ]
-           ,[ htmltitle := "Language = <b>" || EncodeValue(this->form->formlanguagecode) || "</b>", rowkey := "lang-" || this->form->formlanguagecode, selected := FALSE, enabled := TRUE ]
-           ];
+    // Return 'field1' and 'subfield' in extrafields for TwoLevelField; these values are used in client-side condition
+    // checking and in GetExtraMergeFields and EnrichWithFormattedResults to display the subfield values
+    RETURN
+        [ [ title := ""
+          , rowkey := ""
+          , selected := FALSE
+          , enabled := FALSE
+          ]
+        , [ htmltitle := "A<b>b</b>c"
+          , title := "Abc"
+          , rowkey := "abc"
+          , selected := FALSE
+          , enabled := TRUE
+          , extrafields := [ field1 := "abc", subfield := 1 ]
+          ]
+        , [ htmltitle := "Language = <b>" || EncodeValue(this->form->formlanguagecode) || "</b>"
+          , rowkey := "lang-" || this->form->formlanguagecode
+          , selected := FALSE
+          , enabled := TRUE
+          , extrafields := [ field1 := "lang-" || this->form->formlanguagecode, subfield := 2 ]
+          ]
+        ];
   }
 >;
 
@@ -213,8 +231,10 @@ PUBLIC OBJECTTYPE TwoLevelField EXTEND ComposedFormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : ComposedFormFieldBase(form, parent, field)
   {
+    // Create a custom select field
     this->field1 := this->CreateSubField("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#customselect", "customselect");
     this->field1->title := "TW Customselect";
+    // Create a text edit that is visible if a selection is made
     this->field2 := this->CreateSubField("textedit", "textedit");
     this->field2->title := "TS Textedit";
     this->field2->visiblecondition := FCIsSet(this->field1);
@@ -222,13 +242,17 @@ PUBLIC OBJECTTYPE TwoLevelField EXTEND ComposedFormFieldBase
   }
   RECORD FUNCTION GetValue()
   {
+    // Return the values of the fields, an internal variable that can be set through the value property and the subfield
+    // value that is used for server-side condition checking
     RETURN CELL [ field1 := this->field1->value
+                , subfield := RecordExists(this->field1->selection) ? this->field1->selection.extrafields.subfield : 0
                 , field2 := this->field2->value
                 , throwsomething := this->throwsomething
                 ];
   }
   MACRO SetValue(RECORD inval)
   {
+    // Set the fields and the internal value (the subfield cannot be set, it's derived from field1's value)
     inval := CELL[...this->GetValue(), ...inval];
     this->field1->value := inval.field1;
     this->field2->value := inval.field2;
@@ -242,6 +266,49 @@ PUBLIC OBJECTTYPE TwoLevelField EXTEND ComposedFormFieldBase
   {
     IF(RecordExists(this->value) AND this->value.throwsomething)
       THROW NEW Exception("throwsomething was present in the value record");
+  }
+  UPDATE STRING FUNCTION GetConditionName()
+  {
+    // Use field1 as the base field for client-side condition checks
+    RETURN this->field1->conditionname;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetComposableData()
+  {
+    RECORD selectedoption := SELECT * FROM this->field1->options WHERE rowkey = this->value.field1;
+    STRING text := RecordExists(selectedoption) ? `${selectedoption.title} (${CellExists(selectedoption, "extrafields") AND CellExists(selectedoption.extrafields, "subfield") ? selectedoption.extrafields.subfield : 0})` : "";
+
+    // This is the value that is shown when the TwoLevelField main field is used in a merge field
+    RETURN CELL[ ...ComposedFormFieldBase::GetComposableData(), text ];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetExtraMergeFields(RECORD value)
+  {
+    RECORD selectedoption := RecordExists(value) ? RECORD(SELECT * FROM this->field1->options WHERE rowkey = value.raw.field1) : DEFAULT RECORD;
+
+    // Return 'field1' and 'subfield' to use as subcondition source (supplying supportedvalues and options) and merge subfields
+    // (supplying a title and a value with the text set)
+    RETURN
+        [ [ name := "field1"
+          , title := "TW Customselect"
+          , value := RecordExists(selectedoption) ? CELL[ ...value, text := selectedoption.title ] : DEFAULT RECORD
+          , options := this->field1->options
+          , supportedvalues := [ "options", "string" ]
+          ]
+        , [ name := "subfield"
+          , title := "Subfield"
+          , value := RecordExists(selectedoption) ? CELL[ ...value, text := "Subvalue #" || selectedoption.extrafields.subfield ] : DEFAULT RECORD
+          , options := (SELECT rowkey := extrafields.subfield, title := ToString(extrafields.subfield) FROM this->field1->options WHERE CellExists(options.extrafields, "subfield"))
+          , supportedvalues := [ "options", "integer" ]
+          ]
+        ];
+  }
+  UPDATE PUBLIC RECORD ARRAY FUNCTION EnrichWithFormattedResults(RECORD exportoptions, RECORD ARRAY inputvalues)
+  {
+    // In the form results, show the selected field1 option with its subfield value appended
+    RETURN
+        SELECT TEMPORARY selectedoption := RECORD(SELECT * FROM this->field1->options WHERE rowkey = inputvalues.value.field1)
+             , *
+             , value := RecordExists(selectedoption) ? `${selectedoption.title} (${selectedoption.extrafields.subfield})` : ""
+         FROM inputvalues;
   }
 >;
 
