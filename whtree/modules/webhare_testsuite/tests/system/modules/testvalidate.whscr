@@ -524,6 +524,18 @@ MACRO TestValidateModuleDef()
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
   TestEq([[ line := 5, message := `No such library 'mod::webhare_testsuite/lib/nosuch.whlib' (looking for 'SearchProviderBase')` ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
+  BLOB moduledef_wrdschemainvalid := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+    <meta />
+    <wrdschemas>
+      <schema tag="clients" autocreate="true" definitionfile="nosuchwrdschema.xml" title="Schema" />
+    </wrdschemas>
+  </module>`);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_wrdschemainvalid ]);
+  TestEq([[ line := 5, message := `Cannot find \'mod::webhare_testsuite/nosuchwrdschema.xml\'` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 }
 
 MACRO TestSiteProfiles()
