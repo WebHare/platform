@@ -275,7 +275,7 @@ PUBLIC OBJECTTYPE TwoLevelField EXTEND ComposedFormFieldBase
   UPDATE PUBLIC RECORD FUNCTION GetComposableData()
   {
     RECORD selectedoption := SELECT * FROM this->field1->options WHERE rowkey = this->value.field1;
-    STRING text := RecordExists(selectedoption) ? `${selectedoption.title} (${selectedoption.extrafields.subfield})` : "";
+    STRING text := RecordExists(selectedoption) ? `${selectedoption.title} (${CellExists(selectedoption, "extrafields") AND CellExists(selectedoption.extrafields, "subfield") ? selectedoption.extrafields.subfield : 0})` : "";
 
     // This is the value that is shown when the TwoLevelField main field is used in a merge field
     RETURN CELL[ ...ComposedFormFieldBase::GetComposableData(), text ];
