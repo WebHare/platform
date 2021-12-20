@@ -1,19 +1,15 @@
 html, body, p, h1, h2, h3, h4, h5, h6, form { padding: 0; margin: 0; }
 img { border: none; }
-article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary { display: block; }
-audio, canvas, video { display: inline-block; }
 datalist, template { display: none; }
 
 *, *::before, *::after
 {
-  -webkit-box-sizing: border-box; /* Android Browser version 3- */
   box-sizing: border-box;
 }
 
 body
 {
   -moz-text-size-adjust: none; /* Firefox for Android */
-  -ms-text-size-adjust: none; /* IE Mobile */
   -webkit-text-size-adjust: none; /* iOS Safari */
   text-size-adjust: none;
 }
