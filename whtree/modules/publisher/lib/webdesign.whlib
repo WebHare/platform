@@ -272,8 +272,16 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
       this->_seosettings := this->pvt_targetobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings");
       this->navigationtitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
-      this->headertitle := this->_seosettings.headertitle ?? this->navigationtitle;
-      this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;
+      IF(NOT this->pvt_targetobject->isfolder)
+      {
+        this->headertitle := this->_seosettings.headertitle ?? this->navigationtitle;
+        this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;
+      }
+      ELSE //SEO settings are only offered for files, so don't even read them for folders to avoid confusion
+      {
+        this->headertitle := this->navigationtitle;
+        this->pagetitle := this->navigationtitle;
+      }
       IF(this->pagetitle = "" AND this->pvt_targetfolder->id != this->pvt_targetfolder->parentsite) // try the site root folder's title
         this->pagetitle := this->pvt_targetsite->rootobject->title;
       IF(this->pagetitle = "") //still no title
