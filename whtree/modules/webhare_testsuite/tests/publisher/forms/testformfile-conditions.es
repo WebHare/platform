@@ -66,11 +66,21 @@ test.registerTests(
 
       test.true(test.qS('*[data-wh-form-group-for="twolevel.customselect.select"]').classList.contains("wh-form__fieldgroup--hidden"), "custom select should be initially hidden");
       test.true(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should be initially hidden");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel condition textedit should be initially hidden");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelsubcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel subcondition textedit should be initially hidden");
       test.click('#webtoolform-showtwolevelcomp');
       test.false(test.qS('*[data-wh-form-group-for="twolevel.customselect.select"]').classList.contains("wh-form__fieldgroup--hidden"), "custom select should now be visible");
       test.true(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should still be hidden");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel condition textedit should still be hidden");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelsubcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel subcondition textedit should still be hidden");
       test.fill('select[name="twolevel.customselect.select"]', "abc");
       test.false(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should now be visible");
+      test.false(test.qS('*[data-wh-form-group-for="twolevelcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel condition textedit should now be visible");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelsubcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel subcondition textedit should still be hidden");
+      test.fill('select[name="twolevel.customselect.select"]', "lang-en");
+      test.false(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should still be visible");
+      test.true(test.qS('*[data-wh-form-group-for="twolevelcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel condition textedit should now be hidden again");
+      test.false(test.qS('*[data-wh-form-group-for="twolevelsubcondition"]').classList.contains("wh-form__fieldgroup--hidden"), "twolevel subcondition textedit should now be visible");
 
       const toggleselectoptions = test.qS('select[name="toggleselectoptions"]');
       test.false(toggleselectoptions.querySelector('option[value="copt3"]').disabled, "ToggleSelectOpt3 should be available");
@@ -117,6 +127,17 @@ test.registerTests(
       // The thankyou node is now filled
       thankyou = test.qSA('h1').filter(node => node.textContent=="Thank you!");
       test.eq(1, thankyou.length, "Cannot find thankyou node");
+
+      // test subfield merge fields
+      let testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"form"});
+      console.info(formresult);
+
+      const emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000 });
+      console.info(emails);
+      test.eq(1,emails.length,"No emails!");
+      test.eq("Two-level field mail", emails[0].subject);
+      test.eqMatch(/Subfield value: Subvalue #2/, emails[0].plaintext);
    }
 
   , { loadpage: function() { return setupdata.url; }
