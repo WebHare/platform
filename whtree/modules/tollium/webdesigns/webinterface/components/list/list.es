@@ -1412,7 +1412,7 @@ class IconsColumn extends Base
         if (!icon)
           cell.appendChild(dompack.create("div", { style: "display:inline-block;width:" + icondimensions + "px;height: " + icondimensions + "px;" }));
         else
-          cell.appendChild(toddImages.createImage(icon,icondimensions,icondimensions,"b"));
+          cell.appendChild(toddImages.createImage(icon,icondimensions,icondimensions,"c"));
       });
     }
 
