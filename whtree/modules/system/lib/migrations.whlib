@@ -5,6 +5,30 @@
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+/** List prebuilt pages/files
+    @param inputtag Prebuilt tag to list
+    @cell(function ptr) options.filter Optional filter that will receive the candidate list and can clean it up
+    @cell(record array) List of matching pages
+*/
+PUBLIC RECORD ARRAY FUNCTION ListPrebuiltFiles(STRING inputtag, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ filter := DEFAULT FUNCTION PTR
+                                 ], options);
+
+
+  OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
+  RECORD ARRAY candidates := SELECT id, whfspath, parentsite, link
+                               FROM system.fs_objects
+                              WHERE fs_objects.type = prebuilttype->id
+                           ORDER BY ToUppercase(whfspath);
+  candidates := prebuilttype->Enrich(candidates, "ID", ["prebuilttag"]);
+  candidates := SELECT * FROM candidates WHERE prebuilttag = inputtag;
+  IF(IsValueSet(options.filter))
+    candidates := options.filter(candidates);
+
+  RETURN candidates;
+}
+
 /** Convert prebuilt files to normal filetypes
     @param inputtag Prebuilt tag to convert
     @param desttype Destination type
@@ -25,15 +49,7 @@ PUBLIC RECORD FUNCTION ConvertPrebuiltFiles(STRING inputtag, STRING desttype, RE
   IF(NOT destwhfstype->filetype)
     THROW NEW Exception(`Destination type '${desttype}' is not a filetype`);
 
-  OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
-  RECORD ARRAY candidates := SELECT id, whfspath, parentsite
-                               FROM system.fs_objects
-                              WHERE fs_objects.type = prebuilttype->id
-                           ORDER BY whfspath;
-  candidates := prebuilttype->Enrich(candidates, "ID", ["prebuilttag"]);
-  candidates := SELECT * FROM candidates WHERE prebuilttag = inputtag;
-  IF(IsValueSet(options.filter))
-    candidates := options.filter(candidates);
+  RECORD ARRAY candidates := ListPrebuiltFiles(inputtag, CELL[options.filter]);
 
   FOREVERY(RECORD candidate FROM candidates)
   {

@@ -1,0 +1,58 @@
+<?wh
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
+
+LOADLIB "mod::system/lib/migrations.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "dryrun", type := "switch" ]
+    , [ name := "tag", type := "param", required := TRUE ]
+    , [ name := "type", type := "param" ]
+    ]);
+
+IF (NOT RecordExists(args) OR args.tag="")
+{
+  Print("Usage: wh publisher:convertprebuilt [--dryrun] <tag> [type]\n");
+  Print("       path         The whfs path(s) to process, wildcards are permitted\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OpenPrimary()->BeginWork();
+
+IF(args.type = "") //just listing
+{
+  RECORD ARRAY toconvert := ListPrebuiltFiles(args.tag);
+  IF(Length(toconvert) = 0)
+  {
+    Print(`Nothing to convert\n`);
+    RETURN;
+  }
+
+  Print(`The following files should be converted:\n`);
+  PrintRecordArrayTo(0, (SELECT whfspath,link FROM toconvert), 'boxed');
+  RETURN;
+}
+
+RECORD conversionresult := ConvertPrebuiltFiles(args.tag, args.type);
+IF(Length(conversionresult.converted) = 0)
+{
+  Print(`Nothing to convert\n`);
+  RETURN;
+}
+
+RECORD ARRAY converted := SELECT whfspath, link FROM system.fs_objects WHERE id IN conversionresult.converted ORDER BY ToUppercase(whfspath);
+IF(args.dryrun)
+{
+  Print(`The following files would be converted:\n`);
+  PrintRecordArrayTo(0, converted, 'boxed');
+  RETURN;
+}
+
+Print(`The following files have been converted:\n`);
+PrintRecordArrayTo(0, converted, 'boxed');
+GetPrimary()->CommitWork();
