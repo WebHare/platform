@@ -1,6 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as browser from 'dompack/extra/browser';
-import * as dompack from 'dompack';
 
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/basecomponents.imagetest')
@@ -17,7 +16,7 @@ test.registerTests(
           test.eq(300, img.naturalWidth);
           test.eq(300, img.naturalHeight);
         }
-        test.true(dompack.closest(img,'.t-image--clickable'));
+        test.true(img.closest('.t-image--clickable'));
         test.false(test.compByName('image').classList.contains('todd--disabled'));
 
         // Update placeholder

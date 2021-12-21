@@ -32,7 +32,7 @@ export default class CaptchaField
       //       extradata... It's probably better to have the captcha field use the same (kind of) confirmation flow as the
       //       mail confirmation handler. This also has the benefit that the field value is already stored, which would allow
       //       the result to be confirmed in the backend, if a user is stuck on the captcha.
-      dompack.closest(this.node,'form').propWhFormhandler._doSubmit();
+      this.node.closest('form').propWhFormhandler._doSubmit();
     }
   }
 }

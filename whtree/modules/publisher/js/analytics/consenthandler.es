@@ -162,7 +162,7 @@ function updateConsentOverlays()
 
   overlays.forEach(overlay =>
   {
-    let parent = dompack.closest(overlay, ".wh-requireconsent");
+    let parent = overlay.closest(".wh-requireconsent");
     if(parent && parent.dataset.whConsentRequired)
       overlay.hidden = consent.includes(parent.dataset.whConsentRequired);
   });

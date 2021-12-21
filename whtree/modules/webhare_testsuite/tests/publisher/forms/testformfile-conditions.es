@@ -37,7 +37,7 @@ test.registerTests(
   , 'Test conditional'
   , async function()
     {
-      test.true(dompack.closest(test.qS('input[name="firstname"]'),'.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
+      test.true(test.qS('input[name="firstname"]').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
 
       const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
       test.eq(0, select_with_placeholder.selectedIndex, "Placeholder should remain selected");

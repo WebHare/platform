@@ -44,7 +44,7 @@ export default class SelectList
   {
     dompack.stop(evt);
 
-    let selectitem = dompack.closest(evt.target, '.' + this._class + '__item');
+    let selectitem = evt.target.closest('.' + this._class + '__item');
     if(selectitem && this._doSelectItem(selectitem))
       this.closeSelectList();
   }

@@ -9,7 +9,7 @@ export default class AddressField
   {
     this.numvaliditycalls = 0;
     this.node = node;
-    this.form = dompack.closest(this.node,"form").propWhFormhandler;
+    this.form = this.node.closest("form").propWhFormhandler;
 
     // AddressField is initialized for the address's country field, so first find the other fields
     this.countryNode = dompack.qS(this.node, "select.wh-form__pulldown");
@@ -24,14 +24,14 @@ export default class AddressField
     let fieldpos = 0;
     this.allFields.set(this.countryNode.name.substr(prefixLength),
         { node: this.countryNode
-        , fieldgroup: dompack.closest(this.countryNode, ".wh-form__fieldgroup")
+        , fieldgroup: this.countryNode.closest(".wh-form__fieldgroup")
         , pos: ++fieldpos
         });
-    for (let field of dompack.qSA(dompack.closest(this.node, "form"), `[name^='${this.fieldName}.']`))
+    for (let field of dompack.qSA(this.node.closest("form"), `[name^='${this.fieldName}.']`))
     {
       this.allFields.set(field.name.substr(prefixLength),
           { node: field
-          , fieldgroup: dompack.closest(field, ".wh-form__fieldgroup")
+          , fieldgroup: field.closest(".wh-form__fieldgroup")
           , pos: ++fieldpos
           });
       field.addEventListener("change", event => this._gotFieldChange(event));

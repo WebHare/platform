@@ -44,7 +44,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var h1=doc.getElementsByTagName("H1")[0];
-        var current_area = dompack.closest(doc.getElementsByTagName("IMG")[0], 'div');
+        var current_area = doc.getElementsByTagName("IMG")[0].closest('div');
 
         test.eq('false', h1.contentEditable);
         test.eq('true', current_area.contentEditable);
@@ -67,7 +67,7 @@ test.registerTests(
         var toolbar_italic_button_node = win.rte.toolbar.getButton('i').node;
         test.click(toolbar_italic_button_node);
 
-        var current_area = dompack.closest(doc.getElementsByTagName("IMG")[0], 'div');
+        var current_area = doc.getElementsByTagName("IMG")[0].closest('div');
         var p_node = current_area.getElementsByTagName("P")[0];
         test.eq('I', p_node.childNodes[0].nodeName.toUpperCase());
       }
@@ -85,8 +85,6 @@ test.registerTests(
   , { name: 'deactivated_toolbar'
     , test: function(doc,win)
       {
-        var current_area = dompack.closest(doc.getElementsByTagName("IMG")[0], 'div');
-
         var toolbar_italic_button_node = win.rte.toolbar.getButton('i').node;
         test.false(test.canClick(toolbar_italic_button_node));
       }

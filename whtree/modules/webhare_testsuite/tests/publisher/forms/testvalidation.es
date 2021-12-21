@@ -36,7 +36,7 @@ test.registerTests(
 
       await test.pressKey('Tab');
 
-      let emailgroup = dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup');
+      let emailgroup = test.qS('#coretest-email').closest('.wh-form__fieldgroup');
       test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to be in error mode now");
       test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
 
@@ -61,7 +61,7 @@ test.registerTests(
   , 'Test number field'
   , async function()
     {
-      let numbergroup = dompack.closest(test.qS('#coretest-number'), '.wh-form__fieldgroup');
+      let numbergroup = test.qS('#coretest-number').closest('.wh-form__fieldgroup');
       test.fill('#coretest-number','5');
       await test.pressKey('Tab', { shiftKey: true });
       test.eq('De waarde mag niet groter zijn dan 2.', numbergroup.querySelector('.wh-form__error').textContent);
@@ -74,7 +74,7 @@ test.registerTests(
     {
       test.eq('', test.qS('#coretest-dateofbirth').validationMessage||'');
 
-      let dateofbirthgroup = dompack.closest(test.qS('#coretest-dateofbirth'), '.wh-form__fieldgroup');
+      let dateofbirthgroup = test.qS('#coretest-dateofbirth').closest('.wh-form__fieldgroup');
       let sevendayslater = new Date(Date.now()+7*86400*1000).toISOString().substr(0,10);
 
       //FIXME date localization
@@ -131,7 +131,7 @@ test.registerTests(
       test.eq("checkboxes", formevents[1].data.ds_formmeta_errorfields);
       test.eq("client", formevents[1].data.ds_formmeta_errorsource);
 
-      let checkboxgroup = dompack.closest(test.qS('#coretest-checkboxes-2'), '.wh-form__fieldgroup');
+      let checkboxgroup = test.qS('#coretest-checkboxes-2').closest('.wh-form__fieldgroup');
       test.true(test.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
       test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
@@ -236,7 +236,7 @@ test.registerTests(
 
   , async function()
     {
-      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.click('#coretest-setvalidator');
       await test.pressKey('Tab');
       await test.wait('ui');
@@ -259,7 +259,7 @@ test.registerTests(
         let result;
         result = await formhandler.validate([]); //empty set
 
-        let emailgroup = dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup');
+        let emailgroup = test.qS('#coretest-email').closest('.wh-form__fieldgroup');
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
         //if we set an error before we start validating...
@@ -342,7 +342,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
@@ -360,7 +360,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
@@ -376,7 +376,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');

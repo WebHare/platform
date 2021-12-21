@@ -1,9 +1,8 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 function getUploadField() //get the replament field, not the original input
 {
-  return dompack.closest(test.qS('#rtdtest-file'), '.wh-form__fieldline').querySelector('.wh-form__uploadfield');
+  return test.qS('#rtdtest-file').closest('.wh-form__fieldline').querySelector('.wh-form__uploadfield');
 }
 
 test.registerTests(
@@ -122,7 +121,7 @@ test.registerTests(
         test.click('.validatebutton');
         await test.wait('ui');
 
-        let filegroup = dompack.closest(test.qS('#rtdtest-file'), '.wh-form__fieldgroup');
+        let filegroup = test.qS('#rtdtest-file').closest('.wh-form__fieldgroup');
         test.true(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image
@@ -144,7 +143,7 @@ test.registerTests(
         test.click('#submitbutton');
         await test.wait('ui');
 
-        let filegroup = dompack.closest(test.qS('#rtdtest-file'), '.wh-form__fieldgroup');
+        let filegroup = test.qS('#rtdtest-file').closest('.wh-form__fieldgroup');
         test.true(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image
@@ -166,7 +165,7 @@ test.registerTests(
         test.false(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'), "imgedit component expected to not have the data-wh-form-disabled attribute");
         test.false(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'),     "RTD component expected to not have the data-wh-form-disabled attribute");
 
-        let filegroup = dompack.closest(test.qS('#rtdtest-file'), '.wh-form__fieldgroup');
+        let filegroup = test.qS('#rtdtest-file').closest('.wh-form__fieldgroup');
         test.click(test.qS('#rtdtest-enablefields'));
         test.true(test.qS('[data-wh-form-group-for=file] button').disabled,                          "custom file upload field button missing disabled attribute");
         test.true(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'),  "imgedit component missing data-wh-form-disabled attribute");

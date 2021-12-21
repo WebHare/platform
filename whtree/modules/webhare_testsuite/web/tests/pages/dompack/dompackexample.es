@@ -104,7 +104,7 @@ if(location.href.includes('addseqnr=1'))
 {
   dompack.register(".selectlist__item", node =>
     {
-      if(!dompack.closest(node, '.selectlist__area'))
+      if(!node.closest('.selectlist__area'))
       { //ensure that we have a predictable dom location
         console.error("Registering node in an unexpected dom location!",node);
         throw new Error(".selectlist__item not a child of selectlist__area!");
@@ -113,7 +113,7 @@ if(location.href.includes('addseqnr=1'))
     });
   dompack.register(".selectlist__current", node =>
     {
-      if(!dompack.closest(node, '.selectlist__control'))
+      if(!node.closest('.selectlist__control'))
       { //ensure that we have a predictable dom location
         console.error("Registering node in an unexpected dom location!",node);
         throw new Error(".selectlist__item not a child of selectlist__control!");

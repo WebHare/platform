@@ -51,7 +51,7 @@ export default class RTDField
                   //, bodyclass: data.bodyclass
                   //, csscode: data.csscode
 
-    this._fieldgroup = dompack.closest(this.node,".wh-form__fieldgroup");
+    this._fieldgroup = this.node.closest(".wh-form__fieldgroup");
     this.setupRTE(node, rtdoptions);
   }
   async setupRTE(node, rtdoptions)
@@ -91,7 +91,7 @@ export default class RTDField
 
   async insertVideoByURL(url)
   {
-    let formhandler = dompack.closest(this.node, 'form').propWhFormhandler;
+    let formhandler = this.node.closest('form').propWhFormhandler;
     let result = await formhandler.invokeRPC(this.node.dataset.whFormName + '.insertVideoByUrl', url);
     if(!result.success)
       return { success:false, message: "Video URL not understood" };

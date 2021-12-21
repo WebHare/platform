@@ -22,7 +22,7 @@ export default class FileEditBase
 {
   constructor(node, options)
   {
-    let formnode = dompack.closest(node, 'form');
+    let formnode = node.closest('form');
     if(formnode && !formnode.dataset.whFormId) //doesn't look like a RPC form
       return; //then don't replace it!
 
@@ -114,7 +114,7 @@ export default class FileEditBase
       return;
     }
 
-    let uploadingcontrol = dompack.closest(this.node,".wh-form__fieldgroup");
+    let uploadingcontrol = this.node.closest(".wh-form__fieldgroup");
     if(uploadingcontrol)
       uploadingcontrol.classList.add("wh-form--uploading");
 

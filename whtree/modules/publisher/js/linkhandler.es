@@ -1,13 +1,11 @@
 /* See https://code.webhare.com/publisher/utilities/linkhandler/
 */
 
-import { closest } from 'dompack';
-
 let linkopenoptions = null;
 
 function onLinkClick(event)
 {
-  let link = closest(event.target,'a');
+  let link = event.target.closest('a');
   if(!link || link.download)
     return;
 

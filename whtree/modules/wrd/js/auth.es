@@ -105,7 +105,7 @@ class WRDAuthenticationProvider
   }
   _handleLoginClick(form, event)
   {
-    if(dompack.closest(event.target, '.wh-wrdauth__loginbutton'))
+    if(event.target.closest('.wh-wrdauth__loginbutton'))
       return this._handleLoginForm(form, event); //will stop the event too
   }
   _handleLoginForm(form, event)

@@ -1,5 +1,4 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
 
@@ -64,15 +63,15 @@ test.registerTests(
         test.eq('secret', test.qS("#coretest-password").placeholder);
         test.eq("before &lt;richtext&gt; inhoud vanuit tid after", richtext_h2.innerHTML);
         test.eq("Dynamic richtext", richtext_p.innerHTML);
-        test.eq(dompack.closest(field_matchattributes_type2_false, ".wh-form__fieldgroup"), dompack.closest(richtext_h2, ".wh-form__fieldgroup").previousSibling);
+        test.eq(field_matchattributes_type2_false.closest(".wh-form__fieldgroup"), richtext_h2.closest(".wh-form__fieldgroup").previousSibling);
         test.true(label_namelijk, 'missing label namelijk - forms did not render extra field?');
         test.eq("<u>name</u>lijk", label_namelijk.innerHTML);
         test.eq(1, field_namelijk.length, 'namelijk must appear exactly once');
         test.true(field_namelijk[0], 'missing field namelijk - forms did not render extra field?');
         test.true(label_option3, 'missing option3 - forms did not update?');
-        test.false(dompack.closest(label_option3, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 3 shouldn't be marked as having a subfield");
-        test.true(dompack.closest(label_option1, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 1 should be marked as having a subfield");
-        test.true(dompack.closest(label_option5, '.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 5 should be marked as having a subfield");
+        test.false(label_option3.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 3 shouldn't be marked as having a subfield");
+        test.true(label_option1.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 1 should be marked as having a subfield");
+        test.true(label_option5.closest('.wh-form__fieldline').classList.contains("wh-form__fieldline--subfields"), "option 5 should be marked as having a subfield");
         //test.eq(1, field_opt5.minLength); //TODO: minlength is never actually used?
         test.eq(123, field_opt5.maxLength);
 
@@ -84,7 +83,7 @@ test.registerTests(
         test.true(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--required"));
         test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"), "Should NOT be initially validated");
         test.true(label_requiredradio, 'need to find requiredradio');
-        let twcustomselectgroup = dompack.closest(label_twcustomselect,'.wh-form__fieldgroup');
+        let twcustomselectgroup = label_twcustomselect.closest('.wh-form__fieldgroup');
         test.true(twcustomselectgroup.classList.contains("wh-testsuite-twolevel-groupclasses"));
         test.true(twcustomselectgroup.classList.contains("wh-testsuite-customselect-groupclasses"));
         test.eq('TW Customselect', label_twcustomselect.textContent);
@@ -136,9 +135,9 @@ test.registerTests(
         test.eq('', field_pulldowntest_options[0].value);
 
         test.true(test.qS('#coretest-email').required);
-        test.true(dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
+        test.true(test.qS('#coretest-email').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
         test.true(test.qS('#coretest-radiotest-3').required);
-        test.true(dompack.closest(test.qS('#coretest-radiotest-3'), '.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
+        test.true(test.qS('#coretest-radiotest-3').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'));
 
         test.true(test.qS("[data-wh-form-group-for=checkboxes]").classList.contains("wh-form__fieldgroup--required"), "checkbox group should be marked as required, as min=1");
 
@@ -146,10 +145,10 @@ test.registerTests(
         test.eq(datetime.getISOLocalDate(new Date(Date.now() + 2*86400*1000)), test.qS('#coretest-dateofbirth').value);
         test.eq(datetime.getISOLocalDate(new Date(Date.now() + 5*86400*1000)), test.qS('#coretest-dateofbirth').max);
 
-        test.true(dompack.closest(field_dateofbirth,'.wh-form__fieldgroup').classList.contains('ut-dateofbirth'));
+        test.true(field_dateofbirth.closest('.wh-form__fieldgroup').classList.contains('ut-dateofbirth'));
 
         //test group dataset
-        test.eq('rabbit', dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup').dataset.bunny);
+        test.eq('rabbit', test.qS('#coretest-email').closest('.wh-form__fieldgroup').dataset.bunny);
         test.eq({y:false}, JSON.parse(test.qS('.radioboolean').dataset.x));
 
         test.true(field_disabledpulldown);
@@ -204,26 +203,26 @@ test.registerTests(
         test.false(field_condition_not_enabled.required);
         test.false(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled initially not enabled");
         test.false(field_condition_not_enabled.required, "condition NOT textedit-enabled initially not required");
-        test.false(dompack.closest(field_condition_not_enabled, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
+        test.false(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
         test.false(field_condition_not_required.required, "condition NOT textedit-required initially not required");
-        test.false(dompack.closest(field_condition_not_required, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
+        test.false(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group shouldnt be marked as required");
         field_condition_not.click();
         test.true(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled now enabled because of checkbox");
         test.true(field_condition_not_enabled.required, "condition NOT textedit-enabled now required");
-        test.true(dompack.closest(field_condition_not_enabled, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
+        test.true(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
         test.true(field_condition_not_required.required, "condition NOT textedit-required now required");
-        test.true(dompack.closest(field_condition_not_required, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
+        test.true(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should now be marked as required");
         test.true(field_condition_not_enabled.required);
         field_condition_not.click();
         test.false(test.canFocus(field_condition_not_enabled), "condition NOT textedit-enabled finally not enabled");
         test.false(field_condition_not_enabled.required, "condition NOT textedit-enabled no longer required");
-        test.false(dompack.closest(field_condition_not_enabled, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
+        test.false(field_condition_not_enabled.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
         test.false(field_condition_not_required.required, "condition NOT textedit-required no longer required");
-        test.false(dompack.closest(field_condition_not_required, '.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
+        test.false(field_condition_not_required.closest('.wh-form__fieldgroup').classList.contains("wh-form__fieldgroup--required"), "and its group should no longer be marked as required");
 
-        test.true(dompack.closest(field_matchattributes_type1,".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type1"));
-        test.true(dompack.closest(field_matchattributes_type2_true,".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-true"));
-        test.true(dompack.closest(field_matchattributes_type2_false,".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-false"));
+        test.true(field_matchattributes_type1.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type1"));
+        test.true(field_matchattributes_type2_true.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-true"));
+        test.true(field_matchattributes_type2_false.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-false"));
 
         let formevents = test.getPxlLog(/^publisher:form.+/);
         test.eq(1, formevents.length, "Should be one PXL event now");
@@ -234,11 +233,11 @@ test.registerTests(
   , "Test data-wh-group-for"
   , async function()
     {
-      let optselect5_group = dompack.closest(test.qS("#coretest-opt5_select"), '.wh-form__fieldgroup');
+      let optselect5_group = test.qS("#coretest-opt5_select").closest('.wh-form__fieldgroup');
       test.eq("radiotest radiotestnamelijk opt5_select opt5_textedit", optselect5_group.dataset.whFormGroupFor);
 
       let field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
-      let field_address_streetgroup = dompack.closest(field_address_street, '.wh-form__fieldgroup');
+      let field_address_streetgroup = field_address_street.closest('.wh-form__fieldgroup');
       test.eq("address.street", field_address_streetgroup.dataset.whFormGroupFor);
     }
 
@@ -389,7 +388,7 @@ test.registerTests(
   , "serverside error handling"
   , async function()
     {
-      let passwordgroup = dompack.closest(test.qS('#coretest-password'), '.wh-form__fieldgroup');
+      let passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.false(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
       test.eq(null, passwordgroup.querySelector('.wh-form__error') );
 
@@ -399,7 +398,7 @@ test.registerTests(
       await test.wait('ui');
       test.eq("", test.qS('#coreformsubmitresponse').textContent, "expected no submission");
 
-      passwordgroup = dompack.closest(test.qS('#coretest-password'), '.wh-form__fieldgroup');
+      passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.true(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
       let errors = passwordgroup.querySelector('.wh-form__error');

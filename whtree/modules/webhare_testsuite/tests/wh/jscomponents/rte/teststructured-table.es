@@ -213,7 +213,7 @@ test.registerTests(
         test.eq(4, trs.length);
 
         //Adding a row should not change our selection
-        test.true(extendfromcell == dompack.closest(rte.getSelectionRange().getAncestorElement(),'td'));
+        test.true(extendfromcell == rte.getSelectionRange().getAncestorElement().closest('td'));
 
         let newtd = trs[1].cells[2];
         test.eq("", newtd.textContent, "new cell must be empty");
