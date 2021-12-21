@@ -1691,3 +1691,29 @@ PUBLIC MACRO Testinvoke_SnoozeRateLimits()
   SnoozeRateLimits();
 }
 
+PUBLIC RECORD FUNCTION Testinvoke_SetupABTest()
+{
+  RunTestframework([ PTR SetupTestWhitelists ]);
+
+  GetPrimary()->BeginWork();
+  OBJECT abtestfolder := GetTestsuiteTempFolder()->EnsureFolder([name := "abtestfolder"]);
+
+  OBJECT abtesttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT variant1 := abtestfolder->CreateFile([name := "variant1", title := "Variant 1", type := richdoctype->id, publish := FALSE ]);
+  RECORD variant2 := BuildWebtoolForm([ infolder := abtestfolder->fullpath, publish := FALSE ]);
+
+  OBJECT abtester := abtestfolder->CreateFile([name := "abtest", title := "A/B test", type := abtesttype->id, publish := TRUE ]);
+  abtesttype->SetInstanceData(abtester->id,
+    [ abgroup := "myabtest"
+    , duration_days := 1
+    , aboptions := [[ aboption := "A", weight := 1, target := variant1->id ]
+                   ,[ aboption := "B", weight := 999999999, target := variant2.id ]
+                   ]
+    ]);
+  GetPrimary()->CommitWork();
+  testfw->WaitForPublishCompletion(abtestfolder->id);
+
+  RETURN CELL[ abtestlink := abtester->link ];
+}
+

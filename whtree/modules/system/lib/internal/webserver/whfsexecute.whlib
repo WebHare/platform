@@ -1,0 +1,110 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
+
+OBJECT trans;
+RECORD rpc_result;
+OBJECT rpc_witty;
+INTEGER currentfileid;
+
+BOOLEAN FUNCTION AllowedToCache(RECORD rec)
+{
+  IF(GetWebHeader("User-agent") LIKE "Consilio/*")
+    RETURN FALSE;
+
+  IF(rec.cachettl <= 0)
+    RETURN FALSE;
+  IF(GetRequestMethod() NOT IN ["HEAD","GET"])
+    RETURN FALSE;
+
+  FOREVERY(STRING cookie FROM rec.cacheblacklistcookies)
+    IF(GetWebCookie(cookie)!="")
+      RETURN FALSE;
+  FOREVERY(STRING webvar FROM rec.cacheblacklistvariables)
+    IF(GetWebVariable(webvar)!="")
+      RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+STRING FUNCTION WebListToString(RECORD ARRAY inlist, STRING ARRAY whitelist)
+{
+  IF(Length(whitelist)=0)
+    RETURN "";
+  BOOLEAN hashall := Length(whitelist) = 1 AND whitelist[0]="*";
+
+  RETURN Detokenize( (SELECT AS STRING ARRAY ToUppercase(name) || "\t" || value
+                        FROM inlist
+                       WHERE (hashall ? TRUE : ToUppercase(name) IN whitelist)
+                    ORDER BY ToUppercase(name),value),"\t");
+}
+
+STRING FUNCTION CalculateCacheKey(INTEGER fileid, RECORD rec, STRING suburl)
+{
+  STRING hashbase := fileid
+                     || "\n" || WebListToString(GetAllWebVariables(), rec.cachewebvariables)
+                     || "\n" || WebListToString(GetAllWebCookies(), rec.cachewebcookies)
+                     || "\n" || suburl;
+
+  RETURN hashbase;
+}
+
+RECORD FUNCTION GenerateCacheablePage(RECORD redirectinfo, RECORD options) //FIXME catch sendwebfile, redirect, headers etc
+{
+  INTEGER str := CreateStream();
+  INTEGER saveout := RedirectOutputTo(str);
+  IF(NOT ObjectExists(trans)) //Not opened yet by the cache, so get it ourselves
+    trans := OpenPrimary();
+
+  OBJECT pageobject := RunThePage(currentfileid, redirectinfo, currentfileid, options);
+  BLOB output := MakeBlobFromSTream(str);
+  RedirectOutputTo(saveout);
+
+  RECORD cachesettings;
+  IF(ObjectExists(pageobject))
+    cachesettings := pageobject->GetDynamicPageCacheSettings();
+  IF(NOT RecordExists(cachesettings))
+    cachesettings := [ ttl := redirectinfo.cachettl * 1000 ];
+
+  RETURN CELL[ ...cachesettings
+             , value := [ data := output
+                        , headers := sendhttpheaders
+                        ]
+             ];
+}
+
+
+PUBLIC MACRO DoWHFSExecute(INTEGER fileid, RECORD rec, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  currentfileid := fileid;
+  __currentwhfsscriptid := fileid;
+  __pageinfo := __SplitBaseAndSubUrl(GetClientRequestURL(), rec.objurlpath);
+
+  IF(AllowedToCache(rec))
+  {
+    //ADDME Can we add the whlib modification itself to the cachekey? should we?
+    STRING cachekey := CalculateCacheKey(currentfileid, rec, __pageinfo.subpath);
+    RECORD page := GetAdhocCached(CELL[ cachekey, options ], PTR GenerateCacheablePage(rec, options));
+
+    DELETE FROM sendhttpheaders; //delete current headers (if cache miss) before readding
+    FOREVERY(RECORD header FROM page.headers)
+      AddHTTPHeader(header.header, header.data, header.always_add);
+    SendWebFile(page.data);
+  }
+
+  IF(NOT ObjectExists(trans)) //Not opened yet by the cache, so get it ourselves
+    trans := OpenPrimary();
+
+  RunThePage(currentfileid, rec, currentfileid, options);
+}

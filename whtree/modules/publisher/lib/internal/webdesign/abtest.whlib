@@ -3,10 +3,13 @@
 LOADLIB "wh::adhoccache.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webserver/whfsexecute.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
@@ -24,11 +27,13 @@ RECORD FUNCTION GetABtestInfo(INTEGER fileid)
 
   settings.aboptions := SELECT *, num := #aboptions FROM settings.aboptions;
 
-  //trans->Close(); //FIXME want to close!
+  STRING ARRAY eventmasks := OpenWHFSObject(fileid)->GetEventMasks();
+  IF(ObjectExists(trans))
+    trans->Close(); //FIXME want to close!
 
   RETURN [ value := settings
          , ttl := 15 * 60 * 1000
-         , eventmasks := OpenWHFSObject(fileid)->GetEventMasks()
+         , eventmasks := eventmasks
          ];
 }
 
@@ -39,11 +44,22 @@ RECORD FUNCTION GetMyVariant(INTEGER fileid, RECORD variantinfo)
     trans := OpenPrimary();
 
   BLOB data := GetPublishedDBFile(fileid, "variant-" || variantinfo.num || ".html");
-  //trans->Close();//FIXME want to close!
+  RECORD retval := CELL[ data, dynamic := DEFAULT RECORD ];
+  IF(Length(data) = 0)
+  {
+    OBJECT targetapplytester := GetApplyTesterForObject(variantinfo.target);
+    RECORD templateinfo := targetapplytester->GetUsePublishTemplate();
+    IF(templateinfo.script = "mod::publisher/scripts/internal/publishsystemredirect.whscr") //it's a dynamic page
+      retval.dynamic := GetSystemRedirectInfo(variantinfo.target);
+  }
 
-  RETURN [ value := data
+  STRING ARRAY eventmasks := OpenWHFSObject(fileid)->GetEventMasks();
+  IF(ObjectExists(trans))//*we* opened it.. don't let it linger
+    trans->Close();
+
+  RETURN [ value := retval
          , ttl := 15 * 60 * 1000
-         , eventmasks := OpenWHFSObject(fileid)->GetEventMasks()
+         , eventmasks := eventmasks
          ];
 }
 
@@ -92,8 +108,17 @@ PUBLIC MACRO RunABTest()
   IF(NOT RecordExists(usevariant))
     AbortWithHTTPError(404, "Variant not found");
 
-  BLOB myvariant := GetAdhocCached([ file := myfileid, num := usevariant.num ], PTR GetMyVariant(myfileid, usevariant));
-  Sendblobto(0,myvariant);
+  RECORD variantdata :=  GetAdhocCached([ file := myfileid, num := usevariant.num ], PTR GetMyVariant(myfileid, usevariant));
+  IF(RecordExists(variantdata.dynamic))
+  {
+    DoWHFSExecute(usevariant.target, variantdata.dynamic, [ htmldataset := [ "experiment-id" := abinfo.abgroup
+                                                                           , "experiment-variant" := usevariant.aboption
+                                                                           ]]);
+  }
+  ELSE
+  {
+    Sendblobto(0, variantdata.data);
+  }
 }
 
 BOOLEAN FUNCTION CheckABTestOnSave(INTEGER objectid, OBJECT contexts, FUNCTION PTR next_prechecksave, BOOLEAN ispublish)
