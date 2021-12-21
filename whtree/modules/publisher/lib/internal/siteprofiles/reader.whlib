@@ -526,6 +526,7 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
                                  ], options);
 
   RECORD saveconfig := __webdesign_config;
+
   TRY
   {
     __webdesign_config := CELL[ ...webdesigninfo
@@ -543,7 +544,6 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
       THROW NEW Exception(`The webdesign for this page didn't set assetpack=`);
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
-    //STRING lib := MakeAbsoluteResourcePath(webdesigninfo.moduledesignfolder ?? webdesigninfo.designfolder, webdesigninfo.library);
 
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
     IF(NOT MemberExists(designobj, "__PREPAREPAGE"))

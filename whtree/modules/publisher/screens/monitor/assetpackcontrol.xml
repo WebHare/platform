@@ -55,7 +55,6 @@
                   <column name="outputtag" type="text" width="25x" />
                   <column name="designfolder" type="text" width="1pr" />
                   <column name="lastcompile" type="datetime" storeutc="true" width="23x" precision="seconds" />
-                  <column name="lastuse" type="datetime" storeutc="true" width="20x" precision="minutes" />
                   <column name="watchcount" type="text" align="right" width="10x" />
                 </list>
               </cell>

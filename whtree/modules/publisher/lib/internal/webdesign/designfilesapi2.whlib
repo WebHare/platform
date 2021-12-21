@@ -204,8 +204,6 @@ STATIC OBJECTTYPE Resolver
 
     IF(this->assetpack = "" AND RecordExists(this->requestedbundle))
     {
-      //Request a link to the design. Adhoc cache the results, this causes
-      //lastuse not to be updated but that's actually just fine with us
       RECORD torequest := this->requestedbundle;
       torequest.bundleconfig.extrarequires := SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(torequest.bundleconfig.extrarequires,'req') ORDER BY req;
 

@@ -1342,7 +1342,6 @@ STATIC OBJECTTYPE AssetPackController
                                         , haserrors
                                         , outputtag
                                         , lastcompile
-                                        , lastuse
                                         , requirecompile
                                         , isdev
                                         , candelete :=      outputtag NOT LIKE "*.*"
@@ -1444,7 +1443,6 @@ STATIC OBJECTTYPE AssetPackController
 
       INSERT [ id :=              this->lastadhocid
              , created :=         RecordExists(match) ? match.created : GetCurrentDatetime()
-             , lastuse :=         GetCurrentDatetime()
              , designfolder :=    ""
              , entrypoint :=      bundle.basedependency
              , origentrypoint :=  bundle.basedependency
@@ -1587,14 +1585,6 @@ OBJECTTYPE AssetPackControl
     {
       BOOLEAN updatebundlesettings;
       bundleid := bundleinfo.id;
-      IF(bundleinfo.lastuse < now OR updatebundlesettings)
-      {
-        GetPrimary()->BeginWork(); //no need to lock, losing this update is fine
-        UPDATE system.assetpacks
-               SET lastuse := now
-               WHERE id = bundleid;
-        GetPrimary()->CommitWork();
-      }
     }
     ELSE
     {
@@ -1610,8 +1600,8 @@ OBJECTTYPE AssetPackControl
         mustrefreshbundles := TRUE;
         bundleid := MakeAutonumber(system.assetpacks, "ID");
 
-        INSERT INTO system.assetpacks(id, created, lastuse, designfolder, entrypoint, outputtag, bundleconfig)
-               VALUES(bundleid, now, now, requestedbundle.moduledesignfolder, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
+        INSERT INTO system.assetpacks(id, created, designfolder, entrypoint, outputtag, bundleconfig)
+               VALUES(bundleid, now, requestedbundle.moduledesignfolder, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
       }
 
       GetPrimary()->CommitWork();
