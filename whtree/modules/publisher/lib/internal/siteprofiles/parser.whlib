@@ -47,6 +47,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 <
   RECORD ARRAY errormessages;
   RECORD ARRAY warnings;
+  RECORD ARRAY hints;
   STRING filename;
   OBJECT siteprof;
   OBJECT parameters;
@@ -74,7 +75,19 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     RETURN this->warnings;
   }
+  PUBLIC RECORD ARRAY FUNCTION GetHints()
+  {
+    RETURN this->hints;
+  }
 
+  PUBLIC MACRO AddHint(OBJECT node, STRING message)
+  {
+    INSERT [ resourcename := this->filename
+           , line  :=        node->linenum
+           , col :=          0
+           , message :=      message
+           ] INTO this->hints AT END;
+  }
   PUBLIC MACRO AddWarning(OBJECT node, STRING warning)
   {
     INSERT [ resourcename := this->filename
@@ -696,6 +709,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               this->ValidateRegex(crit, applyto.parentregex, "parentregex");
             IF(applyto.whfspathregex != "")
               this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
+            IF(Length(applyto.prebuiltmasks) > 0)
+              this->AddHint(crit, "Future versions of WebHare may remove <prebuiltpage> - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
 
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
@@ -1184,8 +1199,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
               IF("title" NOT IN haslist AND node->HasAttribute("tid"))
                 INSERT "title" INTO haslist AT END;
-              IF(applyblock->localname != "apply") //we really need to deprecate these...
-                this->AddError(node, "<prebuilttype> cannot be used on a <filetype> or <foldertype>");
+
+              this->AddHint(node, "Future versions of WebHare may remove <prebuiltpage> - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
+              IF(applyblock->localname != "apply")
+                this->AddError(node, "<prebuiltpage> cannot be used on a <filetype> or <foldertype>");
 
               INSERT CELL [ type := node->GetAttribute('type')
                           , tag := node->GetAttribute('tag')
@@ -1468,14 +1485,15 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   RECORD siteprofdata := [ name := filename
                          , applysiteprofiles := DEFAULT STRING ARRAY
-                         , errors := DEFAULT RECORD ARRAY
+                         , errors := RECORD[]
                          , warnings := RECORD[]
+                         , hints := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
                          ];
 
-  RECORD ARRAY errors, warnings;
+  RECORD ARRAY errors, warnings, hints;
   OBJECT siteprof;
   OBJECT siteprofcontext;
   IF(NOT ObjectExists(parametersingleton))
@@ -1521,10 +1539,14 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
   {
     errors := siteprofcontext->GetErrors() CONCAT errors;
     warnings := siteprofcontext->GetWarnings() CONCAT warnings;
+    hints := siteprofcontext->GetHints() CONCAT hints;
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
   }
+
   siteprofdata.errors := errors;
   siteprofdata.warnings := warnings;
+  siteprofdata.hints := hints;
+
   RETURN [ value := siteprofdata
          , ttl := 60*60*1000
          , eventmasks := GetResourceEventMasks([filename])
