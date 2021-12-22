@@ -4,7 +4,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -99,7 +98,6 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
     {
       STRING version, description;
       STRING source_revision;
-      BOOLEAN packagingdownload;
 
       //Can't read this from cache (eg GetWebhareModules) at least not for the archive.
       BLOB moduledef := GetDiskResource(rec.path || "/moduledefinition.xml", [ allowmissing := TRUE ]);
@@ -109,7 +107,6 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
         IF (RecordExists(mdef))
         {
           version := mdef.version;
-          packagingdownload := mdef.packagingdownload;
           description := mdef.description;
         }
       }
@@ -129,7 +126,6 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
           , orderdate :=        rec.data.moduledate
           , uploaddate :=       rec.data.newformat ? rec.data.moduledate : DEFAULT DATETIME
           , obsoletiondate :=   rec.data.obsoletiondate
-          , candownload :=      packagingdownload
           , version :=          version
           , revision :=         source_revision
           , description :=      description
@@ -145,39 +141,6 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
     this->RunScreen("#moduleinfo", [ modulename := sel.name
                                    , path := sel.path
                                    ]);
-  }
-
-  MACRO DoDownloadModule()
-  {
-    RECORD sel := this->versions->selection;
-    STRING module := sel.name;
-
-    OBJECT archiver := NEW ModuleArchiver;
-    archiver->SetUserData(this->tolliumuser->login, this->tolliumuser->realname);
-
-    RECORD moduledata;
-    TRY
-    {
-      moduledata := archiver->CreateArchiveFromVersion(sel.path, sel.name);
-    }
-    CATCH (OBJECT e)
-    {
-      OBJECT feedback := this->BeginFeedback();
-      feedback->AddError(e->what);
-      feedback->Finish();
-      RETURN;
-    }
-
-    LogAuditEvent(
-        "system:modules",
-        [ action :=       "download-version"
-        , module :=       module
-        , version :=      moduledata.fullversion
-        , manifestdata := GetAuditLogDataFromManifest(moduledata.manifest)
-        ]);
-
-    STRING archivename := "whmodule-" || sel.name || "-archived-" || FormatDatetime("%Y-%m-%d_%H.%M", sel.uploaddate) || ".tar.gz";
-    this->frame->SendFileToUser(moduledata.data, "application/octet-stream", GetSafeFilename(archivename), GetCurrentDateTime());
   }
 >;
 

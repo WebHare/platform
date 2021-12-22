@@ -26,12 +26,6 @@
       <action name="deletemodule" tid="~delete" onexecute="dodeletemodule">
         <enableon source="modules" min="1" max="1" checkflags="canmanage" />
       </action>
-      <downloadaction name="downloadmodule" ondownload="dodownloadmodule" tid="~download">
-        <enableon source="modules" min="1" max="1" checkflags="candownload" />
-      </downloadaction>
-      <action name="deploymodule" onexecute="dodeploymodule">
-        <enableon source="modules" min="1" max="1" checkflags="candownload" frameflags="connected" requirefocus="true" />
-      </action>
       <action name="versions" onexecute="doversions">
         <enableon source="modules" min="1" max="1" checkflags="canseeversions" />
       </action>
@@ -48,36 +42,17 @@
       <action name="mailroutes" onexecute="domailroutes" tid="tolliumapps.config.mailrouting.mailroutes" shortcut="ctrl+shift+e" />
       <action name="apprunner" onexecute="doapprunner" tid="sysmgmt.apprunner.title" />
 
-      <action name="langedit" onexecute="dolangedit" frameflags="developer">
-        <enableon source="modules" min="1" max="1" />
-      </action>
-
       <action name="connectremote" onexecute="doconnectremote" shortcut="ctrl+p" frameflags="developer"/>
       <windowopenaction name="openwebsite" onwindowopen="onopenwebsite">
         <enableon source="modules" min="1" max="1" checkflags="havewebsite" />
       </windowopenaction>
-      <action name="disconnectremote" onexecute="dodisconnectremote" frameflags="developer connected" tid="~disconnect" />
-
-      <action name="reviewmodulepeerchanges" onexecute="doreviewmodulepeerchanges">
-        <enableon source="peermodules" min="1" max="1"/>
-      </action>
-      <action name="reviewremotetolocaldiff">
-        <enableon source="modules" min="1" max="1" checkflags="isinstalledonpeer" onexecute="doreviewremotetolocaldiff_local" />
-        <enableon source="peermodules" min="1" max="1" checkflags="ispresentlocal" onexecute="doreviewremotetolocaldiff_peer" />
-      </action>
-      <action name="reviewincomingcommits" onexecute="doreviewincomingcommits">
-        <enableon source="peermodules" min="1" max="1" />
-      </action>
 
       <action name="close" onexecute="DoClose" tid="~exit"/>
     </actions>
     <menus>
       <menu name="menubar">
         <item action="uploadmodule"/>
-        <item action="downloadmodule" />
         <item action="openwebsite" />
-        <divider />
-        <item action="deploymodule" />
         <divider />
         <item action="backend"  />
         <item action="editreg"  />
@@ -90,7 +65,6 @@
         <divider/>
         <item action="versions" />
         <item action="configuremodule" />
-        <item action="langedit" disablemode="hidden" />
         <divider/>
         <item action="refresh"/>
         <item action="close" />
@@ -100,21 +74,12 @@
         <item action="uploadmodule"/>
       </menu>
       <menu name="selection_modules">
-        <item action="downloadmodule" />
-        <item action="deploymodule" />
         <item action="openwebsite" />
-        <divider />
-        <item action="langedit" />
         <divider />
         <item action="versions" />
         <item action="configuremodule" />
         <divider />
         <item action="deletemodule" />
-      </menu>
-      <menu name="selection_peermodules">
-        <item action="reviewmodulepeerchanges" />
-        <item action="reviewremotetolocaldiff" />
-        <item action="reviewincomingcommits" />
       </menu>
     </menus>
 
@@ -127,99 +92,47 @@
       <button action="configuremodule" icon="tollium:objects/cog" />
       <divider/>
       <button action="uploadmodule" icon="tollium:actions/upload"/>
-      <button action="downloadmodule" icon="tollium:filemgr/download_file"/>
       <button action="versions" icon="tollium:actions/history"/>
       <divider />
       <button action="mailroutes" icon="tollium:system/emailrouting"/>
       <divider />
       <button action="connectremote"    icon="tollium:objects/rackserver" name="connectremotebutton" tid=".connectremote" />
-      <button action="deploymodule"     icon="tollium:system/deploy" name="deploymodulebutton" tid=".deploymodule" />
-      <!-- <button action="disconnectremote" icon="tollium:system/disconnect" name="disconnectremotebutton" tid="~disconnect"/> -->
     </toolbar>
-    <body layout="form" height="1pr" spacers="bottom">
-      <split type="horizontal">
-        <part width="1pr" spacers="none" name="localmodules">
-          <panel  backgroundcolor="#f0f0f0" spacers="left right">
-            <line layout="tabs-space">
-              <!--buttongroup layout="horizontal" borders="right" name="folderbuttonsfilespacegroup">
-                <button name="showpart" icon="tollium:buttonbar/showpart" type="icon" action="togglefoldertree" />
-                <button name="folderup" icon="tollium:actions/levelup" type="icon" action="goup" hinttid=".folderuphint"/>
-                <button name="folderpath2" icon="tollium:buttonbar/folderpath" type="icon"/>
-              </buttongroup-->
+    <body height="1pr" spacers="none">
+      <panel  backgroundcolor="#f0f0f0" spacers="left right">
+        <line layout="tabs-space">
 
-              <select rowkeytype="boolean" name="showdeleted" title="" type="pulldown" onchange="onshowdeletedchange">
-                <option rowkey="false" tid=".dontshowdeleted"/>
-                <option rowkey="true" tid=".showdeleted"/>
-              </select>
-              <spacer />
-              <text name="localheading" title="" value="" />
-              <!--buttongroup layout="horizontal" borders="left right" name="sortbuttonsgroup">
-                <button name="movetotopbutton" action="movetotop" icon="tollium:actions/to_top" type="icon" hinttid=".movetotophint" />
-                <button name="moveupbutton" action="moveup" icon="tollium:actions/up" type="icon" hinttid=".moveuphint" />
-                <button name="movedownbutton" action="movedown" icon="tollium:actions/down" type="icon" hinttid=".movedownhint"/>
-                <button name="movetobottombutton" action="movetobottom" icon="tollium:actions/to_bottom" type="icon" hinttid=".movetobottomhint" />
-              </buttongroup>
-              <buttongroup layout="horizontal" borders="left">
-                <button name="filelistmulti" action="setfilelistmulti" icon="tollium:buttonbar/showmultirow" type="icon" hinttid=".filelistmultihint" />
-                <button name="filelistsingle" action="setfilelistsingle" icon="tollium:buttonbar/showsinglerow" type="icon" hinttid=".filelistsinglehint" />
-              </buttongroup-->
-            </line>
-          </panel>
+          <select rowkeytype="boolean" name="showdeleted" title="" type="pulldown" onchange="onshowdeletedchange">
+            <option rowkey="false" tid=".dontshowdeleted"/>
+            <option rowkey="true" tid=".showdeleted"/>
+          </select>
+          <spacer />
+          <text name="localheading" title="" value="" />
+        </line>
+      </panel>
 
 
-          <panel height="1pr">
-            <list name="modules"
-                  selectmode="single"
-                  height="1pr"
-                  icons="tollium:files/text_plain tollium:objects/webhare tollium:tollium/tollium tollium:status/versioned tollium:objects/cog "
-                  selectcontextmenu="selection_modules"
-                  newcontextmenu="noselection_modules"
-                  openaction="configuremodule"
-                  sortcolumn="name"
-                  borders="top bottom"
-                  flags="canmanage candownload canseeversions isavailable isconfigurable havewebsite"
-                  ongetrows="getmodules">
-              <column name="name"         type="text"     width="1pr" iconname="typeicon" />
-              <column name="configicon"   type="icon"     width="16px" title="" />
-              <column name="version"      type="text"     width="16x" align="right" />
-              <column name="revision"     type="text"     width="1pr" />
-              <column name="description"  type="text"     width="3pr" tid="~description"/>
-              <column name="lastmodified" type="datetime" precision="minutes" width="16x" storeutc="true" />
-              <style name="deleted" textcolor="#AAAAAA" />
-            </list>
-          </panel>
-        </part>
-        <part width="1pr" spacers="none" name="remotemodules">
-          <panel  backgroundcolor="#f0f0f0" spacers="left">
-            <line layout="tabs-space">
-              <text name="peerheading" title=""/>
-              <url name="peerurl" title="" width="1pr" />
-              <buttongroup layout="horizontal" borders="right">
-                <button action="disconnectremote" icon="tollium:actions/delete" type="icon" hinttid="~disconnect"/>
-                <button action="refresh" icon="tollium:actions/reload" type="icon" hinttid="~refresh"/>
-              </buttongroup>
-            </line>
-          </panel>
-          <tabs name="peertabs" type="server" height="1pr">
-            <tab>
-              <list name="peermodules"
-                    selectmode="single"
-                    borders="top bottom"
-                    sortcolumn="name"
-                    flags="ispresentlocal outofdate"
-                    selectcontextmenu="selection_peermodules"
-                    emptytid=".peerhasnomodules"
-                    icons="tollium:tools/tools tollium:status/checked tollium:status/unknown tollium:status/outdated tollium:status/differentbranch"
-                    ongetrows="getpeermodules"
-                    height="1pr">
-                <column name="name"         type="text"     width="1pr" iconname="outofdateicon" hintname="outofdatehint" />
-                <column name="version"      type="text"     width="12x" align="right" />
-                <column name="showrevision" type="text"     width="24x" tid=".revision" />
-              </list>
-            </tab>
-          </tabs>
-        </part>
-      </split>
+      <panel height="1pr">
+        <list name="modules"
+              selectmode="single"
+              height="1pr"
+              icons="tollium:files/text_plain tollium:objects/webhare tollium:tollium/tollium tollium:status/versioned tollium:objects/cog "
+              selectcontextmenu="selection_modules"
+              newcontextmenu="noselection_modules"
+              openaction="configuremodule"
+              sortcolumn="name"
+              borders="top bottom"
+              flags="canmanage canseeversions isavailable isconfigurable havewebsite"
+              ongetrows="getmodules">
+          <column name="name"         type="text"     width="1pr" iconname="typeicon" />
+          <column name="configicon"   type="icon"     width="16px" title="" />
+          <column name="version"      type="text"     width="16x" align="right" />
+          <column name="revision"     type="text"     width="1pr" />
+          <column name="description"  type="text"     width="3pr" tid="~description"/>
+          <column name="lastmodified" type="datetime" precision="minutes" width="16x" storeutc="true" />
+          <style name="deleted" textcolor="#AAAAAA" />
+        </list>
+      </panel>
     </body>
   </screen>
 </screens>
