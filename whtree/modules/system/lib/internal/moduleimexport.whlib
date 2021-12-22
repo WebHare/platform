@@ -32,8 +32,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
-RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
-
 /** Get the module data based on the name
     @param path Full path of the module contents
     @param name Folder name of the module (including .bak, timestamps, etc).

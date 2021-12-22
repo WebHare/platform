@@ -46,20 +46,6 @@ struct CallbackPayload
         bool returned_credentials;
 };
 
-// callback to provide credentials to connect to remote repositories
-int cred_acquire_cb(git_cred** cred, const char */*url*/, const char *username_from_url, unsigned int /*allowed_types*/, void *payload)
-{
-        // Make sure we error out the second time this function is called, seen infinite loops on mac
-        auto *typed_payload = static_cast< CallbackPayload * >(payload);
-        if (typed_payload->returned_credentials)
-            return GIT_EAUTH;
-
-        // TODO: this only allows for ssh-agent authentication, so not very generic
-        int ret = git_cred_ssh_key_from_agent(cred, username_from_url);
-        typed_payload->returned_credentials = true;
-        return ret;
-}
-
 void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
 {
         HSVM_ColumnId col_author = HSVM_GetColumnId(hsvm,"AUTHOR");
@@ -76,12 +62,8 @@ void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_ColumnId col_id = HSVM_GetColumnId(hsvm,"ID");
         HSVM_ColumnId col_origin_oid = HSVM_GetColumnId(hsvm,"ORIGIN_OID");
         HSVM_ColumnId col_parents = HSVM_GetColumnId(hsvm,"PARENTS");
-        HSVM_ColumnId col_remote_refs = HSVM_GetColumnId(hsvm,"REMOTE_REFS");
         HSVM_ColumnId col_remote_url = HSVM_GetColumnId(hsvm,"REMOTE_URL");
-        //HSVM_ColumnId col_statuscode = HSVM_GetColumnId(hsvm,"STATUSCODE");
         HSVM_ColumnId col_status = HSVM_GetColumnId(hsvm,"STATUS");
-        HSVM_ColumnId col_target = HSVM_GetColumnId(hsvm,"TARGET");
-        //HSVM_ColumnId col_time = HSVM_GetColumnId(hsvm,"TIME");
         HSVM_ColumnId col_paths = HSVM_GetColumnId(hsvm,"PATHS");
         HSVM_ColumnId col_path = HSVM_GetColumnId(hsvm,"PATH");
 
@@ -92,7 +74,6 @@ void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_VariableId var_branch = HSVM_RecordCreate(hsvm, id_set, col_branch);
         HSVM_VariableId var_head_oid = HSVM_RecordCreate(hsvm, id_set, col_head_oid);
         HSVM_VariableId var_origin_oid = HSVM_RecordCreate(hsvm, id_set, col_origin_oid);
-        HSVM_VariableId var_remote_refs = HSVM_RecordCreate(hsvm, id_set, col_remote_refs);
         HSVM_VariableId var_remote_url = HSVM_RecordCreate(hsvm, id_set, col_remote_url);
         HSVM_VariableId var_commits = HSVM_RecordCreate(hsvm, id_set, col_commits);
         HSVM_VariableId var_paths = HSVM_RecordCreate(hsvm, id_set, col_paths);
@@ -103,12 +84,10 @@ void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_StringSetSTD(hsvm, var_head_oid, "");
         HSVM_StringSetSTD(hsvm, var_origin_oid, "");
         HSVM_StringSetSTD(hsvm, var_remote_url, "");
-        HSVM_SetDefault(hsvm, var_remote_refs, HSVM_VAR_RecordArray);
         HSVM_SetDefault(hsvm, var_commits, HSVM_VAR_RecordArray);
         HSVM_SetDefault(hsvm, var_paths, HSVM_VAR_RecordArray);
 
         std::string repopath = HSVM_StringGetSTD(hsvm, HSVM_Arg(0));
-        bool query_remote = HSVM_BooleanGet(hsvm, HSVM_Arg(1));
         int ret = 1;
 
         git_repository *repo;
@@ -170,45 +149,6 @@ void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
                 if (!ret)
                 {
                         HSVM_StringSetSTD(hsvm, var_remote_url, git_remote_url(remote));
-
-                        if (query_remote)
-                        {
-                                CallbackPayload payload;
-                                git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
-                                callbacks.credentials = cred_acquire_cb;
-                                callbacks.payload = &payload;
-
-                                HSVM_StringSetSTD(hsvm, var_remote_url, git_remote_url(remote));
-#if LIBGIT2_VER_MAJOR >= 1
-                                ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks, 0, nullptr);
-#elif LIBGIT2_VER_MINOR < 24
-                                ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks);
-#elif LIBGIT2_VER_MINOR < 25
-                                ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks, 0);
-#else
-                                ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks, 0, nullptr);
-#endif
-                                if (!ret)
-                                {
-                                        const git_remote_head **refs;
-                                        size_t refs_len;
-
-                                        ret = git_remote_ls(&refs, &refs_len, remote);
-                                        if (!ret)
-                                        {
-                                                for (unsigned i = 0; i < refs_len; i++)
-                                                {
-                                                        git_oid_fmt(out, &refs[i]->oid);
-
-                                                        HSVM_VariableId elt = HSVM_ArrayAppend(hsvm, var_remote_refs);
-
-                                                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, elt, col_id), out);
-                                                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, elt, col_name), refs[i]->name);
-                                                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, elt, col_target), refs[i]->symref_target ? refs[i]->symref_target : "");
-                                                }
-                                        }
-                                }
-                        }
                 }
         }
 
