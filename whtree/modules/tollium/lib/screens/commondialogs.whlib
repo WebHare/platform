@@ -39,6 +39,7 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
                        , dontshowkey := ""
                        , icon := "tollium:messageboxes/information"
                        , title := ""
+                       , html := FALSE
                        ];
 
     SWITCH(options.type)
@@ -93,7 +94,11 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
     IF(this->frame->title = "")
       this->frame->title := this->contexts->controller->apptitle;
 
-    ^message->value := data.message;
+    IF(options.html)
+      ^message->htmlvalue := data.message;
+    ELSE
+      ^message->value := data.message;
+
     IF (options.icon NOT LIKE "*:*")
       options.icon := `tollium:messageboxes/${options.icon}`;
 
