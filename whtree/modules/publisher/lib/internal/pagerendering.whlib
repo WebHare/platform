@@ -53,7 +53,7 @@ RECORD FUNCTION InvokeWebpageFunctionWDS(INTEGER fileid, OBJECT pageobject, STRI
   RETURN webdesign->pagewitty->CallWithScope(PTR DoCheckedVarArgsCall(func, args, method), pageconfig);
 }
 
-MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid)
+MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid, RECORD options)
 {
   OBJECT applytester := GetApplyTesterForObject(fileid);
   IF (NOT ObjectExists(applytester))
@@ -63,13 +63,13 @@ MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid)
   IF(NOT RecordExists(webdesigninfo))
     THROW NEW Exception("Unable to locate the <webdesign> for fsobject #" || fileid);
 
-  INSERT CELL webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, contentobjectid != 0 AND contentobjectid != fileid ? OpenWHFSObject(contentobjectid) : DEFAULT OBJECT, DEFAULT OBJECT, FALSE) INTO __pageinfo;
+  INSERT CELL webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, contentobjectid != 0 AND contentobjectid != fileid ? OpenWHFSObject(contentobjectid) : DEFAULT OBJECT, DEFAULT OBJECT, FALSE, options) INTO __pageinfo;
   __pageinfo.webdesign->__is_newstyle_pageobject := TRUE;
 }
 
-OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servicecall, INTEGER contentobjectid)
+OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servicecall, INTEGER contentobjectid, RECORD options)
 {
-  SetupWebDesignForWebPageBase(fileid, contentobjectid);
+  SetupWebDesignForWebPageBase(fileid, contentobjectid, options);
 
   OBJECT pageobject := MakeFunctionPTR(redirectinfo.routerfunction, TYPEID(OBJECT), [TYPEID(OBJECT)])(__pageinfo.webdesign);
   IF(NOT ObjectExists(pageobject))
@@ -81,7 +81,7 @@ OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servi
   RETURN pageobject;
 }
 
-PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid)
+PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   OBJECT pageobject;
   MACRO PTR pagemacro;
@@ -90,7 +90,7 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
   INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(redirectinfo.webpageobjectname ?? redirectinfo.startmacro,'#')[0]) INTO __pageinfo; //FIXME we have Resolve, don't use pagefolder, deprecate it!
   IF(redirectinfo.routerfunction != "")
   {
-    pageobject := ExecuteRouter(fileid, redirectinfo, isjsonrpc, contentobjectid);
+    pageobject := ExecuteRouter(fileid, redirectinfo, isjsonrpc, contentobjectid, options);
   }
   ELSE IF(redirectinfo.startmacro != "" AND NOT isjsonrpc) //startmacro takes precedence over webpageobjectname
   {
@@ -99,7 +99,7 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
   ELSE IF(redirectinfo.webpageobjectname != "")
   {
     //we need to invoke SetupWebDesignForWebPageBase for WebPageBase but it's a waste of time for DynamicPageBase.. so delay it
-    INSERT CELL __instantiatedesign := PTR SetupWebDesignForWebPageBase(fileid, contentobjectid) INTO __pageinfo;
+    INSERT CELL __instantiatedesign := PTR SetupWebDesignForWebPageBase(fileid, contentobjectid, options) INTO __pageinfo;
     pageobject := MakeObject(redirectinfo.webpageobjectname);
 
     IF(pageobject EXTENDSFROM WebPageBase) //modern

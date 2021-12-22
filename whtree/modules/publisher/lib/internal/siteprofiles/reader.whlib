@@ -521,7 +521,9 @@ MACRO ExecuteRepublishInstruction(INTEGER folder, STRING mask, BOOLEAN recursive
 
 PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesigninfo, INTEGER errorcode, OBJECT override_contentobject, OBJECT pageobject, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ navigationobject := DEFAULT OBJECT ], options);
+  options := ValidateOptions(CELL[ navigationobject := DEFAULT OBJECT
+                                 , htmldataset := DEFAULT RECORD
+                                 ], options);
 
   RECORD saveconfig := __webdesign_config;
   TRY
@@ -531,6 +533,7 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
                               , errorcode
                               , override_contentobject
                               , options.navigationobject
+                              , options.htmldataset
                               , pageobject
                               , renderwidgetpreview
                               ];

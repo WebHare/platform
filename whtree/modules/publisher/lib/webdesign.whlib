@@ -247,6 +247,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(NOT RecordExists(__webdesign_config))
       THROW NEW Exception("A webdesign cannot be directly instantiated using NEW - use GetWebDesign to open a webdesign for a specific object");
 
+    this->pvt_htmldata := __webdesign_config.htmldataset;
     this->wittyencoding := __webdesign_config.wittyencoding;
     this->lazyloadcss := __webdesign_config.lazyloadcss;
     this->contentbody := PTR this->__RenderCurrentPage; //we provide this wrapper to allow simple hooking of the content rendering

@@ -9,20 +9,24 @@ BOOLEAN iscontentlink := file.type = 20;
 OBJECT settingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/abtest/abtestfile");
 INTEGER abtestfile := iscontentlink ? file.filelink : file.id;
 RECORD settings := settingstype->GetInstanceData(abtestfile);
+OBJECT abapplytester := GetApplyTesterForObject(file.id);
+RECORD webdesignobjinfo := abapplytester->GetWebDesignObjinfo();
 
 MACRO CreateVariant(RECORD abvariant)
 {
   OBJECT design := GetWebDesign(file.id);
 
-  OBJECT abapplytester := GetApplyTesterForObject(file.id);
   OBJECT targetapplytester := GetApplyTesterForObject(abvariant.target);
+  RECORD templateinfo := targetapplytester->GetUsePublishTemplate();
   RECORD renderinfo := targetapplytester->GetObjRenderInfo();
   OBJECT targetobject := OpenWHFSObject(abvariant.target);
   IF(NOT iscontentlink AND targetobject->parent != file.parent) //to work around this... we'll need to supply different navigationparent and navigationsites too. we didn't test that!
     THROW NEW Exception("All A/B variants MUST be in the same folder as the page combining them!");
 
+  IF(templateinfo.script = "mod::publisher/scripts/internal/publishsystemredirect.whscr") //it's a dynamic page
+    RETURN;
+
   OBJECT pageobject := MakeObject(renderinfo.objectname, targetobject);
-  RECORD webdesignobjinfo := abapplytester->GetWebDesignObjinfo();
   webdesignobjinfo.renderinfo := renderinfo;
 
   OBJECT webdesign := InstantiateWebDesign(targetapplytester, webdesignobjinfo, 200, targetobject, pageobject, FALSE, [ navigationobject := OpenWHFSObject(file.id) ]);
