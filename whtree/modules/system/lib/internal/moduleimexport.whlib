@@ -941,11 +941,9 @@ RECORD ARRAY FUNCTION ScanModuleDirectory(STRING path, STRING localpath)
 
 BOOLEAN FUNCTION HaveDateChangedFromZip(DATETIME zipdate, DATETIME currentdate)
 {
-  IF (GetDayCount(zipdate) != GetDayCount(currentdate))
-    RETURN TRUE;
-
-  // Zip file has 2sec granularity
-  RETURN (GetMsecondCount(zipdate) / 2000) != (GetMsecondCount(currentdate) / 2000);
+  // Zip file has 2sec granularity, but the rounding direction is unspecified (and we differ from InfoZip)
+  INTEGER64 diff := GetDatetimeDifference(zipdate, currentdate).totalmsecs;
+  RETURN NOT (-2000 <= diff AND diff <= 2000);
 }
 
 PUBLIC RECORD FUNCTION GetModuleModifiedFiles(STRING moduleroot, BOOLEAN include_sourcedata)
@@ -1438,31 +1436,6 @@ RECORD FUNCTION CreateModuleManifest(STRING modulepath, STRING login, STRING ful
       [ manifest :=  ParseModuleManifest(doc)
       , files :=     files
       ];
-}
-
-PUBLIC MACRO __CreateWebhareModulesManifests(STRING ARRAY list, STRING ARRAY exclude)
-{
-  OBJECT ar := NEW ModuleArchiver;
-
-  FOREVERY (RECORD dir FROM ReadDiskDirectory(MergePath(GetWebHareConfiguration().installationroot, "modules"), "*"))
-  {
-    IF (LENGTH(list) != 0 AND dir.name NOT IN list)
-      CONTINUE;
-    IF (dir.name IN exclude)
-      CONTINUE;
-
-    IF (RecordExists(GetDiskFileProperties(MergePath(dir.path, "moduledefinition.xml"))))
-    {
-      RECORD ARRAY newfiles := ar->__GetSystemModuleManifestFiles(dir.path || "/", dir.name);
-
-      FOREVERY (RECORD rec FROM newfiles)
-      {
-        CreateDiskDirectoryRecursive(MergePath(dir.path, GetDirectoryFromPath(rec.fullpath)), TRUE);
-        StoreDiskFile(MergePath(dir.path, rec.fullpath), rec.data, [ overwrite := TRUE ]);
-        SetFileModificationDate(MergePath(dir.path, rec.fullpath), rec.modtime);
-      }
-    }
-  }
 }
 
 PUBLIC RECORD FUNCTION GetAuditLogDataFromManifest(RECORD manifest)

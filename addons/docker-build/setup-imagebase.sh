@@ -70,6 +70,8 @@ if ! ( apt-get changelog openssl | grep -q CVE-2021-3449 ) ; then
   exit 1
 fi
 
+# 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
+
 PACKAGES="ccache
     certbot
     cmake
@@ -125,7 +127,9 @@ PACKAGES="ccache
     unixodbc-dev
     unzip
     valgrind
-    vim"
+    vim
+    zip
+    "
 
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
   echo "APT-GET failed"
