@@ -40,6 +40,7 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
     RECORD parseres := ParseSiteProfile(this->respath, [ xmldoc := this->xml ]); //ADDME forwards XSD?
     this->errors := this->errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
     this->warnings := this->warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
+    this->hints := this->hints CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.hints;
 
     FOREVERY(RECORD type FROM parseres.value.contenttypes)
     {
