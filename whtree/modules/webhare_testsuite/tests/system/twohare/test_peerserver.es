@@ -10,7 +10,6 @@ test.registerTests(
     {
       let setup1 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
                                        , { createsysop: true
-                                         , prepmodule: true
                                          });
 
       //this removes the testsuite module on the second server
@@ -19,7 +18,7 @@ test.registerTests(
                                          });
       setupdata = await setup1;
       setup2data = await setup2;
-      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=system:config&notifications=0"));
+      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(/webhare testsuite site/tmp)/managefoldersync/add/selectpeer&notifications=0"));
       await test.wait("ui");
 
       // Wait for login page to appear
@@ -33,12 +32,6 @@ test.registerTests(
   , "Setup peering"
   , async function()
     {
-      test.focus(test.compByName("modules"));
-      //ugly way to find our module, but the alternative is scrolling the list on busy servers
-      await test.pressKey('webhare_testsuite_temp'.split(''));
-
-      test.clickToddToolbarButton("Connect");
-      await test.wait("ui");
       test.clickToddButton("Add");
       await test.wait("ui");
       test.setTodd('peer', setupdata.peerserver);
@@ -83,12 +76,11 @@ test.registerTests(
 
       await test.wait(300); //the test.focus below wasn't enough, for some reason focus doesn't get set. workaround that race..
 
-      test.focus(test.compByName("modules")); //TODO should this really be necesassry?
-      test.clickToddToolbarButton("Deploy module");
+      test.clickToddButton("Select folder");
       await test.wait("ui");
-
-      test.clickToddButton("Yes"); //first push
+      test.clickToddButton("OK");
       await test.wait("ui");
+      test.eq("/WebHare testsuite site/tmp", test.compByName("remotepath").querySelector("input").value);
       test.clickToddButton("OK");
     }
 

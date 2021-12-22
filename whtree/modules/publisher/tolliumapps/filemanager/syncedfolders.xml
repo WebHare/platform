@@ -43,8 +43,8 @@
 
   <screen name="editfolder">
     <actions>
-      <action name="selectpeer" onexecute="doselectpeer" tid="~select" />
-      <action name="selectfolder" onexecute="doselectfolder" tid="~select" />
+      <action name="selectpeer" onexecute="doselectpeer" />
+      <action name="selectfolder" onexecute="doselectfolder" />
     </actions>
     <compositions>
       <record name="rec" />
