@@ -1,6 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-import * as dompack from 'dompack';
 
 var gesture_time = 25;
 var rte = null,table = null;
@@ -19,7 +18,7 @@ test.registerTests(
         //test contentareawidth issues
         test.eq('450px', body.style.width, 'contentareawidth not applied!');
         let bodytop = body.getBoundingClientRect().top;
-        let editareatop = dompack.closest(body,'.wh-rtd__html').getBoundingClientRect().top;
+        let editareatop = body.closest('.wh-rtd__html').getBoundingClientRect().top;
         if (!body.classList.contains("wh-rtd__body--safariscrollfix"))
           test.true((bodytop - editareatop) >= 8, "editareatop=" + editareatop + ", bodytop=" + bodytop + ", must be at least 8px margin");
         table = body.getElementsByTagName('table')[0];

@@ -1,5 +1,4 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 import * as preload from 'dompack/extra/preload';
 import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
 
@@ -101,7 +100,7 @@ test.registerTests(
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
-        let imggroup = dompack.closest(test.qS('#rtdtest-img'), '.wh-form__fieldgroup');
+        let imggroup = test.qS('#rtdtest-img').closest('.wh-form__fieldgroup');
         test.true(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image

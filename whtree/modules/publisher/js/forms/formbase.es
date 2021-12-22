@@ -35,11 +35,11 @@ function doValidation(field, isafter)
   if(isafter && !hasEverFailed(field))
     return;
 
-  let form = dompack.closest(field,'form');
+  let form = field.closest('form');
   if(!form || !form.propWhFormhandler)
     return;
 
-  let owner = dompack.closest(field,'*[data-wh-form-is-validator]');
+  let owner = field.closest('*[data-wh-form-is-validator]');
   let formhandler = form.propWhFormhandler;
   formhandler.validate([owner || field], {focusfailed:false});
 }
@@ -119,7 +119,7 @@ export default class FormBase
         let target = this.node.elements[element];
         if (target)
         {
-          let name = (control.nodeName == "OPTION" ? dompack.closest(control,"select") : control).name;
+          let name = (control.nodeName == "OPTION" ? control.closest("select") : control).name;
           if(!name) //duplicated node?
             continue;
 
@@ -190,7 +190,7 @@ export default class FormBase
 
   _updateFieldGroupMessageState(field, type, getError)
   {
-    let mygroup = dompack.closest(field,".wh-form__fieldgroup");
+    let mygroup = field.closest(".wh-form__fieldgroup");
     if(!mygroup)
       return null;
 
@@ -222,7 +222,7 @@ export default class FormBase
       if(!failedfield)
         return; //nothing to do
 
-      let suggestionholder = dompack.closest(field,'.wh-form__fields') || mygroup.querySelector('.wh-form__fields') || mygroup;
+      let suggestionholder = field.closest('.wh-form__fields') || mygroup.querySelector('.wh-form__fields') || mygroup;
       messagenode = dompack.create("div", { className: "wh-form__" + type });
       dompack.append(suggestionholder, messagenode);
     }
@@ -384,7 +384,7 @@ export default class FormBase
 
   _onTakeFocus(evt)
   {
-    let containingpage = dompack.closest(evt.target,'.wh-form__page');
+    let containingpage = evt.target.closest('.wh-form__page');
     if(containingpage && containingpage.classList.contains('wh-form__page--hidden'))
     {
       //make sure the page containing the errored component is visible
@@ -396,10 +396,10 @@ export default class FormBase
 
   _checkClick(evt)
   {
-    let actionnode = dompack.closest(evt.target, "*[data-wh-form-action]");
+    let actionnode = evt.target.closest("*[data-wh-form-action]");
     if(!actionnode)
     {
-      let submitter = dompack.closest(evt.target, submitselector);
+      let submitter = evt.target.closest(submitselector);
       if(submitter)
       {
         this._submitter = submitter; //store as submitter in case a submit event actually occurs
@@ -585,7 +585,7 @@ export default class FormBase
     let hiddengroups = [], enabledgroups = [], requiredgroups = [];
     for (let formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup"))
     {
-      let visible = !hiddenPages.includes(dompack.closest(formgroup, ".wh-form__page"))
+      let visible = !hiddenPages.includes(formgroup.closest(".wh-form__page"))
           && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
 
       if(!visible)
@@ -625,7 +625,7 @@ export default class FormBase
 
     for(let formline of dompack.qSA(this.node, ".wh-form__fieldline"))
     {
-      let formgroup = dompack.closest(formline, ".wh-form__fieldgroup");
+      let formgroup = formline.closest(".wh-form__fieldgroup");
       let visible = !hiddengroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormVisibleIf);
       let enabled = visible && enabledgroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormEnabledIf);
       let required = enabled && requiredgroups.includes(formgroup);
@@ -1155,7 +1155,7 @@ export default class FormBase
       return false;
 
     // If the node's field group is disabled or hidden, it's not settable
-    let formgroup = dompack.closest(node, ".wh-form__fieldgroup");
+    let formgroup = node.closest(".wh-form__fieldgroup");
     if (formgroup)
     {
       if (formgroup.classList.contains("wh-form__fieldgroup--disabled"))
@@ -1165,7 +1165,7 @@ export default class FormBase
     }
 
     // If the node's form page is hidden dynamically, it's not settable
-    let formpage = dompack.closest(node, ".wh-form__page");
+    let formpage = node.closest(".wh-form__page");
     if (formpage)
     {
       if (formpage.propWhFormCurrentVisible === false)
@@ -1208,7 +1208,7 @@ export default class FormBase
       nodes = [nodes];
 
     return Array.from(nodes).map(node => ({ inputnode: node
-                                          , fieldline: dompack.closest(node, '.wh-form__fieldline')
+                                          , fieldline: node.closest('.wh-form__fieldline')
                                           , value: node.value
                                           }));
   }
@@ -1240,7 +1240,7 @@ export default class FormBase
     if(node.length !== undefined)
       node = node[0];
 
-    return dompack.closest(node, '.wh-form__fieldgroup');
+    return node.closest('.wh-form__fieldgroup');
   }
 
   /** get the values of the currently selected radio/checkbox group */

@@ -1,5 +1,4 @@
 import * as test from "@mod-tollium/js/testframework";
-import * as dompack from 'dompack';
 
 
 test.registerTests(
@@ -14,7 +13,7 @@ test.registerTests(
       test.eq("organization-title", textedit.getAttribute("autocomplete"));
 
       // make sure the subbuttons are visible
-      let ttextedit = dompack.closest(textedit, "t-textedit");
+      let ttextedit = textedit.closest("t-textedit");
       let tbutton = ttextedit.querySelector("t-button");
       test.true(tbutton);
     }

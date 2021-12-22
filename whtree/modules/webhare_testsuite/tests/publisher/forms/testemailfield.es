@@ -1,4 +1,3 @@
-import * as dompack from 'dompack';
 import * as test from '@mod-system/js/wh/testframework';
 
 function getFormRPCRequests()
@@ -23,7 +22,7 @@ test.registerTests(
       await test.wait('ui');
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 
-      let emailgroup = dompack.closest(test.qS('#emailform-email'), '.wh-form__fieldgroup');
+      let emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
       test.true(emailgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
       test.eqMatch(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
@@ -50,7 +49,7 @@ test.registerTests(
       test.fill('#emailform-email', "PIETJE@BLOCKED.BETA.WEBHARE.NET");
       await test.pressKey('Tab');
 
-      let emailgroup = dompack.closest(test.qS('#emailform-email'), '.wh-form__fieldgroup');
+      let emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
       await test.wait( () => emailgroup.classList.contains('wh-form__fieldgroup--error')); //wait for group to error out
       test.eq(1, getFormRPCRequests().length);
 

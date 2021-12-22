@@ -355,7 +355,7 @@ class Calendar2 extends CalendarTable
 
   onKeyEnter(ev)
   {
-    let daynode = dompack.closest(ev.target, "." + this.options.baseclass + '__day--selectable');
+    let daynode = ev.target.closest("." + this.options.baseclass + '__day--selectable');
     if( !daynode )
       return;
 

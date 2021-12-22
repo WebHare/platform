@@ -26,7 +26,7 @@ class EmbedVideoForm extends RPCFormBase
 export async function insertVideo(rtd)
 {
   let formloadlock = dompack.flagUIBusy({ component: rtd });
-  let formhandler = dompack.closest(rtd, 'form').propWhFormhandler;
+  let formhandler = rtd.closest('form').propWhFormhandler;
   if(!formhandler)
   {
     console.error("Cannot find formhandler for node",rtd);

@@ -18,7 +18,7 @@ test.registerTests(
 
         //now resize it. the resize handle should be between the two headers
         var col3 = test.getListViewHeader('Col3');
-        var col3list= dompack.closest(col3, ".wh-ui-listview");
+        var col3list= col3.closest(".wh-ui-listview");
         var col3pos = dompack.getRelativeBounds(col3, col3list);
 
         test.sendMouseGesture([ { el: col3list, x: col3pos.left,  y: col3pos.top, down: 0 }

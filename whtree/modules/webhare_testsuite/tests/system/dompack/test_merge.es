@@ -1,5 +1,4 @@
 import * as test from "@mod-system/js/wh/testframework";
-import * as dompack from "dompack";
 
 import * as merge from "dompack/extra/merge.es";
 
@@ -33,7 +32,7 @@ test.registerTests(
     test.eq("MAGGIE", test.qS("#mergetest3 a").textContent);
 
     // test filter (a.l not needed because '#mergetest3 a' will not be visited)
-    await merge.run(test.getDoc(), { a: { b: "Bart" } }, { filter: node => dompack.closest(node, "#mergetest2") });
+    await merge.run(test.getDoc(), { a: { b: "Bart" } }, { filter: node => node.closest("#mergetest2") });
     test.eq("Maggie", test.qS("#mergetest1 span").textContent);
     test.eq("BART", test.qS("#mergetest2 span").textContent);
     test.eq("http://example.com/", test.qS("#mergetest3 a").href);

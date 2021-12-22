@@ -9,7 +9,7 @@ export default class ArrayField
     this.node = node;
     this.name = node.dataset.whFormGroupFor;
     this.nextnewrowid = 0;
-    this.form = dompack.closest(this.node, "form").propWhFormhandler;
+    this.form = this.node.closest("form").propWhFormhandler;
 
     // The template for new rows
     this.template = node.querySelector("template");

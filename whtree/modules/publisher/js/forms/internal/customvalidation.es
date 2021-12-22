@@ -10,7 +10,7 @@ export function reportValidity(node)
     node.reportValidity();
     return true;
   }
-  let form = dompack.closest(node,'form');
+  let form = node.closest('form');
   if(!form)
     return false;
 
@@ -25,7 +25,7 @@ export function reportValidity(node)
 
 function setupServerErrorClear(field)
 {
-  let group = dompack.closest(field,'.wh-form__fieldgroup') || field;
+  let group = field.closest('.wh-form__fieldgroup') || field;
   field.propWhCleanupFunction = () =>
   {
     group.removeEventListener("change", field.propWhCleanupFunction, true);
@@ -39,7 +39,7 @@ function setupServerErrorClear(field)
   // eg wrd.testwrdauth-emailchange would fail on Chrome without this if the browser window was not currently focused
   group.addEventListener("change", field.propWhCleanupFunction, true);
   group.addEventListener("input", field.propWhCleanupFunction, true);
-  if(!dompack.closest(field, 'form[novalidate]')) //if we're doing html5 validation, errors will block submit, so let's already clear on blur
+  if(!field.closest('form[novalidate]')) //if we're doing html5 validation, errors will block submit, so let's already clear on blur
     group.addEventListener("blur", field.propWhCleanupFunction, true);
 }
 

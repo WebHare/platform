@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-import * as dompack from 'dompack';
 
 
 test.registerTests(
@@ -50,7 +49,7 @@ test.registerTests(
         let x13item = test.qS('li[data-menuitem$=x13]');
         test.true(x13item);
         test.true(x13item.hasAttribute("data-menushortcut"));
-        test.true(dompack.closest(x13item,'ul').classList.contains('showshortcuts'), 'shortcuts class missing in hamburger, needed to make data-shortcuts appear');
+        test.true(x13item.closest('ul').classList.contains('showshortcuts'), 'shortcuts class missing in hamburger, needed to make data-shortcuts appear');
 
         test.sendMouseGesture([{el: test.qSA(topmenu, "li").filter(li=>li.textContent.includes("X03"))[0] }]);
 

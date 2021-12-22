@@ -62,8 +62,8 @@ test.registerTests(
         test.true(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
         win.rte.setEnabled(false);
 
-        test.true( !!dompack.closest(win.rte.getBody(), '.wh-rtd--disabled'));
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--readonly'));
+        test.true( !!win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
         test.eq(null, win.rte.getEditor());
         test.false(test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
@@ -75,8 +75,8 @@ test.registerTests(
       {
         win.rte.setEnabled(true);
 
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--disabled'));
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--readonly'));
+        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
 
 /*
         test.true(win.rte.getEditor(), "We appear to not have an actual editor (didn't reconnect?)");
@@ -92,8 +92,8 @@ test.registerTests(
       {
         win.rte.setReadonly(true);
 
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--disabled'));
-        test.true( !!dompack.closest(win.rte.getBody(), '.wh-rtd--readonly'));
+        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.true( !!win.rte.getBody().closest('.wh-rtd--readonly'));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
         test.eq(null, win.rte.getEditor());
       }
@@ -104,8 +104,8 @@ test.registerTests(
       {
         win.rte.setReadonly(false);
 
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--disabled'));
-        test.false(dompack.closest(win.rte.getBody(), '.wh-rtd--readonly'));
+        test.false(win.rte.getBody().closest('.wh-rtd--disabled'));
+        test.false(win.rte.getBody().closest('.wh-rtd--readonly'));
 
         test.true(win.rte.getEditor()); // make sure we have an editor
 

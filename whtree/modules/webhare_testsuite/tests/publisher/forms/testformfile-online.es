@@ -1,5 +1,4 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 let testemail = Math.floor(100000000*Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
 var setupdata;
@@ -20,7 +19,7 @@ test.registerTests(
       test.eq(1, thankyou.length, "Cannot find thankyou node");
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
       test.false(test.canClick(thankyou[0]), "Thankyou node should not be visible");
-      test.false(dompack.closest(thankyou[0],'form').dataset.whFormResultguid);
+      test.false(thankyou[0].closest('form').dataset.whFormResultguid);
 
       let pulldownoptions = test.qSA('[name=requiredpulldownfield] option');
       test.eq(3, pulldownoptions.length);
@@ -33,7 +32,7 @@ test.registerTests(
       test.false(pulldownoptions[0].disabled);
 
 
-      let email = dompack.closest(test.qS('input[type=email]'), '.wh-form__fieldgroup').querySelector('.wh-form__label');
+      let email = test.qS('input[type=email]').closest('.wh-form__fieldgroup').querySelector('.wh-form__label');
       test.eq("Email", email.textContent);
     }
 
@@ -52,7 +51,7 @@ test.registerTests(
       test.true(test.canClick(thankyou[0]), "Thankyou node should NOW be visible");
       test.false(test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
 
-      test.true(dompack.closest(thankyou[0],'form').dataset.whFormResultguid);
+      test.true(thankyou[0].closest('form').dataset.whFormResultguid);
     }
 
   , 'Process mail'

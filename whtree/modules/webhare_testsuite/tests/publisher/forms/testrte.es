@@ -1,5 +1,4 @@
 import * as test from "@mod-tollium/js/testframework";
-import * as dompack from 'dompack';
 import * as rtetestapi from '@mod-tollium/js/testframework-rte';
 
 let videobuttonselector = '[data-wh-form-name="rtd"] [data-button="object-video"]';
@@ -179,7 +178,7 @@ test.registerTests(
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
-        let rtdgroup = dompack.closest(test.qS('#rtdtest-rtd'), '.wh-form__fieldgroup');
+        let rtdgroup = test.qS('#rtdtest-rtd').closest('.wh-form__fieldgroup');
         test.true(rtdgroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
