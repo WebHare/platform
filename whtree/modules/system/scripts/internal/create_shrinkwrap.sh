@@ -104,7 +104,7 @@ if ! $TIMEOUT $WHTREE/bin/wh webserver addbackend http://localhost:38600/ ; then
   EXITCODE=1
 fi
 
-if ! $TIMEOUT $WHTREE/bin/wh screenshot --abortonlogerrors --delay 5000 http://localhost:38600/ ; then
+if ! $TIMEOUT $WHTREE/bin/wh screenshot -o /tmp/screenshot.png --abortonlogerrors --delay 5000 http://localhost:38600/ ; then
   echo "error getting login interface screenshot (probably got javascript errors)"
   EXITCODE=1
 fi

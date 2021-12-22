@@ -27,6 +27,7 @@ coverage.tar.gz
 /whtree/lib/openssl
 /whtree/lib/*.la
 /whtree/log
+/whtree/modules/*/history
 /whtree/modules/system/data/shrinkwrap-var.tgz
 /whtree/modules/system/data/engines/pdfbox*jar
 /whtree/modules/system/whres/buildinfo
