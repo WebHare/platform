@@ -545,7 +545,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   /** @short Display a simple screen with a yes/no or ok/cancel dialog
       @param type Dialog base type: error/warning/info for "Ok" boxes, verify/confirm/question for Yes/No boxes which default to No, Yes and nothing respectively
       @param message Message
-      @cell(boolean) options.html If true, interpret mesage as HTML (as returend by %GetHTMLTid)
+      @cell(boolean) options.html If true, interpret mesage as HTML (as returned by %GetHTMLTid)
       @cell(string array) options.buttons Set explicit buttons list
       @cell(string) options.defaultbutton Default button to select
       @cell(string) options.dontshowkey If set, name of registry key to save 'don't show again' settings
