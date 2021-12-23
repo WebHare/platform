@@ -1,5 +1,0 @@
-<?wh
-
-LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
-
-__CreateWebhareModulesManifests(STRING[], STRING[]);

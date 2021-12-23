@@ -88,12 +88,26 @@ if which timeout >/dev/null ; then
   TIMEOUT="timeout 60000"
 fi
 
+if ! $WHTREE/bin/wh waitfor --timeout 60000 poststartdone ; then
+  echo "poststartdone not completing"
+  EXITCODE=1
+fi
+
+echo "Starting shrinkwrap"
 if ! $TIMEOUT $WHTREE/bin/wh run mod::system/scripts/internal/shrinkwrap.whscr $WHTREE/modules/system/data/shrinkwrap-var.tgz ; then
   echo "shrinkwrap.whscr failed!"
   EXITCODE=1
 fi
 
- # we screenshot the webinterface just to check there are no obvious JS errors
+# Create the history files
+for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
+  if [ "$MOD" != "webhare_testsuite" ]; then
+    mkdir -p "$WHTREE/modules/history"
+    ( cd "$WHTREE/modules" && TZ=UTC zip -x "$MOD/history/*" -r "$MOD/history/source.zip" "$MOD" )
+  fi
+done
+
+# we screenshot the webinterface just to check there are no obvious JS errors
 if ! $TIMEOUT $WHTREE/bin/wh webserver addport --virtual 38600 ; then
   echo "creating interface port failed"
   EXITCODE=1
@@ -104,7 +118,7 @@ if ! $TIMEOUT $WHTREE/bin/wh webserver addbackend http://localhost:38600/ ; then
   EXITCODE=1
 fi
 
-if ! $TIMEOUT $WHTREE/bin/wh screenshot --abortonlogerrors --delay 5000 http://localhost:38600/ ; then
+if ! $TIMEOUT $WHTREE/bin/wh screenshot -o /tmp/screenshot.png --abortonlogerrors --delay 5000 http://localhost:38600/ ; then
   echo "error getting login interface screenshot (probably got javascript errors)"
   EXITCODE=1
 fi

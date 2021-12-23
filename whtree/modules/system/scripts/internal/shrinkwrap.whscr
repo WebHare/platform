@@ -12,26 +12,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 
-STRING FUNCTION FixupPath(STRING inpath)
-{
-  IF(inpath LIKE "/tmp/webhare-buildroot/*")
-    inpath := Substring(inpath, 22);
-  RETURN inpath;
-}
-
-RECORD FUNCTION RewriteHSONPaths(RECORD inentry)
-{
-  IF(inentry.name="assetpackstate.hson")
-  {
-    RECORD state := DecodeHSONBlob(inentry.data);
-    state.dependencies.filedependencies := SELECT AS STRING ARRAY FixupPath(path) FROM ToRecordArray(state.dependencies.filedependencies, 'path');
-    state.dependencies.contextdependencies := SELECT AS STRING ARRAY FixupPath(path) FROM ToRecordArray(state.dependencies.contextdependencies, 'path');
-    state.dependencies.missingdependencies := SELECT AS STRING ARRAY FixupPath(path) FROM ToRecordArray(state.dependencies.missingdependencies, 'path');
-    inentry.data := EncodeHSONBlob(state);
-  }
-  RETURN inentry;
-}
-
 RECORD ARRAY options :=
   [ [ name := "outputfile", type := "param", required:=TRUE ]
   ];
@@ -42,11 +22,6 @@ IF (NOT RecordExists(args))
   PRINT("Syntax: wh run shrinkwrap.whscr <outputfile>\n");
   RETURN;
 }
-
-OBJECT manifestgeneration := AsyncCallFunctionFromJob("mod::system/lib/internal/moduleimexport.whlib#__CreateWebhareModulesManifests", STRING[], [ "system" ]);
-
-WaitForPromise(CreateWHServiceStatePromise("poststartdone")); //make sure WH is up&running AND all poststart scripts have completed (we need this to ensure tollium:sharedworker exists)
-Print("In 'poststartdone' - starting the shrinkwrapping\n");
 
 OpenPrimary();
 OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
@@ -68,18 +43,11 @@ FOREVERY(OBJECT promise FROM promises)
 
 WaitForPromise(CreatePromiseAll(promises));
 
-STRING ARRAY save_exports;
 OBJECT zipfile := CreateNewArchive("tar.gz");
 
 FOREVERY(STRING outputtag FROM SELECT AS STRING ARRAY assetpacks.outputtag FROM system.assetpacks)
 {
   STRING tagfolder := Substitute(outputtag,':','.');
-  zipfile->AddDiskFolderRecursive(GetWebHareConfiguration().varroot || "publisher.ap/" || tagfolder, "publisher.ap/" || tagfolder, [ filerewriter := PTR RewriteHSONPaths ]);
+  zipfile->AddDiskFolderRecursive(GetWebHareConfiguration().varroot || "publisher.ap/" || tagfolder, "publisher.ap/" || tagfolder);
 }
 StoreDiskFile(args.outputfile, zipfile->MakeBlob(), [ overwrite := TRUE ]);
-
-// This step must run after all module modifications
-WaitForPromise(manifestgeneration);
-
-// Rebuild the system module manifest, needed for shrinkwrap
-__CreateWebhareModulesManifests([ "system" ], STRING[]);
