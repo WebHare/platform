@@ -4,6 +4,5 @@
   <test script="testsourcemanipulation.whscr" />
   <test script="testcheckmodule.whscr" />
   <test script="testvalidate.whscr" />
-  <test script="test_module_imexport.whscr" />
   <test script="testparsers.whscr" />
 </group>

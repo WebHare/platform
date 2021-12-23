@@ -1269,6 +1269,7 @@
         <text tid="connectremote">Verbinden</text>
         <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
         <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
+        <text tid="deploymentrequiresdev">Gebruik de Deploy applicatie in de 'dev' module om modules naar remote servers te uploaden.<br/><br/>Kijk op <html:a href="https://www.webhare.dev/manuals/developers/dev-module/">webhare.dev/manuals/developers/dev-module/</html:a> voor meer informatie</text>
         <text tid="deploymodule">Uitrollen</text>
         <text tid="differentbranch">De module op de server staat in een andere branch</text>
         <text tid="dontshowdeleted">Toon alleen huidige modules</text>

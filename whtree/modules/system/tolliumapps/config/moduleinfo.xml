@@ -2,9 +2,6 @@
 
   <screen name="moduleversions" minwidth="100x" minheight="20x" allowresize="true" title="" savestate="position size" gid=".moduleversions">
     <actions>
-      <action name="downloadmodule" onexecute="dodownloadmodule">
-        <enableon source="versions" min="1" max="1" checkflags="candownload" />
-      </action>
       <action name="hotfixes" onexecute="dohotfixes">
         <enableon source="versions" min="1" max="1" />
       </action>
@@ -19,7 +16,6 @@
               <list name="versions"
                     selectmode="single"
                     height="1pr"
-                    flags="candownload"
                     sortascending="false"
                     >
                 <column name="uploaddate"     type="datetime" precision="minutes" width="16x" storeutc="true" sortkeyname="orderdate" />
@@ -32,7 +28,6 @@
             </panel>
           </cell>
           <cell>
-            <button action="downloadmodule" width="1pr" />
             <button action="hotfixes" width="1pr" />
           </cell>
         </row>

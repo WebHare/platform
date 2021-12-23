@@ -1460,6 +1460,7 @@
         <text tid="connectremote">Connect</text>
         <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
         <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
+        <text tid="deploymentrequiresdev">Use the Deploy application in the 'dev' module to push modules to a remote server.<br/><br/>See <html:a href="https://www.webhare.dev/manuals/developers/dev-module/">webhare.dev/manuals/developers/dev-module/</html:a> for more info</text>
         <text tid="deploymodule">Deploy module</text>
         <text tid="differentbranch">The server version is on a different branch</text>
         <text tid="dontshowdeleted">Only show current modules</text>

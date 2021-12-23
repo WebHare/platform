@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/internal/modules/support.whlib";
 MACRO PrintSyntaxAndTerminate()
 {
   Print("Syntax: wh module <command>\n");
-  Print("  download <name>:         Download the specified module\n");
   Print("  get <giturl>:            Get a module from a git server\n"); //note - actually implemented in our wrapper module.sh
   Print("  install <path|url>:      Install a module\n");
   Print("  rm <module>:             Delete a module\n");
@@ -54,25 +53,6 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
   CASE "createwebdesign"
   {
     TerminateScriptWithError("`wh module createwebdesign` is no longer supported - use wh dev:createwebdesign");
-  }
-  CASE "download"
-  {
-    RECORD subargs := ParseArguments(cmdargs.params,
-        [ [ name := "output", type := "stringopt" ]
-        , [ name := "module", type := "param", required := TRUE ]
-        ]);
-
-    IF(NOT RecordExists(subargs))
-    {
-      Print("Syntax: wh module download [--output path] <module>\n");
-      TerminateScriptWithError("Invalid syntax");
-    }
-
-    STRING target := subargs.output ?? "whmodule-" || subargs.module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime()) || ".tar.gz";
-    OBJECT archiver := NEW ModuleArchiver;
-    RECORD moduledata := archiver->CreateArchive(subargs.module);
-    StoreDiskFile(target, moduledata.data, [ overwrite := TRUE ]);
-    Print(`Saved module to ${target}\n`);
   }
   CASE "install"
   {
