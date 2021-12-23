@@ -51,7 +51,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                                : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
              , outputtag
              , lastcompile
-             , lastuse
              , id
              , candelete
              , watchcount :=  watchcount = 0 ? "" : ToString(watchcount)

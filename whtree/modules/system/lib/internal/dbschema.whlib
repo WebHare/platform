@@ -340,7 +340,6 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER 'id' NULL := 0
     , DATETIME 'created'
-    , DATETIME 'lastuse'
     , STRING 'designfolder'
     , STRING 'entrypoint'
     , STRING 'bundleconfig'

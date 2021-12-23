@@ -1944,6 +1944,8 @@
         <text tid="peer">Remote server</text>
         <text tid="remotefolder">Remote folder</text>
         <text tid="remotepath">Remote path</text>
+        <text tid="selectfolder">Select folder</text>
+        <text tid="selectpeer">Connect server</text>
         <text tid="selectremotefolder">Select remote folder</text>
         <text tid="syncfolder">Synchronize folder <param p="1"/></text>
         <text tid="synchronize">Synchronize</text>

@@ -1944,6 +1944,8 @@
         <text tid="peer">Externe server</text>
         <text tid="remotefolder">Externe map</text>
         <text tid="remotepath">Extern pad</text>
+        <text tid="selectfolder">Kies map</text>
+        <text tid="selectpeer">Verbind met server</text>
         <text tid="selectremotefolder">Selecteer externe map</text>
         <text tid="syncfolder">Synchroniseer map <param p="1"/></text>
         <text tid="synchronize">Synchroniseer</text>

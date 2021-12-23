@@ -1978,11 +1978,7 @@ The full base URL on which this site will be published, calculated by combining 
           Creation date of the asset pack
         </d:documentation>
       </d:datetime>
-      <d:datetime name="lastuse">
-        <d:documentation>
-          Last use date of the design files.
-        </d:documentation>
-      </d:datetime>
+      <d:obsoletecolumn name="lastuse"/>
       <d:varchar name="designfolder" maxlength="256">
         <d:documentation>
           Module for which this file was generated
