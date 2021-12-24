@@ -467,8 +467,9 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       }
 
       // modification date must be after the moddate of all ondisk package folders
+      // this may give false alarms if run on a dev server after a module push, because all modtimes are then simply ordered by extraction order
       IF (props.modified < SELECT AS DATETIME MAX(modified) FROM ondiskpackages)
-        RETURN [ ...issues, [ error := "Packages were manually modified after last installation. Please run 'wh fixmodules'" ] ];
+        RETURN [ ...issues, [ error := "Packages may have been manually modified after last installation. Please run 'wh fixmodules'" ] ];
 
       // Check if the package list is equal from listed to installed
       RECORD ARRAY packages := SELECT * FROM hiddenpackagelockjson->GetProp("packages")->Unpack() ORDER BY name;
