@@ -583,6 +583,10 @@ int UTF8Main(std::vector<std::string> const &args)
 {
         DEBUGPRINT("Entered main");
 
+        //Prevent subprocesses that try to access the tty (eg git asking for username/password) from stopping the webserver
+        signal(SIGTTIN, SIG_IGN);
+        signal(SIGTTOU, SIG_IGN);
+
         Blex::OptionParser::Option optionlist[] =
            { Blex::OptionParser::Option::StringList("dontlaunch")
            , Blex::OptionParser::Option::Param("mode", true)
