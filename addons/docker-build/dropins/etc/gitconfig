@@ -1,0 +1,5 @@
+; as long as we use libgit2, we'll need to set this config here
+; once dev module no longer uses libgit2 it can just pass this a a -c option to git
+[core]
+        autocrlf = true
+
