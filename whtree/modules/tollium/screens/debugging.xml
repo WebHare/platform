@@ -1,27 +1,29 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/debugging.whlib"
-         gid="debugging">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="debugging" lib="screens/debugging.whlib">
 
   <screen name="reflectdialog"
-          width="650px" height="650px" allowresize="true"
-          menubar="menubar"
+          width="650px"
+          height="650px"
+          allowresize="true"
           defaultbutton="closebutton"
           gid=".reflect"
-          >
+          menubar="menubar">
     <actions>
-      <action name="download"       onexecute="dodownload" />
-      <action name="openinnewtab"   onexecute="doopeninnewtab" />
-      <action name="showbrowser"    onexecute="doshowbrowsepanel" />
+      <action name="download" onexecute="dodownload" />
+      <action name="openinnewtab" onexecute="doopeninnewtab" />
+      <action name="showbrowser" onexecute="doshowbrowsepanel" />
       <action name="openindebugger" onexecute="doopenindebugger" />
       <action name="openineditor" onexecute="doopenineditor">
         <enableon source="stacktrace" min="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="menubar">
         <item tid="tollium:common.menus.file">
-          <item action="download" tid="tollium:common.actions.download" />
+          <item action="download" tid="~download" />
+
           <!-- item action="openinnewtab" -->
+
           <!-- item action="email" -->
         </item>
         <item tid="tollium:common.menus.view">
@@ -29,38 +31,45 @@
         </item>
       </menu>
       <menu name="stacktracemenu">
-        <item action="openineditor" title="Open in editor"/>
+        <item action="openineditor" title="Open in editor" />
       </menu>
     </menus>
+
     <body height="1pr" spacers="none">
       <tabs height="1pr">
-        <tab name="browse">
-          <box title="Debug output" height="2pr">
-            <hsvalue name="valuedisplay" height="1pr" minheight="15x" />
-            <!-- iframe name="debugdump" width="1pr" height="1pr" minheight="15x" -->
-          </box>
-          <list name="stacktrace" height="1pr" sortable="false" selectmode="single" selectcontextmenu="stacktracemenu">
-            <column name="filename" type="text" />
-            <column name="func" type="text" />
-            <column name="line" type="integer" />
-          </list>
+        <tab name="browse" spacers="none">
+          <split type="vertical">
+            <part height="2pr" spacers="all">
+              <heading title="Debug output" />
+              <hsvalue name="valuedisplay" height="1pr" minheight="15x" />
+            </part>
+            <part height="1pr" spacers="all">
+              <list name="stacktrace" height="1pr" selectcontextmenu="stacktracemenu" selectmode="single" sortable="false">
+                <column name="filename" type="text" />
+                <column name="func" type="text" />
+                <column name="line" type="integer" />
+              </list>
+            </part>
+          </split>
         </tab>
         <tab name="getvalue">
           <select name="getvalueas" type="radio" onchange="ongetvalueaschange">
-            <option rowkey="none" selected="true"/>
+            <option rowkey="none" selected="true" />
             <option rowkey="hson" />
             <option rowkey="decodehson" />
           </select>
-          <textarea width="1pr" height="1pr" name="data"/>
+          <textarea name="data" width="1pr" height="1pr" />
         </tab>
       </tabs>
     </body>
+
     <footer>
       <line layout="right">
-        <button action="download" tid="tollium:common.actions.download" />
-        <button action="openindebugger" name="openindebuggerbutton" tid=".openindebugger" />
-        <button tolliumresult="cancel" tid="tollium:common.actions.close" name="closebutton" />
+        <button action="download" tid="~download" />
+        <button name="openindebuggerbutton" action="openindebugger" tid=".openindebugger" />
+        <button name="closebutton" tid="~close" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>
+
 </screens>
