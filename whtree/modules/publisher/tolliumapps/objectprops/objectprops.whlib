@@ -1799,8 +1799,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
   {
     // Auto-check for required fields
-    IF (NOT this->BeginFeedback()->Finish())
-      RETURN FALSE;
+    OBJECT quickfeedback := this->BeginFeedback();
+    IF(quickfeedback->HasFailed())
+      RETURN quickfeedback->Finish();
+
+    quickfeedback->Cancel(); //don't show any warnings now yet... the next BeginWork will.
 
     // Extra validation
     STRING name := ^name->value;
