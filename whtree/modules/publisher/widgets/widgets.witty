@@ -22,3 +22,40 @@
     </div>
   </div>
 [/component]
+
+[component gallery]
+  <section class="wh-gallery">
+    [forevery images]
+      <figure class="wh-gallery__image">
+        <a href="[link]" class="wh-gallery__imagelink" data-image-width="[width]" data-image-height="[height]"[if dominantcolor] data-dominantcolor="[dominantcolor]"[/if]>
+          <img class="wh-gallery__imageelement" width="[thumbnail.width]" height="[thumbnail.height]" loading="lazy" src="[thumbnail.link]" srcset="[thumbnail.link] 2x" alt="[description]"[if dominantcolor]  style="background-color: [dominantcolor]"[/if]>
+        </a>
+        [if title]
+          <figcaption class="wh-gallery__imagecaption">
+            [title]
+          </figcaption>
+        [/if]
+      </figure>
+    [/forevery]
+
+
+[!      [forevery slides]
+        <div class="photoalbumwidget__item">
+          <img class="b-lazy"
+               data-src="[image_grid.link]"
+               data-srcset="[image_grid.link] 1x, [image_grid_2x.link] 2x"
+               title="[title]"
+               data-width="[image_grid.width]"
+               data-height="[image_grid.height]"
+               alt="[alt]"
+               />
+          [if title]<div class="photoalbumwidget__item-title">[title]</div>[/if]
+        </div>
+      [/forevery]
+  </div> !]
+  </section>
+[!  [if not ispreview]
+    [embed photoalbum_carrousel]
+  [/if]
+!]
+[/component]

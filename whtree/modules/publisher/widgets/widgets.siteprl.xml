@@ -48,6 +48,16 @@
     </members>
   </widgettype>
 
+  <!-- (photo)gallery widget -->
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/gallery"
+              icon="tollium:folders/photoalbum"
+              renderobjectname="/lib/widgets/gallerywidget.whlib#GalleryWidgetBase"
+              tid="widgets.gallerywidget.title"
+              wittycomponent="widgets.witty:gallery">
+    <members>
+    </members>
+  </widgettype>
+
   <!-- contentsnippet widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet"
               editextension="contentsnippet/contentsnippet.xml#snippeteditor"

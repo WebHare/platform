@@ -2580,6 +2580,9 @@
       <text tid="insertsnippetwidget">Insert snippet</text>
       <text tid="snippetwidget">Content snippet</text>
     </textgroup>
+    <textgroup gid="gallerywidget">   <!-- widgets.gallerywidget -->
+      <text tid="title">Photo gallery</text>
+    </textgroup>
     <textgroup gid="htmlwidget">   <!-- widgets.htmlwidget -->
       <text tid="html">HTML code</text>
       <text tid="invalidhtml">The entered HTML code is invalid</text>
