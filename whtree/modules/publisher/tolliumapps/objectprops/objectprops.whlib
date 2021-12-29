@@ -2336,11 +2336,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO InitSeoSettings()
   {
-    ^seotitle->visible := this->isfolder = FALSE AND this->basesettings.seotitle;
-    ^headertitle->visible := this->isfolder = FALSE AND this->basesettings.headertitle;
+    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
+    //As these are published, only files that go through a webdesign can show something useful
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
+    ^headertitle->visible := needstemplate AND this->basesettings.headertitle;
 
     IF(NOT (this->basesettings.seotab
-             AND (this->isfolder OR this->contexts->applytester->IsTypeNeedsTemplate())
+             AND (this->isfolder OR needstemplate)
              AND (this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))))
     {
       ^seotab->visible := FALSE;
