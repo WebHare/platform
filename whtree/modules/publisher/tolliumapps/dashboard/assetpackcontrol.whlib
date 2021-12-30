@@ -52,7 +52,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
              , outputtag
              , lastcompile
              , id
-             , candelete
              , watchcount :=  watchcount = 0 ? "" : ToString(watchcount)
           FROM status.bundles;
 
@@ -149,33 +148,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   MACRO OnSelectMessage()
   {
     ^message->value := RecordExists(^messages->selection) ? ^messages->selection.message : "";
-  }
-  MACRO DoDeleteBundles()
-  {
-    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletebundles")) != "yes")
-      RETURN;
-
-    this->RunDelete(this->bundles->selection);
-  }
-  MACRO RunDelete(RECORD ARRAY todelete)
-  {
-    INTEGER ARRAY bundleids := SELECT AS INTEGER ARRAY id FROM todelete;
-    OBJECT work := this->BeginWork();
-    DELETE FROM system_internal.assetpacks WHERE id IN bundleids;
-    work->Finish();
-
-    TRY
-    {
-      WaitForPromise(this->assetpackcontrol->UpdateAssetPackManager());
-    }
-    CATCH (OBJECT e)
-    {
-      this->ResetConnection();
-    }
-
-    RemoveObsoleteCacheFolders();
-    FOREVERY(RECORD deleted FROM todelete)
-      BroadcastEvent("publisher:assetpackcontrol.change." || deleted.outputtag, DEFAULT RECORD);
   }
 
   MACRO DoRecompileBundles()

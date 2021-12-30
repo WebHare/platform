@@ -1643,7 +1643,6 @@
       <textgroup gid="assetpackcontrol">   <!-- tolliumapps.dashboard.assetpackcontrol -->
         <text tid="title">Asset packing and bundling</text>
         <textgroup gid="assetpackcontrolpanel">   <!-- tolliumapps.dashboard.assetpackcontrol.assetpackcontrolpanel -->
-          <text tid="confirmdeletebundles">Are you sure you want to delete the selected bundles ?</text>
           <text tid="lastcompile">Last compile</text>
           <text tid="message">Message</text>
           <text tid="outputtag">Outputtag</text>

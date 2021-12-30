@@ -4,9 +4,6 @@
 
   <screen name="assetpackcontrolpanel" width="80x" gid=".assetpackcontrolpanel" title="">
     <actions>
-      <action name="deletebundles" tid="~delete">
-        <enableon source="bundles" min="1" checkflags="candelete" onexecute="dodeletebundles" />
-      </action>
       <action name="bundleproperties" tid="~properties">
         <enableon source="bundles" min="1" max="1" onexecute="dobundleproperties" />
       </action>
@@ -41,7 +38,6 @@
               <list name="bundles"
                     height="1pr"
                     borders="right"
-                    flags="candelete"
                     onselect="onbundleselect"
                     openaction="bundleproperties"
                     selectcontextmenu="bundlecontextmenu"
@@ -55,7 +51,6 @@
             </cell>
             <cell layout="left" spacers="top left right">
               <button width="1pr" action="bundleproperties" />
-              <button width="1pr" action="deletebundles" />
               <button width="1pr" action="recompilebundles" />
               <button width="1pr" action="rebuildbundles" />
               <button width="1pr" action="rebuildall" />

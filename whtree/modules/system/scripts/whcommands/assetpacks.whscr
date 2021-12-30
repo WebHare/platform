@@ -26,7 +26,6 @@ MACRO Syntax(STRING errormsg DEFAULTSTO "")
   Print("Syntax: wh assetpacks <instruction>\n");
   Print("  list                   List all asset packs\n");
   Print("  check [assetpack]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");
-  Print("  delete <assetpack>     Delete an asset pack\n");
   Print("  recompile <assetpack>  Recompile an asset pack. Use '*' to compile all\n");
   Print("  rebuild <assetpack>    Completely rebuild an asset pack. Use '*' to rebuild all\n");
   Print("  info <assetpack>       Detailed info about an assetpack\n");
@@ -93,7 +92,7 @@ BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
   }
 }
 
-IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "delete", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile","__getassetpacksbaseconfig" ])
+IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile","__getassetpacksbaseconfig" ])
   Syntax();
 
 IF (args.color OR IsConsoleATerminal())
@@ -273,24 +272,6 @@ SWITCH (args.command)
         condition->signalled := FALSE;
       }
     }
-  }
-  CASE "delete"
-  {
-    RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "mask", type := "param", required := TRUE ]
-                                  ]);
-    IF (NOT RecordExists(subargs))
-      Syntax();
-
-    RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-
-    STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
-
-    GetPrimary()->BeginWork();
-    DELETE FROM system_internal.assetpacks WHERE outputtag IN matches;
-    GetPrimary()->CommitWork();
-
-    WaitForPromise(assetpackcontrol->UpdateAssetPackManager());
   }
   CASE "recompile"
   {
