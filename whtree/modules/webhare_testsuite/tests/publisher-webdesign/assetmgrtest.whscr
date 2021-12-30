@@ -69,7 +69,7 @@ MACRO TestBasics()
   TestEq(TRUE, testfw->browser->GotoWebPage(csslink), csslink);
   TestEq(prodbundlecache, testfw->browser->GetResponseHeader("Cache-Control"));
 
-  RECORD cssstuff := GetCSSStuff();
+  RECORD cssstuff := GetCSSStuff(); //this was a test against the webpack configuration suddenly running a css autoprefixer destroying the things we did..
   TestEq( ["-webkit-flex", "flex" ], cssstuff.display, "Missing webkit-flex in " || csslink);
 
   STRING backgroundurl := Tokenize(cssstuff.backgroundurl,'"')[1];
@@ -145,18 +145,13 @@ MACRO TestDevVersion()
   TestEqLike("*/*.dev/*", srclink);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(srclink), testfw->browser->href);
-  TestEq(devbundlecache, testfw->browser->GetResponseHeader("Cache-Control"));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(csslink), testfw->browser->href);
-  TestEq(devbundlecache, testfw->browser->GetResponseHeader("Cache-Control"));
 
   RECORD cssstuff := GetCSSStuff();
   Print(testfw->browser->href||'\n');
   STRING backgroundurl := Tokenize(cssstuff.backgroundurl,'"')[1];
   TestEQ(TRUE, testfw->browser->GotoWebPage(backgroundurl), "Unable to retrieve " || backgroundurl);
-  TestEq(devassetcache, testfw->browser->GetResponseHeader("Cache-Control"));
-  TestEQ(FALSE, testfw->browser->GotoWebPage(backgroundurl||".bla"), "Unexpectedly able to retrieve " || backgroundurl||".bla");
-  TestEq(notfoundcache, testfw->browser->GetResponseHeader("Cache-Control"), testfw->browser->href);
 }
 
 MACRO TestAssetpackManifest(BOOLEAN isdevversion)
@@ -171,7 +166,7 @@ MACRO TestAssetpackManifest(BOOLEAN isdevversion)
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.js.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
   TestEq(FALSE, RecordExists(SELECT FROM manifest.assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath="ap.js"));
-  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "st/*.svg"));
+  TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
 }
 
 RunTestframework([ PTR TestViewInterceptions

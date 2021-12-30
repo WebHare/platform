@@ -229,6 +229,7 @@ PUBLIC RECORD FUNCTION SetupWebDesign(STRING template, STRING module, STRING des
 
   OBJECT assetpack := modulexml->CreateELementNS(moduledefns, "assetpack");
   assetpack->SetAttribute("entrypoint", `webdesigns/${data.designname_lc}/${data.designname_lc}.es`);
+  assetpack->SetAttribute("compatibility", "es2016");
   assetpack->SetAttribute("supportedlanguages", data.defaultlanguage);
   IF(options.aftercompiletask != "")
     assetpack->SetAttribute("aftercompiletask", options.aftercompiletask);
