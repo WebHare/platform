@@ -1906,13 +1906,6 @@
               <xs:list itemType="xs:string" />
             </xs:simpleType>
           </xs:attribute>
-          <xs:attribute name="alwaysincludepolyfill" type="xs:boolean">
-            <xs:annotation>
-              <xs:documentation>
-                If true, the develop versions of this assetpack also include Babel polyfill code. Eg. used for sharedworker scripts.
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
           <xs:attribute name="webharepolyfills" type="xs:boolean">
             <xs:annotation>
               <xs:documentation>Add the WebHare polyfills, mostly for IE11/Edge gaps. Defauls to true</xs:documentation>

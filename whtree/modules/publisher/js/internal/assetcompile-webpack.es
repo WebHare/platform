@@ -231,7 +231,6 @@ function translateCompileResult(stats)
     @cell config.extrapolyfills List of modules/files that need to be loaded before the entrypoint
     @cell config.diskpath Folder with the package.json of this compilation
     @cell config.nodemodulepaths All paths with extra node modules
-    @cell config.omitpolyfills Set to true to omit polyfills and babel helpers (use '_polyfills' as entrypoint to generate those)
     @cell config.extrarules Extra rules
     @cell config.extraplugins Extra webpack plugins
     @cell config.enablejsx Set to true to enable react transpilation
@@ -261,16 +260,12 @@ function generateConfig(config)
   let valhandler = require.resolve("val-loader");
   let resolveurlhandler = require.resolve('resolve-url-loader');
 
-  if (entrypoint !== "_polyfills")
-    allrequires.unshift(entrypoint);
+  allrequires.unshift(entrypoint);
   if(config.extrapolyfills)
     allrequires.unshift(...config.extrapolyfills);
 
-  if (!config.omitpolyfills || entrypoint === "_polyfills")
-  {
-    allrequires.unshift("!!" + valhandler + "!" + require.resolve("./buildbabelexternalhelpers.js"));
-    allrequires.unshift(require.resolve("@babel/polyfill"));
-  }
+  allrequires.unshift("!!" + valhandler + "!" + require.resolve("./buildbabelexternalhelpers.js"));
+  allrequires.unshift(require.resolve("@babel/polyfill"));
 
   const presets = [ [ require.resolve("@babel/preset-env"), babelenvtarget ] ];
   const plugins = [ require.resolve("@babel/plugin-external-helpers") ];
@@ -398,7 +393,6 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
       , extrapolyfills:     []
       , extrarequires:      extrarequires
       , diskpath:           bundle.diskpath
-      , omitpolyfills:      bundle.bundleconfig.omitpolyfills
       , enablejsx:          true
       , isdev:              bundle.isdev
       , babelcache:         baseconfig.babelcache

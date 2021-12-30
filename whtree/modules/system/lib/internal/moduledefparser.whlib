@@ -1303,14 +1303,12 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           }
 
           STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
-          IF (entrypoint != "_polyfills")
-            entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
+          entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
 
           INSERT [ name := assetpackname
                  , entrypoint := entrypoint
                  , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))
                  , designroot := designroot
-                 , alwaysincludepolyfill := ParseXSBoolean(assetpacknode->GetAttribute("alwaysincludepolyfill"))
                  , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
                  , compatibility := forcedcompatibility ?? assetpacknode->GetAttribute("compatibility")
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE

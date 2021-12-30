@@ -133,12 +133,7 @@ PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent)
 
     //matches[5] == JS options (async, crossorigin=anonymous)
     STRING toinsert;
-    STRING espolyfill;
-    IF(compileresult.lastcompiler = "webpack")
-      espolyfill := `<script src="${matches[3].value}/.ap/tollium.polyfills/ap.js"></script>`;
-
     toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
-                || espolyfill
                 || `<script src="${matches[3].value}/.ap/${outputtag}/ap.js"${matches[5].value}`;
     content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
 

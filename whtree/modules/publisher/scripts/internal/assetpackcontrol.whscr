@@ -519,11 +519,8 @@ STATIC OBJECTTYPE AssetPackController
         bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
       }
 
-      IF (bundle.origentrypoint != "_polyfills")
-      {
-        TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
-        CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
-      }
+      TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
+      CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
 
       FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
       {
@@ -786,7 +783,6 @@ STATIC OBJECTTYPE AssetPackController
     {
       RECORD bundleconfig := CELL[ modulepack.extrarequires
                                  , languages := modulepack.supportedlanguages
-                                 , modulepack.alwaysincludepolyfill
                                  , modulepack.webharepolyfills
                                  , modulepack.environment
                                  , modulepack.babeltranspile

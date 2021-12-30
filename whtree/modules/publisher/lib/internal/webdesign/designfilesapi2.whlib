@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/services.whlib";
 
 RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , languages := DEFAULT STRING ARRAY
-                           , alwaysincludepolyfill := FALSE
                            , webharepolyfills := TRUE
                            , environment := "window"
                            , babeltranspile := STRING[]
@@ -154,7 +153,6 @@ STATIC OBJECTTYPE Resolver
   RECORD packinginfo;
   STRING ARRAY addedrequires;
   STRING bundlebaseurl;
-  STRING polyfillbundlebaseurl;
   RECORD requestedbundle;
   STRING assetpack;
   BOOLEAN devversion;
@@ -211,8 +209,6 @@ STATIC OBJECTTYPE Resolver
     {
       this->bundlebaseurl := "/.ap/" || Substitute(this->assetpack,':','.') || (this->devversion ? ".dev" : "") || "/";
     }
-
-    this->polyfillbundlebaseurl := "/.ap/tollium.polyfills/";
   }
 
   PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE)
@@ -224,17 +220,6 @@ STATIC OBJECTTYPE Resolver
       jssettings := jssettings || ' async';
     IF(ObjectExists(webdesign) AND webdesign->designcdnrooturl != webdesign->designrooturl)
       jssettings := jssettings || ' crossorigin="anonymous"';
-
-    IF (this->devversion)
-    {
-      STRING polyfillbundlebaseurl := this->polyfillbundlebaseurl;
-      IF(cachebuster != "")
-        polyfillbundlebaseurl := "/!" || EncodeURL(cachebuster) || polyfillbundlebaseurl;
-      IF(usedesignroot != "")
-        polyfillbundlebaseurl := ResolveToAbsoluteURL(usedesignroot, polyfillbundlebaseurl);
-
-      Print(`<script src="${EncodeValue(polyfillbundlebaseurl)}ap.js"></script>`);
-    }
 
     //FIXME have printbodyfinale and printheaders share this. should probably just merge us completely into webdesign.whlib
     STRING bundlebaseurl := this->bundlebaseurl;
@@ -358,10 +343,6 @@ PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
     DELETE CELL extrarequires FROM bundle;
   }
 
-  // Omit polyfill for dev packages, unless alwaysincludepolyfill is true (eg. sharedworker scripts)
-  BOOLEAN omitpolyfills := bundle.isdev AND NOT bundle.bundleconfig.alwaysincludepolyfill;
-  INSERT CELL omitpolyfills := omitpolyfills INTO bundle.bundleconfig;
-
   BOOLEAN fullsourcemap := NOT bundle.isdev;
   INSERT CELL fullsourcemap := fullsourcemap INTO bundle.bundleconfig;
 
@@ -382,21 +363,18 @@ PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
 
   bundle := PreFixupBundleconfig(bundle);
 
-  IF (bundle.origentrypoint != "_polyfills")
-  {
-    TRY bundle.entrypoint := GetWebHareResourceDiskPath(bundle.origentrypoint);
-    CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
-  }
+  TRY bundle.entrypoint := GetWebHareResourceDiskPath(bundle.origentrypoint);
+  CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
 
-    FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
+  FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
+  {
+    IF(extrareq LIKE "*::*") //namespaced path
     {
-      IF(extrareq LIKE "*::*") //namespaced path
-      {
-        TRY extrareq := GetWebHareResourceDiskPath(extrareq);
-        CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
-        bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
-      }
+      TRY extrareq := GetWebHareResourceDiskPath(extrareq);
+      CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
+      bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
     }
+  }
 
   INSERT CELL outputpath := GetBundleOutputPath(bundle.outputtag) INTO bundle;
 

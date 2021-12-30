@@ -10,8 +10,7 @@ async function runTask(taskcontext, data)
 {
   let bundlecompat = process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY || data.bundle.bundleconfig.compatibility;
 
-  //we'll *never* esbuild the polyfills, it would give us an empty package
-  let usewebpack = !bundlecompat || bundlecompat == 'modern' || ['tollium:polyfills','tollium:polyfills.dev'].includes(data.bundle.outputtag);
+  let usewebpack = !bundlecompat || bundlecompat == 'modern';
   if(data.directcompile) //invoked as wh publisher:compile
     console.log(`[assetcompile] Compile bundle '${data.bundle.outputtag}' using ${usewebpack ? 'webpack' : 'esbuild'}`);
 
