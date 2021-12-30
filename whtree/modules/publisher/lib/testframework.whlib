@@ -122,7 +122,6 @@ PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
   outputtag := Left(outputtag, firstdot) || ':' || Substring(outputtag, firstdot+1);
 
   RETURN [ outputtag := outputtag
-         , isdev := outputtag LIKE "*.dev"
          , jslink := jslink
          ];
 }

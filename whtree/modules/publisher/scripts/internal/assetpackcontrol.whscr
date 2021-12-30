@@ -243,6 +243,7 @@ STATIC OBJECTTYPE AssetPackController
     RegisterEventCallback("system:modulefolder.*", PTR this->GotChangedFile);
     RegisterEventCallback("system:npmlinkroot.filechange", PTR this->GotChangedFile);
     RegisterEventCallback("system:registry.publisher.bundledassets", PTR this->GotConfigChange);
+    RegisterEventCallback("publisher:assetpackcontrol.settings.*", PTR this->GotSoftReset);
   }
 
   PUBLIC MACRO Setup() //TODO why aren't we rolled/merged into GotSoftReset ?
@@ -516,7 +517,7 @@ STATIC OBJECTTYPE AssetPackController
 
       IF(NOT bundle.adhoc)
       {
-        STRING ARRAY bundletagtoks := Tokenize(Substitute(bundle.outputtag, '.dev', ''),':');
+        STRING ARRAY bundletagtoks := Tokenize(bundle.outputtag, ':');
         bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
       }
 
@@ -588,7 +589,7 @@ STATIC OBJECTTYPE AssetPackController
     DELETE CELL entrypoint FROM bundledata;
     DELETE CELL diskpath FROM bundledata;
 
-    RETURN EncodeBase64(GetSHA1Hash(baseconfig.settingstoken) || EncodeHSON(bundledata));
+    RETURN EncodeBase64(GetSHA1Hash(baseconfig.settingstoken || EncodeHSON(CELL[bundledata, bundle.isdev])));
   }
 
   // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
@@ -643,7 +644,7 @@ STATIC OBJECTTYPE AssetPackController
             , getjsonstats := bundle.getjsonstats
             ],
             [ persistentcachekey :=   bundle.adhoc ? "" : bundle.outputtag
-            , priority :=             bundle.outputtag LIKE "*.dev" ? "updateinteractive" : "update"
+            , priority :=             bundle.isdev ? "updateinteractive" : "update"
             ]);
 
         // Store task
@@ -811,8 +812,8 @@ STATIC OBJECTTYPE AssetPackController
          OR match.entrypoint != modulepack.entrypoint)
       {
         UPDATE system_internal.assetpacks SET bundleconfig := encodedconfig
-                                   , entrypoint := modulepack.entrypoint
-                               WHERE id = match.id;
+                                            , entrypoint := modulepack.entrypoint
+                                        WHERE id = match.id;
       }
     }
 
@@ -884,8 +885,7 @@ STATIC OBJECTTYPE AssetPackController
     IF (debugmods)
       PRINT("Checking bundles for relevant file changes\n");
 
-    // Prefer dev bundles first, then tollium, then the rest. The check order is order in which recompiles are scheduled.
-    FOREVERY (RECORD bundle FROM SELECT * FROM this->bundles ORDER BY NOT isdev, outputtag LIKE "tollium:*" DESC)
+    FOREVERY (RECORD bundle FROM this->bundles)
     {
       BOOLEAN have_match;
       IF (LENGTH(ArrayIntersection(this->changeevents, bundle.masks)) != 0 OR this->needfullrecheck)
@@ -1156,8 +1156,8 @@ STATIC OBJECTTYPE AssetPackController
     // Save state of the bundle
     this->SaveBundleState(message.bundle);
 
-    // Broadcast if needed, but only for production packs. dev packages usually don't share the same pipelines
-    IF(NOT haserrors AND NOT bundle.isdev AND bundle.bundleconfig.aftercompiletask != "")
+    // Broadcast if needed
+    IF(NOT haserrors AND bundle.bundleconfig.aftercompiletask != "")
     {
       GetPrimary()->BeginWork();
       ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
@@ -1284,7 +1284,8 @@ STATIC OBJECTTYPE AssetPackController
         ScheduleMicroTask(PTR this->ProcessBundleState(bundlerec.outputtag));
       }
       ELSE IF (EncodeHSON(this->bundles[lb.position].bundleconfig) != EncodeHSON(bundle.bundleconfig)
-               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint)
+               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint
+               OR this->bundles[lb.position].isdev != bundle.isdev)
       {
         this->bundles[lb.position] := MakeReplacedRecord(this->bundles[lb.position], bundle);
 
@@ -1303,8 +1304,7 @@ STATIC OBJECTTYPE AssetPackController
     this->bundles :=
         SELECT *
           FROM this->bundles
-         WHERE found
-      ORDER BY outputtag;
+         WHERE found;
 
     this->ScheduleCompilationTasks();
 
@@ -1338,7 +1338,6 @@ STATIC OBJECTTYPE AssetPackController
                                         , lastcompile
                                         , requirecompile
                                         , isdev
-                                        , candelete :=      outputtag NOT LIKE "*.*"
                                         , watchcount :=     watchcountpos.found ? this->watchcounts[watchcountpos.position].cnt : 0
                                         , compatibility := bundleconfig.compatibility
                                      FROM this->bundles)
@@ -1429,7 +1428,7 @@ STATIC OBJECTTYPE AssetPackController
 
   PUBLIC OBJECT ASYNC FUNCTION GetAdhocBundle(RECORD bundle)
   {
-    STRING hash := GetHashForBundle(bundle) || ".dev";
+    STRING hash := GetHashForBundle(bundle);
     RECORD match := SELECT * FROM this->adhocbundles WHERE adhocbundles.outputtag = VAR hash;
 
     IF (NOT RecordExists(match))
@@ -1568,12 +1567,13 @@ OBJECTTYPE AssetPackControl
     INTEGER bundleid;
 
     RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
+    RECORD bundlesettings;
 
     DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 60 * 60 * 1000);
     IF(RecordExists(bundleinfo))
     {
-      BOOLEAN updatebundlesettings;
       bundleid := bundleinfo.id;
+      bundlesettings := ParseAssetPackSettings(bundleinfo.settings);
     }
     ELSE
     {
@@ -1583,6 +1583,7 @@ OBJECTTYPE AssetPackControl
       IF(RecordExists(bundleinfo))
       {
         bundleid := bundleinfo.id;
+        bundlesettings := ParseAssetPackSettings(bundleinfo.settings);
       }
       ELSE
       {
@@ -1591,6 +1592,8 @@ OBJECTTYPE AssetPackControl
 
         INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
                VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
+
+        bundlesettings := ParseAssetPackSettings(""); //initials settings
       }
 
       GetPrimary()->CommitWork();
@@ -1601,7 +1604,7 @@ OBJECTTYPE AssetPackControl
       controller->LoadBundles();
     }
 
-    STRING outputtag := hash || (requestedbundle.devversion ? ".dev" : "");
+    STRING outputtag := hash;
     DATETIME lastcompile;
     IF (NOT CellExists(options, "NOWAIT") OR NOT options.nowait)
     {

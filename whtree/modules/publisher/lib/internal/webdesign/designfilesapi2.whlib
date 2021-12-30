@@ -49,7 +49,6 @@ PUBLIC RECORD FUNCTION MakeEmptyBundle()
          , basedependency := ""
          , bundleconfig := basebundleconfig
          , adhoc := FALSE
-         , devversion := FALSE
          ];
 }
 
@@ -65,39 +64,23 @@ PUBLIC STRING FUNCTION GetHashForBundle(RECORD requesteddesign)
   RETURN designhash;
 }
 
-STRING FUNCTION StripDevExtension(STRING bundlename)
-{
-  RETURN bundlename LIKE "*.dev" ? Left(bundlename,Length(bundlename)-4) : bundlename;
-}
-
 PUBLIC MACRO RemoveObsoleteCacheFolders()
 {
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
   RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
-  STRING ARRAY keeppackages := SELECT AS STRING ARRAY StripDevExtension(outputtag) FROM status.bundles;
+  STRING ARRAY keeppackages := SELECT AS STRING ARRAY outputtag FROM status.bundles;
   STRING ARRAY validfolders := keeppackages CONCAT SELECT AS STRING ARRAY outputtag FROM system_internal.assetpacks;
   validfolders := SELECT AS STRING ARRAY Substitute(val,":",'.') FROM ToRecordArray(validfolders,'val');
 
   RECORD ARRAY currentfolders := ReadDiskDirectory(GetWebHareConfiguration().varroot || "publisher.ap", "*");
   FOREVERY(RECORD folder FROM currentfolders)
   {
-    IF(StripDevExtension(folder.name) NOT IN validfolders)
+    IF(folder.name NOT IN validfolders)
     {
       LogInfo("publisher:assetpackcontrol", "Deleting obsolete assetpack " || folder.name, [ type := "publisher:deleteassetpack", name := folder.name ]);
       DeleteDiskDirectoryRecursive(folder.path);
     }
   }
-}
-
-PUBLIC RECORD ARRAY FUNCTION ListUUIDMatches(RECORD ARRAY allbundles, STRING searchmask)
-{
-  BOOLEAN matchdev := searchmask LIKE "*.dev";
-  //strip '.dev' when searching for closest match
-  searchmask := matchdev ? Left(searchmask,Length(searchmask)-4) : searchmask;
-  RETURN SELECT *
-           FROM allbundles
-          WHERE allbundles.isdev = matchdev
-                AND Left(allbundles.outputtag, Length(searchmask)) = searchmask;
 }
 
 /** @short Call a function, and retry it if the connection failed */
@@ -136,7 +119,7 @@ RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
     IF(NOT RecordExists(bundleinfo))
       THROW NEW Exception("The assetpackmgr is unreachable and the bundle does not yet exist");
 
-    STRING bundleuuid := bundleinfo.outputtag || (requestedbundle.devversion ? ".dev" : "");
+    STRING bundleuuid := bundleinfo.outputtag;
     RETURN [ ttl := 1 * 60 * 1000
            , value := [ id := bundleinfo.id
                       , outputtag := bundleuuid
@@ -157,21 +140,18 @@ STATIC OBJECTTYPE Resolver
   STRING bundlebaseurl;
   RECORD requestedbundle;
   STRING assetpack;
-  BOOLEAN devversion;
 
-  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages, BOOLEAN devversion)
+  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages)
   {
     BOOLEAN adhoc := assetpack NOT LIKE "*:*"; //adhocs are just a 128bit id
 
     this->assetpack := assetpack;
-    this->devversion := devversion OR adhoc;
     IF(assetpack = "" AND basedependency != "")
     {
       this->requestedbundle := MakeEmptyBundle();
       this->requestedbundle.basedependency := basedependency;
       this->requestedbundle.adhoc := adhoc;
       this->requestedbundle.bundleconfig.languages := languages;
-      this->requestedbundle.devversion := this->devversion;
     }
   }
 
@@ -205,11 +185,11 @@ STATIC OBJECTTYPE Resolver
 
       INSERT CELL designhash := designhash INTO this->packinginfo;
 
-      this->bundlebaseurl := "/.ap/" || this->packinginfo.designhash || (this->requestedbundle.devversion ? ".dev" : "") || "/";
+      this->bundlebaseurl := "/.ap/" || this->packinginfo.designhash || "/";
     }
     ELSE
     {
-      this->bundlebaseurl := "/.ap/" || Substitute(this->assetpack,':','.') || (this->devversion ? ".dev" : "") || "/";
+      this->bundlebaseurl := "/.ap/" || Substitute(this->assetpack,':','.') || "/";
     }
   }
 
@@ -260,12 +240,12 @@ STATIC OBJECTTYPE Resolver
   }
 >;
 
-PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigninfo, BOOLEAN devversion)
+PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigninfo)
 {
   IF(webdesigninfo.designfolder="")
     THROW NEW Exception("No module design folder specified");
 
-  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages, devversion);
+  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages);
   RETURN res;
 }
 
@@ -275,14 +255,14 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD o
       [ supportedlanguages := STRING[]
       ], options);
 
-  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages, FALSE);
+  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages);
   RETURN res;
 }
 
 /// Returns the outputtag for the URL-name of an assetpack
 PUBLIC STRING FUNCTION UnmapBundleUuid(STRING inuuid)
 {
-  IF(inuuid LIKE "*.*.dev" OR (inuuid LIKE "*.*" AND inuuid NOT LIKE "*.dev"))
+  IF(inuuid LIKE "*.*")
   {
     INTEGER dotpos := SearchSubstring(inuuid, '.');
     inuuid := Left(inuuid, dotpos) || ':' || Substring(inuuid, dotpos + 1);
@@ -318,21 +298,22 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
 {
   //do not return bundles from uninstalled modules. scheduled compilations will fail and may race against (re)installation of modules
   RECORD ARRAY dbbundles :=
-    (SELECT *
+     SELECT TEMPORARY parsedsettings :=       ParseAssetPackSettings(assetpacks.settings)
+          , *
           , bundleconfig :=   bundleconfig != "" ? DecodeHSON(bundleconfig) : DEFAULT RECORD
           , adhoc :=          FALSE
           , savedstate :=     DEFAULT RECORD
           , origentrypoint := entrypoint
+          , isdev :=          parsedsettings.dev
        FROM system_internal.assetpacks
-      WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE)
-   ORDER BY outputtag LIKE "tollium:*" DESC, outputtag LIKE "*:*" DESC);
-  RETURN        (SELECT *
-             , outputtag :=     outputtag || ".dev"
-             , isdev :=         TRUE
-          FROM dbbundles) CONCAT
-       (SELECT *
-             , isdev := FALSE
-          FROM dbbundles);
+      WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE);
+
+  // Prefer esnext bundles first, then tollium, then the rest. The check order is order in which recompiles are scheduled.
+   dbbundles := SELECT * FROM dbbundles
+                     ORDER BY bundleconfig.compatibility NOT IN ["modern",""] DESC
+                            , outputtag LIKE "tollium:*" DESC;
+
+  RETURN dbbundles;
 }
 PUBLIC RECORD FUNCTION PreFixupBundleconfig(RECORD bundle)
 {
@@ -381,4 +362,28 @@ PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
   INSERT CELL outputpath := GetBundleOutputPath(bundle.outputtag) INTO bundle;
 
   RETURN bundle;
+}
+
+PUBLIC RECORD FUNCTION ParseAssetPackSettings(STRING insettings)
+{
+  RECORD settings;
+  IF(insettings != "")
+    settings := DecodeHSON(insettings);
+
+  RETURN EnforceStructure([ dev := GetDtapStage() = "development" ], settings);
+}
+PUBLIC RECORD FUNCTION GetAssetPackSettings(INTEGER assetpackid)
+{
+  RETURN ParseAssetPackSettings(SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = VAR assetpackid);
+}
+
+PUBLIC MACRO UpdateAssetPackSettings(INTEGER assetpackid, RECORD newsettings)
+{
+  STRING uuid := SELECT AS STRING outputtag FROM system_internal.assetpacks WHERE id = assetpackid;
+  RECORD settings := ParseAssetPackSettings(SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = assetpackid);
+  settings := CELL[ ...settings
+                  , ...ValidateOptions([ dev := FALSE ], newsettings, [ title := "Assetpack settings", optional := ["*"]])
+                  ];
+  UPDATE system_internal.assetpacks SET settings := EncodeHSON(VAR settings) WHERE id = assetpackid;
+  GetPrimary()->BroadcastOnCommit("publisher:assetpackcontrol.settings." || uuid, DEFAULT RECORD);
 }

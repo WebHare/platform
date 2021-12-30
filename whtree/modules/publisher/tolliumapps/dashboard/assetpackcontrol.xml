@@ -25,7 +25,7 @@
 
     <compositions>
       <eventlistener name="listener"
-                     masks="publisher:assetpackcontrol.change.* publisher:assetpackcontrol.watch.* system:webhareservice.publisher:assetpackcontrol.start"
+                     masks="publisher:assetpackcontrol.change.* publisher:assetpackcontrol.watch.* publisher:assetpackcontrol.settings.*"
                      onevents="onassetevent" />
       <eventlistener name="configlistener" masks="system:registry.publisher.bundledassets" onevents="onconfigevent" />
     </compositions>
@@ -38,6 +38,7 @@
               <list name="bundles"
                     height="1pr"
                     borders="right"
+                    icons="tollium:status/positive"
                     onselect="onbundleselect"
                     openaction="bundleproperties"
                     selectcontextmenu="bundlecontextmenu"
@@ -48,6 +49,7 @@
                 <column name="lastcompile" type="datetime" width="23x" precision="seconds" storeutc="true" />
                 <column name="watchcount" type="integer" width="10x" align="right" emptyvalue="0" />
                 <column name="compatibility" type="text" width="25x" />
+                <column name="dev" type="icon" width="10x" align="right" />
                 <column name="dummy" type="text" width="1pr" title="" />  <!-- filler until someone has a 1pr column for us -->
               </list>
             </cell>
@@ -77,21 +79,24 @@
     </body>
   </screen>
 
-  <screen name="bundleprops" width="60x" allowresize="true" footerbuttons="close" gid=".bundleprops" savestate="size">
+  <screen name="bundleprops" width="60x" allowresize="true" footerbuttons="ok cancel" gid=".bundleprops" savestate="size">
     <compositions>
       <eventlistener name="listener" onevents="gotevents" />
     </compositions>
 
     <body spacers="none">
       <tabs height="1pr">
-        <tab tid=".tab_overview">
+        <tab tid="~settings">
           <textedit name="outputtag" width="1pr" enabled="false" />
+          <checkbox name="dev" labeltid="tolliumapps.dashboard.assetpackcontrol.assetpackcontrolpanel.dev" tid="~settings" />
           <textedit name="entrypoint" width="1pr" enabled="false" />
+          <textedit name="languages" width="1pr" enabled="false" />
+          <textedit name="environment" width="1pr" enabled="false" />
+        </tab>
+        <tab tid="~properties">
           <textarea name="stats" width="1pr" height="8x" enabled="false" />
           <textarea name="errors" width="1pr" height="8x" enabled="false" />
           <textarea name="extrarequires" width="1pr" height="8x" enabled="false" />
-          <textedit name="languages" width="1pr" enabled="false" />
-          <textedit name="environment" width="1pr" enabled="false" />
           <textarea name="missingdependencies" width="1pr" height="8x" enabled="false" />
         </tab>
         <tab tid=".tab_filedependencies">

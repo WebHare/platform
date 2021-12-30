@@ -315,7 +315,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->__config.designfolder != "" AND this->__config.designfolder NOT LIKE "mod::*")
       THROW NEW Exception("Support for v1 designfiles has been removed");
 
-    this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config, FALSE);
+    this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config);
 
     this->designrooturl := GetModuleResourceURL(this->__config.designfolder || 'web/');
     IF(this->designrooturl = "")

@@ -1,35 +1,50 @@
 <?wh
 /// This test tests setting up and the functionality of 'publisher:blank'
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 
 STRING prodbundlecache := "public, max-age=900";
 STRING prodassetcache := "public, max-age=31536000, immutable";
 STRING devbundlecache := "public, max-age=0, must-revalidate";
-STRING devassetcache := "public, max-age=31536000, immutable";
+STRING devassetcache := "public, max-age=0, must-revalidate";
 STRING notfoundcache := "no-cache";
+INTEGER testbundleid;
 
-MACRO TestViewInterceptions()
+MACRO PrepTest()
 {
-  RECORD res;
-  OBJECT doc;
+  testbundleid := SELECT AS INTEGER id FROM system_internal.assetpacks WHERE outputtag = "webhare_testsuite:basetest";
+  TestEq(TRUE, testbundleid > 0);
 
-  res := RewriteAssetpackCode(StringToBlob(
-`<html><link rel="stylesheet" href="/.ap/webhare_testsuite.basetest/ap.css"><script src="/.ap/webhare_testsuite.basetest/ap.js" async></script></head><body></body></html>`));
+  IF(GetAssetPackSettings(testbundleid).dev)
+  {
+    DATETIME lastcompile := testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
 
-  doc := MakeXMLDocumentFromHTML(res.content); //convert to HTML so we also have a validation
-  Testeq(RECORD[],doc->GetParseErrors());
-  TestEq('<link href="/.ap/webhare_testsuite.basetest.dev/ap.css" rel="stylesheet"/>', doc->QuerySelector("link")->outerhtml);
-  TestEq('<script async="" src="/.ap/webhare_testsuite.basetest.dev/ap.js"><\/script>', doc->GetElements("script")[0]->outerhtml);
+    testfw->BeginWork();
+    UpdateAssetPackSettings(testbundleid, [ dev := FALSE ]);
+    testfw->CommitWork();
+
+    Print("Disabling webhare_testsuite:basetest dev mode\n");
+    WHILE(testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
+      Sleep(100);
+    Print("Disabled webhare_testsuite:basetest dev mode\n");
+  }
+  ELSE IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+  {
+    ABORT("If WEBHARE_CI is set, we're running inside CI which is dtapstage == development... so why wasn't the 'new' webhare_testsuite:basetest package originally set as .dev then?");
+  }
 }
 
 RECORD FUNCTION GetCSSStuff()
@@ -63,11 +78,10 @@ MACRO TestBasics()
   testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest");
 
   STRING csslink := links[0]->GetAttribute("href");
-  TestEq(FALSE, csslink LIKE "*.dev/*"); //should not be dev-tagged
   IF(testfw->debug)
     Print("CSS link: " || csslink||'\n');
   TestEq(TRUE, testfw->browser->GotoWebPage(csslink), csslink);
-  TestEq(prodbundlecache, testfw->browser->GetResponseHeader("Cache-Control"));
+  TestEq(IsModuleInstalled("dev") ? devbundlecache : prodbundlecache, testfw->browser->GetResponseHeader("Cache-Control"));
 
   RECORD cssstuff := GetCSSStuff(); //this was a test against the webpack configuration suddenly running a css autoprefixer destroying the things we did..
   TestEq( ["-webkit-flex", "flex" ], cssstuff.display, "Missing webkit-flex in " || csslink);
@@ -75,16 +89,29 @@ MACRO TestBasics()
   STRING backgroundurl := Tokenize(cssstuff.backgroundurl,'"')[1];
   TestEQ(TRUE, BlobToString(testfw->browser->content) LIKE "*DUMMY-TEXT-TO-VERIFY-ADDTOPACK.CSS-GOT-INCLUDED*");
   TestEQ(TRUE, testfw->browser->GotoWebPage(backgroundurl), "Unable to retrieve " || backgroundurl);
-  TestEq(prodassetcache, testfw->browser->GetResponseHeader("Cache-Control"));
+  TestEq(IsModuleInstalled("dev") ? devbundlecache : prodassetcache, testfw->browser->GetResponseHeader("Cache-Control"));
   TestEQ(FALSE, testfw->browser->GotoWebPage(backgroundurl||".bla"), "Unexpectedly able to retrieve " || backgroundurl||".bla");
   TestEq(notfoundcache, testfw->browser->GetResponseHeader("Cache-Control"), testfw->browser->href);
 
   OBJECT ARRAY scripts := doc->getElements('script[src]');
   STRING jslink := scripts[0]->GetAttribute("src");
-  TestEq(FALSE, jslink LIKE "*.dev/*"); //should not be dev-tagged
   TestEq(TRUE, testfw->browser->GotoWebPage(jslink), jslink);
   //test that dev:false is set (minified)
   TestEqLike(`*window.whBundles["webhare_testsuite:basetest"]={dev:!1}*`, BlobToString(testfw->browser->content));
+
+  DATETIME lastcompile := testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile;
+
+  testfw->BeginWork();
+  UpdateAssetPackSettings(testbundleid, [ dev := TRUE ]);
+  testfw->CommitWork();
+
+  Print("Enabling webhare_testsuite:basetest dev mode\n");
+  WHILE(testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest").lastcompile = lastcompile)
+    Sleep(100);
+  Print("Enabled webhare_testsuite:basetest dev mode\n");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(jslink), testfw->browser->href);
+  TestEqLike(`*window.whBundles["webhare_testsuite:basetest"] = { dev: true }*`, BlobToString(testfw->browser->content));
 }
 
 MACRO TestViewSHTML()
@@ -122,50 +149,10 @@ MACRO TestViewSHTML()
   Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
 }
 
-
-MACRO TestDevVersion()
-{
-  IF(NOT IsModuleInstalled("dev"))
-  {
-    Print(`Testing '.dev' behavior requires the "dev" module. But these things depend on view.shtml hacks which are going away anyway\n`);
-    RETURN;
-  }
-
-  //Now act like we're a preview
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
-  testfw->browser->SetSessionCookie("__whpub_preview", "debug");
-  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url), "Page is not served correctly: " || emptyfile->url);
-
-  // view.shtml would wait for the assetpack
-  testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest.dev");
-
-  OBJECT doc := testfw->browser->document;
-  OBJECT ARRAY links := doc->getElements('link[rel="stylesheet"]');
-  TestEq(1, Length(links), testfw->browser->href); //one from webdesign
-
-  STRING csslink := links[0]->GetAttribute("href");
-  TestEqLike("*/*.dev/*", csslink);
-
-  OBJECT ARRAY scripts := doc->getElements('script[src]');
-  STRING srclink := scripts[0]->GetAttribute("src");
-  TestEqLike("*/*.dev/*", srclink);
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(srclink), testfw->browser->href);
-  TestEqLike(`*window.whBundles["webhare_testsuite:basetest.dev"] = { dev: true }*`, BlobToString(testfw->browser->content));
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(csslink), testfw->browser->href);
-
-  RECORD cssstuff := GetCSSStuff();
-  Print(testfw->browser->href||'\n');
-  STRING backgroundurl := Tokenize(cssstuff.backgroundurl,'"')[1];
-  TestEQ(TRUE, testfw->browser->GotoWebPage(backgroundurl), "Unable to retrieve " || backgroundurl);
-}
-
-MACRO TestAssetpackManifest(BOOLEAN isdevversion)
+MACRO TestAssetpackManifest()
 {
   //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
-  STRING manifesturl := ResolvetoAbsoluteURL(testfw->GetTestSite()->webroot, `/.ap/webhare_testsuite.basetest${isdevversion?".dev":""}/apmanifest.json`);
+  STRING manifesturl := ResolvetoAbsoluteURL(testfw->GetTestSite()->webroot, `/.ap/webhare_testsuite.basetest/apmanifest.json`);
   TestEq(TRUE, testfw->browser->GotoWebPage(manifesturl));
   RECORD manifest := DecodeJSONBlob(testfw->browser->content);
 
@@ -177,11 +164,9 @@ MACRO TestAssetpackManifest(BOOLEAN isdevversion)
   TestEq(TRUE, RecordExists(SELECT FROM manifest.assets WHERE subpath LIKE "*.svg"));
 }
 
-RunTestframework([ PTR TestViewInterceptions
+RunTestframework([ PTR PrepTest
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
-                 , PTR TestAssetpackManifest(FALSE)
                  , PTR TestViewSHTML
-                 , PTR TestDevVersion
-                 , PTR TestAssetpackManifest(TRUE)
+                 , PTR TestAssetpackManifest
                  ]);

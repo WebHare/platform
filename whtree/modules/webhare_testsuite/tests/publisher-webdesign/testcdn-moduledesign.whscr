@@ -27,7 +27,6 @@ MACRO CHeckURLS()
 
   testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest");
 
-  TestEq(FALSE, csslink LIKE "*.dev/*"); //should not be dev-tagged
   TEstEq(TRUE, IsAbsoluteURL(csslink,FALSE), testfw->browser->href);
   TestEq("cdn.localhost.beta.webhare.net", UnpackURL(csslink).host);
 

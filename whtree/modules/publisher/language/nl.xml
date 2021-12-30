@@ -1644,6 +1644,7 @@
         <text tid="title">Asset packing en bundeling</text>
         <textgroup gid="assetpackcontrolpanel">   <!-- tolliumapps.dashboard.assetpackcontrol.assetpackcontrolpanel -->
           <text tid="compatibility">Compatibiliteit</text>
+          <text tid="dev">Ontwikkelingmodus</text>
           <text tid="lastcompile">Laatste compilatie</text>
           <text tid="message">Bericht</text>
           <text tid="outputtag">Uitvoertag</text>
@@ -1667,7 +1668,6 @@
           <text tid="path">Pad</text>
           <text tid="stats">Statistieken</text>
           <text tid="tab_filedependencies">File dependencies</text>
-          <text tid="tab_overview">Overzicht</text>
         </textgroup>
       </textgroup>
       <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
