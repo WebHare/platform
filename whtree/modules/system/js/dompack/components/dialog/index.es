@@ -17,7 +17,9 @@ export class BasicDialog extends dialogapi.DialogBase
     this.modalitynode = dompack.create('div',
                           { className: this._dialogclass + "__modalbg"
                           , childNodes: [ this.holdernode ]
-                          , on: { click: evt => this._onModalityClick(evt) }
+                          , on: { click: evt => this._onModalityClick(evt)
+                                , wheel: evt => dompack.stop(evt) //prevent scrolling modal-covered site using mousewheel
+                                }
                           });
 
     if(options?.theme)
