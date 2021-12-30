@@ -1,11 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          library="assetpackcontrol.whlib"
-         gid="monitor.assetpackcontrol">
-
-  <messageboxes gid=".dialogs">
-    <messagebox name="confirmdeletebundles" buttons="yes no" />
-    <messagebox name="surerebuildall" buttons="yes no" />
-  </messageboxes>
+         gid="tolliumapps.dashboard.assetpackcontrol">
 
   <screen name="assetpackcontrolpanel" gid=".assetpackcontrolpanel"
           width="80x" title="">

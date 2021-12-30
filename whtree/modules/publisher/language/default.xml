@@ -1266,48 +1266,6 @@
     <text tid="webruleset-varycookie">Add 'Vary: Cookie'</text>
   </textgroup>
   <textgroup gid="monitor" limitlanguages="en nl">   <!-- monitor -->
-    <textgroup gid="assetpackcontrol">   <!-- monitor.assetpackcontrol -->
-      <text tid="title">Asset packing and bundling</text>
-      <textgroup gid="assetpackcontrolpanel">   <!-- monitor.assetpackcontrol.assetpackcontrolpanel -->
-        <text tid="assetpackcontroloffline">The asset pack controller is currently unavailable</text>
-        <text tid="created">Created</text>
-        <text tid="designfolder">Design folder</text>
-        <text tid="devassetpacks">Dev assetpacks browsers</text>
-        <text tid="devassetpacks-current">Chrome, Safari, Firefox</text>
-        <text tid="devassetpacks-other">Other</text>
-        <text tid="devassetpacks-production">Like production</text>
-        <text tid="lastcompile">Last compile</text>
-        <text tid="lastuse">Last used</text>
-        <text tid="message">Message</text>
-        <text tid="outputtag">Outputtag</text>
-        <text tid="outputuuid">Output UUID</text>
-        <text tid="rebuildall">Rebuild all from scratch</text>
-        <text tid="rebuildbundles">Rebuild from scratch</text>
-        <text tid="recompilebundles">Recompile</text>
-        <text tid="status">State</text>
-        <text tid="suspendautocompile">Suspend autocompile</text>
-        <text tid="watchcount">Watched</text>
-      </textgroup>
-      <textgroup gid="bundleprops">   <!-- monitor.assetpackcontrol.bundleprops -->
-        <text tid="bundleprops">Bundle properties</text>
-        <text tid="entrypoint">Entrypoint</text>
-        <text tid="environment">Environment</text>
-        <text tid="errors">Errors</text>
-        <text tid="extrarequires">Extra 'require's</text>
-        <text tid="languages">Available languages</text>
-        <text tid="missingdependencies">Missing dependencies</text>
-        <text tid="outputtag">Outputtag</text>
-        <text tid="outputuuid">Output UUID</text>
-        <text tid="path">Path</text>
-        <text tid="stats">Statistics</text>
-        <text tid="tab_filedependencies">File dependencies</text>
-        <text tid="tab_overview">Overview</text>
-      </textgroup>
-      <textgroup gid="dialogs">   <!-- monitor.assetpackcontrol.dialogs -->
-        <text tid="confirmdeletebundles">Are you sure you want to delete the selected bundles ?</text>
-        <text tid="surerebuildall">Are you sure you want to recompile all bundles from scratch?</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="sites">   <!-- monitor.sites -->
       <text tid="linkedtotype">Linked to</text>
       <text tid="linkedtotype-webfeature">webfeature</text>
@@ -1682,6 +1640,36 @@
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="assetpackcontrol">   <!-- tolliumapps.dashboard.assetpackcontrol -->
+        <text tid="title">Asset packing and bundling</text>
+        <textgroup gid="assetpackcontrolpanel">   <!-- tolliumapps.dashboard.assetpackcontrol.assetpackcontrolpanel -->
+          <text tid="confirmdeletebundles">Are you sure you want to delete the selected bundles ?</text>
+          <text tid="lastcompile">Last compile</text>
+          <text tid="message">Message</text>
+          <text tid="outputtag">Outputtag</text>
+          <text tid="rebuildall">Rebuild all from scratch</text>
+          <text tid="rebuildbundles">Rebuild from scratch</text>
+          <text tid="recompilebundles">Recompile</text>
+          <text tid="status">State</text>
+          <text tid="surerebuildall">Are you sure you want to recompile all bundles from scratch?</text>
+          <text tid="suspendautocompile">Suspend autocompile</text>
+          <text tid="watchcount">Watched</text>
+        </textgroup>
+        <textgroup gid="bundleprops">   <!-- tolliumapps.dashboard.assetpackcontrol.bundleprops -->
+          <text tid="bundleprops">Bundle properties</text>
+          <text tid="entrypoint">Entrypoint</text>
+          <text tid="environment">Environment</text>
+          <text tid="errors">Errors</text>
+          <text tid="extrarequires">Extra 'require's</text>
+          <text tid="languages">Available languages</text>
+          <text tid="missingdependencies">Missing dependencies</text>
+          <text tid="outputtag">Outputtag</text>
+          <text tid="path">Path</text>
+          <text tid="stats">Statistics</text>
+          <text tid="tab_filedependencies">File dependencies</text>
+          <text tid="tab_overview">Overview</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
         <text tid="ctypeerrors">Compilation messages</text>
         <text tid="ctypemembers">Content type members</text>

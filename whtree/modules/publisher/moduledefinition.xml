@@ -122,7 +122,7 @@
     <dashboardgroup name="publisher" tid="module.name" orderafter="system:ap system:tasks" />
     <dashboardpanel group="publisher" name="sites" tid="monitor.sites.title"
                     screen="monitor/sites.sites" />
-    <dashboardpanel group="publisher" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
+    <dashboardpanel group="publisher" name="assetpackcontrol" tid="tolliumapps.dashboard.assetpackcontrol.title"
                     screen="tolliumapps/dashboard/assetpackcontrol.xml#assetpackcontrolpanel" />
     <dashboardpanel group="publisher" name="contenttypes" tid="tolliumapps.dashboard.contenttypes.panel"
                     screen="/tolliumapps/dashboard/contenttypes.xml#panel" />

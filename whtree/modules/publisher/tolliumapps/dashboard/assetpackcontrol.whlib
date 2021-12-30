@@ -152,7 +152,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   }
   MACRO DoDeleteBundles()
   {
-    IF(this->RunMessageBox(".confirmdeletebundles") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletebundles")) != "yes")
       RETURN;
 
     this->RunDelete(this->bundles->selection);
@@ -220,7 +220,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
   MACRO DoRebuildAll()
   {
-    IF (this->RunMessageBox(".surerebuildall") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".surerebuildall")) != "yes")
       RETURN;
 
     // Restart assetpackmanager, purge caches
