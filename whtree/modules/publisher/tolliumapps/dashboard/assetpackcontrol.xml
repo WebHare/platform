@@ -1,5 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/assetpackcontrol.whlib"
+         library="assetpackcontrol.whlib"
          gid="monitor.assetpackcontrol">
 
   <messageboxes gid=".dialogs">

@@ -123,7 +123,7 @@
     <dashboardpanel group="publisher" name="sites" tid="monitor.sites.title"
                     screen="monitor/sites.sites" />
     <dashboardpanel group="publisher" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
-                    screen="monitor/assetpackcontrol.assetpackcontrolpanel" />
+                    screen="tolliumapps/dashboard/assetpackcontrol.xml#assetpackcontrolpanel" />
     <dashboardpanel group="publisher" name="contenttypes" tid="tolliumapps.dashboard.contenttypes.panel"
                     screen="/tolliumapps/dashboard/contenttypes.xml#panel" />
   </portal>

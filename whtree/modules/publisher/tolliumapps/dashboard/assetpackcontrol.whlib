@@ -112,12 +112,11 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
   MACRO DoBundleProperties()
   {
-    OBJECT scr := this->LoadScreen("publisher:monitor/assetpackcontrol.bundleprops",
+    this->RunScreen(Resolve("assetpackcontrol.xml#bundleprops"),
                                    [ assetpackcontrol := this->assetpackcontrol
                                    , uuid := this->bundles->value[0]
                                    , id := this->bundles->selection[0].id
                                    ]);
-    scr->RunModal();
   }
 
   MACRO OnBundleSelect()
