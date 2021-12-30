@@ -7,6 +7,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -73,7 +74,7 @@ PUBLIC MACRO RemoveObsoleteCacheFolders()
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
   RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
   STRING ARRAY keeppackages := SELECT AS STRING ARRAY StripDevExtension(outputtag) FROM status.bundles;
-  STRING ARRAY validfolders := keeppackages CONCAT SELECT AS STRING ARRAY outputtag FROM system.assetpacks;
+  STRING ARRAY validfolders := keeppackages CONCAT SELECT AS STRING ARRAY outputtag FROM system_internal.assetpacks;
   validfolders := SELECT AS STRING ARRAY Substitute(val,":",'.') FROM ToRecordArray(validfolders,'val');
 
   RECORD ARRAY currentfolders := ReadDiskDirectory(GetWebHareConfiguration().varroot || "publisher.ap", "*");
@@ -130,7 +131,7 @@ RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
   {
     //Do we have the bundle in the database ?
     STRING hash := GetHashForBundle(requestedbundle);
-    RECORD bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+    RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
     IF(NOT RecordExists(bundleinfo))
       THROW NEW Exception("The assetpackmgr is unreachable and the bundle does not yet exist");
 
@@ -321,7 +322,7 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
           , adhoc :=          FALSE
           , savedstate :=     DEFAULT RECORD
           , origentrypoint := entrypoint
-       FROM system.assetpacks
+       FROM system_internal.assetpacks
       WHERE (outputtag LIKE "*:*" ? IsModuleInstalled(Tokenize(outputtag,':')[0]) : TRUE)
    ORDER BY outputtag LIKE "tollium:*" DESC, outputtag LIKE "*:*" DESC);
   RETURN        (SELECT *

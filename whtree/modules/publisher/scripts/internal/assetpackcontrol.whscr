@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -778,7 +779,7 @@ STATIC OBJECTTYPE AssetPackController
 
     //Are they all in the database?
     GetPrimary()->BeginWork();
-    RECORD ARRAY dbpacks := SELECT * FROM system.assetpacks WHERE outputtag LIKE "*:*";
+    RECORD ARRAY dbpacks := SELECT * FROM system_internal.assetpacks WHERE outputtag LIKE "*:*";
     FOREVERY(RECORD modulepack FROM modulepacks)
     {
       RECORD bundleconfig := CELL[ modulepack.extrarequires
@@ -796,10 +797,10 @@ STATIC OBJECTTYPE AssetPackController
       RECORD match := SELECT * FROM dbpacks WHERE outputtag = modulepack.name;
       IF(NOT RecordExists(match))
       {
-        INTEGER packid := MakeAutonumber(system.assetpacks, 'ID');
-        INSERT INTO system.assetpacks(id, created, entrypoint, outputtag)
+        INTEGER packid := MakeAutonumber(system_internal.assetpacks, 'ID');
+        INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag)
                VALUES(packid, GetCurrentDatetime(), modulepack.entrypoint, modulepack.name);
-        match := SELECT * FROM system.assetpacks WHERE id = packid;
+        match := SELECT * FROM system_internal.assetpacks WHERE id = packid;
       }
       ELSE
       {
@@ -809,14 +810,14 @@ STATIC OBJECTTYPE AssetPackController
       IF(match.bundleconfig != encodedconfig
          OR match.entrypoint != modulepack.entrypoint)
       {
-        UPDATE system.assetpacks SET bundleconfig := encodedconfig
+        UPDATE system_internal.assetpacks SET bundleconfig := encodedconfig
                                    , entrypoint := modulepack.entrypoint
                                WHERE id = match.id;
       }
     }
 
     IF(Length(dbpacks)>0)
-      DELETE FROM system.assetpacks WHERE id IN SELECT AS INTEGER ARRAY id FROM dbpacks;
+      DELETE FROM system_internal.assetpacks WHERE id IN SELECT AS INTEGER ARRAY id FROM dbpacks;
 
     GetPrimary()->CommitWork();
   }
@@ -1570,7 +1571,7 @@ OBJECTTYPE AssetPackControl
     STRING hash := GetHashForBundle(requestedbundle);
     INTEGER bundleid;
 
-    RECORD bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+    RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
 
     DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 60 * 60 * 1000);
     IF(RecordExists(bundleinfo))
@@ -1581,7 +1582,7 @@ OBJECTTYPE AssetPackControl
     ELSE
     {
       GetPrimary()->BeginLockedWork("publisher:assetpackcontrol");
-      bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+      bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
 
       IF(RecordExists(bundleinfo))
       {
@@ -1590,9 +1591,9 @@ OBJECTTYPE AssetPackControl
       ELSE
       {
         mustrefreshbundles := TRUE;
-        bundleid := MakeAutonumber(system.assetpacks, "ID");
+        bundleid := MakeAutonumber(system_internal.assetpacks, "ID");
 
-        INSERT INTO system.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
+        INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
                VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
       }
 

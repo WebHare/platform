@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -161,7 +162,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   {
     INTEGER ARRAY bundleids := SELECT AS INTEGER ARRAY id FROM todelete;
     OBJECT work := this->BeginWork();
-    DELETE FROM system.assetpacks WHERE id IN bundleids;
+    DELETE FROM system_internal.assetpacks WHERE id IN bundleids;
     work->Finish();
 
     TRY
