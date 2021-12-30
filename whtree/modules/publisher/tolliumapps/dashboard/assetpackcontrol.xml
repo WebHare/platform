@@ -46,7 +46,8 @@
                 <column name="status" type="text" width="12x" />
                 <column name="outputtag" type="text" width="25x" />
                 <column name="lastcompile" type="datetime" width="23x" precision="seconds" storeutc="true" />
-                <column name="watchcount" type="text" width="10x" align="right" />
+                <column name="watchcount" type="integer" width="10x" align="right" emptyvalue="0" />
+                <column name="dummy" type="text" width="1pr" title="" />  <!-- filler until someone has a 1pr column for us -->
               </list>
             </cell>
             <cell layout="left" spacers="top left right">
@@ -81,7 +82,7 @@
     </compositions>
 
     <body spacers="none">
-      <tabs>
+      <tabs height="1pr">
         <tab tid=".tab_overview">
           <textedit name="outputtag" width="1pr" enabled="false" />
           <textedit name="entrypoint" width="1pr" enabled="false" />

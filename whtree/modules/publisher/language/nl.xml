@@ -1652,7 +1652,7 @@
           <text tid="status">Status</text>
           <text tid="surerebuildall">Weet u zeker dat u alle bundels volledig opnieuw wilt compileren?</text>
           <text tid="suspendautocompile">Blokkeer autocompilatie</text>
-          <text tid="watchcount">Bekeken</text>
+          <text tid="watchcount">Kijkers</text>
         </textgroup>
         <textgroup gid="bundleprops">   <!-- tolliumapps.dashboard.assetpackcontrol.bundleprops -->
           <text tid="bundleprops">Bundeleigenschappen</text>

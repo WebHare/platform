@@ -1652,7 +1652,7 @@
           <text tid="status">State</text>
           <text tid="surerebuildall">Are you sure you want to recompile all bundles from scratch?</text>
           <text tid="suspendautocompile">Suspend autocompile</text>
-          <text tid="watchcount">Watched</text>
+          <text tid="watchcount">Viewers</text>
         </textgroup>
         <textgroup gid="bundleprops">   <!-- tolliumapps.dashboard.assetpackcontrol.bundleprops -->
           <text tid="bundleprops">Bundle properties</text>
