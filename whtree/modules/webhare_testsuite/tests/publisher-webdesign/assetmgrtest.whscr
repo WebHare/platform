@@ -78,6 +78,13 @@ MACRO TestBasics()
   TestEq(prodassetcache, testfw->browser->GetResponseHeader("Cache-Control"));
   TestEQ(FALSE, testfw->browser->GotoWebPage(backgroundurl||".bla"), "Unexpectedly able to retrieve " || backgroundurl||".bla");
   TestEq(notfoundcache, testfw->browser->GetResponseHeader("Cache-Control"), testfw->browser->href);
+
+  OBJECT ARRAY scripts := doc->getElements('script[src]');
+  STRING jslink := scripts[0]->GetAttribute("src");
+  TestEq(FALSE, jslink LIKE "*.dev/*"); //should not be dev-tagged
+  TestEq(TRUE, testfw->browser->GotoWebPage(jslink), jslink);
+  //test that dev:false is set (minified)
+  TestEqLike(`*window.whBundles["webhare_testsuite:basetest"]={dev:!1}*`, BlobToString(testfw->browser->content));
 }
 
 MACRO TestViewSHTML()
@@ -145,6 +152,7 @@ MACRO TestDevVersion()
   TestEqLike("*/*.dev/*", srclink);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(srclink), testfw->browser->href);
+  TestEqLike(`*window.whBundles["webhare_testsuite:basetest.dev"] = { dev: true }*`, BlobToString(testfw->browser->content));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(csslink), testfw->browser->href);
 
