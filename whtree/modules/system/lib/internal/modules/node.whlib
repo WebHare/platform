@@ -19,11 +19,11 @@ PUBLIC RECORD ARRAY FUNCTION ListNodePackageRoots(STRING basepath)
   }
 
   RECORD ARRAY webdesigns := ReadDiskDirectory(basepath || "webdesigns", "*");
-  FOREVERY(RECORD designfolder FROM webdesigns)
-    IF(designfolder.name NOT LIKE ".*" AND designfolder.type = 1 AND RecordExists(GetDiskFileProperties(designfolder.path || "/package.json")))
+  FOREVERY(RECORD webdesign FROM webdesigns)
+    IF(webdesign.name NOT LIKE ".*" AND webdesign.type = 1 AND RecordExists(GetDiskFileProperties(webdesign.path || "/package.json")))
       INSERT [ type := "webdesign"
-             , basepath := designfolder.path || "/"
-             , modulespath := MergePath(designfolder.path,"node_modules")
+             , basepath := webdesign.path || "/"
+             , modulespath := MergePath(webdesign.path,"node_modules")
              ] INTO packageroots AT END;
 
   RETURN packageroots;

@@ -44,8 +44,7 @@ PUBLIC RECORD FUNCTION WaitForCompiledAssetpack(STRING outputtag)
 
 PUBLIC RECORD FUNCTION MakeEmptyBundle()
 {
-  RETURN [ moduledesignfolder := ""
-         , assetpack := ""
+  RETURN [ assetpack := ""
          , basedependency := ""
          , bundleconfig := basebundleconfig
          , adhoc := FALSE
@@ -55,8 +54,7 @@ PUBLIC RECORD FUNCTION MakeEmptyBundle()
 
 PUBLIC STRING FUNCTION GetHashForBundle(RECORD requesteddesign)
 {
-  RECORD hashbase := [ moduledesignfolder := requesteddesign.moduledesignfolder
-                     , basedependency := requesteddesign.basedependency
+  RECORD hashbase := [ basedependency := requesteddesign.basedependency
                      , extrarequires := (SELECT AS STRING ARRAY DISTINCT req FROM ToRecordArray(requesteddesign.bundleconfig.extrarequires,"req") ORDER BY req)
                      , languages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(requesteddesign.bundleconfig.languages,"lang") ORDER BY lang)
                      , environment := requesteddesign.bundleconfig.environment
@@ -153,7 +151,6 @@ RECORD FUNCTION GetPackingInfo(RECORD requestedbundle)
 
 STATIC OBJECTTYPE Resolver
 <
-  STRING baseurl;
   RECORD packinginfo;
   STRING ARRAY addedrequires;
   STRING bundlebaseurl;
@@ -162,27 +159,19 @@ STATIC OBJECTTYPE Resolver
   STRING assetpack;
   BOOLEAN devversion;
 
-  PUBLIC PROPERTY designroot(baseurl, -);
-
-  MACRO NEW(STRING assetpack, STRING moduledesignfolder, STRING basedependency, STRING ARRAY languages, BOOLEAN devversion)
+  MACRO NEW(STRING assetpack, STRING basedependency, STRING ARRAY languages, BOOLEAN devversion)
   {
+    BOOLEAN adhoc := assetpack NOT LIKE "*:*"; //adhocs are just a 128bit id
+
     this->assetpack := assetpack;
-    this->devversion := devversion OR moduledesignfolder = ""; //'adhoc' if moduledesignfolder is empty
+    this->devversion := devversion OR adhoc;
     IF(assetpack = "" AND basedependency != "")
     {
       this->requestedbundle := MakeEmptyBundle();
-      this->requestedbundle.moduledesignfolder := moduledesignfolder;
       this->requestedbundle.basedependency := basedependency;
-      this->requestedbundle.adhoc := moduledesignfolder = "";
+      this->requestedbundle.adhoc := adhoc;
       this->requestedbundle.bundleconfig.languages := languages;
       this->requestedbundle.devversion := this->devversion;
-    }
-
-    IF(moduledesignfolder != "")
-    {
-      this->baseurl := GetModuleResourceURL(moduledesignfolder || 'web/');
-      IF(this->baseurl="")
-        THROW NEW Exception("Misunderstood design folder '" || moduledesignfolder || "'");
     }
   }
 
@@ -289,7 +278,7 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigni
   IF(webdesigninfo.designfolder="")
     THROW NEW Exception("No module design folder specified");
 
-  OBJECT res := NEW Resolver(webdesigninfo.assetpack, webdesigninfo.designfolder, "", webdesigninfo.supportedlanguages, devversion);
+  OBJECT res := NEW Resolver(webdesigninfo.assetpack, "", webdesigninfo.supportedlanguages, devversion);
   RETURN res;
 }
 
@@ -299,7 +288,7 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForJSFile(STRING jspath, RECORD o
       [ supportedlanguages := STRING[]
       ], options);
 
-  OBJECT res := NEW Resolver("", "", jspath, options.supportedlanguages, FALSE);
+  OBJECT res := NEW Resolver("", jspath, options.supportedlanguages, FALSE);
   RETURN res;
 }
 
@@ -392,9 +381,6 @@ PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
     THROW NEW Exception(`No such bundle ${byoutputtag} registered`);
 
   bundle := PreFixupBundleconfig(bundle);
-
-  TRY INSERT CELL diskpath := GetWebHareResourceDiskPath(bundle.designfolder) INTO bundle;
-  CATCH(OBJECT e) THROW NEW Exception("Design folder '" || bundle.designfolder || "' is invalid: " || e->what);
 
   IF (bundle.origentrypoint != "_polyfills")
   {

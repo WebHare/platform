@@ -317,7 +317,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config, FALSE);
 
-    this->designrooturl := this->pvt_dependencyresolverv2->designroot; //FIXME readd the version hash, see below
+    this->designrooturl := GetModuleResourceURL(this->__config.designfolder || 'web/');
+    IF(this->designrooturl = "")
+      THROW NEW Exception("Misunderstood design folder - <webdesign designfolder=> must point to a mod::<module>/webdesigns/<design> path"); //so we can expose its web/ folder as /.publisher/sd/...
+
     this->asyncbundle := this->__config.asyncbundle;
 
     IF(this->pvt_targetsite->cdnbaseurl != "")

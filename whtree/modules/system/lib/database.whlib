@@ -376,7 +376,6 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER 'id' NULL := 0
     , DATETIME 'created'
-    , STRING 'designfolder'
     , STRING 'entrypoint'
     , STRING 'bundleconfig'
     , STRING 'outputtag'

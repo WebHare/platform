@@ -167,7 +167,6 @@ STATIC OBJECTTYPE AssetPackController
       @cell id Bundle DB id
       @cell(datetime) created Creation time of the bundle
       @cell(datetime) lastuse Last use (updated at most once every 15 mins)
-      @cell(string) designfolder Webhare resource path of the design folder
       @cell(string) entrypoint Entry file, relative to resource root
       @cell(string) extrarequires Tab-separated list of extra required
       @cell(string) outputtag UUID of the output
@@ -514,10 +513,10 @@ STATIC OBJECTTYPE AssetPackController
       IF (NOT RecordExists(bundle.bundleconfig))
         THROW NEW Exception("Bundle has no bundle config (old bundle), please delete the bundle");
 
-      IF (bundle.designfolder != "")
+      IF(NOT bundle.adhoc)
       {
-        TRY bundle.diskpath := GetWebHareResourceDiskPath(bundle.designfolder);
-        CATCH(OBJECT e) THROW NEW Exception("Design folder '" || bundle.designfolder || "' is invalid: " || e->what);
+        STRING ARRAY bundletagtoks := Tokenize(Substitute(bundle.outputtag, '.dev', ''),':');
+        bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
       }
 
       IF (bundle.origentrypoint != "_polyfills")
@@ -812,11 +811,9 @@ STATIC OBJECTTYPE AssetPackController
       }
 
       IF(match.bundleconfig != encodedconfig
-         OR match.entrypoint != modulepack.entrypoint
-         OR match.designfolder != modulepack.designroot)
+         OR match.entrypoint != modulepack.entrypoint)
       {
         UPDATE system.assetpacks SET bundleconfig := encodedconfig
-                                   , designfolder := modulepack.designroot
                                    , entrypoint := modulepack.entrypoint
                                WHERE id = match.id;
       }
@@ -963,7 +960,9 @@ STATIC OBJECTTYPE AssetPackController
     // Uncompileable bundles have their dependencies already set
     IF (NOT CellExists(bundle.info, "UNCOMPILABLE"))
     {
-      deps := this->AddPathToDeps(deps, MergePath(bundle.designfolder, "package.json"), FALSE);
+      IF(bundle.diskpath != "")
+        deps := this->AddPathToDeps(deps, MergePath(bundle.diskpath, "package.json"), FALSE);
+
       deps := this->AddPathToDeps(deps, bundle.entrypoint, TRUE);
     }
 
@@ -1288,8 +1287,7 @@ STATIC OBJECTTYPE AssetPackController
         ScheduleMicroTask(PTR this->ProcessBundleState(bundlerec.outputtag));
       }
       ELSE IF (EncodeHSON(this->bundles[lb.position].bundleconfig) != EncodeHSON(bundle.bundleconfig)
-               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint
-               OR this->bundles[lb.position].designfolder != bundle.designfolder)
+               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint)
       {
         this->bundles[lb.position] := MakeReplacedRecord(this->bundles[lb.position], bundle);
 
@@ -1336,7 +1334,6 @@ STATIC OBJECTTYPE AssetPackController
   {
     RECORD status := [ bundles := (SELECT TEMPORARY watchcountpos := RecordLowerBound(this->watchcounts, bundles, [ "OUTPUTTAG" ])
                                         , id
-                                        , designfolder
                                         , hasstatus
                                         , iscompiling
                                         , haserrors
@@ -1443,7 +1440,6 @@ STATIC OBJECTTYPE AssetPackController
 
       INSERT [ id :=              this->lastadhocid
              , created :=         RecordExists(match) ? match.created : GetCurrentDatetime()
-             , designfolder :=    ""
              , entrypoint :=      bundle.basedependency
              , origentrypoint :=  bundle.basedependency
              , bundleconfig :=    bundle.bundleconfig
@@ -1600,8 +1596,8 @@ OBJECTTYPE AssetPackControl
         mustrefreshbundles := TRUE;
         bundleid := MakeAutonumber(system.assetpacks, "ID");
 
-        INSERT INTO system.assetpacks(id, created, designfolder, entrypoint, outputtag, bundleconfig)
-               VALUES(bundleid, now, requestedbundle.moduledesignfolder, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
+        INSERT INTO system.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
+               VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
       }
 
       GetPrimary()->CommitWork();

@@ -45,7 +45,6 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
     RECORD ARRAY bundles :=
         SELECT rowkey :=      outputtag
-             , designfolder
              , status :=      haserrors
                                ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
                                : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
