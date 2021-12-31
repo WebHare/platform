@@ -1176,7 +1176,8 @@ STATIC OBJECTTYPE QueueMgr
   {
     TRY
     {
-      RECORD tasktypeinfo := GetTaskTypeSettings(item->taskdata.tasktype, item->isephemeral);
+      RECORD pos := RecordLowerBound(tasktypes, CELL[item->taskdata.tasktype, ephemeral := item->isephemeral], [ "TASKTYPE", "EPHEMERAL" ]);
+      RECORD tasktypeinfo := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
       IF(NOT RecordExists(tasktypeinfo))
         THROW NEW Exception(`No definition for tasks of type '${item->taskdata.tasktype}'`);
       IF (tasktypeinfo.applyerror != "")

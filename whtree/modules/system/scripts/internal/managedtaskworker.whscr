@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/internal/tasks/execution.whlib";
 
 OBJECT trans;
 OBJECT managedqueuemgr;
-BOOLEAN debug, profile;
+BOOLEAN debug;
 
 RECORD interruptpromise := CreateDeferredPromise();
 
@@ -56,6 +56,9 @@ MACRO Mainloop()
         RETURN; //we'll need to recompile to handle this task
       }
 
+      IF(taskinfo.profile)
+        Enablefunctionprofile();
+
       IF(taskinfo.isephemeral)
         lasttaskresult := ExecuteEphemeralTask(taskinfo, debug);
       ELSE
@@ -80,9 +83,10 @@ MACRO Mainloop()
     }
     FINALLY
     {
-      IF(profile)
+      IF(taskinfo.profile)
       {
-        ReportFunctionProfile("managedtaskworker", "Task " || taskinfo.queueid);
+        disablefunctionprofile();
+        ReportFunctionProfile(taskinfo.tasktype, taskinfo.queueid);
         ResetFunctionProfile();
       }
     }
@@ -93,23 +97,16 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "worker", type := "stringopt" ]
                               , [ name := "cluster", type := "stringopt" ]
                               , [ name := "debug", type := "switch" ]
-                              , [ name := "profile", type := "switch" ]
                               ]);
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: managedtaskworker [--debug] [--profile] [--worker <num>]\n");
+  Print("Syntax: managedtaskworker [--debug] [--worker <num>]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
 
 trans := OpenPrimary();
 debug := args.debug;
-
-IF(args.profile)
-{
-  profile := TRUE;
-  SetupFunctionProfiling("system:managedtaskworker", "Managed task worker #" || args.worker);
-}
 
 INTEGER workerid := ToInteger(args.worker,0);
 IF(workerid = 0)

@@ -30,6 +30,7 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
         , harescriptworkers :=      1
         , harescriptworkerthreads := 1
         , javascriptworkers :=      2
+        , profile := FALSE
         ]
       ];
 
@@ -45,9 +46,13 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
   }
 
   // Get overrides from system:config schema
-  OBJECT taskclusterstype := OpenWRDSchema("system:config")->^taskcluster;
-  RECORD ARRAY overrides := taskclusterstype->RunQuery(
+  OBJECT configschema := OpenWRDSchema("system:config");
+  RECORD ARRAY overrides := configschema ->^taskcluster->RunQuery(
       [ outputcolumns := CELL[ "CLUSTER", "HARESCRIPTWORKERS" ]
+      , cachettl := 15 * 60 * 1000
+      ]);
+  RECORD ARRAY typeoverrides := configschema->^tasktype->RunQuery(
+      [ outputcolumns := CELL[ "TYPE", "PROFILE" ]
       , cachettl := 15 * 60 * 1000
       ]);
 
@@ -57,7 +62,9 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
          SET cluster := "system:default"
        WHERE cluster NOT IN activeclusters;
 
-  tasktypes := SELECT *
+  tasktypes := SELECT TEMPORARY override := RECORD(SELECT * FROM typeoverrides WHERE typeoverrides.type = tasktypes.tasktype)
+                    , *
+                    , profile := RecordExists(override) AND override.profile
                  FROM tasktypes
              ORDER BY tasktype, ephemeral;
 
@@ -68,7 +75,7 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
                 FROM clusters
             ORDER BY tag;
 
-  STRING ARRAY eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources) CONCAT taskclusterstype->GetEventMasks();
+  STRING ARRAY eventmasks := [ "system:modulesupdate", ...GetResourceEventMasks(resources), ...configschema->^taskcluster->GetEventMasks(), ...configschema->^tasktype->GetEventMasks() ];
   RETURN
       [ value :=      CELL[ tasktypes, clusters, eventmasks ]
       , eventmasks := eventmasks
