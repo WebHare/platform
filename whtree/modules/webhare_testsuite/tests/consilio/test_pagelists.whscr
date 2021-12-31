@@ -48,7 +48,9 @@ MACRO TestSitemapLinks()
   TestEq(RECORD[], SELECT * FROM links WHERE link NOT LIKE baseurl || "*");
   TestEq(RECORD[], SELECT * FROM links WHERE link LIKE "*#*");
   //of the link types (18-20) only the contentlink deserves a place in the site map
-  TestEq([[ link := baseurl || "TestPages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
+  TestEq([[ link := baseurl || "TestPages/foldertemplate/sub/contentlink/" ]
+         ,[ link := baseurl || "TestPages/staticpage-contentlink/" ]
+         ], SELECT link FROM links WHERE filetype IN [18,19,20] ORDER BY link);
 
   OBJECT foldertemplatesub := OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate/sub");
   links := GenerateSitemapLinks(foldertemplatesub->id);
