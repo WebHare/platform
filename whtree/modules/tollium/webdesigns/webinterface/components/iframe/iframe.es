@@ -11,7 +11,6 @@ export default class ObjIFrame extends ComponentBase
     this.loaded = false;
     this.queuedmessages = [];
     this.data=null;
-    this.zoom=100;
 
     this.node = dompack.create("t-iframe", { dataset: { name: this.name }});
     this.iframe = dompack.create("iframe"
@@ -32,7 +31,6 @@ export default class ObjIFrame extends ComponentBase
     if(data.addcomps)
       this.setAdditionalComponents(data.addcomps);
     this.data = data.data;
-    this.setZoom(data.zoom);
 
     this.selectionflags = [];
   }
@@ -96,19 +94,6 @@ export default class ObjIFrame extends ComponentBase
     }
   }
 
-  setZoom(zoom)
-  {
-    if (!zoom)
-      return;
-    // Limit zoom to max factor 10x
-    zoom = Math.min(Math.max(zoom, 10), 1000);
-    if (!isNaN(zoom) && zoom != this.zoom)
-    {
-      this.zoom = zoom;
-      this.relayout();
-    }
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Layouting
@@ -128,15 +113,7 @@ export default class ObjIFrame extends ComponentBase
     dompack.setStyles(this.node, { "width": this.width.set
                                  , "height": this.height.set
                                  });
-    if (this.zoom != this.prevzoom)
-    {
-      this.prevzoom = this.zoom;
-      var zoomfactor = (this.zoom / 100);
-      dompack.setStyles(this.iframe, { "transform": "scale(" + zoomfactor + ")"
-                                     , "width": Math.round(100.0 / zoomfactor) + "%"
-                                     , "height": Math.round(100.0 / zoomfactor) + "%"
-                                     });
-    }
+
     if (this.width.set != this.prevwidth || this.height.set != this.prevheight)
     {
       this.prevwidth = this.width.set;
@@ -168,9 +145,6 @@ export default class ObjIFrame extends ComponentBase
       case 'data':
         this.data = data.data;
         this.postQueuedMessages(true);
-        return;
-      case 'zoom':
-        this.setZoom(data.zoom);
         return;
     }
 
