@@ -18,13 +18,13 @@ export default class ObjIFrame extends ComponentBase
                                  , { marginWidth: 0
                                    , marginHeight: 0
                                    , frameBorder: 0
-                                   , src: this.calcFrameSourceUri(data)
                                    , on:
                                        { load: this.gotIFrameLoad.bind(this)
                                       }
                                  });
-    if(data.enablesandbox)
+    if(data.sandbox != "none")
       this.iframe.sandbox = data.sandbox;
+    this.iframe.src = this.calcFrameSourceUri(data);
 
     this.node.appendChild(this.iframe);
     this.node.propTodd = this;
@@ -191,6 +191,12 @@ export default class ObjIFrame extends ComponentBase
       case 'data':
         this.data = data.data;
         this.postQueuedMessages(true);
+        return;
+      case 'sandbox':
+        if(data.sandbox == 'none')
+          this.iframe.removeAttribute("sandbox");
+        else
+          this.iframe.sandbox = data.sandbox;
         return;
       case 'viewport':
         this.viewport = data.viewport;

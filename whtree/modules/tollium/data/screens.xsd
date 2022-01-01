@@ -3163,22 +3163,11 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="enablesandbox" type="xs:boolean">
+    <xs:attribute name="sandbox" default="none">
       <xs:annotation>
-        <xs:documentation>
-          Set to true to enable the iframe sandbox
+      <xs:documentation>List of sandbox attributes, as defined for HTML5 iframes. Set to 'none' to disable the sandbox.
         </xs:documentation>
       </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="sandbox">
-      <xs:annotation>
-        <xs:documentation>
-          List of sandbox attributes, as defined for HTML5 iframes. You need to set enablesandbox to true to actually activate the sandbox
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:list itemType="xs:string" />
-      </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
 
