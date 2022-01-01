@@ -91,7 +91,7 @@ function onContextMenuCapture(event)
 
 function onMovingUpdate(start)
 {
-  document.documentElement.classList.toggle("moveInProgress", start);
+  document.documentElement.classList.toggle("mousehandling--moveinprogress", start);
 }
 
 export function setupMouseHandling()

@@ -45,6 +45,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   /// Pending requests
   RECORD ARRAY pendingrequests;
 
+  /// Viewport width/height. if empty, full screen iframe
+  RECORD _viewport;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables & properties
@@ -118,6 +121,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         , eventmask := FALSE
         , addcomps := FALSE
         , data := FALSE
+        , viewport := FALSE
         ];
   }
 
@@ -142,6 +146,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
                      , data :=      this->pvt_data
                      , sandbox :=   Detokenize(this->sandbox,' ')
                      , enablesandbox := this->enablesandbox
+                     , viewport := this->_viewport
                      ];
       this->owner->tolliumcontroller->SendComponent(this, comp);
     }
@@ -156,6 +161,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 
       IF (this->dirtyflags.eventmask)
         this->ToddUpdate([ type:="eventmask", unmasked_events := GetUnmask(this,["clicklink", "callback", "data"]) ]);
+
+      IF (this->dirtyflags.viewport)
+        this->ToddUpdate([ type:="viewport", viewport := this->_viewport]);
 
       IF (this->dirtyflags.addcomps)
         this->ToddUpdate([ type:="addcomps", addcomps := GetComponentNames(this->pvt_additionalcomponents) ]);
@@ -373,10 +381,32 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     this->dirtyflags.data := TRUE;
   }
 
+  MACRO ExtUpdatedViewport()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.viewport := TRUE;
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Public API
   //
+
+  /** Set a viewport from the iframe (usually used to simulate devices)
+      @param width Width in pixels
+      @param height Height in pixels */
+  PUBLIC MACRO SetViewport(INTEGER width, INTEGER height)
+  {
+    this->_viewport := CELL[ width, height ];
+    this->ExtUpdatedViewport();
+  }
+
+  /** Undo setting a viewport */
+  PUBLIC MACRO ResetViewport()
+  {
+    this->_viewport := DEFAULT RECORD;
+    this->ExtUpdatedViewport();
+  }
 
   /// Reset content (iframe page & contents)
   PUBLIC MACRO ResetContent()

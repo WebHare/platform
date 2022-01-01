@@ -1,5 +1,6 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import "./iframe.scss";
 
 export default class ObjIFrame extends ComponentBase
 {
@@ -10,7 +11,7 @@ export default class ObjIFrame extends ComponentBase
     this.addcomps = [];
     this.loaded = false;
     this.queuedmessages = [];
-    this.data=null;
+    this.data = null;
 
     this.node = dompack.create("t-iframe", { dataset: { name: this.name }});
     this.iframe = dompack.create("iframe"
@@ -28,10 +29,11 @@ export default class ObjIFrame extends ComponentBase
     this.node.appendChild(this.iframe);
     this.node.propTodd = this;
 
+    this.viewport = data.viewport;
     if(data.addcomps)
       this.setAdditionalComponents(data.addcomps);
-    this.data = data.data;
 
+    this.data = data.data;
     this.selectionflags = [];
   }
 
@@ -114,6 +116,50 @@ export default class ObjIFrame extends ComponentBase
                                  , "height": this.height.set
                                  });
 
+    if(this.viewport)
+    {
+      this.iframe.style.width = this.viewport.width + "px";
+      this.iframe.style.height = this.viewport.height + "px";
+
+      // If the requested viewport is smaller than the <t-iframe>, just center the iframe within the viewport (TODO this can probably be done with pure css)
+      if (this.viewport.width <= this.width.set && this.viewport.height <= this.height.set)
+      {
+        this.iframe.style.transform = "";
+        this.iframe.style.left = (Math.round((this.width.set - this.viewport.width) / 2)) + "px";
+        this.iframe.style.top = (Math.round((this.height.set - this.viewport.height) / 2)) + "px";
+      }
+      else
+      {
+        // Make the this.iframe fit in the viewport by zooming it
+        let fracx = this.width.set / this.viewport.width;
+        let fracy = this.height.set / this.viewport.height;
+        let zoomfactor = Math.min(fracx, fracy);
+        this.iframe.style.transform = "scale(" + zoomfactor + ")";
+
+        // Center the this.iframe horizontally or vertically
+        if (fracx < fracy)
+        {
+          let newy = Math.min(Math.round(fracx * this.viewport.height), this.height.set);
+          this.iframe.style.left = "0px";
+          this.iframe.style.top = (Math.round((this.height.set - newy) / 2)) + "px";
+        }
+        else
+        {
+          let newx = Math.min(Math.round(fracy * this.viewport.width), this.width.set);
+          this.iframe.style.left = (Math.round((this.width.set - newx) / 2)) + "px";
+          this.iframe.style.top = "0px";
+        }
+      }
+    }
+    else
+    {
+      this.iframe.style.width = "100%";
+      this.iframe.style.height = "100%";
+      this.iframe.style.transform = "";
+      this.iframe.style.top = "0";
+      this.iframe.style.left = "0";
+    }
+
     if (this.width.set != this.prevwidth || this.height.set != this.prevheight)
     {
       this.prevwidth = this.width.set;
@@ -145,6 +191,10 @@ export default class ObjIFrame extends ComponentBase
       case 'data':
         this.data = data.data;
         this.postQueuedMessages(true);
+        return;
+      case 'viewport':
+        this.viewport = data.viewport;
+        this.relayout();
         return;
     }
 

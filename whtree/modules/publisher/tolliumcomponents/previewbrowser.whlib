@@ -48,8 +48,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   INTEGER devicewidth;
   INTEGER deviceheight;
 
-  STRING commit;
-
   BOOLEAN refresh_unpublished;
   RECORD ARRAY previewmessages;
 
@@ -76,15 +74,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     TolliumFragmentBase::StaticInit(data);
     this->onurlchange := data.onurlchange;
     this->pvt_showversionactions := data.showversionactions;
-
-    // If we have a commit (production build), use that for unwanted cache prevention of browserframe.html/preview.js,
-    // otherwise (development build) use current timestamp
-    this->commit := GetWebhareVersionInfo().committag ?? FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE);
-  }
-
-  UPDATE MACRO PreInitComponent()
-  {
-    ^browserframe->data := [ src := "", width := 0, height := 0, fill := FALSE, dontnavigate := FALSE ];
   }
 
   UPDATE MACRO PostInitComponent()
@@ -469,15 +458,18 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     IF(this->suppressrendering)
       src := "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
     ELSE IF(IsAbsoluteURL(this->currenturl))
-      src := UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.webhare/direct/publisher/browserframe.html"), [ "__whpub_commit_" := this->commit ]);
+      src := this->currenturl;
 
     // (Re)load the browserframe if the src changed
     IF (src != ^browserframe->src)
+    {
       ^browserframe->src := src;
+      ^browserframe->sandbox := this->currentsandbox ? "allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" : "none";
+    }
   }
 
-  // Refresh browser frame contents, only if changed or forced
-  MACRO RefreshBrowserFrame(BOOLEAN force, BOOLEAN was_iframe_interaction)
+  // Refresh browser frame contents
+  MACRO RefreshBrowserFrame()
   {
     this->LoadBrowserFrame();
     ^previewurl->value := this->currenturl;
@@ -486,23 +478,20 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     ^previewmessage->htmlvalue := this->lastsethtmlvalue;
     ^info->visible := Length(this->previewmessages) > 0;
 
-    IF (NOT force AND Tokenize(^browserframe->data.src, "?")[0] = this->currenturl)
-      RETURN;
-
     STRING src := this->suppressrendering ? ""
                 : UpdateURLVariables(this->currenturl,
                       [ "__whpub_lang_" := this->owner->tolliumuser->language
                       , "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
 
-    ^browserframe->data := CELL[ ...^browserframe->data, src, dontnavigate := was_iframe_interaction, sandbox := this->currentsandbox ];
+    ^browserframe->src := src;
   }
 
   MACRO ReloadCurrent(BOOLEAN reloadmessages, BOOLEAN reloadsource)
   {
     IF(this->previewfileid = 0 AND this->currenturl != "" )
     {
-      this->RefreshBrowserFrame(reloadsource, FALSE);
+      this->RefreshBrowserFrame();
     }
     ELSE
     {
@@ -573,7 +562,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
 
     this->FillVersioningMessages();
-    this->RefreshBrowserFrame(reloadsource, was_iframe_interaction);
+    this->RefreshBrowserFrame();
   }
 
   // ---------------------------------------------------------------------------
@@ -587,7 +576,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       CASE "urlloaded"
       {
-        ^browserframe->data.src := data.src;
+        ^browserframe->src := data.src;
         // Strip hash and query
         this->currenturl := Tokenize(Tokenize(data.src, "#")[0], "?")[0];
         IF(this->onurlchange != DEFAULT MACRO PTR)
@@ -613,7 +602,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
       this->devicewidth := selection.width;
       this->deviceheight := selection.height;
-      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+      ^browserframe->SetViewport(this->devicewidth, this->deviceheight);
     }
     ELSE IF (selected LIKE "c*")
     {
@@ -649,14 +638,14 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
         }
       }
 
-      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := this->devicewidth, height := this->deviceheight, fill := FALSE ]);
+      ^browserframe->SetViewport(this->devicewidth, this->deviceheight);
     }
     ELSE IF (selected = "f")
     {
       DELETE FROM ^deviceselect->options WHERE rowkey LIKE "c-*";
       this->devicewidth := 0;
       this->deviceheight := 0;
-      ^browserframe->data := MakeUpdatedRecord(^browserframe->data, [ width := -1, height := -1, fill := TRUE ]);
+      ^browserframe->ResetViewport();
     }
     ELSE
     {
@@ -808,13 +797,13 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     this->previewfileid := 0;
     this->ClearForNewURL(newurl);
     this->CheckHTTP();
-    this->RefreshBrowserFrame(FALSE, FALSE);
+    this->RefreshBrowserFrame();
   }
 
   PUBLIC RECORD FUNCTION GetPreviewState() //introspection needed for testing
   {
     RETURN [ displayurl := ^previewurl->value
-           , browserurl := ^browserframe->data.src
+           , browserurl := ^browserframe->src
            , showingmessages := ^info->visible
            , messages := ^info->visible ? this->lastsethtmlvalue : ""
            , messagecomp := ^previewmessage

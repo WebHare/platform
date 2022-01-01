@@ -6,3 +6,8 @@ html.mousehandling--selecting
 {
   user-select:text;
 }
+
+.mousehandling--moveinprogress iframe //disable iframes from catching mouse events while dragging/moving
+{
+  pointer-events: none;
+}
