@@ -168,12 +168,12 @@ testsamlfolder->CreateFile(
 
 OBJECT portalidpfolder := testsamlfolder->CreateFolder([name := "portal-idp"]);
 portalidpfolder->CreateFile([ name := "portal-idp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
-portalidpfolder->CreateFile([ name := "saml-idp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]);
+portalidpfolder->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
 
 OBJECT portalidpfolder_formlogin := testsamlfolder->CreateFolder([name := "portal-idp-formlogin"]);
 OBJECT idp_formlogin := portalidpfolder_formlogin->CreateFile([ name := "portal-idp", type := prebuilttype->id, publish := TRUE ], [setindex := TRUE]);
 prebuilttype->SetInstanceData(idp_formlogin->id, [ prebuilttag := "wrdauthtest-router" ]);
-portalidpfolder_formlogin->CreateFile([ name := "saml-idp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]);
+portalidpfolder_formlogin->CreateFile([ name := "saml-idp", publish := FALSE, typens := "http://www.webhare.net/xmlns/wrd/samlidpendpoint" ]); // published when needed
 
 OBJECT portalspfolder := testsamlfolder->CreateFolder([name := "portal-sp"]);
 portalspfolder->CreateFile([ name := "portal-sp", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
