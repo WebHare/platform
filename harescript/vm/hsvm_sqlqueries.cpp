@@ -935,15 +935,11 @@ QueryActions::_type OpenQuery::GetNextAction()
                                                         /* check all conditions, even handled ones
                                                            Only postgresql uses the fase2_locks_implicitly mode, and it won't recheck the conditions in fase 2
                                                         */
-                                                        Blex::ErrStream() << "** recheck";
                                                         if (!sq0.IsCurrentRowValid(true))
                                                         {
-                                                                Blex::ErrStream() << "** invalid";
                                                                 matchingrows.erase(matchingrows.begin());
                                                                 continue;
                                                         }
-
-                                                        Blex::ErrStream() << "** valid!";
 
                                                         locked = true;
                                                         want_fase_1 = true;

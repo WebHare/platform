@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 OBJECT assetpackcontrol;
 
@@ -153,8 +154,7 @@ MACRO ListBundles(RECORD status, STRING ARRAY masks, BOOLEAN withwatchcounts)
     PRINT(Left(bundle.outputtag || RepeatText(" ", blen), blen)
         || "\t" || bundlestatus
         || (withwatchcounts ? "\t" || (bundle.watchcount = 0 ? "-" : (bundle.watchcount || "")) : "")
-        || "\t" || compiling
-        || "\t" || bundle.designfolder || "\n");
+        || "\t" || compiling || "\n");
   }
 }
 
@@ -287,7 +287,7 @@ SWITCH (args.command)
     STRING ARRAY matches := MatchUUIDs(status.bundles, subargs.mask);
 
     GetPrimary()->BeginWork();
-    DELETE FROM system.assetpacks WHERE outputtag IN matches;
+    DELETE FROM system_internal.assetpacks WHERE outputtag IN matches;
     GetPrimary()->CommitWork();
 
     WaitForPromise(assetpackcontrol->UpdateAssetPackManager());
@@ -330,7 +330,6 @@ SWITCH (args.command)
 
       PRINT("Config:\n");
       PRINT(" Output UUID: " || data.outputtag || "\n");
-      PRINT(" Designfolder: " || data.designfolder || "\n");
       PRINT(" Output path: " || data.outputpath || "\n");
       PRINT(" Sourcemap type: " || (data.bundleconfig.fullsourcemap ? "full" : "cheap") || "\n");
       PRINT("Status:\n");

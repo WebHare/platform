@@ -1,7 +1,6 @@
 <?wh /* Prepare WebHare for shipping */
 // wh run mod::system/scripts/internal/shrinkwrap.whscr /tmp/shrink
 
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
@@ -9,8 +8,7 @@ LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 RECORD ARRAY options :=
   [ [ name := "outputfile", type := "param", required:=TRUE ]
@@ -45,7 +43,7 @@ WaitForPromise(CreatePromiseAll(promises));
 
 OBJECT zipfile := CreateNewArchive("tar.gz");
 
-FOREVERY(STRING outputtag FROM SELECT AS STRING ARRAY assetpacks.outputtag FROM system.assetpacks)
+FOREVERY(STRING outputtag FROM SELECT AS STRING ARRAY assetpacks.outputtag FROM system_internal.assetpacks)
 {
   STRING tagfolder := Substitute(outputtag,':','.');
   zipfile->AddDiskFolderRecursive(GetWebHareConfiguration().varroot || "publisher.ap/" || tagfolder, "publisher.ap/" || tagfolder);

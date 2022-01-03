@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
@@ -104,7 +105,7 @@ MACRO CheckPublicDrafts()
 MACRO RemoveObsoleteBundledAssets()
 {
   trans->BeginWork();
-  DELETE FROM system.assetpacks WHERE outputtag NOT LIKE "*:*";
+  DELETE FROM system_internal.assetpacks WHERE outputtag NOT LIKE "*:*";
   trans->CommitWork();
 }
 

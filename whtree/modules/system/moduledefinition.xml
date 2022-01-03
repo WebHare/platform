@@ -1978,12 +1978,8 @@ The full base URL on which this site will be published, calculated by combining 
           Creation date of the asset pack
         </d:documentation>
       </d:datetime>
-      <d:obsoletecolumn name="lastuse"/>
-      <d:varchar name="designfolder" maxlength="256">
-        <d:documentation>
-          Module for which this file was generated
-        </d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="lastuse" />
+      <d:obsoletecolumn name="designfolder" />
       <d:varchar name="entrypoint" nullable="false" maxlength="256">
         <d:documentation>
           Requested entry point

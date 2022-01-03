@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -167,7 +168,6 @@ STATIC OBJECTTYPE AssetPackController
       @cell id Bundle DB id
       @cell(datetime) created Creation time of the bundle
       @cell(datetime) lastuse Last use (updated at most once every 15 mins)
-      @cell(string) designfolder Webhare resource path of the design folder
       @cell(string) entrypoint Entry file, relative to resource root
       @cell(string) extrarequires Tab-separated list of extra required
       @cell(string) outputtag UUID of the output
@@ -514,17 +514,14 @@ STATIC OBJECTTYPE AssetPackController
       IF (NOT RecordExists(bundle.bundleconfig))
         THROW NEW Exception("Bundle has no bundle config (old bundle), please delete the bundle");
 
-      IF (bundle.designfolder != "")
+      IF(NOT bundle.adhoc)
       {
-        TRY bundle.diskpath := GetWebHareResourceDiskPath(bundle.designfolder);
-        CATCH(OBJECT e) THROW NEW Exception("Design folder '" || bundle.designfolder || "' is invalid: " || e->what);
+        STRING ARRAY bundletagtoks := Tokenize(Substitute(bundle.outputtag, '.dev', ''),':');
+        bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
       }
 
-      IF (bundle.origentrypoint != "_polyfills")
-      {
-        TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
-        CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
-      }
+      TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
+      CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
 
       FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
       {
@@ -782,12 +779,11 @@ STATIC OBJECTTYPE AssetPackController
 
     //Are they all in the database?
     GetPrimary()->BeginWork();
-    RECORD ARRAY dbpacks := SELECT * FROM system.assetpacks WHERE outputtag LIKE "*:*";
+    RECORD ARRAY dbpacks := SELECT * FROM system_internal.assetpacks WHERE outputtag LIKE "*:*";
     FOREVERY(RECORD modulepack FROM modulepacks)
     {
       RECORD bundleconfig := CELL[ modulepack.extrarequires
                                  , languages := modulepack.supportedlanguages
-                                 , modulepack.alwaysincludepolyfill
                                  , modulepack.webharepolyfills
                                  , modulepack.environment
                                  , modulepack.babeltranspile
@@ -801,10 +797,10 @@ STATIC OBJECTTYPE AssetPackController
       RECORD match := SELECT * FROM dbpacks WHERE outputtag = modulepack.name;
       IF(NOT RecordExists(match))
       {
-        INTEGER packid := MakeAutonumber(system.assetpacks, 'ID');
-        INSERT INTO system.assetpacks(id, created, entrypoint, outputtag)
+        INTEGER packid := MakeAutonumber(system_internal.assetpacks, 'ID');
+        INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag)
                VALUES(packid, GetCurrentDatetime(), modulepack.entrypoint, modulepack.name);
-        match := SELECT * FROM system.assetpacks WHERE id = packid;
+        match := SELECT * FROM system_internal.assetpacks WHERE id = packid;
       }
       ELSE
       {
@@ -812,18 +808,16 @@ STATIC OBJECTTYPE AssetPackController
       }
 
       IF(match.bundleconfig != encodedconfig
-         OR match.entrypoint != modulepack.entrypoint
-         OR match.designfolder != modulepack.designroot)
+         OR match.entrypoint != modulepack.entrypoint)
       {
-        UPDATE system.assetpacks SET bundleconfig := encodedconfig
-                                   , designfolder := modulepack.designroot
+        UPDATE system_internal.assetpacks SET bundleconfig := encodedconfig
                                    , entrypoint := modulepack.entrypoint
                                WHERE id = match.id;
       }
     }
 
     IF(Length(dbpacks)>0)
-      DELETE FROM system.assetpacks WHERE id IN SELECT AS INTEGER ARRAY id FROM dbpacks;
+      DELETE FROM system_internal.assetpacks WHERE id IN SELECT AS INTEGER ARRAY id FROM dbpacks;
 
     GetPrimary()->CommitWork();
   }
@@ -963,7 +957,9 @@ STATIC OBJECTTYPE AssetPackController
     // Uncompileable bundles have their dependencies already set
     IF (NOT CellExists(bundle.info, "UNCOMPILABLE"))
     {
-      deps := this->AddPathToDeps(deps, MergePath(bundle.designfolder, "package.json"), FALSE);
+      IF(bundle.diskpath != "")
+        deps := this->AddPathToDeps(deps, MergePath(bundle.diskpath, "package.json"), FALSE);
+
       deps := this->AddPathToDeps(deps, bundle.entrypoint, TRUE);
     }
 
@@ -1288,8 +1284,7 @@ STATIC OBJECTTYPE AssetPackController
         ScheduleMicroTask(PTR this->ProcessBundleState(bundlerec.outputtag));
       }
       ELSE IF (EncodeHSON(this->bundles[lb.position].bundleconfig) != EncodeHSON(bundle.bundleconfig)
-               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint
-               OR this->bundles[lb.position].designfolder != bundle.designfolder)
+               OR this->bundles[lb.position].origentrypoint != bundle.entrypoint)
       {
         this->bundles[lb.position] := MakeReplacedRecord(this->bundles[lb.position], bundle);
 
@@ -1336,7 +1331,6 @@ STATIC OBJECTTYPE AssetPackController
   {
     RECORD status := [ bundles := (SELECT TEMPORARY watchcountpos := RecordLowerBound(this->watchcounts, bundles, [ "OUTPUTTAG" ])
                                         , id
-                                        , designfolder
                                         , hasstatus
                                         , iscompiling
                                         , haserrors
@@ -1443,7 +1437,6 @@ STATIC OBJECTTYPE AssetPackController
 
       INSERT [ id :=              this->lastadhocid
              , created :=         RecordExists(match) ? match.created : GetCurrentDatetime()
-             , designfolder :=    ""
              , entrypoint :=      bundle.basedependency
              , origentrypoint :=  bundle.basedependency
              , bundleconfig :=    bundle.bundleconfig
@@ -1578,7 +1571,7 @@ OBJECTTYPE AssetPackControl
     STRING hash := GetHashForBundle(requestedbundle);
     INTEGER bundleid;
 
-    RECORD bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+    RECORD bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
 
     DATETIME now := GetRoundedDatetime(GetCurrentDatetime(), 60 * 60 * 1000);
     IF(RecordExists(bundleinfo))
@@ -1589,7 +1582,7 @@ OBJECTTYPE AssetPackControl
     ELSE
     {
       GetPrimary()->BeginLockedWork("publisher:assetpackcontrol");
-      bundleinfo := SELECT * FROM system.assetpacks WHERE outputtag = hash;
+      bundleinfo := SELECT * FROM system_internal.assetpacks WHERE outputtag = hash;
 
       IF(RecordExists(bundleinfo))
       {
@@ -1598,10 +1591,10 @@ OBJECTTYPE AssetPackControl
       ELSE
       {
         mustrefreshbundles := TRUE;
-        bundleid := MakeAutonumber(system.assetpacks, "ID");
+        bundleid := MakeAutonumber(system_internal.assetpacks, "ID");
 
-        INSERT INTO system.assetpacks(id, created, designfolder, entrypoint, outputtag, bundleconfig)
-               VALUES(bundleid, now, requestedbundle.moduledesignfolder, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
+        INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
+               VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
       }
 
       GetPrimary()->CommitWork();
