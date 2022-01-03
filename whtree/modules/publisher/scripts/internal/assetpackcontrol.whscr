@@ -1340,6 +1340,7 @@ STATIC OBJECTTYPE AssetPackController
                                         , isdev
                                         , candelete :=      outputtag NOT LIKE "*.*"
                                         , watchcount :=     watchcountpos.found ? this->watchcounts[watchcountpos.position].cnt : 0
+                                        , compatibility := bundleconfig.compatibility
                                      FROM this->bundles)
                      ];
 

@@ -47,6 +47,7 @@
                 <column name="outputtag" type="text" width="25x" />
                 <column name="lastcompile" type="datetime" width="23x" precision="seconds" storeutc="true" />
                 <column name="watchcount" type="integer" width="10x" align="right" emptyvalue="0" />
+                <column name="compatibility" type="text" width="25x" />
                 <column name="dummy" type="text" width="1pr" title="" />  <!-- filler until someone has a 1pr column for us -->
               </list>
             </cell>

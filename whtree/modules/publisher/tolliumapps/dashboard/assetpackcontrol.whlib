@@ -44,6 +44,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
         , lastcompile := DEFAULT DATETIME
         , watchcount := 0
         , havestatus := FALSE
+        , compatibility := ""
         ], [ rightouterjoin := TRUE
            , leftouterjoin := [ id := 0 ]
            ]);
@@ -57,6 +58,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                            , lastcompile
                            , watchcount
                            , dummy := ""
+                           , compatibility := compatibility ?? "webpack"
                        FROM bundles;
 
     this->LoadConfig();

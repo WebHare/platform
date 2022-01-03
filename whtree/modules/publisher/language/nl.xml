@@ -1643,6 +1643,7 @@
       <textgroup gid="assetpackcontrol">   <!-- tolliumapps.dashboard.assetpackcontrol -->
         <text tid="title">Asset packing en bundeling</text>
         <textgroup gid="assetpackcontrolpanel">   <!-- tolliumapps.dashboard.assetpackcontrol.assetpackcontrolpanel -->
+          <text tid="compatibility">Compatibiliteit</text>
           <text tid="lastcompile">Laatste compilatie</text>
           <text tid="message">Bericht</text>
           <text tid="outputtag">Uitvoertag</text>
