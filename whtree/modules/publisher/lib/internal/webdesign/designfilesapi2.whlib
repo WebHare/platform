@@ -18,6 +18,7 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , environment := "window"
                            , babeltranspile := STRING[]
                            , aftercompiletask := ""
+                           , compatibility := "es2016"
                            ];
 
 PUBLIC STRING FUNCTION GetBundleOutputPath(STRING outputtag)
@@ -37,7 +38,7 @@ PUBLIC RECORD FUNCTION WaitForCompiledAssetpack(STRING outputtag)
     THROW NEW Exception("Invalid asset pack name");
 
   OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-  RECORD res := WaitForPromise(service->WaitForCompile(outputtag, TRUE));
+  RECORD res := WaitForPromise(service->WaitForCompile(outputtag, FALSE));
   service->CloseService();
   RETURN res;
 }

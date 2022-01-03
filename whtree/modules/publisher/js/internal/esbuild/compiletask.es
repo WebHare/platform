@@ -33,21 +33,23 @@ class captureLoadPlugin
   }
 }
 
-let whResolverPlugin =
+function whResolverPlugin(bundle, build) //setup function
 {
-  name: 'example',
-  setup(build)
-  {
     build.onResolve({ filter: /^\/\/:entrypoint\.js/}, args =>
     {
       return { path: args.path };
     });
     build.onLoad({ filter: /^\/\/:entrypoint\.js/}, args =>
     {
+      //generate entrypoint.js
+      let prologue = "";
+      if(bundle.bundleconfig.environment == 'window') //declare our existence and dev mode
+        prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
+
       let paths = JSON.parse(decodeURIComponent(args.path.split('?')[1]));
       //TODO escape quotes and backslashes..
       let imports = paths.map(_ => `import "${_}";`);
-      return { contents: imports.join("\n")
+      return { contents: prologue + imports.join("\n")
              };
     });
 
@@ -78,8 +80,14 @@ let whResolverPlugin =
     //debug line, capture all resolves
     if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
       build.onResolve({ filter: /./ }, args => console.log(`[esbuild-compiletask] kind '${args.kind}' did not help resolve ${args.path}`));
-  }
-};
+}
+
+function createWhResolverPlugin(bundleconfig)
+{
+  return { name: "whresolver"
+         , setup: build => whResolverPlugin(bundleconfig, build)
+         };
+}
 
 function mapESBuildError(entrypoint, error)
 {
@@ -155,7 +163,7 @@ async function runTask(taskcontext, data)
       , write: false
       , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
       , plugins: [ captureplugin.getPlugin()
-                 , whResolverPlugin
+                 , createWhResolverPlugin(bundle)
                  , require("@mod-publisher/js/internal/rpcloader.es").getESBuildPlugin(captureplugin)
                  , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
 

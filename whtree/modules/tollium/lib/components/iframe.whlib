@@ -39,9 +39,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   /// Submit value
   RECORD pvt_data;
 
-  /// Zoom value
-  MONEY pvt_zoom;
-
   /// PostMessage receiver
   PUBLIC MACRO PTR onmessage;
 
@@ -86,9 +83,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   /// Todd iframe JavaScript url
   PUBLIC PROPERTY toddiframeurl(GetToddIframeUrl, -);
 
-  /// Iframe zoom factor (percentage)
-  PUBLIC PROPERTY zoom(pvt_zoom, SetZoom);
-
   PUBLIC BOOLEAN enablesandbox;
 
   PUBLIC STRING ARRAY sandbox;
@@ -104,7 +98,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     EXTEND this BY TolliumDownloadKeeper;
     this->componenttype := "iframe";
     this->formfieldtype := "record";
-    this->pvt_zoom := 100;
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -125,7 +118,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         , eventmask := FALSE
         , addcomps := FALSE
         , data := FALSE
-        , zoom := FALSE
         ];
   }
 
@@ -148,7 +140,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
                      , mainuri :=   uri
                      , addcomps :=  GetComponentNames(this->pvt_additionalcomponents)
                      , data :=      this->pvt_data
-                     , zoom :=      this->pvt_zoom
                      , sandbox :=   Detokenize(this->sandbox,' ')
                      , enablesandbox := this->enablesandbox
                      ];
@@ -171,9 +162,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 
       IF (this->dirtyflags.data)
         this->ToddUpdate([ type:= "data", data := this->pvt_data ]);
-
-      IF (this->dirtyflags.zoom)
-        this->ToddUpdate([ type:= "zoom", zoom := this->pvt_zoom ]);
     }
 
     TolliumComponentBase::TolliumWebRender();
@@ -290,20 +278,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     RETURN "/.webhare/direct/tollium/toddiframe.js";
   }
 
-  MACRO SetZoom(MONEY zoom)
-  {
-    // Limit zoom to max factor 10x
-    IF (zoom < 10)
-      zoom := 10;
-    ELSE IF (zoom > 1000)
-      zoom := 1000;
-    IF (zoom != this->pvt_zoom)
-    {
-      this->pvt_zoom := zoom;
-      this->ExtUpdatedZoom();
-    }
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Callbacks
@@ -397,12 +371,6 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   {
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.data := TRUE;
-  }
-
-  MACRO ExtUpdatedZoom()
-  {
-    this->EnsureFilledDirtyFlags();
-    this->dirtyflags.zoom := TRUE;
   }
 
   // ---------------------------------------------------------------------------

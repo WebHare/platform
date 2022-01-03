@@ -166,11 +166,12 @@
       <tryfolder path="whdata::storage/publisher/slots" />
     </webrule>
 
-    <webrule path="allroots:/.ap/" redirecttodir="var:ap/" match="initial" cachecontrol="public, max-age=900" priority="after"> <!-- Asset pack -->
+    <!-- Assetpack caching.. cache everything for 24 hours *except* ap.css and ap.js... those should only be cached for 15 minutes -->
+    <webrule path="allroots:/.ap/" redirecttodir="var:ap/" match="initial" priority="after" cachecontrol="public, max-age=31536000, immutable">
       <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
     </webrule>
-    <webrule path="allroots:/.ap/*.dev/*" match="wildcards" cachecontrol="public, max-age=0, must-revalidate" priority="after" /> <!-- dev mode assets -->
-    <webrule path="allroots:/.ap/*/st/*" match="wildcards" cachecontrol="public, max-age=31536000, immutable" priority="after" /> <!-- static assets, they are unique by hash, cache for a day -->
+    <webrule path="allroots:/.ap/*/ap.css" match="wildcards" priority="after" cachecontrol="public, max-age=900" />
+    <webrule path="allroots:/.ap/*/ap.js" match="wildcards" priority="after" cachecontrol="public, max-age=900" />
   </backend>
 
 

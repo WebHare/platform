@@ -1,6 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
 import getTid, { registerTexts } from "@mod-tollium/js/gettid";
-import assert from "assert";
 import * as domdebug from "dompack/src/debug";
 
 // Uncomment to show getTid debugging information
@@ -11,7 +10,6 @@ test.registerTests([
     "Tid language"
   , function()
     {
-      assert("tidLanguage" in getTid);
       test.eq(getTid.tidLanguage, "");
       getTid.tidLanguage = "nl";
       test.eq(getTid.tidLanguage, "nl");

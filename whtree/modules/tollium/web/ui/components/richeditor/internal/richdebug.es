@@ -385,7 +385,7 @@ function getAllLocatorsInNode (node)
     {
       list.push(new domlevel.Locator(node, i));
       if (node.childNodes[i])
-        list = list.concat(this.getAllLocatorsInNode(node.childNodes[i]));
+        list = list.concat(getAllLocatorsInNode(node.childNodes[i]));
     }
   }
   return list;
