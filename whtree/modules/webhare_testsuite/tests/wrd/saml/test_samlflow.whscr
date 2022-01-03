@@ -20,6 +20,7 @@ LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/samlsupport.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 
 MACRO Init()
@@ -70,6 +71,8 @@ MACRO Init()
       , ...parsedmetadata.providers[0].value
       , signature_optional :=   TRUE
       ]);
+
+  PublishSelectedSAMLIdPFile(testsite, "/test-saml/portal-idp-formlogin/*");
 
   OBJECT ARRAY waitfor;
   FOREVERY(STRING repubpath FROM [ "test-saml/portal-idp-formlogin" ])
