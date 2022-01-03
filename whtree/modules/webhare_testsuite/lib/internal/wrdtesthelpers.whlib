@@ -7,6 +7,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -501,3 +503,32 @@ PUBLIC ASYNC FUNCTION WaitForChromeElement(OBJECT conn, OBJECT pageobj, STRING q
   THROW NEW Exception(`Expected element '${query}' did not appear in time - check ${screenshotfile}`);
 }
 
+PUBLIC RECORD FUNCTION PublishSelectedSAMLIdPFile(OBJECT site, STRING fullpathmask)
+{
+  OBJECT idp_endpoint_type := OpenWHFSType("http://www.webhare.net/xmlns/wrd/samlidpendpoint");
+
+  // Get the root of the site
+  OBJECT siteroot := site->rootobject;
+  RECORD ARRAY idpendpoints :=
+      SELECT id
+           , url
+           , publish
+           , topublish :=       fullpath LIKE fullpathmask
+           , published
+           , fullpath
+        FROM system.fs_objects
+       WHERE type = idp_endpoint_type->id
+         AND id IN INTEGER ARRAY(siteroot->GetDescendantFileIds(32));
+
+  FOREVERY (RECORD rec FROM idpendpoints)
+  {
+    IF (rec.publish != rec.topublish)
+      OpenWHFSObject(rec.id)->UpdateMetadata([ publish := rec.topublish ]);
+  }
+
+  RECORD ARRAY nowpublished := SELECT id, url FROM idpendpoints WHERE topublish;
+  IF (LENGTH(nowpublished) != 1)
+    THROW NEW Exception(`Expected exactly 1 matching IdP endpoint, got ${LENGTH(nowpublished)} (found ${Detokenize((SELECT AS STRING ARRAY EncodeJSON(fullpath) FROM idpendpoints), ", ")}, matching ${EncodeJSON(fullpathmask)})`);
+
+  RETURN nowpublished[0];
+}

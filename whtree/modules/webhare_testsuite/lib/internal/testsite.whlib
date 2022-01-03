@@ -1368,6 +1368,8 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
       , organization_url :=       "http://b-lex.com"
       ]);
 
+  PublishSelectedSAMLIdPFile(testsite, "/test-saml/portal-idp/*");
+
   OBJECT ARRAY waitfor;
   FOREVERY(STRING repubpath FROM [ "test-saml/portal-sp", "test-saml/portal-idp" ])
   {
