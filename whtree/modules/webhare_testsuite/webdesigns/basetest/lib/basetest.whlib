@@ -56,6 +56,9 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
       this->pagedescription := this->ExtractRTDExcerpt(this->targetobject->id, "p", [ limitutf8bytes := 150 ]);
     }
 
+    IF(this->targetobject->fullpath LIKE "*crash*")
+      ABORT("'crash' requested");
+
     RECORD wittydata := [ deeperlink := this->IsStaticPublication() ? this->GetStaticFileLink("test.txt") : ""
                         , whfspath := this->targetobject->whfspath
                         , dynamiclink := this->GetRelURL(this->targetsite->webroot || "dynamic.shtml")

@@ -209,6 +209,8 @@ OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] 
 OBJECT formtest := testpages->CreateFile( [ name := "formtest", type := prebuilttype->id, publish := TRUE ] );
 prebuilttype->SetInstanceData(formtest->id, [ prebuilttag := "formtest" ]);
 
+OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
+
 OBJECT listtest := testpages->CreateFile( [ name := "listtest", type := prebuilttype->id, publish := TRUE ] );
 prebuilttype->SetInstanceData(listtest->id, [ prebuilttag := "listtest" ]);
 
@@ -246,6 +248,13 @@ FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
 OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+
+testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
+testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
+testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
+
+OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
+testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
 
 OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", type := prebuilttype->id, publish := TRUE ] );
 prebuilttype->SetInstanceData(dynamicpage->id, [ prebuilttag := "dynamicpage" ]);

@@ -18,6 +18,13 @@
     </attributes>
   </object>
 
+  <object tag="TASKTYPE"> <!-- overrides for module task types -->
+    <attributes>
+      <free tag="TYPE" unique="true" required="true"/> <!-- must match the module:cluster tag -->
+      <boolean tag="PROFILE" />
+    </attributes>
+  </object>
+
   <object tag="EXTERNALSERVICE"> <!-- list services we are allowed to connect with -->
     <attributes>
       <free tag="url" required="true" />

@@ -10,10 +10,13 @@ LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->id, FALSE, TRUE);
   testfw->CommitWork();
 }
 
@@ -33,12 +36,12 @@ BOOLEAN FUNCTION IsBrowserURLChanged(STRING currenturl, OBJECT previewbrowser, I
 
 ASYNC MACRO InitialGotoFolder() //used by eg Find.
 {
-  INTEGER headingsdoc := testfw->GetTestSite()->OpenByPath("headings.doc")->id;
+  INTEGER headingsdoc := OpenTestsuiteSite()->OpenByPath("index.rtd")->id;
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(headingsdoc)], target := DEFAULT RECORD ]));
   TestEq(TRUE, TT("filelistmulti")->pressed, 'Multirow is the default view');
   TestEq(headingsdoc, TT("filelist")->value[0]);
-  TestEq(testfw->GetTestSite()->id, TT("foldertree")->value);
+  TestEq(OpenTestsuiteSite()->id, TT("foldertree")->value);
 
   //select singlerow layout. this broke jump-to-id
   TT("filelistsingle")->action->TolliumClick();
@@ -55,7 +58,7 @@ ASYNC MACRO InitialGotoFolder() //used by eg Find.
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
-  TestEq(testfw->GetTestSite()->id, TT("foldertree")->value);
+  TestEq(OpenTestsuiteSite()->id, TT("foldertree")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //test jumping to /webhare-private/ - should fail initially as we haven't enabled that pref..
@@ -78,13 +81,15 @@ ASYNC MACRO InitialGotoFolder() //used by eg Find.
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-OBJECT ASYNC FUNCTION WalkTheTree()
+ASYNC MACRO WalkTheTree()
 {
   testfw->SetTestUser("lisa");
 
   //Depublish simple.xlsx so we can check the unpublished message
   testfw->BeginWork();
-  testfw->GetTestSite()->OpenByPath("simple.xlsx")->UpdateMetadata([publish := FALSE]);
+  OBJECT crashfile := GetTestsuiteTempFolder()->CreateFile([ name := "crash.rtd", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  OBJECT crashlink := GetTestsuiteTempFolder()->CreateFile([ name := "crash.link", typens := "http://www.webhare.net/xmlns/publisher/internallink", publish := TRUE, filelink := crashfile->id ]);
+  OBJECT disconnectedlink := GetTestsuiteTempFolder()->CreateFile([ name := "disconnectedlink", typens := "http://www.webhare.net/xmlns/publisher/internallink", publish := TRUE ]);
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
@@ -97,13 +102,13 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   topscreen->tolliumcontroller->secure := TRUE;
 
   topscreen->frame->focused := TT("filelist");
-  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="webhare_testsuite.site";
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="WebHare testsuite site";
   TestEq(TRUE, TT("filelist")->openaction->TolliumClick());
-  TestEq("webhare_testsuite.site", TT("foldertree")->selection.name);
+  TestEq("WebHare testsuite site", TT("foldertree")->selection.name);
 
   //The displayed preview URL should match the site URL
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot, pvs.displayurl);
+  TestEq(OpenTestsuiteSite()->webroot, pvs.displayurl);
 
   IF(pvs.displayurl LIKE "http:*")
   {
@@ -117,10 +122,14 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   //Set headless controller to http
   topscreen->tolliumcontroller->secure := FALSE;
 
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="TestPages";
+  TestEq(TRUE, TT("filelist")->openaction->TolliumClick());
+  TestEq("TestPages", TT("foldertree")->selection.name);
+
   topscreen->frame->focused := TT("filelist");
 
   //Select something that never has a preview
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="dynamicpage.witty";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="wittytest.witty";
 
   //Check the previewed url
   pvs := TT("previewbrowser")->GetPreviewState();
@@ -128,18 +137,18 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEqLike('*has*no*preview*', pvs.messages);
 
   //This file should NOT be published
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="simple.xlsx";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="imgeditfile.jpeg";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*not*published*', pvs.messages);
 
   //Find a simple file that should be published
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="headings.doc";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="simpletest.rtd";
 
   //Check the previewed url
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "headings/", pvs.displayurl);
-  TestEqLike(testfw->GetTestSite()->webroot || "headings/*__whpub_clock_=*", pvs.browserurl);
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/simpletest/", pvs.displayurl);
+  TestEqLike(OpenTestsuiteSite()->webroot || "TestPages/simpletest/*__whpub_clock_=*", pvs.browserurl);
   TestEq(FALSE, pvs.showingmessages);
 
   //Check if the url changes after refresh (__whpub_clock_ should be updated)
@@ -157,10 +166,11 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   AWAIT testfw->WaitAndProcessEvents(PTR IsBrowserURLChanged(currenturl, TT("previewbrowser"), TT("filelist")->value[0]), "Preview is not refreshing #1");
 
   //Let's hit the errored file
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="loadlib.html";
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "tmp";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.rtd";
 
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "loadlib.html", pvs.displayurl);
+  TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
   TestEq("", pvs.browserurl); // File was never published, so nothing is shown
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*<a *errors*', pvs.messages);
@@ -173,12 +183,12 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   AWAIT(ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel));
 
   // Select the internal link to the errored file
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-errors.shtml";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.link";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "loadlib.html", pvs.displayurl);
+  TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
   TestEq("", pvs.browserurl); // Target was never published
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*internal link*webhare_testsuite.site:/loadlib.html*', pvs.messages);
+  TestEqLike('*internal link*crash.rtd*', pvs.messages);
   TestEqLike('*<a *errors*', pvs.messages);
 
   link := MakeXMLDocumentFromHTML(StringToBlob(pvs.messages))->GetElementsByTagName('a')->Item(0);
@@ -189,11 +199,11 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   AWAIT(ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel));
 
   //Rename the file
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="loadlib.html";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.rtd";
   pvs := TT("previewbrowser")->GetPreviewState();
   currenturl := pvs.browserurl;
   AWAIT(ExpectScreenChange(+1, PTR TT("props")->TolliumClick()));
-  TT("name")->value := "loadlib-renamed.shtml";
+  TT("name")->value := "renamed.rtd";
   AWAIT(ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit));
 
   //ADDME test the state of the error while republishing
@@ -219,77 +229,64 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.browserurl); // No index document
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`The selected folder 'emptyfolder' does not have an index document.`, pvs.messages);
+  TestEqLike(`The selected folder 'tmp' does not have an index document.`, pvs.messages);
 
   //Let's hit the content link
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="contentlink.shtml";
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "TestPages";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="staticpage-contentlink";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "contentlink.shtml", pvs.displayurl);
-  TestEqLike(testfw->GetTestSite()->webroot || "contentlink.shtml*__whpub_clock_=*", pvs.browserurl);
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/staticpage-contentlink/", pvs.displayurl);
+  TestEqLike(OpenTestsuiteSite()->webroot || "TestPages/staticpage-contentlink/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This content link links to URL 'webhare_testsuite.site:/dynamicpage.shtml'.`, pvs.messages);
+  TestEqLike(`This content link links to URL 'WebHare testsuite site:/TestPages/StaticPage'.`, pvs.messages);
 
   TestEQ(FALSE, TT("filelist")->selection.canwrite);
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("filelist")->openaction->TolliumClick(), [messagemask := "You don't have enough rights to edit this file."]);
 
   //Let's hit the external link
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="externallink.shtml";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="externallink";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq("http://www.b-lex.nl/", pvs.displayurl);
+  TestEq("https://www.webhare.dev/", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This external link links to URL 'http://www.b-lex.nl/'. <a href="preview:showexternallink">Click here to open this link.</a>`, pvs.messages);
+  TestEqLike(`This external link links to URL 'https://www.webhare.dev/'. <a href="preview:showexternallink">Click here to open this link.</a>`, pvs.messages);
 
   //Test internal links to various types of files
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-empty.shtml";
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "tmp";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="disconnectedlink";
+  TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`This external link does not seem to be linked to an existing file.<br />Errors have occurred during publication. <a href="preview:showerrors">Click here to view the errors.</a>`, pvs.messages);
 
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-published.shtml";
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "TestPages";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="staticpage-internallink";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "dynamicpage.shtml", pvs.displayurl);
-  TestEqLike(testfw->GetTestSite()->webroot || "dynamicpage.shtml*__whpub_clock_=*", pvs.browserurl);
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/StaticPage/", pvs.displayurl);
+  TestEqLike(OpenTestsuiteSite()->webroot || "TestPages/StaticPage/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This internal link links to file 'webhare_testsuite.site:/dynamicpage.shtml'.`, pvs.messages);
+  TestEqLike(`This internal link links to file 'WebHare testsuite site:/TestPages/StaticPage'.`, pvs.messages);
 
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-unpublished.shtml";
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="unpublished-internallink";
+  TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "dynamicpage.witty", pvs.displayurl);
-  TestEqLike(testfw->GetTestSite()->webroot || "dynamicpage.witty*__whpub_clock_=*", pvs.browserurl);
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/unpublished/", pvs.displayurl);
+  TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.site:/dynamicpage.witty'*`, pvs.messages);
-  TestEqLike(`*Warnings have occurred while publishing this file.*<a*`, pvs.messages);
-
-  //Let's hit the redirection
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="redirect.shtml";
-  pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "redirect.shtml", pvs.displayurl);
-  TestEqLike(testfw->GetTestSite()->webroot || "redirect.shtml*__whpub_clock_=*", pvs.browserurl);
-  TestEq(FALSE, pvs.showingmessages);
-  //ADDME: We don't have access to the loaded content, so we cannot test clicking the 'follow redirection' link
-
-  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="redirect-js.shtml";
-  pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(testfw->GetTestSite()->webroot || "redirect-js.shtml", pvs.displayurl);
-  //ADDME: In the headless controller the page doesn't actually get redirected
-  //TestEq(testfw->GetTestSite()->webroot || "nonexisting.html", pvs.browserurl);
-  TestEq(FALSE, pvs.showingmessages);
+  TestEqLike(`*This internal link links to unpublished file 'WebHare testsuite site:/TestPages/unpublished'*`, pvs.messages);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-
-  RETURN TRUE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // PhotoAlbums
 //
-OBJECT ASYNC FUNCTION CreatePhotoAlbum()
+ASYNC MACRO CreatePhotoAlbum()
 {
-  OBJECT dialog := CreateNewFolderDialog(GetTestController(), testfw->GetTestSite()->id, 3);
+  OBJECT dialog := CreateNewFolderDialog(GetTestController(), GetTestsuiteTempFolder()->id, 3);
   AWAIT ExpectScreenChange(+1, PTR dialog->RunModal()); //simply should not crash
   TT("name")->value := "photoalbum";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -304,16 +301,12 @@ OBJECT ASYNC FUNCTION CreatePhotoAlbum()
   OBJECT indexdoc := OpenWHFSObject(createfolder->indexdoc);
   TestEq(TRUE, ObjectExists(indexdoc));
   TestEQ(24, indexdoc->type);
-  RETURN TRUE;
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ witherrors := TRUE ])
-                 , PTR PrepIt
+RunTestframework([ PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree
                  , PTR CreatePhotoAlbum
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);
-
-//select singlerow layout. this broke jump-to-id

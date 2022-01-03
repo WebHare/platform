@@ -146,6 +146,7 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
                         , library :=        taskinfo.library
                         , tasktype :=       taskdata.tasktype
                         , objectname :=     taskinfo.objectname
+                        , profile :=        taskinfo.profile
                         ];
 
   IF(taskdata.isephemeral)
