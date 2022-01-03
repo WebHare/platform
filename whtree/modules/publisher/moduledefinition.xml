@@ -160,15 +160,8 @@
         <addheader header="Vary" value="Cookie"/>
       </webrule>
     </webruleset>
-    <webrule path="allroots:/.publisher/df/" redirecttodir="var:cache/" match="initial" priority="after">
-      <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
-    </webrule>
-    <webrule path="allroots:/.publisher/cd/" redirecttodir="var:cd/" match="initial" priority="after">
-      <addheader header="Access-Control-Allow-Origin" value="*"/> <!-- ADDME: would be nicer to only permit local known hosts -->
-    </webrule>
 
-    <webrule path="allroots:/.publisher/slots/" match="initial">
-      <addheader header="Cache-control" value="max-age=1,must-revalidate" />
+    <webrule path="allroots:/.publisher/slots/" match="initial" cachecontrol="public, max-age=1, must-revalidate">
       <addheader header="Access-Control-Allow-Origin" value="*" />
       <tryfolder path="whdata::storage/publisher/slots" />
     </webrule>

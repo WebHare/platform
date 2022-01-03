@@ -9,6 +9,7 @@
 #  - Restart your WebHare
 #  - Verify that whdata/publisher.pd and whdata/publisher.pd and their files are 'older' than the noted time
 
+set -e
 
 cd `dirname $0`
 # We are in whtree/modules/system/scripts/internal, we need to find whtree, so 4 up!
@@ -67,7 +68,7 @@ echo "Launching WebHare"
 export WEBHARE_NOUPDATEGEOIP=1
 $WHTREE/bin/wh console &
 while true ; do
-  PID="`cat $WEBHARE_DATAROOT/.webhare.pid 2>/dev/null`"
+  PID="$(cat $WEBHARE_DATAROOT/.webhare.pid 2>/dev/null || true)"
   if [ -n "$PID" ]; then
     break
   fi
@@ -102,7 +103,7 @@ fi
 # Create the history files
 for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
   if [ "$MOD" != "webhare_testsuite" ]; then
-    mkdir -p "$WHTREE/modules/history"
+    mkdir -p "$WHTREE/modules/$MOD/history"
     ( cd "$WHTREE/modules" && TZ=UTC zip -x "$MOD/history/*" -r "$MOD/history/source.zip" "$MOD" )
   fi
 done
