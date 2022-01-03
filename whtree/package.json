@@ -2,7 +2,6 @@
   "dependencies": {
     "@babel/core": "^7.9.0",
     "@babel/node": "^7.8.7",
-    "@babel/plugin-external-helpers": "^7.8.3",
     "@babel/plugin-transform-modules-commonjs": "^7.9.0",
     "@babel/polyfill": "^7.8.7",
     "@babel/preset-env": "^7.9.5",
@@ -38,7 +37,6 @@
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.9",
     "terser-webpack-plugin": "^2.3.5",
-    "val-loader": "^2.1.1",
     "webpack": "^4.42.1",
     "whatwg-fetch": "^3.0.0",
     "which": "^2.0.2",

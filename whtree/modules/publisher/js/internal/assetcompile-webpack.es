@@ -257,18 +257,16 @@ function generateConfig(config)
   let csshandler = require.resolve("css-loader");
   let sasshandler = require.resolve("sass-loader");
   let filehandler = require.resolve("file-loader");
-  let valhandler = require.resolve("val-loader");
   let resolveurlhandler = require.resolve('resolve-url-loader');
 
   allrequires.unshift(entrypoint);
   if(config.extrapolyfills)
     allrequires.unshift(...config.extrapolyfills);
 
-  allrequires.unshift("!!" + valhandler + "!" + require.resolve("./buildbabelexternalhelpers.js"));
   allrequires.unshift(require.resolve("@babel/polyfill"));
 
   const presets = [ [ require.resolve("@babel/preset-env"), babelenvtarget ] ];
-  const plugins = [ require.resolve("@babel/plugin-external-helpers") ];
+  const plugins = [];
 
   if (config.enablejsx)
     presets.push([ require.resolve("@babel/preset-react"), { "pragma": "dompack.jsxcreate" } ]);
