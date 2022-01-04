@@ -92,7 +92,7 @@ RECORD FUNCTION ParseV1Package(STRING scope, RECORD direntry)
                     , modified := direntry.modified
                     ];
 
-  IF(NOT RecordExists(package.packagedata) OR NOT CellExists(package.packagedata,'_requested') OR NOT CellExists(package.packagedata._requested,'raw'))
+  IF(TypeID(package.packagedata) != TypeID(RECORD) OR NOT RecordExists(package.packagedata) OR NOT CellExists(package.packagedata,'_requested') OR NOT CellExists(package.packagedata._requested,'raw'))
   {
     package.error := "Missing or invalid package.json";
     RETURN package;
@@ -298,7 +298,10 @@ RECORD FUNCTION GetLockFileV2Versions(STRING packagedir, RECORD ARRAY actualnode
     INSERT [ error := `The installed packages have been modified after the last install. Please re-run 'npm install'` ] INTO issues AT 0;
   ELSE
   {
-    OBJECT data := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+    VARIANT data := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+    IF (IsDefaultValue(data) OR TypeID(data) != TypeID(OBJECT))
+      THROW NEW Exception(`Could not parse npm hidden lock file ${hidden_lockfile_path}`);
+
     OBJECT packages := data->GetProp("packages");
 
     STRING ARRAY packagenames := GetSortedSet(SELECT AS STRING ARRAY name FROM packages->Unpack());
@@ -389,12 +392,12 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
   TRY
   {
     //Get the actual modules and their versions
-    RECORD packagejson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package.json")));
-    OBJECT packagelockjson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+    VARIANT packagejson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package.json")));
+    VARIANT packagelockjson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
 
-    IF(NOT RecordExists(packagejson))
+    IF (IsDefaultValue(packagejson) OR TypeID(packagejson) != TypeID(RECORD))
       THROW NEW Exception(`Package folder ${nodefolder.basepath} contains an invalid package.json`);
-    IF(IsDefaultValue(packagelockjson))
+    IF (IsDefaultValue(packagelockjson) OR TypeID(packagelockjson) != TypeID(OBJECT))
       THROW NEW Exception(`Package folder ${nodefolder.basepath} contains an invalid package-lock.json`);
 
     //Decode package.json modules
@@ -454,11 +457,11 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       // Read the node_modules/.package-lock.json (with the current installed version info)
       STRING hidden_lockfile_path := MergePath(nodefolder.modulespath, ".package-lock.json");
       RECORD props := GetDiskFileProperties(hidden_lockfile_path);
-      OBJECT hiddenpackagelockjson;
+      VARIANT hiddenpackagelockjson := FALSE;
       IF(RecordExists(props))
         hiddenpackagelockjson := DecodeJSONBlob(GetDiskResource(hidden_lockfile_path, [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
 
-      IF (NOT ObjectExists(hiddenpackagelockjson) OR NOT hiddenpackagelockjson->HasProp("packages"))
+      IF (TypeID(hiddenpackagelockjson) != TypeID(OBJECT) OR NOT ObjectExists(hiddenpackagelockjson) OR NOT hiddenpackagelockjson->HasProp("packages"))
       {
         IF(Length(flatmodules) = 0 AND Length(ondiskpackages) = 0)
           RETURN issues; //it's okay to have no package-lock if there are no dependencies anyway
