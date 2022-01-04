@@ -1,0 +1,306 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
+<
+  OBJECT assetpackcontrol;
+  OBJECT assetpackcontrolpromise;
+  RECORD laststatus;
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0; //disable autorefresh
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  {
+    IF(NOT ObjectExists(this->assetpackcontrolpromise))
+      this->ResetConnection();
+
+    RECORD ARRAY db_bundles := SELECT id
+                                    , outputtag
+                                 FROM system_internal.assetpacks;
+    RECORD ARRAY bundlestates;
+    IF(RecordExists(this->laststatus))
+      bundlestates := SELECT *, havestatus := TRUE FROM this->laststatus.bundles;
+
+    RECORD ARRAY bundles := JoinArrays(db_bundles, "outputtag", bundlestates,
+        [ haserrors := FALSE
+        , iscompiling := FALSE
+        , requirecompile := FALSE
+        , lastcompile := DEFAULT DATETIME
+        , watchcount := 0
+        , havestatus := FALSE
+        , compatibility := ""
+        ], [ rightouterjoin := TRUE
+           , leftouterjoin := [ id := 0 ]
+           ]);
+
+    ^bundles->rows := SELECT rowkey := outputtag
+                           , id
+                           , status := havestatus 
+                                            ? haserrors
+                                                  ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
+                                                  : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK" 
+                                            : ""
+                           , outputtag
+                           , lastcompile
+                           , watchcount
+                           , dummy := ""
+                           , compatibility := compatibility ?? "webpack"
+                       FROM bundles;
+
+    this->LoadConfig();
+    this->OnBundleSelect();
+  }
+
+  MACRO LoadConfig()
+  {
+    ^suspendautocompile->value := ReadRegistryKey("publisher.bundledassets.suspendautocompile");
+  }
+
+  MACRO OnAutocompileChange()
+  {
+    IF(ReadRegistryKey("publisher.bundledassets.suspendautocompile") != ^suspendautocompile->value)
+    {
+      GetPrimary()->BeginWork();
+      WriteRegistryKey("publisher.bundledassets.suspendautocompile", ^suspendautocompile->value);
+      GetPrimary()->CommitWork();
+    }
+  }
+
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    ^listener->enabled := TRUE;
+    ^configlistener->enabled := TRUE;
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    ^listener->enabled := FALSE;
+    ^configlistener->enabled := FALSE;
+  }
+
+  MACRO ResetConnection()
+  {
+    IF (ObjectExists(this->assetpackcontrol))
+      this->assetpackcontrol->CloseService();
+
+    this->assetpackcontrol := DEFAULT OBJECT;
+    this->assetpackcontrolpromise := OpenWebHareService("publisher:assetpackcontrol");
+    this->assetpackcontrolpromise->Then(PTR this->GotAssetPackControl)->OnError(PTR this->GotAssetPackError);
+  }
+
+  MACRO GotAssetPackError(OBJECT error)
+  {
+    LogHarescriptException(error);
+    RegisterTimedCallback(AddTimeToDate(3000, GetCurrentDatetime()), PTR this->ResetConnection);
+  }
+
+  MACRO GotAssetPackControl(OBJECT controller)
+  {
+    IF(ObjectExists(this->assetpackcontrol))
+      this->assetpackcontrol->CloseService();
+
+    this->assetpackcontrol := controller;
+    this->PollAssetPackStatus();
+  }
+
+  MACRO PollAssetPackStatus()
+  {
+    IF(ObjectExists(this->assetpackcontrol))
+      this->assetpackcontrol->GetStatus()->Then(PTR this->GotAssetpackControlStatus)->OnError(PTR this->GotAssetPackError);
+    ELSE
+      this->RefreshDashboardPanel();
+  }
+
+  MACRO GotAssetpackControlStatus(RECORD status)
+  {
+    this->laststatus := status;
+    this->RefreshDashboardPanel();
+  }
+
+  MACRO OnAssetEvent(RECORD ARRAY events)
+  {
+    FOREVERY (RECORD rec FROM events)
+      IF (rec.event = "system:webhareservice.publisher:assetpackcontrol.start")
+      {
+        this->ResetConnection();
+        RETURN;
+      }
+
+    this->PollAssetPackStatus();
+  }
+  MACRO OnConfigEvent(RECORD ARRAY events)
+  {
+    this->LoadConfig();
+  }
+
+  MACRO DoBundleProperties()
+  {
+    this->RunScreen(Resolve("assetpackcontrol.xml#bundleprops"),
+                                   [ assetpackcontrol := this->assetpackcontrol
+                                   , uuid := ^bundles->value[0]
+                                   , id := ^bundles->selection[0].id
+                                   ]);
+  }
+
+  MACRO OnBundleSelect()
+  {
+    STRING ARRAY bundleids := ^bundles->value;
+    ^messages->rows := DEFAULT RECORD ARRAY;
+
+    IF(Length(bundleids) = 1 AND ObjectExists(this->assetpackcontrol)) //TODO also request new messages if the new assetpackcontrol connection comes just *after* this onselect... TODO or just don't bother assetpackcontrol and read the stats fron disk/db directly
+      this->assetpackcontrol->GetBundleStatus(bundleids[0])->Then(PTR this->ProcessBundleStatus(bundleids[0], #1));
+  }
+
+  MACRO ProcessBundleStatus(STRING bundleid, RECORD status)
+  {
+    STRING ARRAY bundleids := ^bundles->value;
+    IF(Length(bundleids) != 1 OR bundleids[0] != bundleid)
+      RETURN; //stale response
+
+    RECORD ARRAY errors;
+    IF(RecordExists(status.info))
+      errors := RECORD ARRAY(status.info.errors);
+
+    ^messages->rows := SELECT rowkey := 1 + #errors
+                            , message :=   TypeID(message) = TypeID(STRING) ? message : AnyToString(message, "tree")
+                         FROM errors;
+  }
+  MACRO OnSelectMessage()
+  {
+    ^message->value := RecordExists(^messages->selection) ? ^messages->selection.message : "";
+  }
+
+  MACRO DoRecompileBundles()
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      WaitForPromise(this->assetpackcontrolpromise);
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      FOREVERY (RECORD rec FROM ^bundles->selection)
+        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+  MACRO DoRebuildBundles()
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      WaitForPromise(this->assetpackcontrolpromise);
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      FOREVERY (RECORD rec FROM ^bundles->selection)
+        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag, TRUE));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+  MACRO DoRebuildAll()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".surerebuildall")) != "yes")
+      RETURN;
+
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      WaitForPromise(this->assetpackcontrolpromise);
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status;
+    TRY
+    {
+      WaitForPromise(this->assetpackcontrol->RecompileBundle("*", TRUE));
+    }
+    CATCH (OBJECT e)
+    {
+      this->ResetConnection();
+    }
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
+<
+  OBJECT assetpackcontrol;
+  STRING uuid;
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->assetpackcontrol := data.assetpackcontrol;
+    this->uuid := data.uuid;
+    this->id := data.id;
+    ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
+
+    this->Reload();
+  }
+
+  MACRO GotEvents(RECORD ARRAY events)
+  {
+    this->Reload();
+  }
+
+  MACRO Reload()
+  {
+    IF(NOT ObjectExists(this->assetpackcontrol))
+      RETURN;
+
+    RECORD status := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->uuid));
+    IF(NOT RecordExists(status))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    STRING errors := status.errors;
+    //TODO not sure how stable and well tested the status structure is..
+    IF (CellExists(status.info, "ERRORS") AND LENGTH(status.info.errors) > 0)
+    {
+      errors := "";
+      FOREVERY(RECORD error FROM EnforceStructure([[ col := 0, line := 0, message := "", resource := "" ]], status.info.errors))
+        errors := errors || `${error.resource}:${error.line}:${error.col}: ${error.message}\n`;
+    }
+
+    ^filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
+    ^outputtag->value := status.outputtag;
+    ^stats->value := status.stats;
+    ^errors->value := errors;
+    ^entrypoint->value := status.entrypoint;
+    IF (RecordExists(status.bundleconfig))
+    {
+      ^extrarequires->value := Detokenize(status.bundleconfig.extrarequires,'\n');
+      ^languages->value := Detokenize(status.bundleconfig.languages,', ');
+      ^environment->value := status.bundleconfig.environment;
+    }
+    ^missingdependencies->value := Detokenize(status.missingdependencies,'\n');
+  }
+>;

@@ -1340,6 +1340,7 @@ STATIC OBJECTTYPE AssetPackController
                                         , isdev
                                         , candelete :=      outputtag NOT LIKE "*.*"
                                         , watchcount :=     watchcountpos.found ? this->watchcounts[watchcountpos.position].cnt : 0
+                                        , compatibility := bundleconfig.compatibility
                                      FROM this->bundles)
                      ];
 
@@ -1493,11 +1494,6 @@ STATIC OBJECTTYPE AssetPackController
       this->bundles[#rec].cachebreaker := GenerateUFS128BitId();
   }
 
-  PUBLIC MACRO UpdateAssetPackManager()
-  {
-    this->LoadBundles();
-  }
-
   PUBLIC MACRO UpdateWatchCount(STRING outputtag, INTEGER change)
   {
     RECORD pos := RecordLowerBound(this->watchcounts, [ outputtag := outputtag ], [ "OUTPUTTAG" ]);
@@ -1602,7 +1598,7 @@ OBJECTTYPE AssetPackControl
 
     IF(mustrefreshbundles)
     {
-      controller->UpdateAssetPackManager();
+      controller->LoadBundles();
     }
 
     STRING outputtag := hash || (requestedbundle.devversion ? ".dev" : "");
@@ -1651,13 +1647,6 @@ OBJECTTYPE AssetPackControl
   PUBLIC RECORD FUNCTION GetBundleStatus(STRING uuid)
   {
     RETURN controller->GetBundleStatus(uuid);
-  }
-
-  /** Update the asset pack manager with the new configuration
-  */
-  PUBLIC MACRO UpdateAssetPackManager()
-  {
-    controller->UpdateAssetPackManager();
   }
 
   PUBLIC MACRO ClearCaches()
