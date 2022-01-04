@@ -559,7 +559,7 @@ class LoginApp
         let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totplocked"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
         callback();
         await errorscreen;
-        this.secondfactordata = result;
+        this.secondfactordata = result.secondfactordata;
       } break;
 
       case "TOTPINVALIDCODE":
@@ -567,7 +567,7 @@ class LoginApp
         let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totpinvalidcode"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
         callback();
         await errorscreen;
-        this.secondfactordata = result;
+        this.secondfactordata = result.secondfactordata;
       } break;
 
       case "TOTPREUSEDCODE":
@@ -575,7 +575,7 @@ class LoginApp
         let errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.totpreusedcode"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
         callback();
         await errorscreen;
-        this.secondfactordata = result;
+        this.secondfactordata = result.secondfactordata;
       } break;
     }
 
