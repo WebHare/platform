@@ -122,7 +122,6 @@ test.registerTests(
       test.eqMatch(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
-
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('entercode', totpdata.code);
       test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
@@ -158,6 +157,27 @@ test.registerTests(
       test.clickToddButton('Login');
       await test.wait('ui');
 
+      // STORY: test an invalid code
+      // gather a lot of valid codes
+      let validcodes = [];
+      for (let i = -90; i <= 120; i += 30)
+      {
+        totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
+        validcodes.push(totpdata.code);
+      }
+
+      // Get an invalid code
+      let wrongcode = "000000";
+      while (validcodes.includes(wrongcode))
+        wrongcode = `00000${parseInt(wrongcode, 10) + 1}`.substr(-6);
+      test.setTodd('totpcode', wrongcode);
+      await test.wait('ui');
+      test.click(test.compByName("secondfactorloginbutton"));
+      await test.wait('ui');
+      test.eqMatch(/This code is not valid/, test.getCurrentScreen().getNode().textContent);
+      test.clickToddButton('OK');
+
+      // STORY: test an valid code (after using an invalid code)
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('totpcode', totpdata.code);
       await test.wait('ui');

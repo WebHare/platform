@@ -19,6 +19,9 @@ MACRO TestJSONEnDeCode(STRING encoded, VARIANT toencode, RECORD translations)
   STRING encval := EncodeJSON(toencode, translations);
   TestEq(encoded, encval);
   TestEq(toencode, DecodeJSON(encval, translations));
+
+  TestEQ(encoded, BlobTostring(EncodeJSONBlob(toencode, translations)));
+  TEstEQ(toencode, DecodeJSONBlob(StringToBlob(encval), translations));
 }
 
 PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
@@ -128,6 +131,9 @@ MACRO TestJSON()
   TestThrowsLike("*ALLOWCOMMENTS*wrong type*", PTR DecodeJSON(`4`, DEFAULT RECORD, [ allowcomments := 16 ]));
   TestThrowsLike("Unexpected option*NOSUCHOPTION*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ nosuchoption := TRUE ]));
   TestThrowsLike("*ALLOWCOMMENTS*wrong type*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ allowcomments := 16 ]));
+
+  TestEQ(DEFAULT RECORD, DecodeJSON("invalid"));
+  TestEQ(DEFAULT RECORD, DecodeJSONBlob(StringToBlob("invalid")));
 }
 
 
@@ -177,6 +183,8 @@ MACRO TestWrappedJSONEncodeDecode()
 
   TestEQ(DEFAULT OBJECT, DecodeJSON("null", DEFAULT RECORD, [ wrapobjects := TRUE ]));
   TestEQ(DEFAULT OBJECT, DecodeJSON("faildecode", DEFAULT RECORD, [ wrapobjects := TRUE ]));
+  TestEQ(DEFAULT OBJECT, DecodeJSONBlob(StringToBlob("null"), DEFAULT RECORD, [ wrapobjects := TRUE ]));
+  TestEQ(DEFAULT OBJECT, DecodeJSONBlob(StringToBlob("faildecode"), DEFAULT RECORD, [ wrapobjects := TRUE ]));
 }
 
 

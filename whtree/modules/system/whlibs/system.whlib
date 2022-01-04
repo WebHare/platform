@@ -4153,10 +4153,7 @@ PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTS
       IF (data = "" OR NOT JSONDECODERPROCESS(id, data))
         BREAK;
     }
-    RECORD res := JSONDECODERFINISH(id);
-    IF (res.success)
-      RETURN res.value;
-    RETURN DEFAULT RECORD;
+    RETURN JSONDECODERFINISH(id).value;
   }
   CATCH
   {
