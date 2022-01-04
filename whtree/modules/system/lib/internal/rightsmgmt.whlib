@@ -966,7 +966,7 @@ STATIC OBJECTTYPE AuthObject
   */
   PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForRights(STRING ARRAY rights)
   {
-    RETURN GetRootObjectsInDB(rights, this, FALSE, DEFAULT INTEGER ARRAY);
+    RETURN GetRootObjectsInDB(rights, this, FALSE);
   }
 
   /** @short List accessible root objects for a list of rights
@@ -976,7 +976,7 @@ STATIC OBJECTTYPE AuthObject
   */
   PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForGrantableRights(STRING ARRAY rights)
   {
-    RETURN GetRootObjectsInDB(rights, this, TRUE, DEFAULT INTEGER ARRAY);
+    RETURN GetRootObjectsInDB(rights, this, TRUE);
   }
 
 >;
@@ -1775,9 +1775,9 @@ INTEGER ARRAY FUNCTION GetRightTypeIds(STRING ARRAY rights, BOOLEAN withimpliedb
     Returns [ 0 ] if the user has rights on all objects.
     Does not use object describers, so it returns the structure as seen in the database
 */
-PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForRights(STRING ARRAY rights, OBJECT user, INTEGER ARRAY extra_roots DEFAULTSTO DEFAULT INTEGER ARRAY)
+PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForRights(STRING ARRAY rights, OBJECT user)
 {
-  RETURN GetRootObjectsInDB(rights, user, FALSE, extra_roots);
+  RETURN GetRootObjectsInDB(rights, user, FALSE);
 }
 
 
@@ -1786,15 +1786,15 @@ PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForRights(STRING ARRAY rights, OBJEC
     Returns [ 0 ] if the user has rights on all objects.
     Does not use object describers, so it returns the structure as seen in the database
 */
-PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForGrantableRights(STRING ARRAY rights, OBJECT user, INTEGER ARRAY extra_roots DEFAULTSTO DEFAULT INTEGER ARRAY)
+PUBLIC INTEGER ARRAY FUNCTION GetRootObjectsForGrantableRights(STRING ARRAY rights, OBJECT user)
 {
-  RETURN GetRootObjectsInDB(rights, user, TRUE, extra_roots);
+  RETURN GetRootObjectsInDB(rights, user, TRUE);
 }
 
 
 
 
-PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, INTEGER ARRAY objectids, INTEGER ARRAY extra_roots)
+PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, INTEGER ARRAY objectids)
 {
   RECORD ARRAY rightdatas :=
       SELECT AS RECORD ARRAY GetRightByNameInternal(name)
@@ -1882,7 +1882,7 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
   // Mix in extra roots
   authobjs :=
       SELECT AS INTEGER ARRAY DISTINCT id
-        FROM ToRecordArray(authobjs CONCAT extra_roots, "ID")
+        FROM ToRecordArray(authobjs, "ID")
     ORDER BY id;
 
   FOR (INTEGER i := 0, e := LENGTH(result); i < e; i := i + 1)
@@ -2121,7 +2121,7 @@ PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER obje
     Returns [ 0 ] if the user has rights on all objects.
     Does not use object describers, so it returns the structure as seen in the database
 */
-  INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOLEAN onlygrantable, INTEGER ARRAY extra_roots)
+  INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOLEAN onlygrantable)
   {
     IF (LENGTH(rights) = 0)
       RETURN DEFAULT INTEGER ARRAY;
@@ -2156,7 +2156,7 @@ PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER obje
 
     /// List of all objectids, add extra roots and eliminate duplicates
     INTEGER ARRAY objectids := GetSpecificRightsFor(grantees, rightids, rightdatas[0].storagetable, TRUE, DEFAULT INTEGER ARRAY, onlygrantable);
-    objectids := GetSortedset(objectids CONCAT extra_roots);
+    objectids := GetSortedset(objectids);
 
     // Eliminate the objectids that are the parent of an other objectid
     // ADDME: use IN to handle multiple nodes at once.

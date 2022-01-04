@@ -108,7 +108,7 @@ MACRO DefaultRightsTest()
          , [ objectid := 7, path := [0,1,3,7] ]
          , [ objectid := 8, path := [0,1,3,8] ]
          , [ objectid := 9, path := [0,1,3,8,9] ]
-         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], sysop_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], DEFAULT INTEGER ARRAY));
+         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], sysop_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ]));
   TestEq([0, 1, 7], sysop_user->HasRightOnMultiple("webhare_testsuite:objectflatright", [0, 1, 7]));
   TestEq(TRUE, sysop_user->CanManageRight("system:sysop"));
   TestEq(TRUE, sysop_user->CanManageRight("webhare_testsuite:globalright"));
@@ -147,7 +147,7 @@ MACRO DefaultRightsTest()
          , [ objectid := 7, path := DEFAULT INTEGER ARRAY ]
          , [ objectid := 8, path := DEFAULT INTEGER ARRAY ]
          , [ objectid := 9, path := DEFAULT INTEGER ARRAY ]
-         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], DEFAULT INTEGER ARRAY));
+         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ]));
 
   TestThrowsLike('*does not exist*', PTR limited_user->HasRightOn("webhare_testsuite:unknownright", 7));
 
@@ -245,7 +245,7 @@ MACRO GrantTest()
          , [ objectid := 7, path := [0,1,3,7] ]
          , [ objectid := 8, path := [0,1,3,8] ]
          , [ objectid := 9, path := [0,1,3,8,9] ]
-         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], DEFAULT INTEGER ARRAY));
+         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ]));
 
   TestEq([ visible := TRUE, path := GenPath([ 0 ]) ], limited_user->GetObjectPath("webhare_testsuite:testobjecttype", 0));
   TestEq([ visible := TRUE, path := GenPath([ 0, 1 ]) ], limited_user->GetObjectPath("webhare_testsuite:testobjecttype", 1));
@@ -366,18 +366,7 @@ MACRO GrantTest()
          , [ objectid := 7, path := DEFAULT INTEGER ARRAY ]
          , [ objectid := 8, path := DEFAULT INTEGER ARRAY ]
          , [ objectid := 9, path := DEFAULT INTEGER ARRAY ]
-         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited2_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], DEFAULT INTEGER ARRAY));
-  TestEq([ [ objectid := 0, path := DEFAULT INTEGER ARRAY ]
-         , [ objectid := 1, path := DEFAULT INTEGER ARRAY ]
-         , [ objectid := 2, path := [2] ]
-         , [ objectid := 3, path := DEFAULT INTEGER ARRAY ]
-         , [ objectid := 4, path := [2,4] ]
-         , [ objectid := 5, path := [2,5] ]
-         , [ objectid := 6, path := [2,5,6] ]
-         , [ objectid := 7, path := DEFAULT INTEGER ARRAY ]
-         , [ objectid := 8, path := [8] ]
-         , [ objectid := 9, path := [8,9] ]
-         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited2_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ], [ 8 ]));
+         ], GetObjectsPaths([ "webhare_testsuite:objectright2" ], limited2_user, [ 9, 9, 8, 8, 7, 6, 5, 4,3, 2, 1, 0, 0 ]));
 
   TestEq([ visible := FALSE, path := DEFAULT RECORD ARRAY ], limited2_user->GetObjectPath("webhare_testsuite:testobjecttype", 0));
   TestEq([ visible := FALSE, path := DEFAULT RECORD ARRAY ], limited2_user->GetObjectPath("webhare_testsuite:testobjecttype", 1));
