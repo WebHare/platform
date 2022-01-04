@@ -121,36 +121,6 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
   webdesign->RunPage();
 }
 
-PUBLIC RECORD FUNCTION RewriteAssetpackCode(BLOB outgoingcontent)
-{
-  OBJECT findpattern := NEW RegEx('<link rel="stylesheet" href="([^"]*)/.ap/([^/"]*)/ap.css"><script src="([^"]*)/.ap/([^/"]*)/ap.js"([^>]*)');
-  STRING content := BlobToString(outgoingcontent);
-  RECORD ARRAY matches := findpattern->Exec(content);
-  IF(Length(matches) > 4 AND matches[2].value NOT LIKE "*.dev")
-  {
-    STRING outputtag := matches[2].value || ".dev";
-    RECORD compileresult := WaitForCompiledAssetpack(UnmapBundleUuid(outputtag)); // Wait for the first compile of the assetpack
-
-    //matches[5] == JS options (async, crossorigin=anonymous)
-    STRING toinsert;
-    toinsert := `${matches[1].value}/.ap/${outputtag}/ap.css">`
-                || `<script src="${matches[3].value}/.ap/${outputtag}/ap.js"${matches[5].value}`;
-    content := Left(content, matches[1].start) || toinsert || Substring(content,matches[5].start+matches[5].len);
-
-    STRING injection;
-    INTEGER headclose := SearchSubstring(content,'</head>');
-    IF(headclose != -1)
-    {
-      content := Left(content, headclose) || injection || Substring(content, headclose);
-      outgoingcontent := StringToBlob(content);
-    }
-
-    RETURN CELL[ content := outgoingcontent
-               ];
-  }
-  RETURN DEFAULT RECORD;
-}
-
 /** Formats a X-WH-Proxy header
     @param source
     @param binding

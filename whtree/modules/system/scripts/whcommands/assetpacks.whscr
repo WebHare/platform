@@ -113,15 +113,9 @@ CATCH
 
 STRING ARRAY FUNCTION MatchUUIDs(RECORD ARRAY bundles, STRING mask)
 {
-  //If mask ends with '.', do not match .dev bundles
-  BOOLEAN nodev := Right(mask,1)='.';
-  IF(nodev)
-    mask := Left(mask, Length(mask)-1); //strip the dot
-
-  RETURN SELECT AS STRING ARRAY outputtag
+   RETURN SELECT AS STRING ARRAY outputtag
               FROM bundles
-             WHERE ToUppercase(outputtag) LIKE ToUppercase(mask)
-                   AND (nodev ? outputtag NOT LIKE "*.dev" : TRUE);
+             WHERE ToUppercase(outputtag) LIKE ToUppercase(mask);
 }
 
 STRING FUNCTION GetBundleStatusString(RECORD bundle)

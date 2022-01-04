@@ -1715,12 +1715,13 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN newsite;
   }
 
-  PUBLIC MACRO EnsureCompiledAssetpack(STRING asssetpackname)
+  PUBLIC RECORD FUNCTION EnsureCompiledAssetpack(STRING asssetpackname)
   {
     RECORD res := WaitForCompiledAssetpack(asssetpackname);
     IF(res.haserrors)
       DumpValue(res,'tree:3');
     TestEq(FALSE, res.haserrors, "compile should have succeeded");
+    RETURN CELL[ res.lastcompile ];
   }
   PUBLIC OBJECT FUNCTION CreateEventExpectation(STRING ARRAY masks)
   {

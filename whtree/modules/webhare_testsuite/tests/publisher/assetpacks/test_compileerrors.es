@@ -24,12 +24,13 @@ if(!process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY) //as long as we do both e
 
 async function compileAdhocTestBundle(entrypoint, isdev)
 {
-  let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', isdev ? "tollium:webinterface.dev" : "tollium:webinterface");
+  let bundle = await bridge.invoke('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib', 'GetBundle', "tollium:webinterface");
 
   //TODO nicer way to init a bundle
   bundle.outputtag = "webhare_testsuite:compileerrors";
   bundle.entrypoint = entrypoint;
   bundle.outputpath = "/tmp/compileerrors-build-test/";
+  bundle.isdev = isdev;
 
   if(fs.existsSync(bundle.outputpath))
     fs.rmSync(bundle.outputpath, {recursive:true});

@@ -343,6 +343,7 @@ PUBLIC SCHEMA
     , STRING 'entrypoint'
     , STRING 'bundleconfig'
     , STRING 'outputtag'
+    , STRING 'settings'
     ; KEY id
     > assetpacks
 

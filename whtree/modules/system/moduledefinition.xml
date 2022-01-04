@@ -1990,6 +1990,9 @@ The full base URL on which this site will be published, calculated by combining 
           Bundle configuration, HSON encoded
         </d:documentation>
       </d:varchar>
+      <d:varchar name="settings" maxlength="4096">
+        <d:documentation>HSON encoded user settings (eg 'dev')</d:documentation>
+      </d:varchar>
       <d:varchar name="outputtag" nullable="false" maxlength="128" unique="true">
         <d:documentation>
         Output tag (uuid or export name) for this module/sitedesign/entrypoint combination

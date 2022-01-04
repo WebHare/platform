@@ -27,7 +27,7 @@ OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"
 RECORD status := WaitForPromise(service->GetStatus());
 
 OBJECT ARRAY promises;
-RECORD ARRAY tocompile := SELECT * FROM status.bundles WHERE outputtag NOT LIKE "*.dev";
+RECORD ARRAY tocompile := SELECT * FROM status.bundles;
 FOREVERY (RECORD bundle FROM tocompile)
   INSERT service->WaitForCompile(bundle.outputtag, FALSE) INTO promises AT END;
 

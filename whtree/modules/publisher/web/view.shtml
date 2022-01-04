@@ -187,17 +187,6 @@ IF(NOT RecordExists(SELECT FROM browser->responseheaders WHERE ToUppercase(field
 BLOB outgoingcontent := browser->content;
 STRING mimetype := ToUppercase(Tokenize(browser->GetResponseHeader("Content-Type"),';')[0]);
 
-STRING previewcookie := GetWebCookie("__whpub_preview");
-IF(previewcookie IN ["debug","devpackage"] AND IsModuleInstalled("dev")) //without 'dev' module there's no point in referring to .dev packages
-{
-  IF(mimetype = "TEXT/HTML")
-  {
-    RECORD rewritten := RewriteAssetpackCode(outgoingcontent);
-    IF(RecordExists(rewritten))
-      outgoingcontent := rewritten.content;
-  }
-}
-
 // Explicitly add HTTP response status
 IF (browser->GetHTTPStatusCode() > 0)
   AddHTTPHeader("Status", browser->GetHTTPStatusText(), FALSE);

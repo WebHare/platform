@@ -32,6 +32,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
     RECORD ARRAY db_bundles := SELECT id
                                     , outputtag
+                                    , settings
                                  FROM system_internal.assetpacks;
     RECORD ARRAY bundlestates;
     IF(RecordExists(this->laststatus))
@@ -49,7 +50,8 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
            , leftouterjoin := [ id := 0 ]
            ]);
 
-    ^bundles->rows := SELECT rowkey := outputtag
+    ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(bundles.settings)
+                           , rowkey := outputtag
                            , id
                            , status := havestatus 
                                             ? haserrors
@@ -59,6 +61,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                            , outputtag
                            , lastcompile
                            , watchcount
+                           , dev := (outputtag NOT LIKE "*:*" OR settings.dev) ? 1 : 0
                            , dummy := ""
                            , compatibility := compatibility ?? "webpack"
                        FROM bundles;
@@ -261,6 +264,15 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     this->id := data.id;
     ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
 
+    IF(this->id != 0)
+    {
+      RECORD settings := GetAssetPackSettings(this->id);
+      ^dev->value := settings.dev;
+    }
+    ELSE
+    {
+      ^dev->visible := FALSE;
+    }
     this->Reload();
   }
 
@@ -302,5 +314,15 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       ^environment->value := status.bundleconfig.environment;
     }
     ^missingdependencies->value := Detokenize(status.missingdependencies,'\n');
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    IF(this->id = 0)
+      RETURN TRUE;
+
+    OBJECT work := this->BeginWork();
+    UpdateAssetPackSettings(this->id, CELL[ dev := ^dev->value ]);
+    RETURN work->Finish();
   }
 >;
