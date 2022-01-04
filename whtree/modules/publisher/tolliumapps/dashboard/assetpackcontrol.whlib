@@ -51,9 +51,11 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
     ^bundles->rows := SELECT rowkey := outputtag
                            , id
-                           , status := havestatus ? haserrors
+                           , status := havestatus 
+                                            ? haserrors
                                                   ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
-                                                  : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK" : ""
+                                                  : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK" 
+                                            : ""
                            , outputtag
                            , lastcompile
                            , watchcount
@@ -162,7 +164,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
     STRING ARRAY bundleids := ^bundles->value;
     ^messages->rows := DEFAULT RECORD ARRAY;
 
-    IF(Length(bundleids) = 1 AND ObjectExists(this->assetpackcontrol)) //TODO also request new messages if the new assetpackcontrol conneection comes just *after* this onselect... TODO or just don't bother assetpackcontrol and read the stats fron disk/db directly
+    IF(Length(bundleids) = 1 AND ObjectExists(this->assetpackcontrol)) //TODO also request new messages if the new assetpackcontrol connection comes just *after* this onselect... TODO or just don't bother assetpackcontrol and read the stats fron disk/db directly
       this->assetpackcontrol->GetBundleStatus(bundleids[0])->Then(PTR this->ProcessBundleStatus(bundleids[0], #1));
   }
 
