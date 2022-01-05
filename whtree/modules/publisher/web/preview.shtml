@@ -171,43 +171,43 @@ INTEGER source;
 BOOLEAN renderwidgetpreview;
 RECORD options;
 
-  RECORD data := DecryptForthisServer("publisher:preview",baseurl);
-  draftobj := OpenWHFSDraft(data.id);
-  openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
+RECORD data := DecryptForthisServer("publisher:preview",baseurl);
+draftobj := OpenWHFSDraft(data.id);
+openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
 
-  INTEGER designid;
-  IF(Objectexists(draftobj))
-    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
-  ELSE IF(Objectexists(openobj))
-    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
-  ELSE
-    designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
+INTEGER designid;
+IF(Objectexists(draftobj))
+  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
+ELSE IF(Objectexists(openobj))
+  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
+ELSE
+  designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
 
-  source := ObjectExists(draftobj) ? draftobj->source : data.id;
+source := ObjectExists(draftobj) ? draftobj->source : data.id;
 
-  IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
-  {
-    OBJECT page := NEW PreviewPage();
-    page->data.component := "previewexpired";
-    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-    page->RunPageForWHFSId(designid);
-    RETURN;
-  }
+IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
+{
+  OBJECT page := NEW PreviewPage();
+  page->data.component := "previewexpired";
+  //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+  page->RunPageForWHFSId(designid);
+  RETURN;
+}
 
-  STRING pwd := TrimWhitespace(GetWebVariable("password"));
-  IF(data.p != "" AND pwd != data.p)
-  {
-    OBJECT page := NEW PreviewPage();
-    page->data.component := "previewpassword";
-    page->data.incorrectpassword := pwd != "";
-    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-    page->RunPageForWHFSId(designid);
-    RETURN;
-  }
+STRING pwd := TrimWhitespace(GetWebVariable("password"));
+IF(data.p != "" AND pwd != data.p)
+{
+  OBJECT page := NEW PreviewPage();
+  page->data.component := "previewpassword";
+  page->data.incorrectpassword := pwd != "";
+  //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+  page->RunPageForWHFSId(designid);
+  RETURN;
+}
 
-  renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
-  IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
-    options := [ instanceid := data.i ];
+renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
+IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
+  options := [ instanceid := data.i ];
 
 IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
