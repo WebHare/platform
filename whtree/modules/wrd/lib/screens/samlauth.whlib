@@ -448,8 +448,8 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
     }
     IF (LENGTH(providers) = 1)
     {
-      IF (^entity->value.samlentityid != "" AND providers[0].value.entityid != ^entity->value.samlentityid)
-        feedback->AddError(this->GetTid(".samlentityiddiffers", ^entity->value.samlentityid, providers[0].value.entityid));
+      IF (^entity->value.samlentityid != "" AND providers[0].value.samlentityid != ^entity->value.samlentityid)
+        feedback->AddError(this->GetTid(".samlentityiddiffers", ^entity->value.samlentityid, providers[0].value.samlentityid));
     }
     ELSE
     {
