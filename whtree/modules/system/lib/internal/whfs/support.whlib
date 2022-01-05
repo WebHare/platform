@@ -411,7 +411,7 @@ PUBLIC STRING FUNCTION GetNamespaceForType(INTEGER find_id, BOOLEAN isfolder)
     @param parentfolder Folder to process all files in
     @param newowner New owner
 */
-PUBLIC MACRO UpdatePublishedRecursive(INTEGEr parentsite, INTEGER parentfolder, BOOLEAN disablepublish, OBJECT commithandler)
+PUBLIC MACRO UpdatePublishedRecursive(INTEGER parentsite, INTEGER parentfolder, BOOLEAN disablepublish, OBJECT commithandler)
 {
   INTEGER ARRAY republishes :=
       SELECT AS INTEGER ARRAY id

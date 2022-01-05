@@ -374,15 +374,16 @@ MACRO MoveTest()
 
   OBJECT testfolderobj := testfw->GetWHFSTestRoot();
   OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_movetest" ]);
+
   TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
   TestEq(DEFAULT INTEGER ARRAY, testsite->GetFullTree());
-  //CreateSiteFromFolder(testsite->id);
+  CreateSiteFromFolder(testsite->id);
 
   testsite := OpenWHFSObject(testsite->id);
   TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
-  //TestEq([INTEGER(testsite->id)], testsite->GetFullTree());
+  TestEq([INTEGER(testsite->id)], testsite->GetFullTree());
 
-  //TestEq(testsite->id, OpenWHFSObject(testsite->id)->highestparent);
+  TestEq(testsite->id, OpenWHFSObject(testsite->id)->highestparent);
 
   TestEq(testsite->id, OpenWHFSObjectByPath("whfs::/webhare_testsuite.testfolder/" || "webhare_testsuite_movetest")->id);
   TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath("filebyid::" || testsite->id)));
