@@ -64,6 +64,7 @@ STRING FUNCTION __ICU_TransliterateText(STRING value, STRING locale) __ATTRIBUTE
 STRING ARRAY FUNCTION __ICU_GetTimeZoneIDs() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 RECORD ARRAY FUNCTION __ICU_GetAllTimeZones(STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 STRING FUNCTION __ICU_GetCanonicalTimeZoneID(STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetVTimeZone(STRING zoneid, DATETIME time) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 DATETIME FUNCTION __ICU_UTCToLocal(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 DATETIME FUNCTION __ICU_LocalToUTC(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 INTEGER FUNCTION __ICU_GetUTCOffset(DATETIME value, STRING zoneid) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
@@ -802,6 +803,28 @@ PUBLIC STRING FUNCTION GetTimeZoneDisplay(STRING timezone, BOOLEAN dst, STRING s
     THROW NEW Exception("Unknown style value '" || style || "'");
 
   RETURN __ICU_GetTimeZoneDisplay(CheckTimeZone(timezone), dst, SearchElement(display_styles, ToUppercase(style)), GetLocaleForLangTag(locale));
+}
+
+
+
+/** @short   Get the iCalendar time zone information for a given time zone
+    @long    This function returns the iCalendar encoded time zone data (without a trailing CRLF), which can be added to an
+             iCalendar file to encode events that have timestamps in a time zone.
+    @param   timezone  Time zone the local time is in
+    @param   time      Timestamp to get the time zone information for (set to DEFAULT DATETIME to get _all_ time zone data,
+                       including historical data, which is usually not what you want)
+    @return  The time zone information
+    @cell(string) return.tzid      The (canonicalized) time zone identifier
+    @cell(string) return.vtimezone The iCalendar time zone data
+    @see     GetAvailableTimeZones
+*/
+PUBLIC RECORD FUNCTION GetVTimeZone(STRING timezone, DATETIME time)
+{
+  timezone := GetCanonicalTimeZoneID(CheckTimeZone(timezone));
+  IF (timezone = "")
+    RETURN DEFAULT RECORD;
+
+  RETURN [ tzid := timezone, vtimezone := __ICU_GetVTimeZone(timezone, time) ];
 }
 
 
