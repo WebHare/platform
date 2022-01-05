@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
@@ -113,8 +114,19 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
     RETURN;
   }
 
+  OBJECT contentobject := openobj;
+  IF(openobj->type = whconstant_whfstype_contentlink) //content link
+  {
+    contentobject := OpenWHFSObject(openobj->filelink);
+    IF(NOT ObjectExists(contentobject))
+    {
+      Print(EncodeHTML("The contentlink target does not exist"));
+      RETURN;
+    }
+  }
+
   // Check if the file type needs a template (if not, send it directly)
-  OBJECT contentfiletype := OpenWHFSTypeById(openobj->type);
+  OBJECT contentfiletype := OpenWHFSTypeById(contentobject->type);
   IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
   {
     RECORD usetempl := applytester->GetUsePublishTemplate();
@@ -125,14 +137,14 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   RECORD sourceinfo := GetSystemRedirectInfo(source);
   IF(sourceinfo.success)
   {
-    RunThePage(source, sourceinfo, openobj->id);
+    RunThePage(source, sourceinfo, contentobject->id);
     RETURN;
   }
 
   __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
 
-  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, openobj);
-  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, openobj, pageobject, renderwidgetpreview);
+  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, contentobject);
+  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, contentobject, pageobject, renderwidgetpreview);
 
   IF (renderwidgetpreview)
   {
