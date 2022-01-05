@@ -482,6 +482,115 @@ MACRO TimeZoneTests()
   TestEq(TRUE,  IsWeekend(MakeDateTime(2015, 6, 20, 23, 59, 59), "ar"));
   TestEq(FALSE, IsWeekend(MakeDate(2015, 6, 21), "ar"));
 
+  DATETIME time := MakeDateTime(2020, 1, 1, 12, 34, 56);
+  TestEq(DEFAULT RECORD, GetVTimeZone("nonexisting", time));
+  TestEq([ tzid := "Europe/Amsterdam", vtimezone := `BEGIN:VTIMEZONE\r
+TZID:Europe/Amsterdam\r
+X-TZINFO:Europe/Amsterdam[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(time)}]\r
+BEGIN:DAYLIGHT\r
+TZOFFSETTO:+020000\r
+TZOFFSETFROM:+010000\r
+TZNAME:(DST)\r
+DTSTART:20200329T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETTO:+010000\r
+TZOFFSETFROM:+020000\r
+TZNAME:(STD)\r
+DTSTART:20201025T030000\r
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r
+END:STANDARD\r
+END:VTIMEZONE` ], GetVTimeZone("Europe/Amsterdam", time));
+  TestEq([ tzid := "Etc/UTC", vtimezone := `BEGIN:VTIMEZONE\r
+TZID:Etc/UTC\r
+X-TZINFO:Etc/UTC[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(time)}]\r
+BEGIN:STANDARD\r
+TZOFFSETTO:+000000\r
+TZOFFSETFROM:+000000\r
+TZNAME:(STD)\r
+DTSTART:19700101T000000\r
+END:STANDARD\r
+END:VTIMEZONE` ], GetVTimeZone("UTC", time));
+  // Note: When requesting the complete timezone information, the 'X-TZINFO:' field name seems to be missing in line 3
+  TestEq([ tzid := "Etc/UTC", vtimezone := `BEGIN:VTIMEZONE\r
+TZID:Etc/UTC\r
+Etc/UTC[${__ICU_GetTZDataVersion()}]\r
+BEGIN:STANDARD\r
+TZOFFSETTO:+000000\r
+TZOFFSETFROM:+000000\r
+TZNAME:Etc/UTC(STD)\r
+DTSTART:19700101T000000\r
+END:STANDARD\r
+END:VTIMEZONE` ], GetVTimeZone("UTC", DEFAULT DATETIME));
+  // No changes in daylight saving time after 2020-01-01
+  TestEq([ tzid := "America/New_York", vtimezone := `BEGIN:VTIMEZONE\r
+TZID:America/New_York\r
+X-TZINFO:America/New_York[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(time)}]\r
+BEGIN:DAYLIGHT\r
+TZOFFSETTO:-040000\r
+TZOFFSETFROM:-050000\r
+TZNAME:(DST)\r
+DTSTART:20200308T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETTO:-050000\r
+TZOFFSETFROM:-040000\r
+TZNAME:(STD)\r
+DTSTART:20201101T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE` ], GetVTimeZone("america/new_york", time));
+  // Daylight saving time got changed in 2007, so we get more transitions if we request an earlier date
+  time := MakeDate(2000, 1, 1);
+  TestEq([ tzid := "America/New_York", vtimezone := `BEGIN:VTIMEZONE\r
+TZID:America/New_York\r
+X-TZINFO:America/New_York[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(time)}]\r
+BEGIN:DAYLIGHT\r
+TZOFFSETTO:-040000\r
+TZOFFSETFROM:-050000\r
+TZNAME:America/New_York(DST)\r
+DTSTART:20000402T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=4;BYDAY=1SU;UNTIL=20060402T020000\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETTO:-050000\r
+TZOFFSETFROM:-040000\r
+TZNAME:America/New_York(STD)\r
+DTSTART:20001029T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU;UNTIL=20061029T020000\r
+END:STANDARD\r
+BEGIN:DAYLIGHT\r
+TZOFFSETTO:-040000\r
+TZOFFSETFROM:-050000\r
+TZNAME:America/New_York(DST)\r
+DTSTART:20070311T020000\r
+RDATE:20070311T020000\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETTO:-050000\r
+TZOFFSETFROM:-040000\r
+TZNAME:America/New_York(STD)\r
+DTSTART:20071104T020000\r
+RDATE:20071104T020000\r
+END:STANDARD\r
+BEGIN:DAYLIGHT\r
+TZOFFSETTO:-040000\r
+TZOFFSETFROM:-050000\r
+TZNAME:(DST)\r
+DTSTART:20080309T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETTO:-050000\r
+TZOFFSETFROM:-040000\r
+TZNAME:(STD)\r
+DTSTART:20081102T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
+END:STANDARD\r
+END:VTIMEZONE` ], GetVTimeZone("america/new_york", time));
+
   CloseTest("TestLocalization: TimeZoneTests");
 }
 

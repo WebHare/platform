@@ -17,6 +17,7 @@
 #include <unicode/uloc.h>
 #include <unicode/utrans.h>
 #include <unicode/uversion.h>
+#include <unicode/vtzone.h>
 #include <cmath>
 
 // For debugging purposes
@@ -157,6 +158,8 @@ struct TimeZoneData
 {
         // The time zone data
         std::shared_ptr<TimeZone> timezone;
+        // The VTIMEZONE data
+        std::shared_ptr<VTimeZone> vtimezone;
 };
 typedef std::map<UnicodeString, TimeZoneData> TimeZoneCache;
 
@@ -253,6 +256,7 @@ TimeZoneData const &getTimeZoneData(ICUContextData &context, UnicodeString const
 
         TimeZoneData data;
         data.timezone.reset(TimeZone::createTimeZone(id));
+        data.vtimezone.reset(VTimeZone::createVTimeZoneByID(id));
 
         std::pair<TimeZoneCache::iterator, bool> res = context.timezones.insert(std::make_pair(id, data));
         return res.first->second;
@@ -262,6 +266,12 @@ TimeZoneData const &getTimeZoneData(ICUContextData &context, UnicodeString const
 TimeZone const *getTimeZone(ICUContextData &context, UnicodeString const &id)
 {
         return getTimeZoneData(context, id).timezone.get();
+}
+
+// Get the VTIMEZONE with the given id
+VTimeZone const *getVTimeZone(ICUContextData &context, UnicodeString const &id)
+{
+        return getTimeZoneData(context, id).vtimezone.get();
 }
 
 
@@ -995,6 +1005,33 @@ void GetTimeZoneDisplay(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_StringSetUnicode(hsvm, id_set, zone->getDisplayName(isdst, style, locid, str));
 }
 
+void GetVTimeZone(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        ICUContextData &context = *static_cast<ICUContextData *>(HSVM_GetContext(hsvm, ContextId, true));
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_String);
+
+        UnicodeString zoneid = HSVM_StringGetUnicode(hsvm, HSVM_Arg(0));
+        VTimeZone const *zone = getVTimeZone(context, zoneid);
+        // The return value is guaranteed to be non-NULL, check id to see if the unknown zone is returned
+        if (zone->getID(zoneid) == UCAL_UNKNOWN_ZONE_ID)
+            return;
+
+        UDate time = HSVM_DateTimeGetUnicode(hsvm, HSVM_Arg(1));
+
+        UnicodeString vtimezone;
+        UErrorCode status = U_ZERO_ERROR;
+        if (time == UDateDefault)
+            zone->write(vtimezone, status);
+        else
+            zone->write(time, vtimezone, status);
+        if (U_FAILURE(status))
+            return;
+
+        // Strip the trailing '\r\n'
+        HSVM_StringSetUnicode(hsvm, id_set, vtimezone.tempSubString(0, vtimezone.length() - 2));
+}
+
 void UTCToLocal(HSVM *hsvm, HSVM_VariableId id_set)
 {
         doConvertDateTime(hsvm, id_set, false);
@@ -1148,6 +1185,7 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void *)
         HSVM_RegisterFunction(regdata, "__ICU_GETALLTIMEZONES:WH_ICU:RA:S", HareScript::ICU::GetAllTimeZones);
         HSVM_RegisterFunction(regdata, "__ICU_GETCANONICALTIMEZONEID:WH_ICU:S:S", HareScript::ICU::GetCanonicalTimeZoneID);
         HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEDISPLAY:WH_ICU:S:SBIS", HareScript::ICU::GetTimeZoneDisplay);
+        HSVM_RegisterFunction(regdata, "__ICU_GETVTIMEZONE:WH_ICU:S:SD", HareScript::ICU::GetVTimeZone);
         HSVM_RegisterFunction(regdata, "__ICU_UTCTOLOCAL:WH_ICU:D:DS", HareScript::ICU::UTCToLocal);
         HSVM_RegisterFunction(regdata, "__ICU_LOCALTOUTC:WH_ICU:D:DS", HareScript::ICU::LocalToUTC);
         HSVM_RegisterFunction(regdata, "__ICU_GETUTCOFFSET:WH_ICU:I:DS", HareScript::ICU::GetUTCOffset);

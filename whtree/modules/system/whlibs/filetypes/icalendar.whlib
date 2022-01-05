@@ -14,11 +14,13 @@ Note:
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
 
 STRING iso8601_date := "%Y%m%d";
-STRING iso8601_datetime := "%Y%m%dT%H%M%SZ";
+STRING iso8601_datetime := "%Y%m%dT%H%M%S";
 
 /* Fold a string longer than 75 octets, as specified in RFC 2445:
 
@@ -157,11 +159,13 @@ PUBLIC STRING FUNCTION GenerateICalUID()
 /** Returns a default ICal event
     @return A ICal event
     @cell(string) return.uid Persistent, globally unique identifier. An identifier will be generated automatically, but it may be overwritten afterwards
-    @cell(datetime) return.dtstart Start date and time (UTC)
-    @cell(datetime) return.dtend End date and time (UTC)
+    @cell(datetime) return.dtstart Start date and time
+    @cell(datetime) return.dtend End date and time
+    @cell(string) return.timezone The timezone the start and end time are in (defaults to `UTC`, ignored for all-day events).
+        NOTE: Not part of the specification, but in HareScript DATETIME values don't have a timezone associated with them
     @cell(boolean) return.allday Ignore time, this is an all-day event. NOTE: Not part of the specification, but in HareScript
-                          there is no way to distinguish between a full date and time and only a date as both are
-                          represented using a DATETIME value
+        there is no way to distinguish between a full date and time and only a date as both are represented using a DATETIME
+        value
     @cell(string) return.summary Short event title
     @cell(string) return.description Description of the event
     @cell(string) return.url URL for the event
@@ -178,6 +182,7 @@ PUBLIC RECORD FUNCTION MakeDefaultICalEvent()
   RETURN [ uid := GenerateICalUID()
          , dtstart := DEFAULT DATETIME
          , dtend := DEFAULT DATETIME
+         , timezone := "UTC"
          , allday := FALSE
          , summary := ""
          , description := ""
@@ -201,25 +206,26 @@ PUBLIC STRING FUNCTION EncodeICalEvent(RECORD event)
     RETURN "";
 
   BOOLEAN allday := CellExists(event, "allday") AND event.allday;
-
   STRING format := allday ? iso8601_date : iso8601_datetime;
+  STRING dtparam;
+  IF (allday)
+    dtparam := ";VALUE=DATE";
+  ELSE IF (NOT CellExists(event, "timezone") OR ToUppercase(event.timezone) = "UTC")
+    format := format || "Z";
+  ELSE IF (event.timezone != "")
+    dtparam := ";TZID=" || event.timezone;
 
   STRING ical := "BEGIN:VEVENT\r\n";
 
   IF (CellExists(event, "uid") AND event.uid != "")
     ical := ical || FoldString("UID:" || EncodeICal(event.uid)) || "\r\n";
 
-  IF (allday)
-    ical := ical || "DTSTART;VALUE=DATE:" || FormatDateTime(format, event.dtstart) || "\r\n";
-  ELSE
-    ical := ical || "DTSTART:" || FormatDateTime(format, event.dtstart) || "\r\n";
+  ical := ical || "DTSTART" || dtparam || ":" || FormatDateTime(format, event.dtstart) || "\r\n";
 
   IF (CellExists(event, "dtend") AND event.dtend != DEFAULT DATETIME)
   {
-    IF (allday)
-      ical := ical || "DTEND;VALUE=DATE:" || FormatDateTime(format, AddDaysToDate(1, event.dtend)) || "\r\n"; // an 'allday' event lasts up to the start of the day after the last day
-    ELSE
-      ical := ical || "DTEND:" || FormatDateTime(format, event.dtend) || "\r\n";
+    // An 'allday' event lasts up to the start of the day after the last day
+    ical := ical || "DTEND" || dtparam || ":" || FormatDateTime(format, allday ? AddDaysToDate(1, event.dtend) : event.dtend) || "\r\n";
   }
 
   IF (CellExists(event, "summary") AND event.summary != "")
@@ -302,7 +308,9 @@ PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
     STRING fld := Left(line, sep);
     STRING val := DecodeICal(Right(line, Length(line)-sep-1));
 
-    fld := Tokenize(fld,";")[0]; //work around syntax like "DTSART;VALUE=DATE"
+    STRING ARRAY params := Tokenize(fld, ";");
+    fld := params[0];
+    DELETE FROM params AT 0;
 
     // Update values in the event record
     SWITCH (fld)
@@ -314,7 +322,7 @@ PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
       CASE "DTSTART", "DTEND"
       {
         event := CellUpdate(event, fld, MakeDateFromText(val));
-        IF(fld = "DTSTART" AND Length(val) <= 8)
+        IF(fld = "DTSTART" AND "VALUE=DATE" IN params)
           event.allday := TRUE;
       }
       CASE "CATEGORIES"
@@ -330,8 +338,8 @@ PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
 /** Creates an ICal calendar file for events
     @param events ICal events @includecelldef #MakeDefaultICalEvent.return
     @param calendarsettings Settings
-    @cell calendarsettings.calendarname name of the calendar (keep empty if the iCal document must represent a single appointment or meeting!
-    @cell calendarsettings.method Method (any of "", "publish", "request", "reply", "add", "cancel", "refresh", "counter", "declinecounter").
+    @cell(string) calendarsettings.calendarname name of the calendar (keep empty if the iCal document must represent a single appointment or meeting!
+    @cell(string) calendarsettings.method Method (any of "", "publish", "request", "reply", "add", "cancel", "refresh", "counter", "declinecounter").
     @return ICal calendar file
 */
 PUBLIC STRING FUNCTION EncodeICalCalendar(RECORD ARRAY events, RECORD calendarsettings DEFAULTSTO DEFAULT RECORD)
@@ -357,6 +365,30 @@ PUBLIC STRING FUNCTION EncodeICalCalendar(RECORD ARRAY events, RECORD calendarse
 
   IF (calendarsettings.calendarname != "")
     ical := ical || FoldString("X-WR-CALNAME:"||calendarsettings.calendarname) || "\r\n";
+
+  // Add the time zone information for all events that are not using UTC or floating datetimes
+  RECORD ARRAY timezones;
+  FOREVERY (RECORD event FROM events)
+  {
+    IF (CellExists(event, "allday") AND event.allday)
+      CONTINUE; // Dates don't have time zones
+    IF (CellExists(event, "timezone") AND ToUppercase(event.timezone) NOT IN [ "", "UTC" ])
+    {
+      RECORD info := GetVTimeZone(event.timezone, event.dtstart);
+      INSERT CELL dtstart := event.dtstart INTO info;
+      events[#event].timezone := info.tzid;
+      IF (info.vtimezone != "")
+      {
+        RECORD pos := RecordLowerBound(timezones, info, [ "TZID" ]);
+        IF (NOT pos.found)
+          INSERT info INTO timezones AT pos.position;
+        ELSE IF (timezones[pos.position].dtstart > event.dtstart)
+          timezones[pos.position] := info;
+      }
+    }
+  }
+  FOREVERY (RECORD info FROM timezones)
+    ical := ical || info.vtimezone || "\r\n";
 
   FOREVERY (RECORD event FROM events)
     ical := ical || EncodeICalEvent(event);
