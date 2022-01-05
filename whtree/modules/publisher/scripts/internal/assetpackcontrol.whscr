@@ -989,6 +989,7 @@ STATIC OBJECTTYPE AssetPackController
     //ADDME once in a while, clean up old assets in staticdir (but no need to do immediately, let'm linger a few days)
 
     RECORD ARRAY infiles := ReadDiskDirectory(builddir, "*");
+    RECORD ARRAY existingfiles := ReadDiskDirectory(bundle.outputpath, "*");
 
     FOREVERY (RECORD rec FROM infiles)
     {
@@ -1006,6 +1007,11 @@ STATIC OBJECTTYPE AssetPackController
           Print("Unable to move " || rec.path || " to " || destpath||"\n");
         THROW NEW Exception("Unable to move " || rec.path || " to " || destpath);
       }
+    }
+
+    FOREVERY(RECORD obsolete_gzippedfile FROM SELECT * FROM existingfiles WHERE name LIKE "*.gz" AND NOT RecordExists(SELECT FROM infiles WHERE infiles.name = existingfiles.name))
+    {
+      DeleteDiskFile(obsolete_gzippedfile.path);
     }
 
     // Make sure an ap.css exists in the output directory
