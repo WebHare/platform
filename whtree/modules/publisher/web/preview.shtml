@@ -8,7 +8,6 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
@@ -26,8 +25,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
-LOADLIB "mod::wrd/lib/auth.whlib";
 
 OpenPrimary();
 
@@ -174,23 +171,6 @@ INTEGER source;
 BOOLEAN renderwidgetpreview;
 RECORD options;
 
-IF(DecodeURL(baseurl) LIKE "@*")
-{
-  //It's an embedded URL
-  OBJECT currentauth := GetWRDAuthPlugin(GetRequestURL());
-  IF(NOT ObjectExists(currentauth))
-    THROW NEW Exception("No authentication system activated on the current URL");
-
-  STRING url := Substring(DecodeURL(baseurl),1);
-  RECORD lookup := LookupPublisherURL(url);
-  IF(lookup.site=0)
-    THROW NEW Exception("Requested URL '" || url || "' is not hosted on this server");
-
-  openobj := OpenWHFSObject(lookup.file ?? lookup.folder);
-  source := lookup.file ?? lookup.folder;
-}
-ELSE
-{
   RECORD data := DecryptForthisServer("publisher:preview",baseurl);
   draftobj := OpenWHFSDraft(data.id);
   openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
@@ -228,7 +208,6 @@ ELSE
   renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
   IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
     options := [ instanceid := data.i ];
-}
 
 IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
