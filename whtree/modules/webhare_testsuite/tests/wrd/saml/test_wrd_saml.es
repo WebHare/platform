@@ -32,7 +32,7 @@ test.registerTests(
       {
         const metadataurl = new URL(webroot + "test-saml/portal-sp/saml-sp-test-sp", location.href).toString();
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
-        test.clickToddButton("Download metadata");
+        test.clickToddButton("Update metadata");
       }
     , waits: [ "ui" ]
     }
@@ -64,7 +64,7 @@ test.registerTests(
       {
         const metadataurl = webroot + "test-saml/portal-idp/saml-idp";
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
-        test.clickToddButton("Download metadata");
+        test.clickToddButton("Update metadata");
       }
     , waits: [ "ui" ]
     }
