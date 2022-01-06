@@ -267,7 +267,7 @@ STATIC OBJECTTYPE AssetPackController
     {
       IF (rec.requirecompile AND NOT rec.iscompiling)
       {
-        BOOLEAN runnow := rec.forcecompile OR (rec.isdev = FALSE AND this->suspendautocompile = FALSE);
+        BOOLEAN runnow := rec.forcecompile OR this->suspendautocompile = FALSE;
         IF (NOT runnow)
         {
           RECORD pos := RecordLowerBound(this->watchcounts, rec, [ "OUTPUTTAG" ]);
