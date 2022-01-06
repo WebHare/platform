@@ -41,56 +41,6 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   TestEq(RECORD[], result.results);
 }
 
-PUBLIC MACRO TestLegacySiteProfileIndices()
-{
-  testfw->BeginWork();
-  OBJECT site := testfw->SetupTestWebdesignWebsite([ sitename := "betatestindexsite", webfeatures := ["webhare_testsuite:siteprofileindices"] ]);
-  INTEGER siteroot := site->root;
-  INTEGER index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
-  IF (index_1 != 0)
-  {
-    // If the index exists, it should be empty
-    INTEGER contentsource_1 := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot);
-    TestEq(0, contentsource_1);
-  }
-  INTEGER index_2 := testfw->GetCatalogIdByName(testfw->GetCatalogName_2());
-  IF (index_2 != 0)
-  {
-    // If the index exists, it should be empty
-    INTEGER contentsource_2 := testfw->GetPublisherContentSource(testfw->GetCatalogName_2(), siteroot);
-    TestEq(0, contentsource_2);
-  }
-  // Index 3 should not exist
-  INTEGER index_3 := testfw->GetCatalogIdByName(testfw->GetCatalogName_3());
-  TestEq(0, index_3);
-
-  testfw->CommitWork();
-
-  FixConsilioIndices([ reportmissing := TRUE ]); //indices are created in the background so explicitly enforce them
-
-  // The indices 1 and 2 must be present now, 3 doesn't match the site name
-  index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
-  TestEq(TRUE, index_1 != 0);
-  index_2 := testfw->GetCatalogIdByName(testfw->GetCatalogName_2());
-  TestEq(TRUE, index_2 != 0);
-  index_3 := testfw->GetCatalogIdByName(testfw->GetCatalogName_3());
-  TestEq(0, index_3, "catalog #3 has a sitename filter which shouldn't match anything");
-
-  INTEGER contentsource_1 := testfw->GetPublisherContentSource(testfw->GetCatalogName_1(), siteroot);
-  RECORD contentsource := testfw->GetContentSource(contentsource_1);
-  TestEq(TRUE, RecordExists(contentsource));
-  TestEq("SOMETHING", contentsource.tag);
-  TestEq(FALSE, contentsource.discardsummaries);
-  TestEq(3, contentsource.maxgroupobjects);
-
-  INTEGER contentsource_2 := testfw->GetPublisherContentSource(testfw->GetCatalogName_2(), siteroot);
-  contentsource := testfw->GetContentSource(contentsource_2);
-  TestEq(TRUE, RecordExists(contentsource), `Expected ${testfw->GetCatalogName_2()} to have a content source`);
-  TestEq("", contentsource.tag);
-  TestEq(TRUE, contentsource.discardsummaries);
-  TestEq(0, contentsource.maxgroupobjects);
-}
-
 ASYNC MACRO TestCatalogApp()
 {
   testfw->BeginWork();
@@ -122,7 +72,6 @@ ASYNC MACRO TestCatalogApp()
 }
 
 RunTestFramework( [ PTR TestModernSiteProfileIndices
-                  , PTR TestLegacySiteProfileIndices
                   , PTR TestCatalogApp
                   ], [ consilio := TRUE
                      , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

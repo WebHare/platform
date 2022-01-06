@@ -727,13 +727,4 @@
   <applysiteprofile path="siteprofiles/debugsettings.siteprl.xml" />
   <applysiteprofile path="siteprofiles/abtest.siteprl.xml" />
 
-  <!-- publisherindex is lowest priority, because fsobject updates are usually processed synchronously. we can live with the background index checks on low priority -->
-  <index xmlns="http://www.webhare.net/xmlns/consilio" name="publisher:whfs" priority="-5">
-    <contentsource type="consilio:custom"
-                   contentcheckinterval="-1"
-                   contentobject="WHFSObjectContentSource"
-                   library="mod::publisher/lib/internal/consiliocontent.whlib"
-                   tag="publisher:fsobjects" />
-  </index>
-
 </siteprofile>

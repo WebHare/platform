@@ -1329,7 +1329,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       RECORD sitesetting := [ sitefilter := ReadSiteFilter(siteset)
                             , webrules := DEFAULT RECORD ARRAY
-                            , addtoindices := DEFAULT RECORD ARRAY
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
                             ];
@@ -1359,22 +1358,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
           INSERT therule INTO sitesetting.webrules AT END;
         }
-      }
-
-      OBJECT ARRAY addtoindices := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/consilio", "addtoindex")->GetCurrentElements();
-      FOREVERY(OBJECT addtoindex FROM addtoindices)
-      {
-        RECORD theindex := [ name := addtoindex->GetAttribute("name")
-                           , tag := addtoindex->GetAttribute("tag")
-                           , maxgroupobjects := ParseXSInt(addtoindex->GetAttribute("maxgroupobjects"))
-                           , discardsummaries := ParseXSBoolean(addtoindex->GetAttribute("discardsummaries"))
-                           , module := this->module
-                           , siteprofile := this->siteprof->name
-                           , line := addtoindex->linenum
-                           , col := 0
-                           ];
-
-        INSERT theindex INTO sitesetting.addtoindices AT END;
       }
 
       OBJECT ARRAY addtocatalogs := siteset->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "addtocatalog")->GetCurrentElements();
