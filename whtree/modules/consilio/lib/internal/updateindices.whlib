@@ -120,7 +120,12 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
     RECORD ARRAY currentsources := catalog->ListContentSources();
     FOREVERY(RECORD source FROM want.contentsources)
     {
-      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1 FROM currentsources WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare") AND fsobject = source.fsobject AND tag = source.tag) - 1;
+      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
+                             FROM currentsources
+                            WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare")
+                                  AND fsobject = source.fsobject
+                                  AND ToUppercase(tag) = ToUppercase(source.tag)) - 1;
+
       IF(matchpos >= 0)
       {
         STRING expect_library, expect_contentobject;
@@ -132,7 +137,12 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 
         IF(currentsources[matchpos].definedby != source.definedby
            OR currentsources[matchpos].contentobject != source.contentobject)
-          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[source.definedby, settings := CELL[library := expect_library, contentobject := expect_contentobject]]);
+        {
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[ source.definedby
+                                                                                               , settings := CELL[library := expect_library, contentobject := expect_contentobject]
+                                                                                               , tag := source.tag
+                                                                                               ]);
+        }
 
         IF(currentsources[matchpos].isorphan)
           catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();

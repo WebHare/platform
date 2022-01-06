@@ -963,6 +963,9 @@
 
   <consilio>
     <contentprovider name="webhare" tid="contentproviders.webhare.providertitle" icon="tollium:folders/site" library="internal/contentprovider.whlib" contentproviderobject="WebHareContentProvider" />
+    <catalog tag="whfs" priority="-5">
+      <customsource tag="fsobjects" contentobject="mod::publisher/lib/internal/consiliocontent.whlib#WHFSObjectContentSource"  />
+    </catalog>
   </consilio>
 
   <publisher>

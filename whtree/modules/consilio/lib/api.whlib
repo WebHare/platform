@@ -771,7 +771,8 @@ STATIC OBJECTTYPE ContentSource
   {
     settings := ValidateOptions([ definedby := ""
                                 , settings := DEFAULT RECORD
-                                ], settings, [ optional := [ "definedby" ]
+                                , tag := ""
+                                ], settings, [ optional := [ "definedby", "tag" ]
                                              , title := "settings"
                                              ]);
 
@@ -785,6 +786,21 @@ STATIC OBJECTTYPE ContentSource
       IF(cursettings != "")
         newsettings := CELL[ ...DecodeHSON(cursettings), ...newsettings];
       settings := CELL[ ...settings, data := EncodeHSON(newsettings), DELETE settings ];
+    }
+
+    IF(CellExists(settings,'tag'))
+    {
+      STRING curprovider := SELECT AS STRING contentprovider FROM consilio.contentsources WHERE id = this->id;
+      IF(curprovider = "publisher:webhare" AND settings.tag != "")
+        THROW NEW Exception(`A publisher:webhare contentsource may not have a tag`);
+      IF(curprovider = "consilio:custom" AND settings.tag = "")
+        THROW NEW Exception(`A consilio:custom contentsource must have a tag`);
+
+      IF(settings.tag != ""
+        AND RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(settings.tag) AND id != this->id))
+      {
+        THROW NEW Exception(`A contentsource with tag '${settings.tag}' already exists (note: tags must currently be globally unique!)`);
+      }
     }
 
     UPDATE consilio.contentsources SET RECORD settings WHERE id = this->id;
