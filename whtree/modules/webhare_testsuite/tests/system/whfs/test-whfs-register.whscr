@@ -15,14 +15,14 @@ MACRO TestRegister()
   RECORD ARRAY slots := GetAllWHFSRegisterSlots();
   TestEq([[ title := "webhare_testsuite:module.testsite.title"
           , description := "webhare_testsuite:module.testsite.description"
-          , initialvalue := "site::webhare testsuite site"
+          , initialvalue := "site::webhare_testsuite.testsite"
           , isorphan := FALSE
           ]
          ], SELECT title, description, initialvalue, isorphan FROM slots WHERE name="webhare_testsuite:testsite");
 
   TestEq([[ title := ":Test Slot"
           , description := ":Test Description"
-          , initialvalue := "whfs::/webhare_testsuite.testfolder/testslot"
+          , initialvalue := "whfs::/webhare-tests/webhare_testsuite.testfolder/testslot"
           , isorphan := FALSE
           ]
          ], SELECT title, description, initialvalue, isorphan FROM slots WHERE name="webhare_testsuite:testslot");
@@ -59,7 +59,7 @@ MACRO TestRegister()
 
   TestEq([[ title := ":Test Slot"
           , description := ":Test Description"
-          , initialvalue := "whfs::/webhare_testsuite.testfolder/testslot"
+          , initialvalue := "whfs::/webhare-tests/webhare_testsuite.testfolder/testslot"
           , currentvalue := testslotfolder2->id
           , isorphan := FALSE
           ]

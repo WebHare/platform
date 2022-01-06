@@ -11,16 +11,16 @@ LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 
 PUBLIC OBJECT FUNCTION OpenTestsuiteSite()
 {
-  RETURN OpenSiteByName("WebHare testsuite site");
+  RETURN OpenSiteByName("webhare_testsuite.testsite");
 }
 PUBLIC OBJECT FUNCTION GetTestsuiteTempFolder()
 {
-  RETURN OpenSiteByName("WebHare testsuite site")->OpenByPath("tmp");
+  RETURN OpenSiteByName("webhare_testsuite.testsite")->OpenByPath("tmp");
 }
 
 PUBLIC OBJECT FUNCTION OpenTestsuiteAltSite()
 {
-  RETURN OpenSiteByName("WebHare testsuite site - alt host");
+  RETURN OpenSiteByName("webhare_testsuite.althost");
 }
 
 PUBLIC MACRO EnsureUserMgmtStateClean()

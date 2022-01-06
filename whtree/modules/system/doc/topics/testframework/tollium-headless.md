@@ -110,7 +110,7 @@ If an action triggers a new application, you can open this new app using %TTLaun
 
 ```harescript
 // Open publisher
-AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ] ]));
+AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ] ]));
 
 // Select and 'double click' file
 TT("filelist")->selection := TT("filelist")->rows[0];

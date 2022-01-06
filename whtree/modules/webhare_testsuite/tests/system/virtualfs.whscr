@@ -130,7 +130,6 @@ MACRO GenericTests(OBJECT vfs, STRING basepath)
 
   FOREVERY(STRING tok FROM Tokenize(Substring(basepath,1,Length(basepath)-2),"/"))
   {
-//    Print(pathsofar||'\n');
     TestEq(TRUE, vfs->IsValidDirectory(pathsofar));
 
     entries := vfs->GetDirectoryListing(pathsofar);
@@ -206,7 +205,7 @@ MACRO GenericTests(OBJECT vfs, STRING basepath)
   TestEq(0, Length(entries));
 }
 
-MACRO PublisherTests(STRING asuser, STRING basedir)
+MACRO PublisherTests(STRING asuser, STRING basedir, STRING visiblebasedir)
 {
   OBJECT vfs;
   RECORD ARRAY entries;
@@ -215,12 +214,12 @@ MACRO PublisherTests(STRING asuser, STRING basedir)
   vfs := OpenVirtualFS();
   testfw->SetTestUser(asuser);
 
-  GenericTests(vfs, "/publisher" || basedir);
+  GenericTests(vfs, "/publisher" || visiblebasedir);
 
   OBJECT firstfolder := OpenWHFSObjectByPath(basedir);
 
   //Create a file in the testfolder
-  STRING vfsbase := "/publisher" || basedir;
+  STRING vfsbase := "/publisher" || visiblebasedir;
   vfs->PutFile(vfsbase || "test.txt", StringToBlob("Dit is een test"), FALSE);
 
   OBJECT testtxt := firstfolder->OpenByName("test.txt");
@@ -293,7 +292,7 @@ MACRO PublisherTestsAsSysop()
   testfw->SetTestUser("sysop");
   OBJECT testsite := testfw->GetTestSite();
 
-  PublisherTests("sysop", testsite->rootobject->whfspath);
+  PublisherTests("sysop", testsite->rootobject->whfspath, testsite->rootobject->whfspath);
 
   testfw->BeginWork();
   DELETE FROM system.fs_objects WHERE parent = testsite->rootobject->id;
@@ -310,7 +309,7 @@ MACRO PublisherTestsAsMarge()
   testfw->GetUserObject("marge")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("marge"), testdir->id, FALSE, TRUE);
   testfw->CommitWork();
 
-  PublisherTests("marge", testdir->whfspath);
+  PublisherTests("marge", testdir->whfspath, Substring(testdir->whfspath, Length("/webhare-tests")));
 
   /*testfw->BeginWork();
   testsite->rootobject->DeleteSelf();
@@ -498,7 +497,7 @@ MACRO TestMargeThroughWebdav()
   STRING tryopenpath := Tokenize(subtestpath||"/test2.txt","publisher/")[1];
   IF(testfw->debug)
     Print("try open path: " || subtestpath || "\n");
-  OBJECT testtxt := OpenWHFSObjectByPath("/"||tryopenpath);
+  OBJECT testtxt := OpenWHFSObjectByPath("/webhare-tests/"||tryopenpath);
   TestEq(TRUE, ObjectExists(testtxt));
   TestEq(TRUE, testtxt->publish);
   TestEQ(testfw->GetUserAuthObjectId("marge"), (SELECT AS INTEGER modifiedby FROM system.fs_objects WHERE id = testtxt->id)); //make sure WHFS figured out who we are

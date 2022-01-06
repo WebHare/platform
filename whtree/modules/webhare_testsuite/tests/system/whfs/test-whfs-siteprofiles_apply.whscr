@@ -37,7 +37,7 @@ MACRO TestBeforeSite()
   testfw->CommitWork();
 
   TestEq(0, siteroot2->parentsite);
-  TestEq('/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2->whfspath);
+  TestEq('/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2->whfspath);
   TestEq("applytest-megaglobal,applytest-whfspath", GetMyCustomNodes(siteroot2->id));
   TestEq("intercept-whfspath,intercept-megaglobal", GetMyIntercepts(siteroot2->id));
 
@@ -56,7 +56,7 @@ MACRO TestRules()
   testfw->BeginWork();
 
   OBJECT applytest1 := GetTestsuiteTempFolder()->CreateFolder([name:="applytest1"]);
-  TestEq("/WebHare testsuite site/tmp/applytest1/", applytest1->whfspath);
+  TestEq("/webhare-tests/webhare_testsuite.testsite/tmp/applytest1/", applytest1->whfspath);
   TestEq("applytest-megaglobal,applytest-whfsregex,pathmask-applytest1,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
 
   applytest1->UpdateMetadata([typens:="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder"]);

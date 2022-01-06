@@ -33,7 +33,7 @@ OBJECT ASYNC FUNCTION PublisherNewFileProperties()
 
   OBJECT testfolder, testfile;
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ] ]));
 
   // Open the new file screen
   rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
@@ -215,7 +215,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
 {
   OBJECT policy := GetVersioningPolicyForSite(testfw->GetTestSite()->id);
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // ------
   // Test: properties should be edited in draft (so if no draft is present, one should be created at submit-time)
@@ -592,7 +592,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
 
 OBJECT ASYNC FUNCTION PublisherVersionedFolderProperties()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // ------
   // Test: folders with versioned content (recursive) can't be moved (via move to...)
@@ -741,7 +741,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFolderProperties()
 
 OBJECT ASYNC FUNCTION PublisherNewObject()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // Open the new folder screen
   OBJECT webdesign_dynfolder1 := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfolder");
@@ -783,7 +783,7 @@ OBJECT ASYNC FUNCTION PublisherNewObject()
 
 OBJECT ASYNC FUNCTION PublisherWebsiteSettings()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // Open site properties screen
   AWAIT ExpectScreenChange(+1, PTR TT("siteproperties")->ProcessInboundMessage("execute", [ rule := 0 ])); // rule 0: folder tree
@@ -810,7 +810,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
   STRING answer;
   FUNCTION PTR executemsg;
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   OBJECT testsite2 := testfw->GetTestSite("webhare_testsuite.site2");
 
@@ -2172,7 +2172,7 @@ OBJECT ASYNC FUNCTION PublisherLimitedRightsActions()
 OBJECT ASYNC FUNCTION PublisherUpload()
 {
   testfw->SetTestUser("sysop");
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // ------
   // Test: uploaded file should not be published

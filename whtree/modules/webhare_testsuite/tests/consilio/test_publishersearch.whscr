@@ -142,7 +142,7 @@ MACRO PublisherSearchTest()
   TestEq("file", resultobj.whfsobject);
   TestEq(testroot->id, resultobj.whfsparent);
   TestEq(file_5->whfspath, resultobj.whfspath);
-  TestEq(`${testroot->parentobject->parent} ${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
+  TestEq(`${whconstant_whfsid_webhare_tests} ${testroot->parentobject->parent} ${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEq(richdoctype->id, resultobj.whfstype);

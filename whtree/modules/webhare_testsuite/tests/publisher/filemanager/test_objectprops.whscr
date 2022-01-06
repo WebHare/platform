@@ -54,7 +54,7 @@ ASYNC MACRO ObjectProps()
 
   AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
   TT("textcell")->value := "New row";
-  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/WebHare testsuite site/index.rtd";
+  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
   TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
 
   TT("_whfscell")->value := staticfile;

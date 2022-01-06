@@ -405,7 +405,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
         CONTINUE;
 
       RECORD validationconfig := GetModuleValidationConfig(mod);
-      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "WebHare testsuite site", FALSE, FALSE, validationconfig);
+      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "", FALSE, FALSE, validationconfig);
     }
 
     RETURN tests;

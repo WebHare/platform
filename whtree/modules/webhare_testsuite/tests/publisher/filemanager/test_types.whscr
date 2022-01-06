@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 // https://webhare.moe.sf.webhare.nl/?app=publisher(webhare%20testsuite%20site/tmp)/newitem
 ASYNC MACRO TestNewItem()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "WebHare testsuite site/tmp"] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testsite/tmp"] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("newitem"));
 
   //newitem currently assumes you're creating a file, so that should be preselected

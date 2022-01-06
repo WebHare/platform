@@ -38,7 +38,7 @@ MACRO CheckBreadcrumbs()
   TestEq(2, Length(data[0]."item-list-element"));
   TestEq("ListItem", data[0]."item-list-element"[0]."@type");
   TestEq(OpenTestsuiteSite()->webroot, data[0]."item-list-element"[0]."item");
-  TestEq('WebHare testsuite site', data[0]."item-list-element"[0]."name");
+  TestEq('webhare_testsuite.testsite', data[0]."item-list-element"[0]."name");
   TestEq(2, data[0]."item-list-element"[1].position);
   TestEq('StaticPage', data[0]."item-list-element"[1]."name");
 

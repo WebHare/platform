@@ -18,7 +18,7 @@ test.registerTests(
                                          });
       setupdata = await setup1;
       setup2data = await setup2;
-      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(/webhare testsuite site/tmp)/managefoldersync/add/selectpeer&notifications=0"));
+      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp)/managefoldersync/add/selectpeer&notifications=0"));
       await test.wait("ui");
 
       // Wait for login page to appear
@@ -80,7 +80,7 @@ test.registerTests(
       await test.wait("ui");
       test.clickToddButton("OK");
       await test.wait("ui");
-      test.eq("/WebHare testsuite site/tmp", test.compByName("remotepath").querySelector("input").value);
+      test.eq("/webhare-tests/webhare_testsuite.testsite/tmp", test.compByName("remotepath").querySelector("input").value);
       test.clickToddButton("OK");
     }
 

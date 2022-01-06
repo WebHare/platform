@@ -77,12 +77,12 @@
   </apply>
 
   <apply>
-    <to type="all" whfspathmask="/webhare_testsuite.testfolder/webhare_testsuite.site2" />  <!-- missing / so never matches -->
+    <to type="all" whfspathmask="/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site2" />  <!-- missing / so never matches -->
     <xyz:test data="applytest-nevermatch1" />
   </apply>
 
   <apply>
-    <to type="all" whfspathmask="/webhare_testsuite.testfolder/webhare_testsuite.sit?2/" />
+    <to type="all" whfspathmask="/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.sit?2/" />
     <xyz:test data="applytest-whfspath" />
     <intercept name="whfspath"
                interceptfunction="../tests/system/whfs/data/hooks.whlib#WhfsPathHook"
@@ -91,17 +91,17 @@
   </apply>
 
   <apply>
-    <to type="all" whfspathregex="^/WebHare testsuite site/.*/applytest(0|1)/$" />  <!-- just testing a bit of regex, applytest0 doesn't exist -->
+    <to type="all" whfspathregex="^/webhare-tests/webhare_testsuite.testsite/.*/applytest(0|1)/$" />  <!-- just testing a bit of regex, applytest0 doesn't exist -->
     <xyz:test data="applytest-whfsregex" />
   </apply>
 
   <apply>
-    <to type="folder" pathmask="/tmp/applytest-throughglobal/*" sitemask="WebHare testsuite site" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <to type="folder" pathmask="/tmp/applytest-throughglobal/*" sitemask="webhare_testsuite.testsite" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal" />
   </apply>
 
   <apply>
-    <to type="folder" pathmask="/tmp/showforeigns/" sitemask="WebHare testsuite site" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <to type="folder" pathmask="/tmp/showforeigns/" sitemask="webhare_testsuite.testsite" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <foldersettings visibleforeignfolders="true" />
   </apply>
 

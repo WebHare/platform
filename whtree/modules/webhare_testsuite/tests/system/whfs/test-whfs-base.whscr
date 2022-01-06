@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
@@ -24,16 +25,16 @@ MACRO SimpleTest()
 
   TEstEq(0,firstfolder->highestparent);
   TestEq(DEFAULT INTEGER ARRAY,firstfolder->GetFullTree());
-  TestEq([INTEGER(firstfolder->id)],firstfolder->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests, firstfolder->id],firstfolder->GetWHFSTree());
 
   TestEq(TRUE, ObjectExists(firstfolder));
 
   TestEq(TRUE, firstfolder->isfolder);
-  TestEq(firstfolder->id, OpenWHFSObjectByPath('/' || firstfolder->name)->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/webhare-tests/' || firstfolder->name)->id);
   TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath)->id);
   TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath(firstfolder->whfspath || "bla")));
-  TestEq(firstfolder->id, OpenWHFSObjectByPath('/')->OpenByPath(firstfolder->name)->id);
-  TestEq(firstfolder->id, OpenWHFSObjectByPath('/')->OpenByPath(firstfolder->name,[expect:="any"])->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/webhare-tests')->OpenByPath(firstfolder->name)->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath('/webhare-tests')->OpenByPath(firstfolder->name,[expect:="any"])->id);
 
   OBJECT subfolder := firstfolder->CreateFolder([name:='sub']);
   OBJECT subfolder2 := firstfolder->CreateFolder([name:='sub2']);
@@ -43,9 +44,9 @@ MACRO SimpleTest()
   TestEq(subfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub', [ expect := "any" ])->id);
   TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('..')->id);
   TestEq(subfolder2->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../sub2')->id);
-  TestEq(0, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../..')->id);
+  TestEq(whconstant_whfsid_webhare_tests, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../..')->id);
   TestEq(0, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../../../../../..')->id);
-  TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../../../../../../' || firstfolder->name)->id);
+  TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath || 'sub')->OpenByPath('../../../../../../webhare-tests/' || firstfolder->name)->id);
 
   TestThrowsLike("*mpty path*", PTR OpenWHFSObjectByPath("", [ expect := "any" ]));
   TestThrowsLike("*absolute path*", PTR OpenWHFSObjectByPath(".", [ expect := "any" ]));
@@ -85,7 +86,7 @@ MACRO SimpleTest()
   OBJECT wittyfile := firstfolder->CreateFile([name := "test.witty", data := DEFAULT BLOB]);
   TestEq('http://www.webhare.net/xmlns/publisher/unknownfile', wittyfile->typens);
   TestEq(DEFAULT INTEGER ARRAY,wittyfile->GetFullTree());
-  TestEq([INTEGER(firstfolder->id),wittyfile->id],wittyfile->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests, firstfolder->id,wittyfile->id],wittyfile->GetWHFSTree());
 
   OBJECT root := OpenWHFSRootObject();
   TestEq(TRUE, root->IsParentOf(firstfolder->id));
@@ -207,12 +208,12 @@ MACRO LookupPathTests()
   OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_movetest" ]);
   OBJECT subfolder := testsite->CreateFolder([name := "sub"]);
 
-  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests, testfolderobj->id, testsite->id], testsite->GetWHFSTree());
   TestEq(DEFAULT INTEGER ARRAY, testsite->GetFullTree());
   CreateSiteFromFolder(testsite->id);
 
   testsite := OpenWHFSObject(testsite->id);
-  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests, testfolderobj->id, testsite->id], testsite->GetWHFSTree());
 
   TestEq(testsite->id,  LookupWHFSObject(0, '/' || testsite->whfspath));
   TestEq(testsite->id,  LookupWHFSObject(testsite->id, '/'));
@@ -375,17 +376,17 @@ MACRO MoveTest()
   OBJECT testfolderobj := testfw->GetWHFSTestRoot();
   OBJECT testsite := testfolderobj->CreateFolder([ name := "webhare_testsuite_movetest" ]);
 
-  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests,testfolderobj->id, testsite->id], testsite->GetWHFSTree());
   TestEq(DEFAULT INTEGER ARRAY, testsite->GetFullTree());
   CreateSiteFromFolder(testsite->id);
 
   testsite := OpenWHFSObject(testsite->id);
-  TestEq([INTEGER(testfolderobj->id), testsite->id], testsite->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests,testfolderobj->id, testsite->id], testsite->GetWHFSTree());
   TestEq([INTEGER(testsite->id)], testsite->GetFullTree());
 
   TestEq(testsite->id, OpenWHFSObject(testsite->id)->highestparent);
 
-  TestEq(testsite->id, OpenWHFSObjectByPath("whfs::/webhare_testsuite.testfolder/" || "webhare_testsuite_movetest")->id);
+  TestEq(testsite->id, OpenWHFSObjectByPath("whfs::/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite_movetest")->id);
   TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath("filebyid::" || testsite->id)));
 
   OBJECT imp := NEW ArchiveImporter;
@@ -395,9 +396,9 @@ MACRO MoveTest()
   OBJECT goudvis := testsite->OpenByPath("no_metadata/goudvis.png");
   TestEq(TRUE, ObjectExists(goudvis));
 
-  TestEq(goudvis->id, OpenWHFSObjectByPath("whfs::/webhare_testsuite.testfolder/" || "webhare_testsuite_movetest/no_metadata/goudvis.png")->id);
+  TestEq(goudvis->id, OpenWHFSObjectByPath("whfs::/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite_movetest/no_metadata/goudvis.png")->id);
 
-  TestEq([INTEGER(testfolderobj->id), testsite->id, goudvis->parent, goudvis->id], goudvis->GetWHFSTree());
+  TestEq([whconstant_whfsid_webhare_tests, testfolderobj->id, testsite->id, goudvis->parent, goudvis->id], goudvis->GetWHFSTree());
 
   MarkAsPublished(goudvis->id, FALSE);
   testfw->CommitWork();

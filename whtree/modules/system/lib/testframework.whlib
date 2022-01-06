@@ -1556,7 +1556,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         OpenWHFSObject(id)->RecycleSelf();
     }
 
-    OBJECT testsite := OpenSiteByName("WebHare testsuite site"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
+    OBJECT testsite := OpenSiteByName("webhare_testsuite.testsite"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
     IF(ObjectExists(testsite))
     {
       OBJECT tmpfolder := testsite->OpenByPath("tmp");
@@ -1574,21 +1574,21 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     GetPrimary()->BeginWork();
     //recreate testfolders... if needed!
     CONSTANT STRING ARRAY testfolders := ["webhare_testsuite.testfolder","webhare_testsuite.testfolder2"];
-    RECORD ARRAY existingroots := SELECT id, name, parentsite
+    RECORD ARRAY existingroots := SELECT id, name, parent, parentsite
                                     FROM system.fs_objects
-                                   WHERE parent = 0
+                                   WHERE parent IN [0, whconstant_whfsid_webhare_tests]
                                          AND name IN testfolders;
 
     FOREVERY(STRING folder FROM testfolders)
     {
       RECORD match := SELECT * FROM existingroots WHERE name = folder;
-      IF(RecordExists(match) AND match.parentsite = 0)
+      IF(RecordExists(match) AND match.parentsite = 0 AND match.parent = whconstant_whfsid_webhare_tests)
         CONTINUE; //clean for reuse
 
       IF(RecordExists(match))
         OpenWHFSObject(match.id)->RecycleSelf();
 
-      OpenWHFSRootObject()->CreateFolder([name := folder,  modificationdate := MakeDate(2001,1,1)]);
+      EnsureWHFSTestRoot()->CreateFolder([name := folder,  modificationdate := MakeDate(2001,1,1)]);
     }
     GetPrimary()->CommitWork();
   }
@@ -1784,12 +1784,12 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC OBJECT FUNCTION GetWHFSTestRoot()
   {
-    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder");
+    RETURN OpenWHFSObjectByPath("/webhare-tests/webhare_testsuite.testfolder");
   }
 
   PUBLIC OBJECT FUNCTION GetWHFSTestRoot2()
   {
-    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder2");
+    RETURN OpenWHFSObjectByPath("/webhare-tests/webhare_testsuite.testfolder2");
   }
 
   PUBLIC OBJECT FUNCTION GetWRDSchema(BOOLEAN forcereload DEFAULTSTO FALSE)

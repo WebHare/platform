@@ -28,7 +28,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
 
   OBJECT testfolder, testfile;
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   // ------
   // Test: create, delete and restore a versioned file

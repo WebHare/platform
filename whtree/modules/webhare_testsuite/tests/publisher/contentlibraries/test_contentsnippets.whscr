@@ -167,7 +167,7 @@ ASYNC MACRO TestModifySnippets()
 
 ASYNC MACRO TestManageSnippets()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/snippets" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare-tests/webhare_testsuite.testsite/tmp/snippets" ]]));
   TestEq(2, Length(TT("filelist")->rows));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
