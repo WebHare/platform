@@ -2378,6 +2378,35 @@ PUBLIC RECORD FUNCTION ExtractWebdesignRenderingSummary(OBJECT htmldoc)
   RETURN DecodeJSON(whconfig->textcontent);
 }
 
+/** Get/ensure the WHFS test root (/webhare-tests/)
+    @return WHFS test root
+*/
+OBJECT cached_whfstestroot;
+PUBLIC OBJECT FUNCTION EnsureWHFSTestRoot()
+{
+  IF(ObjectExists(cached_whfstestroot))
+    RETURN cached_whfstestroot;
+
+  cached_whfstestroot := OpenWHFSObject(whconstant_whfsid_webhare_tests);
+  IF(NOT ObjectExists(cached_whfstestroot))
+  {
+    DATETIME now := GetCurrentDatetime();
+    INSERT [ id := whconstant_whfsid_webhare_tests, name := "webhare-tests", isfolder := TRUE, creationdate := now, modificationdate := now ] INTO system.fs_objects;
+    cached_whfstestroot := OpenWHFSObject(whconstant_whfsid_webhare_tests);
+  }
+  ELSE
+  {
+    IF(cached_whfstestroot->name != "webhare-tests" OR cached_whfstestroot->parent != 0) //we don't accept the folder outside the root so whfspaths are always known
+      cached_whfstestroot->MoveTo(OpenWHFSRootObject(), "webhare-tests");
+
+    IF(cached_whfstestroot->type != 0)
+      cached_whfstestroot->UpdateMetadata([type := 0]);
+  }
+
+  RETURN cached_whfstestroot;
+}
+
+
 /** Setup test output for a site
     @param site Our testsite
     @param subfolder Subfolder to use. Must be either of the form <testingmodule> or <testingmodule>.<subfolder> */

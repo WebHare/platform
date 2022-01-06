@@ -26,11 +26,14 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_publicdrafts := 15;
 //Folder id for webhare-private/system/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private_system := 19;
 
+//Folder id for webhare-private/system/registerslots
+PUBLIC CONSTANT INTEGER whconstant_whfsid_registerslots := 20;
+
 //Folder id for webhare-private/system/rootsettings - used to store properties associated wtih the WebHare Publisher root (id 0)
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private_rootsettings := 21;
 
-//Folder id for webhare-private/system/registerslots
-PUBLIC CONSTANT INTEGER whconstant_whfsid_registerslots := 20;
+//Folder id for webhare-tests (created by testframework on first run)
+PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 
 //Folder/site id of the Repository site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_repository := 1;
