@@ -1879,11 +1879,7 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
   INTEGER ARRAY checkauthobjects := ExpandAuthobjectsWithRoleGrants([ INTEGER(user->authobjectid) ], TRUE);
   authobjs := FindObjectsWithRights(rightdatas[0], rightids, checkauthobjects, FALSE, authobjs, FALSE);
 
-  // Mix in extra roots
-  authobjs :=
-      SELECT AS INTEGER ARRAY DISTINCT id
-        FROM ToRecordArray(authobjs, "ID")
-    ORDER BY id;
+  authobjs := GetSortedSet(authobjs);
 
   FOR (INTEGER i := 0, e := LENGTH(result); i < e; i := i + 1)
   {
