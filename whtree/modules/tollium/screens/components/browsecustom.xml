@@ -2,9 +2,6 @@
          lib="components/browsecustom.whlib"
          gid="components.browsecustom">
 
-  <messageboxes>
-  </messageboxes>
-
   <fragment name="browsecustom"
             gid=".browsecustom"
             >
