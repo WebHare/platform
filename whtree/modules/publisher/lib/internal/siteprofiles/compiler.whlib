@@ -57,7 +57,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                     , applies              := RECORD[]
                     , globalsettings       := RECORD[]
                     , webrules             := RECORD[]
-                    , addtoindices         := RECORD[]
                     , addtocatalogs        := RECORD[]
                     , prebuilttag_typeid   := 0
                     , prebuilttag_memberid := 0
@@ -537,7 +536,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
           }
 
           this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
-          this->result.addtoindices  := this->result.addtoindices  CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtoindices;
           this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
         }
       }
