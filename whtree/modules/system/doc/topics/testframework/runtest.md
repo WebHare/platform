@@ -84,7 +84,6 @@ docker exec -ti webhare-test /bin/bash
 
 Running coverage tests for a single test
 ```bash
-export WHBUILD_CI_ARTIFACTS=/tmp/whbuild-ci-artifacts/ # Some tests require the precompiled testsuite
 wh builddocker
 # Run a coverage test, using the local builddocker result (-w local)
 wh testdocker -w local --coverage <testname>

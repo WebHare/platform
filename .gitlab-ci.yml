@@ -29,12 +29,6 @@ builddocker:
     - schedules
   script:
     - whtree/bin/wh builddocker
-  # These artifacts contain the webhare_testsuite_assetpacks.tar.gz
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 week
-    when: always
   interruptible: true
 
 builddocker-scheduled:
@@ -43,12 +37,6 @@ builddocker-scheduled:
     - schedules
   script:
     - whtree/bin/wh builddocker --no-cache
-  # These artifacts contain the webhare_testsuite_assetpacks.tar.gz
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 week
-    when: always
   interruptible: true
 
 testbaselibs:

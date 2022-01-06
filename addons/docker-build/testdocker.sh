@@ -133,12 +133,6 @@ if [ "$TESTPOSTGRESQL" == "1" ]; then
   DOCKERARGS="$DOCKERARGS -e WEBHARE_INITIALDB=postgresql"
 fi
 
-if [ -n "$WHBUILD_CI_ARTIFACTS" ]; then
-  if [ -f "$WHBUILD_CI_ARTIFACTS/webhare_testsuite_assetpacks.tar.gz" ]; then
-    DOCKERARGS="$DOCKERARGS -v $WHBUILD_CI_ARTIFACTS:/build/"
-  fi
-fi
-
 if [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
@@ -541,21 +535,14 @@ if [ -n "$TESTFW_TWOHARES" ]; then
 fi
 
 
-# newly added in 4.31, until we're all on 4.31....
-WAITFOR_TIMEOUT=""
-if $SUDO docker exec $TESTENV_CONTAINER1 test -f /opt/wh/whtree/modules/system/scripts/whcommands/waitfor.sh ; then
-  echo "`date` Waitfor timeout is supported by this WebHare"
-  WAITFOR_TIMEOUT="--timeout 600"
-fi
-
 echo "`date` Wait for poststartdone container1"
-if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor $WAITFOR_TIMEOUT poststartdone ; then
+if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
   testfail "Wait for poststartdone container1 failed"
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   echo "`date` Wait for poststartdone container2"
-  if ! $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor $WAITFOR_TIMEOUT poststartdone ; then
+  if ! $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor --timeout 600 poststartdone ; then
     testfail "Wait for poststartdone container2 failed"
   fi
 fi
