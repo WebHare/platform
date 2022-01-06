@@ -484,8 +484,8 @@ STATIC OBJECTTYPE AssetPackController
   MACRO MarkBundleCompileNeeded(RECORD bundle, STRING recompilereason, BOOLEAN fullrecompile, BOOLEAN forcecompile)
   {
     IF(debug)
-      Print("Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || " recompile because " || recompilereason || "\n");
-    LogDebug("publisher:assetpackcontrol", "Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || " recompile because " || recompilereason);
+      Print("Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || "recompile because " || recompilereason || "\n");
+    LogDebug("publisher:assetpackcontrol", "Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || "recompile because " || recompilereason);
 
     UPDATE this->bundles
        SET requirecompile :=  TRUE
@@ -1579,7 +1579,7 @@ OBJECTTYPE AssetPackControl
     IF(RecordExists(bundleinfo))
     {
       bundleid := bundleinfo.id;
-      bundlesettings := ParseAssetPackSettings(bundleinfo.settings);
+      bundlesettings := ParseAssetPackSettings(hash, bundleinfo.settings);
     }
     ELSE
     {
@@ -1589,7 +1589,7 @@ OBJECTTYPE AssetPackControl
       IF(RecordExists(bundleinfo))
       {
         bundleid := bundleinfo.id;
-        bundlesettings := ParseAssetPackSettings(bundleinfo.settings);
+        bundlesettings := ParseAssetPackSettings(hash, bundleinfo.settings);
       }
       ELSE
       {
@@ -1599,7 +1599,7 @@ OBJECTTYPE AssetPackControl
         INSERT INTO system_internal.assetpacks(id, created, entrypoint, outputtag, bundleconfig)
                VALUES(bundleid, now, requestedbundle.basedependency, hash, EncodeHSON(requestedbundle.bundleconfig));
 
-        bundlesettings := ParseAssetPackSettings(""); //initials settings
+        bundlesettings := ParseAssetPackSettings(hash, ""); //initials settings
       }
 
       GetPrimary()->CommitWork();
