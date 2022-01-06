@@ -805,7 +805,7 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateforma
     }
     CASE "weekday"
     {
-      datestr := "YYYY" || sep || "'W'ww" || sep || "ee";
+      datestr := "YYYY" || sep || "'W'ww" || sep || "e";
     }
     CASE "yearday"
     {
@@ -862,7 +862,9 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateforma
   IF (datestr = "" AND timestr = "")
     RETURN "";
 
-  RETURN LocalizeDatetime(datestr || (datestr != "" AND timestr != "" ? "'T'" : "") || timestr, whattime, "en", timezone, TRUE);
+  // ISO 8601 specifies that the weekday value 1 should be used for Monday, so we'll use the 'nl' locale, which has Monday as
+  // the first day of the week (the actual language doesn't matter, as no language-specific elements are used in this format)
+  RETURN LocalizeDatetime(datestr || (datestr != "" AND timestr != "" ? "'T'" : "") || timestr, whattime, "nl", timezone, TRUE);
 }
 
 /** @short Get the UNIX timestamp

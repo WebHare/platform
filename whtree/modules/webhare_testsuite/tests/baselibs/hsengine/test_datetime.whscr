@@ -578,8 +578,8 @@ MACRO ISOTimestampTest()
   TestEq("2001-01-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "day", "empty", "", TRUE));
   TestEq("2001W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", FALSE));
   TestEq("2001-W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", TRUE));
-  TestEq("2001W0102", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", FALSE));
-  TestEq("2001-W01-02", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", TRUE));
+  TestEq("2001W011", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", FALSE));
+  TestEq("2001-W01-1", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", TRUE));
   TestEq("2001001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", FALSE));
   TestEq("2001-001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", TRUE));
 

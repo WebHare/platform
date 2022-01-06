@@ -94,8 +94,9 @@ PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
 
              | Code | Effect |
              | :--- | :---- |
-             | `E` | Abbreviated weekday name |
-             | `EEEE` | Full weekday name |
+             | `eee` | Abbreviated weekday name |
+             | `eeee` | Full weekday name |
+             | `e` | One-digit day of week number, first day of the week is locale specific (1 - 7) |
              | `MMM` | Abbreviated month name |
              | `MMMM` | Full month name |
              | `dd` | Two-digit day of month (01 - 31) |
@@ -116,7 +117,7 @@ PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
              | `ss` | Two-digit second (00 - 59) |
              | `s` | Two-digit second, remove any leading zeros |
              | `ww` | Two-digit week number (00 - 52) |
-             | `w` | One-digit week number (0 - 52) |
+             | `w` | Two-digit week number, remove any leading zeroes (0 - 52) |
              | `yy` | Two-digit year without century (00 to 99) |
              | `y` | Year with century |
              | `z` | Time zone |
@@ -126,8 +127,8 @@ PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
              When specifying an hour display, the locale may change the display from 12 to 24 hour notation or vice versa if
              combined with other speficiers (e.g. 'z').
 
-             For a full description of the formatting string, see http://userguide.icu-project.org/formatparse/datetime or
-             http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
+             For a full description of the formatting string, see
+             https://unicode-org.github.io/icu/userguide/format_parse/datetime/#datetime-format-syntax
     @param   formatstring Specifies the way the DATETIME value should be formatted
     @param   date         The DATETIME value to format
     @param   locale       The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
