@@ -47,7 +47,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
         , havestatus := FALSE
         , compatibility := ""
         ], [ rightouterjoin := TRUE
-           , leftouterjoin := [ id := 0 ]
+           , leftouterjoin := [ id := 0, settings := "" ]
            ]);
 
     ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(bundles.settings)
