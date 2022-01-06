@@ -4,6 +4,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
@@ -230,6 +231,12 @@ IF(ReadRegistryKey("system.global.installationid") = "")
   WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
 IF(ReadRegistryKey("system.global.servertype") = "")
   WriteRegistryKey("system.global.servertype", IsModuleInstalled("webhare_testsuite") ? "development" : "test");
+
+IF(ReadRegistryKey("system.services.smtp.mailfrom") = "" AND GetEnvironmentVariable("WEBHARE_CI") != "") //running under CI but still no mailfrom?
+{
+  //remove once https://gitlab.webhare.com/webharebv/codekloppers/-/issues/241 is fully dealt with
+  WriteRegistryKey("system.services.smtp.mailfrom", "tempsender@webhare.net");
+}
 
 IF(isfreshwebhare)
 {
