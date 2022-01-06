@@ -32,6 +32,11 @@ MACRO TestPreview()
   OBJECT staticpreviewpage := OpenTestsuiteSite()->OpenByPath("testpages/wrdauthtest-static");
   STRING previewlink := CreatePreviewLink(MAX_DATETIME, "", staticpreviewpage->id, staticpreviewpage->id);
   TestEq(TRUE, testfw->browser->GotoWebPage(previewlink)); //make sure no internal error
+
+  OBJECT contentlinkpage := OpenTestsuiteSite()->OpenByPath("testpages/staticpage-contentlink");
+  previewlink := CreatePreviewLink(MAX_DATETIME, "", contentlinkpage->id, contentlinkpage->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+  TestEq("This is StaticPage in TestPages", testfw->browser->QS("#content")->textcontent);
 }
 
 MACRO LookupTest()

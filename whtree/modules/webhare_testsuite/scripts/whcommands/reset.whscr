@@ -221,6 +221,7 @@ OBJECT foldertemplatetest := testpages->CreateFolder( [ name := "foldertemplate"
 foldertemplatetest->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
 OBJECT foldertemplatetestindex := foldertemplatetest->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ], [ setindex := TRUE ]);
 
+
 OBJECT foldertemplatetestsub := foldertemplatetest->CreateFolder([name := "sub"]);
 foldertemplatetestsub->CreateFile( [ name := "staticpage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 foldertemplatetestsub->CreateFile( [ name := "internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := foldertemplatetestindex->id, publish := TRUE ]);
@@ -246,6 +247,9 @@ FOREVERY(STRING basename FROM ["wrdauthtest","wrdauthtest-domainless"])
 }
 
 OBJECT staticpage := testpages->CreateFile( [ name := "StaticPage", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+staticpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                        [ data := [ htmltext := StringToBlob('<html><body><p class="normal">This is StaticPage in TestPages</p></body></html>') ]
+                        ]);
 testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 

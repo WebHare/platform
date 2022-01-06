@@ -1,20 +1,26 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::witty.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
-LOADLIB "mod::wrd/lib/auth.whlib";
 
 OpenPrimary();
 
@@ -49,6 +55,121 @@ IF(GetWebVariable("__preview_pdf")="1" AND GetDtapStage()="development") //exper
                                                  ]) );
 }
 
+MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
+{
+  OBJECT sourceobj := OpenWHFSObject(source);
+
+  // Determine the mimetype by extension of the original source file (openobj is probably a draft, with its id as name)
+  STRING extension := SubString(ToLowercase(GetExtensionFromPath(sourceobj->fullpath)), 1);
+  STRING mimetype :=
+      SELECT AS STRING COLUMN mimetype
+        FROM system.mimetypes
+       WHERE COLUMN extension = VAR extension;
+
+  //When explicitly previewing, disable mimetypes which we know trigger downloads (eg chrome)
+  IF(ToUppercase(Tokenize(mimetype,';')[0]) IN ["TEXT/CALENDAR"])
+    mimetype := "text/plain";
+
+  IF(usepublish)
+  {
+    RECORD fp := RunFilePublish(sourceobj->id, FALSE);
+    IF(fp.success)
+    {
+      IF (mimetype != "")
+        AddHTTPHeader("Content-type", mimetype, FALSE);
+      SendWebFile(fp.files[0].data);
+    }
+    ELSE IF(Length(fp.hserrors) > 0)
+      GenerateHTTPErrorPage(500, [ allerrors := fp.hserrors, groupid := fp.hsgroupid ]);
+    ELSE
+      ABORT(fp); //what to do? we'll sort it out when we see the cases
+  }
+  ELSE
+  {
+    IF (mimetype != "")
+      AddHTTPHeader("Content-type", mimetype, FALSE);
+    SendWebFile(openobj->data);
+  }
+}
+
+MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ instanceid := 0 ], options);
+
+  OBJECT applytester := GetApplyTesterForObject(source);
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("Unable to locate the webdesign for #" || source);
+
+  __ValidateWebdesign(applytester);
+
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF(NOT RecordExists(webdesigninfo))
+  {
+    Print(EncodeHTML("The live preview is only available for sites using <webdesign>"));
+    RETURN;
+  }
+
+  OBJECT contentobject := openobj;
+  IF(openobj->type = whconstant_whfstype_contentlink) //content link
+  {
+    contentobject := OpenWHFSObject(openobj->filelink);
+    IF(NOT ObjectExists(contentobject))
+    {
+      Print(EncodeHTML("The contentlink target does not exist"));
+      RETURN;
+    }
+  }
+
+  // Check if the file type needs a template (if not, send it directly)
+  OBJECT contentfiletype := OpenWHFSTypeById(contentobject->type);
+  IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
+  {
+    RECORD usetempl := applytester->GetUsePublishTemplate();
+    SendFileDirect(openobj, source, NOT usetempl.isdefault );
+    RETURN;
+  }
+
+  RECORD sourceinfo := GetSystemRedirectInfo(source);
+  IF(sourceinfo.success)
+  {
+    RunThePage(source, sourceinfo, contentobject->id);
+    RETURN;
+  }
+
+  __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
+
+  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, contentobject);
+  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, contentobject, pageobject, renderwidgetpreview);
+
+  IF (renderwidgetpreview)
+  {
+    RECORD instancedata;
+    IF (options.instanceid != 0)
+    {
+      instancedata := GetWHFSInstanceDirect(options.instanceid);
+      instancedata.whfsfileid := openobj->id;
+    }
+    ELSE
+    {
+      OBJECT type := OpenWHFSTypeById(openobj->type);
+      instancedata := type->GetInstanceData(openobj->id);
+      INSERT CELL whfstype := type->namespace INTO instancedata;
+      INSERT CELL whfsfileid := openobj->id INTO instancedata;
+    }
+
+    // Lookup RTD type
+    RECORD rtdtypesettings := applytester->GetRTDTypeSettings();
+    STRING rtdtype := RecordExists(rtdtypesettings) ? rtdtypesettings.rtdtype : "";
+
+    IF (rtdtype = "")
+      THROW NEW Exception("An RTD type is required to preview a widget, please set an <rtddoc rtdtype=...>");
+
+    webdesign->RunAsWidgetPreview(PTR webdesign->RenderWidgetInstance(instancedata));
+    RETURN;
+  }
+
+  webdesign->RunPage();
+}
 
 STRING baseurl := Tokenize(Tokenize(GetRequestURL(), '/')[5],'?')[0];
 OBJECT draftobj;
@@ -57,63 +178,46 @@ INTEGER source;
 BOOLEAN renderwidgetpreview;
 RECORD options;
 
-IF(DecodeURL(baseurl) LIKE "@*")
-{
-  //It's an embedded URL
-  OBJECT currentauth := GetWRDAuthPlugin(GetRequestURL());
-  IF(NOT ObjectExists(currentauth))
-    THROW NEW Exception("No authentication system activated on the current URL");
+RECORD data := DecryptForthisServer("publisher:preview",baseurl);
+draftobj := OpenWHFSDraft(data.id);
+openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
 
-  STRING url := Substring(DecodeURL(baseurl),1);
-  RECORD lookup := LookupPublisherURL(url);
-  IF(lookup.site=0)
-    THROW NEW Exception("Requested URL '" || url || "' is not hosted on this server");
-
-  openobj := OpenWHFSObject(lookup.file ?? lookup.folder);
-  source := lookup.file ?? lookup.folder;
-}
+INTEGER designid;
+IF(Objectexists(draftobj))
+  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
+ELSE IF(Objectexists(openobj))
+  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
 ELSE
+  designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
+
+source := ObjectExists(draftobj) ? draftobj->source : data.id;
+
+IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
 {
-  RECORD data := DecryptForthisServer("publisher:preview",baseurl);
-  draftobj := OpenWHFSDraft(data.id);
-  openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(data.id);
-
-  INTEGER designid;
-  IF(Objectexists(draftobj))
-    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
-  ELSE IF(Objectexists(openobj))
-    designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR data.id;
-  ELSE
-    designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
-
-  source := ObjectExists(draftobj) ? draftobj->source : data.id;
-
-  IF(NOT ObjectExists(openobj) OR data.v < GetCurrentDatetime() OR data.c != openobj->creationdate)
-  {
-    OBJECT page := NEW PreviewPage();
-    page->data.component := "previewexpired";
-    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-    page->RunPageForWHFSId(designid);
-    RETURN;
-  }
-
-  STRING pwd := TrimWhitespace(GetWebVariable("password"));
-  IF(data.p != "" AND pwd != data.p)
-  {
-    OBJECT page := NEW PreviewPage();
-    page->data.component := "previewpassword";
-    page->data.incorrectpassword := pwd != "";
-    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-    page->RunPageForWHFSId(designid);
-    RETURN;
-  }
-
-  renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
-  IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
-    options := [ instanceid := data.i ];
+  OBJECT page := NEW PreviewPage();
+  page->data.component := "previewexpired";
+  //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+  page->RunPageForWHFSId(designid);
+  RETURN;
 }
+
+STRING pwd := TrimWhitespace(GetWebVariable("password"));
+IF(data.p != "" AND pwd != data.p)
+{
+  OBJECT page := NEW PreviewPage();
+  page->data.component := "previewpassword";
+  page->data.incorrectpassword := pwd != "";
+  //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+  page->RunPageForWHFSId(designid);
+  RETURN;
+}
+
+renderwidgetpreview := CellExists(data, "T") AND data.t = "w";
+IF (renderwidgetpreview AND CellExists(data, "I") AND data.i != 0)
+  options := [ instanceid := data.i ];
 
 IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
 
 RunPublisherPreview(openobj, source, renderwidgetpreview, options);
+
