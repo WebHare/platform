@@ -13,16 +13,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC INTEGER ttl_updownsession := 720; //minutes: how long an upload/download session persists (used to be 30, extended as long as RTE/upload fields don't autoextend lifetimes)
 
-PUBLIC INTEGER ARRAY FUNCTION GetExtraUnitRoots(OBJECT user)
-{
-  INTEGER ARRAY extra_roots;
-
-  INTEGER userid := user->id;
-  IF (userid != 0)
-    INSERT GetUnitOfAuthObject(userid) INTO extra_roots AT END;
-
-  RETURN extra_roots;
-}
 
 PUBLIC STRING FUNCTION GetFSObjectTolliumIcon(RECORD obj, RECORD typeinfo)
 {
@@ -45,38 +35,13 @@ PUBLIC RECORD FUNCTION EnrichFSObject(RECORD obj)
               ];
 }
 
-/** Returns whether a specific authobject (and thus the authobjects within)
-    are visible for a specific user
-*/
-PUBLIC BOOLEAN FUNCTION IsAuthObjectVisibleFor(INTEGER authobject, OBJECT rightsobj)
-{
-  IF (rightsobj->HasRightOn("system:browseunits", authobject))
-    RETURN TRUE;
-
-  IF (rightsobj->__rightsobjecttype = 1) // user
-  {
-    INTEGER ARRAY extra_roots := GetExtraUnitRoots(rightsobj);
-    WHILE (TRUE)
-    {
-      IF (authobject IN extra_roots)
-        RETURN TRUE;
-
-      IF (authobject = 0)
-        RETURN FALSE;
-
-      authobject := GetUnitOfAuthObject(authobject);
-    }
-  }
-  RETURN FALSE;
-}
-
 /** Returns the ids of all the units that the user may see, but may not see their parents (or don't have parents)
     @param user User to check
     @return List of ids of all root viewable units
 */
 PUBLIC INTEGER ARRAY FUNCTION GetRootViewableUnits(OBJECT user)
 {
-  RETURN GetRootObjectsForRights([ "system:browseunits" ], user, GetExtraUnitRoots(user));
+  RETURN GetRootObjectsForRights([ "system:browseunits" ], user);
 }
 
 
@@ -124,7 +89,7 @@ PUBLIC OBJECTTYPE UnitObjectTypeDescriber EXTEND ObjectTypeDescriber
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
   {
-    RETURN IsAuthObjectVisibleFor(id, user);
+    RETURN user->HasRightOn("system:browseunits", id);
   }
 >;
 

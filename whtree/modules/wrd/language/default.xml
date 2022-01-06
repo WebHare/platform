@@ -664,7 +664,7 @@
       <text tid="company">Company</text>
       <text tid="contacts">Contacts</text>
       <text tid="default">Default</text>
-      <text tid="downloadmetadata">Download metadata</text>
+      <text tid="downloadmetadata">Update metadata</text>
       <text tid="editconnectedprovider">Edit connected provder</text>
       <text tid="entermetadata">Enter metadata</text>
       <text tid="fieldmetadataurlisrequired">The field 'Metadata URL' is required when downloading metadata.</text>

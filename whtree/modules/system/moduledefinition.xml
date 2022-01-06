@@ -154,9 +154,6 @@
     <dashboardpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />
     <dashboardpanel group="tasks" name="managedtasks" tid="monitor.managedtasks.title" screen="monitor/managedtasks.panel" />
 
-    <dashboardpanel group="other" name="nodemodules" tid="monitor.nodemodules.title" screen="monitor/nodemodules.panel" />
-
-
     <notification name="notifications.whfs.siteprofcompiled" tid="notifications.whfs.siteprofcompiled" descriptiontid="notifications.whfs.siteprofcompiled-desc" />
     <notification name="notifications.whfs.siteproferrors" tid="notifications.whfs.siteproferrors" descriptiontid="notifications.whfs.siteproferrors-desc" defaultenabled="true" />
     <notification name="notifications.webdav.putexception" tid="notifications.webdav.putexception" descriptiontid="notifications.webdav.putexception-desc" defaultenabled="true" />

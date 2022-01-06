@@ -65,7 +65,7 @@ RECORD ARRAY FUNCTION GetStaticUnitTree(OBJECT authapi, OBJECT user)
 */
 RECORD ARRAY FUNCTION GetStaticUnitTreeIterate(INTEGER unitparent, OBJECT user, BOOLEAN manageunit, INTEGER ARRAY root_manageunit_ids, BOOLEAN manageroles, INTEGER ARRAY root_manageroles_ids, RECORD ARRAY allunits)
 {
-  BOOLEAN unbrowsable_root := unitparent = 0 AND NOT MyIsAuthObjectVisibleFor(0, user);
+  BOOLEAN unbrowsable_root := unitparent = 0 AND NOT user->HasRightOn("system:browseunits", 0);
 
   RECORD ARRAY nodes :=
       SELECT rowkey :=          wrd_id

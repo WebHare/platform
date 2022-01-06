@@ -14,53 +14,16 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 PUBLIC OBJECT __usereditcomposition;
 
 
-INTEGER ARRAY FUNCTION MyGetExtraUnitRoots(OBJECT wrduser)
-{
-  IF (wrduser->entityid != 0)
-    RETURN [ INTEGER(wrduser->GetParentUnitId()) ];
-
-  RETURN DEFAULT INTEGER ARRAY;
-}
-
 /** Returns which specific authobjects (and thus the authobjects within)
     are visible for a specific user
 */
 PUBLIC INTEGER ARRAY FUNCTION FilterAuthObjectsVisibleFor(INTEGER ARRAY authobjects, OBJECT wrduser)
 {
-  INTEGER ARRAY extra_roots;
-  IF (wrduser->type = 1) // user
-    extra_roots := MyGetExtraUnitRoots(wrduser);
-
-  RECORD ARRAY paths := GetObjectsPaths([ "system:browseunits" ], wrduser->authobject, authobjects, extra_roots);
+  RECORD ARRAY paths := GetObjectsPaths([ "system:browseunits" ], wrduser->authobject, authobjects);
   RETURN
       SELECT AS INTEGER ARRAY objectid
         FROM paths
        WHERE LENGTH(path) != 0;
-}
-
-/** Returns whether a specific authobject (and thus the authobjects within)
-    are visible for a specific user
-*/
-PUBLIC BOOLEAN FUNCTION MyIsAuthObjectVisibleFor(INTEGER authobject, OBJECT wrduser)
-{
-  IF (wrduser->HasRightOn("system:browseunits", authobject))
-    RETURN TRUE;
-
-  IF (wrduser->type = 1) // user
-  {
-    INTEGER ARRAY extra_roots := MyGetExtraUnitRoots(wrduser);
-    WHILE (TRUE)
-    {
-      IF (authobject IN extra_roots)
-        RETURN TRUE;
-
-      IF (authobject = 0)
-        RETURN FALSE;
-
-      authobject := GetUnitOfAuthObject(authobject);
-    }
-  }
-  RETURN FALSE;
 }
 
 /** Returns the ids of all the units that the user may see, but may not see their parents (or don't have parents)
@@ -69,7 +32,7 @@ PUBLIC BOOLEAN FUNCTION MyIsAuthObjectVisibleFor(INTEGER authobject, OBJECT wrdu
 */
 PUBLIC INTEGER ARRAY FUNCTION GetRootViewableUnitAuthobjects(OBJECT wrduser)
 {
-  RETURN GetRootObjectsForRights([ "system:browseunits" ], wrduser->authobject, MyGetExtraUnitRoots(wrduser));
+  RETURN GetRootObjectsForRights([ "system:browseunits" ], wrduser->authobject);
 }
 
 PUBLIC RECORD ARRAY FUNCTION EnrichWithAuthObjectIds(RECORD ARRAY inrows)
@@ -106,11 +69,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithUnitPath(RECORD ARRAY userlist, OBJECT us
   INTEGER ARRAY no_rights_for;
   INTEGER ARRAY rights_for;
 
-  INTEGER ARRAY extra_roots;
-  IF (user->type = 1)
-    extra_roots := MyGetExtraUnitRoots(user);
-
-  RECORD ARRAY paths := GetObjectsPaths([ "system:browseunits" ], user->authobject, (SELECT AS INTEGER ARRAY authobjectparentid FROM userlist), extra_roots);
+  RECORD ARRAY paths := GetObjectsPaths([ "system:browseunits" ], user->authobject, (SELECT AS INTEGER ARRAY authobjectparentid FROM userlist));
 
   INTEGER ARRAY all_unitids;
   FOREVERY (RECORD path FROM paths)

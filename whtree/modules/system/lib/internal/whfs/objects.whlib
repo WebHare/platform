@@ -798,10 +798,8 @@ OBJECTTYPE WHFSObject
 
     commithandler->ObjectUpdate(this->parentsite, this->pvt_parent, this->pvt_id);
 
-    IF(this->isfolder AND isrename) //TODO wouldn't above code already trigger a repub?
-    {
+    IF(this->isfolder AND isrename AND this->parentsite != 0) //republish when renaming (something inside) a site
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
-    }
 
     RECORD newversion := SELECT * FROM system.fs_objects WHERE id=this->pvt_id;
     AddModifyHistory(now, oldversion, newversion);

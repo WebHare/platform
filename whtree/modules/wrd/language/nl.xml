@@ -664,7 +664,7 @@
       <text tid="company">Bedrijf</text>
       <text tid="contacts">Contactpersonen</text>
       <text tid="default">Standaard</text>
-      <text tid="downloadmetadata">Download metadata</text>
+      <text tid="downloadmetadata">Update metadata</text>
       <text tid="editconnectedprovider">Bewerk verbonden provider</text>
       <text tid="entermetadata">Metadata invoeren</text>
       <text tid="fieldmetadataurlisrequired">Het veld 'Metadata URL' is verplicht bij het downloadeden van metadata.</text>

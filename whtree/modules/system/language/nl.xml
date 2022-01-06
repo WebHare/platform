@@ -220,21 +220,6 @@
     <textgroup gid="managedtasks">   <!-- monitor.managedtasks -->
       <text tid="title">Beheerde taken</text>
     </textgroup>
-    <textgroup gid="nodemodules">   <!-- monitor.nodemodules -->
-      <text tid="title">Node modules</text>
-      <textgroup gid="actions">   <!-- monitor.nodemodules.actions -->
-        <text tid="fetchnewcopy">Haal nieuwe kopie op</text>
-        <text tid="fixmodules">Fixmodules uitvoeren</text>
-        <text tid="link">Link</text>
-        <text tid="prune">Prune</text>
-        <text tid="revealinfinder">Toon in Finder</text>
-        <text tid="unlink">Unlink</text>
-      </textgroup>
-      <textgroup gid="columns">   <!-- monitor.nodemodules.columns -->
-        <text tid="linksto">Linkt naar</text>
-        <text tid="name">Module / node module</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="postgresql">   <!-- monitor.postgresql -->
       <text tid="application_name">Application name</text>
       <text tid="backend_start">Transactiestart</text>
