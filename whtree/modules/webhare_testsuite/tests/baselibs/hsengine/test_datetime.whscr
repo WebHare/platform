@@ -599,6 +599,20 @@ MACRO ISOTimestampTest()
   TestEq("", FormatISO8601DateTime(MAX_DATETIME, "", "", "", FALSE));
   TestEq("", FormatISO8601DateTime(MAX_DATETIME, "", "", "", TRUE));
 
+  // Week 01 is the week with the starting year's first Thursday in it (i.e. the week with 4 January in it)
+  // 2015-12-31: Thursday in week 53 of 2015
+  TestEq("2015-W53-4", FormatISO8601DateTime(MakeDate(2015,12,31), "weekday", "empty", "", TRUE));
+  // 2016-01-01: Friday in week 53 of 2015
+  TestEq("2015-W53-5", FormatISO8601DateTime(MakeDate(2016,1,1), "weekday", "empty", "", TRUE));
+  // 2016-01-03: Sunday in week 53 of 2015
+  TestEq("2015-W53-7", FormatISO8601DateTime(MakeDate(2016,1,3), "weekday", "empty", "", TRUE));
+  // 2016-01-04: Monday in week 1 of 2016
+  TestEq("2016-W01-1", FormatISO8601DateTime(MakeDate(2016,1,4), "weekday", "empty", "", TRUE));
+  // 2015-01-04: Sunday in week 1 of 2015
+  TestEq("2015-W01-7", FormatISO8601DateTime(MakeDate(2015,1,4), "weekday", "empty", "", TRUE));
+  // 2015-12-31: Wednesday in week 1 of 2015
+  TestEq("2015-W01-3", FormatISO8601DateTime(MakeDate(2014,12,31), "weekday", "empty", "", TRUE));
+
   CloseTest("TestDateTime: ISOTimestampTest");
 }
 
