@@ -2424,6 +2424,82 @@ PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
   site->SetPrimaryOutput(backendsite->outputweb, `/testoutput/${subfolder}/`);
 }
 
+/** Setup a test site. It will be created as /webhare-tests/<name> and use WebHare backend:/testoutput/<name>  as output
+    @param sitename Subfolder to use. Must be of the form <testingmodule>.<subfolder> (use xyz.testsite if you have to)
+    @cell(boolean) options.recyclesite If set, recycles the site if it already exists
+    @cell(boolean) options.recyclecontents If set, recycles the contents but not the site itself if it already exists
+    @cell(string) options.webdesign Webdesign the testsite should have
+    @return The site object */
+PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT GetPrimary()->IsWorkOpen())
+    THROW NEW Exception(`EnsureTestSite requires open work`);
+
+  options := ValidateOptions([ recyclesite := FALSE
+                             , recyclecontents := FALSE
+                             , outputweb := 0 //undocumented for now, should externals use it?.. output webserver id to use
+                             , webdesign := ""
+                             ], options);
+
+  IF(NOT IsValidWHFSName(sitename, TRUE) OR ToLowercase(sitename) != sitename OR sitename NOT LIKE "?*.?*")
+    THROW NEW Exception(`Invalid site name name '${sitename}'`);
+
+  STRING modulename := Tokenize(sitename,'.')[0];
+  IF(NOT IsModuleInstalled(modulename))
+    THROW NEW Exception(`No such module '${modulename}'`);
+
+  OBJECT site := OpenSiteByName(sitename);
+
+  IF(ObjectExists(site))
+  {
+    IF(options.recyclesite)
+    {
+      PRINT(`Recreating existing site '${sitename}'\n`);
+      site->rootobject->RecycleSelf();
+      site := DEFAULT OBJECT;
+    }
+    ELSE
+    {
+      IF(options.recyclecontents)
+      {
+        PRINT(`Throwing away contents of site '${sitename}'\n`);
+        FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = site->id)
+          OpenWHFSObject(subobj.id)->RecycleSelf();
+      }
+
+      IF(site->rootobject->parent != whconstant_whfsid_webhare_tests)
+        site->rootobject->MoveTo(EnsureWHFSTestRoot(), "");
+    }
+  }
+
+  IF(NOT ObjectExists(site))
+  {
+    OBJECT root := EnsureWHFSTestRoot()->EnsureFolder([ name := sitename ]);
+    site := CreateSiteFromFolder(root->id);
+  }
+
+  IF(site->webdesign != options.webdesign)
+    site->UpdateSiteMetadata([ webdesign := options.webdesign ]);
+
+  IF(options.outputweb = 0)
+  {
+    OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+    IF(backendsite->outputweb = 0)
+      THROW NEW Exception(`The backend site '${backendsite->name}' requires an output webserver`);
+
+    options.outputweb := backendsite->outputweb;
+  }
+
+  RECORD setresult := site->SetPrimaryOutput(options.outputweb, `/testoutput/${sitename}/`);
+  IF(NOT setresult.success)
+  {
+    DumpValue(setresult);
+    THROW NEW Exception("Unable to set testsite output");
+  }
+
+  RETURN site;
+}
+
 /** Request an extension on all rate limits. Must currently be renewed every 10 minutes, invoke testframework with
     keepratelimits := TRUE if you don't want this bump (but previous tests can currently still have a lingering enabling) */
 PUBLIC MACRO SnoozeRateLimits()

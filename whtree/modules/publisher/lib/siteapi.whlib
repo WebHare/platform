@@ -385,10 +385,11 @@ STATIC OBJECTTYPE SiteObject
     DELETE CELL sitedesign, webdesign, webfeatures FROM siterecupdate;
 
     UPDATE system.sites SET RECORD siterecupdate WHERE id = this->id;
-    this->Refresh();
 
     IF(RecordExists(updsettings))
       sitesettingstype->SetInstanceData(this->id, updsettings);
+
+    this->Refresh();
 
     IF(republishsite)
     {
