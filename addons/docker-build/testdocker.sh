@@ -133,12 +133,6 @@ if [ "$TESTPOSTGRESQL" == "1" ]; then
   DOCKERARGS="$DOCKERARGS -e WEBHARE_INITIALDB=postgresql"
 fi
 
-if [ -n "$WHBUILD_CI_ARTIFACTS" ]; then
-  if [ -f "$WHBUILD_CI_ARTIFACTS/webhare_testsuite_assetpacks.tar.gz" ]; then
-    DOCKERARGS="$DOCKERARGS -v $WHBUILD_CI_ARTIFACTS:/build/"
-  fi
-fi
-
 if [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
