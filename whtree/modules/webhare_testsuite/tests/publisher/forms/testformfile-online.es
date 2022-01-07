@@ -6,7 +6,7 @@ var setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpulldown: true});
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpulldown: true, addgtmdatalayer: "muhdata" });
     }
 
   , 'Verify initial form'
@@ -41,6 +41,9 @@ test.registerTests(
     {
       test.fill(test.qSA('input[type=text]')[0], 'Joe');
       test.fill(test.qSA('input[type=email]')[0], testemail);
+
+      test.eq(0, Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").length);
+
       test.click(test.qSA('[type=submit]')[0]);
       test.qSA('[type=submit]')[0].click(); //attempt double submission. click() avoids modality layers
       await test.wait('ui');
@@ -52,6 +55,10 @@ test.registerTests(
       test.false(test.canClick(test.qSA('[type=submit]')[0]), "Submit button should not be available on the thankyou page");
 
       test.true(thankyou[0].closest('form').dataset.whFormResultguid);
+
+      await test.wait( () => Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").length == 1);
+      let lastsubmitevent = Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").slice(-1)[0];
+      test.eq("muhdata", lastsubmitevent.form);
     }
 
   , 'Process mail'
