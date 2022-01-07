@@ -218,6 +218,31 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/dompack/browserfix/reset.css")));
   });
 
+  // Test for esbuild issue https://github.com/evanw/esbuild/issues/1657
+  if (process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY != "modern")
+    it("esbuild value collapse fix", async function()
+    {
+
+      this.timeout(60000);
+
+      let result = await compileAdhocTestBundle(path.join(__dirname,"optimizations/regressions.es"), false);
+      assert(result.haserrors === false);
+
+      /* Older versions of esbuild collapsed global values, i.e.
+          margin-bottom: 0;
+          margin-left: unset;
+          margin-right: unset;
+          margin-top: 0;
+         became
+          margin: 0 unset;
+      */
+      let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
+      assert(css.match(/.test1a{.*margin-left:unset.*}/));
+      assert(css.match(/.test1a{.*padding-left:initial.*}/));
+      // Check if numerical values are collapsed properly
+      assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
+    });
+
   it("cleanup", () =>
   {
     bridge.close(); //otherwise mocha wont terminate
