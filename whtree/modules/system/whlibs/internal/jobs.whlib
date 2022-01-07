@@ -465,12 +465,25 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
 
 
   /** Returns whether this object is signalled (the job has completed)
-      @return True if the job is currently sugnalled
+      @return True if the job is currently signalled
   */
   UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
   {
     RETURN this->IsReadSignalled();
   }
+
+
+  /** Sends a termination signal to the job
+  */
+  PUBLIC MACRO Terminate()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot close an already closed job");
+
+    // Send abort to the job
+    __HS_TerminateJob(this->pvt_handle);
+  }
+
 
   UPDATE PUBLIC MACRO Close()
   {

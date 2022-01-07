@@ -298,7 +298,7 @@ PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
 {
   //do not return bundles from uninstalled modules. scheduled compilations will fail and may race against (re)installation of modules
   RECORD ARRAY dbbundles :=
-     SELECT TEMPORARY parsedsettings :=       ParseAssetPackSettings(assetpacks.settings)
+     SELECT TEMPORARY parsedsettings :=       ParseAssetPackSettings(assetpacks.outputtag, assetpacks.settings)
           , *
           , bundleconfig :=   bundleconfig != "" ? DecodeHSON(bundleconfig) : DEFAULT RECORD
           , adhoc :=          FALSE
@@ -364,23 +364,24 @@ PUBLIC RECORD FUNCTION JSBridge_GetBundle(STRING byoutputtag)
   RETURN bundle;
 }
 
-PUBLIC RECORD FUNCTION ParseAssetPackSettings(STRING insettings)
+PUBLIC RECORD FUNCTION ParseAssetPackSettings(STRING outputtag, STRING insettings)
 {
   RECORD settings;
   IF(insettings != "")
     settings := DecodeHSON(insettings);
 
-  RETURN EnforceStructure([ dev := GetDtapStage() = "development" ], settings);
+  RETURN EnforceStructure([ dev := GetDtapStage() = "development" AND outputtag NOT LIKE "tollium:*" ], settings);
 }
 PUBLIC RECORD FUNCTION GetAssetPackSettings(INTEGER assetpackid)
 {
-  RETURN ParseAssetPackSettings(SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = VAR assetpackid);
+  STRING outputtag := SELECT AS STRING COLUMN outputtag  FROM system_internal.assetpacks WHERE id = VAR assetpackid;
+  RETURN ParseAssetPackSettings(outputtag, SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = VAR assetpackid);
 }
 
 PUBLIC MACRO UpdateAssetPackSettings(INTEGER assetpackid, RECORD newsettings)
 {
   STRING uuid := SELECT AS STRING outputtag FROM system_internal.assetpacks WHERE id = assetpackid;
-  RECORD settings := ParseAssetPackSettings(SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = assetpackid);
+  RECORD settings := ParseAssetPackSettings(uuid, SELECT AS STRING assetpacks.settings FROM system_internal.assetpacks WHERE id = assetpackid);
   settings := CELL[ ...settings
                   , ...ValidateOptions([ dev := FALSE ], newsettings, [ title := "Assetpack settings", optional := ["*"]])
                   ];

@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
            , leftouterjoin := [ id := 0, settings := "" ]
            ]);
 
-    ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(bundles.settings)
+    ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(outputtag, bundles.settings)
                            , rowkey := outputtag
                            , id
                            , status := havestatus 
