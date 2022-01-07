@@ -7,6 +7,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -214,8 +215,7 @@ IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
 {
   isfreshwebhare := TRUE;
   // Initializing the Repository...
-  INSERT INTO system.sites(id,name)
-              VALUES(1,"Repository");
+  CreateSiteFromFolder(whconstant_whfsid_repository);
 }
 
 // Ensure submodule folders exist
@@ -257,6 +257,32 @@ IF(ReadRegistryKey("system.webserver.security.elasticsecret")="")
     suggestedkey := GenerateUFS128BitId()||GenerateUFS128BitId();;
 
   WriteRegistryKey("system.webserver.security.elasticsecret", suggestedkey);
+}
+
+IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+{
+  IF(NOT RecordExists(SELECT FROM system.webservers)
+     AND NOT RecordExists(SELECT FROM system.ports)
+     AND NOT RecordExists(SELECT FROM system.sites WHERE id = whconstant_whfsid_webharebackend) ) //we are completely new!
+  {
+    // Setup port and bindings for http://127.0.0.1/
+    INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
+    INTEGER portid := MakeAutoNumber(system.ports,"id");
+    INSERT INTO system.ports(id,ip,port,virtualhost)
+           VALUES (portid, "", 80, TRUE);
+
+    //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
+    STRING url := "http://127.0.0.1/";
+    INSERT INTO system.webservers(id,type,baseurl,outputextension)
+           VALUES (webserverid, 1, url, '.html');
+
+    Print(`WEBHARE_CI: Configured a webinterface at ${url}\n`);
+    OBJECT backendsite := CreateSiteFromFolder(whconstant_whfsid_webharebackend);
+    backendsite->SetPrimaryOutput(webserverid, "/");
+  }
+
+  IF (ReadRegistryKey("system.services.smtp.mailfrom") = "") //Ensure mailfrom is set, needed for some tets
+    WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
 }
 
 UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation!

@@ -5,7 +5,6 @@
                  sqlclient
                  dtap
                  environment
-                 serverconfig
                  backup-and-restore
                  fromsource
                  running-in-docker

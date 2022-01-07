@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
-LOADLIB "mod::system/lib/internal/serverconfig.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
@@ -215,13 +214,6 @@ PUBLIC MACRO RecompileSiteProfilesAsync()
 /** @param issoftreset We're invoked by wh softreset, so we're supposed to be thorough, not fast as we would be during startup */
 PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
 {
-  RECORD confinfo := LoadServerConfig();
-  IF(Length(confinfo.errors) > 0)
-  {
-    Print("Parse errors on serverconfig.xml\n");
-    DumpValue(confinfo.errors, 'boxed');
-  }
-
   showinfo := debug;
 
   // If not softresetting, configure the logfiles before anything else
@@ -271,14 +263,6 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   IF (debug)
     Print("Fixing module symlinks\n");
   FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
-
-  //Site profiles already read IsNodeApplicableToThisWebHare, so any change to DTAP must happen here
-  IF(ObjectExists(confinfo.confighandler))
-  {
-    IF(debug)
-      Print("Processing serverconfig.xml configureserver\n");
-    confinfo.confighandler->ConfigServer();
-  }
 
   IF (debug)
     Print("WRD schemas, siteprofiles\n");
