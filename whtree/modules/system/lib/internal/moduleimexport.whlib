@@ -17,6 +17,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
@@ -186,6 +187,10 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
 
   RecompileSiteProfiles();
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
+
+  GetPrimary()->BeginWork();
+  ScheduleTimedTask("system:uploadstatus"); //update any external module list watchers
+  GetPrimary()->CommitWork();
 
   RETURN success;
 }
@@ -505,6 +510,10 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
     link->SendMessage([ task := "poststartmodule", modulename := modulename ]);
     link->Close();
   }
+
+  GetPrimary()->BeginWork();
+  ScheduleTimedTask("system:uploadstatus"); //update any external module list watchers
+  GetPrimary()->CommitWork();
 
   RETURN retval;
 }

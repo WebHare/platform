@@ -11,24 +11,32 @@
     </attributes>
   </domain>
 
-  <object tag="TASKCLUSTER"> <!-- overrides for module task clusters -->
+  <object tag="TASKCLUSTER" keephistorydays="2600"> <!-- overrides for module task clusters -->
     <attributes>
       <free tag="CLUSTER" unique="true" required="true"/> <!-- must match the module:cluster tag -->
       <integer tag="HARESCRIPTWORKERS" /> <!-- if set, overrides harescriptworkers value for this cluster (if the cluster actually requires harescript workers) -->
     </attributes>
   </object>
 
-  <object tag="TASKTYPE"> <!-- overrides for module task types -->
+  <object tag="TASKTYPE" keephistorydays="2600"> <!-- overrides for module task types -->
     <attributes>
       <free tag="TYPE" unique="true" required="true"/> <!-- must match the module:cluster tag -->
       <boolean tag="PROFILE" />
     </attributes>
   </object>
 
-  <object tag="EXTERNALSERVICE"> <!-- list services we are allowed to connect with -->
+  <object tag="EXTERNALSERVICE" keephistorydays="2600"> <!-- list services we are allowed to connect with -->
     <attributes>
       <free tag="url" required="true" />
       <enum tag="type" required="true" allowedvalues="tika ?*:?*" />
+    </attributes>
+  </object>
+
+  <object tag="STATUSUPLOAD" keephistorydays="2600"> <!-- list URLs to which we report our status -->
+    <attributes>
+      <free tag="wrd_title" required="true" />
+      <free tag="url" required="true" />
+      <enumarray tag="reports" allowedvalues="modules sites" />
     </attributes>
   </object>
 
