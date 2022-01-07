@@ -221,12 +221,16 @@ MACRO LaunchTask(RECORD task)
 
 MACRO RunStartupScripts(STRING modulename)
 {
+  STRING ARRAY last_uncompleted_startup_scripts := uncompleted_startup_scripts;
+
   //FIXME use ids instead of tags...
   uncompleted_startup_scripts := SELECT AS STRING ARRAY tag
                                    FROM system_internal.tasks
                                   WHERE enabled
                                         AND inapplicable = ""
                                         AND runatstartup;
+
+  LogDebug("system:executetasks", "runstartupscripts", CELL [ modulename, last_uncompleted_startup_scripts, uncompleted_startup_scripts ]);
 
   // If there are still pending scripts from a previous softreset, ignore the modulename for the new updates
   IF (LENGTH(module_startup_scripts) != 0)
@@ -261,7 +265,7 @@ MACRO RunStartupScripts(STRING modulename)
  IF (LENGTH(module_startup_scripts) != 0 AND NOT ObjectExists(module_init_promise))
     IndicatePostStartBusy();
 
-  LogDebug("system", "executetasks-rescan", module_startup_scripts);
+  LogDebug("system:executetasks", "rescan", module_startup_scripts);
 }
 
 MACRO ReadConfiguration()
@@ -382,6 +386,8 @@ MACRO OnSoftReset(STRING event, RECORD data)
     Print("Received soft reset event\n");
     DumpValue(CELL[event,data]);
   }
+
+  LogDebug("system:executetasks", "gotsoftreset", CELL [ event, data, uncompleted_startup_scripts ]);
 
   ReadConfiguration();
 
