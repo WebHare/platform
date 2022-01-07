@@ -26,7 +26,7 @@ RegisterReceivedExceptionType("myexception", PTR ParseMyException);
 
 OBJECT FUNCTION StartPortHandler(STRING msg)
 {
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
   OBJECT job := res.job;
 
   TestEq(DEFAULT RECORD ARRAY, res.errors);

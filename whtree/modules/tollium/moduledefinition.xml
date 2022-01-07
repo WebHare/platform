@@ -51,7 +51,7 @@
       </accesscheck>
     </webservice>
 
-    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" environment="WEBHARE" where="webserver" />
+    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" where="webserver" />
   </services>
 
   <documentation>

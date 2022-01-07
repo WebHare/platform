@@ -26,7 +26,7 @@ MACRO BaseTest()
   RECORD authrec := GetAuthenticationRecord();
   SetAuthenticationRecord([ jobtest := 1 ]);
 
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
   OBJECT job := res.job;
   job->SetConsoleArguments(["test1","test2"]);
   TestEQ([ jobtest := 1 ], job->GetAuthenticationRecord());
@@ -77,7 +77,7 @@ MACRO BaseTest()
   TestEq(0, job->handle);
   TestEq(0, job->ipclink->handle);
 
-  res := CreateJob("test::testdata_jobs_a.whlib", "");
+  res := CreateJob("test::testdata_jobs_a.whlib");
   job := res.job;
   job->CaptureOutput();
   job->Start();
@@ -97,7 +97,7 @@ MACRO TestIPCLinkGoneAfterCrash()
   // Tests whether the ipclink is gone after job crashes before getting it
   OBJECT port := CreateIPCPort("jobcrashfast");
 
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
   OBJECT job := res.job;
 
   job->Start();
@@ -128,7 +128,7 @@ MACRO TestOverrideExecuteLibrary()
 
   OBJECT port := CreateIPCPort("testoverrideexecutelibrary");
 
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib", "");
+  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
   OBJECT job := res.job;
 
   job->SetConsoleArguments(["overrideexecutelibrary"]);
