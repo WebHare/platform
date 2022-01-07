@@ -4,7 +4,6 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
-LOADLIB "mod::system/lib/internal/serverconfig.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -21,13 +20,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
   MACRO Init()
   {
-    RECORD config := LoadServerConfig();
-    IF(ObjectExists(config.confighandler))
-    {
-      RECORD identity := config.confighandler->GetIdentity();
-      ^servername->enabled := NOT identity.has_servername;
-      ^servertype->enabled := NOT identity.has_dtapstage;
-    }
     this->save_servertype_options := ^servertype->options;
 
     // general
