@@ -1,39 +1,28 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/sites.whlib"
-         gid="monitor.sites"
-         >
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor.sites" lib="screens/monitor/sites.whlib">
 
   <messageboxes gid=".messageboxes">
-    <messagebox name="suretoopenmultiple_newtab"    buttons="yes no" />
+    <messagebox name="suretoopenmultiple_newtab" buttons="yes no" />
     <messagebox name="suretoopenmultiple_publisher" buttons="yes no" />
-    <messagebox name="toomanytoopen_newtab"         buttons="ok" />
-    <messagebox name="toomanytoopen_publisher"      buttons="ok" />
+    <messagebox name="toomanytoopen_newtab" buttons="ok" />
+    <messagebox name="toomanytoopen_publisher" buttons="ok" />
   </messageboxes>
 
-  <screen name="sites" title="" flags="issysop">
+  <screen name="sites" flags="issysop" title="">
     <actions gid=".actions">
       <windowopenaction name="viewbrowser"
-                        shortcut="ctrl+b"
                         onwindowopen="onviewbrowserlist"
-                        tid="filemanager.main.app.actions.viewbrowser"
-                        >
+                        shortcut="ctrl+b"
+                        tid="filemanager.main.app.actions.viewbrowser">
         <enableon source="siteslist" min="1" checkflags="canview" />
       </windowopenaction>
 
       <!-- ctrl+p is specific to this application -->
-      <action name="showinnewpublishers"
-              shortcut="ctrl+p"
-              onexecute="doshowinnewpublishers"
-              >
+      <action name="showinnewpublishers" onexecute="doshowinnewpublishers" shortcut="ctrl+p">
         <enableon source="siteslist" min="1" />
       </action>
 
-      <!--  This is like the Publisher's "republish_recurse" action -->
-      <action name="republish"
-              shortcut="ctrl+e"
-              onexecute="dorepublish"
-              tid="filemanager.main.app.menus.republish"
-              >
+      <!-- This is like the Publisher's "republish_recurse" action -->
+      <action name="republish" onexecute="dorepublish" shortcut="ctrl+e" tid="filemanager.main.app.menus.republish">
         <enableon source="siteslist" min="1" />
       </action>
 
@@ -43,14 +32,15 @@
            option and go use the properties diaglog there...
       -->
       <action name="siteproperties"
+              frameflags="issysop"
               onexecute="doopensiteproperties"
               shortcut="ctrl+i"
-              tid="publisher:filemanager.main.app.actions.siteproperties"
-              frameflags="issysop"
-              >
+              tid="publisher:filemanager.main.app.actions.siteproperties">
         <enableon source="siteslist" min="1" max="1" />
       </action>
+      <action name="export" onexecute="doexport" tid="~export" />
     </actions>
+
     <menus>
       <menu name="sitescontextmenu">
         <item action="viewbrowser" />
@@ -61,14 +51,16 @@
         <item action="republish" />
       </menu>
     </menus>
-    <compositions>
-    </compositions>
+
+    <compositions />
+
     <body>
-      <panel spacers="bottom">
+      <panel spacers="all">
         <line>
           <select name="linkedtotype" type="pulldown" onchange="onlinkedtotypechange">
             <option rowkey="webdesign" tid="commondialogs.siteprops.sitedesign" />
             <option rowkey="webfeature" />
+
             <!--
             <option rowkey="designfolder" />
             <option rowkey="basedon_templatev2" />
@@ -81,28 +73,39 @@
             <option rowkey="using_rtdtypes" />
             -->
           </select>
-          <select name="webdesign"  type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
-          <select name="webfeature" type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
+          <select name="webdesign" type="pulldown" onchange="refreshsiteslist" rowkeytype="string" title="" />
+          <select name="webfeature" type="pulldown" onchange="refreshsiteslist" rowkeytype="string" title="" />
         </line>
-
-        <select name="weboutput" type="pulldown" rowkeytype="integer" onchange="refreshsiteslist" tid="commondialogs.siteprops.outputweb"></select>
-        <textedit name="query" trimwhitespace="true" onchange="refreshsiteslist" width="1pr" />
+        <select name="weboutput"
+                type="pulldown"
+                onchange="refreshsiteslist"
+                rowkeytype="integer"
+                tid="commondialogs.siteprops.outputweb" />
+        <textedit name="query" width="1pr" onchange="refreshsiteslist" trimwhitespace="true" />
       </panel>
-
-      <list name="siteslist"
-            selectmode="multiple"
-            selectcontextmenu="sitescontextmenu"
-            sortcolumn="name"
-            flags="canview"
-            gid=".sitecolumns"
-            height="1pr"
-            >
-        <column name="name"              type="text" width="1pr" />
-        <column name="webdesign"         type="text" width="25x" tid="commondialogs.siteprops.sitedesign" />
-        <column name="hasactivefeatures" type="icon" width="10x" align="center" hintname="activefeatures" />
-        <column name="url"               type="url" />
-      </list>
-      <text name="queryresultsinfo" title="" />
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="siteslist"
+                height="1pr"
+                borders="top bottom right"
+                flags="canview"
+                gid=".sitecolumns"
+                selectcontextmenu="sitescontextmenu"
+                selectmode="multiple"
+                sortcolumn="name">
+            <column name="name" type="text" width="1pr" />
+            <column name="webdesign" type="text" width="25x" tid="commondialogs.siteprops.sitedesign" />
+            <column name="hasactivefeatures" type="icon" width="10x" align="center" hintname="activefeatures" />
+            <column name="url" type="url" />
+          </list>
+        </cell>
+        <cell spacers="left right">
+          <button action="export" />
+        </cell>
+      </grid>
+      <panel spacers="left right">
+        <text name="queryresultsinfo" title="" />
+      </panel>
     </body>
   </screen>
 
