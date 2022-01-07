@@ -24,7 +24,7 @@
     <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
 
     <!-- setup an interface webserver for CI tasks -->
-    <runonce tag="setupci" script="scripts/runonce/setupci.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
+    <runonce tag="setupci" script="scripts/runonce/setupci.whscr" when="afterregistryupdate" ifenvironset="WEBHARE_CI" />
 
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
