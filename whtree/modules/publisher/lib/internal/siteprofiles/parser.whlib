@@ -1407,25 +1407,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   }
     RETURN types;
   }
-  PUBLIC RECORD ARRAY FUNCTION ImportGlobalSettings()
-  {
-    RECORD ARRAY globalsettings;
-    FOREVERY(OBJECT node FROM this->siteprof->xmldoc->documentelement->childnodes->GetCurrentElements())
-    {
-      //ADDME don't ignore namespaces completely, just ignore nodes that don't have an explicit definition
-      IF(node->namespaceuri = "http://www.webhare.net/xmlns/publisher/siteprofile"
-         OR node->namespaceuri = "http://www.webhare.net/xmlns/tollium/screens"
-         OR node->namespaceuri = "http://www.webhare.net/xmlns/system/moduledefinition")
-        CONTINUE;
-
-      INSERT [ siteprofile := this->siteprof->name
-             , idx := #node
-             , ns := node->namespaceuri
-             , localname := node->localname
-             ] INTO globalsettings AT END;
-    }
-    RETURN globalsettings;
-  }
   PUBLIC STRING ARRAY FUNCTION ParseApplySiteProfiles()
   {
     STRING ARRAY loadprofiles;
@@ -1507,9 +1488,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
     siteprofdata.rules := (SELECT *, ruletype := "apply" FROM siteprofcontext->ImportApplies())
                           CONCAT
-                          (SELECT *, ruletype := "sitesetting" FROM siteprofcontext->ImportSiteSettings())
-                          CONCAT
-                          (SELECT *, ruletype := "globalsetting" FROM siteprofcontext->ImportGlobalSettings());
+                          (SELECT *, ruletype := "sitesetting" FROM siteprofcontext->ImportSiteSettings());
 
     siteprofdata.applysiteprofiles := siteprofcontext->ParseApplySiteProfiles();
     siteprofdata.grouptypes := siteprofcontext->ImportGroupTypes();

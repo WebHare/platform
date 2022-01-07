@@ -57,7 +57,6 @@
         </xs:choice>
         <xs:element name="applysiteprofile" type="ApplySiteProfile" minOccurs="0" maxOccurs="unbounded" />
         <xs:element name="sitesettings" type="SiteSettings" minOccurs="0" maxOccurs="unbounded" />
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
       </xs:sequence>
       <xs:attributeGroup ref="sc:Gid" />
     </xs:complexType>
