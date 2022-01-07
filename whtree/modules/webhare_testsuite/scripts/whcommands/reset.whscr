@@ -47,28 +47,6 @@ trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
 
-//Set up a backend so we have a /testportal/. Are we sure this should be webhare_tetsuite's problem ?
-IF(GetWebHareVersionInfo().docker)
-{
-  //If we're initializing a docker version... might as well setup ports and bindings
-  STRING usehostname := ReadRegistryKey("system.global.servername");
-  IF(usehostname NOT LIKE "*.*")
-    usehostname := "127.0.0.1";
-
-  INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
-  INTEGER portid := MakeAutoNumber(system.ports,"id");
-  INSERT INTO system.ports(id,ip,port,virtualhost)
-         VALUES(portid,"", 8000,TRUE);
-
-  //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
-  STRING url := "http://" || usehostname ||":" || 8000 || "/";
-  INSERT INTO system.webservers(id,type,baseurl,outputextension)
-         VALUES (webserverid,1,url,'.html');
-
-  Print("Configured a webinterface at http://" || usehostname || ":8000/\n");
-  backendsite->SetPrimaryOutput(webserverid, "/");
-}
-
 //temporary upgrade path
 IF(ObjectExists(OpenSiteByName("WebHare testsuite site")))
   OpenSiteByName("WebHare testsuite site")->rootobject->UpdateMetadata([name := "webhare_testsuite.testsite"]);
