@@ -67,6 +67,7 @@ function initYouTube(node, video, playback)
     youtube_url += "?" + args.join("&");
 
   ifrm.src = youtube_url;
+  ifrm.title = video.title ? "YouTube video: " + video.title : "Vimeo video";
   node.appendChild(ifrm);
 }
 
@@ -117,6 +118,7 @@ function initVimeo(node,video, playback)
   }
 
   ifrm.src = vimeo_url;
+  ifrm.title = video.title ? "Vimeo video: " + video.title : "Vimeo video";
   node.appendChild(ifrm);
 }
 
