@@ -216,6 +216,16 @@ PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD
                    ];
         }
       }
+      ELSE IF ("record" IN matchfield.supportedvalues)
+      {
+        IF (CellExists(checkvalue, extrafield))
+          checkvalue := GetCell(checkvalue, extrafield);
+        ELSE
+          RETURN [ success := FALSE
+                 , field := condition.field
+                 , reason := `No such value found for field '${condition.field}' in response`
+                 ];
+      }
       ELSE
       {
         //TODO: Support extra fields for field types other than select

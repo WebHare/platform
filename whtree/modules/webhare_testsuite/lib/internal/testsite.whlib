@@ -99,6 +99,7 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                                 || (options.addtslinecomp AND options.addpaymenthandler ? '<p class="normal">TSLinecomp difference: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_tslinecompcost"></span>}</p>' : "")
                                 || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
                                 || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
+                                || (options.custommergefields AND options.addtwolevelfield ? '<p class="normal">Subfield value: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_twolevel"></span></p>' : '')
                                 || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
                                 || '</body></html>')
               , links := [[ tag := "sfdjkleearterg", linkref := OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->id ]
@@ -140,7 +141,15 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                                         , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
                                         ]
                               ]
-                             ] : RECORD[])
+                             ]
+                             CONCAT (options.addtwolevelfield ?
+                               [ [ instanceid := "embedobj_twolevel"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                           , fieldname := formpage->LookupComponent("twolevel")->GetAttribute("guid") || "$subfield"
+                                           ]
+                                 ]
+                               ] : RECORD[])
+                             : RECORD[])
                              CONCAT (options.embeddedresults ?
                              [[ instanceid := "embedobj_results"
                               , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formresultsfield" ]
@@ -957,12 +966,46 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     twolevelfield->SetAttribute("name","twolevel");
     twolevelfield->SetAttribute("title","TwoLevel field");
 
+    OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
+    rtdmailhandler->SetAttribute("subject", "Two-level field mail");
+
     IF(options.addconditions)
+    {
+      // Show the two-level field if the checkbox is selected
       formdefs->SetConditionAttribute(twolevelfield, "visibleconditionid",
                 [ field := showtsfield->GetAttribute("guid")
                 , matchtype := "HASVALUE"
                 , value := TRUE
                 ]);
+
+      // Add a field that's only shown for a certain of the first field of the two-level field
+      OBJECT conditionfield := formpage->AppendComponent("textedit");
+      conditionfield->SetAttribute("name","twolevelcondition");
+      conditionfield->SetAttribute("title","TC Condition field");
+      formdefs->SetConditionAttribute(conditionfield, "visibleconditionid",
+                [ field := twolevelfield->GetAttribute("guid") || "$field1"
+                , matchtype := "IN"
+                , value := ["abc"]
+                ]);
+
+      // Add a field that's only shown for a certain subvalue of the two-level field
+      conditionfield := formpage->AppendComponent("textedit");
+      conditionfield->SetAttribute("name","twolevelsubcondition");
+      conditionfield->SetAttribute("title","TC Condition subfield");
+      formdefs->SetConditionAttribute(conditionfield, "visibleconditionid",
+                [ field := twolevelfield->GetAttribute("guid") || "$subfield"
+                , matchtype := "IN"
+                , value := [2]
+                ]);
+
+      // Only send the mail when a certain subvalue of the two-level field is selected
+      formdefs->SetConditionAttribute(rtdmailhandler, "conditionid",
+                [ field := twolevelfield->GetAttribute("guid") || "$subfield"
+                , matchtype := "IN"
+                , value := [2]
+                ]);
+    }
   }
 
   IF (options.addtimefield)
