@@ -102,9 +102,9 @@ ASYNC MACRO WalkTheTree()
   topscreen->tolliumcontroller->secure := TRUE;
 
   topscreen->frame->focused := TT("filelist");
-  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="WebHare testsuite site";
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name="webhare_testsuite.testsite";
   TestEq(TRUE, TT("filelist")->openaction->TolliumClick());
-  TestEq("WebHare testsuite site", TT("foldertree")->selection.name);
+  TestEq("webhare_testsuite.testsite", TT("foldertree")->selection.name);
 
   //The displayed preview URL should match the site URL
   pvs := TT("previewbrowser")->GetPreviewState();
@@ -238,7 +238,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/staticpage-contentlink/", pvs.displayurl);
   TestEqLike(OpenTestsuiteSite()->webroot || "TestPages/staticpage-contentlink/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This content link links to URL 'WebHare testsuite site:/TestPages/StaticPage'.`, pvs.messages);
+  TestEqLike(`This content link links to URL 'webhare_testsuite.testsite:/TestPages/StaticPage'.`, pvs.messages);
 
   TestEQ(FALSE, TT("filelist")->selection.canwrite);
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("filelist")->openaction->TolliumClick(), [messagemask := "You don't have enough rights to edit this file."]);
@@ -267,7 +267,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/StaticPage/", pvs.displayurl);
   TestEqLike(OpenTestsuiteSite()->webroot || "TestPages/StaticPage/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`This internal link links to file 'WebHare testsuite site:/TestPages/StaticPage'.`, pvs.messages);
+  TestEqLike(`This internal link links to file 'webhare_testsuite.testsite:/TestPages/StaticPage'.`, pvs.messages);
 
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="unpublished-internallink";
   TestEq(TRUE, RecordExists(TT("filelist")->selection));
@@ -275,7 +275,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/unpublished/", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike(`*This internal link links to unpublished file 'WebHare testsuite site:/TestPages/unpublished'*`, pvs.messages);
+  TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.testsite:/TestPages/unpublished'*`, pvs.messages);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 }

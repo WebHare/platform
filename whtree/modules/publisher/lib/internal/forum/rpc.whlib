@@ -75,7 +75,7 @@ PUBLIC RECORD FUNCTION RPC_PostComment(STRING forumtoken, STRING urlpath, RECORD
   {
     OBJECT context := GetWebContext(forumobj->id);
     //FIXME this is a hack to make sure the RPC tests work under the testframework. once we can 'hook' into the RPC webcontext specifically for the testframework, do it there
-    IF(GetWebVariable("wh-debug") LIKE "*nsc*" AND OpenWHFSObject(forumobj->id)->whfspath = "/WebHare testsuite site/webtools/forumcomments-recaptcha")
+    IF(GetWebVariable("wh-debug") LIKE "*nsc*" AND OpenWHFSObject(forumobj->id)->whfspath = "/webhare-tests/webhare_testsuite.testsite/webtools/forumcomments-recaptcha")
       ProcessWHDebugVariablesUnchecked();
 
     IF(NOT context->AllowToSkipCaptchaCheck())

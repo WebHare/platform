@@ -21,9 +21,9 @@ PUBLIC MACRO TestModernSiteProfileIndices()
 
   RECORD ARRAY contentsources := maincatalog->ListContentSources();
   contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources WHERE NOT isorphan;
-  TestEq([ '/WebHare testsuite site/portal1/' //portal1 is added through ongetsources=
-         , '/WebHare testsuite site/TestPages/'
-         , '/WebHare testsuite site/webtools/'
+  TestEq([ '/webhare-tests/webhare_testsuite.testsite/portal1/' //portal1 is added through ongetsources=
+         , '/webhare-tests/webhare_testsuite.testsite/TestPages/'
+         , '/webhare-tests/webhare_testsuite.testsite/webtools/'
          ], SELECT AS STRING ARRAY whfspath FROM contentsources WHERE whfspath != "" ORDER BY ToUppercase(whfspath));
   TestEq([ 'webhare_testsuite:dbindex'
          , 'webhare_testsuite:loremindex'
@@ -57,14 +57,14 @@ ASYNC MACRO TestCatalogApp()
   TT("folder")->value := toindexfolder1->id;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  TestEqMembers([[ tag := "/WebHare testsuite site/tmp/index-me-1/" ]], TT("catalogs")->selection, "*");
+  TestEqMembers([[ tag := "/webhare-tests/webhare_testsuite.testsite/tmp/index-me-1/" ]], TT("catalogs")->selection, "*");
 
   AWAIT ExpectScreenChange(+1,  PTR TTClick("edititem"));
   TestEq(toindexfolder1->id, TT("folder")->value);
   TT("folder")->value := toindexfolder2->id;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  TestEqMembers([[ tag := "/WebHare testsuite site/tmp/index-me-2/" ]], TT("catalogs")->selection, "*");
+  TestEqMembers([[ tag := "/webhare-tests/webhare_testsuite.testsite/tmp/index-me-2/" ]], TT("catalogs")->selection, "*");
 
   //TODO check if the content source is indeed restarting, cleaning out old stuff and indexing new!
 

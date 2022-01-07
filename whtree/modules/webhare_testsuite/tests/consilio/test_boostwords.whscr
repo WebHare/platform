@@ -58,7 +58,7 @@ MACRO TestBoostWords()
   myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob(
 `<html><head></head><body>
-<p class="normal">blabla test</p>
+<p class="normal">blabla schanulleke</p>
 </body></html>`)
                  ]);
   richdoctype->SetInstanceData(file_2->id, [data := myrichdoc->ExportAsRecord()]);
@@ -149,8 +149,9 @@ MACRO TestBoostWords()
             ]
       ], results);
 
-  // Allow terms by default, returns file 2, which has 'test' but doesn't have 'nothing'
-  results := search_obj->Search("test nothing", 0, 10);
+  // Allow terms by default, returns file 2, which has 'schanulleke' but doesn't have 'nothing' (We use schanulleke instead of test as /webhare-tests/ in the printed output normalized 'test')
+  results := search_obj->Search("schanulleke nothing", 0, 10);
+  dumpvalue(results,'tree');
   TestEq(
       [ totalcount := 1
       , results :=
@@ -160,16 +161,16 @@ MACRO TestBoostWords()
             ]
       ], results);
 
-  // Require terms explicitly, returns nothing, because file 2 only has 'test' but doesn't have 'nothing'
-  results := search_obj->Search("+test +nothing", 0, 10);
+  // Require terms explicitly, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
+  results := search_obj->Search("+schanulleke +nothing", 0, 10);
   TestEq(
       [ totalcount := 0
       , results := DEFAULT RECORD ARRAY
       ], results);
 
-  // Require terms by default, returns nothing, because file 2 only has 'test' but doesn't have 'nothing'
+  // Require terms by default, returns nothing, because file 2 only has 'schanulleke' but doesn't have 'nothing'
   search_obj->and_search := TRUE;
-  results := search_obj->Search("test nothing", 0, 10);
+  results := search_obj->Search("schanulleke nothing", 0, 10);
   TestEq(
       [ totalcount := 0
       , results := DEFAULT RECORD ARRAY

@@ -180,7 +180,7 @@ test.registerTests(
 
       // should redirect to the root of the testsuite site
       test.eq("Basetest title", test.qS("#basetitle").textContent);
-      test.eq("/WebHare testsuite site/index.rtd", test.qS("#whfspath").textContent);
+      test.eq("/webhare-tests/webhare_testsuite.testsite/index.rtd", test.qS("#whfspath").textContent);
     }
   ]
 );

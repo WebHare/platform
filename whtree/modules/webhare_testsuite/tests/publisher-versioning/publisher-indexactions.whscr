@@ -17,7 +17,7 @@ LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
 OBJECT ASYNC FUNCTION PublisherIndexActions()
 {
   SetTidLanguage("debug");
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
 
   testfw->BeginWork();
   OBJECT testroot := testfw->GetTestSite()->rootobject->CreateFolder([ name := "indextests" ]);

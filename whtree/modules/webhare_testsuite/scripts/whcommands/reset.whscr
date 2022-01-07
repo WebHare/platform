@@ -28,7 +28,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
@@ -48,55 +47,43 @@ trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
 
-OBJECT testsite := OpenTestsuiteSite();
-IF(NOT ObjectExists(testsite))
+//Set up a backend so we have a /testportal/. Are we sure this should be webhare_tetsuite's problem ?
+IF(GetWebHareVersionInfo().docker)
 {
-  OBJECT testroot := OpenWHFSRootObject()->EnsureFolder([ name := "WebHare testsuite site"]);
-  testsite := CreateSiteFromFolder(testroot->id);
+  //If we're initializing a docker version... might as well setup ports and bindings
+  STRING usehostname := ReadRegistryKey("system.global.servername");
+  IF(usehostname NOT LIKE "*.*")
+    usehostname := "127.0.0.1";
 
-  IF(GetWebHareVersionInfo().docker)
-  {
-    //If we're initializing a docker version... might as well setup ports and bindings
-    STRING usehostname := ReadRegistryKey("system.global.servername");
-    IF(usehostname NOT LIKE "*.*")
-      usehostname := "127.0.0.1";
+  INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
+  INTEGER portid := MakeAutoNumber(system.ports,"id");
+  INSERT INTO system.ports(id,ip,port,virtualhost)
+         VALUES(portid,"", 8000,TRUE);
 
-    INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
-    INTEGER portid := MakeAutoNumber(system.ports,"id");
-    INSERT INTO system.ports(id,ip,port,virtualhost)
-           VALUES(portid,"", 8000,TRUE);
+  //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
+  STRING url := "http://" || usehostname ||":" || 8000 || "/";
+  INSERT INTO system.webservers(id,type,baseurl,outputextension)
+         VALUES (webserverid,1,url,'.html');
 
-    //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
-    STRING url := "http://" || usehostname ||":" || 8000 || "/";
-    INSERT INTO system.webservers(id,type,baseurl,outputextension)
-           VALUES (webserverid,1,url,'.html');
-
-    Print("Configured a webinterface at http://" || usehostname || ":8000/\n");
-    backendsite->SetPrimaryOutput(webserverid, "/");
-  }
-}
-ELSE
-{
-  PRINT("Throwing away existing testsite contents\n");
-  FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = testsite->id)
-    OpenWHFSObject(subobj.id)->RecycleSelf();
+  Print("Configured a webinterface at http://" || usehostname || ":8000/\n");
+  backendsite->SetPrimaryOutput(webserverid, "/");
 }
 
-SetupSiteTestOutput(testsite, "webhare_testsuite");
+//temporary upgrade path
+IF(ObjectExists(OpenSiteByName("WebHare testsuite site")))
+  OpenSiteByName("WebHare testsuite site")->rootobject->UpdateMetadata([name := "webhare_testsuite.testsite"]);
+IF(ObjectExists(OpenSiteByName("WebHare testsuite site - alt host")))
+  OpenSiteByName("WebHare testsuite site - alt host")->rootobject->UpdateMetadata([name := "webhare_testsuite.althost"]);
+
+OBJECT testsite := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontents := TRUE
+                                                                , webdesign := "webhare_testsuite:basetest"
+                                                                ]);
 
 OBJECT addtowhfsindex := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "addtowhfsindex"]);
 addtowhfsindex->EnsureFolder([name := "beforerepository"]);
 addtowhfsindex->EnsureFolder([name := "beforesites"]);
 addtowhfsindex->EnsureFolder([name := "aftersites"]);
 addtowhfsindex->EnsureFolder([name := "anywhere"]);
-
-testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
-                     [ sitedesign := "webhare_testsuite:basetest"
-                     ]);
-
-//As we don't pre-apply siteprofiles yet (something that I'd like to do... already compile the filetypes and just delay <apply> until a site is assigned), we need to commit to activate the baseteste siteprofile
-GetPrimary()->CommitWork();
-GetPrimary()->BeginWork();
 
 OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
 
@@ -333,20 +320,10 @@ IF(alttestsitehost != "")
          VALUES (altwebserverid,alturl,'.html','webhare_testsuite.altsite/');
 
   //Now setup the alternate site which should run on an alternative hostname, if available
-  alttestsite := OpenTestsuiteAltSite();
-  IF(NOT ObjectExists(alttestsite))
-  {
-    OBJECT alttestroot := OpenWHFSRootObject()->EnsureFolder([ name := "WebHare testsuite site - alt host"]);
-    alttestsite := CreateSiteFromFolder(alttestroot->id);
-    Print("Creating alt testsite\n");
-  }
-  ELSE
-  {
-    PRINT("Throwing away existing alt testsite contents\n");
-    FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = alttestsite->id)
-      OpenWHFSObject(subobj.id)->RecycleSelf();
-  }
-  alttestsite->SetPrimaryOutput(altwebserverid, "/");
+  alttestsite := EnsureTestSite("webhare_testsuite.althost", [ recyclecontents := TRUE
+                                                             , outputweb := altwebserverid
+                                                             , webdesign := "webhare_testsuite:basetest"
+                                                             ]);
 
   alttestsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
                            [ sitedesign := "webhare_testsuite:basetest"

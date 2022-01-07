@@ -73,7 +73,7 @@ ASYNC MACRO TestDCComponents()
 
 ASYNC MACRO TestAdaptiveContentBeacons()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/beacons" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare-tests/webhare_testsuite.testsite/tmp/beacons" ]]));
   TestEq(3, Length(TT("filelist")->rows));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
@@ -121,7 +121,7 @@ ASYNC MACRO TestAdaptiveContentTriggerBeaconWidget()
 
 ASYNC MACRO TestAdaptiveContentSlots()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare-tests/webhare_testsuite.testsite/tmp/slots" ]]));
   TestEq(3, Length(TT("filelist")->rows));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
@@ -217,7 +217,7 @@ ASYNC MACRO TestAdaptiveContentSlots()
 
 ASYNC MACRO TestAdaptiveContentReordering()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots/a-slot" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare-tests/webhare_testsuite.testsite/tmp/slots/a-slot" ]]));
 
   TT("sortorderselect")->value := "ordering"; //FIXME shouldn't this be forced on us? see addons/connect#41
 
@@ -238,7 +238,7 @@ ASYNC MACRO TestAdaptiveContentReordering()
 
 ASYNC MACRO TestAdaptiveContentReferences()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare testsuite site/tmp/slots/a-slot-2" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := ["/webhare-tests/webhare_testsuite.testsite/tmp/slots/a-slot-2" ]]));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
   TestEq(1, Length(TT("fragment2!documents")->rows)); //We lack a clean way to find Documents on the References tab, so for now fragment2 will work

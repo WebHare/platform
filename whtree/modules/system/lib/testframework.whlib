@@ -1556,7 +1556,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         OpenWHFSObject(id)->RecycleSelf();
     }
 
-    OBJECT testsite := OpenSiteByName("WebHare testsuite site"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
+    OBJECT testsite := OpenSiteByName("webhare_testsuite.testsite"); //TODO only generated if webhare_testsuite is present so can't we move it completely out of the core testframework code?
     IF(ObjectExists(testsite))
     {
       OBJECT tmpfolder := testsite->OpenByPath("tmp");
@@ -1574,21 +1574,21 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     GetPrimary()->BeginWork();
     //recreate testfolders... if needed!
     CONSTANT STRING ARRAY testfolders := ["webhare_testsuite.testfolder","webhare_testsuite.testfolder2"];
-    RECORD ARRAY existingroots := SELECT id, name, parentsite
+    RECORD ARRAY existingroots := SELECT id, name, parent, parentsite
                                     FROM system.fs_objects
-                                   WHERE parent = 0
+                                   WHERE parent IN [0, whconstant_whfsid_webhare_tests]
                                          AND name IN testfolders;
 
     FOREVERY(STRING folder FROM testfolders)
     {
       RECORD match := SELECT * FROM existingroots WHERE name = folder;
-      IF(RecordExists(match) AND match.parentsite = 0)
+      IF(RecordExists(match) AND match.parentsite = 0 AND match.parent = whconstant_whfsid_webhare_tests)
         CONTINUE; //clean for reuse
 
       IF(RecordExists(match))
         OpenWHFSObject(match.id)->RecycleSelf();
 
-      OpenWHFSRootObject()->CreateFolder([name := folder,  modificationdate := MakeDate(2001,1,1)]);
+      EnsureWHFSTestRoot()->CreateFolder([name := folder,  modificationdate := MakeDate(2001,1,1)]);
     }
     GetPrimary()->CommitWork();
   }
@@ -1784,12 +1784,12 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC OBJECT FUNCTION GetWHFSTestRoot()
   {
-    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder");
+    RETURN OpenWHFSObjectByPath("/webhare-tests/webhare_testsuite.testfolder");
   }
 
   PUBLIC OBJECT FUNCTION GetWHFSTestRoot2()
   {
-    RETURN OpenWHFSObjectByPath("/webhare_testsuite.testfolder2");
+    RETURN OpenWHFSObjectByPath("/webhare-tests/webhare_testsuite.testfolder2");
   }
 
   PUBLIC OBJECT FUNCTION GetWRDSchema(BOOLEAN forcereload DEFAULTSTO FALSE)
@@ -2378,6 +2378,35 @@ PUBLIC RECORD FUNCTION ExtractWebdesignRenderingSummary(OBJECT htmldoc)
   RETURN DecodeJSON(whconfig->textcontent);
 }
 
+/** Get/ensure the WHFS test root (/webhare-tests/)
+    @return WHFS test root
+*/
+OBJECT cached_whfstestroot;
+PUBLIC OBJECT FUNCTION EnsureWHFSTestRoot()
+{
+  IF(ObjectExists(cached_whfstestroot))
+    RETURN cached_whfstestroot;
+
+  cached_whfstestroot := OpenWHFSObject(whconstant_whfsid_webhare_tests);
+  IF(NOT ObjectExists(cached_whfstestroot))
+  {
+    DATETIME now := GetCurrentDatetime();
+    INSERT [ id := whconstant_whfsid_webhare_tests, name := "webhare-tests", isfolder := TRUE, creationdate := now, modificationdate := now ] INTO system.fs_objects;
+    cached_whfstestroot := OpenWHFSObject(whconstant_whfsid_webhare_tests);
+  }
+  ELSE
+  {
+    IF(cached_whfstestroot->name != "webhare-tests" OR cached_whfstestroot->parent != 0) //we don't accept the folder outside the root so whfspaths are always known
+      cached_whfstestroot->MoveTo(OpenWHFSRootObject(), "webhare-tests");
+
+    IF(cached_whfstestroot->type != 0)
+      cached_whfstestroot->UpdateMetadata([type := 0]);
+  }
+
+  RETURN cached_whfstestroot;
+}
+
+
 /** Setup test output for a site
     @param site Our testsite
     @param subfolder Subfolder to use. Must be either of the form <testingmodule> or <testingmodule>.<subfolder> */
@@ -2393,6 +2422,82 @@ PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
 
   OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
   site->SetPrimaryOutput(backendsite->outputweb, `/testoutput/${subfolder}/`);
+}
+
+/** Setup a test site. It will be created as /webhare-tests/<name> and use WebHare backend:/testoutput/<name>  as output
+    @param sitename Subfolder to use. Must be of the form <testingmodule>.<subfolder> (use xyz.testsite if you have to)
+    @cell(boolean) options.recyclesite If set, recycles the site if it already exists
+    @cell(boolean) options.recyclecontents If set, recycles the contents but not the site itself if it already exists
+    @cell(string) options.webdesign Webdesign the testsite should have
+    @return The site object */
+PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT GetPrimary()->IsWorkOpen())
+    THROW NEW Exception(`EnsureTestSite requires open work`);
+
+  options := ValidateOptions([ recyclesite := FALSE
+                             , recyclecontents := FALSE
+                             , outputweb := 0 //undocumented for now, should externals use it?.. output webserver id to use
+                             , webdesign := ""
+                             ], options);
+
+  IF(NOT IsValidWHFSName(sitename, TRUE) OR ToLowercase(sitename) != sitename OR sitename NOT LIKE "?*.?*")
+    THROW NEW Exception(`Invalid site name name '${sitename}'`);
+
+  STRING modulename := Tokenize(sitename,'.')[0];
+  IF(NOT IsModuleInstalled(modulename))
+    THROW NEW Exception(`No such module '${modulename}'`);
+
+  OBJECT site := OpenSiteByName(sitename);
+
+  IF(ObjectExists(site))
+  {
+    IF(options.recyclesite)
+    {
+      PRINT(`Recreating existing site '${sitename}'\n`);
+      site->rootobject->RecycleSelf();
+      site := DEFAULT OBJECT;
+    }
+    ELSE
+    {
+      IF(options.recyclecontents)
+      {
+        PRINT(`Throwing away contents of site '${sitename}'\n`);
+        FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = site->id)
+          OpenWHFSObject(subobj.id)->RecycleSelf();
+      }
+
+      IF(site->rootobject->parent != whconstant_whfsid_webhare_tests)
+        site->rootobject->MoveTo(EnsureWHFSTestRoot(), "");
+    }
+  }
+
+  IF(NOT ObjectExists(site))
+  {
+    OBJECT root := EnsureWHFSTestRoot()->EnsureFolder([ name := sitename ]);
+    site := CreateSiteFromFolder(root->id);
+  }
+
+  IF(site->webdesign != options.webdesign)
+    site->UpdateSiteMetadata([ webdesign := options.webdesign ]);
+
+  IF(options.outputweb = 0)
+  {
+    OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+    IF(backendsite->outputweb = 0)
+      THROW NEW Exception(`The backend site '${backendsite->name}' requires an output webserver`);
+
+    options.outputweb := backendsite->outputweb;
+  }
+
+  RECORD setresult := site->SetPrimaryOutput(options.outputweb, `/testoutput/${sitename}/`);
+  IF(NOT setresult.success)
+  {
+    DumpValue(setresult);
+    THROW NEW Exception("Unable to set testsite output");
+  }
+
+  RETURN site;
 }
 
 /** Request an extension on all rate limits. Must currently be renewed every 10 minutes, invoke testframework with

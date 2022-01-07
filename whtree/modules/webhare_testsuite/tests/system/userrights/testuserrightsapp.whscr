@@ -187,7 +187,7 @@ ASYNC MACRO TestRightRoleGrants()
   // Grant right (object right)
   AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers", [ menuitem := TRUE ]));
   {
-    TTFillByTitle("objecttree!objectlist->thelist", "WebHare testsuite site", [ expandtreelevels := 2 ]);
+    TTFillByTitle("objecttree!objectlist->thelist", "webhare_testsuite.testsite", [ expandtreelevels := 3 ]);
     TTFillByTitle("rightslist", "Browse");
     TT("comment")->value := "Testsuite test 2";
     AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
@@ -264,7 +264,7 @@ ASYNC MACRO TestRightRoleGrants()
 
   // Add grant via objects list
   TTFillByTitle("viewmode", "Module and object rights");
-  TTFillByTitle("objecttree!objectlist->thelist", "WebHare testsuite site", [ expandtreelevels := 2 ]);
+  TTFillByTitle("objecttree!objectlist->thelist", "webhare_testsuite.testsite", [ expandtreelevels := 3 ]);
   TT("frame")->focused := TT("objecttree!objectlist->thelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("grant"));
   {
@@ -500,7 +500,7 @@ ASYNC MACRO TestExportSysop()
   //Test that ROLEGRANTs exist, they were a recent addition
   TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="ROLEGRANT" AND username="visibleuser2@beta.webhare.net" AND rows."object path" = "visiblerole"));
   //Test that we see the ROLE's grant
-  TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="GRANT" AND username="visiblerole" AND rows."object path" = "webhare_testsuite.testfolder; webhare_testsuite.site; visiblefolder"));
+  TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="GRANT" AND username="visiblerole" AND rows."object path" = "webhare-tests; webhare_testsuite.testfolder; webhare_testsuite.site; visiblefolder"));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }

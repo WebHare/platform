@@ -355,9 +355,7 @@ test.registerTests(
     , waits: [ "ui" ]
     }
 
-  //, ToddTest.selectListRow("open root node", "folders!thelist", "{.fsroot}", { doubleclick: true, waits: [ "ui" ] })
-  //, ToddTest.selectListRow("open testfolder node", "folders!thelist", "webhare_testsuite.testfolder", { doubleclick: true, waits: [ "ui" ] })
-  , test.testSelectListRow("folders!thelist", "WebHare testsuite site", { name: "open testsite node", waits: [ "ui" ] })
+  , test.testSelectListRow("folders!thelist", "webhare_testsuite.testsite", { name: "open testsite node", waits: [ "ui" ] })
 
   , { name: "select image"
     , test: async function(doc, win)
