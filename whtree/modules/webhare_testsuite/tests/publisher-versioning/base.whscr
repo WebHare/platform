@@ -591,6 +591,8 @@ MACRO TestStoredPaths()
   SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 3" ]);
   testfw->CommitWork();
 
+  WaitForPublishCompletion(testfile->parent); //the next AcceptApprovalRequestForDraft triggered a deadlock in one test, so let's attempt to have versioning settle...
+
   TestEQ(
       [ eventtype :=        VersionEventType_Request
       , comment :=          "req 3"
