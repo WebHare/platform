@@ -387,7 +387,6 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
   let builderconfig =
       { resolvealias:       { dompack: path.join(modsystemroot,"js/dompack") }
       , entrypoint:         bundle.entrypoint
-                            //never polyfill for eg. sharedworker environments
       , extrapolyfills:     []
       , extrarequires:      extrarequires
       , diskpath:           bundle.diskpath
