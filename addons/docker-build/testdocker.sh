@@ -473,7 +473,7 @@ create_container()
     echo ""
   fi
 
-  if [ -n "$USERSERVERCONFIG" ]; then # for module tests, configure a primary interface URL
+  if [ -n "$USERSERVERCONFIG" ]; then # for module tests, configure a primary interface URL. we need to keep this here until we no longer CI test against versions older than 4.34
     echo "`date` Add serverconfiguration to create a primary interface"
 
     mkdir "${TEMPBUILDROOT}/config"
