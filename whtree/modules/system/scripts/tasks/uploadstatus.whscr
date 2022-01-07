@@ -1,0 +1,62 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+
+OpenPrimary();
+
+RECORD ARRAY receivers := OpenWRDschema("system:config")->^statusupload->RunQuery(
+    [ outputcolumns := CELL[ "wrd_id", "wrd_title", "url", "reports" ]
+    ]);
+
+OBJECT browser := NEW WebBrowser;
+receivers := ShuffleArray(receivers); //in case one of the receivers crashes us
+FOREVERY(RECORD receiver FROM receivers)
+{
+  RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
+
+  RECORD serverinfo := [ installationid := ReadRegistryKey("system.global.installationid")
+                       , version := GetWebhareVersionInfo()
+                       ];
+
+  IF("modules" IN receiver.reports)
+  {
+    RECORD ARRAY modules := SELECT name
+                                 , version
+                                 , lastmodified
+                              FROM GetInstalledModulesOverview(FALSE); //include_deleted
+
+    INSERT CELL modules := modules INTO serverinfo;
+  }
+  IF("sites" IN receiver.reports)
+  {
+    RECORD ARRAY sites :=
+            SELECT id
+                 , name
+                 , webroot
+                 , outputweb
+                 , cdnbaseurl
+              FROM system.sites;
+
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "webfeatures"]);
+
+    INSERT CELL sites := sites INTO serverinfo;
+  }
+
+  IF(NOT browser->PostWebPageBlob(receiver.url, [[ field := "Content-Type", value := "application/json" ]], EncodeJSONBlob(serverinfo)))
+  {
+    //Not displaying the URL in the error, it might contain secrets
+    PrintTo(2,`Failed to upload to receiver #${receiver.wrd_id}: ${receiver.wrd_title}: ${browser->GetHTTPStatusText()}\n`);
+    SetConsoleExitCode(1);
+  }
+}

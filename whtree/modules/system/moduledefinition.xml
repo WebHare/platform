@@ -34,6 +34,7 @@
     <task runat="39  5 * * *"  runtz="maintenance" tag="updatefallbackcertificate" script="scripts/tasks/updatefallbackcertificate.whscr" description="Renew the fallback certificate" runatstartup="true"/>
 
     <task runat="29  * * * *"  runtz="maintenance" tag="cleanup_hourly" script="scripts/tasks/cleanup_hourly.whscr" description="Hourly cleanup"/>
+    <task runat="39  * * * *"  runtz="maintenance" tag="uploadstatus" script="scripts/tasks/uploadstatus.whscr" runatstartup="true" />
 
     <task runat="*/10 * * * *" runtz="maintenance" tag="webserverusage" script="scripts/tasks/webserverusage.whscr" description="Process webserver usage stats" />
     <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
