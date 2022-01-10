@@ -18,6 +18,7 @@ LOADLIB "mod::consilio/lib/internal/indexing.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -499,6 +500,13 @@ STRING FUNCTION ValidateIndexTag(STRING indextag)
     THROW NEW Exception(`Invalid indextag '${indextag}'`);
 
   RETURN indextag;
+}
+
+/** @short Get a token to access a consilio search engine's autosuggest API */
+PUBLIC STRING FUNCTION GetConsilioRPCToken(STRING indextag, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ autosuggest := FALSE ], options);
+  RETURN EncryptForThisServer("consilio:suggest", CELL [ c := GetCurrentDatetime(), t := indextag, ag := options.autosuggest ]);
 }
 
 /** @short Search an index

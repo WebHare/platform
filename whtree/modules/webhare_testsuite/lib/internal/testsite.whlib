@@ -1449,6 +1449,15 @@ PUBLIC RECORD FUNCTION TestInvoke_BuildLoginRedirectToken(STRING url, STRING ret
       ];
 }
 
+PUBLIC RECORD FUNCTION TestInvoke_SetupConsilioTest(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RunTestFramework(MACRO PTR[], [ consilio := TRUE ]);
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
+  FOREVERY(RECORD contentsource FROM catalog->ListContentSources())
+    testfw->WaitContentSourceDone(contentsource.id);
+  RETURN CELL[];
+}
+
 PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ createsysop := FALSE

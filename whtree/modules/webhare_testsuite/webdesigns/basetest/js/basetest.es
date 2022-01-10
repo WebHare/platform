@@ -7,6 +7,8 @@ import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecon
 import * as forms from '@mod-publisher/js/forms';
 
 import * as geoip from '@mod-publisher/js/analytics/geoip';
+import * as whintegration from "@mod-system/js/wh/integration";
+
 import '@mod-publisher/js/richcontent/all';
 import '@mod-publisher/js/analytics/gtm';
 import './components.es';
@@ -133,3 +135,4 @@ adaptivecontent.setup(window.__testdcoptions);
 
 window.geoip_getCountryCode = geoip.getCountryCode;
 window.geoip_getIPInfo = geoip.getIPInfo;
+window.whintegration_config = whintegration.config;
