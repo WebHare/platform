@@ -2324,7 +2324,6 @@ The full base URL on which this site will be published, calculated by combining 
                      mode="alwayson"
                      screen=""
                      persistonsoftreset="true"
-                     environment="WEBHARE:WEBSERVERMANAGER"
                      where="webserver" />
 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getsystemapprunnerconfig" />

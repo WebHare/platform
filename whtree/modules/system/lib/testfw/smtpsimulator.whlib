@@ -122,7 +122,7 @@ PUBLIC OBJECT FUNCTION GetSMTPReceiver(STRING host, INTEGER port, RECORD options
   RECORD handleroptions := CellExists(options, "handleroptions") ? options.handleroptions : DEFAULT RECORD;
   DELETE CELL handleroptions FROM options;
 
-  RECORD jobrec := CreateJob("mod::system/lib/testfw/smtpsimulatorjob.whlib", "WEBHARE");
+  RECORD jobrec := CreateJob("mod::system/lib/testfw/smtpsimulatorjob.whlib");
   IF(NOT ObjectExists(jobrec.job))
   {
     DumpValue(jobrec.errors,'boxed');

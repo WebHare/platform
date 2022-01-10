@@ -1,7 +1,5 @@
 import $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase from "./transportbase.es";
-// FIXME: websocket transport isn't nearly as error-resilient as shared worker transport
-// Should share the reconnect code
 
 /// WebSocket support
 export default class WebSocketTransport extends TransportBase

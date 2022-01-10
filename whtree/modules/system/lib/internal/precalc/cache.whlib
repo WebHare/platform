@@ -454,7 +454,7 @@ PUBLIC STATIC OBJECTTYPE PersistentPrecalcCache EXTEND PrecalcCache
       GetPrimary()->CommitWork();
     }
 
-    RECORD jobstartres := CreateJob("mod::system/lib/internal/precalc/dbwriter.whlib", "");
+    RECORD jobstartres := CreateJob("mod::system/lib/internal/precalc/dbwriter.whlib");
     IF (NOT ObjectExists(jobstartres.job))
       THROW NEW HarescriptErrorException(jobstartres.errors);
 

@@ -39,7 +39,6 @@
     <siteprofile path="data/tollium.siteprl.xml"/>
     <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml">
       <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface" supportedlanguages="en nl" compatibility="es2016" />
-      <assetpack name="sharedworker" entrypoint="mod::tollium/webdesigns/webinterface/js/sharedworker.es" webharepolyfills="false" supportedlanguages="" environment="sharedworker" />
     </webdesign>
     <customnode namespace="http://www.webhare.net/xmlns/tollium" name="portal"/>
     <feedbackscope tag="webharebackend" />
@@ -51,7 +50,7 @@
       </accesscheck>
     </webservice>
 
-    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" environment="WEBHARE" where="webserver" />
+    <internalservice tag="tolliumapplicationstarter" library="internal/applicationstarter.whscr" tid="todd.misc.applicationstarter" portname="tollium:appstarter" mode="ondemand" screen="" releaseonsoftreset="true" where="webserver" />
   </services>
 
   <documentation>

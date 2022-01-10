@@ -317,7 +317,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     DATETIME loggedin_expires := this->GetMsgCell(launchuserinfo, "LOGGEDIN_EXPIRES", TypeID(DATETIME)) ?? MAX_DATETIME;
 
     // Create an application host
-    RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr", "WEBHARE");
+    RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr");
 
     // Errors creating the job?
     IF (NOT ObjectExists(jobrec.job))

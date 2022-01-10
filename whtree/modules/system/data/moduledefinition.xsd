@@ -1370,13 +1370,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="environment" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Specifies the loading environment. This attribute is for WebHare's internal use only anda will be removed in the future.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="Backend">

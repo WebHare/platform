@@ -786,13 +786,12 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 
 /** Creates a new job. SUPER rights are required.
     @param script Script to run
-    @param environment Environment. No longer used
     @return Job creation result
     @cell return.job Job object, if it doesn't exist some errors have occurred.
     @cell return.errors List of errors.
     @cell return.warnings List of warnings.
 */
-PUBLIC RECORD FUNCTION CreateJob(STRING script, STRING environment DEFAULTSTO "") //FIXME remove evironment parameter
+PUBLIC RECORD FUNCTION CreateJob(STRING script)
 {
   RECORD res := __HS_CreateJob(script);
   RECORD ARRAY warnings := SELECT iserror, iswarning, istrace, filename, line, col, code, param1, param2, func, message
@@ -1005,7 +1004,7 @@ PUBLIC OBJECT ASYNC FUNCTION AsyncCallFunctionFromJob(STRING func, VARIANT ARRAY
     DELETE FROM args AT 0;
   }
 
-  RECORD res := CreateJob("wh::internal/asyncrunner.whscr", "");
+  RECORD res := CreateJob("wh::internal/asyncrunner.whscr");
   IF (NOT ObjectExists(res.job))
     THROW NEW HarescriptErrorException(res.errors);
 
@@ -1045,7 +1044,7 @@ PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFA
     DELETE FROM args AT 0;
   }
 
-  RECORD res := CreateJob("wh::internal/asyncrunner.whscr", "");
+  RECORD res := CreateJob("wh::internal/asyncrunner.whscr");
   IF (NOT ObjectExists(res.job))
     THROW NEW HarescriptErrorException(res.errors);
 

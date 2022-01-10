@@ -146,7 +146,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   RECORD FUNCTION GetRunData()
   {
-    STRING sharedworker_bundletag := "tollium:sharedworker" || (AreOutputToolsActive() ? ".dev" : "");
     RECORD config :=
       [ toddroot         := this->toddroot
       , toddservice      := "/wh_services/tollium/todd"
@@ -158,7 +157,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , intolerant       := this->intolerant
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
-      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || GetAssetPackBuildVersion(sharedworker_bundletag)
       , allowinframe     := this->allowinframe
       , jsversion        := this->jsversion
       ];

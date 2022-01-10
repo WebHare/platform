@@ -338,7 +338,7 @@ PUBLIC OBJECTTYPE __LineReader
 
   MACRO NEW(RECORD data)
   {
-    RECORD rec := CreateJob("wh::internal/linereadjob.whlib", "WEBHARE");
+    RECORD rec := CreateJob("wh::internal/linereadjob.whlib");
     IF (NOT ObjectExists(rec.job))
       THROW NEW Exception(AnyToString(rec, "tree"));
     this->job := rec.job;
@@ -408,7 +408,7 @@ PUBLIC OBJECTTYPE __AsyncLogReader
 
   MACRO NEW(RECORD data)
   {
-    RECORD rec := CreateJob("wh::internal/logreaderjob.whlib", "WEBHARE");
+    RECORD rec := CreateJob("wh::internal/logreaderjob.whlib");
     IF (NOT ObjectExists(rec.job))
       THROW NEW Exception(AnyToString(rec, "tree"));
     this->job := rec.job;

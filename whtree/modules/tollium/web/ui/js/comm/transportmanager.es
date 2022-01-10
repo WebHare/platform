@@ -1,10 +1,5 @@
-import * as dompack from 'dompack';
-import * as whintegration from '@mod-system/js/wh/integration';
-import * as browser from 'dompack/extra/browser';
-
 import JSONRPCTransport from "./jsonrpctransport.es";
 import WebSocketTransport from "./websocket.es";
-import SharedWebSocketTransport from "./sharedwebsocket.es";
 
 /** The transportManager handles setting up transports for the endpoints
 */
@@ -45,23 +40,7 @@ export default class TransportManager
   suggestTransportType()
   {
     let urltransporttype = new URL(location.href).searchParams.get("transport");
-    if(urltransporttype)
-      return urltransporttype;
-
-    if (window.SharedWorker && window.WebSocket
-        && !dompack.debugflags.websocket
-        && whintegration.config.dtapstage != 'development'
-        && !(['ie','edge'].includes(browser.getName()))) //we prefer to treat Edge as an IE11 because noone tests these workers
-    {
-      return "sharedworker";
-    }
-
-    if (window.WebSocket)
-    {
-      return "websocket";
-    }
-
-    return "jsonrpc";
+    return urltransporttype && urltransporttype == "jsonrpc" ? "jsonrpc" : "websocket";
   }
 
   /** Registers an endpoint
@@ -79,19 +58,8 @@ export default class TransportManager
     if (!transport)
     {
       let transporttype = this.suggestTransportType();
-      if(transporttype == "sharedworker")
+      if(transporttype == "websocket")
       {
-        console.log('Using WebSocket transport via sharedworker');
-        transport = new SharedWebSocketTransport(
-            { commhost: commhost
-            , ononline: () => this._gotOnline()
-            , onoffline: () => this._gotOffline()
-            });
-      }
-      else if(transporttype == "websocket")
-      {
-        // Doesn't seem to work on Firefox, some problems with cookies?
-        console.warn('Using WebSocket transport'); // FIXME: websocket transport isn't nearly as error-resilient as shared worker transport
         transport = new WebSocketTransport(
             { commhost: commhost
             , ononline: () => this._gotOnline()
@@ -111,10 +79,7 @@ export default class TransportManager
     }
 
     this.endpoints.push(endpoint);
-
-    //console.log('** register endpoint ', endpoint, 'set transport to', transport);
     transport.addEndPoint(endpoint);
-
     transport.setSignalled(endpoint);
   }
 

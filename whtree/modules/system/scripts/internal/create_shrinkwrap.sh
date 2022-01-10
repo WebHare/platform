@@ -108,22 +108,6 @@ for MOD in $( cd "$WHTREE/modules" ; ls -d -- * ); do
   fi
 done
 
-# we screenshot the webinterface just to check there are no obvious JS errors
-if ! $TIMEOUT $WHTREE/bin/wh webserver addport --virtual 38600 ; then
-  echo "creating interface port failed"
-  EXITCODE=1
-fi
-
-if ! $TIMEOUT $WHTREE/bin/wh webserver addbackend http://localhost:38600/ ; then
-  echo "creating interface webserver failed"
-  EXITCODE=1
-fi
-
-if ! $TIMEOUT $WHTREE/bin/wh screenshot -o /tmp/screenshot.png --abortonlogerrors --delay 5000 http://localhost:38600/ ; then
-  echo "error getting login interface screenshot (probably got javascript errors)"
-  EXITCODE=1
-fi
-
 # consistency check
 if ! $TIMEOUT $WHTREE/bin/wh checkwebhare ; then
   echo "self-consistency check failed"

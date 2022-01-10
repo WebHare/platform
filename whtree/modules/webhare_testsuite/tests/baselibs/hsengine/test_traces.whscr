@@ -47,7 +47,7 @@ MACRO TestTraces()
   }
 
   {
-    RECORD jres := CreateJob("test::testdata_traces_a.whlib", "");
+    RECORD jres := CreateJob("test::testdata_traces_a.whlib");
     TestEq(TRUE, ObjectExists(jres.job));
     RECORD res := jres.job->ipclink->SendMessage([ type := "abort" ]);
     TestEq("ok", res.status);
@@ -69,7 +69,7 @@ MACRO TestTraces()
   }
 
   {
-    RECORD jres := CreateJob("test::testdata_traces_a.whlib", "");
+    RECORD jres := CreateJob("test::testdata_traces_a.whlib");
     TestEq(TRUE, ObjectExists(jres.job));
     RECORD res := jres.job->ipclink->SendMessage([ type := "throw" ]);
     TestEq("ok", res.status);

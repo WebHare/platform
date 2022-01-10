@@ -43,7 +43,6 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
       @cell messages.errors List of job errors
       @cell tid Tid
       @cell title Title
-      @cell environment Environment to start the script in
       @cell persistonreset Whether the script may outlive a system:softreset event
       @cell releaseonreset Whether the current script is released on system:softreset event
   */
@@ -135,7 +134,6 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
         BOOLEAN globalport := (script->GetAttribute("globalport") IN [ "1", "true" ]);
         STRING mode := script->GetAttribute("mode");
         STRING screen := script->GetAttribute("screen");
-        STRING environment := script->GetAttribute("environment");
         BOOLEAN persistonreset := script->GetAttribute("persistonsoftreset") IN [ "true", "1" ];
         BOOLEAN releaseonreset := script->GetAttribute("releaseonsoftreset") IN [ "true", "1" ];
         STRING ARRAY servertypes := Tokenize(NormalizeWhitespace(TrimWhitespace(script->GetAttribute("where"))), " ");
@@ -165,7 +163,6 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
             , messages :=       DEFAULT RECORD ARRAY
             , tid :=            (tid!="" AND tid NOT LIKE "*:*" ? modname || ":" || tid : tid)
             , title :=          title
-            , environment :=    environment != "" ? environment : "WEBHARE"
             , persistonreset := persistonreset
             , releaseonreset := releaseonreset
             ];
@@ -252,7 +249,6 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
             OR org.portname != rec.portname
             OR org.globalport != rec.globalport
             OR org.mode != rec.mode
-            OR org.environment != rec.environment
             OR org.persistonreset != rec.persistonreset
             OR org.releaseonreset != rec.releaseonreset;
 
@@ -263,7 +259,6 @@ PUBLIC STATIC OBJECTTYPE ManagementPortHandler EXTEND IPCPortHandlerBase
         org.screen := rec.screen;
         org.title := rec.title;
         org.tid := rec.tid;
-        org.environment := rec.environment;
 
         // Restart persistent scripts anyway on big changes
         IF (significant_change AND ObjectExists(org.job))
