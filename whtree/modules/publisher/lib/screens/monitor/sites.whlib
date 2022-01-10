@@ -1,6 +1,9 @@
 <?wh
 LOADLIB "wh::util/langspecific.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib"; // republish functions
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -36,6 +39,19 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
   }
 
+  MACRO DoExport()
+  {
+    RunColumnFileExportDialog(this,
+        CELL[ rows := this->sites
+            , columns :=  [[ name := "name",        type := "string", title := this->GetTid(".sitecolumns.name") ]
+                          ,[ name := "sitedesign",  type := "string", title := GetTid("publisher:commondialogs.siteprops.sitedesign") ]
+                          ,[ name := "webroot",     type := "string", title := this->GetTid(".sitecolumns.url") ]
+                          ,[ name := "webfeatures", type := "string", title := GetTid("publisher:commondialogs.siteprops.webfeatures") ]
+                          ,[ name := "cdnbaseurl",  type := "string", title := GetTid("publisher:commondialogs.siteprops.cdnbaseurl") ]
+                          ]
+            ]);
+  }
+
   MACRO OnLinkedToTypeChange()
   {
     this->UpdateVisibleFilters();
@@ -55,8 +71,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
                  , name
                  , webroot
                  , outputweb
-                // cdnbaseurl
-                // locked / lockreason
+                 , cdnbaseurl
               FROM system.sites
           ORDER BY NormalizeText(name, this->tolliumuser->language);
 
@@ -72,7 +87,6 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
       usedwebfeatures := usedwebfeatures CONCAT site.webfeatures;
     usedwebfeatures := SELECT AS STRING ARRAY DISTINCT(webfeature) FROM ToRecordArray(usedwebfeatures, "webfeature");
 
-
     RECORD ARRAY webdesigns :=
           [ [ rowkey := "", title := "" ] ]
           CONCAT
@@ -82,8 +96,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
             FROM GetAvailableWebDesigns(FALSE) AS wdesign
         ORDER BY NormalizeText(_title, this->tolliumuser->language);
 
-    this->webdesign->options := webdesigns;
-
+    ^webdesign->options := webdesigns;
 
     RECORD ARRAY webfeatures :=
           [ [ rowkey := "", title := "" ] ]
@@ -94,10 +107,9 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
             FROM GetAvailableWebFeatures() AS wfeature
         ORDER BY NormalizeText(_title, this->tolliumuser->language);
 
-    this->webfeature->options := webfeatures;
+    ^webfeature->options := webfeatures;
 
-
-    this->weboutput->options :=
+    ^weboutput->options :=
           [ [ rowkey := 0, title := "" ] ]
           CONCAT
           SELECT TEMPORARY _title := baseurl || " (" || Length(SELECT FROM sites WHERE outputweb = webservers.id) || ")"
