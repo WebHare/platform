@@ -196,6 +196,9 @@ async function runTask(taskcontext, data)
       , resolveExtensions: [".js",".es"]
       };
 
+  if(bundle.bundleconfig.environment == 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
+    esbuild_configuration.define["global"] = "window";
+
   let buildresult;
   let start = Date.now();
   try

@@ -1,12 +1,10 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 test.registerTests(
-  [ { loadpage: test.getTestSiteRoot()
-    }
-  , { test: function(doc,win)
-      {
-        test.eq('\u2028unicode line separator,\u2029another separator', win.getTidTest().unicode2028);
-      }
+  [ async function()
+    {
+      await test.load(test.getTestSiteRoot());
+      test.eq('\u2028unicode line separator,\u2029another separator', test.getWin().getTidTest().unicode2028);
+      test.true(global.URL); //ensure the global object exists (at least for window environments)
     }
   ]);

@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -81,6 +82,11 @@ PUBLIC STATIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
 
   MACRO DoReRegister()
   {
+    //refresh 'lastset' so "we" are considered the leading callback server
+    OBJECT work := this->BeginUnvalidatedWork();
+    UPDATE system_internal.proxies SET lastset := GetCurrentDatetime();
+    work->Finish();
+
     ReloadWebhareConfig(TRUE, FALSE);
   }
 >;
