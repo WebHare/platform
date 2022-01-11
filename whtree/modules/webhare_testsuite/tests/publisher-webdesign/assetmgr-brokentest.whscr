@@ -5,13 +5,81 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
-LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/modules/support.whlib";
+
+
+RECORD extracted;
+
+MACRO AddImportViaMod(INTEGER version)
+{
+  STRING moduleroot := GetModuleinstallationroot("webhare_testsuite_temp");
+  CreateDiskDirectoryRecursive(moduleroot || "webdesigns/testdesign/resolvetest/", TRUE);
+
+  IF (version = 1)
+  {
+    CreateDiskDirectoryRecursive(moduleroot || "webdesigns/testdesign/node_modules/@group/testpkg/", TRUE);
+    DeleteDiskDirectoryRecursive(moduleroot || "webdesigns/testdesign/resolvetest/node_modules/");
+  }
+  ELSE
+  {
+    CreateDiskDirectoryRecursive(moduleroot || "webdesigns/testdesign/resolvetest/node_modules/@group/testpkg/", TRUE);
+    DeleteDiskDirectoryRecursive(moduleroot || "webdesigns/testdesign/node_modules/");
+  }
+
+  StoreDiskFile(moduleroot || "webdesigns/testdesign/resolvetest/test.es", StringToBlob(`window.version = ${version};`), [ overwrite := TRUE ]);
+  StoreDiskFile(moduleroot || "webdesigns/testdesign/resolvetest/sass.scss", StringToBlob(
+`
+@import '~@mod-webhare_testsuite_temp/webdesigns/testdesign/resolvetest/sass2';
+@import '~@group/testpkg/sass3.scss';
+`), [ overwrite := TRUE ]);
+  StoreDiskFile(moduleroot || "webdesigns/testdesign/resolvetest/sass2.scss", StringToBlob(`div { background: ${version = 1 ? "red" : "green"} }`), [ overwrite := TRUE ]);
+  StoreDiskFile(moduleroot || `webdesigns/testdesign/${version=2?"resolvetest/":""}node_modules/@group/testpkg/sass3.scss`, StringToBlob(`div { background: ${version = 1 ? "red" : "green"} }`), [ overwrite := TRUE ]);
+
+  // Add imports to
+  BLOB org_testdesign_es := GetDiskResource(moduleroot || "webdesigns/testdesign/testdesign.es");
+  IF (BlobToString(org_testdesign_es) NOT LIKE "*resolvetest/test*")
+  {
+    StoreDiskFile(moduleroot || "webdesigns/testdesign/testdesign.es", StringToBlob(BlobToString(org_testdesign_es) ||
+`
+import "@mod-webhare_testsuite_temp/webdesigns/testdesign/resolvetest/test";
+import "@mod-webhare_testsuite_temp/webdesigns/testdesign/resolvetest/sass.scss";
+`), [ overwrite := TRUE ]);
+  }
+
+  PRINT(`module root for version ${version}: ${GetModuleinstallationroot("webhare_testsuite_temp")}\n`);
+}
+
+STRING FUNCTION GetFilePathFromDeps(RECORD status, STRING postfix)
+{
+  RETURN
+    SELECT AS STRING path
+      FROM ToRecordArray(status.dependencies.filedependencies, "PATH")
+     WHERE path LIKE "*" || postfix;
+}
+
+MACRO CheckTestUsedFilePaths(RECORD status, INTEGER version)
+{
+  STRING testfile_path :=
+    SELECT AS STRING path
+      FROM ToRecordArray(status.dependencies.filedependencies, "PATH")
+     WHERE path LIKE "*/webdesigns/testdesign/resolvetest/test.es";
+
+  TestEq(`mod::webhare_testsuite_temp/webdesigns/testdesign/resolvetest/test.es`, GetFilePathFromDeps(status, "test.es"), "Path to test.es points to an old module (or no reference found to the file)");
+  TestEq(`mod::webhare_testsuite_temp/webdesigns/testdesign/resolvetest/sass.scss`, GetFilePathFromDeps(status, "sass.scss"), "Path to sass.scss points to an old module (or no reference found to the file)");
+  TestEq(`mod::webhare_testsuite_temp/webdesigns/testdesign/resolvetest/sass2.scss`, GetFilePathFromDeps(status, "sass2.scss"), "Path to sass2.scss points to an old module (or no reference found to the file)");
+  TestEq(`mod::webhare_testsuite_temp/webdesigns/testdesign/${version=2?"resolvetest/":""}node_modules/@group/testpkg/sass3.scss`, GetFilePathFromDeps(status, "sass3.scss"), "Path to sass3.scss points to an old module (or no reference found to the file). Module._pathCache reset probably failed.");
+}
 
 MACRO TestCrashJson()
 {
+  AddImportViaMod(1);
+  PRINT(`1st module root: ${GetModuleinstallationroot("webhare_testsuite_temp")}\n`);
+
   testfw->BeginWork();
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   OBJECT dynfolder := siteroot->CreateFolder( [ name:="dynfolder"
@@ -27,16 +95,17 @@ MACRO TestCrashJson()
   TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->objecturl || "dynfolder/"), testfw->browser->href);
 
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-  RECORD extracted := ExtractBundleOutputTag(testfw->browser->document);
+  extracted := ExtractBundleOutputTag(testfw->browser->document);
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
 
-// Module not found: Error: Cannot resolve 'file' or 'directory' /opt/whdata/installedmodules/webhare_testsuite_tests/webhare_testsuite_temp/webdesigns/testdesign/js/testdesign in /opt/whdata/tmp
+// Module not found: Error: Cannot resolve 'file' or 'directory' /opt/whdata/installedmodules/webhare_testsuite_tests/webhare_testsuite_temp/webdesigns/testdesign/resolvetest/testdesign in /opt/whdata/tmp
   //print( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign\n" );
   //DumpValue(ReadDiskDirectory( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign", "*"),'boxed');
   //DumpValue(ReadDiskDirectory( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign/js", "*"),'boxed');
   TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats);
+  CheckTestUsedFilePaths(status, 1);
 
   //Now kill the package.json
   StoreDiskFile(GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign/package.json", StringToBlob("This is not a JSON file"), [ overwrite := TRUE ]);
@@ -47,7 +116,34 @@ MACRO TestCrashJson()
   TestEqLike("Package.json*not valid JSON", status.errors, "Wrong errors for bundle " || extracted.outputtag);
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, withcontent := FALSE ])
-                 , PTR EnsureValidTestModuleWebDesignWebsiteBUndle
+MACRO TestRecompileAfterModuleReplace()
+{
+  testfw->SetupTestModule(CELL[ timestampfolder := TRUE, replaceexistingmodule := TRUE ]);
+  SetupWebDesign("publisher:blank", testfw_testmodule, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
+  AddImportViaMod(2);
+  RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
+
+  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
+  WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
+  RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats);
+
+  CheckTestUsedFilePaths(status, 2);
+
+  AddImportViaMod(1);
+  RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
+
+  WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
+  WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
+  status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats || ", resetting Module._pathCache probably didn't reset the path cache correctly");
+
+  CheckTestUsedFilePaths(status, 1);
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, withcontent := FALSE, timestampfolder := TRUE ])
+                 , PTR EnsureValidTestModuleWebDesignWebsiteBundle
                  , PTR TestCrashJson
+                 , PTR TestRecompileAfterModuleReplace()
                  ]);

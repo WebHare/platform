@@ -63,19 +63,7 @@ function whResolverPlugin(bundle, build) //setup function
       }
     });
 
-    build.onResolve({filter:/@mod-/ }, args =>
-    {
-      let target = compileutils.resolveWebHareAssetPath('',args.path);
-      if(target)
-      {
-        if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-          console.log(`[esbuild-compiletask] kind '${args.kind}' resolved module path ${args.path} to ${target}`);
-        return { path: target };
-      }
-
-      if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-        console.log(`[esbuild-compiletask] kind '${args.kind}' failed to resolve potential module path ${args.path}`);
-    });
+    // @mod-... paths are resolved up by the nodePath in the esbuild configuration
 
     //debug line, capture all resolves
     if(process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
@@ -133,6 +121,8 @@ function mapESBuildError(entrypoint, error)
 
 async function runTask(taskcontext, data)
 {
+  compileutils.resetResolveCache();
+
   let bundle = data.bundle;
   let langconfig = { modules: data.baseconfig.installedmodules
                    , languages: bundle.bundleconfig.languages
