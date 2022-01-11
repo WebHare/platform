@@ -1,4 +1,6 @@
+const fs = require('fs');
 const path = require('path');
+const Module = require('module');
 const bridge = require('@mod-system/js/wh/bridge');
 
 function resolveWebHareAssetPath(startingpoint, inpath)
@@ -13,9 +15,24 @@ function resolveWebHareAssetPath(startingpoint, inpath)
     let paths = [];
     if(startingpoint)
       paths.push(startingpoint);
-    paths.push(path.join(bridge.getBaseDataRoot(),"nodejs/node_modules/"));
 
-    return require.resolve(inpath, { paths });
+    /* If the path starts with @mod-, we know it must be loaded from $DATAROOT/nodejs/node_modules.
+       Replace the inpath with the full path, and resolve the symlinks (because we can't reset the symlink
+       resolve cache in the nodejs module loader). No need for startingpoint paths anymore, the inpath
+       is absolute after this.
+    */
+    if (inpath.startsWith('@mod-'))
+    {
+      // The directory should exist, so we can realpath that part
+      let inpathdir = path.join(bridge.getBaseDataRoot(), "nodejs/node_modules/", path.dirname(inpath));
+      inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
+      paths = [];
+    }
+
+    // FIXME: this won't find files ending with .es, because the node process itself isn't configured with that extension
+    let result = require.resolve(inpath, { paths });
+    console.log('require.resolve', inpath, { paths }, result);
+    return result;
   }
   catch(e)
   {
@@ -24,4 +41,10 @@ function resolveWebHareAssetPath(startingpoint, inpath)
   }
 }
 
-module.exports = { resolveWebHareAssetPath };
+/** Resets the path resolve cache, so changes in directory structure won't have effect */
+function resetResolveCache()
+{
+  Module._pathCache = Object.create(null);
+}
+
+module.exports = { resolveWebHareAssetPath, resetResolveCache };
