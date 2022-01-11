@@ -30,9 +30,7 @@ function resolveWebHareAssetPath(startingpoint, inpath)
     }
 
     // FIXME: this won't find files ending with .es, because the node process itself isn't configured with that extension
-    let result = require.resolve(inpath, { paths });
-    console.log('require.resolve', inpath, { paths }, result);
-    return result;
+    return require.resolve(inpath, { paths });
   }
   catch(e)
   {
