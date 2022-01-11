@@ -24,13 +24,14 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
       , istemplate :=   FALSE
       , webfeatures :=  DEFAULT STRING ARRAY
       , waitwebserver := FALSE
+      , timestampfolder := FALSE
       //, aftercompiletask := ""
       ], options,
       [ optional := [ "SITENAME" ]
       ]);
 
   IF(NOT IsModuleInstalled(testfw_testmodule) AND (webdesigntemplate LIKE testfw_testmodule || ":*" OR options.istemplate))
-    testfw->SetupTestModule();
+    testfw->SetupTestModule(CELL[ options.timestampfolder ]);
 
   testfw->BeginWork();
 
