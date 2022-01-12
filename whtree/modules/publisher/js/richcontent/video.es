@@ -19,7 +19,10 @@ function createMyFrame()
 function initYouTube(node, video, playback)
 {
   let ifrm = createMyFrame();
+
+  // List of embed parameters YouTube supports:
   // https://developers.google.com/youtube/player_parameters
+
   var args = [];
 
   if(playback.autoplay)
@@ -40,33 +43,22 @@ function initYouTube(node, video, playback)
   if (video.loop || playback.loop)
   {
     /* from the documentation: https://developers.google.com/youtube/player_parameters
-        Note: This parameter has limited support in the AS3 player and in IFrame embeds, which could load either
-        the AS3 or HTML5 player. Currently, the loop parameter only works in the AS3 player when used
-        in conjunction with the playlist parameter. To loop a single video, set the loop parameter value to 1
-        and set the playlist parameter value to the same video ID already specified in the Player API URL
+       Note: This parameter has limited support in IFrame embeds. To loop a single video,
+       set the loop parameter value to 1 and set the playlist parameter value to the
+       same video ID already specified in the Player API URL:
+       https://www.youtube.com/embed/VIDEO_ID?playlist=VIDEO_ID&loop=1
     */
     args.push("loop=1", "playlist=" + video.id);//To enable loop, set same video as playlist
   }
 
   args.push("rel=0", "enablejsapi=1", "origin=" + location.origin); // disable 'related video's'
 
-  // ADDME: playsinline parameter for inline or fullscreen playback on iOS
-  /*
-  YouTube
-  -   start=
-    & end=
-    & controls=0
-
-    & modestbranding=0
-    & rel=0
-    & showinfo=0
-  */
-
   var youtube_url = `//${youtubedomain}/embed/${video.id}`;
   if (args.length > 0)
     youtube_url += "?" + args.join("&");
 
   ifrm.src = youtube_url;
+  ifrm.title = video.title ? "YouTube video: " + video.title : "YouTube video";
   node.appendChild(ifrm);
 }
 
@@ -74,6 +66,9 @@ function initVimeo(node,video, playback)
 {
   let ifrm = createMyFrame();
   var args = [];
+
+  // List of embed parameters Vimeo supports:
+  // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
 
   if(playback.autoplay)
     args.push("autoplay=1");
@@ -84,6 +79,7 @@ function initVimeo(node,video, playback)
   if (video.endtime)
     console.warn("setting an endtime doesn't work for Vimeo video's");
 
+  // NOTE: actually disabling controls is possible, but ONLY if the video is hosted by a Plus account or higher
   if (typeof playback.controls != "undefined" && !playback.controls)
     console.warn("disabling video controls not possible for Vimeo video's");
 
@@ -117,6 +113,7 @@ function initVimeo(node,video, playback)
   }
 
   ifrm.src = vimeo_url;
+  ifrm.title = video.title ? "Vimeo video: " + video.title : "Vimeo video";
   node.appendChild(ifrm);
 }
 

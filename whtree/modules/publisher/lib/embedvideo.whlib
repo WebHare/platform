@@ -132,6 +132,8 @@ PUBLIC RECORD FUNCTION GetVideoEmbedInfo(RECORD video)
     INSERT CELL mute := TRUE INTO videoinfo;
   IF(video.loop)
     INSERT CELL loop := TRUE INTO videoinfo;
+  IF(video.title != "")
+    INSERT CELL title := video.title INTO videoinfo;
   RETURN videoinfo;
 }
 
