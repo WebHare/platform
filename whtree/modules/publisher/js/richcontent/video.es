@@ -58,7 +58,7 @@ function initYouTube(node, video, playback)
     youtube_url += "?" + args.join("&");
 
   ifrm.src = youtube_url;
-  ifrm.title = video.title ? "YouTube video: " + video.title : "Vimeo video";
+  ifrm.title = video.title ? "YouTube video: " + video.title : "YouTube video";
   node.appendChild(ifrm);
 }
 
