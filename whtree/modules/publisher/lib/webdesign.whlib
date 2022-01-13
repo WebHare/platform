@@ -559,7 +559,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       }
       header := header || '>\n<head>\n';
       header := header || '  <meta charset="utf-8">\n';
-      header := header || '  <meta http-equiv="X-UA-Compatible" content="IE=edge">\n';
       header := header || '  <title>' || EncodeValue(data.pagetitle) || '</title>\n';
       IF(data.pagedescription!="")
         header := header || '  <meta name="description" content="' || EncodeValue(data.pagedescription) || '">\n';
