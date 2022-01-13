@@ -638,6 +638,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                            , limitdate := "WRD_LIMITDATE"
                            ]
         , historymode := "all"
+        , cachettl := 30 * 60 * 1000
         ]);
       this->domainvalues := SELECT *
                                  , tag := ToUppercase(tag)
