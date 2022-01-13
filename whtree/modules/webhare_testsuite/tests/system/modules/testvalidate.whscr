@@ -678,6 +678,15 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenttid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
   TestEq([[ tid:="tollium:b.tid" ],[ tid:="tollium:c.tid" ], [tid := "tollium:group.see-me" ]], SELECT tid FROM res.tids);
 
+  BLOB commenticon := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*icon*/"tollium:b.icon"; };
+                                         STRING FUNCTION y() { RETURN /*icon*/\`tollium:c.icon\`; };
+                                         STRING FUNCTION z() { RETURN /*icon*/\`tollium:\${"A"}.icon\`; };
+                                         /*icon*/\`tollium:group.see-me\`;
+                                         /*icon*/\`hovi_editor:tolliumapps.edit\${"A"}.\${ToLowercase("A")}.\${ToLowercase("A")}\`;
+                                         `);
+  res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenticon, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
+  TestEq([[ icon:="tollium:b.icon" ],[ icon:="tollium:c.icon" ], [icon := "tollium:group.see-me" ]], SELECT icon FROM res.icons);
+
   //Test GetTIDForLanguage
   FOREVERY(STRING totest FROM [`OBJECT x; GetTIDForLanguage(x->formlanguagecode, "system:has.module");`
                               ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, "system:has.module");`
@@ -708,6 +717,8 @@ GetTid("missing.module"); GetTid("system:has.module");`);
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext" ]
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext_params" ]
                 ], res.tids, "*");
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", icon := "tollium:status/not_available" ]
+                ], res.icons, "*");
 
 
   BLOB tidxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>

@@ -52,6 +52,13 @@ window.getTidTest = function()
          };
 };
 
+window.getIconTest = function()
+{
+  return { //this never used, but we want this for the icon scanner
+           consolelog: /*icon*/'tollium:status/not_available'
+         };
+};
+
 import { setupGoogleRecaptcha } from "@mod-publisher/js/captcha/google-recaptcha";
 setupGoogleRecaptcha();
 

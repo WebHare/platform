@@ -66,8 +66,6 @@ PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD 
   STRING modulename := GetModulenameFromResourcePath(resourcename);
 
   RECORD ARRAY warnings, errors;
-  RECORD ARRAY texts;
-  RECORD ARRAY screens;
 
   RECORD validateconfig := GetModuleValidationConfig(modulename);
   IF(NOT options.onlytids)
@@ -86,24 +84,30 @@ PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD 
     }
   }
 
-  RETURN [ warnings := warnings
-         , tids     := GetJSTexts(resourcename, libdata)
-         , errors   := errors
+  RECORD texts := GetJSTexts(resourcename, libdata);
+
+  RETURN CELL
+         [ warnings
+         , errors
+         , tids :=    texts.texts
+         , texts.icons
          ];
 }
 
-RECORD ARRAY FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
+RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
 {
 //  BOOLEAN findscreens := TRUE; // we only need to search for screens in *.whlib files
   RECORD ARRAY texts;
+  RECORD ARRAY icons;
   // Skip time consuming tokenizing and analysing of Javascript code
   // if the file has no mention of GetTid anywhere.
   // (This gives a big speed boost, huge even for the system module)
   STRING rawtext := ToUpperCase(BlobToString(libdata, -1));
   IF (SearchSubString(rawtext, 'GETTID') = -1 AND
       SearchSubString(rawtext, 'GETHTMLTID') = -1 AND
-      SearchSubString(rawtext, '/*TID*/') = -1)
-    RETURN RECORD[];
+      SearchSubString(rawtext, '/*TID*/') = -1 AND
+      SearchSubString(rawtext, '/*ICON*/') = -1)
+    RETURN CELL[ texts, icons ];
 
   // Hack to be able to use the harescript tokenizer
   libdata := StringToBlob("<?wh " || Substitute(BlobToString(libdata), "?>", ""));
@@ -183,9 +187,28 @@ RECORD ARRAY FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
              ]
         INTO texts AT END;
     }
+    IF(ToUppercase(tok.token) = "/*ICON*/")
+    {
+      RECORD expect_icon := GetNextTok(file);
+
+      // Ignore if first parameter of GetTid is not a STRING
+      IF(NOT RecordExists(expect_icon) OR Left(expect_icon.token,1) NOT IN ["'",'"','`'])
+        CONTINUE;
+
+      IF(Left(expect_icon.token,1) = '`' AND Right(expect_icon.rawtoken,1) != '`') //looks like a ` string ending with a ${
+        CONTINUE;
+
+      STRING icon := DecodeJava(Substring(expect_icon.token, 1, Length(expect_icon.token)-2));
+      INSERT [ resourcename :=  resourcename
+             , line :=      tok.line
+             , col :=       tok.col
+             , icon :=      icon
+             ]
+        INTO icons AT END;
+    }
   }
 
   CloseHarescriptFile(file);
-  RETURN texts;
+  RETURN CELL[ texts, icons ];
 }
 
