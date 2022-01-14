@@ -119,19 +119,9 @@ MACRO ParseSubArgs(RECORD ARRAY suboptions, STRING subhelp DEFAULTSTO "")
 BLOB FUNCTION ReadArgFile(STRING filename)
 {
   IF (filename = "-")
-  {
-    STRING s;
-    WHILE (TRUE)
-    {
-      STRING data := ReadFrom(0, 4096);
-      IF (data = "" AND IsAtEndOfStream(0))
-        BREAK;
-      s := s || data;
-    }
-    RETURN StringToBlob(s);
-  }
-  ELSE
-    RETURN GetDiskResource(filename);
+    RETURN GetSTDINAsBlob();
+
+  RETURN GetDiskResource(filename);
 }
 
 MACRO DisplayHelp()
