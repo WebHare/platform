@@ -424,11 +424,7 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
       };
 
   if(bundle.bundleconfig.webharepolyfills)
-  {
-    if(bundle.bundleconfig.compatibility != "modern")
-      builderconfig.extrapolyfills.push("@mod-publisher/js/internal/polyfills/index.es");
     builderconfig.extrapolyfills.push("@mod-publisher/js/internal/polyfills/modern.es");
-  }
 
   if(directcompile) //we're debugging..
     console.log("BUILDERCONFIG:", builderconfig);
