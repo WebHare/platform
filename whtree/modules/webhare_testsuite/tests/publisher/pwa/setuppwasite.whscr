@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "relative::lib/tests.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT site := EnsureTestSite(webharetestsuite_pwa_sitename, [ recyclesite := TRUE, webdesign := "webhare_testsuite:pwatest" ]);
+site->rootobject->CreateFile([name := "pwatest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pwatest", publish := TRUE] );
+site->rootobject->CreateFile([name := "photo.jpg", data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg"), publish := FALSE ]);
+site->rootobject->EnsureFile([name := "exclusiontestpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/exclusiontestpage", publish := TRUE]);
+
+trans->CommitWork();
+WaitForPublishCompletion(site->id);

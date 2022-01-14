@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.objectprops.pwa">
+
+  <tabsextension name="pwatab">
+    <newtab tid=".pwa">
+      <line>
+        <datetime composition="contentdata" cellname="forcerefresh" type="datetime" storeutc="true" />
+        <text valuetid=".forcesapprefresh" />
+      </line>
+    </newtab>
+  </tabsextension>
+
+</screens>

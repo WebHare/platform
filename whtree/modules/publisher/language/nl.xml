@@ -2244,6 +2244,11 @@
           <text tid="when">Tijdstip</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="pwa">   <!-- tolliumapps.objectprops.pwa -->
+        <text tid="forcerefresh">Forceer verversing</text>
+        <text tid="forcesapprefresh">(forceer een update indien niet bijgewerkt sinds aangegeven datum)</text>
+        <text tid="pwa">Progressive webapp</text>
+      </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
         <text tid="references">Referenties</text>
         <text tid="url">URL</text>

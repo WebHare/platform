@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="webhare_testsuite.pwa" ignoremasks="lib setuppwasite.whscr">
+  <test script="test_pwa_testapp.whscr" />
+  <jstest file="test_pwa_frontend.es" />
+</group>
