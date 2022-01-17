@@ -872,18 +872,6 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
             this->owner->__ExecuteCallback(handler, files);
         }
       }
-      CASE "upload-dataurl"
-      {
-        MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
-        IF(handler != DEFAULT MACRO PTR)
-        {
-          RECORD parsed := ParseDataURL(msgdata.dataurl);
-          IF (RecordExists(parsed))
-          {
-            this->owner->__ExecuteCallback(handler, [ [ data := parsed.data, mimetype := parsed.contenttype ] ]);
-          }
-        }
-      }
       DEFAULT
       {
         TolliumComponentBase::ProcessInboundMessage(type, msgdata);
