@@ -1465,6 +1465,7 @@
       <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
         <text tid="alphanum">This value should be alphanumeric.</text>
         <text tid="badfiletype">This file type is not allowed</text>
+        <text tid="cannotprocessfile">This file looks suspicious and can unfortunately not be uploaded</text>
         <text tid="check">You must select between <param p="1"/> and <param p="2"/> choices.</text>
         <text tid="default">This value seems to be invalid.</text>
         <text tid="digits">This value should be digits.</text>

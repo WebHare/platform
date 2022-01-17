@@ -43,7 +43,7 @@ STRING FUNCTION RunScan(RECORD scanner, BLOB data)
   RECORD url := UnpackURL(scanner.url);
   IF(url.scheme = "x-antivirus-mock")
   {
-    IF(Length(data) < 1024 AND BlobToString(data) = url.schemespecificpart)
+    IF(Length(data) < 1024 AND BlobToString(data) LIKE `*${url.schemespecificpart}*`)
       RETURN "Virus!";
     RETURN "";
   }
