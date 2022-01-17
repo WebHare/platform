@@ -827,7 +827,7 @@ const char *GetErrorText(SocketError::Errors whicherror)
         static const char *Errors[]=
            {"No error", //0
             "An unknown error occurred", //-1
-            "The connection has been closed ", //-2
+            "The connection has been closed", //-2
             "Socket was not connected", //-3
             "Socket tried to use an already bound address", //-4
             "Socket still has data left", //-5
