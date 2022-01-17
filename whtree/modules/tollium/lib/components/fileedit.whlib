@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // The file edit component
