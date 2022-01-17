@@ -53,8 +53,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
 
   /*FIXME: PRIVATE*/PUBLIC OBJECT pvt_focused_component;
 
-  PUBLIC RECORD pvt_tolliumweb_upload; // If not empty, this window can be replaced with a Flash file upload in JavaScript
-
   // ---------------------------------------------------------------------------
   //
   // Public variables and properties
@@ -603,12 +601,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   {
     OBJECT uploaddialog := this->owner->LoadScreen('tollium:commondialogs.getuserfile', [ offer_ok_button := FALSE, multiple:=multiple ] );
     uploaddialog->mimetypes := mimetypes;
-    uploaddialog->tolliumscreenmanager->frame->pvt_tolliumweb_upload
-        := [ sessionid := uploaddialog->GetFileUploadSesssionId()
-           , maxsize := maxsize
-           , filetypes := filetypes
-           , multiple := multiple
-           ];
 
     SWITCH(uploaddialog->RunModal())
     {
@@ -681,9 +673,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     IF (this->dirtyflags.fully)
     {
       RECORD frameinfo := [ menubar := ObjectExists(this->menubar) AND NOT ObjectExists(this->currentmenubutton) ? GetComponentName(this->menubar) : ""
-                          //, parentwindow := ObjectExists(this->owner->tolliumparent) ? this->owner->tolliumparent->tolliumscreenmanager->frame->tolliumweb_name : ""
                           , unmasked_events := MemberExists(this,"CANCEL") ? [ "cancel" ] : DEFAULT STRING ARRAY
-                          //, screenname := this->tolliumweb_name
                           , allowresize := this->allowresize
                           , allowclose := this->allowclose
                           , badge := GetComponentName(this->badge)
@@ -691,20 +681,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
                           , title := this->title
                           , screenname := this->screenname
                           ];
-
-/*
-      IF (CellExists(this->savedframestate, 'top') AND this->savedframestate.top >= 0)
-        INSERT CELL top := this->savedframestate.top INTO frameinfo;
-      IF (CellExists(this->savedframestate, 'left') AND this->savedframestate.left >= 0)
-        INSERT CELL left := this->savedframestate.left INTO frameinfo;
-*/
-      IF(RecordExists(this->pvt_tolliumweb_upload))
-      {
-        INSERT CELL uploadsessionid := this->pvt_tolliumweb_upload.sessionid INTO frameinfo;
-        INSERT CELL uploadmaxsize   := this->pvt_tolliumweb_upload.maxsize INTO frameinfo;
-        INSERT CELL uploadfiletypes := this->pvt_tolliumweb_upload.filetypes INTO frameinfo;
-        INSERT CELL uploadmultiple  := this->pvt_tolliumweb_upload.multiple INTO frameinfo;
-      }
 
       INSERT CELL toolbars := GetVisibleComponentNames(this->toolbars) INTO frameinfo;
       INSERT CELL bodynode := GetComponentName(this->realbody) INTO frameinfo;
@@ -750,14 +726,10 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
             this->SetFocusedComponent(comp, /*handleupdates=*/FALSE);
         }
       }
-      IF (/*CellExists(frame, 'top')
-          AND CellExists(frame, 'left')
-          AND*/ CellExists(frame, 'width')
+      IF (CellExists(frame, 'width')
           AND CellExists(frame, 'height'))
       {
-        this->savedframestate := [/* top := frame.top
-                                 , left := frame.left
-                                 , */width := this->allowresize ? frame.width : 0
+        this->savedframestate := [ width := this->allowresize ? frame.width : 0
                                  , height := this->allowresize ? frame.height : 0
                                  ];
       }

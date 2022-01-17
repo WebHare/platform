@@ -94,7 +94,6 @@
     </actions>
     <body name="body">
       <button action="upload" />
-<!-- FIXME       <file name="file" tid=".file" onchange="flashuploaded" /> -->
       <!-- A file component is added dynamically, because it doesn't exist in XML anymore -->
       <panel height="1pr" />
     </body>

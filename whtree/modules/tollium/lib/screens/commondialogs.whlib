@@ -450,11 +450,6 @@ PUBLIC OBJECTTYPE GetUserFile EXTEND TolliumScreenBase
     RETURN TRUE;
   }
 
-  PUBLIC STRING FUNCTION GetFileUploadSesssionId()
-  {
-    RETURN "";//RETURN this->file->pvt_tolliumweb_sessionid;
-  }
-
   PUBLIC VARIANT FUNCTION GetResult()
   {
     RETURN this->files;
@@ -487,48 +482,6 @@ PUBLIC OBJECTTYPE GetUserFile EXTEND TolliumScreenBase
 
     // Type was not accepted
     RETURN FALSE;
-  }
-
-/*  PUBLIC MACRO FlashUploadEvent()
-  {
-    // Set the file upload value
-    this->file->TolliumWeb_FormUpdate(param);
-    // Call the callback function
-    this->FlashUploaded();
-  }
-*/
-  PUBLIC MACRO FlashUploaded()
-  {
-    this->error_file := DEFAULT RECORD;
-    IF (NOT RecordExists(this->file->value))
-    {
-      this->tolliumresult := "cancel";
-      RETURN;
-    }
-
-    IF (this->file->multiple)
-    {
-      FOREVERY (RECORD file FROM this->file->value)
-        IF (NOT this->CheckFile(file))
-        {
-          this->tolliumresult := "typeerror";
-          this->error_file := file;
-          this->file->Clear();
-          RETURN;
-        }
-      this->tolliumresult := "ok";
-    }
-    ELSE
-    {
-      IF (this->CheckFile(this->file->value))
-        this->tolliumresult := "ok";
-      ELSE
-      {
-        this->tolliumresult := "typeerror";
-        this->error_file := this->file->value;
-        this->file->Clear();
-      }
-    }
   }
 >;
 
