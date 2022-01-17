@@ -1,0 +1,41 @@
+<?wh
+
+/* wh run mod::system/scripts/debug/antivirus.whscr <filename>
+   use '-' as a filename to scan stdin
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/networking/antivirus.whlib";
+
+
+BLOB FUNCTION ReadArgFile(STRING filename)
+{
+  IF (filename = "-")
+    RETURN GetSTDINAsBlob();
+
+  RETURN GetDiskResource(filename);
+}
+
+RECORD ARRAY options := [ [ name := "files", type := "paramlist", required := TRUE ]
+                        ];
+RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+IF(NOT RecordExists(cmdargs) OR Length(cmdargs.files) = 0)
+  TerminateScriptWithError("Specify path to scan");
+
+OpenPrimary();
+FOREVERY(STRING filepath FROM cmdargs.files)
+{
+  RECORD scanresult := RunAntivirusScan(ReadArgFile(filepath));
+  IF(scanresult.success)
+  {
+    Print(`${filepath}: File is OK!\n`);
+  }
+  ELSE
+  {
+    SetConsoleExitCode(1);
+    Print(`${filepath}: ${scanresult.message}\n`);
+  }
+}

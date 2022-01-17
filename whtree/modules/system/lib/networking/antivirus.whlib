@@ -1,0 +1,154 @@
+<?wh
+/** @topic webapis/antivirus */
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+RECORD ARRAY FUNCTION ListVirusscanners()
+{
+  RECORD ARRAY scanners := SELECT * FROM OpenWRDSchema("system:config")->^externalservice->RunQuery(
+      [ outputcolumns := CELL[ "url", "priority" ]
+      , filters := [ [ field := "servicetype", value := "system:clamav" ]
+                   ]
+      , cachettl := 30000
+      ]) ORDER BY priority, Random(1,65535);
+
+  RETURN scanners;
+}
+
+/** Check if we have anti-virus scanners
+    @return True if anti-virus scanners have been configured */
+PUBLIC BOOLEAN FUNCTION IsAntiVirusScanEnabled()
+{
+  RETURN Length(ListVirusscanners()) > 0;
+}
+
+RECORD FUNCTION MakeScanErrorResult(STRING errorcode, STRING detail, STRING message)
+{
+  RETURN CELL [ success := FALSE, errorcode, detail, message ];
+}
+RECORD FUNCTION MakeScanOKResult()
+{
+  RETURN CELL [ success := TRUE, errorcode := "", detail := "", message := "" ];
+}
+
+STRING FUNCTION RunScan(RECORD scanner, BLOB data)
+{
+  RECORD url := UnpackURL(scanner.url);
+  IF(url.scheme NOT LIKE "tcp")
+    THROW NEW Exception(`Requires a tcp:// url`);
+
+  OBJECT scannersocket;
+  INTEGER blobfile;
+  TRY
+  {
+    scannersocket := CreateSocket("TCP");
+    IF(NOT scannersocket->Connect(url.host, url.port))
+      THROW NEW Exception(`Unable to connect to ${scanner.url}: ${scannersocket->GetLastError()}`);
+
+    blobfile := OpenBlobAsFile(data);
+
+    BOOLEAN sentheader, sentlastblock;
+    WHILE (NOT sentlastblock)
+    {
+      STRING totransmit := ReadFrom(blobfile, 16384);
+      sentlastblock := totransmit = "";
+      totransmit := EncodePacket("len:P",[ len := Length(totransmit)]) || totransmit;
+      IF(NOT sentheader)
+      {
+        totransmit := "zINSTREAM\0" || totransmit;
+        sentheader := TRUE;
+      }
+
+      WHILE(Length(totransmit) > 0)
+      {
+        INTEGER bytessent := scannersocket->Write(totransmit);
+        IF(bytessent = -13)
+        {
+          IF(WaitForMultiple(DEFAULT INTEGER ARRAY, INTEGER[ scannersocket->handle ], 30000) < 0)
+            THROW NEW Exception(`Timeout uploading file to scan`);
+          CONTINUE;
+        }
+        ELSE IF(bytessent < 0)
+        {
+          THROW NEW Exception(`Error uploading file to scan: ${scannersocket->GetErrorMessage()}`);
+        }
+
+        totransmit := Substring(totransmit, bytessent);
+      }
+    }
+
+    STRING response;
+    DATETIME deadline := AddTimeToDate(60000, GetCurrentDatetime());
+    WHILE(response NOT LIKE "*\0")
+    {
+      STRING packet := ReadFrom(scannersocket->handle, 1024);
+      IF(packet = "")
+      {
+        INTEGER socket_error := GetLastSocketError(scannersocket->handle);
+        IF(socket_error = -13)
+        {
+          INTEGER waitres := WaitForMultipleUntil(INTEGER[ scannersocket->handle ], INTEGER[], deadline);
+          IF(waitres < 0)
+            THROW NEW Exception(`Timeout waiting for scan result`);
+          CONTINUE;
+        }
+
+        THROW NEW Exception(`Error waiting for scan result: ${scannersocket->GetErrorMessage()}`);
+      }
+      response := response || packet;
+    }
+
+    IF(response NOT LIKE "stream: *\0")
+      THROW NEW Exception(`Misunderstoond response '${response}`);
+
+    response := Substring(response, 8, Length(response) - 9);
+    RETURN response = "OK" ? "" : response;
+  }
+  FINALLY
+  {
+    IF(ObjectExists(scannersocket))
+      scannersocket->Close();
+    IF(blobfile > 0)
+      CloseDiskFile(blobfile);
+  }
+}
+
+/** Scan the specified file for virusses
+    @param data File to scan
+    @return Scan result
+    @cell(boolean) return.success If true, scan was completed and found no issues
+    @cell(string) return.errorcode Error code (noscannersavailable | suspicious | allscannersfailed)
+    @cell(string) return.detail Name of the found virus signature
+    @cell(string) return.message Human readable error message (always English) */
+PUBLIC RECORD FUNCTION RunAntivirusScan(BLOB data)
+{
+  RECORD ARRAY scanners := ListVirusscanners();
+  IF(Length(scanners) = 0)
+    RETURN MakeScanErrorResult("noscannersavailable", "", "No virus scanners have been configured");
+
+  FOREVERY(RECORD scanner FROM scanners)
+  {
+    TRY
+    {
+      STRING virus := RunScan(scanner,data);
+      IF(virus = "")
+        RETURN MakeScanOKResult();
+      ELSE
+        RETURN MakeScanErrorResult("suspicious", virus, `Suspicious file: ${virus}`);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      //and onto the next scanner...
+    }
+  }
+
+  RETURN MakeScanErrorResult("allscannersfailed", "", "All virus scanners failed");
+}
