@@ -81,8 +81,7 @@ ELSE IF (rec.msg.filetype = "blob")
 ELSE
   THROW NEW Exception("Unknown filetype '" || rec.msg.filetype || "'");
 
-IF (CellExists(rec.msg, "SKIP_UNTIL"))
-  log->SkipUntil(rec.msg.skip_until);
+log->SkipUntil(rec.msg.skip_until);
 
 RunBufferLoop();
 
