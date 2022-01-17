@@ -1,8 +1,9 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="WebAPIs"
-       docorder="oauth2">
+       docorder="oauth2 antivirus">
   <section name="oauth2" title="OAUTH2 APIs" />
   <section name="email" title="Email services" />
   <section name="gitlab" title="GitLab APIs" />
   <section name="aws" title="AWS APIs" />
+  <section name="antivirus" title="Anti-virus" />
 </topic>

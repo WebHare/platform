@@ -2,6 +2,7 @@
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 

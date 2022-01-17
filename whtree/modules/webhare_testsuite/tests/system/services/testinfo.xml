@@ -10,5 +10,6 @@
   <test script="test_twitter.whscr" tags="external" ifenvironset="TESTSECRET_TWITTER_CLIENTID TESTSECRET_TWITTER_CLIENTSECRET" />
   <test script="test_printer.whscr" />
   <test script="test_analytics.whscr" />
+  <test script="test_antivirus.whscr" />
   <test script="uploadreceiver.whscr" />
 </group>

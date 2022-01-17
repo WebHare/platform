@@ -1,0 +1,151 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/webdav.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/networking/antivirus.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+STRING todaysvirus := GenerateUFS128BitId();
+STRING virushash := ToLowercase(EncodeBase16(GetHashForString(todaysvirus, "SHA-256")));
+
+RECORD ARRAY FUNCTION GetAntiVirusEvents(DATETIME since)
+{
+  // Should be flushed immediately
+  OBJECT stream := OpenWebHareLogStream("audit", since, GetCurrentDatetime());
+
+  RECORD ARRAY events;
+  WHILE (TRUE)
+  {
+    RECORD rec := stream->ReadRecord();
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    IF (rec.parts[0] LIKE "system:antivirusscan.*")
+      INSERT rec INTO events AT END;
+  }
+  stream->Close();
+  RETURN events;
+}
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), GetTestsuiteTempFolder()->id, FALSE, TRUE);
+  testfw->CommitWork();
+}
+
+MACRO SetupScanner(BOOLEAN add_it)
+{
+  testfw->BeginWork();
+
+  OBJECT externalservicetype := OpenWRDSchema("system:config")->^externalservice;
+  INTEGER existing_test_scanner := externalservicetype->Search("WRD_TAG", "TESTFW_ANTIVIRUS_SCANNER", [ historymode := "all" ]);
+  IF(existing_test_scanner != 0)
+    externalservicetype->DeleteEntity(existing_test_scanner);
+
+  IF(add_it)
+  {
+    externalservicetype->CreateEntity( [ wrd_tag := "TESTFW_ANTIVIRUS_SCANNER"
+                                       , url  := "x-antivirus-mock:" || todaysvirus
+                                       , wrd_limitdate := AddTimeToDate(60000, GetCurrentDatetime())
+                                       , priority := -2000000000
+                                       , servicetype := "system:clamav"
+                                       ]);
+  }
+
+  testfw->CommitWork();
+
+}
+
+ASYNC MACRO TestTolliumVirus()
+{
+  TestEq(TRUE, IsAntiVirusScanEnabled());
+
+  DATETIME start := GetCurrentDatetime();
+
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(GetTestsuiteTempFolder()->id) ] ]));
+  TT("upload")->ExecuteUpload([[ filename := "test-av1.txt", data := StringToBlob("Not a virus, honest!") ]]);
+
+  TestEq(["test-av1.txt"], SELECT AS STRING ARRAY name FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id ORDER BY name);
+
+  AWAIT ExpectAndAnswerMessageBox("ok"
+                                  , PTR TT("upload")->ExecuteUpload([[ filename := "test-av2.txt", data := StringToBlob(todaysvirus) ]])
+                                  , [ messagemask := "*Virus!*" ]
+                                  );
+
+  TestEq(["test-av1.txt"], SELECT AS STRING ARRAY name FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id ORDER BY name);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(GetTestsuiteTempFolder()->id) ] ]));
+  AWAIT ExpectAndAnswerMessageBox("no"
+                                  , PTR TT("upload")->ExecuteUpload([[ filename := "test-av3.txt", data := StringToBlob(todaysvirus) ]])
+                                  , [ messagemask := "*Virus!*" ]
+                                  );
+  AWAIT ExpectAndAnswerMessageBox("yes"
+                                  , PTR TT("upload")->ExecuteUpload([[ filename := "test-av4.txt", data := StringToBlob(todaysvirus) ]])
+                                  , [ messagemask := "*Virus!*" ]
+                                  );
+  TestEq(["test-av1.txt", "test-av4.txt"], SELECT AS STRING ARRAY name FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id ORDER BY name);
+
+  RECORD ARRAY events := GetAntiVirusEvents(start);
+  TestEq( ["system:antivirusscan.ok", "system:antivirusscan.fail", "system:antivirusscan.fail", "system:antivirusscan.fail", "system:antivirusscan.override"]
+        , SELECT AS STRING ARRAY parts[0] FROM events);
+  TestEqMembers([ [ client_filename := "test-av1.txt", errorcode := "", client_mimetype := "text/plain", filehash := "91b5aec93e2f71b3a91c556dc60dedd3d17e7a18f1311809d2c47013af5be27c", detail := "", message := "" ]
+                , [ client_filename := "test-av2.txt", errorcode := "suspicious", client_mimetype := "text/plain", filehash := virushash, detail := "Virus!", message := "Suspicious file: Virus!" ]
+                , [ client_filename := "test-av3.txt", errorcode := "suspicious", client_mimetype := "text/plain", filehash := virushash, detail := "Virus!", message := "Suspicious file: Virus!" ]
+                , [ client_filename := "test-av4.txt", errorcode := "suspicious", client_mimetype := "text/plain", filehash := virushash, detail := "Virus!", message := "Suspicious file: Virus!" ]
+                , [ client_filename := "test-av4.txt", errorcode := "suspicious", client_mimetype := "text/plain", filehash := virushash, detail := "Virus!", message := "Suspicious file: Virus!" ]
+                ], (SELECT AS RECORD ARRAY DecodeHSON(parts[3]) FROM events), "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
+ASYNC MACRO TestWebdavVirus()
+{
+  DATETIME start := GetCurrentDatetime();
+
+  testfw->SetTestUser("lisa");
+  STRING webdavroot := testfw->GetTestSite()->webroot || "webdav/";
+  OBJECT webdavserver := NEW WebdavConnection(webdavroot);
+  webdavserver->webbrowser->SetPassword(webdavroot, testfw->GetUserLogin("lisa"), testfw->GetUserPassword("lisa"));
+
+  webdavserver->Put("/publisher/tmp/test-webdav1.txt", StringToBlob("Not a virus, honest!"), FALSE);
+  TestThrowsLike('Failed*',PTR webdavserver->Put("/publisher/tmp/test-webdav2.txt", StringToBlob(todaysvirus), FALSE));
+
+  TestEq(["test-av1.txt", "test-av4.txt", "test-webdav1.txt"]
+         , SELECT AS STRING ARRAY name FROM webdavserver->ListDirectory("/publisher/tmp/") ORDER BY name);
+
+  RECORD ARRAY events := GetAntiVirusEvents(start);
+  TestEq( ["system:antivirusscan.ok", "system:antivirusscan.fail" ]
+        , SELECT AS STRING ARRAY parts[0] FROM events);
+  TestEqMembers([ [ client_filename := "test-webdav1.txt", errorcode := "", client_mimetype := "", filehash := "91b5aec93e2f71b3a91c556dc60dedd3d17e7a18f1311809d2c47013af5be27c", detail := "", message := "", uploadpath := "/publisher/tmp/test-webdav1.txt" ]
+                , [ client_filename := "test-webdav2.txt", errorcode := "suspicious", client_mimetype := "", filehash := virushash, detail := "Virus!", message := "Suspicious file: Virus!", uploadpath := "/publisher/tmp/test-webdav2.txt" ]
+                ], (SELECT AS RECORD ARRAY DecodeHSON(parts[3]) FROM events), "*");
+}
+
+RunTestframework([ PTR SetupScanner(TRUE)
+                 , PTR PrepIt
+                 , PTR TestTolliumVirus
+                 , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE ])
+                 , PTR TestWebdavVirus
+                 , PTR SetupScanner(FALSE)
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

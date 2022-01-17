@@ -2742,60 +2742,6 @@ PUBLIC OBJECTTYPE TolliumDownloadKeeper
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumFileDropAccepter
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  /// For accepting file uploads
-  RECORD ARRAY uploads;
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Uploads and downloads
-  //
-
-  UPDATE PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
-  {
-    STRING token := GenerateUFS128BitId();
-    RECORD rec :=
-        [ token :=  token
-        , data :=   [ data := incoming.data
-                    , mimetype := incoming.mimetype
-                    , filename := incoming.filename
-                    ]
-        ];
-
-    INSERT rec INTO this->uploads AT RecordLowerBound(this->uploads, rec, [ "TOKEN" ]).position;
-    RETURN [ token ];
-  }
-
-  UPDATE RECORD FUNCTION ProcessUpload(RECORD msgdata)
-  {
-    FOREVERY (RECORD item FROM RECORD ARRAY(msgdata.items))
-      IF (item.type = "file")
-      {
-        RECORD pos := RecordLowerBound(this->uploads, item, [ "TOKEN" ]);
-        IF (pos.found)
-        {
-          msgdata.items[#item] := this->uploads[pos.position].data;
-          INSERT CELL type := "file" INTO msgdata.items[#item];
-          IF (CellExists(item, "name"))
-            msgdata.items[#item].filename := item.name;
-
-          INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
-                    , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
-                 INTO msgdata.items[#item];
-          DELETE FROM this->uploads AT pos.position;
-        }
-      }
-    RETURN msgdata;
-  }
-
->;
-
 /* Components extended by TolliumInvisibleComponent are always owned by the frame
 */
 PUBLIC OBJECTTYPE TolliumSpecialComponent EXTEND TolliumComponentBase

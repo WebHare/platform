@@ -17,6 +17,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
+LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 CONSTANT STRING ARRAY validlistclasses := [ "", "verticaltabs" ];
 

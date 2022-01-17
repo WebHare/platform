@@ -28,7 +28,9 @@
   <object tag="EXTERNALSERVICE" keephistorydays="2600"> <!-- list services we are allowed to connect with -->
     <attributes>
       <free tag="url" required="true" />
-      <enum tag="type" required="true" allowedvalues="tika ?*:?*" />
+      <free tag="servicetype" required="true" />
+      <!-- TODO: once the 'tika' users are switched, <obsolete tag="type" /> .. we introduced servicetype in 4.34 -->
+      <integer tag="priority" />
     </attributes>
   </object>
 

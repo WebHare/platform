@@ -4,6 +4,7 @@ LOADLIB "mod::tollium/lib/components/tabs.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/linescomponent.whlib";
+LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 /////////////////////////////////////////////////////////////////////
 // An updateable panel

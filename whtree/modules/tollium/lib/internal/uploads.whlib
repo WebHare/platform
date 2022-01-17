@@ -1,0 +1,122 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/networking/antivirus.whlib";
+
+
+BOOLEAN FUNCTION DoAntiVirusCheck(OBJECT owner, RECORD item)
+{
+  RECORD scanresult := RunAntivirusScan(item.data);
+  IF(scanresult.errorcode = "noscannersavailable")
+    RETURN TRUE; //there are no scanners configured, so no need to scan
+
+  RECORD auditdetails := CELL[ client_filename := item.filename
+                             , client_mimetype := item.mimetype
+                             , filehash := ToLowercase(EncodeBase16(GetHashForBlob(item.data, "SHA-256")))
+                             , scanresult.errorcode
+                             , scanresult.detail
+                             , scanresult.message
+                             ];
+
+  LogAuditEvent(scanresult.success ? "system:antivirusscan.ok" : "system:antivirusscan.fail", auditdetails);
+  IF(scanresult.success)
+    RETURN TRUE; //this file is ok
+
+  STRING issue;
+  IF(scanresult.errorcode = "suspicious")
+    issue := GetTid("tollium:common.errors.upload_suspicious", scanresult.detail);
+  ELSE
+    issue := GetTid("tollium:common.errors.upload_cannotcheck");
+
+  IF(owner->contexts->user->HasRight("system:supervisor"))
+  {
+    IF(owner->RunSimpleScreen("verify", issue || "\n\n" || GetTid("tollium:common.errors.upload_allowsuspiciousfile")) = "yes")
+    {
+      LogAuditEvent("system:antivirusscan.override", auditdetails);
+      RETURN TRUE;
+    }
+  }
+  ELSE
+  {
+    owner->RunSimpleScreen("error", issue || "\n\n" || GetTid("tollium:common.errors.upload_blockedsuspiciousfile"));
+  }
+  RETURN FALSE;
+}
+
+//We are only included into tollium components so it should be safe to access ->owner
+PUBLIC OBJECTTYPE TolliumFileDropAccepter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// For accepting file uploads
+  RECORD ARRAY uploads;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Uploads and downloads
+  //
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION PrepareUpload(RECORD incoming)
+  {
+    STRING token := GenerateUFS128BitId();
+    RECORD rec :=
+        [ token :=  token
+        , data :=   [ data := incoming.data
+                    , mimetype := incoming.mimetype
+                    , filename := incoming.filename
+                    ]
+        ];
+
+    INSERT rec INTO this->uploads AT RecordLowerBound(this->uploads, rec, [ "TOKEN" ]).position;
+    RETURN [ token ];
+  }
+
+  UPDATE RECORD FUNCTION ProcessUpload(RECORD msgdata)
+  {
+    RECORD ARRAY resultitems;
+    FOREVERY (RECORD item FROM RECORD ARRAY(msgdata.items))
+    {
+      IF (item.type != "file")
+      {
+        INSERT item INTO resultitems AT END;
+        CONTINUE;
+      }
+
+      RECORD uploaded := item;
+      RECORD pos := RecordLowerBound(this->uploads, item, [ "TOKEN" ]);
+      IF (pos.found)
+      {
+        //Enrich based on prepared data.
+        //Testframework uploads don't take this path, but I'm not sure if frontend uploads can skip it too or if testframework should have invoked PrepareUpload too
+        uploaded := this->uploads[pos.position].data;
+
+        INSERT CELL type := "file" INTO uploaded;
+        IF (CellExists(item, "name"))
+          uploaded.filename := item.name;
+
+        INSERT CELL extradata := CellExists(item, "extradata") ? item.extradata : DEFAULT RECORD
+                  , fullpath := CellExists(item,"fullpath") ? item.fullpath : ""
+               INTO uploaded;
+
+        DELETE FROM this->uploads AT pos.position;
+      }
+
+      IF(NOT DoAntiVirusCheck(this->owner, uploaded))
+        RETURN CELL[...msgdata, items := RECORD[] ]; //make it look like an empty upload to properly cancel it
+
+      INSERT uploaded INTO resultitems AT END;
+    }
+
+    msgdata.items := resultitems;
+    RETURN msgdata;
+  }
+
+>;
+
