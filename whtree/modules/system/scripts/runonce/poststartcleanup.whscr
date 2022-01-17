@@ -5,6 +5,8 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -74,5 +76,22 @@ RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@webhare
 FOREVERY(RECORD tokill FROM deletelinks)
   DeleteDiskFile(whdatamods || tokill.name);
 
+// 4.34 Replace type with 'servicetype'
+OBJECT externalservicetype := OpenWRDSchema("system:config")->^externalservice;
+IF(RecordExists(externalservicetype->GetAttribute("TYPE")))
+{
+  RECORD ARRAY entries := externalservicetype->RunQuery([ outputcolumns := CELL[ "WRD_ID", "TYPE", "SERVICETYPE" ]]);
+  IF(Length(entries) = 0)
+  {
+    externalservicetype->DeleteAttribute("TYPE"); //then we can drop it straight away!
+  }
+  ELSE
+  {
+    externalservicetype->UpdateAttribute("TYPE", [ isrequired := FALSE ]);
+    FOREVERY(RECORD tofix FROM externalservicetype->RunQuery([ outputcolumns := CELL[ "WRD_ID", "TYPE", "SERVICETYPE" ]]))
+      IF(tofix.type != "" AND tofix.type NOT LIKE "*:*" AND tofix.servicetype = "")
+        externalservicetype->UpdateEntity(tofix.wrd_id, [ servicetype := "system:" || tofix.type ]);
+  }
+}
 
 trans->CommitWork();
