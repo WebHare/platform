@@ -41,6 +41,13 @@ RECORD FUNCTION MakeScanOKResult()
 STRING FUNCTION RunScan(RECORD scanner, BLOB data)
 {
   RECORD url := UnpackURL(scanner.url);
+  IF(url.scheme = "x-antivirus-mock")
+  {
+    IF(Length(data) < 1024 AND BlobToString(data) = url.schemespecificpart)
+      RETURN "Virus!";
+    RETURN "";
+  }
+
   IF(url.scheme NOT LIKE "tcp")
     THROW NEW Exception(`Requires a tcp:// url`);
 

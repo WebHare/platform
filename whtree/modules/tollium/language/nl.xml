@@ -87,6 +87,10 @@
       <text tid="too_long">Het veld '<param p="1"/>' mag niet meer dan <param p="2"/> karakters bevatten</text>
       <text tid="too_many_decimals">Het veld '<param p="1"/>' mag <ifparam p="2" value="0">geen decimalen<else/>niet meer dan <param p="2"/> <ifparam p="2" value="1">decimaal<else/>decimalen</ifparam></ifparam> bevatten</text>
       <text tid="too_short">Het veld '<param p="1"/>' moet <param p="2"/> of meer karakters bevatten</text>
+      <text tid="upload_allowsuspiciousfile">Wil u deze upload toch toestaan?</text>
+      <text tid="upload_blockedsuspiciousfile">Neem contact op met uw systeembeheerder als u dit bestand toch moet uploaden.</text>
+      <text tid="upload_cannotcheck">Dit bestand kan momenteel niet gecontroleerd worden.</text>
+      <text tid="upload_suspicious">Er lijkt een probleem met dit bestand te zijn (<param p="1"/>) en het kan daardoor niet geupload worden</text>
       <text tid="value_out_of_range">Het veld '<param p="1"/>' bevat een ongeldige waarde; u dient een waarde <ifparam p="2" value="">van maximaal <param p="3"/><else/><ifparam p="3" value="">van ten minste <param p="2"/><else/>tussen <param p="2"/> en <param p="3"/></ifparam></ifparam> in te vullen</text>
     </textgroup>
     <textgroup gid="examples">   <!-- common.examples -->
