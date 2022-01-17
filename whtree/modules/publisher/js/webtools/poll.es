@@ -20,6 +20,7 @@ export default class PollWebtool
     this.node = node;
     if(!pollstofetch.length)
       setTimeout(fetchResults,0);
+
     pollstofetch.push(this);
 
     node.addEventListener("submit", e => this.doCheckForPollSubmit(e));
@@ -30,13 +31,12 @@ export default class PollWebtool
     Array.from(node.querySelectorAll('.wh-poll__hideresultsbutton')).forEach(
       node => node.addEventListener("click",  e => this.doCheckForHideResultsClick(e)));
 
+    this._disableInteraction(); //make sure the poll is blocked until we've retrieved the current results
+
     //if (localStorage["webtools:"+this._getToolId()] == "voted")
     let alreadyvoted = localStorage["wh-webtools-votetime:"+this._getToolId()];
     if (alreadyvoted)
-    {
       this.node.classList.add("wh-poll--voted");
-      this._disableInteraction();
-    }
   }
 
   // make poll input's and submit button inactive
@@ -132,8 +132,6 @@ export default class PollWebtool
       let result = await pollrpc.castVoteAndReturnResults(toolid, optionguids);
       toolnode.classList.remove("wh-poll--submitting");
 
-      this._disableInteraction();
-
       if (result.success)
       {
         // FIXME: a setting of the poll should set whether or not
@@ -145,7 +143,7 @@ export default class PollWebtool
         localStorage["wh-webtools-votetime:"+toolid] = Date.now();
 
         toolnode.classList.add("wh-poll--voted", "wh-poll--justvoted");
-        this.applyPollResults(result.pollresults);
+        this._applyPollResults(result.pollresults, null); //null indicates this is not the initial poll/fetch
       }
     }
     catch(e)
@@ -161,8 +159,8 @@ export default class PollWebtool
     }
   }
 
-  // internal
-  applyPollResults(poll, unixtimestampnow)
+  // if unixtimestamps is set, this is the initial poll load getting results
+  _applyPollResults(poll, unixtimestampnow)
   {
     let pollnode = document.querySelector('[data-toolid="' + poll.toolid + '"]');
     if (!pollnode)
@@ -236,5 +234,5 @@ async function fetchResults()
   let result = await pollrpc.getResultsForPolls(toolids);
 
   let unixtimestampnow = Date.now();
-  tofetch.forEach( (poll,idx) => poll.applyPollResults(result[idx], unixtimestampnow));
+  tofetch.forEach( (poll,idx) => poll._applyPollResults(result[idx], unixtimestampnow));
 }
