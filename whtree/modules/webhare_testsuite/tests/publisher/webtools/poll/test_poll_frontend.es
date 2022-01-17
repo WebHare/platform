@@ -1,5 +1,5 @@
 import * as test from "@mod-system/js/wh//testframework";
-//
+
 function testVoteCounts(counts)
 {
   let votecounts = test.qSA('.wh-poll__option__votes');
@@ -17,28 +17,25 @@ test.registerTests(
         if(key.startsWith("wh-webtools-votetime:"))
           localStorage.removeItem(key);
 
-      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib', 'resetTestPoll');
+      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib#resetTestPoll');
       pollurl = result.pollurl;
-    }
-
-  , { loadpage: function() { return pollurl; }
     }
 
   , async function()
     {
+      await test.load(pollurl);
       console.log(test.qS('.wh-poll__showresultsbutton').getBoundingClientRect());
       console.log(test.qS('.wh-poll').getBoundingClientRect());
       test.click('.wh-poll__showresultsbutton');
       testVoteCounts([0,0]);
     }
 
-    //there's no way to navigate back, so... reload!
-  , { loadpage: function() { return pollurl; }
-    }
-
   , async function()
     {
+      //there's no way to navigate back, so... reload!
+      await test.load(pollurl);
       let voteoptions = test.qSA('.wh-poll__option input');
+      await test.wait( () => !voteoptions[0].disabled, "Wait until we're allowed to click");
       test.eq(2,voteoptions.length);
       test.click(voteoptions[1]);
       test.click(test.qS('.wh-poll__votebutton'));
