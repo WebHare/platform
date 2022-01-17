@@ -13,6 +13,8 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/internal/tasks/execution.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queuemgr.whlib";
+
 
 MACRO ListQueues(STRING ARRAY params)
 {
@@ -127,7 +129,7 @@ MACRO RunTask(STRING ARRAY params)
     IF(NOT RecordExists(taskdata))
       THROW NEW Exception(`No such task '${subargs.taskid}'`);
 
-    RECORD taskinfo := GetTaskTypeSettings(taskdata.tasktype, FALSE);
+    RECORD taskinfo := SELECT * FROM GetAllTaskTypeInfo().tasktypes WHERE ephemeral = FALSE AND tasktype = taskdata.tasktype;
     IF(NOT RecordExists(taskinfo))
       THROW NEW Exception(`No definition for tasks of type '${taskdata.tasktype}'`);
     IF (taskinfo.applyerror != "")

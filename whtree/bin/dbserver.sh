@@ -21,8 +21,11 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database 
   RUNAS="chpst -u postgres:whdata"
   PSBIN="/usr/lib/postgresql/11/bin/"
 elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
-  # The PostgreSQL version is locked to 'postgresql@13' in webhare.rb
-  PGVERSION=13
+  # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
+  PGVERSION=$(cat $PSROOT/db/PG_VERSION 2>/dev/null)
+  if [ -z "${PGVERSION}" ]; then
+    PGVERSION=13
+  fi
   if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
     PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
   else
