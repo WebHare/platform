@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/networking/antivirus.whlib";
 LOADLIB "mod::system/lib/virtualfs/api.whlib";
 LOADLIB "mod::system/lib/internal/webserver/webdav.whlib";
 LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";
@@ -505,7 +507,25 @@ MACRO HandleWebdavRequest()
     {
       TRY
       {
-        vfs->PutFile(sourcepath, GetRequestBody(), TRUE);
+        BLOB toupload := GetRequestBody();
+        RECORD scanresult := RunAntivirusScan(toupload);
+        IF(scanresult.errorcode != "noscannersavailable")
+        {
+          RECORD auditdetails := CELL[ client_filename := GetNameFrompath(sourcepath)
+                                     , client_mimetype := GetWebHeader("Content-Type")
+                                     , filehash := ToLowercase(EncodeBase16(GetHashForBlob(toupload, "SHA-256")))
+                                     , scanresult.errorcode
+                                     , scanresult.detail
+                                     , scanresult.message
+                                     , uploadpath := sourcepath
+                                     ];
+
+          LogAuditEvent(scanresult.success ? "system:antivirusscan.ok" : "system:antivirusscan.fail", auditdetails);
+          IF(NOT scanresult.success)
+            THROW NEW Exception(scanresult.message);
+        }
+
+        vfs->PutFile(sourcepath, toupload, TRUE);
         INSERT [ field := "Status", value := "201" ] INTO headers AT END;
       }
       CATCH(OBJECT exc)
