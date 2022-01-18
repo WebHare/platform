@@ -544,6 +544,8 @@ MACRO TestStoredPaths()
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 1" ]);
   testfw->CommitWork();
 
+  WaitForPublishCompletion(testfile->parent); //make sure the rename has settled, or we may trigger a race where a file being renamed during publication triggers a 106 error (No first file_
+
   TestEQ(
       [ eventtype :=        VersionEventType_AcceptApply
       , comment :=          "acc 1"
@@ -574,6 +576,8 @@ MACRO TestStoredPaths()
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 2" ]);
   testfw->CommitWork();
 
+  WaitForPublishCompletion(testfile->parent); //make sure the rename has settled, or we may trigger a race where a file being renamed during publication triggers a 106 error (No first file_
+
   TestEQ(
       [ eventtype :=        VersionEventType_AcceptApply
       , comment :=          "acc 2"
@@ -591,7 +595,6 @@ MACRO TestStoredPaths()
   SubmitApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "req 3" ]);
   testfw->CommitWork();
 
-  WaitForPublishCompletion(testfile->parent); //the next AcceptApprovalRequestForDraft triggered a deadlock in one test, so let's attempt to have versioning settle...
 
   TestEQ(
       [ eventtype :=        VersionEventType_Request
@@ -606,6 +609,8 @@ MACRO TestStoredPaths()
   testfolder->UpdateMetadata([ name := "movetarget2" ]);
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 3" ]);
   testfw->CommitWork();
+
+  WaitForPublishCompletion(testfile->parent); //let publication settle to help prevent deadlocks on the file
 
   TestEQ(
       [ eventtype :=        VersionEventType_AcceptApply
@@ -637,6 +642,8 @@ MACRO TestStoredPaths()
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 4" ]);
   testfw->CommitWork();
 
+  WaitForPublishCompletion(testfile->parent); //let publication settle to help prevent deadlocks on the file
+
   TestEQ(
       [ eventtype :=        VersionEventType_AcceptApply
       , comment :=          "acc 4"
@@ -666,6 +673,8 @@ MACRO TestStoredPaths()
   testfolder->UpdateMetadata([ name := "movetarget2" ]);
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "acc 5" ]);
   testfw->CommitWork();
+
+  WaitForPublishCompletion(testfile->parent); //let publication settle to help prevent deadlocks on the file
 
   TestEQ(
       [ eventtype :=        VersionEventType_AcceptApply
