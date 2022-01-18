@@ -68,7 +68,7 @@ fails:
 
 Watch submitted issue reports with
 ```bash
-wh watchlog rpc|grep --line-buffered pwa |wh logreader --format rpc
+wh logreader -f -s "*pwa*" --format rpc rpc
 ```
 
 this may be the only way to see issues during installation.
