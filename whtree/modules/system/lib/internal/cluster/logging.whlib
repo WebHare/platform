@@ -287,7 +287,7 @@ STATIC OBJECTTYPE LogFileReader
         RETURN
             [ stream :=           "hit"
             , time :=             time
-            , time_msecs := time_msecs
+            , time_msecs :=       time_msecs
             , remoteip :=         fparts[0]
             , username :=         fparts[2] != "-" ? fparts[2] : ""
             , url :=              url
