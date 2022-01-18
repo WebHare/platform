@@ -28,6 +28,7 @@ MACRO TestAccessLogFileReader()
       [ [ stream :=         "hit"
         , remoteip :=       "remoteip"
         , time :=           MakeDateTime(2011,8,1,15,6,13)
+        , time_msecs :=     FALSE
         , url :=            "url"
         , httpcode :=       200
         , download :=       300i64
@@ -45,6 +46,7 @@ MACRO TestAccessLogFileReader()
       , [ stream :=         "hit"
         , remoteip :=       "remoteip"
         , time :=           MakeDateTime(2011,8,1,15,6,14)
+        , time_msecs :=     FALSE
         , url :=            "url"
         , httpcode :=       200
         , download :=       300i64
@@ -62,6 +64,7 @@ MACRO TestAccessLogFileReader()
       , [ stream :=         "hit"
         , remoteip :=       "remoteip"
         , time :=           MakeDateTime(2011,8,1,15,6,15)
+        , time_msecs :=     FALSE
         , url :=            "url"
         , httpcode :=       200
         , download :=       300i64

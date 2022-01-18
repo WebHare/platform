@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webdav.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
@@ -17,6 +18,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/networking/antivirus.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
 
 STRING todaysvirus := GenerateUFS128BitId();
 STRING virushash := ToLowercase(EncodeBase16(GetHashForString(todaysvirus, "SHA-256")));
@@ -116,7 +119,6 @@ ASYNC MACRO TestTolliumVirus()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-
 ASYNC MACRO TestWebdavVirus()
 {
   DATETIME start := GetCurrentDatetime();
@@ -140,11 +142,59 @@ ASYNC MACRO TestWebdavVirus()
                 ], (SELECT AS RECORD ARRAY DecodeHSON(parts[3]) FROM events), "*");
 }
 
+MACRO TestPublisherFormVirus()
+{
+  DATETIME start := GetCurrentDatetime();
+  BuildWebtoolForm( [ emailfieldname := "email" ]);
+
+  BLOB gifvirus := StringToBlob(DecodeBase64("R0lGODlhAQABAPAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==") || todaysvirus);
+  STRING gifvirushash := ToLowercase(EncodeBase16(GetHashForBlob(gifvirus, "SHA-256")));
+  TestEq("image/gif", ScanBlob(gifvirus).mimetype);
+
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  RECORD submitrec := [ firstname := "Corona"
+                      , upload := [ filename := "novirus.txt"
+                                  , link := GetDataUrl(StringToBlob("Not a virus, honest!"), "text/plain")
+                                  ]
+                      , imgedit := [ filename := "goudvis.png"
+                                   , link :=  GetDataUrl(gifvirus,"image/gif")
+                                   ]
+                      , email := "testfw+virus1@beta.webhare.net"
+                      ];
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+  TestEqMembers([[ name := "imgedit", message := "This file looks suspicious and can unfortunately not be uploaded" ]], res.errors, "*");
+
+  submitrec.imgedit := DEFAULT RECORD;
+  res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  submitrec.upload := [ filename := "virus.txt"
+                      , link := GetDataUrl(StringToBlob(todaysvirus), "text/plain")
+                      ];
+  res := tester->SubmitForm(submitrec);
+  TestEq(FALSE, res.success);
+
+  RECORD ARRAY events := GetAntiVirusEvents(start);
+  TestEq( ["system:antivirusscan.ok", "system:antivirusscan.fail", "system:antivirusscan.ok", "system:antivirusscan.fail" ]
+        , SELECT AS STRING ARRAY parts[0] FROM events);
+  TestEqMembers([ [ url := formfile->url, client_filename := "novirus.txt", errorcode := "", client_mimetype := "text/plain", filehash := "91b5aec93e2f71b3a91c556dc60dedd3d17e7a18f1311809d2c47013af5be27c", field := "upload", detail := "", message := "" ]
+                , [ url := formfile->url, client_filename := "goudvis.png", errorcode := "suspicious", client_mimetype := "image/gif", filehash := gifvirushash, detail := "Virus!", field := "imgedit", message := "Suspicious file: Virus!" ]
+                , [ url := formfile->url, client_filename := "novirus.txt", errorcode := "", client_mimetype := "text/plain", filehash := "91b5aec93e2f71b3a91c556dc60dedd3d17e7a18f1311809d2c47013af5be27c", field := "upload", detail := "", message := "" ]
+                , [ url := formfile->url, client_filename := "virus.txt", errorcode := "suspicious", client_mimetype := "text/plain", filehash := virushash, detail := "Virus!", field := "upload", message := "Suspicious file: Virus!" ]
+                ], (SELECT AS RECORD ARRAY DecodeHSON(parts[3]) FROM events), "*");
+}
+
 RunTestframework([ PTR SetupScanner(TRUE)
                  , PTR PrepIt
                  , PTR TestTolliumVirus
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, withcontent := FALSE ])
                  , PTR TestWebdavVirus
+                 , PTR TestPublisherFormVirus
                  , PTR SetupScanner(FALSE)
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]

@@ -161,6 +161,9 @@ STATIC OBJECTTYPE LogFileReader
     IF (skip_until = DEFAULT DATETIME)
       RETURN;
 
+    DATETIME skip_until_msec := skip_until;
+    skip_until := GetRoundedDatetime(skip_until, 1000);
+
     WHILE (TRUE)
     {
       IF (LENGTH(this->lines) = 0)
@@ -178,7 +181,7 @@ STATIC OBJECTTYPE LogFileReader
         IF (RecordExists(rec))
         {
 //          PRINT("Last batch rec: " || FormatISO8601DateTime(rec.time) || ", skip until " || FormatISO8601DateTime(skip_until) || "\n");
-          skip_batch := rec.time < skip_until;
+          skip_batch := rec.time < (rec.time_msecs ? skip_until_msec : skip_until);
           BREAK;
         }
       }
@@ -189,7 +192,7 @@ STATIC OBJECTTYPE LogFileReader
         WHILE (LENGTH(this->lines) > 0)
         {
           RECORD rec := this->ParseLine(this->lines[0].line);
-          IF (NOT RecordExists(rec) OR rec.time < skip_until)
+          IF (NOT RecordExists(rec) OR rec.time < (rec.time_msecs ? skip_until_msec : skip_until))
           {
             this->current_offset := this->lines[0].newposition;
             DELETE FROM this->lines AT 0;
@@ -224,7 +227,9 @@ STATIC OBJECTTYPE LogFileReader
         IF (LENGTH(fparts) != 6)
           RETURN DEFAULT RECORD;
 
-        DATETIME time := ParseDateStamp(fparts[3]);
+        STRING dtstamp := GetDateStamp(fparts[3]);
+        DATETIME time := MakeDateFromText(dtstamp);
+        BOOLEAN time_msecs := dtstamp LIKE "*.*";
 
         STRING ARRAY mparts := Tokenize(parts[2], " ");
         IF (LENGTH(mparts) != 4)
@@ -282,6 +287,7 @@ STATIC OBJECTTYPE LogFileReader
         RETURN
             [ stream :=           "hit"
             , time :=             time
+            , time_msecs :=       time_msecs
             , remoteip :=         fparts[0]
             , username :=         fparts[2] != "-" ? fparts[2] : ""
             , url :=              url
@@ -300,7 +306,9 @@ STATIC OBJECTTYPE LogFileReader
       }
     CASE "modulelog"
       {
-        DATETIME time := ParseDateStamp(line);
+        STRING dtstamp := GetDateStamp(line);
+        DATETIME time := MakeDateFromText(dtstamp);
+        BOOLEAN time_msecs := dtstamp LIKE "*.*";
 
         INTEGER timestampend := SearchSubstring(line, "]", 27);
         IF (timestampend > 0)
@@ -310,6 +318,7 @@ STATIC OBJECTTYPE LogFileReader
         RECORD rec :=
             [ stream :=     "modulelog"
             , time :=       time
+            , time_msecs := time_msecs
             , parts :=      parts
             ];
 
@@ -371,15 +380,15 @@ PUBLIC OBJECTTYPE __LineReader
   }
 >;
 
-
 // Parse time until first space character
-DATETIME FUNCTION ParseDateStamp(STRING line)
+STRING FUNCTION GetDateStamp(STRING line)
 {
   INTEGER spos := SearchSubstring(line, " ", 21);
   IF (spos = -1)
     spos := LENGTH(line);
-  RETURN MakeDateFromText(SubString(line, 1, spos - 1));
+  RETURN SubString(line, 1, spos - 1);
 }
+
 
 //ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
 PUBLIC OBJECT FUNCTION __OpenLogFileByPath(STRING path, INTEGER64 realsize, STRING logtype, INTEGER format, INTEGER64 startposition DEFAULTSTO 0i64)
@@ -522,7 +531,7 @@ PUBLIC OBJECTTYPE MultiFileLogReader
                         , realsize :=       this->logfiles[0].size64
                         , format :=         0//logfile.path LIKE "*gz" ? 1 : 0 // 0; text, 1: gzipped
                         , customstreams :=  DEFAULT RECORD ARRAY
-                        , skip_until :=     GetRoundedDatetime(this->startdt, 1000)
+                        , skip_until :=     this->startdt
                         , startposition :=  startposition
                         ];
     this->currentlogfile := NEW __AsyncLogReader(logconfig);
