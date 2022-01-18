@@ -260,10 +260,6 @@ RECORD FUNCTION LookupCLSID(STRING clsid)
     {
       RETURN [ ctype := "application/vnd.ms-powerpoint" ];
     }
-    CASE "{597CAA70-AA72-CF11-831E-524153480000}" //Flash source
-    {
-      RETURN [ ctype := "application/x-webhare-fla" ];
-    }
     DEFAULT
     {
       RETURN [ ctype := "application/octet-stream" ];
