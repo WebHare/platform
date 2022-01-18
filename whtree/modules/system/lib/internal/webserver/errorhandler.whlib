@@ -179,10 +179,10 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
         __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
     }
 
-
     OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, errorcode, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
     webdesign->htmlclasses := webdesign->htmlclasses CONCAT [ "wh-errorpage", "wh-errorpage--" || errorcode];
     webdesign->SetJSPluginConfig("system:errorhandler", CELL[harescriptinfo.statuscode, harescriptinfo.statusmessage]);
+    webdesign->isstandardcontentpage := TRUE; //hopefully trigger the necessary div/centering/margins on designs that need it
 
     webdesign->PrepareErrorPage(errorcode, harescriptinfo, url);
     webdesign->RunPage();

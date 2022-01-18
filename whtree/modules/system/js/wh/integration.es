@@ -125,13 +125,4 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
   let errhandler = config["system:errorhandler"];
   if(errhandler)
     console.error(errhandler.statuscode + " " + errhandler.statusmessage);
-
-  if(config.dtapstage == "development")
-  {
-    dompack.onDomReady(() => setTimeout(() =>
-    {
-      if(!dompack.qS('wh-outputtools'))
-       console.log("You may want to install the .dev module and republish this page to enable the debugging tools for faster CSS/JS updates");
-    },200));
-  }
 }

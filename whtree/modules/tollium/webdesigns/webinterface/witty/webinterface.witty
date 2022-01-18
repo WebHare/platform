@@ -12,7 +12,7 @@
 
 [component htmlbody]
   <div id="topbar"></div>
-  <main>
+  <main [if isstandardcontentpage]class="standardcontentpage"[/if]>
     [contents]
   </main>
 [/component]
