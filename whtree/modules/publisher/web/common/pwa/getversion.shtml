@@ -35,7 +35,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
 {
-  //ADDME why don't we have a call mapping an id to an on-disk-ptah ?
+  //ADDME why don't we have a call mapping an id to an on-disk-path ?
   RECORD resinfo := SELECT webservers.diskfolder
                          , siteoutputfolder := sites.outputfolder
                          , fs_objects.fullpath

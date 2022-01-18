@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
     this->UpdatePWASettings();
   }
 
-  ///Exclude specific urls form caching
+  ///Exclude specific urls from caching
   PUBLIC MACRO AddExclusion(STRING url)
   {
     INSERT ResolveToAbsoluteURL(this->webdesign->targetobject->link,url) INTO this->excludeurls AT END;

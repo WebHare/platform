@@ -4,7 +4,7 @@
 We recommend setting up a separate hostname for every PWA you build so you
 can register the necessary service worker for the root of that site and not have
 it interfere with your normal production websites. (It's not impossible to run
-PWAs in subfolders of an existing website, buta lot of WebHare features require
+PWAs in subfolders of an existing website, but a lot of WebHare features require
 you to register the necessary serviceworker with a root scope)
 
 ## Prerequisites
@@ -50,7 +50,7 @@ PUBLIC OBJECTTYPE MyPWAPage EXTEND PWAPageBase
 pwalib offers update callbacks, see the testapp. These currently rely on the app webpage being republished to see an update.
 
 Alternatively the pwafile offers a 'force refresh' date in its settings. updating this will cause all apps to force an update
-if they are reloaded. This causes a double-forced refresh so its less friendly but is a way to get broken update code out of
+if they are reloaded. This causes a double-forced refresh so it's less friendly but is a way to get broken update code out of
 an app.
 
 ## Tips and tricks
@@ -59,7 +59,7 @@ to inspect service workers. If the current serviceworker is started by the curre
 console, but don't rely on it.
 
 In devtools, 'Applications > Service workers' allows you to set 'Bypass for network'. This will stop requiring you to manually
-update your app
+update your app.
 
 Make sure https://my.webhare.dev/.system/jstests/?site=webhare_testsuite.pwa works for you. If this test
 fails:
@@ -73,7 +73,7 @@ wh watchlog rpc|grep --line-buffered pwa |wh logreader --format rpc
 
 this may be the only way to see issues during installation.
 
-## Troubleshootingg
+## Troubleshooting
 If `pwa--serviceworker.js` cannot be found, make sure you applied `pwa-in-root.siteprl.xml`
 
 # KNOWN ISSUES
