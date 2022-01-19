@@ -57,9 +57,9 @@ STRING FUNCTION GuessLogfileFormat(STRING inline)
   STRING ARRAY datatoks := Tokenize(inline,"\t");
 
   //RPC format - \t separated. 0:timestamp source   1: srhid  2: sourcetracker  3: >|< transport  4: transactionid (currently assume UFSids) 5: rawdata
-  IF(Length(datatoks) = 6 AND Left(datatoks[3],1) IN ["<",">"] AND Length(datatoks[4]) = 22 AND Left(datatoks[5],6)="hson:{")
+  IF(Length(datatoks) = 6 AND Left(datatoks[3],1) IN ["<",">"] AND Left(datatoks[5],6)="hson:{")
     RETURN "rpc";
-  IF(Length(datatoks) = 7 AND Left(datatoks[4],1) IN ["<",">"] AND Length(datatoks[5]) = 22 AND Left(datatoks[6],6)="hson:{")
+  IF(Length(datatoks) = 7 AND Left(datatoks[4],1) IN ["<",">"] AND Left(datatoks[6],6)="hson:{")
     RETURN "rpc";
 
   RETURN "";
