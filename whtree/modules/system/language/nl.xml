@@ -655,8 +655,8 @@
     <text tid="manageroles-descr">Het beheren van rollen, evenals het toekennen van die rollen aan andere gebruikers</text>
     <text tid="manageunit">Volledig beheer</text>
     <text tid="manageunit-descr">Beheren van eenheden en de onderliggende eenheden, gebruikers en rollen</text>
-    <text tid="openas">Openen als gebruiker</text>
-    <text tid="openas-descr">Mag WebHare openen als een (niet-sysop) gebruiker in deze eenheid</text>
+    <text tid="openas">Inloggen als...</text>
+    <text tid="openas-descr">Inloggen bij WebHare als een (niet-sysop)gebruiker in deze eenheid.</text>
     <text tid="supervisor">Opzichter</text>
     <text tid="supervisor-descr">Beheer het dashboard, monitor de server</text>
     <text tid="sysop">Systeembeheerder</text>

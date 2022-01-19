@@ -836,8 +836,8 @@
     <text tid="manageroles-descr">Managing roles, and granting those roles to or to revoke them from other users</text>
     <text tid="manageunit">Manage all</text>
     <text tid="manageunit-descr">Manage units and their underlying units, users and roles</text>
-    <text tid="openas">Open as user</text>
-    <text tid="openas-descr">Allows to open WebHare as any (non-sysop) user in this unit</text>
+    <text tid="openas">Login as...</text>
+    <text tid="openas-descr">Login to WebHare as a (non-sysop) user in the unit.</text>
     <text tid="supervisor">Supervisor</text>
     <text tid="supervisor-descr">Manage the dashboard, monitor the server</text>
     <text tid="sysop">Sysop</text>
