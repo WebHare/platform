@@ -178,7 +178,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       RETURN; //stale response
 
     RECORD ARRAY errors;
-    IF(RecordExists(status.info))
+    IF(RecordExists(status) AND RecordExists(status.info))
       errors := RECORD ARRAY(status.info.errors);
 
     ^messages->rows := SELECT rowkey := 1 + #errors

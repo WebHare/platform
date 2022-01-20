@@ -8,6 +8,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
 LOADLIB "mod::tollium/lib/internal/language.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
@@ -96,6 +97,28 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
           , line :=       tid.line
           , col :=        tid.col
           ] INTO warnings AT END;
+    }
+
+  RETURN warnings;
+}
+
+RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
+{
+  RECORD ARRAY warnings;
+
+  FOREVERY(RECORD icon FROM icons)
+    FOREVERY(STRING iconpart FROM Tokenize(icon.icon,'+'))
+    {
+      IF(NOT RecordExists(GetImage(iconpart, 24, 24, "", "b", [ nobroken := TRUE ])))
+      {
+        STRING attr := CellExists(icon, "ATTRNAME") ? icon.attrname : "";
+        INSERT
+            [ resourcename :=   icon.resourcename
+            , message :=    "Missing icon" || (attr != "" ? " from attribute '" || attr || "'" : "") || ": '" || iconpart || "'"
+            , line :=       icon.line
+            , col :=        icon.col
+            ] INTO warnings AT END;
+      }
     }
 
   RETURN warnings;
@@ -236,6 +259,7 @@ RECORD defaultvalidaterecord := [ warnings     := RECORD[]
                                 , hints        := RECORD[]
                                 , tids         := RECORD[]
                                 , eventmasks   := STRING[]
+                                , icons        := RECORD[]
                                 ];
 
 RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
@@ -250,7 +274,7 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
   INSERT CELL resourcename := resourcename INTO result;
 
   //Sanity checks until validate works everywhere
-  FOREVERY(STRING checklist FROM ["tids","warnings","errors","hints"])
+  FOREVERY(STRING checklist FROM ["tids","warnings","errors","hints","icons"])
   {
     RECORD ARRAY list := GetCell(result,checklist);
     IF(RecordExists(SELECT FROM list WHERE NOT CellExists(list,'resourcename')))
@@ -281,6 +305,9 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
       result.errors := result.errors CONCAT tidissues;
     ELSE
       result.warnings := result.warnings CONCAT tidissues;
+
+    RECORD ARRAY iconissues := ValidateIcons(result.icons);
+    result.errors := result.errors CONCAT iconissues;
   }
 
   STRING ARRAY eventmasks;

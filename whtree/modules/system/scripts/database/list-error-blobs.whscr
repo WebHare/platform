@@ -1,0 +1,77 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "deleteunreferenced",   type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError(`Syntax: wh run mod::system/scripts/database/list-error-blobs.whscr [ --deleteunreferenced ]
+
+Lists all blobs that cannot be read due to errors. Add --deleteunreferenced to delete blobs with errors that do not have
+any references anymore`);
+
+
+OBJECT trans := OpenPrimary();
+IF (trans->type != "postgresql")
+  THROW NEW Exception(`This script can only be run for PostgreSQL databases`);
+
+RECORD ARRAY totest := trans->__ExecSQL("SELECT (id).id as id, (id).size as size FROM webhare_internal.blob");
+
+OBJECT blobhandler := trans->blobhandler;
+
+STRING ARRAY error_ids;
+
+FOREVERY (RECORD rec FROM totest)
+{
+  IF ((#rec % 100) = 0)
+    PRINT(`${#rec}/${LENGTH(totest)},${FormatMoney(100m*#rec/LENGTH(totest),1,".","",TRUE)}%\r`);
+  TRY
+  {
+    blobhandler->LookupBlob(rec.id, rec.size);
+  }
+  CATCH (OBJECT e)
+  {
+    PRINT(`${rec.id}(${rec.size}) -> ${e->what}\n`);
+    INSERT rec.id INTO error_ids AT END;
+  }
+}
+
+RECORD ARRAY allrefs;
+
+FOREVERY (RECORD schemarec FROM trans->GetSchemaListing())
+  FOREVERY (RECORD tablerec FROM trans->GetTableListing(schemarec.schema_name))
+    IF (schemarec.schema_name != "webhare_internal" OR tablerec.table_name != "blob")
+      FOREVERY (RECORD columnrec FROM trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
+        IF (columnrec.data_type = "webhare_blob")
+        {
+          RECORD ARRAY refs := trans->__ExecSQL(`SELECT ${tablerec.primary_key_name} as id, (${columnrec.column_name}).id as blob_id FROM ${schemarec.schema_name}.${tablerec.table_name} WHERE (${columnrec.column_name}).id = ANY($1)`, [ args := VARIANT[ error_ids ] ]);
+          allrefs := allrefs CONCAT refs;
+          IF (IsValueSet(refs))
+            DumpValue(refs, [ format := "boxed", name := `References from ${schemarec.schema_name}.${tablerec.table_name}(${columnrec.column_name})` ]);
+        }
+
+STRING ARRAY refdids := SELECT AS STRING ARRAY DISTINCT blob_id FROM allrefs;
+
+STRING ARRAY unrefdids := ArrayDelete(error_ids, refdids);
+
+{
+  DumpValue(ArrayIntersection(error_ids, refdids), [ name := "Ids of blobs with errors that are still referenced" ]);
+  DumpValue(unrefdids, [ name := "Ids of blobs with errors that are not referenced anymore" ]);
+}
+
+IF (IsValueSet(unrefdids) AND args.deleteunreferenced)
+{
+  trans->BeginWork();
+  PRINT(`Blob count before: ${LENGTH(trans->__ExecSQL(`SELECT FROM webhare_internal.blob`))}\n`);
+  FOREVERY (STRING id FROM unrefdids)
+    trans->__ExecSQL("DELETE FROM webhare_internal.blob WHERE (id).id = $1", [ args := VARIANT[ id ] ]);
+  PRINT(`Blob count after: ${LENGTH(trans->__ExecSQL(`SELECT FROM webhare_internal.blob`))}\n`);
+  trans->CommitWork();
+}
