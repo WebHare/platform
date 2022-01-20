@@ -1708,7 +1708,7 @@ PUBLIC OBJECT FUNCTION MakeObject(STRING objname, VARIANT ARRAY ...constructorar
   }
   ELSE IF(Length(constructorarguments)=0)
   {
-    THROW NEW Exception(`Illegal object name ${objname}`);
+    THROW NEW Exception(`Illegal object name ${EncodeJSON(objname)}`);
   }
   ELSE
   {
@@ -1741,7 +1741,7 @@ PUBLIC MACRO ExtendObject(OBJECT base, STRING objname, VARIANT ARRAY ...construc
   }
   ELSE IF(Length(constructorarguments)=0)
   {
-    THROW NEW Exception(`Illegal object name ${objname}`);
+    THROW NEW Exception(`Illegal object name ${EncodeJSON(objname)}`);
   }
   ELSE
   {

@@ -475,6 +475,14 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
     ELSE IF(position > Length(this->pvt_pages))
       position := Length(this->pvt_pages);
 
+    IF (IsValueSet(panel->pvt_parent))
+    {
+      INTEGER nowpos := SearchElement(this->pvt_pages, panel);
+      IF (nowpos != -1 AND nowpos < position)
+        position := position - 1;
+      panel->RemoveFromParent();
+    }
+
     INSERT panel INTO this->pvt_pages AT position;
     panel->pvt_parent := this;
     panel->RecursiveUpdateIsNowVisible();
