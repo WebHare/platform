@@ -405,8 +405,7 @@ PUBLIC OBJECT FUNCTION __OpenLogFileBlob(BLOB data, INTEGER64 realsize, STRING l
   RETURN NEW LogFileReader(reader, realsize, logtype, startposition);
 }
 
-//ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
-PUBLIC OBJECTTYPE __AsyncLogReader
+OBJECTTYPE __AsyncLogReader
 <
   OBJECT job;
 
