@@ -1465,7 +1465,6 @@
       <textgroup gid="commonerrors">   <!-- site.forms.commonerrors -->
         <text tid="alphanum">De waarde moet alfanumeriek zijn.</text>
         <text tid="badfiletype">Dit bestandstype is niet toegestaan</text>
-        <text tid="cannotprocessfile">Dit bestand ziet er verdacht uit en kan helaas niet geupload worden</text>
         <text tid="check">Kies minimaal <param p="1"/> en maximaal <param p="2"/> items.</text>
         <text tid="default">Deze waarde is onjuist.</text>
         <text tid="digits">De waarde moet numeriek zijn.</text>
@@ -1491,6 +1490,8 @@
         <text tid="step1mismatch">De waarde moet een geheel getal zijn</text>
         <text tid="stepmismatch">De waarde moet een meervoud zijn van <param p="1"/>.</text>
         <text tid="unacceptableemail">Dit e-mailadres is hier niet toegestaan</text>
+        <text tid="upload_cannotcheck">Dit bestand kan niet geüpload worden omdat we het momenteel niet kunnen verifiëren</text>
+        <text tid="upload_suspicious">Dit bestand ziet er verdacht uit en kan helaas niet geüpload worden</text>
         <text tid="url">Dit is geen geldige URL.</text>
       </textgroup>
     </textgroup>

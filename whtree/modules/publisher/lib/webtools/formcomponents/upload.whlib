@@ -135,8 +135,10 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
                                    ];
 
         LogAuditEvent(scanresult.success ? "system:antivirusscan.ok" : "system:antivirusscan.fail", auditdetails);
-        IF(NOT scanresult.success)
-          work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.cannotprocessfile"));
+        IF(scanresult.errorcode = "suspicious")
+          work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.upload_suspicious"));
+        ELSE IF(NOT scanresult.success)
+          work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.upload_cannotcheck"));
       }
     }
   }

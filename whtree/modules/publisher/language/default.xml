@@ -1491,6 +1491,8 @@
         <text tid="step1mismatch">The value must be a whole number</text>
         <text tid="stepmismatch">The value should be a multiple of <param p="1"/>.</text>
         <text tid="unacceptableemail">This email address is not acceptable here</text>
+        <text tid="upload_cannotcheck">This file cannot be uploaded as we are currently unable to verify it</text>
+        <text tid="upload_suspicious">This file looks suspicious and can unfortunately not be uploaded</text>
         <text tid="url">This value should be a valid url.</text>
       </textgroup>
     </textgroup>
