@@ -88,6 +88,7 @@ class SemanticChecker: public AST::NodeVisitor<void, bool>
         void CheckToken(Symbol *symbol);
         void CheckObject(Symbol *symbol);
         void CheckTableDef(SymbolDefs::TableDef &td);
+        void EmitMemberNotFound(LineColumn position, SymbolDefs::ObjectDef const &objectdef, std::string const &name, bool recursive);
 
         /// Return the object definition for a specific expression, if known
         SymbolDefs::ObjectDef * GetObjectDefFromExpression(AST::Rvalue *expr);

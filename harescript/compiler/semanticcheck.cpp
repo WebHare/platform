@@ -360,9 +360,9 @@ void SemanticChecker::CheckObject(Symbol *symbol)
                 if (it->type == ObjectCellType::Property)
                 {
                         if (!it->getter.empty() && !objdef.FindField(it->getter, true) && it->getter_check)
-                            context.errorhandler.AddErrorAt(it->getter_pos, Error::MemberDoesNotExist, it->getter, symbol->name);
+                            EmitMemberNotFound(it->getter_pos, objdef, it->getter, true);
                         if (!it->setter.empty() && !objdef.FindField(it->setter, true) && it->setter_check)
-                            context.errorhandler.AddErrorAt(it->setter_pos, Error::MemberDoesNotExist, it->setter, symbol->name);
+                            EmitMemberNotFound(it->setter_pos, objdef, it->setter, true);
 
                         // For complicated getters/setters, the primary field must exist & be a member
                         if (!it->getter_primary.empty())
@@ -371,7 +371,7 @@ void SemanticChecker::CheckObject(Symbol *symbol)
                                 if (!field)
                                 {
                                         if (it->getter_check)
-                                            context.errorhandler.AddErrorAt(it->getter_pos, Error::MemberDoesNotExist, it->getter_primary, symbol->name);
+                                            EmitMemberNotFound(it->getter_pos, objdef, it->getter_primary, true);
                                 }
                                 else if (field->type != ObjectCellType::Member)
                                 {
@@ -387,7 +387,7 @@ void SemanticChecker::CheckObject(Symbol *symbol)
                                 if (!field)
                                 {
                                         if (it->setter_check)
-                                            context.errorhandler.AddErrorAt(it->setter_pos, Error::MemberDoesNotExist, it->setter_primary, symbol->name);
+                                            EmitMemberNotFound(it->setter_pos, objdef, it->setter_primary, true);
                                 }
                                 else if (field->type != ObjectCellType::Member)
                                 {
@@ -505,6 +505,15 @@ SymbolDefs::ObjectDef * SemanticChecker::GetObjectDefFromExpression(Rvalue *expr
             objectdef = var->symbol->variabledef->objectdef;
 
         return objectdef;
+}
+
+void SemanticChecker::EmitMemberNotFound(LineColumn position, SymbolDefs::ObjectDef const &objectdef, std::string const &name, bool recursive)
+{
+        auto bestmatch = objectdef.FindBestFieldMatch(name, recursive);
+        if (bestmatch.second == 1 || bestmatch.second == 2)
+            context.errorhandler.AddErrorAt(position, Error::MisspelledMember, name.c_str(), bestmatch.first->name.c_str());
+        else
+            context.errorhandler.AddErrorAt(position, Error::MemberDoesNotExist, name.c_str());
 }
 
 void SemanticChecker::V_ArrayDelete (ArrayDelete *obj, bool /*check_return*/)
@@ -1195,7 +1204,7 @@ void SemanticChecker::V_DeepOperation (AST::DeepOperation *obj, bool)
                                                         field = hatfield;
                                             }
                                             else if (objectdef->flags & ObjectTypeFlags::Static)
-                                                context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::MemberDoesNotExist, obj->clvalue.layers[0].name);
+                                                EmitMemberNotFound(obj->clvalue.layers[0].position, *objectdef, obj->clvalue.layers[0].name, true);
                                     }
 
                                     // check property getter/setter (also for ^ property, if found as fallback)
@@ -1697,7 +1706,7 @@ void SemanticChecker::V_FunctionCall (AST::FunctionCall *obj, bool)
                                             field = hatfield;
                                 }
                                 else if (!field && (objectdef->flags & ObjectTypeFlags::Static))
-                                    context.errorhandler.AddErrorAt(obj->parameters[0]->position, Error::MemberDoesNotExist, membername);
+                                    EmitMemberNotFound(obj->parameters[0]->position, *objectdef, membername, true);
                         }
                         if (field && field->type == ObjectCellType::Property)
                         {
@@ -1990,7 +1999,7 @@ void SemanticChecker::V_ObjectMemberConst (ObjectMemberConst*obj, bool)
                                             field = hatfield;
                                 }
                                 else if (objectdef->flags & ObjectTypeFlags::Static)
-                                    context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
+                                    EmitMemberNotFound(obj->position, *objectdef, obj->name, true);
                         }
                         if (field)
                         {
@@ -2107,7 +2116,7 @@ void SemanticChecker::V_ObjectMemberSet (ObjectMemberSet *obj, bool)
                                     field = hatfield;
                         }
                         else if (objectdef->flags & ObjectTypeFlags::Static)
-                            context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
+                            EmitMemberNotFound(obj->position, *objectdef, obj->name, true);
                 }
                 if (field)
                 {
@@ -2174,7 +2183,7 @@ void SemanticChecker::V_ObjectMethodCall (AST::ObjectMethodCall *obj, bool check
                                             field = hatfield;
                                 }
                                 else if (objectdef->flags & ObjectTypeFlags::Static)
-                                    context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->membername);
+                                    EmitMemberNotFound(obj->position, *objectdef, obj->membername, true);
                         }
                         if (field)
                         {

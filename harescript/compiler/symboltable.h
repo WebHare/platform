@@ -264,6 +264,7 @@ struct ObjectDef : public Scope
         Fields fields;
 
         ObjectField * FindField(std::string const &name, bool recursive);
+        std::pair< ObjectField const *, int > FindBestFieldMatch(std::string const &name, bool recursive) const;
         bool AddField(ObjectField const &field);
 };
 

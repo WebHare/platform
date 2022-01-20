@@ -295,9 +295,9 @@ MACRO BaseTest()
   OBJECT test;
   TestequalBoolean(1, TRUE, test = DEFAULT OBJECT);
 
-  TestThrows(PTR MakeObject("test::testdata_objects.whlib", "pvtobject"));
-  TestThrows(PTR MakeObject("test::testdata_objects.whlib#pvtobject"));
-  TestThrows(PTR MakeObject(""));
+  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib", "pvtobject"));
+  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib#pvtobject"));
+  TestThrowsLike(`Illegal object name ""`, PTR MakeObject(""));
 
   test := MakeObject("test::testdata_objects.whlib#test1");
   TestEq(FALSE, test = DEFAULT OBJECT);
@@ -1234,8 +1234,14 @@ MACRO ComplexPropertyTest()
   errors := TestCompile('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(doesntexist.b, a); >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
 
+  errors := TestCompile('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(corect.b, a); RECORD correct; >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
+
   errors := TestCompile('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(a, doesntexist.b); >; ?>');
   MustContainError(2, errors, 103, "DOESNTEXIST");
+
+  errors := TestCompile('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(a, corect.b); RECORD correct; >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
 
   result := TestCompileAndRun('<?wh OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(this->notyet.b, a); PUBLIC MACRO DoInsert() { INSERT PRIVATE MEMBER notyet := [ b := "3" ] INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); PRINT(o->bla); ?>');
   TestCleanResult(3, result.errors);
@@ -1325,23 +1331,44 @@ MACRO StaticObjectTypesTest()
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { Print(this->doesntexist); } >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
 
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { Print(this->corect); } STRING correct; >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
+
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { this->doesntexist := ""; } >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
+
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { this->corect := ""; } STRING correct; >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
 
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { this->doesntexist(); } >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
 
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { this->corect(); } MACRO Correct() {} >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
+
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { VARIANT x := PTR this->doesntexist; } >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
+
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { VARIANT x := PTR this->Corect; } MACRO Correct() { } >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
 
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { VARIANT x := PTR this->doesntexist(#1); } >; ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
 
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < MACRO X() { VARIANT x := PTR this->Corect(#1); } MACRO Correct() { } >; ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
+
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(this->doesntexist.b, a); >;  ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
 
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(this->corect.b, a); STRING FUNCTION Correct() { RETURN ""; } >;  ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
+
   errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(a, this->doesntexist.b); >;  ?>');
   MustContainError(1, errors, 103, "DOESNTEXIST");
+
+  errors := TestCompile('<?wh STATIC OBJECTTYPE objtyp < RECORD a; PUBLIC PROPERTY bla(a, this->corect.b); MACRO Correct(STRING s) { } >;  ?>');
+  MustContainError(1, errors, 265, "CORECT", "CORRECT");
 
   // Runtime-errors
   result := TestCompileAndRun('<?wh STATIC OBJECTTYPE s1< >; OBJECT o := NEW s1; INSERT PUBLIC MEMBER b := "b" INTO __HS_INTERNAL_MakeObjectReferencePrivileged(o); ?>');

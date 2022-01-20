@@ -713,12 +713,30 @@ ObjectDef::ObjectDef()
 
 ObjectField * ObjectDef::FindField(std::string const &name, bool recursive)
 {
-        for (ObjectDef::Fields::iterator it = fields.begin(), end = fields.end(); it != end; ++it)
-            if (it->name == name)
-                return &*it;
+        for (auto &itr: fields)
+            if (itr.name == name)
+                return &itr;
         if (recursive && base)
             return base->objectdef->FindField(name, true);
         return 0;
+}
+
+std::pair< ObjectField const *, int > ObjectDef::FindBestFieldMatch(std::string const &name, bool recursive) const
+{
+        std::pair< ObjectField const *, int > retval{ nullptr, -1 };
+        for (auto &itr: fields)
+        {
+                int ld = Blex::LevenshteinDistance(itr.name, name);
+                if (retval.second == -1 || ld < retval.second)
+                    retval = std::make_pair(&itr, ld);
+        }
+        if (recursive && base)
+        {
+                auto sub = base->objectdef->FindBestFieldMatch(name, true);
+                if (retval.second == -1 || (sub.second != -1 && sub.second < retval.second))
+                    retval = sub;
+        }
+        return retval;
 }
 
 bool ObjectDef::AddField(ObjectField const &field)
