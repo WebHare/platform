@@ -3,6 +3,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -121,27 +123,33 @@ MACRO TestLineReader()
 
 MACRO TestCheckpointedLogReader()
 {
-  OBJECT logstream;
+  ModuleLog("webhare_testsuite:test", "--start of tests--");
+  FlushModuleLog("webhare_testsuite:test");
 
-  logstream := OpenWebHareLogStream("servicemanager", DEFAULT DATETIME, MAX_DATETIME);
+  OBJECT logstream := OpenWebHareLogStream("betatest", DEFAULT DATETIME, MAX_DATETIME);
+  WHILE(RecordExists(logstream->ReadRecord()))
+    /* flush any records from earlier testruns */;
 
-  STRING checkpoint_top := logstream->checkpoint;
-  RECORD rec_top := logstream->ReadRecord();
-  TestEq(TRUE, RecordExists(rec_top));
+  STRING checkpoint_start := logstream->checkpoint;
+
+  ModuleLog("webhare_testsuite:test", "Hi everybody");
+  FlushModuleLog("webhare_testsuite:test");
+
+  logstream := OpenWebHareLogStream("betatest", DEFAULT DATETIME, MAX_DATETIME);
+  logstream->checkpoint := checkpoint_start;
+  TestEqMembers([ parts := [ "Hi everybody" ] ], logstream->ReadRecord(), "*");
+  TestEq(DEFAULT RECORD, logstream->ReadRecord());
+
+  logstream->checkpoint := checkpoint_start;  //test re-reading
+  TestEqMembers([ parts := [ "Hi everybody" ] ], logstream->ReadRecord(), "*");
+  TestEq(DEFAULT RECORD, logstream->ReadRecord());
 
   STRING checkpoint_2nd := logstream->checkpoint;
-  RECORD rec_2nd := logstream->ReadRecord();
-  TestEq(TRUE, RecordExists(rec_2nd));
-
-  STRING checkpoint_3rd := logstream->checkpoint;
-
+  logstream := OpenWebHareLogStream("betatest", DEFAULT DATETIME, MAX_DATETIME);
   logstream->checkpoint := checkpoint_2nd;
-  TestEq(logstream->checkpoint, checkpoint_2nd);
-
-  RECORD rec_2nd_again := logstream->ReadRecord();
-  TestEq(TRUE, RecordExists(rec_2nd_again));
-  TestEq(rec_2nd, rec_2nd_again);
-  TestEq(checkpoint_3rd, logstream->checkpoint);
+  TestEq(checkpoint_2nd, logstream->checkpoint);
+  TestEq(DEFAULT RECORD, logstream->ReadRecord());
+  TestEq(checkpoint_2nd, logstream->checkpoint); //fix bug: opening a stream, setting a checkpoint but never succesfully reading a record breaks checkpoint progress
 }
 
 RunTestframework([ PTR TestLineReader
