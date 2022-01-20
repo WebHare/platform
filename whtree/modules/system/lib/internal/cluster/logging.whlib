@@ -55,7 +55,7 @@ STATIC OBJECTTYPE LogFileReader
   // Constructor
   //
 
-  MACRO NEW(OBJECT linereader, INTEGER64 realsize, STRING logtype)
+  MACRO NEW(OBJECT linereader, INTEGER64 realsize, STRING logtype, INTEGER64 startposition)
   {
     IF (logtype NOT IN [ "access", "modulelog" ])
       THROW NEW Exception("Unknown log type '" || logtype || "'");
@@ -63,7 +63,8 @@ STATIC OBJECTTYPE LogFileReader
     this->linereader := linereader;
 
     this->pvt_logtype := logtype;
-    this->current_offset := 0i64;
+    this->current_offset := startposition;
+    this->next_offset := startposition;
     this->realsize := realsize;
   }
 
@@ -394,18 +395,17 @@ STRING FUNCTION GetDateStamp(STRING line)
 PUBLIC OBJECT FUNCTION __OpenLogFileByPath(STRING path, INTEGER64 realsize, STRING logtype, INTEGER format, INTEGER64 startposition DEFAULTSTO 0i64)
 {
   OBJECT reader := NEW __LineReader([ type := "file", path := path, format := format, startposition := startposition ]);
-  RETURN NEW LogFileReader(reader, realsize, logtype);
+  RETURN NEW LogFileReader(reader, realsize, logtype, startposition);
 }
 
 //ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
 PUBLIC OBJECT FUNCTION __OpenLogFileBlob(BLOB data, INTEGER64 realsize, STRING logtype, INTEGER format, INTEGER64 startposition DEFAULTSTO 0i64)
 {
   OBJECT reader := NEW __LineReader([ type := "blob", data := data, format := format, startposition := startposition  ]);
-  RETURN NEW LogFileReader(reader, realsize, logtype);
+  RETURN NEW LogFileReader(reader, realsize, logtype, startposition);
 }
 
-//ADDME make public? needs a consistent API between sync and async, as much compatible as possible with cluster oepnwebharelogstream
-PUBLIC OBJECTTYPE __AsyncLogReader
+OBJECTTYPE __AsyncLogReader
 <
   OBJECT job;
 
@@ -421,6 +421,12 @@ PUBLIC OBJECTTYPE __AsyncLogReader
     IF (NOT ObjectExists(rec.job))
       THROW NEW Exception(AnyToString(rec, "tree"));
     this->job := rec.job;
+    IF(CellExists(data, "startposition"))
+    {
+      this->current_offset := data.startposition;
+      this->next_offset := data.startposition;
+    }
+
     this->job->Start();
     this->job->ipclink->DoRequest(data);
     this->realsize := data.realsize;
@@ -456,6 +462,7 @@ PUBLIC OBJECTTYPE __AsyncLogReader
       {
         this->current_offset := this->next_offset;
         this->atend := TRUE;
+
         RETURN DEFAULT RECORD;
       }
 
