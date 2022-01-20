@@ -65,7 +65,7 @@ SWITCH (args.command)
     }
 
     RECORD ARRAY transactions := trans->__ExecSQL("select * FROM pg_stat_activity");
-    IF (args.allinfo)
+    IF (args.raw)
       PRINT(AnyToString(transactions, "tree"));
     ELSE
     {
