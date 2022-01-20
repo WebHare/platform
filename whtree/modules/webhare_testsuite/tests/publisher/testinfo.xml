@@ -20,4 +20,5 @@
   <test name="webtools" path="webtools/" />
   <test name="siteprofile" path="siteprofile/" />
   <test name="assetpacks" path="assetpacks/" />
+  <test name="pwa" path="pwa/" />
 </group>

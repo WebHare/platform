@@ -1,0 +1,81 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <!-- Global site settings -->
+  <apply>
+    <to type="all" />
+
+    <!-- Setup default webdesign -->
+    <webdesign assetpack="pwatest"
+               async="true"
+               designfolder="."
+               maxcontentwidth="960px"
+               objectname="pwatest.whlib#pwatestDesign"
+               witty="pwatest.witty"
+               wittyencoding="HTML-NI" />
+
+    <!-- Set site language -->
+    <sitelanguage lang="en" />
+
+    <!-- Set up a rtdtype -->
+    <rtddoc rtdtype="http://pwatest.webhare.com/xmlns/pwatest/defaultrtdtype" />
+
+    <!-- Configure widgets -->
+    <videowidget />
+
+    <!-- Republish all files upon every change
+    <republish folder="/" indexonly="false" recursive="true" />
+    -->
+
+    <!-- Disable the legacy site settings -->
+    <disablelegacysitesettings notemplateprofile="true" />
+
+    <!-- Enable formsapi
+         To enable (google) recaptcha, add: usecaptcha="1"
+    -->
+    <formintegration />
+
+    <!-- disable keywords field -->
+    <baseproperties keywords="false" />
+
+    <!-- Default types -->
+    <denyfiletype typemask="*" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/imagefile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/pdffile" />
+
+    <!--
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/externallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/internallink" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/contentlink" />
+    -->
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/formwebtool" />
+    <denyfoldertype typemask="*" />
+    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
+
+    <!-- Downloadable Word docs -->
+    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/msworddownload" />
+    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload" mimetypemask="application/msword" />
+    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload"
+                       mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+  </apply>
+
+  <filetype kind="virtualfile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/pwatest" title="PWATest App">
+    <bodyrenderer objectname="pwatest.whlib#PwatestPage" />
+    <pwafile />
+  </filetype>
+
+  <filetype kind="virtualfile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/exclusiontestpage" title="PWATest Exclusion">
+    <dynamicexecution startmacro="pwatest.whlib#RunExclusionTestPage" />
+  </filetype>
+
+  <apply>
+    <to type="folder" />
+    <folderindex indexfile="newfile"
+                 newfilename="index.rtd"
+                 newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+  </apply>
+
+  <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->
+  <applysiteprofile path="shared/rtd/rtd.siteprl.xml" />
+
+</siteprofile>

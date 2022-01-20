@@ -1,0 +1,43 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE PWAPageBase EXTEND StaticPageBase
+<
+  OBJECT webdesign;
+  OBJECT pwaplugin;
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    this->webdesign := webdesign;
+    this->pwaplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","pwafile");
+    IF(NOT ObjectExists(this->pwaplugin))
+      ABORT("<pwafile/> not enabled for this file in the site profile");
+    RETURN this->GetPWAPageBody();
+  }
+
+  /** Add a resource directory */
+  PUBLIC MACRO AddPWAPublicAssets(STRING resourcebase)
+  {
+    this->pwaplugin->AddPublicAssets(resourcebase);
+  }
+
+  ///Add an aditional URL we want to be in our package
+  PUBLIC MACRO AddPWAAsset(STRING url)
+  {
+    this->pwaplugin->AddAsset(url);
+  }
+
+  ///Exclude specific urls form caching
+  PUBLIC MACRO AddPWAExclusion(STRING url)
+  {
+    this->pwaplugin->AddExclusion(url);
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPWAPageBody()
+  {
+    THROW NEW Exception("You need to override GetPWAPageBody");
+  }
+
+>;

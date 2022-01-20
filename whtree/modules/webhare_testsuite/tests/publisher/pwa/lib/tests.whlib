@@ -1,0 +1,37 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC CONSTANT STRING webharetestsuite_pwa_sitename := "webhare_testsuite.pwa";
+
+PUBLIC MACRO TestInvoke_TriggerUpdate(STRING type, STRING url)
+{
+  SWITCH(type)
+  {
+    CASE "touchpage", "forcerefresh"
+    {
+      RunTestframework(DEFAULT MACRO PTR ARRAY);
+
+      RECORD tofix := LookupPublisherURL(url);
+      IF(tofix.file = 0)
+        ABORT("Failed to find PWA for " || url);
+
+      testfw->BeginWork();
+
+      IF(type = "forcerefresh")
+        OpenWHFSObject(tofix.file)->SetInstanceData("http://www.webhare.net/xmlns/publisher/pwasettings", [forcerefresh := GetCurrentDatetime()]);
+
+      ScheduleFileRepublish(tofix.file);
+      testfw->CommitWork();
+      testfw->WaitForPublishCompletion(tofix.folder);
+    }
+  }
+}

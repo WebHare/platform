@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/tests/publisher/pwa/lib/tests.whlib";
+
+
+MACRO TestAppLayout()
+{
+  OBJECT pwasite := OpenSiteByName(webharetestsuite_pwa_sitename);
+
+  //Test whether an update is needed
+  STRING application := pwasite->webroot || "pwatest/";
+  TestEq(TRUE, testfw->browser->GotoWebPage(application));
+  RECORD config := DecodeJSON(testfw->browser->document->GetElementById("wh-config")->textcontent);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(pwasite->webroot, "/.publisher/common/pwa/getversion.shtml?apptoken=" || EncodeURL(config.obj.pwasettings.apptoken))));
+
+  RECORD versioninfo := DecodeJSONBlob(testfw->browser->content);
+  TestEq(TRUE, versioninfo.updatetok != "");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(pwasite->webroot, "/.publisher/common/pwa/getversion.shtml?apptoken=" || EncodeURL(config.obj.pwasettings.apptoken) || "&updatetok=" || EncodeURL(versioninfo.updatetok))));
+  RECORD versioninfo2 := DecodeJSONBlob(testfw->browser->content);
+  TestEq(versioninfo.updatetok, versioninfo2.updatetok);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(pwasite->webroot, "/.publisher/common/pwa/serviceworker/ap.js")), "our overlay isn't there");
+  TestEq("/", testfw->browser->GetResponseHeader("Service-Worker-Allowed"));
+}
+
+RunTestframework([ PTR TestAppLayout ]);

@@ -1,0 +1,48 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/pwa.whlib";
+
+PUBLIC OBJECTTYPE pwatestDesign EXTEND WebDesignBase
+<
+  MACRO NEW()
+  {
+  }
+
+  /*
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+  }
+  */
+>;
+
+PUBLIC OBJECTTYPE PwatestPage EXTEND PWAPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPWAPageBody()
+  {
+    RECORD myimg := WrapCachedImage(this->webdesign->targetfolder->OpenByName("photo.jpg")->GetWrapped(), [method := "scale", setwidth := 100]);
+    this->AddPWAAsset(myimg.link);
+    this->AddPWAPublicAssets("mod::webhare_testsuite/webdesigns/pwatest/web/mypath/");
+    this->AddPWAExclusion("../exclusiontestpage/");
+
+    RETURN PTR EmbedWittyComponent(Resolve("pwatest.witty:pwatest"),
+      [ publishedat := FormatISO8601Datetime(GetCurrentDatetime(),"","milliseconds")
+      , myimglink := myimg.link
+      , mytextfile := GetModuleResourceURL("mod::webhare_testsuite/webdesigns/pwatest/web/mypath/deeperpath/public.txt")
+      ]);
+  }
+>;
+
+PUBLIC MACRO RunExclusionTestPage()
+{
+  SendWrappedWebFile(WrapBlob(EncodeJSONBlob([ now := GetCurrentDatetime() ]), "application/json"), [ inline := TRUE]);
+}

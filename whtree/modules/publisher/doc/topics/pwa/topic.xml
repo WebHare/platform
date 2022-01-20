@@ -1,0 +1,5 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="PWAs"
+       docorder="setup">
+  <section name="pwalib" title="PWALib" />
+</topic>

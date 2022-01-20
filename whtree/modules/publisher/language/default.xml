@@ -2245,6 +2245,11 @@
           <text tid="when">Time</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="pwa">   <!-- tolliumapps.objectprops.pwa -->
+        <text tid="forcerefresh">Force refresh</text>
+        <text tid="forcesapprefresh">(forces update if not updated since)</text>
+        <text tid="pwa">Progressive webapp</text>
+      </textgroup>
       <textgroup gid="references">   <!-- tolliumapps.objectprops.references -->
         <text tid="references">References</text>
         <text tid="url">URL</text>

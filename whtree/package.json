@@ -21,6 +21,7 @@
     "file-loader": "^6.0.0",
     "finalhandler": "^1.1.2",
     "flag-icon-css": "^4.1.6",
+    "idb": "^7.0.0",
     "install": "^0.13.0",
     "libphonenumber-js": "^1.9.44",
     "loader-utils": "^2.0.0",

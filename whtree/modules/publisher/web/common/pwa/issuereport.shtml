@@ -1,0 +1,5 @@
+<?wh
+
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LogCurrentRequestToRPCLog("publisher:pwa_crash");

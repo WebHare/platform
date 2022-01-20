@@ -1,0 +1,37 @@
+[rawcomponent signature]
+<!--
+Realisatie: WebHare bv
+            https://www.webhare.nl/
+-->
+[/rawcomponent]
+
+[component htmlhead]
+  [embed signature]
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+[/component]
+
+[component htmlbody]
+  <main>
+    [contents]
+  </main>
+[/component]
+
+[component pwatest]
+  <p>
+    Published at: <span id="pwa-published-at">[publishedat]</span><br>
+  </p>
+  <p>
+    Update status: <span id="pwa-update-status"></span>
+    <button id="checkforupdate" type="button">Check for update</button>
+    <button id="downloadupdate" type="button">Download update</button>
+    <button id="updatenow" type="button" style="display:none">Update now</button>
+  </p>
+
+  <p>
+    <img id="myimglink" data-imglink="[myimglink]">
+    <span id="mytextfilelink" data-textfilelink="[mytextfile]" ?>
+  </p>
+
+  <div style="position:absolute;top:0;right:0;background-color:#000000;color:#fff;font-size:20px;padding:5px 7px 6px 10px;border-radius:0 0 0 50%" data-app-activatedebugmenu="4:3000">D</div>
+
+[/component]

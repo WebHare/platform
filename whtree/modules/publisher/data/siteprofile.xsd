@@ -509,6 +509,9 @@
     </xs:attribute>
   </xs:complexType>
 
+  <xs:complexType name="PWAFile">
+  </xs:complexType>
+
   <xs:complexType name="CustomPlugin">
     <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" use="required">
@@ -931,6 +934,7 @@
       <xs:element name="prebuiltpage" type="PrebuiltPage" />
       <xs:element name="mailtemplate" type="MailTemplate" />
       <xs:element name="debugsettings" type="DebugSettings" />
+      <xs:element name="pwafile" type="PWAFile" />
 
       <xs:element name="formdefinitions" type="FormDefinitions" />
       <xs:element name="formintegration" type="FormIntegration" />

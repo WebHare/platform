@@ -1,0 +1,90 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
+<
+  RECORD config;
+  STRING ARRAY addurls;
+  STRING ARRAY excludeurls;
+  STRING apptoken;
+  OBJECT webdesign;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ features := ParseXSList(node->GetAttribute("features")) //FIXME reuse code
+           ];
+  }
+  MACRO UpdatePWASettings()
+  {
+    IF(NOT ObjectExists(this->webdesign))
+      RETURN;//not yet
+
+    this->webdesign->jsobjconfig :=
+      CELL[ ...this->webdesign->jsobjconfig
+          , pwasettings := [ apptoken := this->apptoken
+                           , addurls := this->addurls
+                           , excludeurls := this->excludeurls
+                           ]
+          ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD config)
+  {
+    this->webdesign := webcontext;
+    this->config := config;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    this->apptoken := EncryptForThisServer("publisher:pwaapptoken", [ id := webdesign->targetobject->id]);
+    INSERT CELL "wh-pwa-uid" := GenerateUFS128BitId() INTO this->webdesign->htmldata;
+    this->UpdatePWASettings();
+  }
+
+  UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
+  {
+    IF(objectprops->applytester->IsTypeNeedsTemplate())
+      objectprops->AddTabsExtension(Resolve("/tolliumapps/pwaplugin.xml#pwatab"), "http://www.webhare.net/xmlns/publisher/pwasettings");
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasFeature(STRING feature)
+  {
+    //this wrapper allows us to implement meta-features in the future (eg one feature enabling 10 small ones)
+    RETURN feature IN this->config.features;
+  }
+
+  /** Add a resource directory */
+  PUBLIC MACRO AddPublicAssets(STRING resourcebase)
+  {
+    IF(resourcebase NOT LIKE "mod::?*/webdesigns/?*/web/*")
+      THROW NEW Exception(`Invalid asset path - ${resourcebase} does not have a public URL`);
+
+    FOREVERY(RECORD entry FROM ReadWebHareResourceFolder(resourcebase))
+      IF(entry.isfolder)
+        this->AddPublicAssets(entry.resourcepath);
+      ELSE
+        this->AddAsset(GetModuleResourceURL(entry.resourcepath));
+  }
+
+  ///Add an aditional URL we want to be in our package
+  PUBLIC MACRO AddAsset(STRING url)
+  {
+    INSERT url INTO this->addurls AT END;
+    this->UpdatePWASettings();
+  }
+
+  ///Exclude specific urls from caching
+  PUBLIC MACRO AddExclusion(STRING url)
+  {
+    INSERT ResolveToAbsoluteURL(this->webdesign->targetobject->link,url) INTO this->excludeurls AT END;
+    this->UpdatePWASettings();
+  }
+>;

@@ -1,0 +1,107 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+/* We used to use just lastpublishdate for estimating 'up-to-date-ness' but this failed. Consider the following plan:
+
+   1) PWA starts to load, and starts to run
+   2) PWA serviceworker (SW) calls getversion to get its initial version (last publish date)
+   3) PWA file is republished
+   4) PWA polls the getversion and sees a new lastpublish date
+
+   However, if the SW is very slow to start (and Chrome 90 seems to have started triggering this race a lot more often)
+   step 2 and 3 may get reversed, and we see the 'later' republish date and think we're okay.
+
+   We could store a UUID in the DB during republish, embed it into the output and have getversion return the proper one. Solves
+   the above problem but breaks if the output on disk is not in sync with what we have in the daabase, and will trigger an
+   endless update cycle.
+
+   So we need something we
+   - can embed into the actual published file, so we have a non-racing way to figure out what code we just loaded
+   - request separately based on the published file.
+
+   And that's how we end up with parsing html[data-wh-pwa-uid]
+*/
+
+STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
+{
+  //ADDME why don't we have a call mapping an id to an on-disk-path ?
+  RECORD resinfo := SELECT webservers.diskfolder
+                         , siteoutputfolder := sites.outputfolder
+                         , fs_objects.fullpath
+                         , webservers.type
+                      FROM system.webservers
+                         , system.sites
+                         , system.fs_objects
+                     WHERE fs_objects.id = res
+                           AND fs_objects.parentsite = sites.id
+                           AND sites.outputweb = webservers.id;
+  IF(RecordExists(resinfo))
+  {
+    STRING diskfolder := EnrichWebserversWithOutputFolder([ resinfo ])[0].outputfolder;
+    STRING path := CollapsePath(diskfolder || "/" || resinfo.siteoutputfolder  || "/" || resinfo.fullpath);
+    IF(resinfo.fullpath LIKE "*/" AND path NOT LIKE "*/")
+      path := path || "/";
+    RETURN path;
+  }
+  RETURN "";
+}
+
+RECORD FUNCTION GetFileinfo(RECORD appinfo)
+{
+  OpenPrimary();
+
+  OBJECT targetfile := OpenWHFSObject(appinfo.id);
+  STRING diskpath := GetFSObjectDiskOutputPath(targetfile->parentobject->indexdoc = targetfile->id ? targetfile->parent : appinfo.id);
+  IF(diskpath = "")
+    RETURN [ value := [ error := `Cannot figure out path for fsobject #${appinfo.id}` ]
+           , ttl := 60 * 1000
+           , eventmasks := OpenWHFSObject(appinfo.id)->GetEventMasks()
+           ];
+
+  RECORD diskprops := GetDiskfileProperties(diskpath);
+  IF(NOT RecordExists(diskprops))
+    RETURN [ value := [ error := `Cannot locate output for fsobject #${appinfo.id} on disk (tried ${diskpath})` ]
+           , ttl := 60 * 1000
+           , eventmasks := OpenWHFSObject(appinfo.id)->GetEventMasks()
+           ];
+  IF(diskprops.type = 1)
+    diskpath := MergePath(diskpath,'index.html');
+
+  STRING pwauid;
+  OBJECT source := MakeXMLDocumentFromHTML(GetDiskResource(diskpath));
+  IF(ObjectExists(source->documentelement))
+    pwauid := source->documentelement->GetAttribute("data-wh-pwa-uid");
+
+  RECORD pwasettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pwasettings")->GetInstanceData(appinfo.id);
+  RETURN CELL [ value := CELL[ pwasettings
+                             , pwauid
+                             , updatetok :=  EncodeUFS(GetSHA1Hash(EncodeHSON(targetfile->lastpublishdate)))
+                             ]
+              , ttl := 60 * 1000
+              , eventmasks := targetfile->GetEventMasks()
+              ];
+
+}
+
+STRING apptoken := GetWebVariable("apptoken");
+RECORD appinfo := DecryptForThisServer("publisher:pwaapptoken", apptoken);
+RECORD fileinfo := GetAdhocCached(appinfo, PTR GetFileInfo(appinfo));
+IF(CellExists(fileinfo,'error'))
+  THROW NEW Exception(fileinfo.error);
+
+AddHTTPHeader("Content-Type", "application/json", FALSE);
+Print(EncodeJSON(CELL[ fileinfo.updatetok
+                     , forcerefresh := fileinfo.pwasettings.forcerefresh ?? MakeDate(2019,1,1)
+                     , fileinfo.pwauid
+                     ]));
