@@ -5,6 +5,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
@@ -188,7 +189,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
   MACRO DoScheduleCleanup()
   {
     OBJECT work := this->BeginWork();
-    GetPrimary()->ScheduleTask("system:cleanpgsqlblobs", GetCurrentDatetime());
+    ScheduleTimedTask("system:cleanpgsqlblobs");
     work->Finish();
     this->RefreshDashboardPanel();
   }

@@ -1,13 +1,9 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/database.whlib";
 
-
 LOADLIB "mod::system/lib/database.whlib";
-
 LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
-
-
-
+LOADLIB "mod::system/lib/tasks.whlib";
 
 TRY
 {
@@ -27,7 +23,7 @@ FOREVERY (RECORD task FROM GetScheduledTasksToExecute())
 //Any more tasks to do?
 RECORD nexttask := SELECT when FROM publisher.schedule ORDER BY when LIMIT 1;
 IF (RecordExists(nexttask)) //reschedule the publish script for this task
-  GetPrimary()->ScheduleTask("publisher:scheduledtasks", nexttask.when);
+  ScheduleTimedTask("publisher:scheduledtasks", [ when := nexttask.when ]);
 
 GetPrimary()->CommitWork();
 Print("Completed scheduled tasks\n");

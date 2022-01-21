@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -300,7 +301,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       // warn if either outputweb or outputfolder has changed
       siteobj := OpenSite(this->cursite.id);
       IF(siteobj->outputweb != 0 AND (siteobj->outputweb != ^outputweb->value OR siteobj->outputfolder != ^outputfolder->value))
-        GetPrimary()->ScheduleTask("publisher:archiveoutput", DEFAULT DATETIME);
+        ScheduleTimedTask("publisher:archiveoutput");
     }
 
     // Apply siteprofile settings

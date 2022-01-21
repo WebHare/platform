@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 
 
 /** Returns whether a file exists. ADDME: test for executable?
@@ -91,21 +92,14 @@ ASYNC MACRO DoSiteProfileRecompile()
   RecompileSiteProfiles();
 }
 
-ASYNC MACRO ScheduleHotfixCheck()
+MACRO ScheduleHotfixCheck()
 {
   // check for hotfixes 5 minutes after change
   GetPrimary()->BeginWork();
-  TRY
-  {
-    GetPrimary()->ScheduleTask("system:check_hotfixes", AddTimeToDate(4 * 60 * 1000, GetCurrentDateTime()));
-    GetPrimary()->CommitWork();
-  }
-  CATCH
-  {
-    IF (GetPrimary()->IsWorkOpen())
-      GetPrimary()->RollbackWork();
-    THROW;
-  }
+  ScheduleTimedTask("system:check_hotfixes", [ allowmissing := TRUE //if we start too soon on first run? Adding it just in case as old code swallowed exceptions here..
+                                             , when := AddTimeToDate(4 * 60 * 1000, GetCurrentDateTime())
+                                             ]);
+  GetPrimary()->CommitWork();
 }
 
 OBJECT serializer := MakeCallSerializer();

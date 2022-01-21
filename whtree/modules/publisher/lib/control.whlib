@@ -8,13 +8,13 @@
 */
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -142,7 +142,7 @@ PUBLIC MACRO AddFileTask(INTEGER fileid, DATETIME when, INTEGER eventtype, INTEG
          SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
          WHERE id = fileid;
 
-  GetTransactionObjectById(GetBindingFromSchema(system).transaction)->ScheduleTask("publisher:scheduledtasks",when);
+  ScheduleTimedTask("publisher:scheduledtasks", [ when := when ]);
 }
 
 /** @short Edit a scheduled task
@@ -163,7 +163,7 @@ PUBLIC MACRO EditFileTask(INTEGER taskid, DATETIME when, INTEGER eventtype, INTE
 
   //moved a scheduled item forward?
   IF (when < task.when)
-    GetTransactionObjectById(GetBindingFromSchema(system).transaction)->ScheduleTask("publisher:scheduledtasks",when);
+    ScheduleTimedTask("publisher:scheduledtasks", [ when := when ]);
 }
 
 
