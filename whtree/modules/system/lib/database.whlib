@@ -426,8 +426,6 @@ OBJECTTYPE WebHareTransactionExtension
   FUNCTION PTR pvt_executeservicecall;
 
 
-  PUBLIC RECORD ARRAY __scheduledephemeraltasks;
-
   // ---------------------------------------------------------------------------
   //
   // Properties
