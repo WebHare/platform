@@ -857,7 +857,7 @@ PUBLIC MACRO __ConvertDOCTORTD(RECORD fileinfo, RECORD options)
     STRING newname := fileinfo.name;
 
     IF(rename AND (ext=".doc" OR ext=".docx"))
-      newname := GetBasenameFromPath(newname) || ".rtd";
+      newname := GetBasenameFromPath(newname);
 
     UPDATE system.fs_objects SET type := richdoctype->id
                                , name := newname
@@ -871,7 +871,7 @@ PUBLIC MACRO __ConvertDOCTORTD(RECORD fileinfo, RECORD options)
 
     IF(rename AND (ext=".doc" OR ext=".docx"))
     {
-      newname := GetBasenameFromPath(newname) || ".rtd";
+      newname := GetBasenameFromPath(newname);
       UPDATE system.fs_objects SET name := newname
                              WHERE id = fileinfo.id;
     }

@@ -5,7 +5,7 @@ has been approved by someone else who offered the content. It also requires appr
 objects, eg moving or depublishing files, and tracks the history and actions taken.
 
 ## Preparation
-- Remove automatic index creation such as done by `<folderindex indexfile="copy_of_file" fullpath="/design/document.rtd"/>`. Automatic
+- Remove automatic index creation such as done by `<folderindex indexfile="copy_of_file" fullpath="/design/document"/>`. Automatic
   index creation is not compatible with versioning - it would be a backdoor to make new URLs appear without approval.
 - Content approval requires removing backdoors that allow content from external sources to appear. Consider:
   - disabling link types, especially content links
