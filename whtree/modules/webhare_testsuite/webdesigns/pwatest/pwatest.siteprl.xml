@@ -68,13 +68,6 @@
     <dynamicexecution startmacro="pwatest.whlib#RunExclusionTestPage" />
   </filetype>
 
-  <apply>
-    <to type="folder" />
-    <folderindex indexfile="newfile"
-                 newfilename="index.rtd"
-                 newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
-  </apply>
-
   <!-- Other siteprofile imports (applysiteprofile) must always be at end of this primary siteprofile -->
   <applysiteprofile path="shared/rtd/rtd.siteprl.xml" />
 

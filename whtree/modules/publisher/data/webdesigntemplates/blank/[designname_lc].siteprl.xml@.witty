@@ -73,7 +73,7 @@
     <to type="folder" />
     <folderindex indexfile="newfile"
                  newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile"
-                 newfilename="index.rtd"
+                 newfilename="index"
                  />
   </apply>
 
