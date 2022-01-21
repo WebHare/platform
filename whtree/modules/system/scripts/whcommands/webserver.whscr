@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 
 
@@ -362,7 +363,10 @@ MACRO RewriteHosts(STRING ARRAY params)
     Print("Reloading...\n");
     ReloadWebhareConfig(TRUE, FALSE);
     Print("Reloaded webserver configuration\n");
-    GetPrimary()->ScheduleTask("system:checkwebservers", DEFAULT DATETIME);
+
+    GetPrimary()->BeginWork();
+    ScheduleTimedTask("system:checkwebservers");
+    GetPrimary()->CommitWork();
   }
 
 }

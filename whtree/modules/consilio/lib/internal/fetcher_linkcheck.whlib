@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -238,8 +239,8 @@ PUBLIC INTEGER ARRAY FUNCTION SetObjectsCheckedLinks(RECORD ARRAY objects, BOOLE
     // after each indexed object
     IF (nexttask < now)
       nexttask := now;
-    nexttask := AddTimeToDate(1000 * 60, nexttask);
-    GetPrimary()->ScheduleTask("consilio:linkchecker", nexttask);
+
+    ScheduleTimedTask("consilio:linkchecker", [ when := AddTimeToDate(1000 * 60, nexttask) ]);
   }
 
   RETURN

@@ -4,6 +4,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -357,7 +358,7 @@ RECORD ARRAY FUNCTION __CommitWHDBTransaction(INTEGER transid) __ATTRIBUTES__(EX
 
 INTEGER ARRAY seenids;
 
-OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
+STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 < /** Whether this looks like an autotransaction to the outside world (underlying transaction is always auto)
   */
   BOOLEAN pvt_isauto;
@@ -389,7 +390,7 @@ OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO __ResetTransactionId(INTEGER transid)
   {
-    BuiltinTransactionBase::__ResetTransactionId(transid);
+    LockingTransactionBase::__ResetTransactionId(transid);
     this->pvt_numworks := IsWHDBWorkOpen(transid) ? 1 : 0;
   }
 
@@ -434,14 +435,14 @@ OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
   {
     IF(this->pvt_isauto)
       THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
-    BuiltinTransactionBase::Rollback();
+    LockingTransactionBase::Rollback();
   }
 
   UPDATE PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
   {
     // Change to auto transaction. Close work if open.
     this->pvt_isauto := TRUE;
-    BuiltinTransactionBase::__CallCommitHandlers(iscommit);
+    LockingTransactionBase::__CallCommitHandlers(iscommit);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
@@ -469,7 +470,7 @@ OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
     }
 
     __CloseWHDBAutoTransaction(this->id);
-    BuiltinTransactionBase::Close();
+    LockingTransactionBase::Close();
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
@@ -739,7 +740,7 @@ OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO DisableWorkTimeout()
   {
-    BuiltinTransactionBase::DisableWorkTimeout();
+    LockingTransactionBase::DisableWorkTimeout();
     __SendWHDBCommand(this->id,"SET LOCAL TRANSACTIONTIMEOUT TO OFF");
   }
 >;

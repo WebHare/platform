@@ -260,11 +260,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
     this->RunScreen("#contentsourceeditor", [ catalog := ^catalogs->selection.catalogid, contentsource := ^catalogs->selection.id ]);
   }
 
-  MACRO UpdateContentSourceFields(OBJECT work, INTEGER contentsourceid, RECORD contentsource, RECORD data)
-  {
-    GetPrimary()->ScheduleTask("consilio:cleanupindices", DEFAULT DATETIME); //update contentsource fields async
-  }
-
   MACRO DoEditCatalog()
   {
     IF (RecordExists(^catalogs->selection) AND ^catalogs->selection.catalog)

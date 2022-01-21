@@ -1542,18 +1542,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       IF (id NOT IN tasks)
         DeleteFileTask(id);
 
-    FOREVERY (RECORD task FROM ^tasks->rows)
+    FOREVERY (RECORD task FROM ^tasks->rows) //Add & EditFileTask will schedule publisher:scheduledtasks
     {
       IF (task.id = 0)
         AddFileTask(objid, task.when, task.event, task.folder);
       ELSE
         EditFileTask(task.id, task.when, task.event, task.folder);
-    }
-
-    IF (Length(^tasks->rows) > 0)
-    {
-      DATETIME firsttask := SELECT AS DATETIME when FROM ^tasks->rows ORDER BY when ASC;
-      GetPrimary()->ScheduleTask("publisher:scheduledtasks", firsttask);
     }
   }
 

@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/finishhandler.whlib";
 
 
 /** Base class to implement managed tasks
@@ -550,47 +551,6 @@ PUBLIC INTEGER FUNCTION ScheduleManagedTask(STRING tasktype, RECORD taskdata, RE
   RETURN ScheduleManagedTasks(tasktype, [taskdata], options)[0];
 }
 
-OBJECT ASYNC FUNCTION HandleEphemeralTasks(OBJECT trans, BOOLEAN iscommit)
-{
-  RECORD ARRAY tohandle := trans->__scheduledephemeraltasks;
-  trans->__scheduledephemeraltasks := DEFAULT RECORD ARRAY;
-
-  IF(NOT iscommit)
-  {
-    FOREVERY(RECORD task FROM tohandle)
-      task.reject(NEW Exception("The transaction in which this task was queued did not commit"));
-    RETURN DEFAULT RECORD;
-  }
-
-  // Open the task service
-  OBJECT taskservice;
-  TRY
-    taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
-  CATCH (OBJECT e)
-  {
-    FOREVERY(RECORD task FROM tohandle)
-      task.reject(e);
-    RETURN DEFAULT RECORD;
-  }
-
-  FOREVERY(RECORD task FROM tohandle)
-  {
-    RECORD data := task.taskdata;
-    IF(CellExists(task.options,'AUXDATA'))
-    {
-      data := CELL[...data, ...task.options.auxdata];
-      DELETE CELL auxdata FROM task.options;
-    }
-
-    taskservice->RunEphemeralTask(task.tasktype, data, task.workertype, task.priority, task.options)->Then(task.resolve, task.reject);
-  }
-
-  CreatePromiseAllSettled(SELECT AS OBJECT ARRAY promise FROM tohandle)->Then(PTR taskservice->CloseService());
-
-  RETURN DEFAULT RECORD;
-}
-
-
 /** @short Schedule an ephemeral task if this transaction commits
     @long An ephemeral task may be lost if the current script, the task itself or the task manager fails or ends
           Ephemeral tasks are often used when work needs to be done asynchronously, but the current script still needs
@@ -620,13 +580,12 @@ PUBLIC OBJECT FUNCTION ScheduleEphemeralTask(STRING tasktype, RECORD taskdata, R
   DELETE CELL priority FROM options;
 
   RECORD promise := CreateDeferredPromise();
-  INSERT CELL[ tasktype, taskdata, taskinfo.workertype, options, promise.promise, promise.resolve, promise.reject, priority ]
-         INTO GetPrimary()->__scheduledephemeraltasks AT END;
+  RECORD task := CELL[ tasktype, taskdata, taskinfo.workertype, options, promise.promise, promise.resolve, promise.reject, priority ];
 
   IF(GetPrimary()->IsWorkOpen())
-    GetPrimary()->RegisterCommitHandler("system:handleephemeraltasks", PTR HandleEphemeralTasks(GetPrimary(), #1));
+    GetTasksFinishHandler()->AddEphemeralTask(task);
   ELSE
-    HandleEphemeralTasks(GetPrimary(), TRUE);
+    AsyncExecuteEphemeralTasks([task]);
 
   RETURN promise.promise;
 }

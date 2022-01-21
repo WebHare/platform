@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "h", type := "switch", defaultvalue := FALSE ]
                                                      , [ name := "all", type := "switch", defaultvalue := FALSE ]
@@ -41,5 +42,5 @@ IF (args.servers)
   DELETE FROM consilio.checked_servers;
 }
 
-trans->ScheduleTask("consilio:linkchecker",now);
+ScheduleTimedTask("consilio:linkchecker");
 trans->CommitWork();

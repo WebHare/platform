@@ -1,0 +1,50 @@
+<?wh
+
+LOADLIB "wh::internal/transbase.whlib";
+
+LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE LockingTransactionBase EXTEND BuiltinTransactionBase
+<
+  UPDATE OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
+  {
+    RETURN OpenLockManager()->TryLockMutex(mutexname, max_wait);
+  }
+  UPDATE OBJECT FUNCTION __DoLockMutex(STRING mutexname)
+  {
+    RETURN OpenLockManager()->LockMutex(mutexname);
+  }
+
+  /** @short Schedule a task
+      @long Schedule a task that at the specified time, if this transaction commits. If no 'when' is specified, schedules the task at
+            transaction commit. If the task is already scheduled at an earlier time, nothing changes.
+      @param name Taskname (module:tag)
+      @param when When to schedule the task (DEFAULT DATETIME to schedule it 'now') */
+  PUBLIC MACRO ScheduleTask(STRING name, DATETIME when) //FIXME users should start switching to ScheduleTimedTask (and manage work themselves) once 4.27 is generally available
+  {
+    //we need to get rid of this API as we need to avoid MakeFunctionPtrs in core code (they always add out-of-date risks)
+    IF(MakeFunctionPtr("mod::system/lib/internal/whconfig.whlib#GetDtapStage")() != "production")
+      THROW NEW Exception(`ScheduleTask is deprecated and will be removed in an upcoming WebHare version`);
+
+    BOOLEAN havetrans := this->IsWorkOpen();
+    IF(havetrans)
+      this->PushWork();
+    ELSE
+      this->BeginWork();
+
+    TRY
+    {
+      MakeFunctionPtr("mod::system/lib/tasks.whlib#ScheduleTimedTask")(name,CELL[when]);
+    }
+    FINALLY (OBJECT e)
+    {
+      IF(havetrans)
+        this->PopWork(); //ideally we'd undo only OUR changes. fortunately ScheduleTimedTask doesn't do anything irreversible before tHROW
+      ELSE IF(ObjectExists(e))
+        this->RollbackWork();
+      ELSE
+        this->CommitWork();
+    }
+  }
+>;

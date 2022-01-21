@@ -21,7 +21,6 @@ LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
 
 /** System database schema
     @schemadef system
@@ -411,78 +410,6 @@ MACRO BindSystemTables(INTEGER transaction)
 
 SetupPrimaryTransactionBinder(PTR BindSystemTables);
 
-
-OBJECTTYPE WebHareTransactionExtension
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  // Function ptr to call a service (magic to work around missing functions with variable nr of parameters)
-  FUNCTION PTR callelevatedservice;
-
-
-  /// Function ptr to execute service (for short-circuiting calls within the elevated weblet)
-  FUNCTION PTR pvt_executeservicecall;
-
-
-  PUBLIC RECORD ARRAY __scheduledephemeraltasks;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Properties
-  //
-
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Constructor
-  //
-  UPDATE OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
-  {
-    RETURN OpenLockManager()->TryLockMutex(mutexname, max_wait);
-  }
-  UPDATE OBJECT FUNCTION __DoLockMutex(STRING mutexname)
-  {
-    // ADDME bit misplaced (doesn't have anything to do with service elevations), but easiest place to add this function
-    RETURN OpenLockManager()->LockMutex(mutexname);
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-  /** @short Schedule a task
-      @long Schedule a task that at the specified time, if this transaction commits. If no 'when' is specified, schedules the task at
-            transaction commit. If the task is already scheduled at an earlier time, nothing changes.
-      @param name Taskname (module:tag)
-      @param when When to schedule the task (DEFAULT DATETIME to schedule it 'now') */
-  PUBLIC MACRO ScheduleTask(STRING name, DATETIME when) //FIXME users should start switching to ScheduleTimedTask (and manage work themselves) once 4.27 is generally available
-  {
-    BOOLEAN havetrans := this->IsWorkOpen();
-    IF(havetrans)
-      this->PushWork();
-    ELSE
-      this->BeginWork();
-
-    TRY
-    {
-      MakeFunctionPtr("mod::system/lib/tasks.whlib#ScheduleTimedTask")(name,CELL[when]);
-    }
-    FINALLY (OBJECT e)
-    {
-      IF(havetrans)
-        this->PopWork(); //ideally we'd undo only OUR changes. fortunately ScheduleTimedTask doesn't do anything irreversible before tHROW
-      ELSE IF(ObjectExists(e))
-        this->RollbackWork();
-      ELSE
-        this->CommitWork();
-    }
-  }
->;
-
 ///@private Setting effective user is pretty low-level stuff, normal code shouldn't do it
 PUBLIC MACRO __SetEffectiveUser(OBJECT userobj)
 {
@@ -530,13 +457,6 @@ PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRE
       THROW NEW Exception(`Unknown database type '${dbtype}'`);
     }
   }
-
-  IF (ObjectExists(transobject))
-  {
-    // DoLockMutex is implemented by WebHareTransactionExtension
-    EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(transobject) BY WebHareTransactionExtension;
-  }
-
   RETURN transobject;
 }
 

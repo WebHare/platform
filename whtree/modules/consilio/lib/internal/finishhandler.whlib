@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 
 STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 <
@@ -10,7 +11,7 @@ STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
   UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
   {
     IF(this->mustcleanupindices)
-      transaction->ScheduleTask("consilio:cleanupindices", DEFAULT DATETIME); //remove stale indices ASAP
+      ScheduleTimedTask("consilio:cleanupindices"); //remove stale indices ASAP
   }
 
   UPDATE PUBLIC MACRO OnCommit()

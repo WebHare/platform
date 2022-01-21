@@ -36,6 +36,7 @@ LOADLIB "mod::consilio/lib/internal/http_api.whlib";
 LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/consoleapps.whlib";
 
 //ADDME: Make these tunable through the registry?
@@ -214,7 +215,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
         DATETIME nexttask := GetCurrentDateTime();
         IF (options.debug)
           PRINT("Scheduling new task for " || FormatDateTime("%Y-%m-%d %H:%M", UTCToLocal(nexttask,"CET")) || "\n");
-        GetPrimary()->ScheduleTask("consilio:linkchecker",nexttask);
+        ScheduleTimedTask("consilio:linkchecker", [ when := nexttask ]);
       }
       ELSE
       {
@@ -231,7 +232,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
 
           IF (options.debug)
             PRINT("Scheduling new task for " || FormatDateTime("%Y-%m-%d %H:%M", UTCToLocal(nexttask,"CET")) || "\n");
-          GetPrimary()->ScheduleTask("consilio:linkchecker",nexttask);
+          ScheduleTimedTask("consilio:linkchecker", [ when := nexttask ]);
         }
       }
     }
