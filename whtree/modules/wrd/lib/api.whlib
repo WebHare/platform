@@ -70,7 +70,8 @@ PUBLIC BOOLEAN FUNCTION IsValidWRDGuid(STRING guid)
 */
 PUBLIC OBJECT FUNCTION OpenWRDSchema(STRING findname)
 {
-  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
+  RECORD schemarec := IsWRDMetadataCacheDisabled() ? GetCacheableSchemaRecByName(findname).value
+                                                   : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 
@@ -83,7 +84,8 @@ PUBLIC OBJECT FUNCTION OpenWRDSchema(STRING findname)
 */
 PUBLIC OBJECT FUNCTION OpenWRDSchemaById(INTEGER schemaid)
 {
-  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRec(schemaid).value : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
+  RECORD schemarec := IsWRDMetadataCacheDisabled() ? GetCacheableSchemaRec(schemaid).value
+                                                   : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 

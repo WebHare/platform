@@ -12,10 +12,6 @@ LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
-
-/// If true, get type records from adhoccache
-PUBLIC BOOLEAN disablewrdcache; //this is set as soon as we update metadata, and destroys all caching for this VM. it should probably be reset on commit
-
 /** @topic wrd/api
     @public
     @loadlib mod::wrd/lib/api.whlib

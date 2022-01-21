@@ -50,7 +50,6 @@ PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinition(OBJECT wrdschema, OBJECT metadat
     THROW NEW Exception("Invalid schema document");
 
   RECORD schemadef := ReadSchemaDefFromXML(metadata, "mod::wrd/dummyresource.xml", metadata->ownerdocument->GetDocumentBlob(), DEFAULT DATETIME);
-  disablewrdcache := TRUE;
 
   UpdateSchema(wrdschema, schemadef);
   RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
@@ -76,7 +75,6 @@ PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinitionFile(OBJECT wrdschema, BLOB data,
     THROW NEW Exception(`The data is not valid XML: at line ${err.line}: ${err.message}`);
   }
   RECORD schemadef := ReadSchemaDefFromXML(doc->documentelement, "mod::wrd/dummyresource.xml", data, DEFAULT DATETIME);
-  disablewrdcache := TRUE;
 
   IF (NOT options.applysettings)
     schemadef.keyvaluestore := RECORD[];

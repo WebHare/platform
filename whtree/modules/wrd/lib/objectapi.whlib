@@ -5,7 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 
 LOADLIB "mod::wrd/lib/internal/exchange.whlib" EXPORT OverwritingProtectedWRDSchemaException;
 LOADLIB "mod::wrd/lib/internal/objectapi-helpers.whlib" EXPORT DescribeWRDAttribute, DescribeWRDEntity, IsValidWRDGuid;
-
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib" EXPORT MakeWRDQuery, RunWRDQuery, WRDQueryInterface;
@@ -17,7 +17,7 @@ LOADLIB "mod::wrd/lib/internal/wrdschema.whlib";
    ------------------------------------------------------------------ */
 PUBLIC OBJECT FUNCTION OpenWRDSchema(INTEGER schemaid, STRING currentlanguage DEFAULTSTO "")
 {
-  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRec(schemaid).value : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
+  RECORD schemarec := IsWRDMetadataCacheDisabled() ? GetCacheableSchemaRec(schemaid).value : GetAdhocCached([ type := "wrdschema", id := schemaid ], PTR GetCacheableSchemaRec(schemaid));
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 

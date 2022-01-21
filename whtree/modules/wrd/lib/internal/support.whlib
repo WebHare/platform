@@ -9,6 +9,7 @@ LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
@@ -812,7 +813,7 @@ PUBLIC STRING FUNCTION GetSafeWRDTag(STRING tag, FUNCTION PTR check_inuse)
   }
 }
 
-OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
+STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -827,6 +828,10 @@ OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
   INTEGER ARRAY linkcheckedsettings;
 
   RECORD ARRAY auto_changesets;
+
+  PUBLIC BOOLEAN metadatachanges;
+
+  PUBLIC INTEGER ARRAY datachanges;
 
   // ---------------------------------------------------------------------------
   //
@@ -906,6 +911,9 @@ OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
   RECORD FUNCTION EntityChange(INTEGER wrdschema, INTEGER type, INTEGER entityid, STRING cellname)
   {
+    IF(wrdschema NOT IN this->datachanges)
+      INSERT wrdschema INTO this->datachanges AT 0; //safe to assume that the next change will hit the schema again, so at front
+
     FOREVERY(MACRO PTR onentitychange FROM this->onentitychanges)
       onentitychange(wrdschema, type, entityid, cellname);
 
@@ -959,6 +967,7 @@ OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
   PUBLIC MACRO MetadataChanged(INTEGER wrdschema)
   {
+    this->metadatachanges := TRUE;
     this->types[this->GetTypePosition(wrdschema, 0)].metadatachanged := TRUE;
   }
 
@@ -1008,6 +1017,25 @@ OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
   }
 
 >;
+
+//Set for the duration of the transaction if any metadata changed as we can't safely use some adhoc caches until we commit
+PUBLIC BOOLEAN FUNCTION IsWRDMetadataCacheDisabled()
+{
+  IF(NOT HavePrimaryTransaction())
+    RETURN FALSE;
+
+  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
+  RETURN ObjectExists(handler) AND handler->metadatachanges;
+}
+
+PUBLIC BOOLEAN FUNCTION IsWRDDataCacheDisabled(INTEGER wrdschemaid)
+{
+  IF(NOT HavePrimaryTransaction())
+    RETURN FALSE;
+
+  OBJECT handler := GetPrimary()->GetFinishHandler("wrd:entitycommithandler");
+  RETURN ObjectExists(handler) AND wrdschemaid IN handler->datachanges;
+}
 
 PUBLIC OBJECT FUNCTION GetWRDCommitHandler()
 {
