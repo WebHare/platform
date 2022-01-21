@@ -13,7 +13,7 @@ LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/storedqueries.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
-LOADLIB "mod::wrd/lib/internal/support2.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
 //Save types and attributes
@@ -494,9 +494,7 @@ MACRO TestRename()
 {
   STRING savetag := testfw->GetWRDSchema()->tag;
 
-  TestEQ(TRUE, disablewrdcache);
-
-  disablewrdcache := FALSE;
+  TestEQ(FALSE, IsWRDMetadataCacheDisabled(), "Verify the caches haven't been shut down already");
 
   STRING newtag := savetag || ".rename";
   TestEQ(DEFAULT OBJECT, OpenWRDSchema(newtag));
@@ -505,7 +503,6 @@ MACRO TestRename()
   testfw->GetWRDSchema()->UpdateMetadata([ name := newtag ]);
   testfw->CommitWork();
 
-  disablewrdcache := FALSE;
   OBJECT wrdschema := OpenWRDSchema(newtag);
   TestEQ(TRUE, ObjectExists(wrdschema));
 
@@ -513,8 +510,6 @@ MACRO TestRename()
   testfw->BeginWork();
   testfw->GetWRDSchema()->UpdateMetadata([ name := savetag ]);
   testfw->CommitWork();
-
-  TestEQ(TRUE, disablewrdcache);
 }
 
 MACRO TestAttributePromotion()

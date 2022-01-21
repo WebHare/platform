@@ -483,7 +483,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
 
 PUBLIC OBJECT FUNCTION OpenWRDSchemaByName(STRING findname, STRING currentlanguage DEFAULTSTO "")
 {
-  RECORD schemarec := disablewrdcache ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
+  RECORD schemarec := IsWRDMetadataCacheDisabled() ? GetCacheableSchemaRecByName(findname).value : GetAdhocCached([ type := "wrdschema", name := findname ], PTR GetCacheableSchemaRecByName(findname));
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 

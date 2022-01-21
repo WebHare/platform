@@ -893,6 +893,21 @@ MACRO TestDomains()
 
   testfw->CommitWork();
 
+  testfw->BeginWork();
+  // Add a new value, ensure that no caches from earlier GetDomValTitle calls interfere
+  INTEGER newvalueid := newdomain->CreateEntity( [ wrd_tag := "NEWVALUE",  wrd_title := "New value" ])->id;
+  TestEq(newvalueid, persontype->GetDomVal("TIMEDVALUE", "NEWVALUE"));
+  TestEq("New value", persontype->GetDomValTitle("TIMEDVALUE", newvalueid));
+
+  newdomain->DeleteEntity(newvalueid);
+  TestThrowsLike(`No such domain value*`, PTR persontype->GetDomVal("TIMEDVALUE", "NEWVALUE"));
+  TestThrowsLike(`No such domain value*`, PTR persontype->GetDomValTitle("TIMEDVALUE", newvalueid));
+
+  newvalueid := newdomain->CreateEntity( [ wrd_tag := "NEWVALUE",  wrd_title := "New value 2" ])->id;
+  TestEq(newvalueid, persontype->GetDomVal("TIMEDVALUE", "NEWVALUE"));
+  TestEq("New value 2", persontype->GetDomValTitle("TIMEDVALUE", newvalueid));
+  testfw->CommitWork();
+
   // GetDomVal should also work on non-domains
   testfw->BeginWork();
   testperson->UpdateEntity([ wrd_tag := "NONDOMAINTEST" ]);

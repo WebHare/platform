@@ -401,7 +401,6 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   //
   PUBLIC MACRO __SignalMetadataChanged()
   {
-    disablewrdcache := TRUE;
     GetWRDCommitHandler()->MetadataChanged(this->schemarec.id);
     this->pvt_types := DEFAULT OBJECT;
   }
@@ -597,7 +596,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       RETURN savedtype;
 
     FUNCTION PTR cachecall := PTR GetCacheableTypeRecById(this->id, type_id);
-    RECORD typerec := disablewrdcache = FALSE ? GetAdhocCached([ type := "typerecbyid", wrdschema := this->id, id := type_id ], cachecall) : cachecall().value;
+    RECORD typerec := IsWRDMetadataCacheDisabled() ? GetAdhocCached([ type := "typerecbyid", wrdschema := this->id, id := type_id ], cachecall) : cachecall().value;
     IF(NOT RecordExists(typerec))
       RETURN DEFAULT OBJECT;
 
@@ -619,7 +618,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       RETURN savedtype;
 
     RECORD typerec;
-    IF(disablewrdcache)
+    IF(IsWRDMetadataCacheDisabled())
       typerec := this->GetCacheableTypeRecByName(findtag).value;
     ELSE
       typerec := GetAdhocCached([ type := "typerecbyname", wrdschema := this->id, tag := findtag ], PTR this->GetCacheableTypeRecByName(findtag));
