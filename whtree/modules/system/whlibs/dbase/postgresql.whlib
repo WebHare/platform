@@ -10,6 +10,7 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 
@@ -1100,7 +1101,7 @@ STRING FUNCTION MapAction(STRING indata)
 }
 
 
-OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
+STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 < /** Whether this looks like an autotransaction to the outside world (underlying transaction is always auto)
   */
   BOOLEAN pvt_isauto;
@@ -1162,7 +1163,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO __ResetTransactionId(INTEGER transid)
   {
-    BuiltinTransactionBase::__ResetTransactionId(transid);
+    LockingTransactionBase::__ResetTransactionId(transid);
     this->pvt_numworks := __PGSQL_GETWORKOPEN(transid) ? 1 : 0;
   }
 
@@ -1209,14 +1210,14 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   {
     IF(this->pvt_isauto)
       THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
-    BuiltinTransactionBase::Rollback();
+    LockingTransactionBase::Rollback();
   }
 
   UPDATE PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
   {
     // Change to auto transaction. Close work if open.
     this->pvt_isauto := TRUE;
-    BuiltinTransactionBase::__CallCommitHandlers(iscommit);
+    LockingTransactionBase::__CallCommitHandlers(iscommit);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
@@ -1244,7 +1245,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     }
 
     __PGSQL_CLOSE(this->id);
-    BuiltinTransactionBase::Close();
+    LockingTransactionBase::Close();
   }
 
   PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
