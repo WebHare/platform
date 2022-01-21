@@ -843,6 +843,9 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
       filename := GetWebserverDefaultPage(web);
     }
 
+    IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
+      filename := Left(filename, Length(filename) - 4);
+
     parentfolderobj->CreateFile([ type := newfiletype->id
                                 , name := filename
                                 , published := new_published
@@ -871,8 +874,12 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
   {
     IF (RecordExists(folderindex.file))
     {
+      STRING filename := folderindex.newfilename ?? folderindex.file.name;
+      IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
+        filename := Left(filename, Length(filename) - 4);
+
       parentfolderobj->CreateFile([ typens := "http://www.webhare.net/xmlns/publisher/contentlink"
-                                  , name := folderindex.newfilename ?? folderindex.file.name
+                                  , name := filename
                                   // We'll assume new contentlinks need template and profile, because they're mostly used to link to Word documents
                                   , published := new_published
                                   , filelink := folderindex.file.id
@@ -882,8 +889,12 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
   }
   ELSE IF (folderindex.indexfile = "newfile")
   {
+    STRING filename := folderindex.newfilename ?? "index";
+    IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
+      filename := Left(filename, Length(filename) - 4);
+
     parentfolderobj->CreateFile( [ typens := folderindex.newfiletype
-                                 , name := folderindex.newfilename ?? "index"
+                                 , name := filename
                                  , published := new_published
                                  , ispinned := folderindex.protectindexfile
                                  ], [ setindex := TRUE ]);
