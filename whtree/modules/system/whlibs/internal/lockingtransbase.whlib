@@ -13,7 +13,6 @@ PUBLIC STATIC OBJECTTYPE LockingTransactionBase EXTEND BuiltinTransactionBase
   }
   UPDATE OBJECT FUNCTION __DoLockMutex(STRING mutexname)
   {
-    // ADDME bit misplaced (doesn't have anything to do with service elevations), but easiest place to add this function
     RETURN OpenLockManager()->LockMutex(mutexname);
   }
 
