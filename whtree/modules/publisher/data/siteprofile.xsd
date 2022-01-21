@@ -1550,11 +1550,11 @@
 
   <xs:complexType name="ScheduleManagedTask">
     <xs:annotation>
-      <xs:documentation>Schedule a managed task for every applied items that is modified</xs:documentation>
+      <xs:documentation>Schedule a managed task for every applied items that is modified. It will receive a record with a `whfsid` member containing the object id of the modified object.</xs:documentation>
     </xs:annotation>
     <xs:attribute name="task" type="ModuleNamespacedName" use="required">
       <xs:annotation>
-        <xs:documentation>Schedulde task to run</xs:documentation>
+        <xs:documentation>Managed task to run.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
