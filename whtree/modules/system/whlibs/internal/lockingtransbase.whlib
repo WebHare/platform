@@ -24,6 +24,10 @@ PUBLIC STATIC OBJECTTYPE LockingTransactionBase EXTEND BuiltinTransactionBase
       @param when When to schedule the task (DEFAULT DATETIME to schedule it 'now') */
   PUBLIC MACRO ScheduleTask(STRING name, DATETIME when) //FIXME users should start switching to ScheduleTimedTask (and manage work themselves) once 4.27 is generally available
   {
+    //we need to get rid of this API as we need to avoid MakeFunctionPtrs in core code (they always add out-of-date risks)
+    IF(MakeFunctionPtr("mod::system/lib/internal/whconfig.whlib#GetDtapStage")() != "production")
+      THROW NEW Exception(`ScheduleTask is deprecated and will be removed in an upcoming WebHare version`);
+
     BOOLEAN havetrans := this->IsWorkOpen();
     IF(havetrans)
       this->PushWork();
