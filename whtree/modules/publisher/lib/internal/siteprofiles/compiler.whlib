@@ -624,12 +624,18 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
          , hints := response.hints
          ];
 }
+
 PUBLIC RECORD FUNCTION RecompileSiteProfiles()
 {
-  OBJECT service  := WaitForPromise(OpenWebHareService("system:spcompiler"));
+  RETURN WaitForPromise(AsyncRecompileSiteProfiles());
+}
+
+PUBLIC ASYNC FUNCTION AsyncRecompileSiteProfiles()
+{
+  OBJECT service  := AWAIT OpenWebHareService("system:spcompiler");
   TRY
   {
-    RECORD response := WaitForPromise(service->RequestRecompile());
+    RECORD response := AWAIT service->RequestRecompile();
     RETURN response;
   }
   FINALLY
