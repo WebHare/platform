@@ -1,5 +1,7 @@
 ﻿<?wh (* ISSYSTEMLIBRARY *)
 
+/** Transaction registration services
+*/
 
 /** List of transactions->object mappings
     @cell "0" Id of transction

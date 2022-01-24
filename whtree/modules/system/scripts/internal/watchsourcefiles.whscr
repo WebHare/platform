@@ -89,10 +89,10 @@ RECORD ARRAY actions :=
 
 ASYNC MACRO DoSiteProfileRecompile()
 {
-  RecompileSiteProfiles();
+  AWAIT AsyncRecompileSiteProfiles();
 }
 
-MACRO ScheduleHotfixCheck()
+ASYNC MACRO ScheduleHotfixCheck()
 {
   // check for hotfixes 5 minutes after change
   GetPrimary()->BeginWork();

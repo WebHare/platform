@@ -508,7 +508,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     STRING library := GetResourceNameFromDiskPath(selection.library, [ allowdiskpath := TRUE ]);
     RECORD posinfo := SELECT * FROM DescribeCompiledLibrary(library).functions WHERE mangledname = selection.functionname;
     IF(RecordExists(posinfo))
-      LaunchOpenInEditor(this, library, posinfo);
+      LaunchOpenInEditor(this, library, CELL[ posinfo.line, posinfo.col ]);
   }
 
   // ---------------------------------------------------------------------------
