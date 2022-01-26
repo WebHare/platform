@@ -1229,7 +1229,6 @@
         <text tid="terminate">Terminate</text>
       </textgroup>
       <textgroup gid="webharepeers">   <!-- tolliumapps.commondialogs.webharepeers -->
-        <text tid="addlegacyserver">Add legacy server</text>
         <text tid="addpeer">Add server</text>
         <text tid="connect">Connect</text>
         <text tid="editpeer">Edit server</text>
@@ -1253,47 +1252,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
-      <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
-        <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
-          <text tid="branchnotonorigin">The current branch of this module is not present on the origin. This may happen if you are working on a feature branch. Please commit and push first. Are you sure you want to proceed deploying this module?</text>
-          <text tid="cannotreplacemodule">Cannot replace module '<param p="1"/>'.</text>
-          <text tid="differentbranch">The module on the server is from a different branch (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
-          <text tid="differentrepository">The module on the server is from a different repository (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
-          <text tid="invalidversion">The module '<param p="1"/>' on the server has version '<param p="2"/>' which does not satisfy the requested version '<param p="3"/>'</text>
-          <text tid="missingrequiredmoduleonpeer">The required module '<param p="1"/>' is not present on the server.</text>
-          <text tid="modulehaspeerchanges">The module on the server has been modified after installation. <br/><br/>Are you sure you want to replace it?</text>
-          <text tid="notatbranchhead">The HEAD of your git working copy is not at the branch head - you either have local changes you did not push to the origin server, or the origin server has changes you haven't pulled to your local copy yet.<br/><br/>Please merge or rebase, and then push the changes to origin. Are you sure you want to proceed?</text>
-          <text tid="notgituptodate">A newer version of this module is available in the central repository. Please update your local module first. <br/><br/>Are you sure you want to deploy this (outdated) version?</text>
-          <text tid="peerchangeswarning">Module has been modified after installation</text>
-          <text tid="reviewchanges">Review changes</text>
-          <text tid="uncommittedchanges">This module has uncommitted changes. Are you sure you want to deploy this module?</text>
-          <text tid="unpushedchanges">The local git repository contains commits that haven't yet been pushed to the central repository. Please push these changes first.<br/><br/>Are you sure you want to proceed with deploying this module?</text>
-          <text tid="uploadnewmodule">This module does not exist on the server yet. Are you sure you want to deploy this module?</text>
-        </textgroup>
-        <textgroup gid="modulefilediff">   <!-- tolliumapps.config.deploy.modulefilediff -->
-          <text tid="ignorewhitespace">Ignore white space at the beginning and ending of lines</text>
-          <text tid="title">Diff of file '<param p="2"/>' in module '<param p="1"/>'</text>
-          <text tid="titlemultiple">Diff of multiple files in module '<param p="1"/>'</text>
-        </textgroup>
-        <textgroup gid="reviewdiffs">   <!-- tolliumapps.config.deploy.reviewdiffs -->
-          <text tid="moduledoesnothavesourcezip">The module on the peer does not have its original source available</text>
-          <text tid="nodifferences">No differences found</text>
-          <text tid="path">Path</text>
-          <text tid="remotemodulehasnofilelist">The module on the peer does not have a file listing available</text>
-          <text tid="reviewmodulepeerchanges">Files modified after module installation</text>
-          <text tid="reviewremotetolocaldiff">Review differences between remote and local module '<param p="1"/>'</text>
-          <text tid="showdiff">Show diff</text>
-          <text tid="showfulldiff">Show full diff</text>
-          <text tid="status">Status</text>
-        </textgroup>
-        <textgroup gid="reviewincomingcommits">   <!-- tolliumapps.config.deploy.reviewincomingcommits -->
-          <text tid="author">Author</text>
-          <text tid="date">Date</text>
-          <text tid="id">Commit ID</text>
-          <text tid="message">Message</text>
-          <text tid="reviewincomingcommits">Incoming commits</text>
-        </textgroup>
-      </textgroup>
       <textgroup gid="keystore">   <!-- tolliumapps.config.keystore -->
         <textgroup gid="createkey">   <!-- tolliumapps.config.keystore.createkey -->
           <text tid="bits">Bits</text>
@@ -1440,25 +1398,13 @@
         <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="checkhotfixes">Check for modifications</text>
         <text tid="configuremodule">Configure</text>
-        <text tid="connectremote">Connect</text>
         <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
         <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
-        <text tid="deploymentrequiresdev">Use the Deploy application in the 'dev' module to push modules to a remote server.<br/><br/>See <html:a href="https://www.webhare.dev/manuals/developers/dev-module/">webhare.dev/manuals/developers/dev-module/</html:a> for more info</text>
-        <text tid="deploymodule">Deploy module</text>
-        <text tid="differentbranch">The server version is on a different branch</text>
         <text tid="dontshowdeleted">Only show current modules</text>
-        <text tid="langedit">Language editor</text>
         <text tid="lastmodified">Last updated</text>
-        <text tid="modulepushed">Module '<param p="1"/>' has been deployed to the peer.</text>
         <text tid="name">Name</text>
         <text tid="openwebsite">Open website</text>
-        <text tid="outofdate">The server module is out of date</text>
-        <text tid="peerhasnomodules">No installed modules found</text>
-        <text tid="reviewincomingcommits">Review missing commits</text>
-        <text tid="reviewmodulepeerchanges">Review changes on peer</text>
-        <text tid="reviewremotetolocaldiff">Review differences (remote to local)</text>
         <text tid="revision">Source revision</text>
         <text tid="showdeleted">Show current and deleted modules</text>
         <text tid="uncommittedchanges">(+ changes)</text>
@@ -1466,17 +1412,10 @@
         <text tid="versions">Versions</text>
       </textgroup>
       <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="appgroup">Group</text>
-        <text tid="applicationstab">Applications</text>
         <text tid="date">Date</text>
-        <text tid="dependencies">Dependencies</text>
-        <text tid="history">History</text>
         <text tid="hotfixes">Local changes</text>
-        <text tid="metabox">Module information</text>
-        <text tid="misctab">Misc</text>
         <text tid="modifiedfiles">Modified files</text>
         <text tid="moduleinfo">Module info</text>
-        <text tid="name">Name</text>
         <text tid="path">Path</text>
         <text tid="server">Server</text>
         <text tid="source">Source</text>
@@ -1485,11 +1424,9 @@
         <text tid="sourcerevision">Source revision</text>
         <text tid="status">Status</text>
         <text tid="userfullname">User</text>
-        <text tid="version">Versie</text>
       </textgroup>
       <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
         <text tid="archived">Archived</text>
-        <text tid="downloadmodule">Download</text>
         <text tid="hotfixes">Show hotfixes</text>
         <text tid="modified">(modified)</text>
         <text tid="obsoletiondate">Obsoleted</text>

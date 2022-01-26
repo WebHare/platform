@@ -1,31 +1,11 @@
 <?wh
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-
-STRING FUNCTION GetWebsiteForRepository(STRING type, STRING repository_url)
-{
-  IF(type = "git")
-  {
-    IF(repository_url LIKE "*@gitlab.*:*/*" OR repository_url LIKE "*@www.gitlab.*:*/*")
-    {
-      /* eg:
-           git@gitlab.webhare.com:webhare/blexdev_formsapi.git == https://gitlab.webhare.com/webhare/blexdev_formsapi.git (and it will redirect itself)
-           a@b:c/d == https://b/c/d/
-           */
-      repository_url := Tokenize(repository_url,'@')[1];
-      STRING ARRAY toks := Tokenize(repository_url,':');
-      RETURN `https://${toks[0]}/${toks[1]}`;
-    }
-  }
-  RETURN "";
-}
 
 PUBLIC RECORD ARRAY FUNCTION GetModuleDetails(STRING langcode) //do we even need to do this async now that we ignore git ?
 {
@@ -56,11 +36,7 @@ PUBLIC RECORD ARRAY FUNCTION GetModuleDetails(STRING langcode) //do we even need
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   RECORD ARRAY moduledetails;
-  RECORD peerconnectinfo;
-  RECORD ARRAY peermods;
   RECORD ARRAY modulecolumns;
-
-  RECORD hookinguserdata;
 
   OBJECT revisionupdatefifo;
 
@@ -103,9 +79,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO RefreshPermissions()
   {
-    this->frame->flags.developer := GetDtapStage() = "development";
-
-    ^connectremotebutton->visible := this->frame->flags.developer;
     ^modules->Invalidate();
   }
 
@@ -122,11 +95,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GetModules()
   {
     RECORD ARRAY overview := GetInstalledModulesOverview(^showdeleted->value);
-    STRING ARRAY peermodules := SELECT AS STRING ARRAY name FROM this->peermods;
 
     overview := SELECT *
                      , details := (SELECT * FROM this->moduledetails WHERE moduledetails.name = overview.name)
-                     , isinstalledonpeer := name IN peermodules
                   FROM overview;
 
     RETURN SELECT name
@@ -158,7 +129,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       // ADDME: update only the modules that need updating
       this->moduledetails := AWAIT AsyncCallFunctionFromJob(Resolve("#GetModuleDetails"), GetTidLanguage());
       ^modules->Invalidate();
-      ^peermodules->Invalidate();
 
       // Get new list of modules to update - and batch them by reading synchronously until the fifo is empty
       modules := STRING[];
@@ -298,11 +268,5 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoVersions()
   {
     this->RunScreen("moduleinfo.xml#moduleversions", [ modulename := ^modules->value ]);
-  }
-
-  MACRO DoConnectRemote()
-  {
-    //Transitional warning that this is no longer done here
-    this->RunSimpleScreen("info", this->GetHTMLTid(".deploymentrequiresdev"), [ html := TRUE ]);
   }
 >;

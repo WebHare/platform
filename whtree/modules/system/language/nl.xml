@@ -1038,7 +1038,6 @@
         <text tid="terminate">Afbreken</text>
       </textgroup>
       <textgroup gid="webharepeers">   <!-- tolliumapps.commondialogs.webharepeers -->
-        <text tid="addlegacyserver">Voeg oude server toe</text>
         <text tid="addpeer">Voeg server toe</text>
         <text tid="connect">Verbind</text>
         <text tid="editpeer">Wijzig server</text>
@@ -1062,47 +1061,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
-      <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
-        <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
-          <text tid="branchnotonorigin">De huidige branch is niet beschikbaar op de repository server. Dit gebeurt bv. als er op een feature branch wordt gewerkt.<br/><br/>Commit en push aub alle wijzigingen eerst. Weet je zeker dat je de module wilt uitrollen?</text>
-          <text tid="cannotreplacemodule">Het is niet gelukt module '<param p="1"/>' te vervangen</text>
-          <text tid="differentbranch">De module op de server bevindt zich op een andere branch (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
-          <text tid="differentrepository">De module op de server is uit een andere repository afkomsting (lokaal: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
-          <text tid="invalidversion">De module '<param p="1"/>' op de server heeft versie '<param p="2"/>' wat niet overeenkomt met de gevraagde versie '<param p="3"/>'</text>
-          <text tid="missingrequiredmoduleonpeer">De vereiste module '<param p="1"/>' is niet aanwezig op de server.</text>
-          <text tid="modulehaspeerchanges">De module op de server is gewijzigd na installatie.<br/><br/>Weet je zeker dat je de module wilt vervangen?</text>
-          <text tid="notatbranchhead">The HEAD van je werkkopie is nog niet op de 'head' van de branch - je hebt lokale wijzigingen die je nog niet naar de repository server hebt gepushed, of de repository server heeft wijzigingen die je nog niet lokaal binnengehaald hebt.<br/><br/>Merge of rebase aub, en push dan de wijzigingen naar de repository server. Weet je zeker dat je door wil gaan?</text>
-          <text tid="notgituptodate">Er is een nieuwe versie beschikbaar op de centrale repository server. Update de lokale module aub eerst.<br/><br/>Weet je zeker dat je de (verouderde) module wilt uitrollen ?</text>
-          <text tid="peerchangeswarning">De module is gewijzigd na installatie</text>
-          <text tid="reviewchanges">Bekijk wijzigingen</text>
-          <text tid="uncommittedchanges">De module heeft openstaande wijzigingen. Weet je zeker dat je de module wil uitrollen ?</text>
-          <text tid="unpushedchanges">De lokale git repository bevat commits die nog niet naar de centrale repository zijn gepushed. Push deze wijzigingen aub eerst.<br/><br/>Weet je zeker dat je de module wilt uitrollen?</text>
-          <text tid="uploadnewmodule">De module bestaat nog niet op de server. Weet je zeker dat je de module wilt uitrollen?</text>
-        </textgroup>
-        <textgroup gid="modulefilediff">   <!-- tolliumapps.config.deploy.modulefilediff -->
-          <text tid="ignorewhitespace">Negeer lege ruimte aan het begin en einde van regels</text>
-          <text tid="title">Diff van bestand '<param p="2"/>' in module '<param p="1"/>'</text>
-          <text tid="titlemultiple">Diff van meerdere bestanden in module '<param p="1"/>'</text>
-        </textgroup>
-        <textgroup gid="reviewdiffs">   <!-- tolliumapps.config.deploy.reviewdiffs -->
-          <text tid="moduledoesnothavesourcezip">De remote server beschikt niet over de sourcecode van de module</text>
-          <text tid="nodifferences">Geen verschillen gevonden</text>
-          <text tid="path">Pad</text>
-          <text tid="remotemodulehasnofilelist">De module op de externe server heeft geen bestandslijst</text>
-          <text tid="reviewmodulepeerchanges">Bestanden die zijn aangepast na de module installatie</text>
-          <text tid="reviewremotetolocaldiff">Beoordeel verschillen tussen externe en lokale module '<param p="1"/>'</text>
-          <text tid="showdiff">Toon diff</text>
-          <text tid="showfulldiff">Toon volledige diff</text>
-          <text tid="status">Status</text>
-        </textgroup>
-        <textgroup gid="reviewincomingcommits">   <!-- tolliumapps.config.deploy.reviewincomingcommits -->
-          <text tid="author">Auteur</text>
-          <text tid="date">Datum</text>
-          <text tid="id">Commit ID</text>
-          <text tid="message">Bericht</text>
-          <text tid="reviewincomingcommits">Binnenkomende commits</text>
-        </textgroup>
-      </textgroup>
       <textgroup gid="keystore">   <!-- tolliumapps.config.keystore -->
         <textgroup gid="createkey">   <!-- tolliumapps.config.keystore.createkey -->
           <text tid="bits">Bits</text>
@@ -1249,25 +1207,13 @@
         <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="checkhotfixes">Check wijzigingen</text>
         <text tid="configuremodule">Configureren</text>
-        <text tid="connectremote">Verbinden</text>
         <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
         <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
-        <text tid="deploymentrequiresdev">Gebruik de Deploy applicatie in de 'dev' module om modules naar remote servers te uploaden.<br/><br/>Kijk op <html:a href="https://www.webhare.dev/manuals/developers/dev-module/">webhare.dev/manuals/developers/dev-module/</html:a> voor meer informatie</text>
-        <text tid="deploymodule">Uitrollen</text>
-        <text tid="differentbranch">De module op de server staat in een andere branch</text>
         <text tid="dontshowdeleted">Toon alleen huidige modules</text>
-        <text tid="langedit">Taaleditor</text>
         <text tid="lastmodified">Laatste update</text>
-        <text tid="modulepushed">Module '<param p="1"/>' is gedeployed naar de server</text>
         <text tid="name">Naam</text>
         <text tid="openwebsite">Open website</text>
-        <text tid="outofdate">De module op de server is verouderd</text>
-        <text tid="peerhasnomodules">Geen installeerbare modules gevonden</text>
-        <text tid="reviewincomingcommits">Toon missende commits</text>
-        <text tid="reviewmodulepeerchanges">Toon wijzigingen op server</text>
-        <text tid="reviewremotetolocaldiff">Toon verschillen (remote to local)</text>
         <text tid="revision">Bronrevisie</text>
         <text tid="showdeleted">Toon huidige en verwijderde modules</text>
         <text tid="uncommittedchanges">(+ wijzigingen)</text>
@@ -1275,17 +1221,10 @@
         <text tid="versions">Versies</text>
       </textgroup>
       <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="appgroup">Groep</text>
-        <text tid="applicationstab">Applicaties</text>
         <text tid="date">Datum</text>
-        <text tid="dependencies">Afhankelijk van</text>
-        <text tid="history">Geschiedenis</text>
         <text tid="hotfixes">Lokale wijzigingen</text>
-        <text tid="metabox">Module informatie</text>
-        <text tid="misctab">Overig</text>
         <text tid="modifiedfiles">Gewijzigde bestanden</text>
         <text tid="moduleinfo">Module informatie</text>
-        <text tid="name">Naam</text>
         <text tid="path">Pad</text>
         <text tid="server">Server</text>
         <text tid="source">Bron</text>
@@ -1294,11 +1233,9 @@
         <text tid="sourcerevision">Bronrevisie</text>
         <text tid="status">Status</text>
         <text tid="userfullname">Gebruiker</text>
-        <text tid="version">Versie</text>
       </textgroup>
       <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
         <text tid="archived">Gearchiveerd</text>
-        <text tid="downloadmodule">Downloaden</text>
         <text tid="hotfixes">Toon hotfixes</text>
         <text tid="modified">(gewijzigd)</text>
         <text tid="obsoletiondate">Overbodig vanaf</text>
