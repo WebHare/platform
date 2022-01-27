@@ -164,7 +164,7 @@ PUBLIC STATIC OBJECTTYPE RichDocument
   }
   MACRO SetupHTML(BLOB indata)
   {
-    this->htmldoc := MakeXMLDocumentFromHTML(indata ?? StringToBlob("<html><head><body></body></head</html>"), "UTF-8", this->readonly);
+    this->htmldoc := MakeXMLDocumentFromHTML(indata ?? StringToBlob("<html><body></body></html>"), "UTF-8", this->readonly);
 
     /* Figure out the toplevel node for the content */
     this->toplevelnode := this->htmldoc->GetElementsByTagName("body")->Item(0);
