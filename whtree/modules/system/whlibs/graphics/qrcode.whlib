@@ -37,6 +37,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+LOADLIB "wh::float.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
 STRING UTF8_BOM := "\xEF\xBB\xBF";
@@ -1403,16 +1405,25 @@ PUBLIC OBJECTTYPE QRCode
     @cell(integer) options.colordark Draw color, defaults to black
     @cell(integer) options.colorlight Background color, defaults to white
     @cell(string) options.correctlevel Error correction level, one of "L", "M", "Q" or "H", defaults to "H" (=highest)
+    @cell(blob) options.logo A logo to add to the QR code
+    @cell(integer) options.logosize Override the logo size if the QR code doesn't work with the automatically determined logo
+        size (in modules, the logo is rendered with a padding of 1 module on each side within this size)
     @return A drawlib canvas object containing the QR code
 */
 PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := MakeUpdatedRecord([ size := 256
-                               , margin := 4
-                               , colordark := ColorBlack
-                               , colorlight := ColorWhite
-                               , correctlevel := "H"
-                               ], options);
+  options := ValidateOptions(
+      [ size := 256
+      , margin := 4
+      , colordark := ColorBlack
+      , colorlight := ColorWhite
+      , correctlevel := "H"
+      , logo := DEFAULT BLOB
+      , logosize := 0
+      ], options,
+      [ enums :=
+          [ correctlevel := [ "L", "M", "Q", "H" ] ]
+      ]);
 
   // Initialize and generate the QR code data
   OBJECT code := NEW QRCode(QRUtil_GetTypeNumber(intext, options.correctlevel), options.correctlevel);
@@ -1425,6 +1436,48 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
   IF (size = 0)
     size := 1;
 
+  // Check if a logo should be added
+  INTEGER logostart, logosize := options.logosize;
+  IF (logosize = 0 AND Length(options.logo) > 0)
+  {
+    // Get the number of modules we can use within the error correction level
+    INTEGER modules := count_ * count_;
+    INTEGER lm; // logo modules
+    SWITCH (options.correctlevel)
+    {
+      CASE "L" { lm := 5 * modules / 100; } // L: up to 7% damage
+      CASE "M" { lm := 10 * modules / 100; } // M: up to 15% damage
+      CASE "Q" { lm := 12 * modules / 100; } // Q: up to 25% damage
+      CASE "H" { lm := 15 * modules / 100; } // H: up to 30% damage
+    }
+    // Get the size of the square to put the logo in
+    logosize := INTEGER(Sqrt(lm));
+  }
+  IF (logosize > 0)
+  {
+    // To center the logo, make sure the QR code and logo sizes are both odd or even
+    IF ((count_ / 2 * 2 != count_) != (logosize / 2 * 2 != logosize))
+      logosize := logosize - 1;
+    // We want a border of 1 module around the logo, so we need at least 3 modules in size
+    IF (logosize < 3)
+      logosize := 0;
+  }
+
+  // Read and resize the logo
+  OBJECT logo;
+  IF (logosize > 0 AND Length(options.logo) > 0)
+  {
+    logo := CreateResizedCanvasFromBlob(options.logo,
+        [ method := "fit"
+        , setwidth := (logosize - 2) * size
+        , setheight := (logosize - 2) * size
+        ]);
+    IF (NOT ObjectExists(logo))
+      logosize := 0;
+  }
+  // Keep room for the logo
+  logostart := (count_ - logosize) / 2;
+
   // Create a path with squares for each module
   OBJECT path := Create2DPath();
   path->fillcolor := options.colordark;
@@ -1433,7 +1486,7 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
   INTEGER margin := options.margin * size;
   FOREVERY (BOOLEAN isdark FROM code->GetDark())
   {
-    IF (isdark)
+    IF (isdark AND (col < logostart OR col >= logostart + logosize OR row < logostart OR row >= logostart + logosize))
     {
       // Draw a square if the module is dark
       INTEGER left := size * col + margin;
@@ -1457,6 +1510,10 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
   OBJECT canvas := CreateEmptyCanvas(count_ * size + 2 * margin, count_ * size + 2 * margin, options.colorlight);
   // Draw the path onto the canvas
   path->Draw(canvas);
+
+  // Draw the logo
+  IF (ObjectExists(logo))
+    canvas->DrawCanvas(logo, (logostart + options.margin + 1) * size, (logostart + options.margin + 1) * size);
 
   RETURN canvas;
 }
