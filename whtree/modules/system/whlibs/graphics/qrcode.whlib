@@ -1513,7 +1513,10 @@ PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEF
 
   // Draw the logo
   IF (ObjectExists(logo))
+  {
     canvas->DrawCanvas(logo, (logostart + options.margin + 1) * size, (logostart + options.margin + 1) * size);
+    logo->Close();
+  }
 
   RETURN canvas;
 }
