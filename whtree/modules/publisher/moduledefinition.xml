@@ -9,9 +9,6 @@
       <dependency module="system"/>
       <dependency module="wrd"/>
     </packaging>
-    <validation options="nowarnings">
-      <eslint mask="web/common/js/ie.js"/>
-    </validation>
   </meta>
 
   <servicemanager>
