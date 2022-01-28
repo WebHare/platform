@@ -1405,10 +1405,10 @@ PUBLIC OBJECTTYPE QRCode
     @cell(integer) options.colordark Draw color, defaults to black
     @cell(integer) options.colorlight Background color, defaults to white
     @cell(string) options.correctlevel Error correction level, one of "L", "M", "Q" or "H", defaults to "H" (=highest)
-    @cell(blob) options.logo A logo to add to the QR code
+    @cell(blob) options.logo A logo to add to the QR code. Adding a logo may require you to tune the QR code size or error correction
     @cell(integer) options.logosize Override the logo size if the QR code doesn't work with the automatically determined logo
-        size (in modules, the logo is rendered with a padding of 1 module on each side within this size)
-    @return A drawlib canvas object containing the QR code
+        size (the size is in modules (blocks), the logo is rendered with a padding of 1 module on each side within this size)
+    @return A drawlib canvas object containing the QR code. The caller will need to close it
 */
 PUBLIC OBJECT FUNCTION CreateQRCode(STRING intext, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
