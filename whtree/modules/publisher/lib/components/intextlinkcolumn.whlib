@@ -1,8 +1,8 @@
 <?wh
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
-
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -35,7 +35,7 @@ PUBLIC OBJECTTYPE IntExtLinkColumn EXTEND TolliumListColumnBase
                          , sitename := (parentsite = 0 ? "" : OpenSite(parentsite)->name)
                       FROM system.fs_objects
                      WHERE id = intextlink.internallink
-                           AND isactive; // not trashed
+                           AND NOT IsRecycleOrHistoryWHFSPath(whfspath); // not trashed
 
     IF (NOT RecordExists(fsobj))
       RETURN "";
