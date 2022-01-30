@@ -94,7 +94,7 @@
             </panel>
           </panel>
         </tab>
-        <tab name="seotab">
+        <tab name="seotab" title="">
           <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags"/>
           <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
           <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
@@ -112,6 +112,7 @@
                              acceptfolders="false"
                              tid="common.seosettings.canonical" />
           <textarea composition="seosettings" cellname="comments" width="1pr" tid="~comments" placeholdertid=".comments-placeholder" height="3gr"/>
+          <spacer name="seotabinsertpoint" visible="false" /> <!-- this is just an insertion point -->
         </tab>
         <tab name="tasksettings" height="1pr">
           <grid height="1pr">

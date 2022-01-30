@@ -1228,6 +1228,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                                , [ name := "tasksettings", component := ^tasksettings ]
                                , [ name := "settings", component := ^settings ]
                                , [ name := "properties", component := ^properties ]
+                               , [ name := "seosettings", component := ^seotabinsertpoint ]
                                ];
 
     ^maintabs->extendposition := tab_insert_pos;
@@ -1287,17 +1288,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
         ^maintabs->extendcomponents := extendcomponents;
 
-        //ugly hack to load seotab into its proper position..
-        BOOLEAN isseotab := propeditor.contenttype = "http://www.webhare.net/xmlns/publisher/seosettings";
-        INTEGER currentinsertposition := ^maintabs->extendposition;
-        IF(isseotab)
-          ^maintabs->extendposition := 1;
-
         RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.tabsextension
                                                          ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
-
-        IF(isseotab)
-          ^maintabs->extendposition := currentinsertposition + 1;
 
         FOREVERY(OBJECT comp FROM loadresult.compositions)
           IF (comp EXTENDSFROM WHFSInstance AND comp->typens != "")
@@ -2342,6 +2334,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       ^seotab->visible := FALSE;
       RETURN;
     }
+
+    //we delayed setting the title so other extending tabs don't merge into us
+    ^seotab->title := this->GetTid(".seotab");
 
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
     {
