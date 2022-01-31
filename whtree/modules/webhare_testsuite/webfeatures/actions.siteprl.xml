@@ -13,7 +13,7 @@
 
   <apply>
     <to type="file" pathmask="*/action.html" />
-    <scheduletimedtask task="webhare_testsuite:singleshottest" />
+    <scheduletimedtask task="webhare_testsuite:singleshottest" delay="500" />
     <schedulemanagedtask task="webhare_testsuite:applyruletask" />
   </apply>
 

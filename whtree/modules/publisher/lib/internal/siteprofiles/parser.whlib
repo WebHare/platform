@@ -1045,6 +1045,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "scheduletimedtask"
             {
               INSERT [ task := node->GetAttribute("task")
+                     , delay := ParseXSInt(node->GetAttribute("delay"))
                      ] INTO apply.scheduletasknows AT END;
               CONTINUE;
             }
