@@ -1546,6 +1546,11 @@
         <xs:documentation>Timed task to run</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="delay" type="xs:positiveInteger">
+      <xs:annotation>
+        <xs:documentation>Schedule delay, in milliseconds. Allows multiple tasks to be coalesced</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="ScheduleManagedTask">
