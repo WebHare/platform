@@ -8,6 +8,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
@@ -165,6 +166,8 @@ PUBLIC MACRO ScheduleTimedTask(STRING taskname, RECORD options DEFAULTSTO DEFAUL
   }
 
   //Could consider not setting up tasks if the task is already planned.. but how to fix the race that the task might be scheduling before WE commit?
+  IF(IsDebugTagEnabled("que"))
+    LogDebug("system:scheduletimedtask", taskname, CELL[ options, trace := GetStackTrace() ]);
 
   GetTaskFinishHandler()->ScheduleTask(taskname, options.when);
 }
@@ -423,6 +426,9 @@ PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY
            , notbefore := options.notbefore
            ] INTO system.managedtasks;
     INSERT taskid INTO taskids AT END;
+
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:schedulemanagedtask", tasktype, CELL[ options, trace := GetStackTrace(), taskid, taskdata ]);
   }
 
   ScheduleBroadcastUpdatedTaskIds(tasktype, taskids);
@@ -586,6 +592,9 @@ PUBLIC OBJECT FUNCTION ScheduleEphemeralTask(STRING tasktype, RECORD taskdata, R
     GetTasksFinishHandler()->AddEphemeralTask(task);
   ELSE
     AsyncExecuteEphemeralTasks([task]);
+
+  IF(IsDebugTagEnabled("que"))
+    LogDebug("system:scheduleephemeraltask", tasktype, CELL[ options, trace := GetStackTrace(), taskdata ]);
 
   RETURN promise.promise;
 }
