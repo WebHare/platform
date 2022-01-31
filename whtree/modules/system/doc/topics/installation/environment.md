@@ -100,9 +100,6 @@ You can also set custom debug flags and check them using %IsDebugTagEnabled.
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
 
-### WEBHARE_DEBUGEVENTS
-Set debuglevel for whfs/events.whlib. 1 = log actions, 3 = traces too
-
 ### WEBHARE_DEBUGSTARTUP
 Set to 1 to enable debug for various potential startup issues
 
