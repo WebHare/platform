@@ -2,10 +2,12 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
 
@@ -20,6 +22,7 @@ MACRO ShowSyntax(STRING error)
   PRINT(
 `Syntax: wh debug [command]
 Commands:
+  mark [text]                         Write a mark with optional text to all primary logfiles
   processlist                         Show the list of processes
   joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
   terminate [process] [mask]          Terminate jobs in a process
@@ -29,11 +32,7 @@ Commands:
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
 
-Available debugging features:
-  apr                  All new started scripts make a function CPU profile
-  cov                  All new started scripts make a coverage profile
-  system-cov           Make a coverage profile for all running scripts while enabled
-  wrd:forcehistory     Keep WRD history for all types for at least 1 day and record stack traces
+See https://www.webhare.dev/reference/installation/environment for available debug flags
 `);
   SetConsoleExitCode(error = "" ? 0 : 1);
   TerminateScript();
@@ -322,6 +321,18 @@ Executed instrs.:   ${stats.instructions}
       ParseSubArgs(RECORD[]);
 
       ShowDebugConfig(__debugconfig);
+    }
+    CASE "mark"
+    {
+      ParseSubArgs(
+            [ [ name := "text", type := "param" ]
+            ]);
+
+      STRING mark := `--- MARK${args.text != "" ? `: ${args.text}` : ''} ---`;
+      LogDebug("system:debug", mark);
+      LogInfo("system:debug", mark, DEFAULT RECORD);
+      ModuleLog("system:rpc", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
+      ModuleLog("servicemanager", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
     }
     CASE "setconfig"
     {

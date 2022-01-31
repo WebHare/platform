@@ -755,6 +755,12 @@ Database::RPCResponse::Type Connection::RemoteLog(Database::IOBuffer *iobuf)
         std::string logname = iobuf->Read< std::string >();
         std::string logline = iobuf->Read< std::string >();
 
+        if(logname == "system:servicemanager") //our ErrStream goes to servicemanager so just print it there
+        {
+                Blex::ErrStream() << logline;
+                return Database::RPCResponse::DontRespond;
+        }
+
         bool found_log = false;
         {
                 WHManager::LockedLogData::WriteRef lock(manager->logdata);

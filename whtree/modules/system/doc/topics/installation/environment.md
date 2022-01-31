@@ -87,6 +87,10 @@ Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it de
 ### WEBHARE_DEBUG
 Set debug flags:
 - `wrq`: Show webrequests (formerly `__webbrowser_debugall := TRUE`)
+- `apr`: All new started scripts make a function CPU profile
+- `cov`: All new started scripts make a coverage profile
+- `system-cov`: Make a coverage profile for all running scripts while enabled
+- `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
