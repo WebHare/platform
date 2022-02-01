@@ -636,7 +636,7 @@ MACRO InnerLoop()
     IF(nextkill != DEFAULT DATETIME AND wait_until > nextkill)
       wait_until := nextkill;
 
-    Debug("Waiting until " || FormatDateTime("%d-%m-%Y %H:%M:%S.%Q", wait_until));
+    Debug("Waiting until " || FormatISO8601Datetime(wait_until));
 
     RECORD waitres := WaitUntil([ read := waitread, callbacks := TRUE ], wait_until);
 

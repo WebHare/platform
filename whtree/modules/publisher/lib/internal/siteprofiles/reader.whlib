@@ -349,7 +349,7 @@ OBJECTTYPE RepublishState
       {
         TRY
         {
-          ScheduleTimedTask(scheduletask.task);
+          ScheduleTimedTask(scheduletask.task, [ when := AddTimeTodate(scheduletask.delay, GetCurrentDatetime() )]);
         }
         CATCH(OBJECT e)
         {

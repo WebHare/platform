@@ -768,21 +768,49 @@ PUBLIC DATETIME FUNCTION GetRoundedDatetime(DATETIME dt, INTEGER precision)
 }
 
 /** @short Formats a datetime in the ISO 8601 format
+    @signature STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, RECORD options DEFAULTSTO DEFAULT RECORD)
     @long This function will format a datetime according to ISO 8601, as described in
           http://www.w3.org/TR/NOTE-datetime
     @param whattime Time to format, in UTC
-    @param dateformat Date precision: "year", "month", "day", "week", "weekday", "yearday", "empty". If unset, defaults to "day"
-    @param timeformat Time precision: "hours", "minutes", "seconds", "milliseconds", "empty". If unset, defaults to "seconds"
-    @param timezone (optional) timezone to present the time in. If unset, defaults to "UTC"
-    @param extended Use extended format, e.g. "2001-01-01T12:34:56+01:00" instead of "20010101T123456+0100", defaults to TRUE
+    @param options Options (this function can also be invoked with dateformat, timeformat, timezone and extended as separate parameters, but this syntax is deprecated)
+    @cell(string) options.dateformat Date precision: "year", "month", "day", "week", "weekday", "yearday", "empty". If unset, defaults to "day"
+    @cell(string) options.timeformat Time precision: "hours", "minutes", "seconds", "milliseconds", "empty". If unset, defaults to "seconds"
+    @cell(string) options.timezone (optional) timezone to present the time in. If unset, defaults to "UTC"
+    @cell(boolean) options.extended Use extended format, e.g. "2001-01-01T12:34:56+01:00" instead of "20010101T123456+0100", defaults to TRUE
     @return The formatted time */
-PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateformat DEFAULTSTO "", STRING timeformat DEFAULTSTO "", STRING timezone DEFAULTSTO "", BOOLEAN extended DEFAULTSTO TRUE)
+PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT options DEFAULTSTO DEFAULT RECORD, STRING timeformat DEFAULTSTO "", STRING timezone DEFAULTSTO "", BOOLEAN extended DEFAULTSTO TRUE)
 {
+  IF (TypeID(options) = TypeID(STRING))
+  {
+    /* Handle deprecated syntax, the 'dateformat' argument was used at the 
+       location of the 'options' parameter, defaulted to "" (handled as 'day')
+    */
+    options := CELL
+        [ dateformat :=   options ?? "day"
+        , timeformat :=   timeformat ?? "seconds"
+        , timezone :=     timezone ?? "UTC"
+        , extended
+        ]; 
+  }
+  ELSE IF (TypeID(options) != TypeID(RECORD))
+    THROW NEW InvalidOptionException("options", "Parameter 'options' must be of type RECORD");
+  ELSE IF (timeformat != "" OR timezone != "" OR NOT extended)
+    THROW NEW InvalidOptionException("arguments", "Too many arguments in call to FormatISO8601DateTime");
+
+  options := ValidateOptions([ dateformat := "day"
+                             , timeformat := "seconds"
+                             , timezone := "UTC"
+                             , extended := TRUE
+                             ], options, [ enums := [ dateformat := [ "year", "month", "week", "weekday", "yearday", "empty", "day" ]
+                                                    , timeformat := [ "hours", "minutes", "milliseconds", "empty", "seconds" ]
+                                                    ]
+                                         ]);
+
   STRING datestr, timestr;
 
   // Date separator
-  STRING sep := extended ? "-" : "";
-  SWITCH (dateformat)
+  STRING sep := options.extended ? "-" : "";
+  SWITCH (options.dateformat)
   {
     CASE "year"
     {
@@ -814,19 +842,15 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateforma
     CASE "empty"
     {
     }
-    CASE "day", ""
+    CASE "day"
     {
       datestr := "yyyy" || sep || "MM" || sep || "dd";
-    }
-    DEFAULT
-    {
-      THROW NEW Exception("Unknown date precision '"||dateformat||"'");
     }
   }
 
   // Time separator
-  sep := extended ? ":" : "";
-  SWITCH (timeformat)
+  sep := options.extended ? ":" : "";
+  SWITCH (options.timeformat)
   {
     CASE "hours"
     {
@@ -843,19 +867,15 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateforma
     CASE "empty"
     {
     }
-    CASE "seconds", "" // Also matches default
+    CASE "seconds"
     {
       timestr := "HH" || sep || "mm" || sep || "ss";
-    }
-    DEFAULT
-    {
-      THROW NEW Exception("Unknown time precision '"||timeformat||"'");
     }
   }
   // Add timezone if time is returned
   IF (timestr != "")
   {
-    timestr := timestr || (extended ? "XXX" : "XX");
+    timestr := timestr || (options.extended ? "XXX" : "XX");
   }
 
   // Both empty? Return nothing
@@ -864,7 +884,7 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, STRING dateforma
 
   // ISO 8601 specifies that the weekday value 1 should be used for Monday, so we'll use the 'nl' locale, which has Monday as
   // the first day of the week (the actual language doesn't matter, as no language-specific elements are used in this format)
-  RETURN LocalizeDatetime(datestr || (datestr != "" AND timestr != "" ? "'T'" : "") || timestr, whattime, "nl", timezone, TRUE);
+  RETURN LocalizeDatetime(datestr || (datestr != "" AND timestr != "" ? "'T'" : "") || timestr, whattime, "nl", options.timezone, TRUE);
 }
 
 /** @short Get the UNIX timestamp
