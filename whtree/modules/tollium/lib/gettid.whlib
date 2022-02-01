@@ -272,7 +272,7 @@ RECORD FUNCTION GetCompiledLanguageFile(STRING module, STRING langcode)
 
     resname := fallbackresname;
   }
-  RETURN [ value := CompileLanguageFile(GetWebhareResource(resname))
+  RETURN [ value := CELL[ resource := resname, ...CompileLanguageFile(GetWebhareResource(resname)) ]
          , ttl := 60 * 60 * 1000
          , eventmasks := GetResourceEventMasks([resname])
          ];
@@ -491,4 +491,9 @@ PUBLIC STRING FUNCTION GetCanonicalTid(STRING tid)
     tid := "tollium:common.actions." || Substring(tid,23);
 
   RETURN tid;
+}
+
+PUBLIC RECORD FUNCTION __GetLanguageFile(STRING module, STRING langcode)
+{
+  RETURN GetLanguageFile(module, langcode);
 }

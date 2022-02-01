@@ -2,46 +2,13 @@
 */
 "use strict";
 
+let bridge = require('@mod-system/js/wh/bridge');
 let fs = require("fs");
-let path = require("path");
-let sax = require("sax");
 
-
-let testfsoverrides = {};
-
-/*
-let encoding = require("dompack/types/text");
-*/
-let encoding =
-{ encodeTextNode: function(str)
-  {
-    return str.split('&').join('&amp;')
-              .split('<').join('&lt;')
-              .split('>').join('&gt;');
-  }
-, encodeValue:function (str)
-  {
-    return str.split('&').join('&amp;')
-              .split('<').join('&lt;')
-              .split('>').join('&gt;')
-              .split('"').join('&quot;')
-              .split("'").join('&apos;');
-  }
-, decodeValue:function(str)
-  {
-    return str.replace(/<br *\/?>/g, "\n")
-              .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&quot;/g, '"')
-              .replace(/&apos;/g, "'")
-              .replace(/&amp;/g, "&");
-  }
-, encodeJSCompatibleJSON:function(s)
-  {
-    return JSON.stringify(s).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-  }
-};
+function encodeJSCompatibleJSON(s)
+{
+  return JSON.stringify(s).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
 
 module.exports = function(source)
 {
@@ -82,7 +49,7 @@ async function runLangLoader(config, resourcepath, source)
     let langfile = JSON.parse(source); //this.inputValue[0];
 
     let alltexts = new Map();
-    let filecache = new Map();
+    let filelist = [];
 
     if ("imports" in langfile)
     {
@@ -98,14 +65,14 @@ async function runLangLoader(config, resourcepath, source)
           alltexts.set(module, {});
 
         // Find the requested module's language file
-        config.languages.forEach(lang =>
+        for(let lang of config.languages)
         {
           if (!(lang in alltexts.get(module)))
             alltexts.get(module)[lang] = {};
 
-          let nodes = readLanguageFile(modules.get(module), lang, filecache);
+          let nodes = await readLanguageFile(module, lang, filelist);
           parseLanguageFile(alltexts.get(module)[lang], gids, nodes);
-        });
+        }
       }
     }
 
@@ -113,13 +80,11 @@ async function runLangLoader(config, resourcepath, source)
     output += generateTexts(alltexts);
 
     // Mark all cached files as dependency, so the language file will be regenerated if one of these changes
-    filecache.forEach(result =>
+    filelist.forEach(result =>
     {
-      output += `// Adding dependency: ${result.filepath}\n`;
-      dependencies.push(result.filepath);
+      output += `// Adding dependency: ${result}\n`;
+      dependencies.push(result);
     });
-    // Clear file cache for the next run (file contents may have changed by then)
-    filecache.clear();
 
     // We're done
     return { output
@@ -149,7 +114,7 @@ function generateTexts(alltexts)
   {
     for (let lang of Object.keys(texts))
     {
-      let encoded = encoding.encodeJSCompatibleJSON(texts[lang]);
+      let encoded = encodeJSCompatibleJSON(texts[lang]);
       output += `registerTexts("${module}","${lang}",${encoded});\n`;
     }
   });
@@ -157,7 +122,7 @@ function generateTexts(alltexts)
 }
 
 
-function readLanguageFile(basepath, language, filecache)
+async function readLanguageFile(module, language, filelist)
 {
   let languages = [ language ];
 
@@ -165,295 +130,73 @@ function readLanguageFile(basepath, language, filecache)
   for (let i = 0; i < languages.length; ++i)
   {
     // Read the language file
-    let langfile = readLanguageFileInternal(basepath, languages[i], filecache);
+    // TODO send the GIDs we need to harescript and reduce the amount of data we need to IPC/process
+    let langfile = await readLanguageFileInternal(module, languages[i], filelist);
+
     // Add the fallback language to the list of languages, if it's not already present
-    if (langfile.fallbacklanguage && !languages.includes(langfile.fallbacklanguage))
-      languages.push(langfile.fallbacklanguage);
+    if (langfile.filedata.fallbacklanguage && !languages.includes(langfile.filedata.fallbacklanguage))
+      languages.push(langfile.filedata.fallbacklanguage);
     // Add the parsed language file to the front of the file list
-    files.unshift(langfile);
+    files.push(langfile);
   }
+
   // Only one language, return its nodes directly
   if (files.length == 1)
-    return files[0].nodes;
+    return files[0].filedata.texts;
 
   // addLanguageTexts overwrite existing nodes, so we follow the fallbacklanguage chain backwards, which keeps the fallback
-  // nodes that are not overwritten by a more desired language
-  let nodes = {};
+  // nodes that are not overwritten by a more desired language  (TODO move fallback language resolution to JS for smaller bundles)
+  let texts = new Map;
   for (let langfile of files)
-    addLanguageTexts(langfile.nodes, nodes);
-  return nodes;
+  {
+    for (let entry of langfile.filedata.texts)
+      if(!texts.has(entry.tid))
+        texts.set(entry.tid, entry.text);
+  }
+
+  // reflatten the map..
+  let final = [];
+  for(let text of texts.entries())
+    final.push({tid:text[0], text:text[1]});
+
+  return final;
 }
 
-function getLanguageXML(basepath, language)
+async function getLanguageXML(modulenam, language)
 {
-  let filepath = path.resolve(basepath, "./language/" + language + ".xml");
-  if (testfsoverrides[filepath])
-    return { filepath, filedata: testfsoverrides[filepath] };
-
-  // Check if the specific language file exists and is a file
-  let filestat;
-  try
-  {
-    filestat = fs.statSync(filepath);
-  }
-  catch(e) {}
-  if (!filestat || !filestat.isFile())
-  {
-    // The specific language file doesn't exist, fallback to default.xml
-    filepath = path.resolve(basepath, "./language/default.xml");
-
-    if (testfsoverrides[filepath])
-      return { filepath, filedata: testfsoverrides[filepath] };
-
-    try
-    {
-      filestat = fs.statSync(filepath);
-    }
-    catch(e) {}
-  }
-  if (!filestat || !filestat.isFile())
-    throw new Error(`File ${filepath} not found`);
-
-  //ADDME: Would like to use the streaming API, but couldn't get that to work properly...
-  return { filepath, filedata: fs.readFileSync(filepath) };
+  await bridge.onlinepromise;
+  let response = await bridge.invoke("mod::publisher/lib/internal/webdesign/rpcloader.whlib", "GetLanguageFile", modulenam, language);
+  return { filepath: modulenam + "|" + language, filedata: response };
 }
 
 
-function readLanguageFileInternal(basepath, language, filecache)
+async function readLanguageFileInternal(modulename, language, filelist)
 {
-  // If we've seen this file before, return it immediately
-  let cachedResult = filecache.get(basepath + "|" + language);
-  if (cachedResult)
-    return cachedResult;
-
-  let { filepath, filedata } = getLanguageXML(basepath, language);
-
-  // Parse the file
-  let result = {};
-  let curnode = result;
-  let curtext = null;
-  let nodestack = null;
-  let invalidtagcount = 0;
-  let fallbacklanguage = "";
-  let parseerror = null;
-
-  // Not using the 'xmlns' option, because we don't get a fully namespaced node object in the 'closetag' callback, just a
-  // (fully qualified) name, so we'll just check if the node name starts with "html:" to filter out the html tags
-  let parser = sax.parser(true, { strictEntities: true });
-  try
-  {
-    parser.onerror = function(error)
-    {
-      parseerror = Error(error);
-    };
-
-    parser.onopentag = function(node)
-    {
-      if (invalidtagcount)
-      {
-        ++invalidtagcount;
-        return;
-      }
-      // If this is an html tag, write the tag without the prefix with attributes
-      if (node.name.startsWith("html:"))
-      {
-        if (!curtext)
-          throw new Error("Unexpected HTML tag");
-
-        curnode[curtext] += '<' + node.name.substr(5);
-        for (let attr of Object.keys(node.attributes))
-          curnode[curtext] += ' ' + attr + '="' + encoding.encodeValue(node.attributes[attr]) + '"';
-        curnode[curtext] += '>';
-      }
-      else
-      {
-        switch (node.name)
-        {
-          // If this is the <language> tag, initialize the node stack
-          case "language":
-          {
-            if (nodestack)
-              throw new Error("Unexpected <language> tag");
-
-            nodestack = [];
-            fallbacklanguage = node.attributes.fallbacklanguage || "";
-            break;
-          }
-          // If this a <textgroup>, initialize a new textgroup and push it onto the node stack
-          case "textgroup":
-          {
-            if (!nodestack)
-              throw new Error("Expected <language> tag");
-            if (curtext)
-              throw new Error("Unexpected <textgroup> tag with gid '" + node.attributes.gid + "'");
-            if (!curnode)
-              throw new Error("No current node for <textgroup> tag with gid '" + node.attributes.gid + "'");
-
-            nodestack.push(curnode);
-            curnode[node.attributes.gid] = {};
-            curnode = curnode[node.attributes.gid];
-            break;
-          }
-          // If this a <text>, initialize a new text
-          case "text":
-          {
-            if (!nodestack)
-              throw new Error("Expected <language> tag");
-            if (curtext)
-              throw new Error("Unexpected <text> tag with tid '" + node.attributes.tid + "'");
-            if (!curnode)
-              throw new Error("No current node for <text> tag with tid '" + node.attributes.tid + "'");
-
-            curtext = node.attributes.tid;
-            curnode[curtext] = "";
-            break;
-          }
-          case "br":
-          {
-            if (!curtext)
-              throw new Error("Unexpected <br> tag");
-
-            curnode[curtext] += "\n";
-            break;
-          }
-          case "param":
-          {
-            if (!curtext)
-              throw new Error("Unexpected <param> tag");
-
-            curnode[curtext] += "{p" + node.attributes.p + "}";
-            break;
-          }
-          case "ifparam":
-          {
-            if (!curtext)
-              throw new Error("Unexpected <ifparam> tag");
-
-            curnode[curtext] += "{i" + node.attributes.p + "=" + JSON.stringify(node.attributes.value) + "}";
-            break;
-          }
-          case "else":
-          {
-            if (!curtext)
-              throw new Error("Unexpected <else> tag");
-
-            curnode[curtext] += "{e}";
-            break;
-          }
-          default:
-          {
-            // Skip this tag and its contents
-            ++invalidtagcount;
-            break;
-          }
-        }
-      }
-    };
-
-    parser.ontext = function(text)
-    {
-      // If adding text, add text to curnode
-      if (curtext && !invalidtagcount)
-        curnode[curtext] += encoding.encodeTextNode(text.replace(/\{/g, "{{"));
-    };
-
-    parser.onclosetag = function(name)
-    {
-      // Exiting a tag we're skipping, decrease the invalid tag stack depth
-      if (invalidtagcount)
-      {
-        --invalidtagcount;
-        return;
-      }
-
-      // Close the html tag without the prefix
-      if (name.startsWith("html:"))
-      {
-        curnode[curtext] += '</' + name.substr(5) + '>';
-      }
-      else
-      {
-        switch (name)
-        {
-          // Root node is closed, deinitialize the node stack
-          case "language":
-          {
-            nodestack = null;
-            break;
-          }
-          // Pop the previous node
-          case "textgroup":
-          {
-            curnode = nodestack.pop();
-            break;
-          }
-          // No longer parsing text
-          case "text":
-          {
-            curtext = null;
-            break;
-          }
-          // Close the ifparam construction
-          case "ifparam":
-          {
-            curnode[curtext] += "{i}";
-            break;
-          }
-        }
-      }
-    };
-
-    // Called after the parser was closed
-    parser.onend = function()
-    {
-      result = { filepath, language, nodes: result, fallbacklanguage };
-      filecache.set(basepath + "|" + language, result);
-    };
-
-    // Start parsing
-    parser.write(filedata);
-  }
-  finally
-  {
-    // always close the parser (especially when errors have occurred)
-    parser.close();
-  }
-  return result;
+  await bridge.onlinepromise;
+  let response = await getLanguageXML(modulename, language);
+  filelist.push(response.filedata.diskpath);
+  return response;
 }
 
 function parseLanguageFile(moduletexts, gids, data)
 {
-  let texts = {};
-
-  gids.forEach(gid =>
+  for(let tid of data)
   {
-    let readContext = data;
-    let writeContext = texts;
-    if (gid.split(".").every(part =>
-      {
-        // Find the part in the current context
-        if (part in readContext && typeof readContext[part] == "object")
-        {
-          // This is a textgroup, recurse into the group
-          if (!(part in writeContext))
-            writeContext[part] = {};
-          readContext = readContext[part];
-          writeContext = writeContext[part];
-          return true;
-        }
-        else if (part in readContext && typeof readContext[part] == "string")
-        {
-          // This is a text, just add the text and we're done
-          writeContext[part] = readContext[part];
-          return false;
-        }
-      }))
-    {
-      addLanguageTexts(readContext, writeContext);
-    }
-  });
+    if(!gids.some(gid => tid.tid.startsWith(gid + '.'))) //filter tids out of our scope
+      continue;
 
-  Object.assign(moduletexts, texts);
+    let storeptr = moduletexts;
+
+    //split on '.', build subgroups. eg gid a.b.c becomes { a: { b: { c: ... }}}
+    let tidparts = tid.tid.split(".");
+    for(let i = 0; i < tidparts.length - 1; ++i)
+    {
+      if(!storeptr[tidparts[i]])
+        storeptr[tidparts[i]] = {};
+      storeptr = storeptr[tidparts[i]];
+    }
+    storeptr[tidparts[tidparts.length-1]] = tid.text;
+  }
 }
 
 function addLanguageTexts(readContext, writeContext)
@@ -473,19 +216,10 @@ function addLanguageTexts(readContext, writeContext)
   }
 }
 
-function overrideFile(path, content)
-{
-  if (content == null)
-    delete testfsoverrides[path];
-  else
-    testfsoverrides[path] = content;
-}
-
 //export for tests
 module.exports.readLanguageFile = readLanguageFile;
 module.exports.parseLanguageFile = parseLanguageFile;
 module.exports.generateTexts = generateTexts;
-module.exports.overrideFile = overrideFile;
 
 module.exports.getESBuildPlugin = (config, captureplugin) => ({
     name: "languagefile",
