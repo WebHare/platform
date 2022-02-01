@@ -778,50 +778,24 @@ PUBLIC DATETIME FUNCTION GetRoundedDatetime(DATETIME dt, INTEGER precision)
     @cell(string) options.timezone (optional) timezone to present the time in. If unset, defaults to "UTC"
     @cell(boolean) options.extended Use extended format, e.g. "2001-01-01T12:34:56+01:00" instead of "20010101T123456+0100", defaults to TRUE
     @return The formatted time */
-PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT options DEFAULTSTO DEFAULT RECORD, STRING timeformat DEFAULTSTO "", STRING timezone DEFAULTSTO "", BOOLEAN extended DEFAULTSTO TRUE)
 {
-  RECORD options;
-
-  //backwards compatibility with all separate arguments
-  IF(Length(args) >= 1)
+  IF (TypeID(options) = TypeID(STRING))
   {
-    IF(TYPEID(args[0]) = TYPEID(RECORD))
-    {
-      options := args[0];
-    }
-    ELSE IF(TYPEID(args[0]) != TYPEID(STRING))
-    {
-      THROW NEW InvalidOptionException("dateformat", "Parameter 'dateformat' must be of type STRING");
-    }
-    ELSE
-    {
-      //this looks like the old syntax
-      options := CELL[ dateformat := args[0] ?? "day" ];
-      IF(Length(args) >= 2)
-      {
-        IF(TYPEID(args[1]) != TYPEID(STRING))
-          THROW NEW InvalidOptionException("timeformat", "Parameter 'timeformat' must be of type STRING");
-        options := CELL[ ...options, timeformat := args[1] ?? "seconds" ];
-
-        IF(Length(args) >= 3)
-        {
-          IF(TYPEID(args[2]) != TYPEID(STRING))
-            THROW NEW InvalidOptionException("timezone", "Parameter 'timezone' must be of type STRING");
-          options := CELL[ ...options, timezone := args[2] ?? "UTC" ];
-
-          IF(Length(args) >= 4)
-          {
-            IF(TYPEID(args[3]) != TYPEID(BOOLEAN))
-              THROW NEW InvalidOptionException("extended", "Parameter 'extended' must be of type BOOLEAN");
-            options := CELL[ ...options, extended := args[3] ];
-
-            IF(Length(args) >= 5)
-              THROW NEW InvalidOptionException("arguments", "Too many arguments in call to FormatISO8601DateTime");
-          }
-        }
-      }
-    }
+    /* Handle deprecated syntax, the 'dateformat' argument was used at the 
+       location of the 'options' parameter, defaulted to "" (handled as 'day')
+    */
+    options := CELL
+        [ dateformat :=   options ?? "day"
+        , timeformat :=   timeformat ?? "seconds"
+        , timezone :=     timezone ?? "UTC"
+        , extended
+        ]; 
   }
+  ELSE IF (TypeID(options) != TypeID(RECORD))
+    THROW NEW InvalidOptionException("options", "Parameter 'options' must be of type RECORD");
+  ELSE IF (timeformat != "" OR timezone != "" OR NOT extended)
+    THROW NEW InvalidOptionException("arguments", "Too many arguments in call to FormatISO8601DateTime");
 
   options := ValidateOptions([ dateformat := "day"
                              , timeformat := "seconds"
