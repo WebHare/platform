@@ -10,15 +10,75 @@ Supported debug flags:
 let allTids = {};
 let curLang = "";
 
+function encodeHTML(input)
+{
+  return input.split('&').join('&amp;')
+              .split('<').join('&lt;')
+              .split('>').join('&gt;')
+              .split('\n').join('<br/>');
+}
+
+function executeCompiledTidText(text, params, rich)
+{
+  if(typeof text == "string")
+    return rich ? encodeHTML(text) : text;
+
+  let output = '';
+  for(let tok of text)
+  {
+    if(typeof tok == "string")
+    {
+      output += rich ? encodeHTML(tok) : tok;
+    }
+    else if (typeof tok == "number")
+    {
+      if (tok >= 1)
+      {
+        let get_param = params?.[tok-1];
+        if(get_param)
+        {
+          output += rich ? encodeHTML(get_param) : get_param;
+        }
+      }
+    }
+    else if(tok.t == "tag")
+    {
+      let sub = executeCompiledTidText(tok.subs, params, rich);
+      output += rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub;
+    }
+    else  if(tok.t == "ifparam")
+    {
+      let get_param = params?.[tok.p-1] || '';
+      output += executeCompiledTidText(get_param.toUpperCase() == tok.value.toUpperCase() ? tok.subs : tok.subselse, params, rich);
+    }
+    else if(tok.t == "a")
+    {
+      let sub = executeCompiledTidText(tok.subs, params, rich);
+      if(rich)
+      {
+        let link = tok.link;
+        if(tok.linkparam > 0 && tok.linkparam <= params.length)
+          link = params[tok.linkparam - 1];
+        if(link)
+          output += `<a href="${encoding.encodeValue(link)}">${sub}</a>`;
+        else
+          output += sub;
+      }
+      else
+      {
+        output += sub;
+      }
+    }
+  }
+  return output;
+}
+
 function resolveTid(tid, params, options)
 {
   if(curLang=='debug')
   {
     return '{' + tid + (params.length ? '|' + params.join('|') : '') + '}';
   }
-
-  // Parse options
-  options = Object.assign({ html: false }, options);
 
   // Make sure we have 4 string params
   for (let i = 0; i < 4; ++i)
@@ -42,7 +102,7 @@ function resolveTid(tid, params, options)
     return /*cannot find*/ text;
   }
 
-  let language = options.overridelanguage || getTidLanguage();
+  let language = options?.overridelanguage || getTidLanguage();
   if (!(language in allTids[module]))
   {
     if (!wh.config.islive || domdebug.debugflags.gtd)
@@ -75,187 +135,7 @@ function resolveTid(tid, params, options)
       return /*cannot find*/ text;
     }
 
-    // The context should be the resulting string by now, otherwise it's actually a textgroup
-    if (typeof context != "string")
-    {
-      if (!wh.config.islive || domdebug.debugflags.gtd)
-        console.warn("Found a textgroup instead of a text");
-      return /*cannot find*/ text;
-    }
-
-    // Context contains the found text, set text
-    text = context;
-
-    // For optimization purposes, we'll assume the language text is well-formed
-    let ifstack = [ { output: true, start: 0 } ];
-    if (domdebug.debugflags.gtd)
-      console.log("i = 0", text);
-    for (let i = 0; i < text.length; ++i)
-    {
-      if (text[i] == "<")
-      {
-        // Assuming we won't find another tag within the tag (i.e. attributes are properly value-encoded) and there are no
-        // special characters ("{p" or "{i") within the tag (cannot be specified in XML anyway)
-        let tagEnd = text.indexOf(">", i);
-        let tagName = text.substring(i + 1, tagEnd).split(" ")[0];
-        let tagClose = tagName[0] == "/";
-        if (tagClose)
-          tagName = tagName.substr(1);
-
-        if (!options.html || !["b","i","u","ul","ol","li"].includes(tagName))
-        {
-          if (domdebug.debugflags.gtd)
-            console.log("Skipping tag '" + tagName + "'");
-          text = text.substr(0, i) + text.substr(tagEnd + 1);
-
-          // i now points at the first letter after the tag, decrease with 1 to advance to this letter again in the next
-          // iteration
-          --i;
-        }
-        else
-        {
-          if (domdebug.debugflags.gtd)
-            console.log("Found tag '" + tagName + "'");
-
-          text = text.substr(0, i) + "<" + (tagClose ? "/" : "") + tagName + ">" + text.substr(tagEnd + 1);
-          // i now points at the tag start, point it to the tag end, so it points to the next character in the next iteration
-          i += tagName.length + (tagClose ? 1 : 0);
-        }
-
-        if (domdebug.debugflags.gtd)
-          console.log("i = " + i, text.substr(i+1));
-
-        continue;
-      }
-
-      // Encode "\n" into <br/>
-      if (text[i] == "\n" && options.html)
-      {
-        text = text.substr(0, i) + "<br/>" + text.substr(i + 1);
-        // i now points at the br tag start, point it to the tag end, so it points to the next character in the next iteration
-        i += 4;
-        continue;
-      }
-
-      // If not a special character, continue
-      if (text[i] != "{")
-        continue;
-      if (domdebug.debugflags.gtd)
-        console.log("i = " + i, text.substr(i));
-
-      // If we found a "{", there must be a next character
-      switch (text[i + 1])
-      {
-        case "{":
-        {
-          if (domdebug.debugflags.gtd)
-            console.log("Unescape '{{'");
-          // Unescape "{{"
-          text = text.substr(0, i) + text.substr(i + 1);
-
-          // i now points at the second "{" and will advance to the next character
-          if (domdebug.debugflags.gtd)
-            console.log("i = " + i, text.substr(i+1));
-          break;
-        }
-        case "p":
-        {
-          // Replace "{pn}" with params[n - 1]
-          let n = parseInt(text[i + 2]);
-          let param = (n >= 1 && n <= params.length) ? params[n - 1] : "(no such parameter:" + text[i + 2] + ")";
-          if (domdebug.debugflags.gtd)
-            console.log('<param p="' + n + '"/>',param);
-          text = text.substr(0, i) + (options.html ? encoding.encodeTextNode(param) : param) + text.substr(i + 4);
-
-          // i now points at the first letter of the replacement text, set it to the last letter, so it will advance correctly
-          // in the next iteration
-          i += ("" + param).length - 1;
-          if (domdebug.debugflags.gtd)
-            console.log("i = " + i, text.substr(i+1));
-          break;
-        }
-        case "i":
-        {
-          // Close <ifparam> construction
-          if (text[i + 2] == "}")
-          {
-            let part = ifstack.shift();
-
-            // If skipping the else part, start with the part start
-            let s = part.output ? i : part.start;
-            if (domdebug.debugflags.gtd)
-              console.log('</ifparam>', part.output ? "emit current part" : "skip current part");
-            text = text.substr(0, s) + text.substr(i + 3);
-
-            // i now points at the first letter after the "{i}", decrease with 1 to advance to this letter again in the next
-            // iteration
-            i = s - 1;
-            if (domdebug.debugflags.gtd)
-              console.log("i = " + i, text.substr(i+1));
-            break;
-          }
-
-          // Resolve "{in="value"}true{e}false{i}" by checking if params[n] = "value"
-          let before = text.substr(0, i);
-          text = text.substr(i);
-          let n = parseInt(text[2]);
-          let param = (n >= 1 || n <= params.length) ? params[n - 1] : null;
-          if (domdebug.debugflags.gtd)
-            console.log('<ifparam p="' + n + '" value="' + param + '">');
-
-          // Find the first '"' that is not preceded by a '\'
-          let value = text.substr(4).match(/^"(([^"\\]|(\\["ntu]))*)"/);
-          if (value)
-          {
-            // Value is surrounden with quotes, so we can JSON parse it
-            let skiplen = value[0].length + 5; // {in=}
-            value = JSON.parse(value[0]);
-
-            if (param === value)
-              ifstack.unshift({ output: true, start: 0 });
-            else
-              ifstack.unshift({ output: false, start: i });
-
-            text = before + text.substr(skiplen);
-
-            // i now points at the first letter after the "}", decrease with 1 to advance to this letter again in the next
-            // iteration
-            --i;
-          }
-          if (domdebug.debugflags.gtd)
-            console.log("i = " + i, text.substr(i+1));
-          break;
-        }
-        case "e":
-        {
-          // If skipping the else part, start with the part start
-          let s = ifstack[0].output ? i : ifstack[0].start;
-          if (domdebug.debugflags.gtd)
-            console.log('<else>', ifstack[0].output ? "emit current part" : "skip current part");
-          text = text.substr(0, s) + text.substr(i + 3);
-
-          // Switch to the else part
-          ifstack[0].output = !ifstack[0].output;
-
-          // If skipping the else part, start at this position
-          if (!ifstack[0].output)
-            ifstack[0].start = i;
-
-          // i now points at the first letter after the "}", decrease with 1 to advance to this letter again in the next
-          // iteration
-          i = s - 1;
-          if (domdebug.debugflags.gtd)
-            console.log("i = " + i, text.substr(i+1));
-          break;
-        }
-      }
-    }
-    if (!options.html)
-    {
-      if (domdebug.debugflags.gtd)
-        console.log("Decoding HTML entities", text);
-      text = encoding.decodeValue(text);
-    }
+    text = executeCompiledTidText(context, params, options?.html);
     if (domdebug.debugflags.gtd)
       console.info("getTid", `${module}:${tid}`, params, text);
 

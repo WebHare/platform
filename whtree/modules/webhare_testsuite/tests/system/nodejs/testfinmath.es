@@ -2,9 +2,6 @@
 import * as finmath from "@mod-system/js/util/finmath.es";
 import assert from "assert";
 
-// Uncomment to show getTid debugging information
-//domdebug.debugflags.gtd = true;
-
 // Test language
 
 describe("Finmath test", function()
