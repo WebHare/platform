@@ -627,7 +627,7 @@ MACRO TestReferences()
   MarkasPublished(direct_haslink->id, TRUE);
   MarkasPublished(indirect_haslink->id, TRUE);
 
-  RunFileDelete(direct_referred->id, 0);
+  RunAnyDelete(INTEGER[direct_referred->id], "webhare_testsuite:publisher.actions");
   TestEq(FALSE, IsBeingPublished(indirect_referred->id));
   TestEq(TRUE, IsBeingPublished(direct_haslink->id));
   TestEq(FALSE, IsBeingPublished(indirect_haslink->id));
@@ -671,7 +671,7 @@ MACRO TestReferences()
   MarkasPublished(direct_haslink->id, TRUE);
   MarkasPublished(indirect_haslink->id, TRUE);
 
-  RunFileDelete(direct_referred->id, 0);
+  RunAnyDelete(INTEGER[direct_referred->id], "webhare_testsuite:publisher.actions");
   TestEq(FALSE, IsBeingPublished(indirect_referred->id));
   TestEq(TRUE, IsBeingPublished(direct_haslink->id));
   TestEq(TRUE, IsBeingPublished(indirect_haslink->id));
