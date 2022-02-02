@@ -193,9 +193,14 @@ function parseLanguageFile(moduletexts, gids, data)
     {
       if(!storeptr[tidparts[i]])
         storeptr[tidparts[i]] = {};
+      else if (typeof storeptr[tidparts[i]] == "string")
+        storeptr[tidparts[i]] = { "": storeptr[tidparts[i]] };
       storeptr = storeptr[tidparts[i]];
     }
-    storeptr[tidparts[tidparts.length-1]] = tid.text;
+    if (typeof storeptr[tidparts[tidparts.length-1]] == "object")
+      storeptr[tidparts[tidparts.length-1]][""] = tid.text;
+    else
+      storeptr[tidparts[tidparts.length-1]] = tid.text;
   }
 }
 
