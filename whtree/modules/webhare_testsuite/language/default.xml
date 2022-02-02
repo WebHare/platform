@@ -66,6 +66,12 @@
     <text tid="beschikbaarheid-verkocht">Verkocht</text>
     <text tid="mainedit">Mainedit</text>
     <text tid="yattab">Yet Another Tab</text>
+    <textgroup gid="testgroup" keepemptyreason="Used for tid system tests">   <!-- test.testgroup -->
+      <text tid="node">Node text</text>
+      <textgroup gid="node">   <!-- test.testgroup.node -->
+        <text tid="text">Node subtext</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="testfallback">   <!-- testfallback -->
     <text tid="anothertext">Another text</text>

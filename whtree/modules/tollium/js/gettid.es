@@ -20,6 +20,10 @@ function encodeHTML(input)
 
 function executeCompiledTidText(text, params, rich)
 {
+  if(typeof text == "object" && !Array.isArray(text))
+    text = text?.[""];
+  if (text == null)
+    return text;
   if(typeof text == "string")
     return rich ? encodeHTML(text) : text;
 
@@ -135,11 +139,17 @@ function resolveTid(tid, params, options)
       return /*cannot find*/ text;
     }
 
-    text = executeCompiledTidText(context, params, options?.html);
+    const executed = executeCompiledTidText(context, params, options?.html);
+    if (executed == null)
+    {
+      if (domdebug.debugflags.gtd)
+        console.warn(`Tid '${module}:${tid}'' is a group node`);
+      return /*cannot find*/ text;
+    }
     if (domdebug.debugflags.gtd)
-      console.info("getTid", `${module}:${tid}`, params, text);
+      console.info("getTid", `${module}:${tid}`, params, executed);
 
-    return text;
+    return executed;
   }
   finally
   {

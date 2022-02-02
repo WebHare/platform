@@ -39,6 +39,9 @@ test.registerTests([
 
       // retrieval
       test.eq(getTid("base:testgroup.testtext"), "This is a test");
+
+      // retrieve a group node
+      test.eq(getTid("base:testgroup"), "(cannot find text:base:testgroup)");
     }
 
   , "Test correct merging of new texts"
@@ -46,7 +49,7 @@ test.registerTests([
     {
       let more_base_texts =
         { "testgroup": { "moretext": "This is more test" }
-        , "anothergroup": { "anothertext": "This is another test" }
+        , "anothergroup": { "": "Group test", "anothertext": "This is another test" }
         };
 
       registerTexts("base", "en", more_base_texts);
@@ -55,6 +58,7 @@ test.registerTests([
       test.eq(getTid("base:testgroup.testtext"), "This is a test");
       test.eq(getTid("base:testgroup.moretext"), "This is more test");
       test.eq(getTid("base:anothergroup.anothertext"), "This is another test");
+      test.eq(getTid("base:anothergroup"), "Group test");
     }
 
   , "Test string substitution (param, ifparam, else)"
