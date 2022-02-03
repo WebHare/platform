@@ -197,7 +197,7 @@ PUBLIC RECORD FUNCTION MakeDefaultICalEvent()
 }
 
 /** Encodes a single ICal event
-    @param event Event to encoded @includecelldef #MakeDefaultICalEvent.return
+    @param event Event to encode @includecelldef #MakeDefaultICalEvent.return
     @return Encoded event
 */
 PUBLIC STRING FUNCTION EncodeICalEvent(RECORD event)
@@ -273,9 +273,11 @@ PUBLIC STRING FUNCTION EncodeICalEvent(RECORD event)
   RETURN ical || "END:VEVENT\r\n";
 }
 
-/** Decodes an ICal single event
-    @param ical ICal single event
-    @return @includecelldef #MakeDefaultICalEvent.return
+/** Decodes a single ICal event
+    @long Note that for start and end time with time zone information, the time zones are assumed to be the same. Windows
+        time zone identifiers are converted to tzdb identifiers which can be used in our localization functions.
+    @param ical Single ICal event to decode
+    @return The decoded event @includecelldef #MakeDefaultICalEvent.return
 */
 PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
 {
@@ -322,8 +324,22 @@ PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
       CASE "DTSTART", "DTEND"
       {
         event := CellUpdate(event, fld, MakeDateFromText(val));
-        IF(fld = "DTSTART" AND "VALUE=DATE" IN params)
-          event.allday := TRUE;
+        IF (fld = "DTSTART")
+        {
+          FOREVERY (STRING param FROM params)
+          {
+            IF (param = "VALUE=DATE")
+              event.allday := TRUE;
+            // Assume start and end dates have the same timezone
+            ELSE IF (param LIKE "TZID=*")
+            {
+              STRING tzid := Substring(param, 5);
+              event.timezone := GetCanonicalTimeZoneID(tzid);
+              IF (tzid != "" AND event.timezone = "")
+                event.timezone := GetTimeZoneIDForWindowsID(tzid);
+            }
+          }
+        }
       }
       CASE "CATEGORIES"
       {
@@ -416,6 +432,7 @@ PUBLIC RECORD FUNCTION GetWrappedIcalCalendar(STRING filename, RECORD ARRAY even
 }
 
 /** Decodes an ICal calendar
+    @long Note that time zone descriptions are ignored and only the time zone identifiers in the events are returned.
     @param icaldata ICal calendar
     @return @includecelldef #MakeDefaultICalEvent.return
 */
