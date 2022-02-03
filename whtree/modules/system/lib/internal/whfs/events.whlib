@@ -10,6 +10,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
@@ -18,8 +19,6 @@ LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 
-//debuglevel, set using envvar WEBHARE_DEBUGEVENTS. 0 = not yet read, -1 = no debugging, 1 = log actions, 3 = and traces too
-INTEGER debuglevel;
 INTEGER counter;
 
 STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
@@ -68,12 +67,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   MACRO AddEvent(INTEGER site, INTEGER folderid, INTEGER fileid, STRING event)
   {
-    IF(debuglevel >= 1)
-    {
-      Print(`WHFS Event: ${event}: site=${site}, folderid=${folderid}, fileid=${fileid}\n`);
-      IF(debuglevel >= 3)
-        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
-    }
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", event, CELL[ site, folderid, fileid, trace := GetStackTrace() ]);
 
     // 'pub' events don't trigger publisher:site events, and have a different broadcast name
     INTEGER itempos := this->GetEntry(folderid, event = "pub");
@@ -100,12 +95,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   MACRO AddAnalyzerTask(INTEGER folderid, BOOLEAN recursive)
   {
-    IF(debuglevel >= 1)
-    {
-      Print(`WHFS Event: Analyze: folderid=${folderid}, recursive=${recursive ? "true" : "false"}\n`);
-      IF(debuglevel >= 3)
-        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
-    }
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", "analyze", CELL[ folderid, recursive, trace := GetStackTrace() ]);
 
     RECORD pos := RecordLowerBound(this->analyzertasks, CELL[ folderid ], [ "FOLDERID" ]);
     IF (NOT pos.found)
@@ -134,12 +125,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   UPDATE PUBLIC MACRO OnRollback()
   {
-    IF(debuglevel >= 1)
-    {
-      Print(`WHFS Event: Rollback!\n`);
-      IF(debuglevel >= 3)
-        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
-    }
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", "rollback", CELL[ trace := GetStackTrace() ]);
     this->checksitesettings := FALSE;
   }
 
@@ -147,12 +134,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   */
   UPDATE PUBLIC MACRO OnCommit()
   {
-    IF(debuglevel >= 1)
-    {
-      Print(`WHFS Event: Commit!\n`);
-      IF(debuglevel >= 3)
-        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
-    }
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", "commit", CELL[trace := GetStackTrace() ]);
 
     INTEGER ARRAY sites;
 
@@ -415,12 +398,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     IF(this->checksitesettings)
       RETURN; //already set
 
-    IF(debuglevel >= 1)
-    {
-      Print(`WHFS Event: TriggerSiteSettingsCheckOnCommit\n`);
-      IF(debuglevel >= 3)
-        PrintTo(2, AnyToString(GetStackTrace(),'boxed'));
-    }
+    IF(IsDebugTagEnabled("que"))
+      LogDebug("system:whfscommithandler", "triggersitesettingscheckoncommit", CELL[trace := GetStackTrace() ]);
+
     this->checksitesettings := TRUE;
   }
   PUBLIC MACRO TriggerScanCompilables()
@@ -490,9 +470,6 @@ PUBLIC OBJECT FUNCTION GetWHFSCommitHandler()
   OBJECT handler := this_trans->GetFinishHandler("system:whfs");
   IF (NOT ObjectExists(handler))
   {
-    IF(debuglevel = 0)
-     debuglevel := ToInteger(GetEnvironmentVariable("WEBHARE_DEBUGEVENTS"), 0) ?? -1;
-
     handler := NEW WHFSCommitHandler;
     this_trans->SetFinishHandler("system:whfs", handler);
   }

@@ -89,6 +89,7 @@ Set debug flags:
 - `wrq`: Show webrequests (formerly `__webbrowser_debugall := TRUE`)
 - `apr`: All new started scripts make a function CPU profile
 - `cov`: All new started scripts make a coverage profile
+- `que`: Log task/queue actions
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
 
@@ -98,9 +99,6 @@ You can also set custom debug flags and check them using %IsDebugTagEnabled.
 
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
-
-### WEBHARE_DEBUGEVENTS
-Set debuglevel for whfs/events.whlib. 1 = log actions, 3 = traces too
 
 ### WEBHARE_DEBUGSTARTUP
 Set to 1 to enable debug for various potential startup issues
