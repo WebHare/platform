@@ -189,8 +189,10 @@ function tidMerge(readContext, writeContext)
 {
   for (let key of Object.keys(readContext))
   {
-    if (typeof readContext[key] == "string")
+    if (typeof readContext[key] != "object" || Array.isArray(readContext[key])) //a leaf, safe to copy
+    {
       writeContext[key] = readContext[key];
+    }
     else
     {
       if (!(key in writeContext))
