@@ -97,11 +97,15 @@
           <textarea name="stats" width="1pr" height="8x" enabled="false" />
           <textarea name="errors" width="1pr" height="8x" enabled="false" />
           <textarea name="extrarequires" width="1pr" height="8x" enabled="false" />
-          <textarea name="missingdependencies" width="1pr" height="8x" enabled="false" />
         </tab>
         <tab tid=".tab_filedependencies">
           <!-- FIXME: make tree and collapse on either the last folder OR node_modules/*/ -->
           <list name="filedependencies" selectmode="single">
+            <column name="path" type="text" />
+          </list>
+        </tab>
+        <tab tid=".missingdependencies">
+          <list name="missingdependencies" selectmode="single">
             <column name="path" type="text" />
           </list>
         </tab>

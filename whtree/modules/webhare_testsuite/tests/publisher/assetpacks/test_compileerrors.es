@@ -132,6 +132,38 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
   });
 
+  it("looking for a nonexisting module should register missingDependencies on node_modules", async function()
+  {
+    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
+
+    let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-module.es"), true);
+    if(result.compiler == 'webpack')
+      return; //dropping support for this in the future, and webpack is often too slow to trigger the CI races
+
+    assert(result.haserrors === true);
+
+    let missingdeps = Array.from(result.info.dependencies.missingDependencies);
+
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule")));
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/index.js")));
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/index.es")));
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/package.json")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule.js")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule.es")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/index.js")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/index.es")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/package.json")));
+
+    result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet.scss"), true);
+    assert(result.haserrors === true);
+
+    missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/my.scss")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
+  });
+
   it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
   {
     this.timeout(60000);
