@@ -176,7 +176,6 @@ STATIC OBJECTTYPE AssetPackController
       @cell(boolean) haserrors Whether any errors were returned in the last compilation
       @cell stats Statistics of last compilation
       @cell errors Errors of last compilation
-      @cell(string array) missingdependencies := STRING ARRAY(message.missingdependencies)
       @cell info Info about last compilation
       @cell(datetime) lastcompile Time of last compile
       @cell(boolean) adhoc If true, this is an adhoc package (not watched)
@@ -1256,7 +1255,6 @@ STATIC OBJECTTYPE AssetPackController
                  , statsjson :=           ""
                  , errors :=              ""
                  , info :=                DEFAULT RECORD
-                 , missingdependencies := DEFAULT STRING ARRAY
                  , iscompiling :=         FALSE
                  , lastcompile :=         DEFAULT DATETIME
                  , lastcompiletoken :=    ""

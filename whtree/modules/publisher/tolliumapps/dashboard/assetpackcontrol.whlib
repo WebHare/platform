@@ -303,6 +303,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     }
 
     ^filedependencies->rows := ToRecordArray(status.dependencies.filedependencies, "path");
+    ^missingdependencies->rows := ToRecordArray(status.dependencies.missingdependencies,"path");
     ^outputtag->value := status.outputtag;
     ^stats->value := status.stats;
     ^errors->value := errors;
@@ -313,7 +314,6 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
       ^languages->value := Detokenize(status.bundleconfig.languages,', ');
       ^environment->value := status.bundleconfig.environment;
     }
-    ^missingdependencies->value := Detokenize(status.missingdependencies,'\n');
   }
 
   BOOLEAN FUNCTION Submit()

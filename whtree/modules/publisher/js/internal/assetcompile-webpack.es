@@ -106,7 +106,6 @@ async function runTask(taskcontext, data)
       , errors:               compileresult.err ? compileresult.err.toString() : ""
       , stats:                compileresult.stats ? compileresult.stats.toString() : ""
       , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
-      , missingdependencies:  compileresult.stats && compileresult.stats.compilation.missingDependencies || []
       , haserrors:            Boolean(compileresult.err || result.errors.length)
       , info:                 result
       , compiletoken:         data.compiletoken
