@@ -530,7 +530,7 @@ BEGIN
   END IF;
 
   IF NOT webhare_proc_isvalidwhfsname(new.name) THEN
-    RAISE EXCEPTION 'Invalid file/folder name "%"', quote_literal(new.name);
+    RAISE EXCEPTION 'Invalid file/folder name %', quote_literal(new.name);
   END IF;
 
   SELECT type INTO _parenttype

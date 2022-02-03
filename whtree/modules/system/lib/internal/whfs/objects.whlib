@@ -84,6 +84,7 @@ PUBLIC RECORD ARRAY FUNCTION FixupRecycleBinNames(RECORD ARRAY inrecs)
                              , currentname
                           FROM system.fs_history
                          WHERE fs_history.fs_object IN inactiveids
+                               AND type = whconstant_historytype_recycle
                       ORDER BY fs_object;
 
   FOREVERY(RECORD inrec FROM inrecs)

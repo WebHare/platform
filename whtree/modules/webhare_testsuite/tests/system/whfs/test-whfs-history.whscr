@@ -45,6 +45,11 @@ MACRO TestBasicHistory()
   subfile->UpdateMetadata([title := "new title for subfile"]);
   TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop") ]], subfile->GetHistory(), "*");
 
+  //Verify that we don't mess up the recyclebin (which also looks at system.fs_history)
+  subfile->RecycleSelf();
+  subfile->MoveTo(testsite->rootobject, "");
+  TestEq("/subfile", subfile->fullpath);
+
   testfw->CommitWork();
 }
 
