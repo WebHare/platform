@@ -97,10 +97,6 @@ function mapESBuildError(entrypoint, error)
   if(!file.startsWith('/'))
     file = path.resolve(file);
 
-
-
-
-
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
   return { message:  error.detail?.formatted ?? error.text
          , resource: file
@@ -205,6 +201,52 @@ async function runTask(taskcontext, data)
              , errors:  buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
              };
 
+  let haserrors = buildresult.errors.length > 0;
+  let missingpath, missingextensions;
+  let resolveerror = buildresult.errors.find(error => error.text.match(/Could not resolve/));
+  if(resolveerror)
+  {
+    missingpath = resolveerror.text.match(/Could not resolve "(.*)"/)[1];
+    if(missingpath)
+      missingextensions = ["",".js",".es","/index.js","/index.es","/package.json"];
+  }
+  else
+  {
+    resolveerror = buildresult.errors.find(error => error.text.match(/Can't find stylesheet to/));
+    if(resolveerror) //attempt to extract the path
+    {
+      missingpath = resolveerror.text.match(/@import *"(.*)"/)[1]
+                    || resolveerror.text.match(/@import *'(.*)'/)[1];
+
+      if(missingpath && missingpath[0]=='~') //Modules are prefixed with ~ in webpack style
+        missingpath = missingpath.substr(1);
+      if(missingpath)
+        missingextensions = ["",".scss"];
+    }
+  }
+
+  if(missingpath && !missingpath.startsWith('.')) //not a relative path..
+  {
+    /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve
+       as a workround, we'll just register node_modules as missingpath in case someone installs a module to fix this error.
+       won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
+       may be sufficient to resolve some CI issues */
+
+    let mod = data.baseconfig.installedmodules.find(mod => bundle.entrypoint.startsWith(mod.root));
+    if(mod)
+    {
+      let localpath = bundle.entrypoint.substr(mod.root.length);
+      let currentroot = mod.root;
+
+      for(let subpath of ['',...localpath.split('/')])
+      {
+        currentroot = path.join(currentroot,subpath);
+        for(let ext of missingextensions)
+          info.dependencies.missingDependencies.push(path.join(currentroot, "node_modules", missingpath) + ext);
+      }
+    }
+  }
+
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   let assetoverview = { version: 1
                       , assets: []
@@ -254,8 +296,7 @@ async function runTask(taskcontext, data)
     , stats:                buildresult.warnings.map(_ => _.text).join("\n")
     // , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
     , statsjson: ""
-    // , missingdependencies:  compileresult.stats && compileresult.stats.compilation.missingDependencies || []
-    , haserrors:            buildresult.errors.length > 0
+    , haserrors:            haserrors
     , info:                 info
     , compiletoken:         data.compiletoken
     , compiler:             "esbuild"
