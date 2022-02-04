@@ -139,10 +139,7 @@ MACRO DoDeleteFile(RECORD task)
     RETURN;
   }
 
-  IF(fsobj.isfolder)
-    RunFolderDelete(fsobj.id, fsobj.modifiedby);
-  ELSE
-    RunFileDelete(fsobj.id, fsobj.modifiedby);
+  RunAnyDelete(INTEGER[fsobj.id], "publisher:scheduledtask");
 
   IF (report)
     PRINT("Executed task 'delete " || fsobj.whfspath || "'\n");

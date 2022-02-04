@@ -716,6 +716,8 @@ GetTid("missing.module"); GetTid("system:has.module");`);
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.unicode_2028" ]
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext" ]
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext_params" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.maxextras" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.maxextras" ]
                 ], res.tids, "*");
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", icon := "tollium:status/not_available" ]
                 ], res.icons, "*");

@@ -49,6 +49,8 @@ window.getTidTest = function()
          , unicode2028: getTid("webhare_testsuite:test.unicode_2028")
          , richtext: getHTMLTid("webhare_testsuite:test.richtext")
          , richtext_params: getTid.html("webhare_testsuite:test.richtext_params")
+         , maxextras_1: getTid("webhare_testsuite:test.maxextras",1)
+         , maxextras_2: getTid("webhare_testsuite:test.maxextras",2)
          };
 };
 

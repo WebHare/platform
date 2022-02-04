@@ -65,6 +65,7 @@
     <text tid="beschikbaarheid-binnenkort">Binnenkort</text>
     <text tid="beschikbaarheid-verkocht">Verkocht</text>
     <text tid="mainedit">Mainedit</text>
+    <text tid="maxextras">Please note: max <param p="1"/> <ifparam p="1" value="1">person<else/>persons</ifparam></text>
     <text tid="yattab">Yet Another Tab</text>
     <textgroup gid="testgroup" keepemptyreason="Used for tid system tests">   <!-- test.testgroup -->
       <text tid="node">Node text</text>

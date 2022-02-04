@@ -20,7 +20,8 @@ test.registerTests([
   , function()
     {
       let base_texts =
-        { "testgroup": { "testtext": "This is a test" }
+        { "testgroup": { "testtext": "This is a test"
+                       }
         };
 
       registerTexts("base", "en", base_texts);
@@ -41,24 +42,7 @@ test.registerTests([
       test.eq(getTid("base:testgroup.testtext"), "This is a test");
 
       // retrieve a group node
-      test.eq(getTid("base:testgroup"), "(cannot find text:base:testgroup)");
-    }
-
-  , "Test correct merging of new texts"
-  , function()
-    {
-      let more_base_texts =
-        { "testgroup": { "moretext": "This is more test" }
-        , "anothergroup": { "": "Group test", "anothertext": "This is another test" }
-        };
-
-      registerTexts("base", "en", more_base_texts);
-
-      //retrieval
-      test.eq(getTid("base:testgroup.testtext"), "This is a test");
-      test.eq(getTid("base:testgroup.moretext"), "This is more test");
-      test.eq(getTid("base:anothergroup.anothertext"), "This is another test");
-      test.eq(getTid("base:anothergroup"), "Group test");
+      test.eq("(cannot find text:base:testgroup)", getTid("base:testgroup"));
     }
 
   , "Test string substitution (param, ifparam, else)"
@@ -130,9 +114,35 @@ test.registerTests([
       // 'Task 'wilminktheater:crm_factory_export' has errors' en nog fouten
       test.eq("Foutmelding", getTid("substitute:regression.checks", 0, "Foutmelding"));
     }
+
+  , "Test correct merging of new texts"
+  , function()
+    {
+      getTid.tidLanguage = "en";
+
+      let more_base_texts =
+        { "testgroup": { "moretext": "This is more test"
+                        //test merging new texts into existing groups. this broke earlier
+                       , "simple_param": ["text: ",1]
+                       }
+        , "anothergroup": { "": "Group test", "anothertext": "This is another test" }
+        };
+
+      registerTexts("base", "en", more_base_texts);
+      test.eq("text: noot", getTid("base:testgroup.simple_param", "noot"));
+
+      //retrieval
+      test.eq(getTid("base:testgroup.testtext"), "This is a test");
+      test.eq(getTid("base:testgroup.moretext"), "This is more test");
+      test.eq(getTid("base:anothergroup.anothertext"), "This is another test");
+      test.eq(getTid("base:anothergroup"), "Group test");
+    }
+
   , "Test HTML tid's"
   , function()
     {
+      getTid.tidLanguage = "nl";
+
       let html_texts =
         { "tags": [{t:"tag",tag:"b",subs:["Vet!"]}]
         , "encoding": `Codeer <tag> en &lt;`
@@ -157,8 +167,10 @@ test.registerTests([
       await test.load(test.getTestSiteRoot());
       let tids = test.getWin().getTidTest();
       test.eq("(cannot find text:webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
-      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028, "Not included in lang.json");
-      test.eq('Dit is <b>bold</b><br/>volgende<br/>regel', tids.richtext, "Not included in lang.json");
+      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
+      test.eq('Dit is <b>bold</b><br/>volgende<br/>regel', tids.richtext);
+      test.eq('Please note: max 1 person', tids.maxextras_1);
+      test.eq('Please note: max 2 persons', tids.maxextras_2);
 
     }
   ]);
