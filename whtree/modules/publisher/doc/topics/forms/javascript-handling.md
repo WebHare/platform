@@ -77,23 +77,6 @@ that the form is busy.
 
 # Events
 
-## dompack:scrollintoview
-Target: the node that should be scrolled into view
-
-Bubbles: yes
-
-Cancelable: yes
-
-This event is fired (through `dompack.scrollIntoView`) when the form handler wants to focus a field (usually because it
-triggered the error). The event is fired on the `.wh-anchor` of the fieldgroup (or if not present, the fieldgroup) containing
-the field that should be focused.
-
-You can catch and cancel this event to control the scrolling yourself.
-
-Please Note that if you want to override the scroll because the scrolling places the field below a fixed size header, you
-should consider styling `wh-anchor` to reserve the necessary vertical space (by setting eg `height: 80px; margin-top: -80px;`)
-as this will also help fix targetted links landing on your page (`#anchor` links)
-
 ## wh:form-globalerrors
 
 Target: The form node

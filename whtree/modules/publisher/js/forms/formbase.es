@@ -442,10 +442,10 @@ export default class FormBase
     let origscrollto = scrollto;
     scrollto = (scrollto ? scrollto.closest('.wh-form__fieldgroup') : null) || this.node;
     scrollto = scrollto.querySelector('.wh-anchor') || scrollto;
-    if(origscrollto && scrollto != origscrollto && dompack.debugflags.fhx)
-      console.log('[fhx] Modified scroll target from ', origscrollto, ' to anchor ', scrollto);
+    if(origscrollto && scrollto != origscrollto && dompack.debugflags.fhv)
+      console.log('[fhv] Modified scroll target from ', origscrollto, ' to anchor ', scrollto);
 
-    dompack.scrollIntoView(scrollto, dompack.debugflags.fhx ? { debugusingflag:'fhx' } : null);
+    scrollto.scrollIntoView();
   }
 
   /** Goto a specific page

@@ -11,7 +11,7 @@ export default class SelectList
   ///Scrolls an option into view, override to control scrolling behaviour
   scrollOptionIntoView(selection)
   {
-    dompack.scrollIntoView(selection);
+    selection.scrollIntoView();
   }
   _generateItems(options)
   {
