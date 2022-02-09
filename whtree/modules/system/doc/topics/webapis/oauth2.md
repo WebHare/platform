@@ -36,7 +36,7 @@ If you will be using client credentials you probably don't need an authorization
          xmlns:webapis="http://www.webhare.net/xmlns/system/webapis"
          library="config.whlib">
 
-  <screen name="config">
+  <screen name="config" footerbuttons="ok cancel">
     <compositions>
       <s:registrynode name="registry" node="mymodule" />
     </compositions>
@@ -44,9 +44,6 @@ If you will be using client credentials you probably don't need an authorization
       <webapis:oauth2client composition="registry" cellname="myclient" name="myclient" />
       <webapis:oauth2authorization composition="registry" cellname="myauth" onauthorize="onauthorize"/>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>
