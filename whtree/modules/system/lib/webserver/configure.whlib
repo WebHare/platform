@@ -1,0 +1,129 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+
+
+MACRO OnCommitRefreshWebserverConfig(BOOLEAN iscommit)
+{
+  //TODO we could offer a 'nowait' mode, but we need a way to select that (eg a transaction flag or requiring [ nowait := TRUE ] to *all* API calls?
+  IF (iscommit)
+    dumpvalue(RefreshGlobalWebserverConfig());
+}
+
+RECORD FUNCTION GetWebserver(STRING url)
+{
+  RECORD unpackedurl := UnpackURL(url);
+  RECORD matchwebserver := LookupWebserver(GetHostedSites(), unpackedurl.host, unpackedurl.port);
+  IF(NOT RecordExists(matchwebserver))
+    THROW NEW Exception(`No webserver for '${unpackedurl.host || (unpackedurl.isdefaultport ? "" : `:${unpackedurl.port}`)}'`);
+
+  RETURN matchwebserver;
+}
+
+/** List access rules for the specified url
+    @param url Starting URL we're interested in. Will return access rules under this URL
+    @return Enabled access rules
+    @cell(string) return.rowkey Key for this access rule. Used for update/delete
+    */
+PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
+{
+  RECORD unpackedurl := UnpackURL(url);
+  RECORD matchwebserver := GetWebserver(url);
+
+  RECORD ARRAY rules := SELECT rowkey := "db:" || id
+                             , ruletype := hostingsrc = 6 ? "webruleset" : "legacy"
+                             , matchtype := ["exact","initial","wildcards","cookie"][matchtype]
+                             , path
+                             , url := matchwebserver.baseurl || Substring(path,1) //TODO does this work for wildcards? and how does URL work for global access rules?
+                             , webruleset := hostingpath
+                             , description
+                          FROM system_internal.access
+                         WHERE access.webserver = matchwebserver.id
+                               AND NOT disabled
+                               AND (unpackedurl.urlpath = "" OR ToUppercase(path) LIKE "/" || unpackedurl.urlpath || "*")
+                      ORDER BY path;
+
+  RETURN rules;
+}
+
+/** Add new access rules for the specified url
+    @param url URL to add. Must match an existing webserver
+    @cell(string) options.matchtype exact/initial/wildcards - how this rule matches.
+                  If not set, a rule is initial if the URL refers to a folder (ends with a slsh or refers to the site root), exact otherwise
+    @return Key for this access rule. Used for update/delete
+    */
+PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ matchtype := ""
+                             , webruleset := ""
+                             , description := ""
+                             ], options, [ optional := [ "matchtype","webruleset" ]
+                                         , enums := [ matchtype := [ "exact","initial","wildcards"] ]
+                                         ]);
+
+  RECORD unpackedurl := UnpackURL(url);
+  RECORD matchwebserver := GetWebserver(url);
+
+  IF(NOT CellExists(options,'matchtype'))
+    INSERT CELL matchtype := unpackedurl.urlpath = "" OR unpackedurl.urlpath LIKE "*/" ? "initial" : "exact" INTO options;
+
+  STRING path := "/" || unpackedurl.urlpath;
+  INTEGER webserver := matchwebserver.id;
+
+  IF(Cellexists(options,'webruleset'))
+  {
+    IF(options.matchtype != "initial")
+      THROW NEW Exception(`A webruleset may only be used with initial path matching rules`);
+
+    STRING ARRAY toks := Tokenize(options.webruleset,':');
+    IF(NOT IsModuleInstalled(toks[0]))
+      THROW NEW Exception(`Invalid module name '${toks[0]}`);
+
+    OBJECT xmlfile := GetModuleDefinitionXML(toks[0]);
+    RECORD match := SELECT * FROM ListModuleWebruleSets(GetModuleDefinitionXMLResourceName(toks[0]), xmlfile) WHERE rowkey = options.webruleset;
+    IF(NOT RecordExists(match))
+      THROW NEW Exception(`No such webruleset '${options.webruleset}'`);
+
+    INTEGER newid := MakeAutonumber(system_internal.access,"id");
+    INSERT CELL[ id := newid
+               , matchtype := 1
+               , path
+               , webserver
+               , hostingsrc := 6
+               , hostingpath := options.webruleset
+               , options.description
+               ] INTO system_internal.access;
+
+    RETURN "db:" || newid; //future versions will return guids
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Unsure what to add fo the access rule`);
+  }
+
+  GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
+}
+
+/** Delete an access rules
+    @param rulerowkey Rowkey for the rule to delete
+    */
+PUBLIC MACRO DeleteAccessRule(STRING rulerowkey)
+{
+  IF(rulerowkey NOT LIKE "db:*")
+    THROW NEW Exception(`No such rule '${rulerowkey}`);
+
+  INTEGER findid := ToInteger(Substring(rulerowkey,3),-1);
+  IF(NOT RecordExists(SELECT FROM system_internal.access WHERE id = findid))
+    THROW NEW Exception(`No such rule '${rulerowkey}`);
+  DELETE FROM system_internal.access WHERE id = findid;
+
+  GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
+}

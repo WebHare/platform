@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test-accesslog.whscr" />
+  <test script="test-configure.whscr" />
   <test script="configfiles.whscr" />
   <test script="loopbacks.whscr" />
   <test script="ranges.whscr" />
