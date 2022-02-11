@@ -86,7 +86,7 @@ MACRO SimpleImport(STRING inputfile)
 {
   INTEGER numcsvrows := 8;
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   persontype->DeleteAllEntities();
@@ -201,7 +201,7 @@ MACRO SimpleImport(STRING inputfile)
   TestEq("INVALIDVALUE", invalidrows[1].errors[0].code);
   TestEq("WRD_CONTACT_EMAIL", invalidrows[1].errors[0].tag);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO SimpleImport_CSV()
@@ -215,7 +215,7 @@ MACRO SimpleImport_XLSX()
 
 MACRO UpdateImport()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   OBJECT importer := CreateMyImporter(persontype);
@@ -257,12 +257,12 @@ MACRO UpdateImport()
           , autofill := ""
           ], res_jaapje);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO WRDIDUpdate()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "c2@example.net");
@@ -285,12 +285,12 @@ MACRO WRDIDUpdate()
   TestEq("c2+update@example.net", pfields2.wrd_contact_email);
   TestEq(pfields.wrd_guid, pfields2.wrd_guid);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO AddressImport()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
@@ -312,12 +312,12 @@ MACRO AddressImport()
   TestEq("Hengelosestraat", fields.home.street);
   TestEq("NL", fields.home.country);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO TypesImport()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
@@ -346,13 +346,13 @@ MACRO TypesImport()
   TestEq(DEFAULT DATETIME, fields.anytime);
   TestEq("76",fields.home.nr_detail);
 
-  testfw->Commit();
+  testfw->CommitWork();
 
 }
 
 MACRO PostCheckFilters()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT persontype :=  testfw->GetWRDSchema()->GetType("WRD_PERSON");
   INTEGER personid := persontype->Search("WRD_CONTACT_EMAIL", "a.hendriks@example.net");
@@ -370,7 +370,7 @@ MACRO PostCheckFilters()
   TestEq(1,Length(postrejectrows));
   TestEq(0,postrejectrows[0].failedfilter);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 /** @param wanted List to sync. Must consist of at least the joincell and optionally a 'wanted' record with the data to overwrite/apply. May NOT be empty

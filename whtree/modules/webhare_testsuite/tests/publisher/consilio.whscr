@@ -365,8 +365,6 @@ MACRO ConsilioTest()
               ]
             ]
       ], results);
-
-  testfw->EndTrans();
 }
 
 RunTestframework([ PTR ConsilioTest ]

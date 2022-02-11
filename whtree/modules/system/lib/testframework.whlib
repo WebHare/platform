@@ -452,7 +452,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   ///The ID for a testunit created if wrdauth mode is enabled. Use this for WHUSER_UNIT
   PUBLIC PROPERTY testunit(__betatestunit,-);
 
-  //PUBLIC OBJECT trans;
   PUBLIC BOOLEAN profile;
   PUBLIC BOOLEAN debug;
   PUBLIC OBJECT browser;
@@ -867,11 +866,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN this->temppath;
   }
 
-  MACRO CheckedCommit(OBJECT trans)
-  {
-    trans->CommitWork();
-  }
-
   /** Cleanup a WRD schema (delete old test stuff)
       @long Executes a series of cleanups to prepare a WRD schema for tests. This
             is generally used when an app shares its schema with its tests. All
@@ -1190,52 +1184,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN GetWebhareResource("mod::" || modulename || "/tests/" || filepath);
   }
 
-  /** Save or swap a transaction
-      @param newtrans New transaction (DEFAULT OBJECT to reset)
-      @return The current transaction */
-  PUBLIC OBJECT FUNCTION SwapTrans(OBJECT newtrans)
-  {
-    OBJECT retval := GetPrimary();
-    SetPrimaryWebhareTransaction(ObjectExists(newtrans) ? newtrans->id : 0);
-    RETURN retval;
-  }
-
-  /** Start a transaction
-      @param*/
-  PUBLIC MACRO StartTrans(STRING username, BOOLEAN auto)
-  {
-    IF(NOT this->usedatabase)
-      ABORT("StartTrans executed but 'usedatabase' was set to FALSE");
-
-    IF(username="")
-      THROW NEW Exception("Anonymous transactions are no longer supported. Open as ~webhare");
-
-    this->SetTestUser(username);
-    IF(NOT auto)
-      this->BeginWork();
-  }
-
-  PUBLIC MACRO EndTrans()
-  {
-    IF(GetPrimary()->HasWorkSupport() AND GetPrimary()->IsWorkOpen())
-      GetPrimary()->RollbackWork();
-  }
-
   PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT HavePrimaryTransaction())
-      THROW NEW Exception("Use StartTrans before BeginWork");
+    IF(NOT this->usedatabase)
+      THROW NEW Exception("BeginWork executed but 'usedatabase' was set to FALSE");
     GetPrimary()->BeginWork(options);
-  }
-
-  PUBLIC RECORD ARRAY FUNCTION CommitReturnErrors()
-  {
-    RETURN this->CommitWorkReturnErrors();
-  }
-
-  PUBLIC MACRO Commit()
-  {
-    GetPrimary()->CommitWork();
   }
 
   PUBLIC RECORD ARRAY FUNCTION CommitWorkReturnErrors()
@@ -1247,13 +1200,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC MACRO CommitWork()
   {
-    RECORD ARRAY errors := GetPrimary()->CommitWork();
-    IF(Length(errors)>0)
-    {
-      print("Transaction commit errors\n");
-      Printrecordarrayto(0,errors,'boxed');
-      abort("TestCommitWork failed");
-    }
+    GetPrimary()->CommitWork();
   }
 
   PUBLIC MACRO RollbackWork()
@@ -1338,12 +1285,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
         IF(this->usedatabase)
         {
-          OBJECT trans := GetPrimary();
-          IF(ObjectExists(trans))
-          {
-            WHILE(trans->IsWorkOpen())
-              trans->PopWork();
-          }
+          WHILE(GetPrimary()->IsWorkOpen())
+            GetPrimary()->PopWork();
         }
 
         IF(this->profile)

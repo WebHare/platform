@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 MACRO WebserverConfig()
 {
   testfw->GetLocalhostWebinterface();
-  testfw->StartTrans("~webhare", TRUE);
 
   RECORD config := DownloadWebserverConfig();
   TestEq(1, config.version);
@@ -24,8 +23,6 @@ MACRO WebserverConfig()
         , isfolder :=       FALSE
         ]
       ], appliedrule_xyz.datastorage);
-
-  testfw->Endtrans();
 }
 
 RunTestframework([ PTR WebserverConfig

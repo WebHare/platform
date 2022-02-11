@@ -25,7 +25,6 @@ MACRO Setup()
 
 MACRO SiteRenameTest()
 {
-  testfw->StartTrans("~webhare", TRUE);
   testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
@@ -41,14 +40,13 @@ MACRO SiteRenameTest()
   TestEq(TRUE, Objectexists(OpenSiteByName(savename)));
 
   testfw->CommitWork();
-  testfw->EndTrans();
 }
 
 MACRO DeleteTest()
 {
   RECORD ARRAY analysis;
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
   OBJECT ffolder := testsite->rootobject->CreateFolder( [ name := "foreign", type := 1 ]);
@@ -105,10 +103,10 @@ MACRO DeleteTest()
            ]]
            , analysis);
 
-  testfw->Commit();
+  testfw->CommitWork();
 
   //now try with limited rights, shouldn't see site innersite1
-  testfw->StartTrans("deleter",FALSE);
+  testfw->SetTestUser("deleter");
 
   analysis := SELECT * FROM AnalyzeContents([ INTEGER(testfw->GetWHFSTestRoot()->id), INTEGER(fshortfolder->id), INTEGER(ffolder->id), INTEGER(nfolder->id) ]) ORDER BY isfatal,errordata;
   TestEq( [[ id := testfw->GetWHFSTestRoot()->id
@@ -138,8 +136,6 @@ MACRO DeleteTest()
            ]
           ], analysis);
 
-  testfw->Commit();
-
 }
 
 MACRO TypeChangeTest()
@@ -161,7 +157,7 @@ MACRO TypeChangeTest()
 
 MACRO SiteOutputContainTest()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
   OBJECT subsite1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_subsite1"]);
@@ -231,14 +227,14 @@ MACRO SiteOutputContainTest()
   TestEq(0, cansetoutput.sitecontaininglocation);
   TestEq(DEFAULT RECORD ARRAY, cansetoutput.neededfolders);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO SiteOutputForeignTest()
 {
   RECORD cansetoutput;
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   /* create (testsite->outputfolder)/foreigntest as a foreign folder
      create a site ft1 on (testsite->outputfolder)/foreigntest/a
@@ -288,7 +284,7 @@ MACRO SiteOutputForeignTest()
           ,[ parent := ft3_b->id, name := "c", id := 0, site := ft2->id ]
           ], cansetoutput.neededfolders);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 
@@ -297,7 +293,7 @@ MACRO SiteOutputForeignTest()
 
 MACRO CopyMoveTest()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
 
@@ -469,10 +465,10 @@ MACRO CopyMoveTest()
 
   //Create a siteprofile to repub everything whenever a file named "test.html" is changed (and a move sounds like a change)
   testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
-  testfw->Commit(); //flush the siteprofile updates
+  testfw->CommitWork(); //flush the siteprofile updates
   WaitForPublishCompletion(testsite->id, [ accepterrors := TRUE ]);
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   cm := NEW ObjectCopyMover("copy", dest2->id);
   cm->AddSourceById(testhtml->id);
@@ -500,7 +496,7 @@ MACRO CopyMoveTest()
 
   TestEq(TRUE, IsBeingPublished(destblabla->id));
   TestEq(TRUE, IsBeingPublished(sourceblabla->id));
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO SiteProfActionsTest()
@@ -551,7 +547,6 @@ MACRO DoPublisherEdit(INTEGER fileid) //do an edit on a file like the publisher 
 
 MACRO TestReferences()
 {
-  testfw->StartTrans("~webhare",TRUE);
   testfw->BeginWork();
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
@@ -678,8 +673,6 @@ MACRO TestReferences()
   TestEq(TRUE, IsBeingPublished(direct_whfsref->id));
   TestEq(TRUE, IsBeingPublished(indirect_whfsref->id));
   testfw->RollbackWork();
-
-  testfw->EndTrans();
 }
 
 MACRO TestPublishRegression()

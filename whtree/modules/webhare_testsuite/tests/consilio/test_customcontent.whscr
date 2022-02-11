@@ -57,8 +57,6 @@ MACRO TestCompleteSyncAfterCommand()
 
 MACRO TestCustomContent()
 {
-  testfw->StartTrans("sysop", TRUE);
-
   search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
   RECORD res;
 
@@ -583,8 +581,6 @@ __indexmanager_debugall := true;
 
   UpdateConsilioIndex(indexid);
   testfw->WaitQueueEmpty();
-
-  testfw->EndTrans();
 }
 
 RunTestframework(

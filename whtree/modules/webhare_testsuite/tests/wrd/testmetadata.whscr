@@ -44,7 +44,7 @@ RECORD FUNCTION ExtractSchemaMetadata(OBJECT wrdschema)
 
 MACRO Setup()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT wrdschema :=  testfw->GetWRDSchema();
   OBJECT persontype := wrdschema->GetType("WRD_PERSON");
@@ -123,7 +123,7 @@ MACRO Setup()
   OBJECT customrelation := testfw->GetWRDSchema()->CreateRelationType("Custom relation base", "", "CUSTOMRELATION");
   OBJECT customrelationchild := testfw->GetWRDSchema()->CreateRelationTypeWithParentType("Custom relation child", "", "CUSTOMRELATIONCHILD", customrelation->id);
 */
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO ExportXMLMetadata()

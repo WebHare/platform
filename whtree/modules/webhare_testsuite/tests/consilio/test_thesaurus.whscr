@@ -18,8 +18,6 @@ OBJECT search_obj;
 
 MACRO TestThesaurus()
 {
-  testfw->StartTrans("sysop", TRUE);
-
   search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
 
   // Prefix for object/group ids, just to stress the itf
@@ -102,8 +100,6 @@ MACRO TestThesaurus()
 
   UpdateConsilioIndex(indexid);
   testfw->WaitQueueEmpty();
-
-  testfw->EndTrans();
 }
 
 
