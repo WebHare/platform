@@ -183,8 +183,9 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
           comp->readonly := this->fieldreadonly;
           comp->required := this->attrinfo.isrequired OR this->required;
 
-          RECORD ARRAY opts := (SELECT rowkey:=id,title FROM GetGenderOptions(DEFAULT RECORD, GetLangTexts(GetTidLanguage()), "WRD_GENDER"));
-          INSERT CELL invalidselection := TRUE INTO opts[0];
+          RECORD ARRAY opts := [ [ rowkey := 0, title := "", invalidselection := TRUE ]
+                               , ...(SELECT rowkey := id,title FROM this->wrdtype->ListDomVals("WRD_GENDER"))
+                               ];
 
           comp->options := opts;
           comp->type := this->select_style="" ? "pulldown" : this->select_style;

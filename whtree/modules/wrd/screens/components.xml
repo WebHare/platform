@@ -22,6 +22,7 @@
         <option rowkey="0" title="" invalidselection="true" />
         <option rowkey="1" tid="wrd:common.gender.male" />
         <option rowkey="2" tid="wrd:common.gender.female" />
+        <option rowkey="3" tid="wrd:common.gender.other" />
       </select>
     </contents>
   </fragment>

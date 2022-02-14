@@ -137,10 +137,11 @@
     <text tid="linktypes">Type</text>
   </textgroup>
   <textgroup gid="common" limitlanguages="en nl">   <!-- common -->
-    <textgroup gid="gender">   <!-- common.gender -->
+    <textgroup gid="gender" limitlanguages="de en nl">   <!-- common.gender -->
       <text tid="female">Female</text>
       <text tid="label">Gender</text>
       <text tid="male">Male</text>
+      <text tid="other">Other</text>
     </textgroup>
     <textgroup gid="generic">   <!-- common.generic -->
       <text tid="rows"><param p="1"/> rows</text>

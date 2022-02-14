@@ -844,8 +844,24 @@ MACRO TestGenderDomain()
   OBJECT schemaobj:=  testfw->GetWRDSchema();
   OBJECT persontype := schemaobj->^wrd_person;
   RECORD ARRAY genderdomain := persontype->ListDomVals("WRD_GENDER");
-  TestEq(2,Length(genderdomain));
+  TestEqMembers([ [ title := "Male" ]
+                , [ title := "Female" ]
+                , [ title := "Other" ]
+                ], genderdomain, "*");
 
+  OBJECT othergenderperson := persontype->CreateEntity([ wrd_contact_email := "othergender@beta.webhare.net", wrd_gender := 3 ]);
+  testfw->CommitWork();
+
+  TestEq(3, othergenderperson->GetField("WRD_GENDER"));
+  TestEq([[ wrd_id := othergenderperson->id, wrd_gender := 3 ]], persontype->RunQuery(
+      [ outputcolumns := CELL[  "WRD_ID", "WRD_GENDER"]
+      , filters := [ [ field := "WRD_GENDER", value := 3 ]
+                   , [ field := "WRD_CONTACT_EMAIL", value := "othergender@beta.webhare.net" ]
+                   ]
+      ]));
+
+  testfw->BeginWork();
+  othergenderperson->DeleteEntity();
   testfw->CommitWork();
 }
 INTEGER FUNCTION MapOther(INTEGER outval, STRING tag, STRING inval)
@@ -3205,8 +3221,8 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestTitleAttr
                  , PTR TestHSONAttr
                  , PTR TestEnumAttr
+                 , PTR TestGenderDomain //TOOD putting genderdomain after TestStatusRecordAttr crashes it because the latter olls back. fix that
                  , PTR TestStatusRecordAttr
-                 , PTR TestGenderDomain
                  , PTR TestDomains
                  , PTR TestGUID
                  , PTR ImageCache

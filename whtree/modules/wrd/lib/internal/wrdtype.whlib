@@ -19,6 +19,8 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/attributes.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
@@ -431,6 +433,7 @@ RECORD FUNCTION GetCacheableTypeData(RECORD typerec, STRING langcode)
             ]
       ];
 }
+
 
 /** Maps a value to another
     @param mapping Mapping, must be sorted on inval
@@ -1192,9 +1195,16 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     IF(findtag="WRD_GENDER")
     {
-      RECORD lang := GetLangTexts(this->pvt_wrdschema->__GetCurrentLanguageCode());
+      STRING lang := this->pvt_wrdschema->__GetCurrentLanguageCode();
+      RECORD genderdefaults := CELL[ creationdate := DEFAULT DATETIME
+                                   , limitdate := MAX_DATETIME
+                                   , guid := ""
+                                   ];
       RETURN [ isdom := TRUE
-             , vals := (SELECT * FROM GetGenderOptions(DEFAULT RECORD, lang, "WRD_GENDER") WHERE tag!="" ORDER BY ToUppercase(tag))
+             , vals := [[ ...genderdefaults, id := 1, tag := "MALE",   title := GetTidForLanguage(lang, "wrd:common.gender.male"),   ordering := 1 ]
+                       ,[ ...genderdefaults, id := 2, tag := "FEMALE", title := GetTidForLanguage(lang, "wrd:common.gender.female"), ordering := 2 ]
+                       ,[ ...genderdefaults, id := 3, tag := "OTHER",  title := GetTidForLanguage(lang, "wrd:common.gender.other"),  ordering := 3 ]
+                       ]
              ];
     }
 
@@ -1353,6 +1363,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(string) return.tag Value tag
       @cell(integer) return.ordering Relative ordering
       @cell(string) return.guid Value wrd:guid
+      @cell(datetime) return.creationdate Creationdate of this domain value
+      @cell(datetime) return.limitdate Limitdate of this domain value
   */
   PUBLIC RECORD ARRAY FUNCTION ListDomVals(STRING findtag)
   {
@@ -1643,8 +1655,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     IF(requiredtype =0 AND fieldname="WRD_GENDER")
     {
       FOREVERY(INTEGER ent FROM entitiestocheck)
-        IF(ent NOT IN [0,1,2])
-          THROW NEW Exception("Entity #" || ent || " that was set for '" || this->tag || "." || fieldname || "' does not exist");
+        IF(ent NOT IN [0,1,2,3])
+          THROW NEW Exception(`Entity #${ent} that was set for '${this->tag}.${fieldname}' does not exist`);
+
       RETURN;
     }
 
@@ -2882,7 +2895,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       IF(TypeID(GetCell(splitdata.entityrec, "GENDER")) != TypeID(INTEGER))
         THROW NEW Exception("The gender field must be of type 'integer'");
-      IF(splitdata.entityrec.gender < 0 OR splitdata.entityrec.gender > 2)
+      IF(splitdata.entityrec.gender < 0 OR splitdata.entityrec.gender > 3)
         THROW NEW Exception("Invalid value '" || splitdata.entityrec.gender || "' for gender");
     }
 
