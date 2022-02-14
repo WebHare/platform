@@ -41,8 +41,6 @@ MACRO Prepare()
 
 MACRO MailSendTest()
 {
-  testfw->StartTrans("~webhare",TRUE);
-
   RECORD ARRAY mails;
 
   QueueSimpleMail("webhare_testsuite:system.mailertest", "info@sender.beta.webhare.net", ["to@beta.webhare.net"], DEFAULT STRING ARRAY, DEFAULT STRING ARRAY, "A test of the mail€r service™", "This is the test: &euro; € ümlaut ßß", DEFAULT RECORD ARRAY, TRUE);
@@ -100,8 +98,6 @@ MACRO MailSendTest()
   TestEq(1,Length(fromheaders)); //should have received a fallback
   TestEq("tempsender@webhare.net", fromheaders[0].value);
   testfw->RollbackWork(); //undo registry change
-
-  testfw->EndTrans();
 }
 
 MACRO MailSendInWorkTest()

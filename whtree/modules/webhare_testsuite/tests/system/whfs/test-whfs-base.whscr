@@ -577,7 +577,7 @@ MACRO IndexDocTest()
 
 MACRO SiteDeletionTest()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
 
   OBJECT testfolderobj := testfw->GetWHFSTestRoot();
   OBJECT testsiteroot := testfolderobj->CreateFolder([ name := "webhare_testsuite_site1" ]);

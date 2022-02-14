@@ -45,7 +45,6 @@ MACRO LookupTest()
 
   RECORD lookuptest  := testfw->CreateWebserverPort([ outputserver := TRUE, virtualhosts := ["test-lookup.example.net"], aliases := ["test-alias.example.net","*plein.example.net"]]);
 
-  testfw->StartTrans("~webhare", TRUE);
   testfw->BeginWork();
 
   testfw->SetupTestWebsite(DEFAULT BLOB);
@@ -234,7 +233,6 @@ MACRO LookupTest()
 
   testfw->GetTestSite()->rootobject->RecycleSelf();
   testfw->CommitWork();
-  testfw->EndTrans();
 }
 
 RunTestFramework([ PTR TestRescueWithoutWebservers

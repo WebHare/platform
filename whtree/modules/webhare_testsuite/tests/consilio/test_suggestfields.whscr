@@ -25,8 +25,6 @@ BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
 
 MACRO TestSuggestFields()
 {
-  testfw->StartTrans("sysop", TRUE);
-
   // Prefix for object/group ids, just to stress the itf
   STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
 

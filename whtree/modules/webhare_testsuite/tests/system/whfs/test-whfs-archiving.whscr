@@ -54,7 +54,7 @@ RECORD emptyversion := [ stringtest := ""
 
 MACRO ContentTypes()
 {
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   typetestfolder := firstfolder->CreateFolder([name := "typetest.1" ,title:="whfs_archiving test"]);
@@ -146,31 +146,31 @@ dumpvalue(setversion,'tree');
   OBJECT extlinkfile := subfolder->CreateFile([name:="test3.lnk", type:=19, externallink:="http://www.webhare.net/", ordering := -5]);
   OBJECT imgfile := subfolder->CreateFile([ name:="harrispilton.jpg", data := GetWebhareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), wrapped := [ dominantcolor := "#0000EE"]]);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO SelfTest()
 {
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   VerifyTheCopy(OpenWHFSObject(typetestfolder->id), FALSE, "exact", DEFAULT DATETIME, TRUE);
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO RenamingCopyTest()
 {
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   //Copy what we have
   DATETIME copyminimum := GetCurrentDatetime();
   OBJECT copytest := typetestfolder->CopyTo(firstfolder, "typetest.2");
-  testfw->Commit();
+  testfw->CommitWork();
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
   VerifyTheCopy(copytest, FALSE, "minimum", copyminimum, TRUE);
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO NonrenamingCopytest()
@@ -178,36 +178,36 @@ MACRO NonrenamingCopytest()
   //Copy what we have, but don't use a renaming copy. Execution paths may differ
   DATETIME copyminimum := GetCurrentDatetime();
 
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   OBJECT copydest := firstfolder->CreateFolder( [ name := "copyreceiver" ]);
   OBJECT copytest := typetestfolder->CopyTo(copydest, "");
-  testfw->Commit();
+  testfw->CommitWork();
 
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
   VerifyTheCopy(copytest, FALSE, "minimum", copyminimum, TRUE);
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO ActionCopytest()
 {
   DATETIME copyminimum := GetCurrentDatetime();
 
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   OBJECT copydest := firstfolder->CreateFolder( [ name := "copyreceiver2" ]);
   OBJECT cm := NEW ObjectCopyMover("copy", copydest->id);
   cm->AddSourceById(typetestfolder->id);
   cm->Go(testfw->GetUserObject("sysop"));
-  testfw->Commit();
+  testfw->CommitWork();
 
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   VerifyTheCopy(copydest->OpenByName("typetest.1"), FALSE, "minimum", copyminimum, TRUE);
-  testfw->Commit();
+  testfw->CommitWork();
 
-  testfw->StartTrans("~webhare",FALSE);;
+  testfw->BeginWork();;
   OBJECT source2 := testfw->GetWHFSTestRoot2();
   copydest := firstfolder->CreateFolder( [ name := "copyreceiver3" ]);
 
@@ -216,7 +216,7 @@ MACRO ActionCopytest()
   cm->Go(testfw->GetUserObject("sysop"));
 
   TestEQ(TRUE, ObjectExists(copydest->OpenByName(source2->name)));
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO Archiving()
@@ -752,7 +752,7 @@ MACRO CompareFSItems(OBJECT expected, OBJECT actual, BOOLEAN is_root)
 
 MACRO ContentTypesCleanup()
 {
-  testfw->StartTrans("~webhare",FALSE);
+  testfw->BeginWork();
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
 
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", emptyversion);
@@ -760,7 +760,7 @@ MACRO ContentTypesCleanup()
   TestEq(0, GetNumSettings(testfile->id));
   TestEq(0, GetNumInstances(testfile->id));
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO OverwriteIndexDocWithHTML()

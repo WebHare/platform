@@ -5,7 +5,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 
 MACRO UpgradeTest()
 {
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
 
 
   OBJECT wrdschema := testfw->GetWRDSchema();
@@ -25,12 +25,12 @@ MACRO UpgradeTest()
                    ,`wrd:type.${wrdschema->^wrd_organization->id}.change`]),
                    SortArray(wrdschema->^wrd_relation->GetEventMasks()));
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO RelationTitleTest()
 {
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
 
   OBJECT wrdschema := testfw->GetWRDSchema();
   OBJECT wrdreltype := wrdschema->GetType("WRD_RELATION");
@@ -68,12 +68,12 @@ MACRO RelationTitleTest()
 
   TestEq(0, persontype->Search("WRD_TITLE","Pietje Puk"));
   TestEq(0, orgtype->Search("WRD_TITLE","Initech"));
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 MACRO SubPersonTest()
 {
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
 
   OBJECT wrdschema := testfw->GetWRDSchema();
   OBJECT wrdreltype := wrdschema->GetType("WRD_RELATION");
@@ -220,7 +220,7 @@ MACRO SubPersonTest()
   subpersontype->UpdateAttribute("COMMENT", [ tag := "RESCUED_COMMENT" ]);
   TestEq("Likes poetry", subpersontype->GetEntityFields(subpersonid,["*"]).rescued_comment);
 
-  testfw->Commit();
+  testfw->CommitWork();
 }
 
 RunTestframework ( [ PTR UpgradeTest

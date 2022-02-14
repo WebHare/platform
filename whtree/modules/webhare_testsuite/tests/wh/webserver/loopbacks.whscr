@@ -181,7 +181,7 @@ MACRO Setup()
   INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
          VALUES(testport.webserverid, "/webserver-beta-testing/deepererrors-gzonly/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/deepererrors-gzonly/", 2/*alt dir*/, testfile_diskbase);
 
-  testfw->Commit();
+  testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 
   betabaseurl := testport.baseurl || "webserver-beta-testing/";
@@ -235,7 +235,7 @@ MACRO TestFixCase()
   STRING nofixbaseurl := plainport.baseurl || "nofix/";
   STRING fixbaseurl := plainport.baseurl || "fix/";
 
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
 
 
   INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath,fixcase)
@@ -243,7 +243,7 @@ MACRO TestFixCase()
   INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath,fixcase)
          VALUES(plainport.webserverid, "/fix/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase, TRUE);
 
-  testfw->Commit();
+  testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 
   //basic testing, make sure case actually matters
@@ -330,7 +330,7 @@ MACRO TestVhostAlias()
   vhostport := testfw->CreateWebserverPort( [ virtualhosts := [ "server1.example.net","www.example.net" ], aliases := ["alias.example.net"], redirectingaliases := ["redirect.example.net"] ]); //create a port without an interface webserver
   securevhostport := testfw->CreateWebserverPort( [ secure_keyfile := mykeypair.keyname, virtualhosts := [ "secure1.example.net" ], redirectingaliases := ["secureredirect1.example.net"] ]); //create a port without an interface webserver
 
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
   FOREVERY(RECORD server FROM vhostport.webservers)
     INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
            VALUES(server.id, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
@@ -338,7 +338,7 @@ MACRO TestVhostAlias()
     INSERT INTO system.access(webserver, path, matchtype,errorpath, hostingsrc, hostingpath)
            VALUES(server.id, "/webserver-beta-testing/", 1/*initial*/,GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/", 2/*alt dir*/, testfile_diskbase);
 
-  testfw->Commit();
+  testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 
   browser->SetHostnameOverride("server1.example.net", "127.0.0.1");
@@ -626,9 +626,9 @@ MACRO TestIPChecks() //combine IP filtering and x-forwarded-for checking
     TestEq(404, browser->GetHTTPStatus().code);
   }
 
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
   UpdateXforwardedFor(FALSE);
-  testfw->Commit();
+  testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 }
 MACRO TestUserChecks()
@@ -988,7 +988,7 @@ redirect stuk
 */
   testport := testfw->GetLocalhostWebinterface();
 
-  testfw->StartTrans("~webhare", FALSE);
+  testfw->BeginWork();
 
   INSERT INTO system.access(webserver, path, matchtype, hostingsrc, hostingpath)
          VALUES(testport.webserverid, "/webserver-beta-testing/redirectbase/", 1/*initial*/, 5/*redirect with subs*/,
@@ -1016,7 +1016,7 @@ redirect stuk
                 betabaseurl_lowercase || "redirectdest/");
 
 
-  testfw->Commit();
+  testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 
   TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase/"));
