@@ -1066,7 +1066,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   {
     OBJECT node := blocknode;
 
-    // Ensure the textstyles are in de canonical order
+    // Ensure the textstyles are in the canonical order
     textstyles := SELECT * FROM textstyles ORDER BY SearchElement(textstyletags, nodename);
 
     INTEGER pos := 0;

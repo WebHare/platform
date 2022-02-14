@@ -9,7 +9,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 
-RECORD ARRAY FUNCTION GetMetaDocEntityDescriptors(RECORD root)
+PUBLIC RECORD ARRAY FUNCTION GetMetaDocEntityDescriptors(RECORD root)
 {
   IF (root.type = "EntityDescriptor")
     RETURN [ root ];

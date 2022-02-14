@@ -117,26 +117,9 @@ export function focus(node, options)
   return true;
 }
 
-/** A scrollintoview implementation that allows the scroll to be intercepted
-    @return False if the event was cancelled, true otherwise */
+/** Deprecated, invoke scrollIntoView directly  on the nodes */
 export function scrollIntoView(node, options)
 {
-  options = {...options};
-  let debugusingflag = options.debugusingflag;
-  delete options.debugusingflag; //too bad we don't have destructuring yet ...
-
-  if(debugusingflag)
-    console.log(`[${debugusingflag}] dompack:scrollintoview event for node`,node,'at',getRect(node) ,'with options',options,' passed on to browser');
-
-  if(!domevents.dispatchCustomEvent(node, 'dompack:scrollintoview', { bubbles: true, cancelable: true, detail: {options} }))
-  {
-    if(debugusingflag)
-      console.log(`[${debugusingflag}] dompack:scrollintoview event was cancelled`);
-    return false; //NOTE we used to return true if intereceptd or undefined if not, but the value was undocumented and it didn't really make sense that way... so now DOCUMTEND and FALSE...
-  }
-
-  if(debugusingflag)
-    console.log(`[${debugusingflag}] dompack:scrollintoview event default action: node.scrollIntoView`);
   node.scrollIntoView(options);
   return true;
 }

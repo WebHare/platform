@@ -12,7 +12,6 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 
-
 STRING FUNCTION AddParam(STRING baseurl, STRING param, STRING value)
 {
   baseurl := baseurl
@@ -24,6 +23,10 @@ STRING FUNCTION EncodeURLGitlab(STRING project)
 {
   RETURN Substitute(EncodeURL(project),'/','%2F');
 }
+
+CONSTANT RECORD gitlab_myselfstructure :=
+    [ is_admin := FALSE
+    ];
 
 CONSTANT RECORD gitlab_notestructure :=
     [ id := 0
@@ -75,8 +78,9 @@ CONSTANT RECORD gitlab_customattribute :=
 PUBLIC STATIC OBJECTTYPE GitLabAPI
 <
   PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+  PUBLIC PROPERTY lastcallresult(this->_lastcallresult,-);
 
-  RECORD pvt_lasteresult;
+  RECORD _lastcallresult;
   OBJECT browser;
 
   STRING pvt_token;
@@ -105,7 +109,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
                                         );
   }
 
-  PUBLIC RECORD FUNCTION SendModifyingRequest(STRING method, STRING url, RECORD ARRAY vars, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC VARIANT FUNCTION SendModifyingRequest(STRING method, STRING url, RECORD ARRAY vars DEFAULTSTO RECORD[], RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ maperrorcodes := DEFAULT RECORD
                                ], options);
@@ -143,7 +147,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
   */
   RECORD FUNCTION GetCallResult()
   {
-    this->pvt_lasteresult :=
+    this->_lastcallresult :=
       [ statuscode := this->browser->GetHTTPStatusCode()/// Note that for POST 201 is success.
       , statustext := this->browser->GetHTTPStatusText()
       , success := this->browser->GetHTTPStatusCode() IN [ 200, 201, 304 ]
@@ -153,7 +157,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
       , json := DecodeJSONBlob(this->browser->content)
       , numpages := ToInteger(this->browser->GetResponseHeader("X-Total-Pages"),0)
       ];
-    RETURN this->pvt_lasteresult;
+    RETURN this->_lastcallresult;
   }
 
   RECORD ARRAY FUNCTION GetOutputJSON()
@@ -238,14 +242,14 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     RETURN res.json;
   }
 
-  PUBLIC STRING FUNCTION EncodeURLProject(STRING project)
+  PUBLIC STRING FUNCTION EncodeURLGitlab(STRING project)
   {
     RETURN EncodeURLGitlab(project);
   }
 
   PUBLIC RECORD FUNCTION GetMyself()
   {
-    RETURN this->GetResource(`user`);
+    RETURN EnforceStructure(gitlab_myselfstructure, this->GetResource(`user`));
   }
 
   PUBLIC VARIANT FUNCTION GetProjectResource(STRING project, STRING subpath, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -269,6 +273,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     RETURN EnforceStructure([gitlab_milestonestructure], this->GetProjectresource(project, "milestones"));
   }
 
+  //https://docs.gitlab.com/ee/api/issues.html#list-issues
   PUBLIC RECORD ARRAY FUNCTION SearchIssues(RECORD searchoptions, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     searchoptions := ValidateOptions(
@@ -276,6 +281,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
         , search :=   ""
         , scope :=    "all"
         , updated_after := DEFAULT DATETIME
+        , non_archived := TRUE
         ], searchoptions);
 
     STRING url := UpdateURLVariables("issues", CELL[ searchoptions.search, searchoptions.scope ]);
@@ -284,6 +290,9 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
 
     FOREVERY (INTEGER iid FROM searchoptions.iids)
       url := AddVariableToURL(url, "iids[]", ToString(iid));
+
+    IF(NOT searchoptions.non_archived)
+      url := UpdateURLVariables(url, [ non_archived := "false" ]);
 
     RETURN EnforceStructure([gitlab_issuestructure], this->GetResource(url, options));
   }
@@ -406,6 +415,12 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
                                    ,[ name := "cron_timezone", value := cron_timezone ]
                                    ]
                                  );
+  }
+
+  /** Delete a scheduled pipeline */
+  PUBLIC MACRO DeleteSchedule(STRING projectpath, INTEGER id)
+  {
+    this->SendModifyingRequest('DELETE', `projects/${EncodeURLGitlab(projectpath)}/pipeline_schedules/${id}`);
   }
 
   PUBLIC MACRO EditProject(STRING projectpath, RECORD newsettings)
