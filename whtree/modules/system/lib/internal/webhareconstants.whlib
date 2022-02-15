@@ -11,6 +11,12 @@ PUBLIC CONSTANT STRING ARRAY whconstant_builtinmodules := ["system", "wrd", "con
 PUBLIC CONSTANT INTEGER whconstant_oauthtoken_validuntil := 5 * 60 * 60 * 1000;
 PUBLIC CONSTANT INTEGER whconstant_oauthoken_days := 30;
 
+//Folder/site id of the Repository site
+PUBLIC CONSTANT INTEGER whconstant_whfsid_repository := 1;
+
+//Folder/site id of Lost & Found, a Repository site folder
+PUBLIC CONSTANT INTEGER whconstant_whfsid_lostandfound := 6;
+
 //Folder id for webhare-private/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private := 10;
 
@@ -20,8 +26,20 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_versions := 11;
 //Folder id for webhare-private/wrd
 PUBLIC CONSTANT INTEGER whconstant_whfsid_wrdstore := 13;
 
+//Folder id storing autosaves
+PUBLIC CONSTANT INTEGER whconstant_whfsid_autosaves := 14;
+
 //Folder id for webhare-private/system/whfs-drafts
-PUBLIC CONSTANT INTEGER whconstant_whfsid_publicdrafts := 15;
+PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
+
+//Folder/site id of the WebHare Backend site
+PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
+
+//Folder id for webhare-private/system/whfs-versionhistory
+PUBLIC CONSTANT INTEGER whconstant_whfsid_versionhistory := 17;
+
+//Folder id for webhare-private/system/whfs-versionarchive
+PUBLIC CONSTANT INTEGER whconstant_whfsid_versionarchive := 18;
 
 //Folder id for webhare-private/system/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private_system := 19;
@@ -35,26 +53,8 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_private_rootsettings := 21;
 //Folder id for webhare-tests (created by testframework on first run)
 PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 
-//Folder/site id of the Repository site
-PUBLIC CONSTANT INTEGER whconstant_whfsid_repository := 1;
-
-//Folder/site id of Lost & Found, a Repository site folder
-PUBLIC CONSTANT INTEGER whconstant_whfsid_lostandfound := 6;
-
-//Folder id storing autosaves
-PUBLIC CONSTANT INTEGER whconstant_whfsid_autosaves := 14;
-
-//Folder id storing drafts
-PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
-
-//Folder/site id of the WebHare Backend site
-PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
-
-//Folder id for webhare-private/system/whfs-versionhistory
-PUBLIC CONSTANT INTEGER whconstant_whfsid_versionhistory := 17;
-
-//Folder id for webhare-private/system/whfs-versionarchive
-PUBLIC CONSTANT INTEGER whconstant_whfsid_versionarchive := 18;
+//Folder id for webhare-private/system/shorturl
+PUBLIC CONSTANT INTEGER whconstant_whfsid_shorturl := 23;
 
 //Default key expiry warning (days)
 PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 21;
@@ -76,6 +76,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_normalfolder := 0;
 
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/systemfolder
 PUBLIC CONSTANT INTEGER whconstant_whfstype_systemfolder := 2;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/externallink
+PUBLIC CONSTANT INTEGER whconstant_whfstype_externallink := 18;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/internallink
+PUBLIC CONSTANT INTEGER whconstant_whfstype_internallink := 19;
 
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/contentlink
 PUBLIC CONSTANT INTEGER whconstant_whfstype_contentlink := 20;
