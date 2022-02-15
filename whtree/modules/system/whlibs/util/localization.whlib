@@ -72,6 +72,7 @@ BOOLEAN FUNCTION __ICU_IsLocalTimeDST(DATETIME value, STRING zoneid) __ATTRIBUTE
 BOOLEAN FUNCTION __ICU_IsWeekend(DATETIME value, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 STRING FUNCTION __ICU_GetTimeZoneDisplay(STRING timezone, BOOLEAN dst, INTEGER style, STRING locale) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 STRING FUNCTION __ICU_GetSystemTimeZone() __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
+STRING FUNCTION __ICU_GetTimeZoneIDForWindowsID(STRING zoneid, STRING region) __ATTRIBUTES__(EXTERNAL "wh_icu", CONSTANT);
 
 
 PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
@@ -901,6 +902,33 @@ STRING timezone := GetSystemTimeZoneID();
 PUBLIC STRING FUNCTION GetSystemTimeZoneID()
 {
   RETURN __ICU_GetSystemTimeZone();
+}
+
+
+
+/** @short   Convert a Windows time zone name to a localization time zone name
+    @param   timezone The Windows time zone name, note that this name is case sensitive
+    @param   region Optional region, may affect the the returned time zone (see examples)
+    @return  The time zone name
+    @example
+// timezone1 = "Europe/Berlin"
+timezone1 := GetTimeZoneIDForWindowsID("W. Europe Standard Time");
+
+// timezone2 = "" (lower case doesn't match)
+timezone2 := GetTimeZoneIDForWindowsID("w. europe standard time");
+
+// timezone3 = "America/Los_Angeles"
+timezone3 := GetTimeZoneIDForWindowsID("Pacific Standard Time", "US");
+
+// timezone4 = "America/Los_Angeles" (default for PST without region)
+timezone4 := GetTimeZoneIDForWindowsID("Pacific Standard Time");
+
+// timezone5 = "America/Vancouver"
+timezone5 := GetTimeZoneIDForWindowsID("Pacific Standard Time", "CA");
+*/
+PUBLIC STRING FUNCTION GetTimeZoneIDForWindowsID(STRING timezone, STRING region DEFAULTSTO "")
+{
+  RETURN __ICU_GetTimeZoneIDForWindowsID(timezone, region);
 }
 
 

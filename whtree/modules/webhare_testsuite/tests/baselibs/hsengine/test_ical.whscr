@@ -20,6 +20,7 @@ MACRO TestIcal_Parser()
   TestEq(FALSE, events[0].allday);
   TestEq(MakeDateTime(2011,10,6,11,0,0), events[0].dtstart);
   TestEq(MakeDateTime(2011,10,10,14,0,0), events[0].dtend);
+  TestEq("Europe/Berlin", events[0].timezone); // The Windows "W. Europe Standard Time" is converted to tzdb "Europe/Berlin"
 
   TestEq("Dit is de omschrijving. beschikbaarbeid is \'beschikbaar\'", events[1].description);
   TestEq("Testje (all day)", events[1].summary);
@@ -28,11 +29,13 @@ MACRO TestIcal_Parser()
   TestEq(MakeDate(2011,9,30), events[1].dtstart);
   TestEq(MakeDate(2011,10,1), events[1].dtend);
   TestEq("Locatie", events[1].location);
+  TestEq("UTC", events[1].timezone);
 
   TestEq("Beschrijving. Beschikbaarheid is \'bezet\'", events[2].description);
   TestEq("Onderwerp op zondag", events[2].summary);
   TestEq("52a68867-cc98-420a-bd45-e370098e4bdc", events[2].uid);
   TestEq(FALSE, events[2].allday);
+  TestEq("Europe/Berlin", events[2].timezone); // The Windows "W. Europe Standard Time" is converted to tzdb "Europe/Berlin"
 
   CloseTest("TestIcal_Parser");
 }
@@ -230,6 +233,11 @@ DTSTART;TZID=America/New_York:20000101T123456\r
 END:VEVENT\r
 END:VCALENDAR\r
 `, timezonecalendar);
+  // Check decoding of time zone identifiers
+  RECORD ARRAY events := DecodeICalCalendar(timezonecalendar);
+  TestEq(2, Length(events));
+  TestEq("Europe/Amsterdam", events[0].timezone);
+  TestEq("America/New_York", events[1].timezone);
   // If no time zone is specified, UTC is assumed and to time zone information is added
   timezonecalendar := EncodeICalCalendar([ [ dtstart := date ] ]);
   TestEq(`BEGIN:VCALENDAR\r

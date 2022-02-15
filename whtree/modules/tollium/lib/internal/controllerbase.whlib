@@ -21,9 +21,10 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -3134,6 +3135,22 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
         IF(debug_logcontroller)
           LogDebug("tollium:controller", "Unable to find target window");
+      }
+
+      CASE "$devhook"
+      {
+        SWITCH (todd_request.param.action)
+        {
+          CASE "openineditor"
+          {
+            RECORD resolved := ResolveComponentPath(todd_request.param.screen, todd_request.param.componentpath);
+            IF (RecordExists(resolved))
+            {
+              // Don't supply contexts, so the launch call won't be resent to the client again
+              LaunchOpenInEditor(DEFAULT OBJECT, resolved.resourcename, CELL[ resolved.line, resolved.col ]);
+            }
+          }
+        }
       }
 
       CASE "$appmessage"

@@ -80,15 +80,15 @@ async function openAsset(action, item, data)
     let maskedpassword = webdavinfo.password.replace(/[^-]/g, "*"); //replace all nondashes with *
     console.log(`[whc] Requesting item '${webdavinfo.item}', login '${webdavinfo.login}', password: '${maskedpassword}', url: '${mounturl}'`, webdavinfo.data);
   }
-  await postToConnect({ method: 'openAsset'
-                      , type: action
-                      , item: webdavinfo.item
-                      , login: webdavinfo.login
-                      , password: webdavinfo.password
-                      , data: webdavinfo.data
-                      , url: mounturl
-                      , localdata: webdavinfo.localdata
-                    });
+  return await postToConnect({ method: 'openAsset'
+                             , type: action
+                             , item: webdavinfo.item
+                             , login: webdavinfo.login
+                             , password: webdavinfo.password
+                             , data: webdavinfo.data
+                             , url: mounturl
+                             , localdata: webdavinfo.localdata
+                           });
 }
 
 export async function postToConnect(msg)
@@ -132,14 +132,14 @@ export async function openInEditor(target, locationinfo)
 {
   if(dompack.debugflags.whc)
     console.log(`[whc] Requesting open in editor for ${target}`,locationinfo);
-  await openAsset('editor', target, locationinfo);
+  return await openAsset('editor', target, locationinfo);
 }
 
 export async function revealInFinder(folder)
 {
   if(dompack.debugflags.whc)
     console.log(`[whc] Requesting reveal for ${folder}`);
-  await openAsset('reveal', folder);
+  return await openAsset('reveal', folder);
 }
 
 //for development,debugging

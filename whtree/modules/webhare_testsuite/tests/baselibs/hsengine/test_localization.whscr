@@ -470,6 +470,11 @@ MACRO TimeZoneTests()
   TestEq("", (SELECT AS STRING code FROM GetAvailableTimeZones() WHERE tz = "Asia/Kathmandu"));
   TestEq("NP", (SELECT AS STRING code FROM GetAvailableTimeZones() WHERE tz = GetCanonicalTimeZoneID("Asia/Kathmandu")));
 
+  // Convert Windows timezone identifiers to tzdb ids
+  TestEQ("Europe/Berlin", GetTimeZoneIDForWindowsID("W. Europe Standard Time", ""));
+  TestEQ("America/Los_Angeles", GetTimeZoneIDForWindowsID("Pacific Standard Time", "US"));
+  TestEQ("America/Vancouver", GetTimeZoneIDForWindowsID("Pacific Standard Time", "CA"));
+
   // In the Dutch locale, the weekend starts at Saturday 0:00 and ends at Monday 0:00
   TestEq(FALSE, IsWeekend(MakeDateTime(2015, 6, 19, 23, 59, 59), "nl"));
   TestEq(TRUE,  IsWeekend(MakeDate(2015, 6, 20), "nl"));

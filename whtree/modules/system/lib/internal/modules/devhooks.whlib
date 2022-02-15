@@ -30,5 +30,5 @@ PUBLIC MACRO LaunchOpenInEditor(OBJECT parent, STRING resourcepath, RECORD optio
                              , col := 1
                              , closewindow := FALSE //a 'hack' used by the the error page
                              ], options);
-  RunModuleHookTarget("system:devtools_openreveal", CELL[ parent->contexts, resourcepath, options.col, options.line, options.closewindow, openineditor := TRUE ]);
+  RunModuleHookTarget("system:devtools_openreveal", CELL[ contexts := ObjectExists(parent) ? parent->contexts : DEFAULT OBJECT, resourcepath, options.col, options.line, options.closewindow, openineditor := TRUE ]);
 }

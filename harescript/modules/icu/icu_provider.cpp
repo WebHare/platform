@@ -1135,6 +1135,21 @@ void GetSystemTimeZone(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_StringSetUnicode(hsvm, id_set, zoneid);
 }
 
+void GetIDForWindowsID(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_String);
+
+        UnicodeString winid = HSVM_StringGetUnicode(hsvm, HSVM_Arg(0));
+        std::string region = HSVM_StringGetSTD(hsvm, HSVM_Arg(1));
+        UnicodeString id;
+        UErrorCode status = U_ZERO_ERROR;
+        TimeZone::getIDForWindowsID(winid, region.c_str(), id, status);
+        if (U_FAILURE(status))
+            return;
+
+        HSVM_StringSetUnicode(hsvm, id_set, id);
+}
+
 } // End of namespace ICU
 } // End of namespace HareScript
 
@@ -1193,6 +1208,7 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void *)
         HSVM_RegisterFunction(regdata, "__ICU_ISLOCALTIMEDST:WH_ICU:B:DS", HareScript::ICU::IsLocalTimeDST);
         HSVM_RegisterFunction(regdata, "__ICU_ISWEEKEND:WH_ICU:B:DS", HareScript::ICU::IsWeekend);
         HSVM_RegisterFunction(regdata, "__ICU_GETSYSTEMTIMEZONE:WH_ICU:S:", HareScript::ICU::GetSystemTimeZone);
+        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDFORWINDOWSID:WH_ICU:S:SS", HareScript::ICU::GetIDForWindowsID);
 
         // Register contexts
         HSVM_RegisterContext (regdata, HareScript::ICU::ContextId, NULL, &CreateContext, &DestroyContext);

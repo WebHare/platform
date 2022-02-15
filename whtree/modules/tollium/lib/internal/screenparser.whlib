@@ -2337,3 +2337,31 @@ PUBLIC RECORD FUNCTION GetParsedPage(STRING resource, STRING resourcetype)
   RETURN page;
 }
 
+PUBLIC RECORD FUNCTION ResolveComponentPath(STRING screenref, STRING ARRAY componentpath)
+{
+  //Look up the component in 'screenref'
+  STRING resourcename := GetResourceNameFromScreenPath(screenref);
+  STRING screenname := GetScreenNameFromSCreenPath(screenref);
+  RECORD docinfo := RetrieveCachedXMLResource(resourcename);
+  RECORD parsedpage := ParseXMLPage(resourcename, screenname, "screen", docinfo.doc, "", FALSE);
+
+  IF(NOT RecordExists(parsedpage))
+    THROW NEW Exception(`Did not find screen ${screenname} in ${resourcename}`);
+
+  RECORD match;
+  FOREVERY(STRING trycomponent FROM componentpath)
+  {
+    trycomponent := Tokenize(trycomponent,':')[1];
+    match := SELECT * FROM parsedpage.formobjects WHERE fullname = trycomponent;
+    IF(RecordExists(match))
+      BREAK;
+  }
+  IF(NOT RecordExists(match))
+    match := SELECT * FROM parsedpage.formobjects WHERE fullname = 'frame';
+
+  RETURN CELL
+      [ match.data.tolliumscope.resourcename
+      , match.data.tolliumscope.line
+      , match.data.tolliumscope.col
+      ];
+}
