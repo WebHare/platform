@@ -127,7 +127,7 @@ RECORD FUNCTION AddMessage(RECORD retval, STRING type, STRING filename, OBJECT n
 RECORD FUNCTION ParseRestApi(RECORD retval, OBJECT rulenode, STRING baseresource)
 {
   retval.rule.errorpath := "mod::system/web/errors-restapi";
-  retval.rule.matchtype := 1; //iniital
+  retval.rule.matchtype := 1; //initial
   retval.rule.datastorage :=
     [ [ isfolder :=     FALSE
       , resource :=     "mod::system/scripts/internal/restapi.shtml"

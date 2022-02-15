@@ -1,0 +1,127 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::publisher/lib/shorturl.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
+{
+  testfw->BeginWork();
+
+  STRING added := AddWebserver("https://ephemeral.bea.gl/");
+  OBJECT testdomain := CreateShortURLDomain("ephemeral.bea.gl", [ baseurl := "https://ephemeral.bea.gl/eph-shorturls/" ]);
+
+  OBJECT testdomainobject := OpenWHFSObjectByPath(`/webhare-private/system/shorturl/ephemeral.bea.gl`);
+
+  RECORD config := DownloadWebserverConfig();
+  RECORD ephemeralhost := SELECT * FROM config.hosts WHERE CellExists(hosts,'baseurl') AND baseurl = "https://ephemeral.bea.gl/";
+  RECORD beaglrule := SELECT * FROM config.rules WHERE path = "/eph-shorturls/" AND ephemeralhost.id IN limitservers;
+  TestEqLike("*/shorturl.shtml", beaglrule.datastorage.resource);
+  TestEq([ type := "eph-shorturls", id := testdomainobject->id ], beaglrule.ruledata);
+
+  testfw->RollbackWork();
+}
+
+MACRO Cleanup()
+{
+  testfw->BeginWork();
+  FOREVERY(STRING toclean FROM ["test.bea.gl","test2.bea.gl"])
+  {
+    OBJECT testdomain := OpenShortURLDomain(toclean, [ allowmissing := TRUE]);
+    IF(ObjectExists(testdomain))
+      testdomain->DeleteSelf();
+  }
+  testfw->CommitWork();
+}
+
+PUBLIC MACRO TestShortURLAPI()
+{
+  //Randomizing URL to make sure the webserver refresh actually worked
+  STRING suburl_append := "testoutput/webhare_testsuite.shorturl." || GenerateUFS128BitId();
+  testfw->BeginWork();
+
+  TestThrowsLike("*No such*test.bea.gl*", PTR OpenShortURLDomain("test.bea.gl"));
+  TestThrowsLike("*Invalid*", PTR CreateShortURLDomain("test/beagle"));
+  TestThrowsLike("*must end*", PTR CreateShortURLDomain("test.bea.gl", [ baseurl := GetPrimaryWebhareInterfaceURL() || suburl_append ]));
+  OBJECT testdomain := CreateShortURLDomain("test.bea.gl", [ baseurl := GetPrimaryWebhareInterfaceURL() || suburl_append || "/" ]);
+  TestEq("test.bea.gl", testdomain->domain);
+  TestThrowsLike("*already exists*", PTR CreateShortURLDomain("test.bea.gl"));
+  TestEq("test.bea.gl", OpenShortURLDomain("TEst.BEA.GL")->domain);
+  TestEq(GetPrimaryWebhareInterfaceURL() || suburl_append || "/", testdomain->baseurl);
+
+  TestEq(RECORD[], testdomain->ListShortURLs());
+
+  RECORD firstlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ description := "D1" ]);
+  TestEq(TRUE, firstlink.isnew);
+  TestEq(7, Length(firstlink.shortname));
+
+  //Verify the link object
+  OBJECT firstlinkobject := OpenWHFSObjectByPath(`/webhare-private/system/shorturl/test.bea.gl/${firstlink.shortname}`);
+  TestEq(TRUE, firstlinkobject->publish);
+
+  RECORD firstlink_reused := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id);
+  TestEq(FALSE, firstlink_reused.isnew);
+  TestEq(firstlink.shortname, firstlink_reused.shortname);
+  TestEq("D1", testdomain->GetShortURL(firstlink_reused.shortname).description);
+
+  RECORD forcednewlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ forcenew := TRUE ]);
+  TestEq(TRUE, forcednewlink.isnew);
+  TestEq(TRUE, firstlink.shortname != forcednewlink.shortname);
+
+  RECORD anchorlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ append := "?sublink" ]);
+  TestEq(TRUE, anchorlink.isnew);
+
+  RECORD anchorlink_reused := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ append := "?sublink" ]);
+  TestEq(FALSE, anchorlink_reused.isnew);
+  TestEq(TRUE, firstlink.shortname != forcednewlink.shortname);
+
+  TestEqMembers([ [ shortname := firstlink.shortname,    shorturl := testdomain->baseurl || firstlink.shortname ]
+                , [ shortname := forcednewlink.shortname ]
+                , [ shortname := anchorlink.shortname ]
+                ], (SELECT * FROM testdomain->ListShortURLs() ORDER BY creationdate), "*");
+
+  RECORD overwrite_forcednewlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := forcednewlink.shortname ]);
+  TestEq(FALSE, overwrite_forcednewlink.isnew);
+  TestEq(forcednewlink.shortname, overwrite_forcednewlink.shortname);
+
+  TestThrowsLike(`Invalid shortname*`, PTR testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "/sublink" ]));
+
+  TestEq(FALSE, RecordExists(testdomain->GetShortURL("selfnamed")));
+  RECORD selfnamed_newlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "SelfNamed" ]);
+  TestEq(TRUE, selfnamed_newlink.isnew);
+  TestEq("SelfNamed", selfnamed_newlink.shortname);
+  TestEq(testdomain->baseurl || "SelfNamed", selfnamed_newlink.shorturl);
+  TestEq(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->link, selfnamed_newlink.targeturl);
+  TestEq(CELL[...selfnamed_newlink, DELETE isnew], testdomain->GetShortURL("selfnamed"));
+
+
+  RECORD selfnamed_reusedlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "selfnamed" ]);
+  TestEq(FALSE, selfnamed_reusedlink.isnew);
+  TestEq("selfnamed", selfnamed_reusedlink.shortname);
+
+  RECORD selfnamed2_newlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "selfnamed2" ]);
+  TestEq(TRUE, selfnamed2_newlink.isnew);
+  TestEq("selfnamed2", selfnamed2_newlink.shortname);
+
+  TestThrowsLike(`*lready exists*`, PTR testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "selfnamed2", forcenew := TRUE ]));
+
+  testfw->CommitWork();
+
+  testfw->browser->autofollow := FALSE;
+  TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
+  TestEq(firstlink.targeturl, testfw->browser->GetResponseHeader("Location"));
+  TestEq(302, testfw->browser->GetHTTPStatusCode());
+}
+
+RunTestFramework([ PTR TestShortURLAPIDry
+                 , PTR Cleanup
+                 , PTR TestShortURLAPI
+                 ]);

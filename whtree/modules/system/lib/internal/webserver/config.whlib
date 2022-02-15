@@ -598,6 +598,46 @@ OBJECTTYPE WebConfigBuilder
     RETURN datastorage;
   }
 
+  RECORD ARRAY FUNCTION GenerateShortURLConfig(RECORD ARRAY hosts)
+  {
+    OBJECT shorturltype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
+    IF(NOT ObjectExists(shorturltype))
+      RETURN RECORD[];
+
+    RECORD ARRAY shorturlfolders := SELECT id, name FROM system.fs_objects WHERE type = shorturltype->id AND parent = whconstant_whfsid_shorturl;
+    shorturlfolders := shorturltype->Enrich(shorturlfolders, "ID", ["BASEURL"]);
+    shorturlfolders := SELECT * FROM shorturlfolders WHERE baseurl != "";
+
+    RECORD ARRAY newrules;
+    FOREVERY(RECORD shorturlfolder FROM shorturlfolders)
+    {
+      RECORD matchhost := SELECT * FROM hosts WHERE shorturlfolder.baseurl LIKE baseurl || "*";
+      IF(NOT RecordExists(matchhost))
+      {
+        INSERT [ source := "shorturl domain " || shorturlfolder.name
+               , error := `Cannot find matching webserver to host shorturl domain '${shorturlfolder.name}'`
+               ] INTO this->errors AT END;
+        CONTINUE;
+      }
+
+      // Setup script to handle this shorturl
+      RECORD shorturlrule := this->GetBaseRule("/" || UnpackURL(shorturlfolder.baseurl).urlpath, webrulepriority_default, "shorturl domain " || shorturlfolder.name);
+      shorturlrule.ruledata := CELL[ type := "eph-shorturls", shorturlfolder.id ];
+      shorturlrule.matchtype := 1; //initial
+      shorturlrule.limitservers := INTEGER[matchhost.id];
+      shorturlrule.datastorage :=
+        [ [ isfolder :=     FALSE
+          , resource :=     "mod::publisher/web/shorturl.shtml"
+          , method :=       "direct"
+          ]
+        ];
+
+      INSERT shorturlrule INTO newrules AT END;
+    }
+
+    RETURN newrules;
+  }
+
   RECORD ARRAY FUNCTION GenerateSiteprofileConfig(INTEGER ARRAY interfacehosts, RECORD ARRAY hosts)
   {
     RECORD csp := GetCachedSiteProfiles();
@@ -977,7 +1017,8 @@ OBJECTTYPE WebConfigBuilder
                CONCAT this->GeneratePreloadRules(interfacehosts)
                CONCAT access
                CONCAT this->GenerateModuleConfig(interfacehosts, hosts)
-               CONCAT this->GenerateSiteprofileConfig(interfacehosts, hosts);
+               CONCAT this->GenerateSiteprofileConfig(interfacehosts, hosts)
+               CONCAT this->GenerateShortURLConfig(hosts);
       rules := this->LookupDataStoragePaths(rules, hosts);
     }
 
@@ -1008,6 +1049,7 @@ OBJECTTYPE WebConfigBuilder
                                   , apispec :=            CellExists(rules, "APISPEC") ? apispec : ""
                                   , accounts
                                   , datastorage
+                                  , ruledata
                                   ]
                FROM rules
            ORDER BY priority // priority overrides win

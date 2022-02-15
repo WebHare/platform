@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD FUNCTION LookupShortURL(INTEGER urlset, STRING findname)
+{
+  OpenPrimary();
+  RECORD match := SELECT id, link FROM system.fs_objects WHERE parent = urlset AND ToUppercase(name) = ToUppercase(findname);
+  STRING desturl;
+
+  IF(RecordExists(match))
+  {
+    desturl := match.link;
+  }
+
+  RETURN CELL[ value := desturl
+             , ttl := 60000
+             , eventmasks := OpenWHFSObject(RecordExists(match) ? match.id : urlset)->GetEventMasks()
+             ];
+}
+
+RECORD rd := SELECT *
+               FROM GetWebHareAccessRules()
+              WHERE CellExists(data.ruledata,'type') AND data.ruledata.type = "eph-shorturls";
+
+IF(NOT RecordExists(rd)) //we got a match on shorturl.shtml but no shorturl config...
+  AbortWithHTTPError(500);
+
+INTEGER shorturlset := rd.data.ruledata.id;
+STRING findshortname := Substring(UnpackURL(GetRequestURL()).urlpath, Length(rd.data.path)-1);
+
+
+//Adhoccache/ratelimit to reduce DB hits?
+STRING desturl := GetAdhocCached(CELL[ shorturlset, shortname := findshortname ], PTR LookupShortURL(shorturlset,findshortname));
+IF(desturl = "")
+  AbortWithHTTPError(404);
+
+Redirect(desturl,302);

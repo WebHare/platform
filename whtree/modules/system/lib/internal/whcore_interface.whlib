@@ -36,6 +36,7 @@ PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
          , vars :=                      DEFAULT RECORD
          , apispec :=                   ""
          , priority :=                  0
+         , ruledata :=                  DEFAULT RECORD
          ];
 
 PUBLIC CONSTANT RECORD __whs_basedatastoragerecord  :=
