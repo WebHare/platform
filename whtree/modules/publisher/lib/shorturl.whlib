@@ -43,24 +43,57 @@ STATIC OBJECTTYPE ShortURLDomain
     OpenWHFSObject(this->folder.id)->RecycleSelf();
   }
 
+  RECORD FUNCTION __BuildShortURLReturn(RECORD shortlink)
+  {
+    RECORD target := shortlink.type = whconstant_whfstype_externallink
+        ? MakeIntExtExternalLink(shortlink.externallink)
+        : MakeIntExtInternalLink(shortlink.filelink, shortlink.externallink);
+
+    RETURN CELL[ shortlink.id
+               , shortname := shortlink.name
+               , shorturl := this->baseurl != "" ? this->baseurl || shortlink.name : ""
+               , shortlink.description
+               , target
+               , targeturl := GetIntextlinkTarget(target)
+               ];
+  }
+
   /* @return Get shorturl settings
-     @param shortname Short name to look up
+     @param id URL to look up
+     @cell(integer) return.id Short link id
      @cell(string) return.shortname Short name used for the link (in the actual stored case)
      @cell(string) return.description Short link Descirption
   */
-  PUBLIC RECORD FUNCTION GetShortUrl(STRING shortname)
+  PUBLIC RECORD FUNCTION GetShortUrl(INTEGER id)
   {
-    RECORD shortlink := SELECT id, name, link, description
+    RECORD shortlink := SELECT name, description, type, filelink, externallink
+                          FROM system.fs_objects
+                         WHERE parent = this->folder.id
+                               AND fs_objects.id = VAR id;
+
+    IF(NOT RecordExists(shortlink))
+      RETURN DEFAULT RECORD;
+
+    RETURN this->__BuildShortURLReturn(CELL[...shortlink, id]);
+  }
+
+  /* @return Get shorturl settings
+     @param shortname Short name to look up
+     @cell(integer) return.id Short link id
+     @cell(string) return.shortname Short name used for the link (in the actual stored case)
+     @cell(string) return.description Short link Descirption
+  */
+  PUBLIC RECORD FUNCTION GetShortUrlByName(STRING shortname)
+  {
+    RECORD shortlink := SELECT id, name, description, type, filelink, externallink
                           FROM system.fs_objects
                          WHERE parent = this->folder.id
                                AND ToUppercase(name) = ToUppercase(VAR shortname);
+
     IF(NOT RecordExists(shortlink))
       RETURN DEFAULT RECORD;
-    RETURN CELL[ shortname := shortlink.name
-               , shorturl := this->baseurl != "" ? this->baseurl || shortlink.name : ""
-               , shortlink.description
-               , targeturl := shortlink.link //this won't work as soon as publish = FALSE ... but will this actually ocur and what does this even mean ?
-               ];
+
+    RETURN this->__BuildShortURLReturn(shortlink);
   }
 
   /** @short Get all short urls stored in source folder
@@ -68,10 +101,13 @@ STATIC OBJECTTYPE ShortURLDomain
   */
   PUBLIC RECORD ARRAY FUNCTION ListShortURLs()
   {
-    RETURN SELECT shortname := name
+    RETURN SELECT id
+                , shortname := name
                 , shorturl := this->baseurl || name
                 , targeturl  := link
                 , creationdate
+                , description
+                , modifiedby
              FROM system.fs_objects
             WHERE parent = this->folder.id
                   AND type IN [ whconstant_whfstype_externallink, whconstant_whfstype_internallink ];
@@ -175,14 +211,58 @@ STATIC OBJECTTYPE ShortURLDomain
     IF(CellExists(options, 'description'))
       INSERT CELL description := options.description INTO setmetadata;
 
+    OBJECT link;
     IF(RecordExists(existinglink))
-      OpenWHFSObject(existinglink.id)->UpdateMetadata(setmetadata);
+    {
+      link := OpenWHFSObject(existinglink.id);
+      link->UpdateMetadata(setmetadata);
+    }
     ELSE
-      OpenWHFSObject(this->folder.id)->CreateFile(CELL[ ...setmetadata, publish := TRUE ]);
+    {
+      link := OpenWHFSObject(this->folder.id)->CreateFile(CELL[ ...setmetadata, publish := TRUE ]);
+    }
 
-    RETURN CELL[ ...this->GetShortUrl(shortname)
+    RETURN CELL[ ...this->GetShortUrl(link->id)
                , isnew := NOT RecordExists(existinglink)
                ];
+  }
+
+  /** @short Update an existing short url
+      @param urlid ID of short url tp update
+      @param changes Changes to make */
+  PUBLIC MACRO UpdateShortURL(INTEGER urlid, RECORD changes)
+  {
+    changes := ValidateOptions([ target := DEFAULT RECORD
+                               , shortname := ""
+                               ], changes, [ title := "changes"
+                                           , optional := [ "*" ]
+                                           ]);
+
+    RECORD checkfile := SELECT id
+                          FROM system.fs_objects
+                         WHERE parent = this->folder.id AND id = urlid;
+
+    IF(NOT RecordExists(checkfile))
+      THROW NEW Exception(`Cannot find shorturl with id #${urlid}`);
+
+    RECORD setmetadata;
+    IF(CellExists(changes, 'target'))
+    {
+      RECORD intextlink := changes.target;
+      setmetadata := CELL[ filelink     := intextlink.internallink
+                         , externallink := intextlink.internallink != 0 ? intextlink.append : intextlink.externallink
+                         , type         := intextlink.internallink != 0 ? whconstant_whfstype_internallink : whconstant_whfstype_externallink
+                         ];
+    }
+    IF(CellExists(changes, 'shortname'))
+    {
+      setmetadata := CELL[ ...setmetadata
+                         , name := changes.shortname
+                         ];
+
+    }
+
+    OpenWHFSObject(urlid)->UpdateMetadata(setmetadata);
   }
 
   /** @short Get linkfile for given intextlink
@@ -231,7 +311,7 @@ STATIC OBJECTTYPE ShortURLDomain
   PUBLIC RECORD FUNCTION LookupByTarget(RECORD intextlink)
   {
     RECORD match := this->GetLinkFileForIntExtLink(intextlink);
-    RETURN RecordExists(match) ? this->GetShortUrl(match.name) : DEFAULT RECORD;
+    RETURN RecordExists(match) ? this->GetShortUrl(match.id) : DEFAULT RECORD;
   }
 >;
 

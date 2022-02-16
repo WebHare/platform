@@ -63,7 +63,7 @@ PUBLIC MACRO TestShortURLAPI()
   RECORD firstlink_reused := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id);
   TestEq(FALSE, firstlink_reused.isnew);
   TestEq(firstlink.shortname, firstlink_reused.shortname);
-  TestEq("D1", testdomain->GetShortURL(firstlink_reused.shortname).description);
+  TestEq("D1", testdomain->GetShortURLByName(firstlink_reused.shortname).description);
 
   RECORD forcednewlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ forcenew := TRUE ]);
   TestEq(TRUE, forcednewlink.isnew);
@@ -71,6 +71,7 @@ PUBLIC MACRO TestShortURLAPI()
 
   RECORD anchorlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ append := "?sublink" ]);
   TestEq(TRUE, anchorlink.isnew);
+  TestEq(MakeIntExtInternalLink(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, "?sublink"), anchorlink.target);
 
   RECORD anchorlink_reused := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, [ append := "?sublink" ]);
   TestEq(FALSE, anchorlink_reused.isnew);
@@ -87,14 +88,14 @@ PUBLIC MACRO TestShortURLAPI()
 
   TestThrowsLike(`Invalid shortname*`, PTR testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "/sublink" ]));
 
-  TestEq(FALSE, RecordExists(testdomain->GetShortURL("selfnamed")));
+  TestEq(FALSE, RecordExists(testdomain->GetShortURLByName("selfnamed")));
   RECORD selfnamed_newlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "SelfNamed" ]);
   TestEq(TRUE, selfnamed_newlink.isnew);
   TestEq("SelfNamed", selfnamed_newlink.shortname);
   TestEq(testdomain->baseurl || "SelfNamed", selfnamed_newlink.shorturl);
   TestEq(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->link, selfnamed_newlink.targeturl);
-  TestEq(CELL[...selfnamed_newlink, DELETE isnew], testdomain->GetShortURL("selfnamed"));
-
+  TestEq(CELL[...selfnamed_newlink, DELETE isnew], testdomain->GetShortURLByName("selfnamed"));
+  TestEq(CELL[...selfnamed_newlink, DELETE isnew], testdomain->GetShortURL(selfnamed_newlink.id));
 
   RECORD selfnamed_reusedlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "selfnamed" ]);
   TestEq(FALSE, selfnamed_reusedlink.isnew);
@@ -112,6 +113,27 @@ PUBLIC MACRO TestShortURLAPI()
   TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
   TestEq(firstlink.targeturl, testfw->browser->GetResponseHeader("Location"));
   TestEq(302, testfw->browser->GetHTTPStatusCode());
+
+  testfw->BeginWork();
+  testdomain->UpdateShortURL(firstlink.id, [ target := MakeIntExtInternalLink(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, "") ]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
+  TestEq(TRUE, firstlink.targeturl != selfnamed_reusedlink.targeturl);
+  TestEq(selfnamed_reusedlink.targeturl, testfw->browser->GetResponseHeader("Location"));
+
+  testfw->BeginWork();
+  testdomain->UpdateShortURL(firstlink.id, [ shortname := "MyShortUrl" ]);
+  testfw->CommitWork();
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(firstlink.shorturl));
+  TestEq(404, testfw->browser->GetHTTPStatusCode());
+  TestEq(TRUE, testfw->browser->GotoWebPage(testdomain->baseurl || "MyShortUrl"));
+  TestEq(selfnamed_reusedlink.targeturl, testfw->browser->GetResponseHeader("Location"));
+
+  //Verify simple variable forwarding
+  TestEq(TRUE, testfw->browser->GotoWebPage(testdomain->baseurl || "MyShortUrl?utm_campaign=Campagne"));
+  TestEq(selfnamed_reusedlink.targeturl || "?utm_campaign=Campagne", testfw->browser->GetResponseHeader("Location"));
 }
 
 RunTestFramework([ PTR TestShortURLAPIDry

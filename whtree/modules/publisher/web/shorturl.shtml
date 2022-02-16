@@ -33,12 +33,15 @@ IF(NOT RecordExists(rd)) //we got a match on shorturl.shtml but no shorturl conf
   AbortWithHTTPError(500);
 
 INTEGER shorturlset := rd.data.ruledata.id;
-STRING findshortname := Substring(UnpackURL(GetRequestURL()).urlpath, Length(rd.data.path)-1);
+STRING findshortname := Substring(UnpackURL(Tokenize(GetRequestURL(),'?')[0]).urlpath, Length(rd.data.path)-1);
 
 
 //Adhoccache/ratelimit to reduce DB hits?
 STRING desturl := GetAdhocCached(CELL[ shorturlset, shortname := findshortname ], PTR LookupShortURL(shorturlset,findshortname));
 IF(desturl = "")
   AbortWithHTTPError(404);
+
+FOREVERY(RECORD varrec FROM GetAllVariablesFromURL(GetRequestURL()))
+  desturl := AddVariableToURL(desturl, varrec.name, varrec.value);
 
 Redirect(desturl,302);
