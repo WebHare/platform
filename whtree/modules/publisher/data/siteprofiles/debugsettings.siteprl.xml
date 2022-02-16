@@ -24,6 +24,7 @@
       <option tag="win" title="Witty invocations" />
       <option tag="pxl" title="Pxl events" />
       <option tag="bac" title="Beacons/Adapative Content" />
+      <option tag="npm" title="Don't set previewmode when previewing" /> <!-- "No Preview Mode" -->
     </debugsettings>
     <debugsettings title="RPCs &amp; authentication">
       <option tag="rpc" title="RPC request and responses" />

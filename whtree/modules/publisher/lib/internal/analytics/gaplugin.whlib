@@ -69,7 +69,7 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalyticsPlugin EXTEND WebDesignPluginBase
 
   MACRO DoUniversal(OBJECT webdesign)
   {
-    IF(this->account="")
+    IF(this->account = "" OR webdesign->__renderpreview)
       RETURN;
 
     this->ValidateCode(this->account);
