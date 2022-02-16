@@ -224,6 +224,15 @@ STATIC OBJECTTYPE ShortURLDomain
 
     RETURN file;
   }
+
+  /** @short Lookup a short link by its target
+      @return The short link or a default record if not found. @includecelldef #GetShortUrl.return
+  */
+  PUBLIC RECORD FUNCTION LookupByTarget(RECORD intextlink)
+  {
+    RECORD match := this->GetLinkFileForIntExtLink(intextlink);
+    RETURN RecordExists(match) ? this->GetShortUrl(match.name) : DEFAULT RECORD;
+  }
 >;
 
 /** @short Open an existing shorturl domain

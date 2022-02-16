@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/shorturl.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -57,6 +58,7 @@ PUBLIC MACRO TestShortURLAPI()
   //Verify the link object
   OBJECT firstlinkobject := OpenWHFSObjectByPath(`/webhare-private/system/shorturl/test.bea.gl/${firstlink.shortname}`);
   TestEq(TRUE, firstlinkobject->publish);
+  TestEq(CELL[...firstlink, DELETE isnew], testdomain->LookupByTarget(MakeIntExtInternalLink(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id, "")));
 
   RECORD firstlink_reused := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af")->id);
   TestEq(FALSE, firstlink_reused.isnew);
