@@ -5,6 +5,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::publisher/lib/internal/analytics/gtmplugin.whlib";
+LOADLIB "mod::publisher/lib/internal/analytics/gaplugin.whlib";
 
 PUBLIC OBJECTTYPE OpenGraphPlugin EXTEND WebDesignPluginBase
 <
@@ -391,4 +393,22 @@ PUBLIC OBJECTTYPE AnalyticsExperimentPlugin EXTEND WebDesignPluginBase
     webdesign->InsertHTML(code,"dependencies-top");
   }
 
+>;
+
+PUBLIC OBJECTTYPE SocialiteGTMWrapper EXTEND GTMPlugin
+<
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    siteprofile->AddWarning(node, "The socialite version of this plugin has been deprecated. Remove the socialite namespace, just use <gtm>");
+    RETURN GTMPlugin::ParseConfigurationNode(siteprofile, node);
+  }
+>;
+
+PUBLIC OBJECTTYPE SocialiteGoogleAnalyticsPluginWrapper EXTEND GoogleAnalyticsPlugin
+<
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    siteprofile->AddWarning(node, "The socialite version of this plugin has been deprecated. Remove the socialite namespace, just use <googleanalytics>");
+    RETURN GoogleAnalyticsPlugin::ParseConfigurationNode(siteprofile, node);
+  }
 >;

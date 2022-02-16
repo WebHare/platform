@@ -117,6 +117,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   RECORD ARRAY codesubstitutions;
   //Static pages to create
   PUBLIC RECORD ARRAY __staticpages;
+  //Whether we're rendering any kind of preview
+  PUBLIC BOOLEAN __renderpreview;
   //Whether we're rendering a widget preview
   BOOLEAN pvt_renderwidgetpreview;
   //Macro ptr to render the widget preview
@@ -236,6 +238,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING ARRAY __additionalresources;
   ///If set, we're rendering a 'standard content page' - a builtin page that expects to be able to simply render <h2>, <p> etc.
   PUBLIC BOOLEAN isstandardcontentpage;
+
+  ///Is this a preview page?
+  PUBLIC PROPERTY ispreviewpage(this->__renderpreview, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -528,6 +533,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
         header := header || ' data-wh-isolate-storage';
         INSERT "wh-widgetpreview" INTO html_classes AT END;
       }
+      IF(this->__renderpreview)
+        INSERT "wh-preview" INTO html_classes AT END;
 
       IF(Length(html_classes) > 0)
       {
