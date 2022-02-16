@@ -162,7 +162,7 @@
     <webrule path="root:/.webhare_testsuite/tests/searchallcases/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" searchallcases="true" />
 
     <webruleset name="testset" tid="module.webruleset">
-      <webrule match="initial" path="/xyz/" redirecttoscript="urls/xyz.whscr"/>
+      <webrule match="initial" path="/xyz/" redirecttoscript="urls/xyz.shtml"/>
     </webruleset>
     <webruleset name="testframework" title="WebHare test framework: B-Lex testsuite testsite">
       <webrule path="/" match="initial" wrdschema="wrd:testschema"/>

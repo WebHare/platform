@@ -1,0 +1,58 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
+
+
+MACRO TestManageAccessRules()
+{
+  RECORD testport := testfw->GetLocalhostWebinterface();
+  testfw->BeginWork();
+
+  //ignore webhare_testsuite:testframework .. this is something the testframework adds to find temporary webservers to garbage collect
+  TestEq(RECORD[], SELECT * FROM ListAccessRules(testport.baseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework");
+
+  TestThrowsLike("No such*", PTR AddAccessRule(testport.baseurl || "path2/subpath3/", [ webruleset := "webhare_testsuite:nosuchrules" ]));
+  TestThrowsLike("*only*initial*", PTR AddAccessRule(testport.baseurl || "path2/subpath3/", [ matchtype := "wildcards", webruleset := "webhare_testsuite:testset" ]));
+  TestThrowsLike("*only*initial*", PTR AddAccessRule(testport.baseurl || "path2/subpath3/", [ matchtype := "exact", webruleset := "webhare_testsuite:testset" ]));
+
+  AddAccessRule(testport.baseurl || "path2/subpath3/", [ webruleset := "webhare_testsuite:testset", description := "webhare_testsuite - testrule" ]);
+  TestEqMembers([[ matchtype := "initial", path := "/path2/subpath3/", ruletype := "webruleset", webruleset := "webhare_testsuite:testset", description := "webhare_testsuite - testrule" ]
+                ], (SELECT * FROM ListAccessRules(testport.baseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
+
+  STRING rulerowkey := AddAccessRule(testport.baseurl || "path1/subpath2/", [ webruleset := "webhare_testsuite:testset", description := "webhare_testsuite - another rule" ]);
+  TestEqMembers([[ matchtype := "initial", path := "/path1/subpath2/", url := testport.baseurl || "path1/subpath2/"]
+                ,[ matchtype := "initial", path := "/path2/subpath3/", url := testport.baseurl || "path2/subpath3/"]
+                ], (SELECT * FROM ListAccessRules(testport.baseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
+
+  ///verify that even alternative references to the same webserver return normalized url
+  STRING trybaseurl := testport.baseurl || "PATH2/";
+  IF(trybaseurl LIKE "http:*")
+    trybaseurl  := Substitute(trybaseurl, 'http:', 'https:');
+  ELSE IF(trybaseurl LIKE "https:*")
+    trybaseurl  := Substitute(trybaseurl, 'https:', 'http:');
+  ELSE
+    ABORT(trybaseurl);
+
+  TestEqMembers([[ matchtype := "initial", path := "/path2/subpath3/", url := testport.baseurl || "path2/subpath3/"]
+                ], (SELECT * FROM ListAccessRules(trybaseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
+
+  TestEq(RECORD[], (SELECT * FROM ListAccessRules(testport.baseurl || "/PATH2/")), "Dupe // in path shouldn't return aynthing");
+
+  TestEqMembers([[ matchtype := "initial", path := "/path1/subpath2/" ]],
+                (SELECT * FROM ListAccessRules(testport.baseurl) WHERE rowkey = VAR rulerowkey), "*");
+
+  DeleteAccessRule(rulerowkey);
+  TestEqMembers([[ matchtype := "initial", path := "/path2/subpath3/", ruletype := "webruleset", webruleset := "webhare_testsuite:testset", description := "webhare_testsuite - testrule" ]],
+                (SELECT * FROM ListAccessRules(testport.baseurl) WHERE ruletype != "legacy" AND webruleset != "webhare_testsuite:testframework"), "*");
+  TestThrowsLike("No such*", PTR DeleteAccessRule(rulerowkey));
+
+  testfw->CommitWork();
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(testport.baseurl || "path2/subpath3/xyz/somewhere/deep"));
+  TestEq("XYZ", BlobToString(testfw->browser->content));
+}
+
+RunTestframework([ PTR TestManageAccessRules ]);

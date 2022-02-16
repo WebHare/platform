@@ -1,1 +1,2 @@
 <?wh /* dummy file for testing purposes */
+Print("XYZ");
