@@ -122,6 +122,11 @@ OBJECT ASYNC FUNCTION TestMainApp()
   TT("dom_multi3")->tagedit->value := ["Domain value 2.2","Aha"];
   TestEq(["Domain value 2.2","Aha"], TT("dom_multi3")->tagedit->value);
 
+  TT("test_free")->value := RepeatText("X",8000);
+  AWAIT ExpectAndAnswerMessageBox("Ok", PTR TTClick(":Ok"), [messagemask := "*not*more*4096*"]);
+
+  TT("test_free")->value := RepeatText("X",4096);
+
   // finalize edit
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 

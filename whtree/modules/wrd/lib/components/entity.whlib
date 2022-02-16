@@ -319,8 +319,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     STRING comptitle := ObjectExists(comp) ? comp->errorlabel ?? comp->title : "";
     SWITCH (err.code)
     {
-
-      CASE "TOOLARGE"                 { work->AddErrorFor(comp, GetTid("tollium:common.errors.too_long", comptitle, ToString(err.max_size))); }
+      CASE "TOOLARGE"                 { work->AddErrorFor(comp, GetTid("tollium:common.errors.too_long", comptitle, ToString(err.maxlength))); }
       CASE "NOTUNIQUE"                { work->AddErrorFor(comp, GetTid("wrd:errors.field_unique", comptitle)); }
       CASE "DATEOFDEATH_IN_FUTURE"    { work->AddErrorFor(comp, GetTid("wrd:errors.dateofdeath_in_future")); }
       CASE "DATEOFDEATH_BEFORE_BIRTH" { work->AddErrorFor(comp, GetTid("wrd:errors.dateofdeath_before_birth")); }
