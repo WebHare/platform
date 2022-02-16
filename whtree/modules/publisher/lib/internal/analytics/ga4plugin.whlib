@@ -65,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
   MACRO SetupPluginConfig()
   {
     RECORD config;
-    IF(this->webdesign->__renderpreview)
+    IF(this->webdesign->ispreviewpage)
       RETURN;
 
     IF(this->__integration != "inpage" AND this->__account != "")
@@ -116,7 +116,7 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
 
   MACRO DoTagManager_Head(OBJECT webdesign)
   {
-    IF(this->__account = "" OR this->__integration != "inpage" OR webdesign->__renderpreview)
+    IF(this->__account = "" OR this->__integration != "inpage" OR webdesign->ispreviewpage)
       RETURN;
 
     RECORD settings := [ anonymize_ip := this->__anonymizeip ];
