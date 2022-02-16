@@ -604,7 +604,7 @@ OBJECTTYPE WebConfigBuilder
     IF(NOT ObjectExists(shorturltype))
       RETURN RECORD[];
 
-    RECORD ARRAY shorturlfolders := SELECT id, name FROM system.fs_objects WHERE type = shorturltype->id AND parent = whconstant_whfsid_shorturl;
+    RECORD ARRAY shorturlfolders := SELECT id, name FROM system.fs_objects WHERE parent = whconstant_whfsid_shorturl AND isfolder;
     shorturlfolders := shorturltype->Enrich(shorturlfolders, "ID", ["BASEURL"]);
     shorturlfolders := SELECT * FROM shorturlfolders WHERE baseurl != "";
 

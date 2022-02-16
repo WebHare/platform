@@ -28,7 +28,7 @@ STATIC OBJECTTYPE ShortURLDomain
   MACRO NEW(RECORD folder)
   {
     OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
-    IF(NOT folder.isfolder OR folder.type != shorturldomaintype->id)
+    IF(NOT folder.isfolder)
       THROW NEW Exception(`Broken short url domain folder #${folder.id} for domain '${folder.name}'`);
 
     this->folder := folder;
@@ -264,7 +264,6 @@ PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAUL
 
   OBJECT newfolder := OpenWHFSObject(whconstant_whfsid_shorturl)->CreateFolder(
     [ name := domain
-    , typens := "http://www.webhare.net/xmlns/publisher/shorturl/domainfolder"
     ]);
 
   newfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder",
