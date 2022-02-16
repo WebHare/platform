@@ -111,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 
   MACRO DoTagManager_Head(OBJECT webdesign)
   {
-    IF(this->pvt_account = "" OR this->pvt_integration != "script" OR this->pvt_launch != "pagerender")
+    IF(this->pvt_account = "" OR this->pvt_integration != "script" OR this->pvt_launch != "pagerender" OR webdesign->ispreviewpage)
       RETURN;
 
     BOOLEAN compact := webdesign->wittyencoding LIKE "*-NI";
@@ -122,7 +122,7 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   }
   MACRO DoTagManager_Body(OBJECT webdesign)
   {
-    IF(this->pvt_account = "" OR this->pvt_launch != "pagerender")
+    IF(this->pvt_account = "" OR this->pvt_launch != "pagerender" OR webdesign->ispreviewpage)
       RETURN;
 
     //The noscript code is probably always useful. no need to intercept it

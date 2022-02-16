@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
@@ -87,6 +88,8 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
 
   OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, openobj);
   OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, openobj, pageobject, renderwidgetpreview);
+  //Update robot tags and remove analytics/gtm from previews, they generally confuse users
+  webdesign->__renderpreview := NOT IsWHDebugOptionSet("npm"); //TODO move this into instantiate so NEW() can rely on it too
 
   IF (renderwidgetpreview)
   {
