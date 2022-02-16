@@ -28,7 +28,7 @@
           </buttongroup>
         </line>
       </panel>
-      <statuspanel name="versioninginfo" type="info">
+      <statuspanel name="versioninginfo" type="info" visible="false">
         <line>
           <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
           <text name="submitdraft" title="" valuetid="publisher:versioning.submitforapproval" action="submitforapproval" visible="false" />
@@ -36,7 +36,7 @@
           <text name="withdrawrequest" title="" valuetid="publisher:versioning.withdrawrequest" action="cancelrequest" visible="false" />
         </line>
       </statuspanel>
-      <statuspanel name="info" type="info">
+      <statuspanel name="info" type="info" visible="false">
         <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
       </statuspanel>
 <!--       <panel name="info" backgroundcolor="#FEFFDE" visible="false" spacers="left" borders="bottom">
