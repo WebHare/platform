@@ -20,6 +20,8 @@ STATIC OBJECTTYPE ShortURLDomain
   RECORD folder;
   RECORD settings;
 
+  ///Domain ID, needed for granting access rights
+  PUBLIC PROPERTY id(this->folder.id,-);
   ///Shorturl domain
   PUBLIC PROPERTY domain(this->folder.name,-);
   ///Base URL for short link

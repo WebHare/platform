@@ -10,7 +10,6 @@
   <test script="main.whscr" />
   <test script="recyclebin.whscr"/>
   <test script="test-lifecycle.whscr"/>
-  <test script="test-shorturls.whscr"/>
   <test script="tagmanager.whscr"/>
   <test script="ordering.whscr"/>
   <test script="newrights.whscr"/>
@@ -22,4 +21,5 @@
   <test name="siteprofile" path="siteprofile/" />
   <test name="assetpacks" path="assetpacks/" />
   <test name="pwa" path="pwa/" />
+  <test name="shorturl" path="shorturl/" />
 </group>

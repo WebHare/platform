@@ -10,7 +10,9 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/configure.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "relative::shorturltests.whlib";
 
 MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
 {
@@ -20,6 +22,7 @@ MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
   OBJECT testdomain := CreateShortURLDomain("ephemeral.bea.gl", [ baseurl := "https://ephemeral.bea.gl/eph-shorturls/" ]);
 
   OBJECT testdomainobject := OpenWHFSObjectByPath(`/webhare-private/system/shorturl/ephemeral.bea.gl`);
+  TestEq(testdomainobject->id, testdomain->id);
 
   RECORD config := DownloadWebserverConfig();
   RECORD ephemeralhost := SELECT * FROM config.hosts WHERE CellExists(hosts,'baseurl') AND baseurl = "https://ephemeral.bea.gl/";
@@ -28,18 +31,6 @@ MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
   TestEq([ type := "eph-shorturls", id := testdomainobject->id ], beaglrule.ruledata);
 
   testfw->RollbackWork();
-}
-
-MACRO Cleanup()
-{
-  testfw->BeginWork();
-  FOREVERY(STRING toclean FROM ["test.bea.gl","test2.bea.gl"])
-  {
-    OBJECT testdomain := OpenShortURLDomain(toclean, [ allowmissing := TRUE]);
-    IF(ObjectExists(testdomain))
-      testdomain->DeleteSelf();
-  }
-  testfw->CommitWork();
 }
 
 PUBLIC MACRO TestShortURLAPI()
@@ -122,6 +113,8 @@ PUBLIC MACRO TestShortURLAPI()
 }
 
 RunTestFramework([ PTR TestShortURLAPIDry
-                 , PTR Cleanup
+                 , PTR CleanupShortURLTests
                  , PTR TestShortURLAPI
-                 ]);
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);
