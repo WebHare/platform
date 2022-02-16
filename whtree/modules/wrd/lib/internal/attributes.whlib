@@ -1,6 +1,8 @@
 <?wh
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
@@ -270,7 +272,7 @@ RECORD ARRAY FUNCTION GetMetaTypeAttributes(RECORD typerec, STRING langcode)
   IF(typerec.tag = "WRD_PERSON")
   {
     RECORD ARRAY all_person_tags :=
-      [ [ tag := "WRD_GENDER",          attributetype := wrd_attributetype_domain, cellname := "gender",        title := lang.attrlabels.wrd_gender ]
+      [ [ tag := "WRD_GENDER",          attributetype := wrd_attributetype_domain, cellname := "gender",        title := GetTidForLanguage(langcode, "wrd:common.gender.label") ]
       , [ tag := "WRD_SALUTE_FORMAL",   attributetype := wrd_attributetype_free,   isgenerated := TRUE,         title := lang.attrlabels.wrd_salute_formal,  isreadonly := TRUE, cellnames := [ "gender", "infix", "lastname", "titles" ] ]
       , [ tag := "WRD_ADDRESS_FORMAL",  attributetype := wrd_attributetype_free,   isgenerated := TRUE,         title := lang.attrlabels.wrd_address_formal, isreadonly := TRUE, cellnames := [ "gender", "initials", "infix", "lastname", "titles" ] ]
       , [ tag := "WRD_FULLNAME",        attributetype := wrd_attributetype_free,   isgenerated := TRUE,         title := lang.attrlabels.wrd_fullname,       isreadonly := TRUE, cellnames := [ "firstname", "firstnames", "infix", "initials", "lastname" ] ]

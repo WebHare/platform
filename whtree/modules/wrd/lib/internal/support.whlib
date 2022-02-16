@@ -12,6 +12,8 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
 
@@ -539,26 +541,6 @@ PUBLIC RECORD FUNCTION GetLangTexts(STRING langcode)
 //
 // WRD updateable/viewable fields
 //
-PUBLIC RECORD ARRAY FUNCTION GetGenderDomain()
-{
-  RETURN [ [ id := 0, tag := "",       title := "NONE", ordering := 1 ]
-         , [ id := 1, tag := "MALE",   title := "MALE", ordering := 2 ]
-         , [ id := 2, tag := "FEMALE", title := "FEMALE", ordering := 3]
-         ];
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetGenderOptions(RECORD personinfo, RECORD lang, STRING tag)
-{
-  INTEGER which := RecordExists(personinfo) ? personinfo.gender : 0;
-  RETURN SELECT domainvalues.id
-              , domainvalues.tag
-              , title := GetCell(lang.attrlabels, VAR tag || "_" || domainvalues.title)
-              , selected := (which = domainvalues.id)
-              , domainvalues.ordering
-              , creationdate := DEFAULT DATETIME
-              , limitdate := MAX_DATETIME
-           FROM GetGenderDomain() AS domainvalues;
-}
 
 PUBLIC RECORD FUNCTION EncodeWRDAttribute(VARIANT val)
 {

@@ -1,5 +1,13 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="de" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="gender">   <!-- common.gender -->
+      <text tid="female">Frau</text>
+      <text tid="label">Geslecht</text>
+      <text tid="male">Mann</text>
+      <text tid="other">Divers</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->

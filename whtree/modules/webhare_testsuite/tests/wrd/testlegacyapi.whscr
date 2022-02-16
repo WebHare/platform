@@ -217,7 +217,7 @@ MACRO TestGenderDomain()
   OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
   OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
   RECORD ARRAY genderdomain := persontype->ListDomVals("WRD_GENDER");
-  TEstEq(2,Length(genderdomain));
+  TEstEq(3,Length(genderdomain));
 
   testfw->CommitWork();
 }

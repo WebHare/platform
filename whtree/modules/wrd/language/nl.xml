@@ -141,6 +141,7 @@
       <text tid="female">Vrouw</text>
       <text tid="label">Geslacht</text>
       <text tid="male">Man</text>
+      <text tid="other">Anders</text>
     </textgroup>
     <textgroup gid="generic">   <!-- common.generic -->
       <text tid="rows"><param p="1"/> rijen</text>
