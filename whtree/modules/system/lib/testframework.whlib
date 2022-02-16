@@ -1285,8 +1285,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
         IF(this->usedatabase)
         {
-          WHILE(GetPrimary()->IsWorkOpen())
+          //properly cancel all work levels, but don't commit! (that would happen if we PopWork one too much)
+          WHILE(GetPrimary()->IsNestedWorkOpen())
             GetPrimary()->PopWork();
+          IF(GetPrimary()->IsWorkOpen())
+            GetPrimary()->RollbackWork();
         }
 
         IF(this->profile)

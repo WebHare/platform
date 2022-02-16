@@ -65,7 +65,7 @@ MACRO CheckPublicDrafts()
   INTEGER ARRAY files_with_public_drafts :=
       SELECT AS INTEGER ARRAY DISTINCT filelink
         FROM system.fs_objects
-       WHERE parent = whconstant_whfsid_publicdrafts;
+       WHERE parent = whconstant_whfsid_drafts;
 
   RECORD ARRAY badfiles :=
       SELECT id

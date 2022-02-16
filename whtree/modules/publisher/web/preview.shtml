@@ -94,6 +94,10 @@ MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
 
 MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  /* previews should never be crawled/stored. We'll use headers to prevent that so you can still view-source in preview mode
+     and inspect the result of noindex/nofollow settings on the document */
+  AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
+
   options := ValidateOptions([ instanceid := 0 ], options);
 
   OBJECT applytester := GetApplyTesterForObject(source);

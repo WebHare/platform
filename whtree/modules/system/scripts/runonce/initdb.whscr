@@ -158,6 +158,11 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "webhare-publisher-rootsettings"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
+                               , [ id := whconstant_whfsid_shorturl
+                                 , parent := whconstant_whfsid_private_system
+                                 , name := "shorturl"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
                                ];
 
 DATETIME initnow := GetCurrentDatetime();
