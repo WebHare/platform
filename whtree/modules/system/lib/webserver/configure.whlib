@@ -55,6 +55,7 @@ PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
 }
 
 /** Add new access rules for the specified url
+    @long Only supports 'initial' 'webruleset' access rules
     @param url URL to add. Must match an existing webserver
     @cell(string) options.matchtype exact/initial/wildcards - how this rule matches.
                   If not set, a rule is initial if the URL refers to a folder (ends with a slsh or refers to the site root), exact otherwise
@@ -106,7 +107,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
   }
   ELSE
   {
-    THROW NEW Exception(`Unsure what to add fo the access rule`);
+    THROW NEW Exception(`An access rule must add one and only one type of configuration`);
   }
 
   GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
