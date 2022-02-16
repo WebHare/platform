@@ -79,6 +79,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
   STRING path := "/" || unpackedurl.urlpath;
   INTEGER webserver := matchwebserver.id;
 
+  INTEGER newid;
   IF(Cellexists(options,'webruleset'))
   {
     IF(options.matchtype != "initial")
@@ -93,7 +94,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
     IF(NOT RecordExists(match))
       THROW NEW Exception(`No such webruleset '${options.webruleset}'`);
 
-    INTEGER newid := MakeAutonumber(system_internal.access,"id");
+    newid := MakeAutonumber(system_internal.access,"id");
     INSERT CELL[ id := newid
                , matchtype := 1
                , path
@@ -102,8 +103,6 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
                , hostingpath := options.webruleset
                , options.description
                ] INTO system_internal.access;
-
-    RETURN "db:" || newid; //future versions will return guids
   }
   ELSE
   {
@@ -111,6 +110,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
   }
 
   GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
+  RETURN "db:" || newid; //future versions will return guids
 }
 
 /** Delete an access rules
