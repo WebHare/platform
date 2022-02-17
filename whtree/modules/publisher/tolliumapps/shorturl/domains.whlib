@@ -112,9 +112,9 @@ PUBLIC STATIC OBJECTTYPE DomainProps EXTEND TolliumScreenBase
     {
       RECORD match := SELECT * FROM ListWebservers() WHERE ^props->^baseurl->value LIKE baseurl || "*";
       IF(NOT RecordExists(match))
-        work->AddErrorFor(^baseurl, this->GetTid(".nothostedhere"));
+        work->AddErrorFor(^props->^baseurl, this->GetTid(".nothostedhere"));
       ELSE IF(match.interface AND GetDtapStage() != "development") //to protect yourself from breaking a WebHare interface. on dev servers, we'll trust you
-        work->AddErrorFor(^baseurl, this->GetTid(".isinterfacewebserver"));
+        work->AddErrorFor(^props->^baseurl, this->GetTid(".isinterfacewebserver"));
     }
 
     INTEGER newdomid;

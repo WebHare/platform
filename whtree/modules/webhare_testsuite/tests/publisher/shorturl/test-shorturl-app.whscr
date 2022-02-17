@@ -19,6 +19,8 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
   TT("domain")->value := "test.bea.gl";
+  TT("baseurl")->value := "https://www.example.net/";
+  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*ot*hosted*" ]);
   TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl/";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
