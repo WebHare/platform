@@ -325,7 +325,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
     {
-      ^modified->visible := FALSE;
       this->CalculateNameForNewObject();
 
       this->frame->title := this->isfolder ? this->GetTid(".newfolder-title")
@@ -361,12 +360,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
     ELSE IF (this->startdata.why = "edit")
     {
-      IF(GetRoundedDatetime(this->sourceitem->creationdate, 60 * 1000) != GetRoundedDatetime(this->draftitem->modificationdate, 60 * 1000))
-      {
-        ^creationdatebrackets->value := this->tolliumuser->FormatDateTime(this->sourceitem->creationdate, "minutes", TRUE, FALSE) || ")";
-        ^creationdatebrackets->visible := TRUE;
-      }
-
       ^pinobject->value := this->draftitem->ispinned;
 
       IF (this->isinrecyclebin)
@@ -699,19 +692,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     ELSE
       ^size->value := " (" || this->tolliumuser->FormatFileSize(filesize, 2) ||  ")";
 
-    STRING modifiedinfo;
-    IF(ObjectExists(this->draftitem))
-    {
-      STRING modifiedname;
-      IF(this->draftitem->modifiedby!=0)
-        modifiedname := this->contexts->userapi->GetUserDisplayName(this->draftitem->modifiedby);
-
-      IF(ObjectExists(this->draftitem))
-        modifiedinfo := this->GetTid(".modifiedtext"
-                                   ,this->tolliumuser->FormatDateTime(this->draftitem->modificationdate, "minutes", TRUE, FALSE)
-                                   ,modifiedname);
-    }
-    ^modified->value := modifiedinfo;
+    SetWHFSObjectLastModifiedField(^modified, this->sourceitem);
   }
 
   MACRO PrepareDialog()

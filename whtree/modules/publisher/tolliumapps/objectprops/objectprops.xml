@@ -60,11 +60,7 @@
             <text name="type"/>
             <text name="size"  title=""/> <!--tid=".size"-->
           </line>
-          <line>
-            <text name="modified" tid=".modified" />
-            <!--datetime name="creationdate" tid=".created" type="datetime" precision="minutes" storeutc="true" readonly="true" title=""/-->
-            <text name="creationdatebrackets" tid=".created" visible="false" />
-          </line>
+          <text name="modified" title="" />
 
           <text name="deleted" tid=".deleted" visible="false" />
           <text name="originallocation" visible="false" />
