@@ -645,7 +645,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         ]);
       this->domainvalues := SELECT *
                                  , tag := ToUppercase(tag)
-                              FROM this->domainvalues ORDER BY ToUppercase(tag), id; //Our callers expect tag,id ordering for optimizations
+                              FROM this->domainvalues
+                          ORDER BY ToUppercase(tag), id; //Our callers expect tag,id ordering for optimizations
       this->domainvalues_cached := TRUE;
     }
     RETURN this->domainvalues;
@@ -1200,9 +1201,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                    , limitdate := MAX_DATETIME
                                    , guid := ""
                                    ];
-      RETURN [ isdom := TRUE
-             , vals := [[ ...genderdefaults, id := 1, tag := "MALE",   title := GetTidForLanguage(lang, "wrd:common.gender.male"),   ordering := 1 ]
-                       ,[ ...genderdefaults, id := 2, tag := "FEMALE", title := GetTidForLanguage(lang, "wrd:common.gender.female"), ordering := 2 ]
+      RETURN [ isdom := TRUE //NOTE: must be sorted by tag,id
+             , vals := [[ ...genderdefaults, id := 2, tag := "FEMALE", title := GetTidForLanguage(lang, "wrd:common.gender.female"), ordering := 2 ]
+                       ,[ ...genderdefaults, id := 1, tag := "MALE",   title := GetTidForLanguage(lang, "wrd:common.gender.male"),   ordering := 1 ]
                        ,[ ...genderdefaults, id := 3, tag := "OTHER",  title := GetTidForLanguage(lang, "wrd:common.gender.other"),  ordering := 3 ]
                        ]
              ];
