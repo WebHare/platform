@@ -11,17 +11,24 @@ LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 RECORD FUNCTION LookupShortURL(INTEGER urlset, STRING findname)
 {
   OpenPrimary();
+
   RECORD match := SELECT id, link FROM system.fs_objects WHERE parent = urlset AND ToUppercase(name) = ToUppercase(findname);
-  STRING desturl;
+  STRING targeturl, addvariables;
+  STRING ARRAY eventmasks := ["publisher:shorturlconfig"];
 
   IF(RecordExists(match))
   {
-    desturl := match.link;
+    OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
+    RECORD urlsetsettings := shorturldomaintype->GetInstanceData(urlset);
+
+    addvariables := urlsetsettings.addvariables;
+    eventmasks := eventmasks CONCAT OpenWHFSObject(RecordExists(match) ? match.id : urlset)->GetEventMasks();
+    targeturl := match.link;
   }
 
-  RETURN CELL[ value := desturl
+  RETURN CELL[ value := targeturl != "" ? CELL[ targeturl, addvariables ] : DEFAULT RECORD
              , ttl := 60000
-             , eventmasks := OpenWHFSObject(RecordExists(match) ? match.id : urlset)->GetEventMasks()
+             , eventmasks := eventmasks
              ];
 }
 
@@ -37,11 +44,26 @@ STRING findshortname := Substring(UnpackURL(Tokenize(GetRequestURL(),'?')[0]).ur
 
 
 //Adhoccache/ratelimit to reduce DB hits?
-STRING desturl := GetAdhocCached(CELL[ shorturlset, shortname := findshortname ], PTR LookupShortURL(shorturlset,findshortname));
-IF(desturl = "")
+RECORD match := GetAdhocCached(CELL[ shorturlset, shortname := findshortname ], PTR LookupShortURL(shorturlset,findshortname));
+IF(NOT RecordExists(match))
   AbortWithHTTPError(404);
 
-FOREVERY(RECORD varrec FROM GetAllVariablesFromURL(GetRequestURL()))
-  desturl := AddVariableToURL(desturl, varrec.name, varrec.value);
+STRING targeturl := match.targeturl;
 
-Redirect(desturl,302);
+RECORD ARRAY requestvars := GetAllVariablesFromURL(GetRequestURL());
+STRING ARRAY requestvarnames  := SELECT AS STRING ARRAY ToUppercase(name) FROM requestvars;
+STRING ARRAY destvarnames := SELECT AS STRING ARRAY ToUppercase(name) FROM GetAllVariablesFromURL(match.targeturl);
+
+IF(match.addvariables != "") //add any variables from the shorturl domain if not set on either request url or target url
+  FOREVERY(RECORD varrec FROM GetAllVariablesFromURL("?"||match.addvariables))
+    IF(ToUppercase(varrec.name) NOT IN (requestvarnames CONCAT destvarnames))
+      targeturl := AddVariableToURL(targeturl, varrec.name, varrec.value);
+
+FOREVERY(RECORD varrec FROM requestvars)
+{
+  IF(ToUppercase(varrec.name) IN destvarnames)
+    targeturl := DeleteVariableFromURL(targeturl, varrec.name);
+  targeturl := AddVariableToURL(targeturl, varrec.name, varrec.value);
+}
+
+Redirect(targeturl,302);

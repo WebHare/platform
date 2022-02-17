@@ -15,6 +15,13 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 INTEGER shorturl_codelength := 7;
 
+MACRO ValidateBaseURL(STRING baseurl)
+{
+  //TODO check for conflicts with other shorturls, but configcheck should do that too
+  IF(baseurl != "" AND baseurl NOT LIKE "*/")
+    THROW NEW Exception(`The base URL must end with a slash`);
+}
+
 STATIC OBJECTTYPE ShortURLDomain
 <
   RECORD folder;
@@ -34,13 +41,71 @@ STATIC OBJECTTYPE ShortURLDomain
       THROW NEW Exception(`Broken short url domain folder #${folder.id} for domain '${folder.name}'`);
 
     this->folder := folder;
-    this->settings := shorturldomaintype->GetInstanceData(folder.id);
+    this->LoadMetadata();
   }
 
   /** Permanently delete this domain */
   PUBLIC MACRO DeleteSelf()
   {
     OpenWHFSObject(this->folder.id)->RecycleSelf();
+  }
+
+  PUBLIC RECORD FUNCTION GetDomainSettings()
+  {
+    RETURN CELL[ domain := this->folder.name
+               , this->settings.baseurl
+               , this->settings.addvariables
+               ];
+  }
+
+  PUBLIC MACRO UpdateDomainSettings(RECORD changes)
+  {
+    changes := ValidateOptions([ baseurl := ""
+                               , domain := ""
+                               , addvariables := ""
+                               ], changes, [ title := "changes"
+                                           , optional := [ "*" ]
+                                           ]);
+
+    RECORD newinstancedata;
+    IF(CellExists(changes,'baseurl'))
+    {
+      ValidateBaseURL(changes.baseurl);
+      newinstancedata := CELL[ ...newinstancedata
+                             , changes.baseurl
+                             ];
+      __EnsureConfigReloadOnCommit();
+    }
+
+    IF(CellExists(changes,'addvariables'))
+      newinstancedata := CELL[ ...newinstancedata
+                             , changes.addvariables
+                             ];
+
+    OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
+    IF(RecordExists(newinstancedata))
+      OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder")->SetInstanceData(this->id, newinstancedata);
+
+    GetPrimary()->BroadcastOnCommit("publisher:shorturlconfig", DEFAULT RECORD);
+
+    this->RefreshMetadata(TRUE);
+    GetPrimary()->RegisterCommitHandler("publisher:shorturlconfig-refresh-" || this->id, PTR this->RefreshMetadata);
+  }
+
+  MACRO RefreshMetadata(BOOLEAN ignored_commit)
+  {
+    RECORD newfolder:= SELECT id,name FROM system.fs_objects WHERE id = this->id;
+    IF(NOT RecordExists(newfolder))
+      RETURN;
+
+    this->folder := newfolder;
+    this->LoadMetadata();
+  }
+
+  MACRO LoadMetadata()
+  {
+    OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
+    this->settings := shorturldomaintype->GetInstanceData(this->folder.id);
   }
 
   RECORD FUNCTION __BuildShortURLReturn(RECORD shortlink)
@@ -55,11 +120,13 @@ STATIC OBJECTTYPE ShortURLDomain
                , shortlink.description
                , target
                , targeturl := GetIntextlinkTarget(target)
+               , expirationdate := this->GetExpirationDate(shortlink.id)
                ];
   }
 
   /* @return Get shorturl settings
      @param id URL to look up
+     @return The short link url, or default record if not found
      @cell(integer) return.id Short link id
      @cell(string) return.shortname Short name used for the link (in the actual stored case)
      @cell(string) return.description Short link Descirption
@@ -79,9 +146,11 @@ STATIC OBJECTTYPE ShortURLDomain
 
   /* @return Get shorturl settings
      @param shortname Short name to look up
+     @return The short link url, or default record if not found @includecelldef #GetShortUrl.return
      @cell(integer) return.id Short link id
      @cell(string) return.shortname Short name used for the link (in the actual stored case)
      @cell(string) return.description Short link Descirption
+     @cell
   */
   PUBLIC RECORD FUNCTION GetShortUrlByName(STRING shortname)
   {
@@ -108,6 +177,7 @@ STATIC OBJECTTYPE ShortURLDomain
                 , creationdate
                 , description
                 , modifiedby
+                , expirationdate := this->GetExpirationDate(id)
              FROM system.fs_objects
             WHERE parent = this->folder.id
                   AND type IN [ whconstant_whfstype_externallink, whconstant_whfstype_internallink ];
@@ -164,9 +234,6 @@ STATIC OBJECTTYPE ShortURLDomain
                                , description := ""
                                , shortname := ""
                                , expirationdate := DEFAULT DATETIME
-                               , import_uid := ""
-                               , import_date := DEFAULT DATETIME
-                               , import_by := 0
                                ], options, [ optional := [ "description" ] ]);
 
     RECORD existinglink;
@@ -222,6 +289,9 @@ STATIC OBJECTTYPE ShortURLDomain
       link := OpenWHFSObject(this->folder.id)->CreateFile(CELL[ ...setmetadata, publish := TRUE ]);
     }
 
+    IF(options.expirationdate != DEFAULT DATETIME OR RecordExists(existinglink))
+      this->UpdateExpirationDate(link->id, options.expirationdate);
+
     RETURN CELL[ ...this->GetShortUrl(link->id)
                , isnew := NOT RecordExists(existinglink)
                ];
@@ -234,6 +304,8 @@ STATIC OBJECTTYPE ShortURLDomain
   {
     changes := ValidateOptions([ target := DEFAULT RECORD
                                , shortname := ""
+                               , expirationdate := DEFAULT DATETIME
+                               , description := ""
                                ], changes, [ title := "changes"
                                            , optional := [ "*" ]
                                            ]);
@@ -254,15 +326,18 @@ STATIC OBJECTTYPE ShortURLDomain
                          , type         := intextlink.internallink != 0 ? whconstant_whfstype_internallink : whconstant_whfstype_externallink
                          ];
     }
+
     IF(CellExists(changes, 'shortname'))
-    {
-      setmetadata := CELL[ ...setmetadata
-                         , name := changes.shortname
-                         ];
+      setmetadata := CELL[ ...setmetadata, name := changes.shortname ];
 
-    }
+    IF(CellExists(changes,'description'))
+      setmetadata := CELL[ ...setmetadata, changes.description ];
 
-    OpenWHFSObject(urlid)->UpdateMetadata(setmetadata);
+    IF(CellExists(changes,'expirationdate'))
+      this->UpdateExpirationDate(urlid, changes.expirationdate);
+
+    IF(RecordExists(setmetadata))
+      OpenWHFSObject(urlid)->UpdateMetadata(setmetadata);
   }
 
   /** @short Get linkfile for given intextlink
@@ -281,7 +356,7 @@ STATIC OBJECTTYPE ShortURLDomain
                    , type
                 FROM system.fs_objects
                WHERE parent = this->folder.id
-                 AND type = 19 /* Internal link */
+                 AND type = whconstant_whfstype_internallink
                  AND filelink = intextlink.internallink
                  AND externallink = intextlink.append
             ORDER BY creationdate DESC;//if multiple found, use latest
@@ -289,7 +364,7 @@ STATIC OBJECTTYPE ShortURLDomain
     ELSE
     {
       IF( intextlink.externallink = "" )
-        ABORT();//THROW NEW Exception(GetTid("utwente_brochures:tolliumapps.shorturl.messages.missinglink"));
+        THROW NEW Exception(`Invalid link`);
 
       file := SELECT name
                    , url
@@ -297,7 +372,7 @@ STATIC OBJECTTYPE ShortURLDomain
                    , type
                 FROM system.fs_objects
                WHERE parent = this->folder.id
-                 AND type = 18 /* External link */
+                 AND type = whconstant_whfstype_externallink
                  AND ToUpperCase(externallink) = ToUpperCase(intextlink.externallink)
             ORDER BY creationdate DESC;//if multiple found, use latest;
     }
@@ -313,9 +388,39 @@ STATIC OBJECTTYPE ShortURLDomain
     RECORD match := this->GetLinkFileForIntExtLink(intextlink);
     RETURN RecordExists(match) ? this->GetShortUrl(match.id) : DEFAULT RECORD;
   }
+
+  DATETIME FUNCTION GetExpirationDate( INTEGER fileid )
+  {
+    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = 4;// 4 is delete task
+    IF( RecordExists(task) )
+      RETURN task.when;
+
+    RETURN DEFAULT DATETIME;
+  }
+
+  /** @short Update expirationdate for given file
+      @param fileid the file id
+      @param expirationdate date when file should be removed
+  */
+  MACRO UpdateExpirationDate(INTEGER fileid, DATETIME expirationdate /* use DEFAULT DATETIME to remove task */ )
+  {
+    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = 4 /* delete */;
+    IF( expirationdate = DEFAULT DATETIME )
+    {
+      IF( RecordExists(task) )
+        DeleteFileTask(task.id);
+    }
+    ELSE IF( RecordExists(task) )
+      EditFileTask( task.id, expirationdate, 4 /* delete */, 0);
+    ELSE
+      AddFileTask( fileid, expirationdate, 4 /* delete */, 0);
+  }
 >;
 
 /** @short Open an existing shorturl domain
+    @param domain Domain to open
+    @cell(boolean) options.allowmissing Do not throw an exception if the domain was not found
+    @return The domain object, or a DEFAULT OBJECT if the domain wasn't found AND the allowmissing option was set.
 */
 PUBLIC OBJECT FUNCTION OpenShortURLDomain(STRING domain, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -336,18 +441,32 @@ PUBLIC OBJECT FUNCTION OpenShortURLDomain(STRING domain, RECORD options DEFAULTS
   RETURN NEW ShortURLDomain(match);
 }
 
+/** @short Open an shorturl domain by id
+    @param targetid ID of domain to open
+    @return The domain object, or a DEFAULT OBJECT if the domain doesn't exist.
+*/
+PUBLIC OBJECT FUNCTION OpenShortURLDomainById(INTEGER targetid)
+{
+  RECORD match := SELECT id,name,type,isfolder
+                    FROM system.fs_objects
+                   WHERE parent = whconstant_whfsid_shorturl
+                         AND id = targetid;
+
+  RETURN RecordExists(match) ? NEW ShortURLDomain(match) : DEFAULT OBJECT;
+}
+
 /** @short Create a new shorturl domain
     @param domain Domain to create */
 PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ baseurl := ""
+                             , addvariables := ""
                              ], options);
 
   IF(NOT IsValidWHFSName(domain, FALSE))
     THROW NEW Exception(`Invalid short url domain '${domain}'`);
 
-  IF(options.baseurl != "" AND options.baseurl NOT LIKE "*/")
-    THROW NEW Exception(`The base URL must end with a slash`);
+  ValidateBaseURL(options.baseurl);
 
   RECORD match := SELECT id FROM system.fs_objects WHERE parent = whconstant_whfsid_shorturl AND ToUppercase(name) = ToUppercase(domain);
   IF(RecordExists(match))
@@ -358,7 +477,9 @@ PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAUL
     ]);
 
   newfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder",
-    CELL[ options.baseurl ]);
+    CELL[ options.baseurl
+        , options.addvariables
+        ]);
 
   IF(options.baseurl != "")
     __EnsureConfigReloadOnCommit();
