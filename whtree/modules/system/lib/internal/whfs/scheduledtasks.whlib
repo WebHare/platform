@@ -12,6 +12,7 @@ LOADLIB "mod::publisher/lib/internal/files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/service.whlib";
 
@@ -40,7 +41,7 @@ PUBLIC MACRO ValidateReplaceWith(OBJECT taskedobj, RECORD sourceinfo)
 
 MACRO DoStartPublish(RECORD task)
 {
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
+  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND NOT IsRecycleOrHistoryWHFSPath(fs_objects.whfspath);
   IF (NOT RecordExists(fsobj))
   {
     PRINT("Cannot execute task 'start publish #" || task.file || "': it no longer exists\n");
@@ -71,7 +72,7 @@ MACRO DoStartPublish(RECORD task)
 
 MACRO DoStopPublish(RECORD task)
 {
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
+  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND NOT IsRecycleOrHistoryWHFSPath(fs_objects.whfspath);
   IF (NOT RecordExists(fsobj))
   {
     PRINT("Cannot execute task 'stop publish #" || task.file || "': it no longer exists\n");
@@ -132,7 +133,7 @@ MACRO DoMoveFile(RECORD task)
 
 MACRO DoDeleteFile(RECORD task)
 {
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
+  RECORD fsobj := SELECT id, whfspath FROM system.fs_objects WHERE fs_objects.id = task.file;
   IF (NOT RecordExists(fsobj))
   {
     PRINT("Cannot execute task 'delete #" || task.file || "': it no longer exists\n");
@@ -147,7 +148,7 @@ MACRO DoDeleteFile(RECORD task)
 
 MACRO DoSetIndexdoc(RECORD task)
 {
-  RECORD file := SELECT parent, whfspath FROM system.fs_objects WHERE id = task.file AND fs_objects.isactive AND NOT fs_objects.isfolder;
+  RECORD file := SELECT parent, whfspath FROM system.fs_objects WHERE id = task.file AND NOT fs_objects.isfolder AND NOT IsRecycleOrHistoryWHFSPath(whfspath);
 
   IF (NOT RecordExists(file))
   {
@@ -165,7 +166,7 @@ MACRO DoSetIndexdoc(RECORD task)
   RunEditFolderHooks(folder, folder.id);
   IF (oldindexdoc != 0)
   {
-    RECORD fs_oldindex := SELECT * FROM system.fs_objects WHERE fs_objects.id=oldindexdoc AND fs_objects.isactive AND NOT fs_objects.isfolder;
+    RECORD fs_oldindex := SELECT * FROM system.fs_objects WHERE fs_objects.id=oldindexdoc AND NOT fs_objects.isfolder;
     IF (RecordExists(fs_oldindex))
       RunEditFileHooks(oldindexdoc);
   }

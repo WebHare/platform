@@ -844,10 +844,12 @@ MACRO TestGenderDomain()
   OBJECT schemaobj:=  testfw->GetWRDSchema();
   OBJECT persontype := schemaobj->^wrd_person;
   RECORD ARRAY genderdomain := persontype->ListDomVals("WRD_GENDER");
-  TestEqMembers([ [ title := "Male" ]
-                , [ title := "Female" ]
-                , [ title := "Other" ]
-                ], genderdomain, "*");
+  TestEqMembers([ [ id := 1, title := "Male" ]
+                , [ id := 2, title := "Female" ]
+                , [ id := 3, title := "Other" ]
+                ], (SELECT * FROM genderdomain ORDER BY id), "*");
+
+  TestEq([1,2,3], persontype->GetDomVals("WRD_GENDER", ["MALE","FEMALE","OTHER"]), "Verify tag lookups which require GetAllDomVals to be properly sorted");
 
   OBJECT othergenderperson := persontype->CreateEntity([ wrd_contact_email := "othergender@beta.webhare.net", wrd_gender := 3 ]);
   testfw->CommitWork();

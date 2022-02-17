@@ -787,3 +787,28 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
   RETURN filetypes;
 }
 
+
+PUBLIC MACRO SetWHFSObjectLastModifiedField(OBJECT modifiedfield, OBJECT whfsobject)
+{
+  modifiedfield->visible := ObjectExists(whfsobject);
+  IF(NOT modifiedfield->visible)
+    RETURN;
+
+  modifiedfield->title := GetTid("publisher:tolliumapps.objectprops.objectprops.modified");
+
+  STRING modifiedinfo, modifiedname;
+  IF(whfsobject->modifiedby!=0)
+    modifiedname := modifiedfield->owner->contexts->userapi->GetUserDisplayName(whfsobject->modifiedby);
+
+  modifiedinfo := GetTid("publisher:tolliumapps.objectprops.objectprops.modifiedtext"
+                        ,modifiedfield->owner->tolliumuser->FormatDateTime(whfsobject->modificationdate, "minutes", TRUE, FALSE)
+                        ,modifiedname);
+
+  IF(GetRoundedDatetime(whfsobject->creationdate, 60 * 1000) != GetRoundedDatetime(whfsobject->modificationdate, 60 * 1000)) //TODO msecs difference check, not just round?
+  {
+    STRING created := modifiedfield->owner->tolliumuser->FormatDateTime(whfsobject->creationdate, "minutes", TRUE, FALSE);
+    modifiedinfo := modifiedinfo || " " || GetTid("publisher:tolliumapps.objectprops.objectprops.created", created);
+  }
+
+  modifiedfield->value := modifiedinfo;
+}

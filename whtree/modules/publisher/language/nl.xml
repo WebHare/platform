@@ -2189,7 +2189,7 @@
       </textgroup>
       <textgroup gid="objectprops">   <!-- tolliumapps.objectprops.objectprops -->
         <text tid="comments-placeholder">Ruimte voor een interne (niet gepubliceerde) notitie over bovenstaande instellingen.</text>
-        <text tid="created">(Aangemaakt</text>
+        <text tid="created">(Aangemaakt <param p="1"/>)</text>
         <text tid="deleted">Verwijderd</text>
         <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
         <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>

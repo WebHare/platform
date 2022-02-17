@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT MimetypeToFiletype;
 
 PUBLIC MACRO RunAddFileHooks(INTEGER fileid)
@@ -91,7 +92,7 @@ PUBLIC MACRO RunAnyDelete(INTEGER ARRAY objids, STRING deletionsource)
   FOREVERY(INTEGER objid FROM objids)
   {
     OBJECT todelete := OpenWHFSObject(objid);
-    IF(NOT ObjectExists(todelete))
+    IF(NOT ObjectExists(todelete) OR IsRecycleBinWHFSPath(todelete->whfspath))
       CONTINUE;
 
     //ADDME group stuff to reduce database queries, but the republish analyzer should probably do that itself..
