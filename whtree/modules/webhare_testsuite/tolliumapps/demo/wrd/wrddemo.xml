@@ -104,6 +104,7 @@
           <select name="testdom1_select_wrdguid" title="testdom1_select_wrdguid" type="radio">
             <wrd:runquery rowkeytag="WRD_GUID" wrdtype="test_domain_1" />
           </select>
+          <textarea composition="entity" cellname="test_free" name="test_free" title="test_free"/>
         </tab>
         <tab spacers="none" tid=".rtd">
           <richdocument name="richie"
