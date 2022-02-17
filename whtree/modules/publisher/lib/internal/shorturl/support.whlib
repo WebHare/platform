@@ -1,0 +1,26 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ShortURLDomainsDescriber EXTEND ObjectTypeDescriber
+<
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetObjectChildren(INTEGER obj, OBJECT user)
+  {
+    RETURN SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = whconstant_whfsid_shorturl;
+  }
+
+  PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon := "tollium:applications/shortlink"
+          FROM system.fs_objects
+         WHERE id = objectid
+               AND parent = whconstant_whfsid_shorturl;
+  }
+>;
+

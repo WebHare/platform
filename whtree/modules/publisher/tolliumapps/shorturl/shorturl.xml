@@ -1,0 +1,87 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.shorturl.shorturl"
+         library="shorturl.whlib">
+
+  <screen name="main" allowresize="true" menubar="menubar" tid=".apptitle" icon="tollium:applications/shortlink">
+    <actions>
+      <action name="search" onexecute="dosearch" />
+      <action name="clear" onexecute="doclear" />
+      <action name="selectdomain" onexecute="doselectdomain" />
+      <action name="addurl" tid="~add" icon="tollium:actions/add" onexecute="doaddurl" />
+      <action name="deleteurl" tid="~delete" icon="tollium:actions/delete">
+        <enableon source="shorturls" min="1" onexecute="dodeleteurl" requirefocus="true" />
+      </action>
+      <action name="editurl" tid="~edit" icon="tollium:actions/edit">
+        <enableon source="shorturls" min="1" max="1" onexecute="doediturl" requirefocus="true" />
+      </action>
+      <windowopenaction name="view" icon="tollium:actions/view">
+        <enableon source="shorturls"  min="1" max="1" onwindowopen="onview"/>
+      </windowopenaction>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~exit" />
+    </actions>
+
+    <menus>
+      <menu name="menubar">
+        <item action="addurl" />
+        <item action="editurl" />
+        <item action="deleteurl" />
+        <item action="view" />
+        <divider />
+        <item action="selectdomain" />
+        <divider />
+        <item action="close" />
+      </menu>
+      <menu name="newcontextmenu">
+        <item action="addurl" />
+      </menu>
+      <menu name="selectcontextmenu">
+        <item action="view" />
+        <item action="editurl" />
+        <item action="deleteurl" />
+      </menu>
+    </menus>
+
+    <toolbar>
+      <button action="view" />
+      <button action="addurl" />
+      <button action="editurl" />
+      <button action="deleteurl" />
+    </toolbar>
+
+    <body spacers="none">
+      <split type="horizontal" name="mainsplit">
+        <part width="1pr" spacers="none">
+          <panel height="1gr" spacers="left right">
+            <line >
+              <textedit width="1pr" name="searchfor" defaultbutton="btn_search" />
+              <button name="btn_search" tid=".search" action="search"/>
+              <button action="clear"/>
+            </line>
+          </panel>
+          <list name="shorturls" height="1pr" selectcontextmenu="selectcontextmenu" newcontextmenu="newcontextmenu" openaction="editurl" selectmode="multiple" ongetrows="ongeturls" onselect="onurlselect" borders="top">
+            <column name="shortname" type="text" width="35x" />
+            <column name="targeturl" type="text" width="1pr"  />
+            <column name="creationdate" type="datetime" storeutc="true" width="18x"  />
+            <column name="expirationdate" type="datetime" storeutc="true" width="18x"  />
+          </list>
+        </part>
+        <part width="1pr" spacers="none" name="previewbrowserpart">
+          <p:previewbrowser name="previewbrowser" />
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="urlprops" footerbuttons="ok cancel">
+    <body>
+      <p:intextlink name="target" width="1pr" required="true" />
+      <textedit tid=".shorturl" name="shortname" width="1pr" minwidth="60x" />
+      <datetime name="expirationdate" type="datetime" storeutc="true" />
+      <text name="modified" title="" visible="false" />
+      <textarea tid="~description" name="description" width="1pr" minheight="5gr" />
+    </body>
+  </screen>
+
+
+</screens>

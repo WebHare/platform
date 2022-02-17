@@ -1420,8 +1420,10 @@
     <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
     <text tid="managefeedbackscope">Manage feedback for a scope</text>
     <text tid="managefeedbackscope-descr">Allows access to the Feedback application to view and handle feedback for a specific scope submitted through the feedback option</text>
+    <text tid="manageshorturls">Manage short URLs</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
+    <text tid="shorturldomains">Short URL domain</text>
     <text tid="worklist_owner">Owns the work list</text>
     <text tid="worklist_resolve">Handle work list items</text>
     <text tid="worklists">Work lists</text>
@@ -2277,6 +2279,41 @@
         <text tid="norightstomovetofolder">You have insufficient rights to move files to folder '<param p="1"/>'.</text>
         <text tid="taskinpast">The date and/or time you specified lies in the past. Tasks can only be scheduled on future dates/times.</text>
         <text tid="when">Start at</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
+      <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="addvariables">Add URL variables</text>
+        <text tid="baseurl">Base URL</text>
+        <text tid="domain">Domain name</text>
+        <text tid="domainalreadyexists">The domain '<param p="1"/>' already exists as a short URL domain</text>
+        <text tid="domainprops">Short URL domain properties</text>
+        <text tid="isinterfacewebserver">This URL is a WebHare interface and cannot be used for short URLs</text>
+        <text tid="nothostedhere">This URL is not hosted on this WebHare</text>
+        <text tid="selectdomain">Select short URL domain</text>
+        <text tid="verifydomaindeletion">Are you sure you want to delete the short URL domain '<param p="1"/>' ?</text>
+      </textgroup>
+      <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
+        <text tid="apptitle">Short url</text>
+        <text tid="clear">Clear</text>
+        <text tid="creationdate">Creation date</text>
+        <text tid="expirationdate">Expiration date</text>
+        <text tid="invaliddate">Should be a future date</text>
+        <text tid="invalidshortname">Invalid characters in name. Allowed are: a-z0-9-</text>
+        <text tid="modifiedby">Modified by</text>
+        <text tid="search">Search</text>
+        <text tid="searchfor">Search for</text>
+        <text tid="selectdomain">Select domain</text>
+        <text tid="shortname">Short URL</text>
+        <text tid="shortname-placeholder">(auto-generated)</text>
+        <text tid="shortnamealreadyexists">This short URL is already in use</text>
+        <text tid="shorturl">Short url</text>
+        <text tid="suredeleteurl">Are you sure you want to delete short url(s):<br/>'<param p="1"/>'?</text>
+        <text tid="target">Target page</text>
+        <text tid="targeturl">Target url</text>
+        <text tid="urlprops">Short URL properties</text>
+        <text tid="view">View</text>
+        <text tid="warnexistingshortlink">This link already has an existing short URL: <param p="1"/><br/><br/>Are you sure you want to create a new short URL?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

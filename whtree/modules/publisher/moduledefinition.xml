@@ -62,7 +62,15 @@
            descriptiontid="rights.managefeedbackscope-descr">
       <impliedby right="managefeedback"/>
     </right>
-    <!--ADDME: Add explicit rights for specific feedback scopes? -->
+
+    <objecttype name="shorturldomains"
+                table="system.fs_objects"
+                tid="rights.shorturldomains"
+                describer="lib/internal/shorturl/support.whlib#ShortURLDomainsDescriber" />
+
+    <right name="manageshorturls" objecttype="shorturldomains" tid="rights.manageshorturls">
+      <impliedby right="system:sysop" />
+    </right>
 
     <objecttype name="worklists"
                 table=".worklists"
@@ -114,6 +122,12 @@
 
     <application name="submitfeedback" screen="tolliumapps/feedback/submit.xml#submitfeedback">
       <accesscheck/>
+    </application>
+
+    <application name="shorturl" screen="tolliumapps/shorturl/shorturl.xml" icon="tollium:applications/shortlink" group="system:cms" tid="tolliumapps.shorturl.shorturl.apptitle">
+      <accesscheck>
+        <requireright right="manageshorturls"/>
+      </accesscheck>
     </application>
 
     <dashboardgroup name="publisher" tid="module.name" orderafter="system:ap system:tasks" />

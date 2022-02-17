@@ -1,0 +1,47 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.shorturl.domains" library="domains.whlib">
+
+  <screen name="selectdomain" footerbuttons="close" allowresize="true" width="120x" height="12gr" flags="managedomains">
+    <actions>
+      <action name="open" onexecute="submit" tid="~open">
+        <enableon source="domains" min="1" max="1" />
+      </action>
+      <action name="add" onexecute="doadd" tid="~add" frameflags="managedomains" />
+      <action name="edit" onexecute="doedit" tid="~edit" frameflags="managedomains" >
+        <enableon source="domains" min="1" max="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" tid="~delete" frameflags="managedomains" >
+        <enableon source="domains" min="1" max="1" />
+      </action>
+    </actions>
+
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="domains" selectmode="single" ongetrows="getdomains" height="1pr"  defaultbutton="openbutton" openaction="open">
+            <column name="domain" type="text" width="1pr" />
+            <column name="baseurl" type="text" width="2pr" />
+          </list>
+        </cell>
+        <cell>
+          <button name="openbutton" action="open" tid="~open" />
+          <spacer height="1gr" />
+          <button width="1pr" action="add" />
+          <button width="1pr" action="edit" />
+          <button width="1pr" action="delete" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="domainprops" footerbuttons="ok cancel">
+    <compositions>
+      <record name="props" />
+    </compositions>
+    <body>
+      <textedit composition="props" cellname="domain" required="true" width="1pr" />
+      <textedit composition="props" cellname="baseurl" width="1pr" />
+      <textedit composition="props" cellname="addvariables" width="1pr" />
+    </body>
+  </screen>
+
+</screens>

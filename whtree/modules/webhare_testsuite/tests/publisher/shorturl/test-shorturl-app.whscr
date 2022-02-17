@@ -1,0 +1,150 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/shorturl.whlib";
+
+LOADLIB "relative::shorturltests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+ASYNC MACRO TestShortURLAPP_AsSysop()
+{
+  AWAIT ExpectScreenChange(+2, PTR TTLaunchApp("publisher:shorturl"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("domain")->value := "test.bea.gl";
+  TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("test.bea.gl", TT("domains")->selection.domain, "Should autoselect the new domain");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
+
+  TestEqLike("*test.bea.gl*", topscreen->frame->title);
+
+  //Add a URL
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("target")->value := MakeIntExtExternalLink("https://beta.webhare.net/");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq("https://beta.webhare.net/", TT("shorturls")->selection.targeturl);
+
+  //Verify preview panel
+  OBJECT testdomain := OpenShortURLDomain("test.bea.gl");
+  TestEqLike(testdomain->baseurl || TT("shorturls")->selection.shortname, TT("previewbrowser")->GetPreviewState().displayurl);
+  testfw->browser->autofollow := FALSE;
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq(MakeIntExtExternalLink("https://beta.webhare.net/"), TT("target")->value);
+  OBJECT newtarget := OpenTestsuiteSite()->OpenByPath("testpages/staticpage-ps-af");
+  TT("target")->value := MakeIntExtInternalLink(newtarget->id, "?appendstuff");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(newtarget->link || "?appendstuff", TT("shorturls")->selection.targeturl);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TT("shortname")->value := "short";
+  TT("description")->value := "My First URL";
+  TT("expirationdate")->localtzvalue := MakeDatetime(2047,5,1,12,0,0);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("My First URL", TT("description")->value);
+  TestEq(MakeDatetime(2047,5,1,12,0,0), TT("expirationdate")->localtzvalue);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->BeginWork();
+  OBJECT testdomain2 := CreateShortURLDomain("test2.bea.gl", [ baseurl := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl2/" ]);
+  testdomain2->CreateExternalShortUrl("https://www.webhare.dev/", [ shortname := "testje" ]);
+  testfw->CommitWork();
+
+  //Launching the app should just jump straight into the last used domain
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:shorturl"));
+  TestEqLike("*test.bea.gl*", topscreen->frame->title);
+  TestEq([[ shortname := "short" ]], SELECT shortname FROM TT("shorturls")->rows ORDER BY shortname);
+
+  //Select the other domain
+  AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));
+  TT("domains")->selection := SELECT * FROM TT("domains")->rows WHERE domain = "test2.bea.gl";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
+
+  TestEq([[ shortname := "testje" ]], SELECT shortname FROM TT("shorturls")->rows ORDER BY shortname);
+  TestEqLike("*test2.bea.gl*", topscreen->frame->title);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestShortURLAPP_AsUser()
+{
+  OBJECT testdomain := OpenShortURLDomain("test.bea.gl");
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightToOn("publisher:manageshorturls", testfw->GetUserObject("lisa"), testdomain->id, FALSE, TRUE);
+  testfw->CommitWork();
+
+  testfw->SetTestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:shorturl"));
+  TestEqLike("*test.bea.gl*", topscreen->frame->title, "test.bea.gl should have been autoselected");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));
+  TestEq(["test.bea.gl"],SELECT AS STRING ARRAY domain FROM TT("domains")->rows);
+  TT("domains")->selection := TT("domains")->rows;
+  TestEq(FALSE, TTClick(":Edit", [ allowfailure := TRUE ]));
+  TestEq(FALSE, TTClick(":Delete", [ allowfailure := TRUE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TT("shorturls")->selection := SELECT * FROM TT("shorturls")->rows WHERE shortname = "short";
+  topscreen->frame->focused := TT("shorturls");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("My First URL", TT("description")->value);
+  TT("description")->value := "The short url";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestShortURLAPP_AsSysop_2()
+{
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:shorturl"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));
+
+  TT("domains")->selection := SELECT * FROM TT("domains")->rows WHERE domain = "test2.bea.gl";
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl2/", TT("baseurl")->value);
+  TestEq("", TT(":Add URL variables")->value);
+
+  TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/";
+  TT(":Add URL variables")->value := "?x=42";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
+
+  testfw->browser->autofollow := FALSE;
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/testje"));
+  TestEq("https://www.webhare.dev/?x=42", testfw->browser->GetResponseHeader("Location"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));
+  TT("domains")->selection := SELECT * FROM TT("domains")->rows WHERE domain = "test2.bea.gl";
+  AWAIT ExpectAndAnswerMessagebox("yes",PTR TTClick(":Delete"), [ messagemask := "*delete*test2.bea.gl*" ]);
+  TestEq(DEFAULT RECORD, TT("domains")->selection);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+}
+
+RunTestFramework([ PTR CleanupShortURLTests
+                 , PTR TestShortURLAPP_AsSysop
+                 , PTR TestShortURLAPP_AsUser
+                 , PTR TestShortURLAPP_AsSysop_2
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);
