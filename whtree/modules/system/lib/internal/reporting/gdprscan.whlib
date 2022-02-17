@@ -66,6 +66,7 @@ PUBLIC RECORD FUNCTION GetGDPRScanReport()
   STRING ARRAY defaultemailmasks := STRING
       [ "*@webhare.nl"
       , "*@*.webhare.net"
+      , "*+webharetest*@*"
       , "*@example.com"
       , "*@example.org"
       , "*@example.net"
