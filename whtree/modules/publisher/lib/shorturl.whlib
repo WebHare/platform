@@ -139,7 +139,7 @@ STATIC OBJECTTYPE ShortURLDomain
       @cell(string) return.description Short link description
       @cell(record) return.target Intextlink to the target
       @cell(string) return.targeturl Full URL to the target
-      @cell(datetime) return.expiration Link expiration date
+      @cell(datetime) return.expirationdate Link expiration date
   */
   PUBLIC RECORD FUNCTION GetShortUrl(INTEGER id)
   {
