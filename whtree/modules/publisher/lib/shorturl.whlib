@@ -129,7 +129,7 @@ STATIC OBJECTTYPE ShortURLDomain
      @return The short link url, or default record if not found
      @cell(integer) return.id Short link id
      @cell(string) return.shortname Short name used for the link (in the actual stored case)
-     @cell(string) return.description Short link Descirption
+     @cell(string) return.description Short link description
   */
   PUBLIC RECORD FUNCTION GetShortUrl(INTEGER id)
   {
@@ -147,10 +147,6 @@ STATIC OBJECTTYPE ShortURLDomain
   /* @return Get shorturl settings
      @param shortname Short name to look up
      @return The short link url, or default record if not found @includecelldef #GetShortUrl.return
-     @cell(integer) return.id Short link id
-     @cell(string) return.shortname Short name used for the link (in the actual stored case)
-     @cell(string) return.description Short link Descirption
-     @cell
   */
   PUBLIC RECORD FUNCTION GetShortUrlByName(STRING shortname)
   {
@@ -298,7 +294,7 @@ STATIC OBJECTTYPE ShortURLDomain
   }
 
   /** @short Update an existing short url
-      @param urlid ID of short url tp update
+      @param urlid ID of short url to update
       @param changes Changes to make */
   PUBLIC MACRO UpdateShortURL(INTEGER urlid, RECORD changes)
   {

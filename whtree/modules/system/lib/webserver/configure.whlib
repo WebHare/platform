@@ -121,7 +121,6 @@ PUBLIC RECORD ARRAY FUNCTION ListWebservers(RECORD options DEFAULTSTO DEFAULT RE
 }
 
 /** Add a new access rule for the specified url
->>>>>>> c20868d6b5 ([shorturl] shorturl setup, webserver config integration)
     @param url URL to add. Must match an existing webserver
     @cell(string) options.matchtype exact/initial/wildcards - how this rule matches.
                   If not set, a rule is initial if the URL refers to a folder (ends with a slsh or refers to the site root), exact otherwise
