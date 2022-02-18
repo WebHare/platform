@@ -13,7 +13,8 @@ RECORD FUNCTION LookupShortURL(INTEGER urlset, STRING findname)
   OpenPrimary();
 
   RECORD match := SELECT id, link FROM system.fs_objects WHERE parent = urlset AND ToUppercase(name) = ToUppercase(findname);
-  STRING targeturl, addvariables;
+  STRING targeturl;
+  RECORD ARRAY setvariables;
   STRING ARRAY eventmasks := ["publisher:shorturlconfig"];
 
   IF(RecordExists(match))
@@ -21,12 +22,12 @@ RECORD FUNCTION LookupShortURL(INTEGER urlset, STRING findname)
     OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
     RECORD urlsetsettings := shorturldomaintype->GetInstanceData(urlset);
 
-    addvariables := urlsetsettings.addvariables;
+    setvariables := urlsetsettings.setvariables;
     eventmasks := eventmasks CONCAT OpenWHFSObject(RecordExists(match) ? match.id : urlset)->GetEventMasks();
     targeturl := match.link;
   }
 
-  RETURN CELL[ value := targeturl != "" ? CELL[ targeturl, addvariables ] : DEFAULT RECORD
+  RETURN CELL[ value := targeturl != "" ? CELL[ targeturl, setvariables ] : DEFAULT RECORD
              , ttl := 60000
              , eventmasks := eventmasks
              ];
@@ -54,8 +55,8 @@ RECORD ARRAY requestvars := GetAllVariablesFromURL(GetRequestURL());
 STRING ARRAY requestvarnames  := SELECT AS STRING ARRAY ToUppercase(name) FROM requestvars;
 STRING ARRAY destvarnames := SELECT AS STRING ARRAY ToUppercase(name) FROM GetAllVariablesFromURL(match.targeturl);
 
-IF(match.addvariables != "") //add any variables from the shorturl domain if not set on either request url or target url
-  FOREVERY(RECORD varrec FROM GetAllVariablesFromURL("?"||match.addvariables))
+IF(Length(match.setvariables) > 0) //add any variables from the shorturl domain if not set on either request url or target url
+  FOREVERY(RECORD varrec FROM match.setvariables)
     IF(ToUppercase(varrec.name) NOT IN (requestvarnames CONCAT destvarnames))
       targeturl := AddVariableToURL(targeturl, varrec.name, varrec.value);
 

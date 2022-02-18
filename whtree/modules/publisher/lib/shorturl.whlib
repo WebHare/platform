@@ -54,7 +54,7 @@ STATIC OBJECTTYPE ShortURLDomain
   {
     RETURN CELL[ domain := this->folder.name
                , this->settings.baseurl
-               , this->settings.addvariables
+               , this->settings.setvariables
                ];
   }
 
@@ -62,7 +62,7 @@ STATIC OBJECTTYPE ShortURLDomain
   {
     changes := ValidateOptions([ baseurl := ""
                                , domain := ""
-                               , addvariables := ""
+                               , setvariables := RECORD[]
                                ], changes, [ title := "changes"
                                            , optional := [ "*" ]
                                            ]);
@@ -77,9 +77,9 @@ STATIC OBJECTTYPE ShortURLDomain
       __EnsureConfigReloadOnCommit();
     }
 
-    IF(CellExists(changes,'addvariables'))
+    IF(CellExists(changes,'setvariables'))
       newinstancedata := CELL[ ...newinstancedata
-                             , changes.addvariables
+                             , changes.setvariables
                              ];
 
     OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
@@ -456,7 +456,7 @@ PUBLIC OBJECT FUNCTION OpenShortURLDomainById(INTEGER targetid)
 PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ baseurl := ""
-                             , addvariables := ""
+                             , setvariables := RECORD[]
                              ], options);
 
   IF(NOT IsValidWHFSName(domain, FALSE))
@@ -474,7 +474,7 @@ PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAUL
 
   newfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder",
     CELL[ options.baseurl
-        , options.addvariables
+        , options.setvariables
         ]);
 
   IF(options.baseurl != "")

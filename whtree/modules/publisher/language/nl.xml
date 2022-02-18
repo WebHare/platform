@@ -2282,7 +2282,6 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
-        <text tid="addvariables">Extra URL variabelen</text>
         <text tid="baseurl">Basis-URL</text>
         <text tid="domain">Domeinnaam</text>
         <text tid="domainalreadyexists">Het domein '<param p="1"/>' bestaat al als verkort URL-domein</text>
@@ -2290,6 +2289,10 @@
         <text tid="isinterfacewebserver">Deze URL is een WebHare interface en kan niet voor verkorte URLs gebruikt worden</text>
         <text tid="nothostedhere">Deze URL wordt niet op deze WebHare gehost</text>
         <text tid="selectdomain">Kies verkorte URL domein</text>
+        <text tid="setvariableprops">URL variabele eigenschappen</text>
+        <text tid="setvariables">URL variabelen instellen</text>
+        <text tid="variablename">URL variabele</text>
+        <text tid="variablevalue">Waarde</text>
         <text tid="verifydomaindeletion">Weet je zeker dat je het verkorte URL domein '<param p="1"/>' wil verwijderen?</text>
       </textgroup>
       <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
@@ -2299,7 +2302,6 @@
         <text tid="expirationdate">Vervaldatum</text>
         <text tid="invaliddate">Datum moet in de toekomst zijn</text>
         <text tid="invalidshortname">Foutieve tekens in naam. Toegestaan zijn: a-z0-9-</text>
-        <text tid="modifiedby">Gewijzigd door</text>
         <text tid="search">Zoeken</text>
         <text tid="searchfor">Zoek naar</text>
         <text tid="selectdomain">Domein kiezen</text>

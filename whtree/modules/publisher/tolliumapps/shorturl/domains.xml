@@ -1,15 +1,15 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.shorturl.domains" library="domains.whlib">
 
-  <screen name="selectdomain" footerbuttons="close" allowresize="true" width="120x" height="12gr" flags="managedomains">
+  <screen name="selectdomain" width="120x" height="12gr" allowresize="true" flags="managedomains" footerbuttons="close">
     <actions>
       <action name="open" onexecute="submit" tid="~open">
         <enableon source="domains" min="1" max="1" />
       </action>
-      <action name="add" onexecute="doadd" tid="~add" frameflags="managedomains" />
-      <action name="edit" onexecute="doedit" tid="~edit" frameflags="managedomains" >
+      <action name="add" frameflags="managedomains" onexecute="doadd" tid="~add" />
+      <action name="edit" frameflags="managedomains" onexecute="doedit" tid="~edit">
         <enableon source="domains" min="1" max="1" />
       </action>
-      <action name="delete" onexecute="dodelete" tid="~delete" frameflags="managedomains" >
+      <action name="delete" frameflags="managedomains" onexecute="dodelete" tid="~delete">
         <enableon source="domains" min="1" max="1" />
       </action>
     </actions>
@@ -17,7 +17,12 @@
     <body>
       <grid height="1pr">
         <cell width="1pr">
-          <list name="domains" selectmode="single" ongetrows="getdomains" height="1pr"  defaultbutton="openbutton" openaction="open">
+          <list name="domains"
+                height="1pr"
+                defaultbutton="openbutton"
+                ongetrows="getdomains"
+                openaction="open"
+                selectmode="single">
             <column name="domain" type="text" width="1pr" />
             <column name="baseurl" type="text" width="2pr" />
           </list>
@@ -37,10 +42,26 @@
     <compositions>
       <record name="props" />
     </compositions>
+
     <body>
-      <textedit composition="props" cellname="domain" required="true" width="1pr" />
+      <textedit composition="props" cellname="domain" width="1pr" required="true" />
       <textedit composition="props" cellname="baseurl" width="1pr" />
-      <textedit composition="props" cellname="addvariables" width="1pr" />
+      <heading tid=".setvariables" />
+      <arrayedit composition="props" cellname="setvariables" width="1pr" roweditscreen="#setvariableprops">
+        <column name="name" type="text" tid=".variablename" />
+        <column name="value" type="text" tid=".variablevalue" />
+      </arrayedit>
+    </body>
+  </screen>
+
+  <screen name="setvariableprops" footerbuttons="ok cancel" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row" cellname="name" width="1pr" required="true" tid=".variablename" />
+      <textedit composition="row" cellname="value" width="1pr" tid=".variablevalue" />
     </body>
   </screen>
 

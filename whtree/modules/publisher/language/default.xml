@@ -2283,7 +2283,6 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
-        <text tid="addvariables">Add URL variables</text>
         <text tid="baseurl">Base URL</text>
         <text tid="domain">Domain name</text>
         <text tid="domainalreadyexists">The domain '<param p="1"/>' already exists as a short URL domain</text>
@@ -2291,6 +2290,10 @@
         <text tid="isinterfacewebserver">This URL is a WebHare interface and cannot be used for short URLs</text>
         <text tid="nothostedhere">This URL is not hosted on this WebHare</text>
         <text tid="selectdomain">Select short URL domain</text>
+        <text tid="setvariableprops">URL variable properties</text>
+        <text tid="setvariables">Set URL variables</text>
+        <text tid="variablename">URL variable</text>
+        <text tid="variablevalue">Value</text>
         <text tid="verifydomaindeletion">Are you sure you want to delete the short URL domain '<param p="1"/>' ?</text>
       </textgroup>
       <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
@@ -2300,7 +2303,6 @@
         <text tid="expirationdate">Expiration date</text>
         <text tid="invaliddate">Should be a future date</text>
         <text tid="invalidshortname">Invalid characters in name. Allowed are: a-z0-9-</text>
-        <text tid="modifiedby">Modified by</text>
         <text tid="search">Search</text>
         <text tid="searchfor">Search for</text>
         <text tid="selectdomain">Select domain</text>

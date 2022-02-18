@@ -159,12 +159,16 @@ PUBLIC MACRO TestShortURLAPI()
 
   //Setup forward vars
   testfw->BeginWork();
-  testdomain->UpdateDomainSettings([ addvariables := "utm_campaign=AndereCampagne&type=click"
+  testdomain->UpdateDomainSettings([ setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
+                                                     ,[ name := "type", value := "click" ]
+                                                     ]
                                    ]);
-  TestEq([ domain := "test.bea.gl"
-         , baseurl := testdomain->baseurl
-         , addvariables := "utm_campaign=AndereCampagne&type=click"
-         ], testdomain->GetDomainSettings());
+  TestEqMembers([ domain := "test.bea.gl"
+                , baseurl := testdomain->baseurl
+                , setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
+                                  ,[ name := "type", value := "click" ]
+                                  ]
+                ], testdomain->GetDomainSettings(), "*,-FSSETTINGID");
   testfw->CommitWork();
 
   TestEq(TRUE, testfw->browser->GotoWebPage(testdomain->baseurl || "MyShortUrl"));
@@ -179,7 +183,7 @@ PUBLIC MACRO TestShortURLAPI()
   TestEq(TRUE, testfw->browser->GotoWebPage(anchorlink.shorturl || "?UTM_Campaign=Beagles"));
   TestEq(Tokenize(anchorlink.targeturl,"?")[0] || "?type=click&UTM_Campaign=Beagles", testfw->browser->GetResponseHeader("Location"));
 
-  //TODO hash support in targeturl (and even addvariables?)
+  //TODO hash support in targeturl (and even setvariables?)
 
   //Test domain change
   STRING oldurl := testdomain->baseurl || "MyShortUrl";

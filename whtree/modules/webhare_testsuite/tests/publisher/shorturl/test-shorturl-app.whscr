@@ -20,7 +20,7 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
   TT("domain")->value := "test.bea.gl";
   TT("baseurl")->value := "https://www.example.net/";
-  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*ot*hosted*" ]);
+  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*ot*hosted *" ]);
   TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl/";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
@@ -123,12 +123,18 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
   TestEq(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl2/", TT("baseurl")->value);
-  TestEq("", TT(":Add URL variables")->value);
+  //set a variable
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT(":URL variable")->value := "x";
+  TT(":Value")->value := "42";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/";
-  TT(":Add URL variables")->value := "?x=42";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
+
 
   testfw->browser->autofollow := FALSE;
   TestEq(TRUE, testfw->browser->GotoWebPage(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/testje"));
