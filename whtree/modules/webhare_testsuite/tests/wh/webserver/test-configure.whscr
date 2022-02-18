@@ -5,10 +5,24 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver/configure.whlib";
 
+MACRO TestAPIDry() //dry-run, we'll roll it all back!
+{
+  testfw->BeginWork();
+
+  TestThrowsLike('*only*root*', PTR AddWebserver("https://suburl.beta.webhare.net/suburl"));
+  TestThrowsLike(`*shouldn't*diskfolder*`, PTR AddWebserver("https://suburl.beta.webhare.net/", [ interface := TRUE, diskfolder := "/tmp/" ]));
+  STRING added := AddWebserver("https://subserver.beta.webhare.net/");
+  TestEqLike("?*", added);
+
+  TestEq([[ baseurl := "https://subserver.beta.webhare.net/" ]], SELECT baseurl FROM ListWebservers() WHERE rowkey = added);
+
+  testfw->RollbackWork();
+}
 
 MACRO TestManageAccessRules()
 {
   RECORD testport := testfw->GetLocalhostWebinterface();
+
   testfw->BeginWork();
 
   //ignore webhare_testsuite:testframework .. this is something the testframework adds to find temporary webservers to garbage collect
@@ -55,4 +69,6 @@ MACRO TestManageAccessRules()
   TestEq("XYZ", BlobToString(testfw->browser->content));
 }
 
-RunTestframework([ PTR TestManageAccessRules ]);
+RunTestframework([ PTR TestAPIDry
+                 , PTR TestManageAccessRules
+                 ]);

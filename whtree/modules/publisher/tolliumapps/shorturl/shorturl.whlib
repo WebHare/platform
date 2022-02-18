@@ -1,0 +1,201 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "mod::publisher/lib/shorturl.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  OBJECT rightsapi;
+  STRING originaltitle;
+
+  MACRO NEW()
+  {
+    this->rightsapi := GetPrimaryWebhareUserApi();
+  }
+
+  MACRO Init(RECORD data)
+  {
+    this->originaltitle := this->frame->title;
+
+    INTEGER opendomain := this->RunScreen("domains.xml#selectdomain", [ appjustopened := TRUE ]);
+    this->OpenDomain(opendomain);
+  }
+
+  MACRO DoSelectDomain()
+  {
+    INTEGER opendomain := this->RunScreen("domains.xml#selectdomain", [ appjustopened := FALSE ]);
+    IF(opendomain != 0)
+      this->OpenDomain(opendomain);
+    ELSE IF(NOT ObjectExists(OpenShortURLDomainById(this->contexts->^shortdomain->id))) //open domain deleted?
+      this->tolliumresult := "cancel";
+  }
+
+  MACRO OpenDomain(INTEGER domain)
+  {
+    this->contexts->^shortdomain := OpenShortURLDomainById(domain);
+    IF(NOT ObjectExists(this->contexts->^shortdomain) OR NOT this->contexts->user->HasRightOn("publisher:manageshorturls", domain))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->frame->title := this->contexts->^shortdomain->domain || " - " || this->originaltitle;
+    ^shorturls->eventmasks := ["system:whfs.folder." || this->contexts->^shortdomain->id];
+    ^shorturls->Invalidate(); //ensure it's reloaded as #selectdomain above can trigger an initial(empty) load
+  }
+
+  MACRO OnView(OBJECT browser)
+  {
+    browser->SendURL(^shorturls->selection.shorturl);
+  }
+
+  MACRO DoSearch()
+  {
+    ^shorturls->Invalidate();
+  }
+
+  MACRO DoClear()
+  {
+    ^searchfor->value := "";
+    this->DoSearch();
+  }
+
+  MACRO OnUrlSelect()
+  {
+    IF(Length(^shorturls->selection) = 1)
+    {
+      ^previewbrowser->SetPreviewURL(this->contexts->^shortdomain->baseurl || ^shorturls->selection[0].shortname);
+    }
+    ELSE
+    {
+      ^previewbrowser->SetPreviewURL("");
+    }
+  }
+
+  RECORD ARRAY FUNCTION OnGetURLs()
+  {
+    IF(NOT ObjectExists(this->contexts->^shortdomain))
+      RETURN RECORD[];
+
+    RECORD ARRAY rows := SELECT *, rowkey := id FROM this->contexts->^shortdomain->ListShortURLs();
+    IF( ^searchfor->value != "" )
+    {
+      STRING searchterm := "*" || ToUpperCase(^searchfor->value) || "*";
+      rows := SELECT * FROM rows WHERE ToUpperCase(shorturl) LIKE searchterm OR ToUpperCase(target) LIKE searchterm;
+    }
+
+    RETURN (SELECT *, modifiedby := modifiedby != 0 ? this->rightsapi->GetUserDisplayName(modifiedby) : "" FROM rows);
+  }
+
+  MACRO DoDeleteUrl()
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".suredeleteurls", ToString(Length(^shorturls->selection)))) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY( RECORD item FROM ^shorturls->selection )
+      OpenWHFSObject(item.rowkey)->RecycleSelf();
+    work->Finish();
+  }
+
+  MACRO DoEditUrl()
+  {
+    this->RunScreen("#urlprops", CELL[ id := ^shorturls->value[0]]);
+  }
+
+  MACRO DoAddUrl()
+  {
+    INTEGER newurl := this->RunScreen("#urlprops", [ id := 0 ]);
+    IF(newurl != 0)
+    {
+      this->frame->focused := ^shorturls;
+      ^shorturls->value := [newurl];
+    }
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
+<
+  INTEGER urlid;
+
+  MACRO Init(RECORD data)
+  {
+    ^shortname->prefix := this->contexts->^shortdomain->baseurl;
+
+    IF(data.id != 0)
+    {
+      RECORD file := this->contexts->^shortdomain->GetShortUrl(data.id);
+      this->urlid := data.id;
+      ^target->value := file.target;
+      ^shortname->value := file.shortname;
+      ^shortname->required := TRUE;
+      ^description->value := file.description;
+      ^expirationdate->value := file.expirationdate;
+
+      SetWHFSObjectLastModifiedField(^modified, OpenWHFSObject(data.id));
+    }
+    ELSE
+    {
+      //we only show the placeholder if we're not going to require the field
+      ^shortname->placeholder := this->GetTid(".shortname-placeholder");
+    }
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT fb := this->BeginFeedback();
+    IF(^shortname->value != "" AND NOT IsValidWHFSName(^shortname->value,FALSE))
+      fb->AddErrorFor(^shortname, this->GetTid(".invalidshortname"));
+    IF(^expirationdate->value != DEFAULT DATETIME AND ^expirationdate->value <= GetCurrentDatetime() )
+      fb->AddErrorFor(^expirationdate, this->GetTid(".invaliddate"));
+    IF(NOT fb->Finish())
+      RETURN 0; //some basic constraint failed
+
+    IF(this->urlid = 0) //creating a NEW link
+    {
+      RECORD existing := this->contexts->^shortdomain->LookupByTarget(^target->value);
+      IF(RecordExists(existing))
+      {
+        IF(this->RunSimpleScreen("confirm", this->GetTid(".warnexistingshortlink", existing.shorturl)) != "yes")
+          RETURN 0;
+      }
+    }
+
+    OBJECT work := this->BeginWork();
+    IF(^shortname->value != "")
+    {
+      RECORD existing := this->contexts->^shortdomain->GetShortURLByName(^shortname->value);
+      IF(RecordExists(existing) AND existing.id != this->urlid)
+        work->AddErrorFor(^shortname, this->GetTid(".shortnamealreadyexists"));
+    }
+
+    RECORD newurl;
+    IF(NOT work->HasFailed())
+    {
+      RECORD setmetadata := CELL[ shortname := ^shortname->value
+                                , description := ^description->value
+                                , expirationdate := ^expirationdate->value
+                                ];
+
+      IF(this->urlid = 0)
+      {
+        newurl := this->contexts->^shortdomain->CreateShortUrl(
+          ^target->value, CELL[ ...setmetadata, forcenew := TRUE ]);
+      }
+      ELSE
+      {
+        this->contexts->^shortdomain->UpdateShortUrl(this->urlid,
+           CELL[ ...setmetadata, target := ^target->value ]);
+      }
+    }
+    RETURN work->Finish() ? this->urlid != 0 ? this->urlid : newurl.id : 0;
+  }
+>;

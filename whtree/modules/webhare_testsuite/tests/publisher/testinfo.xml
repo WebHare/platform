@@ -21,4 +21,5 @@
   <test name="siteprofile" path="siteprofile/" />
   <test name="assetpacks" path="assetpacks/" />
   <test name="pwa" path="pwa/" />
+  <test name="shorturl" path="shorturl/" />
 </group>

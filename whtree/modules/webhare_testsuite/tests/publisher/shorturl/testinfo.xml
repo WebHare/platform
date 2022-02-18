@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="shorturltests.whlib">
+  <test script="test-shorturl-api.whscr" />
+  <test script="test-shorturl-app.whscr" />
+</group>

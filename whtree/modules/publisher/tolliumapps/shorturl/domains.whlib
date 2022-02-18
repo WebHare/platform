@@ -1,0 +1,136 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::publisher/lib/shorturl.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SelectDomain EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->frame->flags.managedomains := this->contexts->user->HasRight("system:sysop");
+
+    IF(data.appjustopened)
+    {
+      RECORD ARRAY doms := ^domains->rows;
+      RECORD toopen := SELECT *
+                         FROM doms
+                        WHERE rowkey = this->contexts->user->GetRegistryKey("publisher.shorturl.lastdomain", 0);
+
+      IF(NOT RecordExists(toopen) AND Length(doms) = 1 AND NOT this->frame->flags.managedomains)
+        toopen := doms[0];
+
+      IF(RecordExists(toopen))
+      {
+        this->__SetScreenResult(toopen.rowkey);
+        RETURN;
+      }
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetDomains()
+  {
+    INTEGER ARRAY limitdomains;
+
+    IF(NOT this->contexts->user->HasRight("system:sysop"))
+    {
+      limitdomains := this->contexts->user->GetRootObjectsForRights(["publisher:manageshorturls"]);
+      IF(Length(limitdomains) = 0)
+        RETURN RECORD[];
+    }
+
+    OBJECT shorturltype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
+    RECORD ARRAY doms := SELECT rowkey := id, domain := name
+                           FROM system.fs_objects
+                          WHERE parent = VAR whconstant_whfsid_shorturl
+                                AND (Length(limitdomains) = 0 OR id IN limitdomains);
+
+    doms := shorturltype->Enrich(doms, "rowkey", ["BASEURL"]);
+    RETURN doms;
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    this->contexts->user->SetRegistryKey("publisher.shorturl.lastdomain", ^domains->value);
+    RETURN ^domains->value;
+  }
+
+  MACRO DoAdd()
+  {
+    INTEGER newdom := this->RunScreen("#domainprops", [ domain := 0 ]);
+    IF(newdom != 0)
+    {
+      ^domains->Invalidate();
+      ^domains->value := newdom;
+    }
+  }
+
+  MACRO DoEdit()
+  {
+    this->RunScreen("#domainprops", [ domain := ^domains->value ]);
+  }
+
+  MACRO DoDelete()
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".verifydomaindeletion", ^domains->selection.domain)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    OpenShortURLDomainById(^domains->value)->DeleteSelf();
+    work->Finish();
+
+    ^domains->Invalidate();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE DomainProps EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.domain;
+    IF(this->id != 0)
+      ^props->value := OpenShortURLDomainById(this->id)->GetDomainSettings();
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT targetdomainsettings := OpenShortURLDomain(^props->^domain->value, [ allowmissing := TRUE]);
+    IF(ObjectExists(targetdomainsettings) AND targetdomainsettings->id != this->id)
+      work->AddErrorFor(^domain, this->GetTid(".domainalreadyexists", ^domain->value));
+
+    IF(^props->^baseurl->value != "")
+    {
+      RECORD match := SELECT * FROM ListWebservers() WHERE ^props->^baseurl->value LIKE baseurl || "*";
+      IF(NOT RecordExists(match))
+        work->AddErrorFor(^props->^baseurl, this->GetTid(".nothostedhere"));
+      ELSE IF(match.interface AND GetDtapStage() != "development") //to protect yourself from breaking a WebHare interface. on dev servers, we'll trust you
+        work->AddErrorFor(^props->^baseurl, this->GetTid(".isinterfacewebserver"));
+    }
+
+    INTEGER newdomid;
+    IF(NOT work->HasFailed())
+    {
+      IF(this->id != 0)
+      {
+        OBJECT domainsettings := OpenShortURLDomainById(this->id);
+        domainsettings->UpdateDomainSettings(^props->value);
+      }
+      ELSE
+      {
+        newdomid := CreateShortURLDomain(^props->^domain->value, CELL[...^props->value, DELETE domain])->id;
+      }
+    }
+
+    RETURN work->Finish() ? (newdomid ?? this->id) : 0;
+  }
+>;

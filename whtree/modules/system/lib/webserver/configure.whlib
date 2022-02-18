@@ -9,23 +9,29 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 MACRO OnCommitRefreshWebserverConfig(BOOLEAN iscommit)
 {
   //TODO we could offer a 'nowait' mode, but we need a way to select that (eg a transaction flag or requiring [ nowait := TRUE ] to *all* API calls?
   IF (iscommit)
-    dumpvalue(RefreshGlobalWebserverConfig());
+    RefreshGlobalWebserverConfig();
 }
 
 RECORD FUNCTION GetWebserver(STRING url)
 {
   RECORD unpackedurl := UnpackURL(url);
-  RECORD matchwebserver := LookupWebserver(GetHostedSites(), unpackedurl.host, unpackedurl.port);
+  RECORD matchwebserver := LookupWebserver(GetCacheableHostedSites().value, unpackedurl.host, unpackedurl.port);
   IF(NOT RecordExists(matchwebserver))
     THROW NEW Exception(`No webserver for '${unpackedurl.host || (unpackedurl.isdefaultport ? "" : `:${unpackedurl.port}`)}'`);
 
   RETURN matchwebserver;
+}
+
+PUBLIC MACRO __EnsureConfigReloadOnCommit()
+{
+  GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
 }
 
 /** List access rules for the specified url
@@ -56,6 +62,65 @@ PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
 
 /** Add new access rules for the specified url
     @long Only supports 'initial' 'webruleset' access rules
+*/
+PUBLIC STRING FUNCTION AddWebserver(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ diskfolder := ""
+                             , interface := FALSE
+                             ], options);
+
+  IF(options.interface AND options.diskfolder != "")
+    THROW NEW Exception(`Interface webservers shouldn't be configured with a diskfolder`);
+
+  RECORD unpackedurl := UnpackURL(url);
+  IF(unpackedurl.scheme NOT IN ["http","https"])
+    THROW NEW Exception(`Invalid URL '${url}'`);
+  IF(unpackedurl.urlpath != "")
+    THROW NEW Exception(`Webservers can only be created for the root of a site, not for suburls`);
+
+  INTEGER port;
+  IF(unpackedurl.port NOT IN [80, 443]) //80 and 443 are auto-offered by nginx, but anything else requires a port;
+  {
+    RECORD ARRAY matchport := SELECT * FROM system_internal.ports WHERE ports.port = unpackedurl.port;
+    IF(Length(matchport) = 0)
+      THROW NEW Exception(`Port ${unpackedurl.port} isn't opened`);
+    IF(Length(matchport) > 1) //should probably allow users to specify exact port number
+      THROW NEW Exception(`Multiple matches for port ${unpackedurl.port}`);
+
+    port := matchport[0].id;
+  }
+
+  RECORD matchwebserver := LookupWebserver(GetCacheableHostedSites().value, unpackedurl.host, unpackedurl.port);
+  IF(RecordExists(matchwebserver))
+    THROW NEW Exception(`A webserver for '${url}' already exists`);
+
+  INTEGER webserverid := MakeAutonumber(system.webservers,"ID");
+  INSERT CELL[ id := webserverid
+             , options.diskfolder
+             , type := options.interface ? whconstant_webservertype_interface : 0
+             , port
+             , baseurl := RepackURL(CELL[unpackedurl.scheme, unpackedurl.host, unpackedurl.port, user := "", password := "", urlpath := "", urlpathslash := TRUE ])
+             ] INTO system_internal.webservers;
+             //(id, type, baseurl,outputextension,port, diskfolder, stricttransportsecurity)
+             //VALUES(webserverid, options.outputserver ? 0 : 1, baseurl, ".html",Length(options.virtualhosts)=0?portid:0, options.diskfolder, options.stricttransportsecurity);
+  //INSERT INTO
+
+  RETURN "dbweb:" || webserverid;
+}
+
+/** List webservers */
+PUBLIC RECORD ARRAY FUNCTION ListWebservers(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options); //planned options are: return groups too, return from specific parent
+
+  RETURN SELECT rowkey := "dbweb:" || id
+              , baseurl
+              , interface := type = 1
+           FROM system.webservers
+          WHERE type IN [ 0, 1 ];
+}
+
+/** Add a new access rule for the specified url
     @param url URL to add. Must match an existing webserver
     @cell(string) options.matchtype exact/initial/wildcards - how this rule matches.
                   If not set, a rule is initial if the URL refers to a folder (ends with a slsh or refers to the site root), exact otherwise
@@ -109,7 +174,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
     THROW NEW Exception(`An access rule must add one and only one type of configuration`);
   }
 
-  GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
+  __EnsureConfigReloadOnCommit();
   RETURN "db:" || newid; //future versions will return guids
 }
 
@@ -126,5 +191,5 @@ PUBLIC MACRO DeleteAccessRule(STRING rulerowkey)
     THROW NEW Exception(`No such rule '${rulerowkey}`);
   DELETE FROM system_internal.access WHERE id = findid;
 
-  GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR OnCommitRefreshWebserverConfig);
+  __EnsureConfigReloadOnCommit();
 }

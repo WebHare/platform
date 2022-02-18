@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/shorturl.whlib";
+
+
+PUBLIC MACRO CleanupShortURLTests()
+{
+  testfw->BeginWork();
+  FOREVERY(STRING toclean FROM ["test.bea.gl","test2.bea.gl"])
+  {
+    OBJECT testdomain := OpenShortURLDomain(toclean, [ allowmissing := TRUE]);
+    IF(ObjectExists(testdomain))
+      testdomain->DeleteSelf();
+  }
+  testfw->CommitWork();
+}
+

@@ -1420,8 +1420,10 @@
     <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="managefeedbackscope">Feedback voor een scope beheren</text>
     <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
+    <text tid="manageshorturls">Beheer verkorte URLs</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
+    <text tid="shorturldomains">Verkort URL domein</text>
     <text tid="worklist_owner">Eigenaar van de werklijst</text>
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
     <text tid="worklists">Werklijsten</text>
@@ -2276,6 +2278,43 @@
         <text tid="norightstomovetofolder">U heeft onvoldoende rechten om bestanden te verplaatsen naar map '<param p="1"/>'.</text>
         <text tid="taskinpast">De door u ingevoerde tijd/datum ligt in het verleden. U kunt alleen toekomstige taken inplannen.</text>
         <text tid="when">Start op</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
+      <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="baseurl">Basis-URL</text>
+        <text tid="domain">Domeinnaam</text>
+        <text tid="domainalreadyexists">Het domein '<param p="1"/>' bestaat al als verkort URL-domein</text>
+        <text tid="domainprops">Verkorte URL domeineigenschappen</text>
+        <text tid="isinterfacewebserver">Deze URL is een WebHare interface en kan niet voor verkorte URLs gebruikt worden</text>
+        <text tid="nothostedhere">Deze URL wordt niet op deze WebHare gehost</text>
+        <text tid="selectdomain">Kies verkorte URL domein</text>
+        <text tid="setvariableprops">URL variabele eigenschappen</text>
+        <text tid="setvariables">URL variabelen instellen</text>
+        <text tid="variablename">URL variabele</text>
+        <text tid="variablevalue">Waarde</text>
+        <text tid="verifydomaindeletion">Weet je zeker dat je het verkorte URL domein '<param p="1"/>' wil verwijderen?</text>
+      </textgroup>
+      <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
+        <text tid="apptitle">Verkorte URLs</text>
+        <text tid="clear">Reset</text>
+        <text tid="creationdate">Aanmaakdatum</text>
+        <text tid="expirationdate">Vervaldatum</text>
+        <text tid="invaliddate">Datum moet in de toekomst zijn</text>
+        <text tid="invalidshortname">Foutieve tekens in naam. Toegestaan zijn: a-z0-9-</text>
+        <text tid="search">Zoeken</text>
+        <text tid="searchfor">Zoek naar</text>
+        <text tid="selectdomain">Domein kiezen</text>
+        <text tid="shortname">Korte URL</text>
+        <text tid="shortname-placeholder">(automatisch aangemaakt)</text>
+        <text tid="shortnamealreadyexists">Deze verkorte URL bestaat al</text>
+        <text tid="shorturl">Korte url</text>
+        <text tid="suredeleteurls">Weet je zeker dat je de geselecteerde verkorte url(s) wil verwijderen?</text>
+        <text tid="target">Bestemming</text>
+        <text tid="targeturl">Bestemming</text>
+        <text tid="urlprops">Korte URL eigenschappen</text>
+        <text tid="view">Bekijken</text>
+        <text tid="warnexistingshortlink">Deze link heeft al een verkorte URL: <param p="1"/><br/><br/>Weet je zeker dat je een nieuwe verkorte URL wil maken?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->

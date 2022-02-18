@@ -12,6 +12,7 @@ LOADLIB "mod::publisher/lib/internal/files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/service.whlib";
@@ -219,17 +220,17 @@ PUBLIC MACRO ExecuteScheduledTask(RECORD task)
 {
   DELETE FROM publisher.schedule WHERE id=task.id;
 
-  IF (task.event = 1) //Start publish/republish
+  IF (task.event = whconstant_publisherschedule_publish) //Start publish/republish
     DoStartPublish(task);
-  ELSE IF (task.event = 2) //Stop publish
+  ELSE IF (task.event = whconstant_publisherschedule_unpublish)
     DoStopPublish(task);
-  ELSE IF (task.event = 3) //Move fsobj
+  ELSE IF (task.event = whconstant_publisherschedule_move)
     DoMoveFile(task);
-  ELSE IF (task.event = 4) //Delete fsobj
+  ELSE IF (task.event = whconstant_publisherschedule_delete)
     DoDeleteFile(task);
-  ELSE IF (task.event = 5) //Set index doc
+  ELSE IF (task.event = whconstant_publisherschedule_setindexdoc)
     DoSetIndexDoc(task);
-  ELSE IF (task.event = 6)
+  ELSE IF (task.event = whconstant_publisherschedule_replace)
     DoReplaceWith(task);
  ELSE
     THROW NEW Exception(`Unrecognized task type #${task.event}`);
