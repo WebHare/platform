@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 /** @topic harescript-core/os */
 
 LOADLIB "wh::internal/interface.whlib" EXPORT IsConsoleATerminal, IsConsoleSupportAvailable, GetConsoleSize, GetCurrentPath, FlushOutputBuffer, GetEnvironmentVariable;
@@ -850,12 +850,12 @@ PUBLIC MACRO TerminateScriptWithError(STRING error, RECORD options DEFAULTSTO DE
   ABORT(error ?? "Terminated script due to an error");
 }
 
-/** Returns a async iterator which yields lines of output
+/** Returns a async iterator which yields lines of output from a process
     @param process Process
     @cell options.autoclose If TRUE, automatically close the process when the iterator terminates. Defaults to TRUE.
     @return Async iterator. Yields the following values
-    * [ type := "output", line := line ]
-    * [ type := "error", line := line ]
+    * [ type := "output", data := line ]
+    * [ type := "error", data := line ]
     * [ type := "close", exitcode := exitcode ]
 */
 PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -920,7 +920,7 @@ PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD op
             IF (line LIKE "*\r")
               line := Left(line, LENGTH(line) - 1);
 
-            YIELD [ type := "output", line := line ];
+            YIELD [ type := "output", data := line, line := line ];
             output := SubString(output, pos + 1);
             last_output_scan := 0;
           }
@@ -929,7 +929,7 @@ PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD op
         {
           have_output := FALSE;
           IF (output != "")
-            YIELD [ type := "output", line := output ];
+            YIELD [ type := "output", data := output, line := output ];
         }
 
         IF (have_output)
@@ -961,7 +961,7 @@ PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD op
             IF (line LIKE "*\r")
               line := Left(line, LENGTH(line) - 1);
 
-            YIELD [ type := "error", line := line ];
+            YIELD [ type := "error", data := line, line := line ];
             errors := SubString(errors, pos + 1);
             last_error_scan := 0;
           }
@@ -970,7 +970,7 @@ PUBLIC OBJECT ASYNC FUNCTION *MakeProcessAsyncIterator(OBJECT process, RECORD op
         {
           have_errors := FALSE;
           IF (errors != "")
-            YIELD [ type := "errors", line := errors ];
+            YIELD [ type := "errors", data := errors, line := errors ];
         }
 
         IF (have_errors)
