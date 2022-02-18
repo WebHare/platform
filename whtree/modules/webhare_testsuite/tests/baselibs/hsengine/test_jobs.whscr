@@ -5,6 +5,8 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+
 
 MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)
 {
@@ -149,8 +151,18 @@ MACRO TestOverrideExecuteLibrary()
   CloseTest("TestJobs: OverrideExecuteLibrary");
 }
 
+MACRO TestInterrupt()
+{
+  OBJECT job := CreateJob("test::testdata_jobs_a.whlib").job;
+  job->Start();
+  job->ipclink->DoRequest([ type := "interruptcallback" ]);
+  TestEQ(TRUE, job->SendInterrupt());
+  TestEQMembers([ status := "ok", msg := [ type := "interrupt" ] ], job->ipclink->ReceiveMessage(MAX_DATETIME), "*");
+  job->Close();
+}
 
 PRINT("\n === Running TestJobs\n");
 BaseTest();
 TestIPCLinkGoneAfterCrash();
 TestOverrideExecuteLibrary();
+TestInterrupt();

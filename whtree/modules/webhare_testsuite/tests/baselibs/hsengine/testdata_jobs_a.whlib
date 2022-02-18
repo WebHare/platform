@@ -178,6 +178,12 @@ WHILE (NOT break_out)
       WaitUntil(DEFAULT RECORD, AddTimeToDate(50, GetCurrentDateTime()));
       BroadcastEvent("hs:test", [ j := 1 ]);
     }
+    CASE "interruptcallback"
+    {
+      AddInterruptCallback(PTR link->SendMessage([ type := "interrupt" ]));
+      link->SendReply([ type := "ack" ], rec.msgid);
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
+    }
 
   DEFAULT
     {

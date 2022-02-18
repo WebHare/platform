@@ -24,6 +24,7 @@ MACRO __HS_SetJobArguments(INTEGER handle, STRING ARRAY arguments) __ATTRIBUTES_
 INTEGER FUNCTION __HS_GetJobExitcode(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_StartJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_ReleaseJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HS_SendJobInterrupt(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_TerminateJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_DeleteJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 BOOLEAN FUNCTION __HS_TryCancelJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
@@ -473,12 +474,25 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   }
 
 
+  /** Sends a interrupt signal to the job
+      @return TRUE if the job handled the interrupt (using AddInterruptCallback)
+  */
+  PUBLIC BOOLEAN FUNCTION SendInterrupt()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot terminate an already closed job");
+
+    // Send interrupt signal to the job
+    RETURN __HS_SendJobInterrupt(this->pvt_handle);
+  }
+
+
   /** Sends a termination signal to the job
   */
   PUBLIC MACRO Terminate()
   {
     IF (this->pvt_handle = 0)
-      THROW NEW Exception("Cannot close an already closed job");
+      THROW NEW Exception("Cannot terminate an already closed job");
 
     // Send abort to the job
     __HS_TerminateJob(this->pvt_handle);
