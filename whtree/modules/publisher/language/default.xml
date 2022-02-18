@@ -2310,7 +2310,7 @@
         <text tid="shortname-placeholder">(auto-generated)</text>
         <text tid="shortnamealreadyexists">This short URL is already in use</text>
         <text tid="shorturl">Short url</text>
-        <text tid="suredeleteurl">Are you sure you want to delete short url(s):<br/>'<param p="1"/>'?</text>
+        <text tid="suredeleteurls">Are you sure you want to delete the selected short url(s)?</text>
         <text tid="target">Target page</text>
         <text tid="targeturl">Target url</text>
         <text tid="urlprops">Short URL properties</text>

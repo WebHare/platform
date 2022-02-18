@@ -162,14 +162,19 @@ PUBLIC MACRO TestShortURLAPI()
   testdomain->UpdateDomainSettings([ setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
                                                      ,[ name := "type", value := "click" ]
                                                      ]
+                                   , domain := "test2.bea.gl"
                                    ]);
-  TestEqMembers([ domain := "test.bea.gl"
+  TestEqMembers([ domain := "test2.bea.gl"
                 , baseurl := testdomain->baseurl
                 , setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
                                   ,[ name := "type", value := "click" ]
                                   ]
                 ], testdomain->GetDomainSettings(), "*,-FSSETTINGID");
+  TestEq("test2.bea.gl", testdomain->domain);
   testfw->CommitWork();
+
+  TestThrowsLike("No such short*", PTR OpenShortURLDomain("test.bea.gl"));
+  TestEq(testdomain->id, OpenShortURLDomain("test2.bea.gl")->id);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(testdomain->baseurl || "MyShortUrl"));
   TestEq(selfnamed_reusedlink.targeturl || "?utm_campaign=AndereCampagne&type=click", testfw->browser->GetResponseHeader("Location"));

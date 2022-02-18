@@ -82,6 +82,12 @@ STATIC OBJECTTYPE ShortURLDomain
                              , changes.setvariables
                              ];
 
+    IF(CellExists(changes,'domain') AND changes.domain != this->domain)
+    {
+      OBJECT domfolder := OpenWHFSObject(this->id);
+      domfolder->MoveTo(domfolder->parentobject, changes.domain);
+    }
+
     OBJECT shorturldomaintype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder");
     IF(RecordExists(newinstancedata))
       OpenWHFSType("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder")->SetInstanceData(this->id, newinstancedata);
@@ -124,12 +130,16 @@ STATIC OBJECTTYPE ShortURLDomain
                ];
   }
 
-  /* @return Get shorturl settings
-     @param id URL to look up
-     @return The short link url, or default record if not found
-     @cell(integer) return.id Short link id
-     @cell(string) return.shortname Short name used for the link (in the actual stored case)
-     @cell(string) return.description Short link description
+  /** Get short url settings
+      @param id The id of the URL to look up
+      @return The shortlink settings or a default record if not found
+      @cell(integer) return.id Short link id
+      @cell(string) return.shortname Short name used for the link (in the actual stored case)
+      @cell(string) return.shorturl Short URL
+      @cell(string) return.description Short link description
+      @cell(record) return.target Intextlink to the target
+      @cell(string) return.targeturl Full URL to the target
+      @cell(datetime) return.expiration Link expiration date
   */
   PUBLIC RECORD FUNCTION GetShortUrl(INTEGER id)
   {
@@ -387,7 +397,7 @@ STATIC OBJECTTYPE ShortURLDomain
 
   DATETIME FUNCTION GetExpirationDate( INTEGER fileid )
   {
-    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = 4;// 4 is delete task
+    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = whconstant_publisherschedule_delete;
     IF( RecordExists(task) )
       RETURN task.when;
 
@@ -400,16 +410,16 @@ STATIC OBJECTTYPE ShortURLDomain
   */
   MACRO UpdateExpirationDate(INTEGER fileid, DATETIME expirationdate /* use DEFAULT DATETIME to remove task */ )
   {
-    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = 4 /* delete */;
+    RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid AND event = whconstant_publisherschedule_delete;
     IF( expirationdate = DEFAULT DATETIME )
     {
       IF( RecordExists(task) )
         DeleteFileTask(task.id);
     }
     ELSE IF( RecordExists(task) )
-      EditFileTask( task.id, expirationdate, 4 /* delete */, 0);
+      EditFileTask( task.id, expirationdate, whconstant_publisherschedule_delete, 0);
     ELSE
-      AddFileTask( fileid, expirationdate, 4 /* delete */, 0);
+      AddFileTask( fileid, expirationdate, whconstant_publisherschedule_delete, 0);
   }
 >;
 

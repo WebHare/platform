@@ -96,18 +96,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoDeleteUrl()
   {
-    STRING ARRAY urls := SELECT AS STRING ARRAY shorturl FROM ^shorturls->selection;
-    INTEGER urlcount := Length(urls);
-    IF( urlcount > 6 )
-    {
-      urls := SELECT AS STRING ARRAY url FROM ToRecordArray(urls,"url") LIMIT 6;
-      INSERT "... and " || (urlcount - 6) || " more" INTO urls AT END;
-    }
-
-    IF( this->RunSimpleScreen("warning", this->GetTid(".suredeleteurl", DeTokenize(urls,"\n")), [ buttons := ["ok","cancel"] ]) != "ok" )
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".suredeleteurls", ToString(Length(^shorturls->selection)))) != "yes")
       RETURN;
 
-    OBJECT work := this->BeginWork();
+    OBJECT work := this->BeginUnvalidatedWork();
     FOREVERY( RECORD item FROM ^shorturls->selection )
       OpenWHFSObject(item.rowkey)->RecycleSelf();
     work->Finish();

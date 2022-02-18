@@ -2309,7 +2309,7 @@
         <text tid="shortname-placeholder">(automatisch aangemaakt)</text>
         <text tid="shortnamealreadyexists">Deze verkorte URL bestaat al</text>
         <text tid="shorturl">Korte url</text>
-        <text tid="suredeleteurl">Weet je zeker dat je de verkorte url(s):<br/>'<param p="1"/>'<br/> wil verwijderen?</text>
+        <text tid="suredeleteurls">Weet je zeker dat je de geselecteerde verkorte url(s) wil verwijderen?</text>
         <text tid="target">Bestemming</text>
         <text tid="targeturl">Bestemming</text>
         <text tid="urlprops">Korte URL eigenschappen</text>

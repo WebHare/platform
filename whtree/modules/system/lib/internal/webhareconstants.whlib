@@ -98,6 +98,24 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_create := 4;
 /// fs_history.type modified action
 PUBLIC CONSTANT INTEGER whconstant_historytype_modify := 5;
 
+/// publisher.schedule start publish/republish event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
+
+/// publisher.schedule stop publish event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_unpublish := 2;
+
+/// publisher.schedule move event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_move := 3;
+
+/// publisher.schedule deletion event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_delete := 4;
+
+/// publisher.schedule set indexdoc event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_setindexdoc := 5;
+
+/// publisher.schedule replace event
+PUBLIC CONSTANT INTEGER whconstant_publisherschedule_replace := 6;
+
 //Scriptable types which are reflected to disk so the compiler can see them
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
   [  7 //semidynamic
