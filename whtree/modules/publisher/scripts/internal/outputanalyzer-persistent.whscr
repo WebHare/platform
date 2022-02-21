@@ -75,5 +75,6 @@ OBJECT queue := NEW OutputAnalyzerQueue("publisher:outputanalyzer", CELL
     , args.resetqueue
     ]);
 
+AddInterruptCallback(PTR queue->Shutdown);
 queue->StartProcessing(); // Starts running the queue
 RunWebHareService("publisher:outputanalyzer", PTR Constructor(queue), [ restartimmediately := TRUE ]);
