@@ -1,0 +1,187 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ClusterServices EXTEND DashboardPanelBase
+<
+  OBJECT service;
+
+  MACRO Init()
+  {
+    this->Connect();
+  }
+
+  ASYNC MACRO Connect()
+  {
+    ^frame->flags.hasconnection := FALSE;
+    this->service := DEFAULT OBJECT;
+    TRY
+    {
+      this->service := AWAIT OpenWebHareService("system:clusterservices");
+      this->service->AddListener("state", PTR this->GotStateUpdate);
+      ScheduleCallbackOnServiceClose(this->service, PTR this->GotServiceClose);
+      ^frame->flags.hasconnection := TRUE;
+      this->ReloadList();
+    }
+    CATCH
+    {
+      IF (ObjectExists(this->service))
+        this->service->CloseService();
+      ELSE
+        RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDatetime()), PTR this->Connect);
+    }
+  }
+
+  MACRO GotServiceClose()
+  {
+    this->service := DEFAULT OBJECT;
+    this->ReloadList();
+
+    RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDatetime()), PTR this->Connect);
+  }
+
+  MACRO GotStateUpdate(RECORD data)
+  {
+    this->ReloadList();
+  }
+
+  STRING FUNCTION MapState(STRING state)
+  {
+    SWITCH (state)
+    {
+      CASE "running"  { RETURN this->GetTid(".state.running"); }
+      CASE "waiting"  { RETURN this->GetTid(".state.waiting"); }
+      CASE "removing" { RETURN this->GetTid(".state.removing"); }
+      CASE "disabled" { RETURN this->GetTid(".state.disabled"); }
+    }
+    RETURN state;
+  }
+
+  ASYNC MACRO ReloadList()
+  {
+    IF (NOT ObjectExists(this->service))
+    {
+      ^services->rows := RECORD[];
+      ^services->empty := this->GetTid(".notconnected");
+      RETURN;
+    }
+
+    TRY
+    {
+      RECORD ARRAY services := AWAIT this->service->ListScripts();
+      ^services->rows :=
+          SELECT rowkey :=      id
+               , *
+               , running :=     state = "running"
+               , statetext :=   this->MapState(state)
+            FROM services;
+      ^services->empty := this->GetTid(".noservicesfound");
+    }
+    CATCH (OBJECT e)
+    {
+      ^services->rows := RECORD[];
+      ^services->empty := this->GetTid(".error", e->what);
+    }
+  }
+
+  MACRO DoProperties()
+  {
+    this->RunScreen("#scriptstatus", CELL[ ^services->selection.id ]);
+  }
+
+  MACRO DoRestart()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".surerestart")) != "yes")
+      RETURN;
+
+    TRY
+      WaitForPromise(this->service->RestartScript(^services->value));
+    CATCH (OBJECT e)
+      RunExceptionReportDialog(this, e);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ScriptStatus EXTEND TolliumScreenBase
+<
+  INTEGER64 id;
+  OBJECT service;
+  RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+    this->Connect();
+  }
+
+  ASYNC MACRO Connect()
+  {
+    TRY
+    {
+      this->service := AWAIT OpenWebHareService("system:clusterservices");
+      this->service->AddListener("state", PTR this->GotStateUpdate);
+      this->service->AddListener("output", PTR this->GotStateUpdate);
+      ScheduleCallbackOnServiceClose(this->service, PTR this->GotServiceClose);
+      AWAIT this->service->SetWatchedScript(this->id);
+      this->GotStateUpdate();
+    }
+    CATCH (OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+      IF (ObjectExists(this->service))
+        this->service->CloseService();
+      ELSE
+        this->tolliumresult := "close";
+    }
+  }
+
+  MACRO GotServiceClose()
+  {
+    this->service := DEFAULT OBJECT;
+    this->tolliumresult := "close";
+  }
+
+  ASYNC MACRO GotStateUpdate(RECORD eventdata DEFAULTSTO DEFAULT RECORD)
+  {
+    TRY
+    {
+      RECORD data := AWAIT this->service->GetScriptInfo(this->id);
+      ^run->value := data;
+      ^databasemodes->value := Detokenize(data.databasemodes, ", ");
+      ^lastrunpanel->visible := IsValueSet(data.lastrun);
+      IF (RecordExists(data.lastrun))
+      {
+        RECORD ARRAY allrows :=
+            SELECT *
+                 , rowkey :=    #errors + 1
+              FROM data.lastrun.errors;
+
+        ^errors->rows :=
+            SELECT *
+                 , allrows :=   VAR allrows
+              FROM allrows
+             WHERE message != "";
+      }
+    }
+    CATCH (OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+      this->tolliumresult := "close";
+    }
+  }
+
+  MACRO DoOpenErrorsRow()
+  {
+    this->RunScreen("mod::system/screens/monitor/processlist.xml#codeview",
+        [ rows :=   ^errors->selection.allrows
+        , value :=  ^errors->value
+        ]);
+  }
+>;

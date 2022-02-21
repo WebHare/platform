@@ -141,6 +141,7 @@
     <dashboardpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" unlessenvironset="WEBHARE_DBASENAME"  />
     <dashboardpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
     <dashboardpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
+    <dashboardpanel group="ap" name="clusterservices" tid="monitor.clusterservices.title" screen="tolliumapps/dashboard/clusterservices.xml#clusterservices" />
     <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
     <dashboardpanel group="ap" name="apprunner" tid="monitor.apprunner.title" screen="monitor/apprunner.apprunner" />
     <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />

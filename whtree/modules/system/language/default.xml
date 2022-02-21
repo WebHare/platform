@@ -292,6 +292,9 @@
     <textgroup gid="checks">   <!-- monitor.checks -->
       <text tid="title">System messages</text>
     </textgroup>
+    <textgroup gid="clusterservices">   <!-- monitor.clusterservices -->
+      <text tid="title">Cluster services</text>
+    </textgroup>
     <textgroup gid="columns">   <!-- monitor.columns -->
       <text tid="family">Familiy</text>
       <text tid="filename">Filename</text>
@@ -679,7 +682,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->
-      <text tid="title">Cluster services</text>
+      <text tid="title">Webserver services</text>
       <textgroup gid="dialogs">   <!-- monitor.webserverscripts.dialogs -->
         <text tid="resourcemanagererror">There was an error contacting the resource manager</text>
       </textgroup>
@@ -1511,6 +1514,40 @@
         <text tid="lastuse">Last use</text>
         <text tid="precalculatedcache">Precalculated cache</text>
         <text tid="state">State</text>
+      </textgroup>
+      <textgroup gid="clusterservices">   <!-- tolliumapps.dashboard.clusterservices -->
+        <text tid="arguments">Arguments</text>
+        <text tid="clusterservices">Cluster services</text>
+        <text tid="col">Column</text>
+        <text tid="currentrun">Current run</text>
+        <text tid="databasemodes">Database modes</text>
+        <text tid="error">Error: <param p="1"/></text>
+        <text tid="errors">Errors</text>
+        <text tid="exitcode">Exit code</text>
+        <text tid="filename">Filename</text>
+        <text tid="finished">Finished</text>
+        <text tid="func">Function</text>
+        <text tid="id">ID</text>
+        <text tid="lastrun">Last run</text>
+        <text tid="line">Line</text>
+        <text tid="message">Message</text>
+        <text tid="noservicesfound">No services found</text>
+        <text tid="nostacktrace">No stack trace available</text>
+        <text tid="notconnected">Not connected to cluster services manager</text>
+        <text tid="openerrorsrow">Open</text>
+        <text tid="output">Output</text>
+        <text tid="restart">Restart</text>
+        <text tid="script">Script</text>
+        <text tid="scriptstatus">Status</text>
+        <text tid="started">Started</text>
+        <text tid="state">State</text>
+        <text tid="surerestart">Are you sure you want to restart this service?</text>
+        <textgroup gid="state">   <!-- tolliumapps.dashboard.clusterservices.state -->
+          <text tid="disabled">Disabled</text>
+          <text tid="removing">Removing</text>
+          <text tid="running">Running</text>
+          <text tid="waiting">Waiting for restart</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="dashboard">   <!-- tolliumapps.dashboard.dashboard -->
         <text tid="buildinfo">Build</text>

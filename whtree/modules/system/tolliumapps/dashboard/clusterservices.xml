@@ -1,0 +1,114 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.dashboard.clusterservices"
+         library="clusterservices.whlib">
+
+  <screen name="clusterservices" flags="hasconnection">
+    <actions>
+      <action name="properties" frameflags="hasconnection" onexecute="DoProperties" tid="~properties">
+        <enableon source="services" min="1" />
+      </action>
+      <action name="restart" frameflags="hasconnection" onexecute="DoRestart" tid=".restart">
+        <enableon source="services" min="1" checkflags="running" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="servicemenu">
+        <item action="properties" />
+        <item action="restart" />
+      </menu>
+    </menus>
+
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="services"
+                height="1pr"
+                borders="right"
+                flags="running"
+                openaction="properties"
+                selectcontextmenu="servicemenu"
+                selectmode="single">
+            <column name="id" type="integer64" width="10x" tid=".id" />
+            <column name="script" type="text" width="3pr" />
+            <column name="statetext" type="text" tid=".state" />
+            <column name="started" type="datetime" storeutc="true" tid=".started" />
+          </list>
+        </cell>
+        <cell spacers="all">
+          <button width="1pr" action="properties" />
+          <button width="1pr" action="restart" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="scriptstatus" width="150x" allowresize="true" footerbuttons="close">
+    <actions>
+      <action name="openerrorsrow" onexecute="DoOpenErrorsRow">
+        <enableon source="errors" min="1" />
+      </action>
+    </actions>
+
+    <compositions>
+      <record name="run" />
+      <record composition="run" cellname="lastrun" name="lastrun" />
+    </compositions>
+
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr" spacers="all">
+          <heading tid=".currentrun" />
+          <textedit composition="run" cellname="script" width="1pr" enabled="false" />
+          <textedit composition="run" cellname="arguments" width="1pr" enabled="false" />
+          <text name="databasemodes" />
+          <datetime composition="run" cellname="started" type="datetime" precision="milliseconds" readonly="true" />
+          <heading tid=".output" />
+          <panel height="1pr" borders="all">
+            <codeedit composition="run" cellname="output" height="1pr" />
+          </panel>
+        </part>
+        <part name="lastrunpanel" width="1pr" spacers="all">
+          <heading tid=".lastrun" />
+          <datetime composition="lastrun" cellname="started" type="datetime" precision="milliseconds" readonly="true" />
+          <datetime composition="lastrun" cellname="finished" type="datetime" precision="milliseconds" readonly="true" />
+          <textedit composition="lastrun" cellname="exitcode" readonly="true" valuetype="integer" />
+          <heading tid=".output" />
+          <panel height="1pr" borders="all">
+            <codeedit composition="lastrun" cellname="output" height="1pr" />
+          </panel>
+          <heading tid=".errors" />
+          <list name="errors"
+                height="8x"
+                emptytid=".nostacktrace"
+                openaction="openerrorsrow"
+                rowlayout="tworows"
+                selectmode="single"
+                sortable="false">
+            <column name="message" type="text" />
+            <column name="filename" type="text" />
+            <column name="line" type="integer" width="7x" align="right" />
+            <column name="col" type="integer" width="7x" align="right" />
+            <column name="func" type="text" />
+            <rowlayout name="tworows">
+              <col coldef="filename" />
+              <col coldef="line" />
+              <col coldef="col" />
+              <col coldef="func" />
+              <row>
+                <cell coldef="message" colspan="4" />
+              </row>
+              <row>
+                <cell coldef="filename" />
+                <cell coldef="line" />
+                <cell coldef="col" />
+                <cell coldef="func" />
+              </row>
+            </rowlayout>
+          </list>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+</screens>
