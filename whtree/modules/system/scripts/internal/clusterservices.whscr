@@ -18,6 +18,8 @@ OBJECT servicerunner := NEW JobServiceRunner(CELL[ args.debug ]);
 servicerunner->AddScript("mod::system/lib/internal/cluster/mutexmgr.whlib#RunMutexManagerService");
 servicerunner->AddScript("mod::system/lib/internal/cluster/completions.whlib#RunCompletionService");
 servicerunner->AddScript("mod::publisher/lib/internal/siteprofiles/compileservice.whlib#RunSPCompileService");
+servicerunner->AddScript("mod::publisher/scripts/internal/outputanalyzer-persistent.whscr", [ databasemodes := [ "online" ] ]);
+servicerunner->AddScript("mod::publisher/scripts/internal/publication-persistent.whscr", [ databasemodes := [ "online" ] ]);
 
 AddInterruptCallback(PTR servicerunner->Shutdown([ terminatescript := TRUE ]));
 RunWebHareService("system:clusterservices", PTR NewJobServiceRunnerAPI(servicerunner), [ autorestart := FALSE ]);
