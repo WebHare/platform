@@ -393,6 +393,12 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   // Update functions
   //
 
+  /** Called just before scheduling starts, poststartdone has been reached.
+  */
+  MACRO BeforeSchedulingStart()
+  {
+  }
+
   /** Returns scheduling info
       @return Scheduling info
       @cell(integer) return.concurrenttasks Concurrent tasks to run
