@@ -112,12 +112,8 @@ OBJECTTYPE LockManager
   */
   MACRO NEW(STRING clientname)
   {
-    this->link := ConnectToMutexManager();
-
     this->clientname := clientname ?? (SELECT AS STRING liburi FROM GetHarescriptLoadedLibraries());
-    RECORD rec := this->DoRequest([ task := "init", clientname := this->clientname, groupid := GetCurrentGroupId() ]);
-    IF (rec.status = "ok")
-      this->logtraces := rec.msg.logtraces;
+    this->RequireConnection();
   }
 
   // ---------------------------------------------------------------------------
@@ -129,6 +125,7 @@ OBJECTTYPE LockManager
   {
     IF (this->pvt_clientname != clientname)
     {
+      this->RequireConnection();
       this->pvt_clientname := clientname;
 
       RECORD res := this->link->SendMessage([ task := "setclientname", clientname := clientname, groupid := GetCurrentGroupId() ]);
@@ -142,8 +139,21 @@ OBJECTTYPE LockManager
   // Helper functions
   //
 
+  MACRO RequireConnection()
+  {
+    IF (NOT ObjectExists(this->link))
+    {
+      this->link := ConnectToMutexManager();
+      RECORD rec := this->DoRequest([ task := "init", clientname := this->clientname, groupid := GetCurrentGroupId() ]);
+      IF (rec.status = "ok")
+        this->logtraces := rec.msg.logtraces;
+    }
+  }
+
   MACRO ReleaseMutex(STRING mutexname)
   {
+    this->RequireConnection();
+
     // Send an unlock request, don't care about the result (it is ignored by our dorequests)
     this->link->SendMessage([ task := "unlock", mutexname := mutexname ]);
     RECORD pos := LowerBound(this->pvt_lockedmutexes, mutexname);
@@ -153,6 +163,8 @@ OBJECTTYPE LockManager
 
   RECORD FUNCTION DoRequest(RECORD message)
   {
+    this->RequireConnection();
+
     RECORD res := this->link->SendMessage(message);
     IF (res.status != "ok")
       RETURN res;
@@ -255,7 +267,12 @@ OBJECTTYPE LockManager
           ]);
 
       IF (res.status != "ok")
+      {
+        // mutex manager is gone, remove the link and get a new one the next time
+        this->link->Close();
+        this->link := DEFAULT OBJECT;
         THROW NEW Exception("The mutual exclusion manager could not be contacted");
+      }
 
       SWITCH (res.msg.status)
       {
