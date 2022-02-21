@@ -209,7 +209,7 @@ self.addEventListener('install', event =>
 
 async function logToAllClients(loglevel, message)
 {
-  console[loglevel]("[Serive Worker] " + message);
+  console[loglevel]("[Service Worker] " + message);
   let clients = await self.clients.matchAll();
   clients.forEach(client => client.postMessage({ type: "log", loglevel, message }));
 }
