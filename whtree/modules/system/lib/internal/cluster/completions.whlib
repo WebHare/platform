@@ -121,6 +121,8 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
   OBJECT parentlink;
   INTEGER parentlinkcb;
 
+  BOOLEAN state_started;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -132,6 +134,8 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
     this->flat_responses := TRUE;
     this->parentlink := GetIPCLinkToParent();
     this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->OnParentMessage);
+
+    CreateWHServiceStatePromise("started")->Then(PTR this->GotServiceStateStarted);
   }
 
   // ---------------------------------------------------------------------------
@@ -146,19 +150,11 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
     CallMacroPTRVA(PTR LogDebug, args);
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
 
-  UPDATE BOOLEAN FUNCTION HaveIdleWork()
+  MACRO HandleCheckSiteSettings()
   {
-    RETURN Length(this->completions) > 0 OR this->checksitesettings;
-  }
-
-  UPDATE MACRO HandleIdleWork()
-  {
-    IF(this->checksitesettings)
+    // Site settings need compiled siteprofiles, so don't execute these before state 'started'
+    IF(this->checksitesettings AND this->state_started)
     {
       this->checksitesettings := FALSE;
       TRY
@@ -171,6 +167,28 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
         PrintTo(2, "Checksitesettings failure: " || e->what || "\n");
       }
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotServiceStateStarted()
+  {
+    this->state_started := TRUE;
+    IF (this->checksitesettings)
+      this->HandleCheckSiteSettings();
+  }
+
+  UPDATE BOOLEAN FUNCTION HaveIdleWork()
+  {
+    RETURN Length(this->completions) > 0 OR (this->state_started AND this->checksitesettings);
+  }
+
+  UPDATE MACRO HandleIdleWork()
+  {
+    this->HandleCheckSiteSettings();
 
     this->completions := HandleCompletions(this->completions);
 
