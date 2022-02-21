@@ -509,7 +509,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunnerAPI EXTEND WebHareServiceProxyBase
       @param(object #JobServiceRunner) servicerunner Service runner
   */
   MACRO NEW(OBJECT servicerunner)
-  : WebHareServiceProxyBase()
+  : WebHareServiceProxyBase("system:jobservicerunner")
   {
     this->_servicerunner := servicerunner;
     this->_servicerunner->AddProxy(PRIVATE this);
