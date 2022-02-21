@@ -692,6 +692,9 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
 }
 
 /** Run all runonce scripts
+    @param module Parsed module data
+    @param phase Phase to run
+    @param showinfo IF TRUE, print debug data to stdout
     @return Return result
     @cell return.error Whether an error has occurred
     @cell return.output Output of all scripts
