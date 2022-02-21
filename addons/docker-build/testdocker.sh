@@ -30,6 +30,7 @@ COVERAGE=
 ADDMODULES=
 ISMODULETEST=
 TESTFAIL=0
+FATALERROR=
 ARTIFACTS=
 NOPULL=0
 TESTPOSTGRESQL=
@@ -538,16 +539,18 @@ fi
 echo "`date` Wait for poststartdone container1"
 if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
   testfail "Wait for poststartdone container1 failed"
+  FATALERROR=1
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   echo "`date` Wait for poststartdone container2"
   if ! $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor --timeout 600 poststartdone ; then
     testfail "Wait for poststartdone container2 failed"
+    FATALERROR=1
   fi
 fi
 
-if [ -n "$ISMODULETEST" ]; then
+if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   echo "`date` Check assetpacks"
   if ! $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
@@ -568,7 +571,7 @@ if [ -n "$ISMODULETEST" ]; then
   fi
 fi
 
-if [ -n "$GENERATEXMLTESTS" ]; then
+if [ -n "$GENERATEXMLTESTS" ] && [ -z "$FATALERROR" ]; then
   echo "`date` Generate XML tests"
   $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::webhare_testsuite/tests/createxmldomtestscripts.whscr
 fi
@@ -583,24 +586,26 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "`date` ^^^ container2 servicemanager log ^^^"
 fi
 
-echo "`date` Start the actual test"
+if [ -z "$FATALERROR" ]; then
+  echo "`date` Start the actual test"
 
-if [ -n "$TESTSCRIPT" ]; then
+  if [ -n "$TESTSCRIPT" ]; then
 
-  echo "`date` Executing custom test script: $TESTSCRIPT"
+    echo "`date` Executing custom test script: $TESTSCRIPT"
 
-  export TESTENV_CONTAINER1
-  export TESTENV_CONTAINER2
+    export TESTENV_CONTAINER1
+    export TESTENV_CONTAINER2
 
-  if ! $TESTSCRIPT ; then
-    testfail "The testscript $TESTCSRIPT failed"
-  fi
+    if ! $TESTSCRIPT ; then
+      testfail "The testscript $TESTCSRIPT failed"
+    fi
 
-else
-  # When module testing, only run runtest if there actually appear to be any tests
-  if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
-      testfail "One or more tests failed"
+  else
+    # When module testing, only run runtest if there actually appear to be any tests
+    if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
+      if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $DEBUG $RUNTESTARGS $TESTLIST; then
+        testfail "One or more tests failed"
+      fi
     fi
   fi
 fi
