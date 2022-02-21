@@ -79,6 +79,5 @@ html.cookiebar body:after //the actual cookie bar
 }
 html.cookiebar .wh-anchor //fix anchors for proper scroll positioning when a cookiebar is present
 {
-  height:166px;
-  margin-top:-166px;
+  scroll-margin-top:166px;
 }

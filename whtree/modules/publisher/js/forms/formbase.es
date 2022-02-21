@@ -444,6 +444,8 @@ export default class FormBase
     scrollto = scrollto.querySelector('.wh-anchor') || scrollto;
     if(origscrollto && scrollto != origscrollto && dompack.debugflags.fhv)
       console.log('[fhv] Modified scroll target from ', origscrollto, ' to anchor ', scrollto);
+    else
+      console.log('[fhv] Scroll to ', scrollto);
 
     scrollto.scrollIntoView();
   }

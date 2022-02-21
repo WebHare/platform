@@ -1,10 +1,3 @@
-.wh-anchor
-{
-  position:absolute; /* absolute so we don't expand our parent */
-  display:inline-block; /* what most users in practice preferred */
-  pointer-events: none; /* shifting the anchor up may causing overlapping clickable areas */
-  visibility: hidden;
-}
 .wh-rtd__img
 {
   max-width:100%;
