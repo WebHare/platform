@@ -500,3 +500,14 @@ PUBLIC STATIC OBJECTTYPE MutexPortHandler EXTEND IPCPortHandlerBase
   }
 >;
 
+PUBLIC MACRO RunMutexManagerService()
+{
+  //Prepare the mutex system first, so services can already try to connect to it
+  OBJECT mutexport := CreateIPCPort("system:mutexmanager");
+  __INTERNAL_KeepPortGlobal(mutexport);
+  OBJECT handler := NEW MutexPortHandler(mutexport);
+  handler->flat_responses := TRUE;
+
+  //Start processing mutex owrk
+  handler->Run();
+}
