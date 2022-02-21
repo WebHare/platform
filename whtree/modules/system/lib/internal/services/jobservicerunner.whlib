@@ -121,7 +121,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
       STRING message := SELECT AS STRING COLUMN message FROM jobdata.errors WHERE COLUMN message != "";
       PRINT(`${script.scriptshort} failed to start with error message: ${message}\n`);
 
-      LogHarescriptException(NEW HarescriptErrorException(jobdata.errors));
+      LogHarescriptException(NEW HarescriptErrorException(jobdata.errors), [ addcurrentstack := FALSE ]);
       this->_scripts[pos.position].lastrun := CELL
           [ exitcode :=       -1
           , jobdata.errors
@@ -137,6 +137,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
     this->_scripts[pos.position].job := jobdata.job;
     this->_scripts[pos.position].started := started;
     INTEGER outputhandle := jobdata.job->CaptureOutput();
+    STRING groupid := jobdata.job->groupid;
     jobdata.job->Start();
 
     IF (this->_options.debug)
@@ -171,7 +172,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
           {
             STRING message := SELECT AS STRING COLUMN message FROM evt.value.errors WHERE COLUMN message != "";
             PRINT(`${script.scriptshort} terminated with exitcode ${evt.value.exitcode}${message = "" ? "" : `, error message: ${message}`}\n`);
-            LogHarescriptException(NEW HarescriptErrorException(evt.value.errors));
+            LogHarescriptException(NEW HarescriptErrorException(evt.value.errors), CELL[ addcurrentstack := FALSE, groupid ]);
           }
 
           lastrundata := CELL
