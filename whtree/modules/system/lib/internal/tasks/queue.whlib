@@ -393,7 +393,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   // Update functions
   //
 
-  /** Called just before scheduling starts, poststartdone has been reached.
+  /** Called just before scheduling starts, service state 'started' has been reached.
   */
   MACRO BeforeSchedulingStart()
   {
@@ -472,7 +472,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
     IF (NOT queue_ok)
       this->TryRebuildPersistentQueue();
 
-    CreateWHServiceStatePromise("poststartdone")->Then(PTR this->ActivateProcessing);
+    CreateWHServiceStatePromise("started")->Then(PTR this->ActivateProcessing);
   }
 
   /** Pushes a new task for processing

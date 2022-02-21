@@ -8,14 +8,23 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT trans;
+BOOLEAN webhare_started;
 
 //Handle completions. Return any unhandled completions, to allow our caller to merge in newly incoming completions
 PUBLIC RECORD ARRAY FUNCTION HandleCompletions(RECORD ARRAY completions)
 {
+  // Make sure wwebhare service state 'started' has been reached
+  IF (NOT webhare_started)
+  {
+    WaitForPromise(CreateWHServiceStatePromise("started"));
+    webhare_started := TRUE;
+  }
+
   IF(NOT ObjectExists(trans))
     trans := OpenPrimary ( [ clientname := "webserver completions" ]);
 
