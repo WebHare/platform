@@ -113,6 +113,12 @@ test.registerTests(
     test.eq(11, useragent.version);
     test.eq("windows", useragent.platform);
     test.eq("desktop", useragent.device);
+
+    useragent = browser.parseUserAgent('Mozilla/5.0 (Linux; U; Android 7.1.2; en-gb; Redmi 4X Build/N2G47H) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.116 Mobile Safari/537.36 XiaoMi/MiuiBrowser/12.15.2-go');
+    test.eq("miuibrowser", useragent.name);
+    test.eq(12, useragent.version);
+    test.eq("android", useragent.platform);
+    test.eq("mobile", useragent.device);
   }
 ]);
 

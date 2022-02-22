@@ -11,9 +11,9 @@ export function parseUserAgent(ua)
 {
   ua = ua.toLowerCase();
 
-  // chrome is included in the edge UA, so need to check for edge first,
-  // before checking if it's chrome.
-  var UA = ua.match(/(edge)[\s\/:]([\w\d\.]+)/);
+  // chrome is included in the edge UA, so need to check for edge first, before checking if it's chrome.
+  // safari is included in the miuibrowser UA, so need to check for miuibrowser first, before checking if it's safari.
+  var UA = ua.match(/(edge|miuibrowser)[\s\/:]([\w\d\.]+)/);
   if (!UA)
     UA = ua.match(/(opera|ie|firefox|chrome|trident|crios|version)[\s\/:]([\w\d\.]+)?.*?(safari|(?:rv[\s\/:]|version[\s\/:])([\w\d\.]+)|$)/);
   if (!UA) //try ios 11.4.1
