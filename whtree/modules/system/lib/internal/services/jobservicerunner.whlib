@@ -38,7 +38,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
       @cell(datetime) nextstart Next start time
       @cell(record) lastrun Last run data
       @cell(boolean) removing TRUE if removing but not terminated yet
-      @cell(integer) waitinterruptcb Termiantion waiting timout, set when ->SendInterrupt called
+      @cell(integer) waitinterruptcb Termination waiting timout, set when ->SendInterrupt called
       @cell(boolean) terminating TRUE if ->Terminate called on job
   */
   RECORD ARRAY _scripts;
@@ -362,9 +362,6 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
       @param script Script library / function
       @cell(string array) options.args Arguments for script functions
       @cell(string array) options.databasemodes
-
-
-
       @return Creation result
       @cell(integer64) return.id Script id
   */
@@ -498,7 +495,7 @@ PUBLIC STATIC OBJECTTYPE JobServiceRunner
   }
 >;
 
-/** API object for the hob service runner
+/** API object for the job service runner
 */
 PUBLIC STATIC OBJECTTYPE JobServiceRunnerAPI EXTEND WebHareServiceProxyBase
 <

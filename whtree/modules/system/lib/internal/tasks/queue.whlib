@@ -472,6 +472,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
     IF (NOT queue_ok)
       this->TryRebuildPersistentQueue();
 
+    //Queues should be functional after 'started' and may not depend on any poststart initialization (that would cause WaitForPublishCompletion in poststartscripts to race)
     CreateWHServiceStatePromise("started")->Then(PTR this->ActivateProcessing);
   }
 

@@ -18,7 +18,7 @@ BOOLEAN webhare_started;
 //Handle completions. Return any unhandled completions, to allow our caller to merge in newly incoming completions
 PUBLIC RECORD ARRAY FUNCTION HandleCompletions(RECORD ARRAY completions)
 {
-  // Make sure wwebhare service state 'started' has been reached
+  // Make sure WebHare service state 'started' has been reached
   IF (NOT webhare_started)
   {
     WaitForPromise(CreateWHServiceStatePromise("started"));
