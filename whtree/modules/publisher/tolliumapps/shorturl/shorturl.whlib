@@ -2,6 +2,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::publisher/lib/shorturl.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
@@ -120,6 +122,34 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
   }
 
+  MACRO DoExportAll()
+  {
+    this->RunExport(^shorturls->rows);
+  }
+  MACRO DoExportSelection()
+  {
+    this->RunExport(^shorturls->selection);
+  }
+
+  MACRO RunExport(RECORD ARRAY rows)
+  {
+    RECORD ARRAY columns :=
+      [ [ title := this->GetTid(".shorturl"), name := "shorturl", type := "text" ]
+      , [ title := this->GetTid(".targeturl"), name := "targeturl", type := "text" ]
+      ];
+
+    RunColumnFileExportDialog(this, CELL[ columns
+                                        , rows := (SELECT * FROM rows ORDER BY targeturl)
+                                        , exporttitle := this->GetTid(".shorturlexport", this->contexts->^shortdomain->domain)
+                                        ]);
+  }
+
+  MACRO DoBulkcreate()
+  {
+    INTEGER ARRAY toselect := this->RunScreen("#bulkcreate");
+    IF(Length(toselect) > 0)
+      ^shorturls->value := toselect;
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
@@ -202,5 +232,48 @@ PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
       }
     }
     RETURN work->Finish() ? this->urlid != 0 ? this->urlid : newurl.id : 0;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE BulkCreate EXTEND TolliumScreenBase
+<
+  RECORD ARRAY FUNCTION ParseUrls()
+  {
+    //Cleanup and convert tabs/newlines ea to single spaces and create url list
+    STRING importstr := TrimWhiteSpace(NEW RegEx("[,;\t\n\r]+","g")->Replace(^importstr->value," "));
+    IF( importstr = "" )
+      RETURN DEFAULT RECORD ARRAY;
+
+    STRING ARRAY urls := Tokenize(importstr," ");
+
+    //Validate urls and keep import order
+    RETURN SELECT target, isvalid := IsValidURL(target) FROM ToRecordArray( urls, "target") GROUP BY target ORDER BY SearchElement(urls,target);
+  }
+
+  MACRO DoImport()
+  {
+    OBJECT work := this->BeginWork();
+
+    INTEGER ARRAY newurls;
+    FOREVERY(STRING url FROM ParseXSList(^importstr->value))
+    {
+      IF(url = "")
+        CONTINUE;
+
+      TRY
+      {
+        INSERT this->contexts->^shortdomain->CreateExternalShortUrl(url).id INTO newurls AT END;
+      }
+      CATCH(OBJECT e) //TODO translation
+      {
+        work->AddError(`${url} - ${e->what}`);
+      }
+    }
+
+    IF(Length(newurls) = 0 AND NOT work->HasFailed())
+      work->AddErrorFor(^importstr, this->GetTid(".nourlstoimport"));
+
+    IF(work->Finish())
+      this->__SetScreenResult(newurls);
   }
 >;

@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -60,7 +61,29 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
   TestEq(MakeDatetime(2047,5,1,12,0,0), TT("expirationdate")->localtzvalue);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  //Bulk create
+  AWAIT ExpectScreenChange(+1, PTR TTClick("bulkcreate"));
+  TT("importstr")->value := "https://www.webhare.dev/link1\n/www.webhare.dev/link5";
+  AWAIT ExpectAndAnswerMessagebox("ok",PTR TTClick(":Create URLs"), [ messagemask := "*Invalid*www.webhare.dev/link5*" ]);
+  TT("importstr")->value := "https://www.webhare.dev/link6\n https://www.webhare.dev/link2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Create URLs"));
+
+  TestEqMembers([[ targeturl := "https://www.webhare.dev/link2" ]
+                ,[ targeturl := "https://www.webhare.dev/link6" ]
+                ], (SELECT * FROM TT("shorturls")->rows WHERE targeturl LIKE "https://www.webhare.dev/*" ORDER BY targeturl),"*");
+  TestEqMembers([[ targeturl := "https://www.webhare.dev/link2" ]
+                ,[ targeturl := "https://www.webhare.dev/link6" ]
+                ], (SELECT * FROM TT("shorturls")->selection ORDER BY targeturl),"*");
+
+   AWAIT ExpectScreenChange(+1, PTR TTClick("exportselection"));
+  RECORD ARRAY rows := GetOOXMLSpreadsheetRows((AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file.data);
+  TestEqMembers([[ "target url" := "https://www.webhare.dev/link2" ]
+                ,[ "target url" := "https://www.webhare.dev/link6" ]
+                ], rows, "*");
+  TestEqLike(testdomain->baseurl || "??*", rows[0]."short url");
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //Close app
 
   testfw->BeginWork();
   OBJECT testdomain2 := CreateShortURLDomain("test2.bea.gl", [ baseurl := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl2/" ]);
@@ -70,7 +93,9 @@ ASYNC MACRO TestShortURLAPP_AsSysop()
   //Launching the app should just jump straight into the last used domain
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:shorturl"));
   TestEqLike("*test.bea.gl*", topscreen->frame->title);
-  TestEq([[ shortname := "short" ]], SELECT shortname FROM TT("shorturls")->rows ORDER BY shortname);
+  TestEqMembers([[ targeturl := "https://www.webhare.dev/link2" ]
+                ,[ targeturl := "https://www.webhare.dev/link6" ]
+                ], (SELECT * FROM TT("shorturls")->rows WHERE targeturl LIKE "https://www.webhare.dev/*" ORDER BY targeturl),"*");
 
   //Select the other domain
   AWAIT ExpectScreenChange(+1, PTR TTClick("selectdomain"));

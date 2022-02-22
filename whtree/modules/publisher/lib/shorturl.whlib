@@ -256,7 +256,10 @@ STATIC OBJECTTYPE ShortURLDomain
   {
     STRING unphost := this->__GetBadDomain(intextlink);
     IF(unphost != "")
-      THROW NEW Exception(`Unacceptable domain '${unphost} for this short url`);
+      THROW NEW Exception(`Unacceptable domain '${unphost}' for this short url`);
+
+    IF(intextlink.internallink = 0 AND NOT IsValidPlainHTTPURL(intextlink.externallink))
+      THROW NEW Exception(`Invalid URL ${intextlink.externallink}`);
   }
 
   /** @short Create a shorturl for a page

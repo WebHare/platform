@@ -3,21 +3,26 @@
          gid="tolliumapps.shorturl.shorturl"
          library="shorturl.whlib">
 
-  <screen name="main" allowresize="true" menubar="menubar" tid=".apptitle" icon="tollium:applications/shortlink">
+  <screen name="main" allowresize="true" icon="tollium:applications/shortlink" menubar="menubar" tid=".apptitle">
     <actions>
       <action name="search" onexecute="dosearch" />
       <action name="clear" onexecute="doclear" />
       <action name="selectdomain" onexecute="doselectdomain" />
-      <action name="addurl" tid="~add" icon="tollium:actions/add" onexecute="doaddurl" />
-      <action name="deleteurl" tid="~delete" icon="tollium:actions/delete">
+      <action name="addurl" icon="tollium:actions/add" onexecute="doaddurl" tid="~add" />
+      <action name="deleteurl" icon="tollium:actions/delete" tid="~delete">
         <enableon source="shorturls" min="1" onexecute="dodeleteurl" requirefocus="true" />
       </action>
-      <action name="editurl" tid="~edit" icon="tollium:actions/edit">
+      <action name="exportall" ellipsis="true" onexecute="doexportall" />
+      <action name="exportselection" ellipsis="true" onexecute="doexportselection">
+        <enableon source="shorturls" min="1" requirefocus="true" />
+      </action>
+      <action name="editurl" icon="tollium:actions/edit" tid="~edit">
         <enableon source="shorturls" min="1" max="1" onexecute="doediturl" requirefocus="true" />
       </action>
       <windowopenaction name="view" icon="tollium:actions/view">
-        <enableon source="shorturls"  min="1" max="1" onwindowopen="onview"/>
+        <enableon source="shorturls" min="1" max="1" onwindowopen="onview" />
       </windowopenaction>
+      <action name="bulkcreate" ellipsis="true" onexecute="dobulkcreate" />
       <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~exit" />
     </actions>
 
@@ -29,44 +34,62 @@
         <item action="view" />
         <divider />
         <item action="selectdomain" />
+        <item action="bulkcreate" />
         <divider />
         <item action="close" />
       </menu>
       <menu name="newcontextmenu">
         <item action="addurl" />
+        <item action="exportall" />
       </menu>
       <menu name="selectcontextmenu">
         <item action="view" />
         <item action="editurl" />
         <item action="deleteurl" />
+        <divider />
+        <item action="exportselection" />
+      </menu>
+      <menu name="exportmenu">
+        <item action="exportall" />
+        <item action="exportselection" />
       </menu>
     </menus>
 
     <toolbar>
-      <button action="view" />
       <button action="addurl" />
       <button action="editurl" />
       <button action="deleteurl" />
+      <divider />
+      <button action="view" />
+      <button icon="tollium:actions/export" menu="exportmenu" tid="~export" />
     </toolbar>
 
     <body spacers="none">
-      <split type="horizontal" name="mainsplit">
+      <split name="mainsplit" type="horizontal">
         <part width="1pr" spacers="none">
           <panel height="1gr" spacers="left right">
-            <line >
-              <textedit width="1pr" name="searchfor" defaultbutton="btn_search" />
-              <button name="btn_search" tid=".search" action="search"/>
-              <button action="clear"/>
+            <line>
+              <textedit name="searchfor" width="1pr" defaultbutton="btn_search" />
+              <button name="btn_search" action="search" tid=".search" />
+              <button action="clear" />
             </line>
           </panel>
-          <list name="shorturls" height="1pr" selectcontextmenu="selectcontextmenu" newcontextmenu="newcontextmenu" openaction="editurl" selectmode="multiple" ongetrows="ongeturls" onselect="onurlselect" borders="top">
+          <list name="shorturls"
+                height="1pr"
+                borders="top"
+                newcontextmenu="newcontextmenu"
+                ongetrows="ongeturls"
+                onselect="onurlselect"
+                openaction="editurl"
+                selectcontextmenu="selectcontextmenu"
+                selectmode="multiple">
             <column name="shortname" type="text" width="35x" />
-            <column name="targeturl" type="text" width="1pr"  />
-            <column name="creationdate" type="datetime" storeutc="true" width="18x"  />
-            <column name="expirationdate" type="datetime" storeutc="true" width="18x"  />
+            <column name="targeturl" type="text" width="1pr" />
+            <column name="creationdate" type="datetime" width="18x" storeutc="true" />
+            <column name="expirationdate" type="datetime" width="18x" storeutc="true" />
           </list>
         </part>
-        <part width="1pr" spacers="none" name="previewbrowserpart">
+        <part name="previewbrowserpart" width="1pr" spacers="none">
           <p:previewbrowser name="previewbrowser" />
         </part>
       </split>
@@ -76,12 +99,26 @@
   <screen name="urlprops" footerbuttons="ok cancel">
     <body>
       <p:intextlink name="target" width="1pr" required="true" />
-      <textedit tid=".shorturl" name="shortname" width="1pr" minwidth="60x" />
+      <textedit name="shortname" width="1pr" minwidth="60x" tid=".shorturl" />
       <datetime name="expirationdate" type="datetime" storeutc="true" />
       <text name="modified" title="" visible="false" />
-      <textarea tid="~description" name="description" width="1pr" minheight="5gr" />
+      <textarea name="description" width="1pr" minheight="5gr" tid="~description" />
     </body>
   </screen>
 
+  <screen name="bulkcreate" width="500px" allowresize="true">
+    <actions>
+      <action name="createurls" onexecute="doimport" />
+    </actions>
+
+    <body>
+      <textarea name="importstr" width="1pr" height="1pr" minheight="10x" title="" />
+    </body>
+
+    <footer layout="right">
+      <button action="createurls" />
+      <button tid="~cancel" tolliumresult="cancel" />
+    </footer>
+  </screen>
 
 </screens>
