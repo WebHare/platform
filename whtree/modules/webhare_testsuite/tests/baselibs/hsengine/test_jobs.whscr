@@ -1,10 +1,14 @@
 ﻿<?wh
 /// @short Ports functions test
 
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
 
 MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)
 {
@@ -149,8 +153,72 @@ MACRO TestOverrideExecuteLibrary()
   CloseTest("TestJobs: OverrideExecuteLibrary");
 }
 
+MACRO TestInterrupt()
+{
+  OBJECT job := CreateJob("test::testdata_jobs_a.whlib").job;
+  job->Start();
+  job->ipclink->DoRequest([ type := "interruptcallback" ]);
+  TestEQ(TRUE, job->SendInterrupt());
+  TestEQMembers([ status := "ok", msg := [ type := "interrupt" ] ], job->ipclink->ReceiveMessage(MAX_DATETIME), "*");
+  job->Close();
+}
+
+VARIANT FUNCTION ReturnValue(VARIANT x) { RETURN x; }
+
+ASYNC MACRO EnsureNotFulfilled(OBJECT promise, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ timeout := 50 ], options);
+  TestEQ("timeout", AWAIT CreatePromiseRace(OBJECT[ promise->Then(PTR ReturnValue("got value")), CreateSleepPromise(options.timeout)->Then(PTR ReturnValue("timeout")) ]));
+}
+
+ASYNC MACRO TestAsyncIterator()
+{
+  OBJECT job := CreateJob("test::testdata_jobs_a.whlib").job;
+  INTEGER outputhandle := job->CaptureOutput();
+  job->Start();
+  job->ipclink->SendMessage([ type := "control" ]);
+
+  OBJECT itr := MakeJobAsyncIterator(job, CELL[ outputhandle ]);
+  OBJECT v := itr->Next();
+  AWAIT EnsureNotFulfilled(v);
+  job->ipclink->SendMessage([ type := "output", data := "line1\nline2\nline3" ]);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "line1" ] ], AWAIT v);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "line2" ] ], AWAIT itr->Next());
+  v := itr->Next();
+  AWAIT EnsureNotFulfilled(v);
+  job->ipclink->SendMessage([ type := "output", data := "\nline4" ]);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "line3" ] ], AWAIT v);
+  v := itr->Next();
+  AWAIT EnsureNotFulfilled(v);
+  job->ipclink->SendMessage([ type := "terminate" ]);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "line4" ] ], AWAIT v);
+  TestEQ([ done := FALSE, value := [ type := "close", exitcode := 0, errors := RECORD[] ] ], AWAIT itr->Next());
+  TestEQ([ done := TRUE, value := [ exitcode := 0, errors := RECORD[] ] ], AWAIT itr->Next());
+  TestEQ(0, job->handle); // is auto-closed
+
+  job := CreateJob("test::testdata_jobs_a.whlib").job;
+  outputhandle := job->CaptureOutput();
+  job->Start();
+  job->ipclink->SendMessage([ type := "control" ]);
+
+  itr := MakeJobAsyncIterator(job, CELL[ outputhandle, autoclose := FALSE, tokenizelines := FALSE ]);
+  v := itr->Next();
+  AWAIT EnsureNotFulfilled(v);
+  job->ipclink->SendMessage([ type := "output", data := "line1\nline2\nline3" ]);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "line1\nline2\nline3" ] ], AWAIT v);
+  v := itr->Next();
+  AWAIT EnsureNotFulfilled(v);
+  job->ipclink->SendMessage([ type := "output", data := "\nline4" ]);
+  TestEQ([ done := FALSE, value := [ type := "output", data := "\nline4" ] ], AWAIT v);
+  job->ipclink->SendMessage([ type := "terminate" ]);
+  TestEQ([ done := FALSE, value := [ type := "close", exitcode := 0, errors := RECORD[] ] ], AWAIT itr->Next());
+  TestEQ([ done := TRUE, value := [ exitcode := 0, errors := RECORD[] ] ], AWAIT itr->Next());
+  TestEQ(TRUE, job->handle != 0); // is not auto-closed
+}
 
 PRINT("\n === Running TestJobs\n");
 BaseTest();
 TestIPCLinkGoneAfterCrash();
 TestOverrideExecuteLibrary();
+TestInterrupt();
+WaitForPromise(TestAsyncIterator());

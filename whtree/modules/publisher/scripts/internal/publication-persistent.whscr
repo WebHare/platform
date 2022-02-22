@@ -24,18 +24,6 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
   MACRO NEW(STRING tasktype, RECORD options)
   : PersistentDiskQueue(tasktype, options)
   {
-    RECORD config := RunInSeparatePrimary(PTR this->GetConfig());
-    FOREVERY (STRING event FROM
-        GetSortedSet([ "system:softreset"
-                     , "system:clearcaches"
-                     , "system:modulesupdate"
-                     , ...config.eventmasks
-                     ]))
-    {
-      RegisterMultiEventCallback(event, PTR this->GotConfigUpdate);
-    }
-
-    this->GotConfigUpdate("", RECORD[]);
   }
 
   RECORD FUNCTION GetConfig()
@@ -59,6 +47,22 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
         [ concurrenttasks :=    config.runners
         , timeout :=            config.timeout
         ]);
+  }
+
+  UPDATE MACRO BeforeSchedulingStart()
+  {
+    RECORD config := RunInSeparatePrimary(PTR this->GetConfig());
+    FOREVERY (STRING event FROM
+        GetSortedSet([ "system:softreset"
+                     , "system:clearcaches"
+                     , "system:modulesupdate"
+                     , ...config.eventmasks
+                     ]))
+    {
+      RegisterMultiEventCallback(event, PTR this->GotConfigUpdate);
+    }
+
+    this->GotConfigUpdate("", RECORD[]);
   }
 
   UPDATE STRING FUNCTION GetTaskContentId(RECORD task)

@@ -1,47 +1,25 @@
 ﻿<?wh
 
-LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/internal/cluster/mutexmgr.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/services/jobservicerunner.whlib";
 
 
-ASYNC MACRO StartCompletionService()
-{
-  // Ensure completion services keep running
-  // FIXME: release script on softreset, just like the scriptmanager would do
-  WHILE (TRUE)
-  {
-    //async start this one, we can have only one Run function.. besides, we don't want completions to block mutex handling
-    TRY
-      AWAIT AsyncCallFunctionFromJob("mod::system/lib/internal/cluster/completions.whlib", "RunCompletionService");
-    CATCH (OBJECT e)
-      LogHarescriptException(e);
-  }
-}
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    ]);
 
-ASYNC MACRO StartSiteProfileCompilerService()
-{
-  // Ensure completion services keep running
-  WHILE (TRUE)
-  {
-    //async start this one, we can have only one Run function.. besides, we don't want completions to block mutex handling
-    TRY
-      AWAIT AsyncCallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compileservice.whlib", "RunSPCompileService");
-    CATCH (OBJECT e)
-      LogHarescriptException(e);
-  }
-}
+IF (NOT RecordExists(args))
+  TerminateScriptWithError(`Usage: wh run ${GetStackTrace()[0].filename} [ --debug ]`);
 
-//Prepare the mutex system first, so services can already try to connect to it
-OBJECT mutexport := CreateIPCPort("system:mutexmanager");
-__INTERNAL_KeepPortGlobal(mutexport);
-OBJECT handler := NEW MutexPortHandler(mutexport);
-handler->flat_responses := TRUE;
+OBJECT servicerunner := NEW JobServiceRunner(CELL[ args.debug ]);
 
-//Launch the primary services
-StartCompletionService();
-StartSiteProfileCompilerService();
+servicerunner->AddScript("mod::system/lib/internal/cluster/mutexmgr.whlib#RunMutexManagerService");
+servicerunner->AddScript("mod::system/lib/internal/cluster/completions.whlib#RunCompletionService");
+servicerunner->AddScript("mod::publisher/lib/internal/siteprofiles/compileservice.whlib#RunSPCompileService");
+servicerunner->AddScript("mod::publisher/scripts/internal/outputanalyzer-persistent.whscr", [ databasemodes := [ "online" ] ]);
+servicerunner->AddScript("mod::publisher/scripts/internal/publication-persistent.whscr", [ databasemodes := [ "online" ] ]);
 
-//Start processing mutex owrk
-handler->Run();
+AddInterruptCallback(PTR servicerunner->Shutdown([ terminatescript := TRUE ]));
+RunWebHareService("system:clusterservices", PTR NewJobServiceRunnerAPI(servicerunner), [ autorestart := FALSE ]);

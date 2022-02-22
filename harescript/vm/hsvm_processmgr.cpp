@@ -2239,6 +2239,33 @@ void ReleaseJob(VirtualMachine *vm)
         context->jobs.erase(it);
 }
 
+void SendJobInterrupt(VarId id_set, VirtualMachine *vm)
+{
+        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
+        if(!jobmgr)
+            throw VMRuntimeError(Error::InternalError, "Job management not available");
+
+        int32_t procid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
+
+        JobManagerContext context(vm->GetContextKeeper());
+        Baselibs::SystemContext scontext(vm->GetContextKeeper());
+
+        std::map< int32_t, std::shared_ptr< Job > >::iterator it = context->jobs.find(procid);
+        if (it == context->jobs.end())
+            throw VMRuntimeError(Error::InternalError, "Job with this id does not exist");
+
+        // Signal pipe?
+        if(it->second->GetVMGroup()->fd_signal_pipe >= 0)
+        {
+                int sig = SIGINT;
+                write(it->second->GetVMGroup()->fd_signal_pipe, &sig, sizeof(sig));
+                HSVM_BooleanSet(*vm, id_set, true);
+
+        }
+        else
+            HSVM_BooleanSet(*vm, id_set, false);
+}
+
 void TerminateJob(VirtualMachine *vm)
 {
         JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
@@ -3607,8 +3634,6 @@ void TrapDebugger(VirtualMachine *vm)
 void GetSignalIntPipe(VarId id_set, VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
-        if (!context->os.console_support)
-            throw HareScript::VMRuntimeError(Error::NoConsoleAvailable);
 
         if(!context->os.signalinputpipe.get())
         {
@@ -3633,6 +3658,7 @@ void InitIPC(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATEJOB::R:S", CreateJob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_STARTJOB:::I", StartJob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_RELEASEJOB:::I", ReleaseJob));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SENDJOBINTERRUPT::B:I", SendJobInterrupt));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TERMINATEJOB:::I", TerminateJob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_DELETEJOB:::I", DeleteJob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TRYCANCELJOB::B:I", TryCancelJob));

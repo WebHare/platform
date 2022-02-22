@@ -39,18 +39,17 @@ RECORD FUNCTION GetCacheableModuleStartingPoints()
   FOREVERY(RECORD toadd FROM added)
   {
     STRING basepath := `/webhare-private/${toadd.module}/`;
-    STRING targetpath := MergePath(basepath, toadd.node->GetAttribute("privatefolder"));
+    STRING targetpath := MergePath(basepath, toadd.node->GetAttribute("privatefolder")) || "/";
     IF(targetpath NOT LIKE basepath || "*") //scope escape?
-      CONTINUE;
-
-    OBJECT targetfolder := OpenWHFSObjectByPath(targetpath);
-    IF(NOT ObjectExists(targetfolder) OR NOT targetfolder->isfolder)
       CONTINUE;
 
     INTEGER toadd_priority := SearchElement(["beforerepository","beforesites","aftersites"], toadd.node->GetAttribute("priority"));
     //map it to sortable priority, with -1 mapped to 'after sites'
     toadd_priority := [4,0,2,4][toadd_priority+1];
-    INSERT [ folder := targetfolder->id, whfspath := targetfolder->whfspath, priority := toadd_priority ] INTO spoints AT END;
+    INSERT [ folder := -1 //needs lookup
+           , whfspath := targetpath
+           , priority := toadd_priority
+           ] INTO spoints AT END;
   }
 
   RETURN [ ttl := 15 * 60 * 1000
@@ -255,7 +254,15 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                                  , locked = FALSE DESC       // don't rush to index locked sites, that indicates them are likely being unmaintained and probaly less important
                                  , Length(outputfolder);     // prefer 'homepages' over deeper sites
 
-    RETURN SELECT * FROM (spoints CONCAT GetWHFSIndexModuleStartingPoints()) ORDER BY priority;
+    FOREVERY(RECORD modulepath FROM GetWHFSIndexModuleStartingPoints())
+    {
+      INTEGER startfolder := LookupWHFSObject(0, modulepath.whfspath);
+      IF(startfolder <= 0) //not found, or ... root?!
+        CONTINUE;
+
+      INSERT CELL[ folder := startfolder, modulepath.priority] INTO spoints AT END;
+    }
+    RETURN SELECT * FROM spoints ORDER BY priority;
   }
 
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)

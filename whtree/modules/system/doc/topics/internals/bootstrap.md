@@ -31,6 +31,7 @@ are invoked
     - it will then initiate the RestartReset procedure
       - RestartReset waits for the index to be up-to-date. This is where a WebHare with broken indices will stall until the
         rebuild is complete
+      - It will then proceed to recompile all site profiles and apply WRD schema updates in parallel. It will waitfor both to complete.
     - the application runner will wait for the system configuration to become available and then executes the `<apprunnerconfig>` from all modules to gather the standalone services (i.e. services that don't depend on WebHare to be started) to run, including the `poststart` scripts and Consilio, if it's configured
   - waits for the startupscript to complete (if it fails, webhare startup is aborted)
   - launches scheduler

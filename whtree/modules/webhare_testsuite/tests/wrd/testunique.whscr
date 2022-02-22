@@ -31,6 +31,7 @@ MACRO TestUnique()
   dom_obj->CreateAttribute("TEST_INTEGER64",   "INTEGER64", [ isunique := TRUE, isrequired := FALSE, title := "Unique INTEGER64" ]);
   TestThrowsLike("*cannot*ARRAY*", PTR dom_obj->CreateAttribute("TEST_ARRAY",       "ARRAY",     [ isunique := TRUE, isrequired := FALSE, title := "Array with unique stuff" ]));
   dom_obj->CreateAttribute("TEST_ARRAY.EMAIL", "EMAIL",     [ isunique := TRUE, isrequired := FALSE, title := "Unique EMAIL" ]);
+  dom_obj->CreateAttribute("TEST_NONUNIQUE",   "FREE",      [ isunique := FALSE, isrequired := FALSE, title := "Non-unique FREE" ]);
 
   testfw->CommitWork();
 
@@ -76,10 +77,89 @@ MACRO TestUnique()
   CATCH (OBJECT e)
     ExpectCommitException(e, "Unique value conflict*");
 
+  // Test if unique values are caught
   testfw->BeginWork();
   dom_obj->CreateEntity([ test_free := "UNIQUEFREE", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2018,1,1)]);
   dom_obj->CreateEntity([ test_free := "UNIQUEFREE", wrd_creationdate := MakeDate(2018,1,1)]);
   testfw->CommitWork();
+
+  // Test database protection (importmode disabled the validation query)
+  {
+    testfw->BeginWork();
+    dom_obj->CreateEntity([ test_free := "UNIQUEFREE2", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2050,1,1)]);
+    TRY
+    {
+      dom_obj->CreateEntity([ test_free := "UNIQUEFREE2", wrd_creationdate := MakeDate(2050,1,1) ], [ importmode := TRUE ]);
+
+      RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
+      TestEQ(
+          [ [ code :=       1
+            , columnname := ""
+            , message :=    "Value in WRD.ENTITY_SETTINGS:UNIQUE_RAWDATA is not unique"
+            , tablename :=  "ENTITY_SETTINGS"
+            ]
+          ], errors);
+    }
+    CATCH (OBJECT e)
+      ExpectCommitException(e, "*duplicate key value violates unique constraint*"); // postgresql exception
+  }
+
+  // test database protection when updating limitdate to the future
+  {
+    testfw->BeginWork();
+    OBJECT e1 := dom_obj->CreateEntity([ test_free := "UNIQUEFREE3", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2050,1,1) ]);
+    e1->UpdateEntity([ wrd_limitdate := MakeDate(2050,1,2) ]);
+    TRY
+    {
+      // Need to insert after the subtransaction, or the subtransaction commit will wait on the old primary to commit
+      dom_obj->CreateEntity([ test_free := "UNIQUEFREE3", wrd_creationdate := MakeDate(2050,1,1) ], [importmode := TRUE ]);
+
+      RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
+      TestEQ(
+          [ [ code :=       1
+            , columnname := ""
+            , message :=    "Value in WRD.ENTITY_SETTINGS:UNIQUE_RAWDATA is not unique"
+            , tablename :=  "ENTITY_SETTINGS"
+            ]
+          ], errors);
+    }
+    CATCH (OBJECT e)
+      ExpectCommitException(e, "*duplicate key value violates unique constraint*"); // postgresql exception
+  }
+
+  // test database protection when updating limitdate to the past
+  {
+    testfw->BeginWork();
+    OBJECT e1 := dom_obj->CreateEntity([ test_free := "UNIQUEFREE4", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2050,1,1) ]);
+    e1->UpdateEntity([ wrd_limitdate := MakeDate(2018,1,2) ]);
+    dom_obj->CreateEntity([ test_free := "UNIQUEFREE4", wrd_creationdate := MakeDate(2050,1,1) ], [ importmode := TRUE ]);
+    testfw->CommitWork();
+  }
+
+  // test database protection when updating limitdate to the future
+  {
+    testfw->BeginWork();
+    OBJECT e1 := dom_obj->CreateEntity([ test_free := "UNIQUEFREE5", test_nonunique := "nonunique", wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MakeDate(2018,1,1)]);
+    e1->UpdateEntity([ wrd_limitdate := MakeDate(2050,1,1) ]);
+
+    // non-unique attributes should just work ok
+    dom_obj->CreateEntity([ test_free := "UNIQUEFREE5-1", wrd_creationdate := MakeDate(2050,1,1), test_nonunique := "nonunique" ], [ importmode := TRUE ]);
+    TRY
+    {
+      dom_obj->CreateEntity([ test_free := "UNIQUEFREE5", wrd_creationdate := MakeDate(2050,1,1) ], [ importmode := TRUE ]);
+
+      RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
+      TestEQ(
+          [ [ code :=       1
+            , columnname := ""
+            , message :=    "Value in WRD.ENTITY_SETTINGS:UNIQUE_RAWDATA is not unique"
+            , tablename :=  "ENTITY_SETTINGS"
+            ]
+          ], errors);
+    }
+    CATCH (OBJECT e)
+      ExpectCommitException(e, "*duplicate key value violates unique constraint*"); // postgresql exception
+  }
 }
 
 MACRO TestEnsureEntity()

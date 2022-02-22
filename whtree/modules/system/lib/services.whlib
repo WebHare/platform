@@ -176,8 +176,9 @@ STATIC OBJECTTYPE WebHareService EXTEND IPCPortHandlerBase //NOTE Dupe of manage
           The call to RunWebhareService will never return.
     @param servicename Name of the service (should follow the 'module:tag' pattern)
     @param constructor Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
-    @cell(boolean) options.autostart Automatically restart the service if the source code has changed. Defaults to TRUE
-    @cell(boolean) options.restartimmediately Immediately restart the service even if we stil have open connections */
+    @cell(boolean) options.autorestart Automatically restart the service if the source code has changed. Defaults to TRUE
+    @cell(boolean) options.restartimmediately Immediately restart the service even if we stil have open connections. Defaults to FALSE
+*/
 PUBLIC MACRO RunWebHareService(STRING servicename, FUNCTION PTR constructor, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(TERMINATES)
 {
   TRY

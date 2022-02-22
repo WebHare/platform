@@ -12,8 +12,13 @@ LOADLIB "wh::util/eventemitter.whlib";
 // Base object type for objects created by RunWebHareService's constructor. This interface is not made available to the
 // connecting client (i.e. through OpenWebHareService)
 PUBLIC STATIC OBJECTTYPE WebHareServiceProxyBase
-<
+< STRING __servicename;
   OBJECT __link;
+
+  MACRO NEW(STRING servicename DEFAULTSTO "(unknown)")
+  {
+    this->__servicename := servicename;
+  }
 
   // Called when the link is closed
   PUBLIC MACRO OnClose()
@@ -27,12 +32,13 @@ PUBLIC STATIC OBJECTTYPE WebHareServiceProxyBase
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF (res.status != "ok")
-      THROW NEW ServiceDisconnectException;
+      THROW NEW ServiceDisconnectException(this->__servicename);
   }
 >;
 
 PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
 <
+  STRING __servicename;
   OBJECT __link;
   RECORD ARRAY __promises;
   RECORD ARRAY __calllist;
@@ -43,8 +49,9 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
       @param description Service description
       @param(object wh::internal/jobs.whlib#IPCLinkEndPoint) link Connection IPC link
   */
-  MACRO NEW(RECORD description, OBJECT link)
+  MACRO NEW(STRING servicename, RECORD description, OBJECT link)
   {
+    this->__servicename := servicename;
     this->__link := link;
     ReconstructInvokables(this, description, PTR this->__AsyncRemotingFunc);
     this->__listener := RegisterHandleReadCallback(link->handle, PTR this->__IncomingResult);
@@ -67,7 +74,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF(res.status != "ok")
-      THROW NEW ServiceDisconnectException;
+      THROW NEW ServiceDisconnectException(this->__servicename);
 
     // Add a waiting registration
     RECORD reg := [ replyto := res.msgid, resolve := req.resolve, reject := req.reject ];
@@ -158,7 +165,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
       UnregisterCallback(this->__listener);
     this->__listener := 0;
     FOREVERY(RECORD toreject FROM this->__calllist CONCAT this->__promises)
-      toreject.reject(NEW ServiceDisconnectException);
+      toreject.reject(NEW ServiceDisconnectException(this->__servicename));
     FOREVERY (FUNCTION PTR f FROM this->__onclose)
       f();
     IF (ObjectExists(this->__link))
@@ -176,7 +183,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
 PUBLIC OBJECTTYPE ServiceDisconnectException EXTEND Exception
 <
   /// @private
-  MACRO NEW() : Exception("Connection to cluster service lost")
+  MACRO NEW(STRING servicename) : Exception(`Connection to cluster service ${EncodeJSON(servicename)} lost`)
   {
 
   }
@@ -191,7 +198,7 @@ PUBLIC OBJECTTYPE ServiceUnavailableException EXTEND Exception
 < /** @private
       @param servicename Name of the service
   */
-  MACRO NEW(STRING servicename) : Exception("Service '" || servicename || "' is unavailable")
+  MACRO NEW(STRING servicename) : Exception(`Service ${EncodeJSON(servicename)} is unavailable`)
   {
 
   }
@@ -237,7 +244,7 @@ PUBLIC RECORD FUNCTION DescribePublicInterface(OBJECT inobj)
   IF (inobj EXTENDSFROM WebHareServiceProxyBase)
     basemethods :=
         SELECT AS STRING ARRAY name
-          FROM __INTERNAL_DescribeObjectStructure(NEW WebHareServiceProxyBase).methods
+          FROM __INTERNAL_DescribeObjectStructure(NEW WebHareServiceProxyBase("")).methods
          WHERE is_public
                AND name NOT LIKE "__*";
   ELSE
@@ -305,9 +312,9 @@ PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, VARIANT ARRA
   mgrport->autothrow := TRUE;
   RECORD response := AWAIT mgrport->AsyncDoRequest( [ __new := arguments ] );
   IF(response.status="gone")
-    THROW NEW ServiceDisconnectException;
+    THROW NEW ServiceDisconnectException(servicename);
 
-  RETURN NEW ClusteredServiceBase(response.msg, mgrport);
+  RETURN NEW ClusteredServiceBase(servicename, response.msg, mgrport);
 }
 
 /** Schedules a function to be called when a service closes
@@ -326,6 +333,7 @@ PUBLIC MACRO ScheduleCallbackOnServiceClose(OBJECT service, FUNCTION PTR onclose
 */
 OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
 <
+  STRING __servicename;
   OBJECT __link;
   RECORD ARRAY __promises;
   RECORD ARRAY __calllist;
@@ -335,8 +343,9 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
       @param description Service description
       @param(object wh::internal/jobs.whlib#IPCLinkEndPoint) link Connection IPC link
   */
-  MACRO NEW(RECORD description, OBJECT link)
+  MACRO NEW(STRING servicename, RECORD description, OBJECT link)
   {
+    this->__servicename := servicename;
     this->__link := link;
     ReconstructInvokables(this, description, PTR this->__RemotingFunc);
   }
@@ -356,7 +365,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF(res.status != "ok")
-      THROW NEW ServiceDisconnectException;
+      THROW NEW ServiceDisconnectException(this->__servicename);
 
     // Add a waiting registration
     RECORD reg := [ replyto := res.msgid, type := "" ];
@@ -382,7 +391,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
   MACRO RunEvents()
   {
     IF (NOT ObjectExists(this->__link))
-      THROW NEW ServiceDisconnectException;
+      THROW NEW ServiceDisconnectException(this->__servicename);
 
     this->__link->Wait(MAX_DATETIME);
     RECORD msg := this->__link->ReceiveMessage(DEFAULT DATETIME);
@@ -394,7 +403,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
     {
       //Uh oh. We are doomed. Reject all promises
       this->CloseService();
-      THROW NEW ServiceDisconnectException;
+      THROW NEW ServiceDisconnectException(this->__servicename);
     }
 
     // This is an event emitted on the WebHareServiceProxyBase
@@ -538,7 +547,7 @@ PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, VARIA
   mgrport->autothrow := TRUE;
   RECORD response := mgrport->DoRequest( [ __new := arguments ] );
   IF(response.status="gone")
-    THROW NEW ServiceDisconnectException;
+    THROW NEW ServiceDisconnectException(servicename);
 
-  RETURN NEW SyncClusteredServiceBase(response.msg, mgrport);
+  RETURN NEW SyncClusteredServiceBase(servicename, response.msg, mgrport);
 }

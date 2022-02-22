@@ -111,6 +111,9 @@
     <textgroup gid="checks">   <!-- monitor.checks -->
       <text tid="title">Systeemmeldingen</text>
     </textgroup>
+    <textgroup gid="clusterservices">   <!-- monitor.clusterservices -->
+      <text tid="title">Cluster services</text>
+    </textgroup>
     <textgroup gid="columns">   <!-- monitor.columns -->
       <text tid="family">Familie</text>
       <text tid="filename">Bestandsnaam</text>
@@ -498,7 +501,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->
-      <text tid="title">Cluster services</text>
+      <text tid="title">Webserver services</text>
       <textgroup gid="dialogs">   <!-- monitor.webserverscripts.dialogs -->
         <text tid="resourcemanagererror">Er is een fout opgetreden in de communicatie met de resource manager</text>
       </textgroup>
@@ -1320,6 +1323,40 @@
         <text tid="lastuse">Laatste gebruik</text>
         <text tid="precalculatedcache">Voorberekende cache</text>
         <text tid="state">Status</text>
+      </textgroup>
+      <textgroup gid="clusterservices">   <!-- tolliumapps.dashboard.clusterservices -->
+        <text tid="arguments">Argumenten</text>
+        <text tid="clusterservices">Cluster services</text>
+        <text tid="col">Kolom</text>
+        <text tid="currentrun">Huidige run</text>
+        <text tid="databasemodes">Database modes</text>
+        <text tid="error">Fout: <param p="1"/></text>
+        <text tid="errors">Foutmeldingen</text>
+        <text tid="exitcode">Procesfoutcode</text>
+        <text tid="filename">Bestandsnaam</text>
+        <text tid="finished">Gestopt</text>
+        <text tid="func">Functie</text>
+        <text tid="id">ID</text>
+        <text tid="lastrun">Laaste run</text>
+        <text tid="line">Regel</text>
+        <text tid="message">Bericht</text>
+        <text tid="noservicesfound">Geen services gevonden</text>
+        <text tid="nostacktrace">Geen stacktrace beschikbaar</text>
+        <text tid="notconnected">Niet verbonden met de servicebeheerder</text>
+        <text tid="openerrorsrow">Openen</text>
+        <text tid="output">Uitvoer</text>
+        <text tid="restart">Herstarten</text>
+        <text tid="script">Script</text>
+        <text tid="scriptstatus">Status</text>
+        <text tid="started">Gestart</text>
+        <text tid="state">State</text>
+        <text tid="surerestart">Weet u zeker dat u deze service wilt herstarten?</text>
+        <textgroup gid="state">   <!-- tolliumapps.dashboard.clusterservices.state -->
+          <text tid="disabled">Uitgeschakeld</text>
+          <text tid="removing">Wordt verwijderd</text>
+          <text tid="running">Draait</text>
+          <text tid="waiting">Wachten voor herstart</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="dashboard">   <!-- tolliumapps.dashboard.dashboard -->
         <text tid="buildinfo">Build</text>

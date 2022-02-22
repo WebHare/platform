@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 //ADDME: Move this to a general 'handle published files' script in Consilio!
@@ -26,10 +27,31 @@ MACRO PrintDebug(STRING text)
     Print(text||"\n");
 }
 
+BOOLEAN publisher_index_exists;
+
+MACRO EnsurePublisherIndex()
+{
+  IF (NOT publisher_index_exists)
+  {
+    IF (GetCatalogIdByName(whconstant_consilio_catalog_whfs) = -1)
+    {
+      PrintDebug("Publisher index does not exist yet, waiting for it");
+      WHILE (TRUE)
+      {
+        Sleep(50);
+        IF (GetCatalogIdByName(whconstant_consilio_catalog_whfs) != -1)
+          BREAK;
+      }
+    }
+    publisher_index_exists := TRUE;
+  }
+}
 
 MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
 {
   PrintDebug("Got folder event '" || event || "'");
+  EnsurePublisherIndex();
+
   FOREVERY(RECORD msg FROM messages)
   {
     INTEGER objid := msg.folder;
@@ -71,6 +93,8 @@ MACRO OnFolderEvent(STRING event, RECORD ARRAY messages)
 MACRO OnIndexRequest(STRING event, RECORD ARRAY msgs)
 {
   PrintDebug("Got index request '" || event || "'");
+  EnsurePublisherIndex();
+
   FOREVERY(RECORD msg FROM msgs)
   {
     RECORD ARRAY results := ReindexWHFSChanges(msg.to_reindex, CELL[ eventid := Substring(event, 26) ]);

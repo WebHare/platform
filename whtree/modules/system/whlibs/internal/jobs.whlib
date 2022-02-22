@@ -24,6 +24,7 @@ MACRO __HS_SetJobArguments(INTEGER handle, STRING ARRAY arguments) __ATTRIBUTES_
 INTEGER FUNCTION __HS_GetJobExitcode(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_StartJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_ReleaseJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HS_SendJobInterrupt(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_TerminateJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_DeleteJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
 BOOLEAN FUNCTION __HS_TryCancelJob(INTEGER handle) __ATTRIBUTES__(EXTERNAL);
@@ -473,12 +474,25 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   }
 
 
+  /** Sends a interrupt signal to the job
+      @return TRUE if the job handled the interrupt (using AddInterruptCallback)
+  */
+  PUBLIC BOOLEAN FUNCTION SendInterrupt()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot terminate an already closed job");
+
+    // Send interrupt signal to the job
+    RETURN __HS_SendJobInterrupt(this->pvt_handle);
+  }
+
+
   /** Sends a termination signal to the job
   */
   PUBLIC MACRO Terminate()
   {
     IF (this->pvt_handle = 0)
-      THROW NEW Exception("Cannot close an already closed job");
+      THROW NEW Exception("Cannot terminate an already closed job");
 
     // Send abort to the job
     __HS_TerminateJob(this->pvt_handle);
@@ -1038,3 +1052,92 @@ PUBLIC INTEGER FUNCTION __HS_CaptureJobOutput(INTEGER handle) __ATTRIBUTES__(EXT
 INTEGER FUNCTION __HS_GETIPCLINKTOJOB(INTEGER jobid) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_SETGROUPPRIORITY(INTEGER jobid, BOOLEAN highpriority) __ATTRIBUTES__(EXTERNAL);
 RECORD FUNCTION __HS_GETJOBLOADEDLIBRARIESINFO(INTEGER jobid, BOOLEAN onlyloadedlibraries) __ATTRIBUTES__(EXTERNAL);
+
+RECORD FUNCTION TokenizeLinesIncremental(STRING curline, STRING adddata)
+{
+  INTEGER keep;
+  INTEGER nlsearchpos := LENGTH(curline);
+  curline := curline || adddata;
+
+  STRING ARRAY lines;
+  WHILE (TRUE)
+  {
+    INTEGER nextpos := SearchSubString(curline, "\n", nlsearchpos);
+    IF (nextpos = -1)
+      BREAK;
+    INSERT SubString(curline, keep, nextpos - keep) INTO lines AT END;
+    nlsearchpos := nextpos + 1;
+    keep := nlsearchpos;
+  }
+
+  IF (keep != 0)
+    curline := SubString(curline, keep);
+
+  RETURN CELL[ lines, curline ];
+}
+
+/** Returns a async iterator which yields lines of output from a job
+    @param job Job
+    @cell(integer) options.tokenizelines If TRUE, return lines (with stripped newlines), otherwise returns all outout
+    @cell(integer) options.outputhandle Output pipe (return value of job->CaptureOutput()). Closed automaitically when autoclose is TRUE
+    @cell(boolean) options.autoclose If TRUE, automatically close the job and output pipes when the iterator terminates. Defaults to TRUE.
+    @return Async iterator. Yields the following values
+    * [ type := "output", data := line ]
+    * [ type := "error", data := line ]
+    * [ type := "close", exitcode := exitcode, errors := errors ]
+*/
+PUBLIC ASYNC FUNCTION *MakeJobAsyncIterator(OBJECT job, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tokenizelines :=  TRUE
+      , outputhandle :=   0
+      , autoclose :=      TRUE
+      ], options);
+
+  INTEGER outputhandle := options.outputhandle;
+
+  TRY
+  {
+    IF (outputhandle != 0)
+    {
+      STRING output;
+      WHILE (TRUE)
+      {
+        AWAIT CreateResolvedPromise(__INTERNAL_AsyncWaitHandleReadSignalled(outputhandle, MAX_DATETIME));
+        IF (IsAtEndOfStream(outputhandle))
+          BREAK;
+
+        STRING new_output := ReadFrom(outputhandle, -32768);
+
+        IF (options.tokenizelines)
+        {
+          RECORD tokenized := TokenizeLinesIncremental(output, new_output);
+          FOREVERY (STRING line FROM Tokenized.lines)
+            YIELD [ type := "output", data := line ];
+          output := tokenized.curline;
+        }
+        ELSE
+          YIELD [ type := "output", data := new_output ];
+      }
+      IF (options.tokenizelines AND output != "")
+        YIELD [ type := "output", data := output ];
+    }
+
+    AWAIT job->AsyncWaitRead(MAX_DATETIME);
+
+    INTEGER exitcode := job->GetConsoleExitCode();
+    RECORD ARRAY errors := job->GetErrors();
+    YIELD CELL[ type := "close", exitcode, errors ];
+
+    RETURN CELL[ exitcode, errors ];
+  }
+  FINALLY
+  {
+    IF (options.autoclose)
+    {
+      job->Close();
+      IF (outputhandle != 0)
+        ClosePipe(outputhandle);
+    }
+  }
+}

@@ -36,7 +36,7 @@
     <managedtask type="mailconfirmation" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailConfirmationTask" />
     <managedtask type="mailfeedback" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailFeedbackTask" />
 
-    <ephemeraltask type="outputanalyzer" objectname="lib/internal/outputanalyzer.whlib#analyzertask" />
+    <ephemeraltask type="outputanalyzer" objectname="lib/internal/outputanalyzer.whlib#analyzertask" allowifrestore="true" />
   </servicemanager>
 
   <rights>

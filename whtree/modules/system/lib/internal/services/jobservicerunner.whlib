@@ -1,0 +1,581 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
+
+
+MACRO JobLog(INTEGER64 id, STRING text)
+{
+  PRINT(`${FormatISO8601DateTime(GetCurrentDateTime(), [ timeformat := "milliseconds" ])}${id!=0?` job ${id}`:""}: ${text}\n`);
+}
+
+PUBLIC STATIC OBJECTTYPE JobServiceRunner
+< // -----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Options @includecelldef #JobServiceRunner::NEW.options
+  RECORD _options;
+
+  /// Counter for new script ids
+  INTEGER64 _idcounter;
+
+  /** List of scripts
+      @cell(integer64) id Script ID
+      @cell(string) script Library URI or function reference
+      @cell(string array) args Arguments for functions
+      @cell(object #Job) job Current running job
+      @cell(string array) output Last output lines
+      @cell(datetime) started Start time
+      @cell(datetime) nextstart Next start time
+      @cell(record) lastrun Last run data
+      @cell(boolean) removing TRUE if removing but not terminated yet
+      @cell(integer) waitinterruptcb Termination waiting timout, set when ->SendInterrupt called
+      @cell(boolean) terminating TRUE if ->Terminate called on job
+  */
+  RECORD ARRAY _scripts;
+
+  /// @type(object #JobServiceRunnerAPI) API objects
+  OBJECT ARRAY _proxies;
+
+  /// Timeout callback for delayed restarts
+  INTEGER _nextruncb;
+
+  /// Deferred promise, set when shutting down
+  RECORD _shuttingdowndefer;
+
+  // -----------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  /** Create a new script multiplexer
+      Restarts are throttled by a timer bucket. A restart requires an amount of
+      'repeated_restart_spacing' milliseconds from the bucket, every millisecond
+      1ms is added to the bucket, to a maximum of 'quick_restart_spacing_periods'
+      * 'repeated_restart_spacing' milliseconds.
+      @cell(integer) options.restartspacing Minimum number of milliseconds required from
+        the restart bucket.
+      @cell(integer) options.quickrestarts Number of restart spacing periods the restart
+        bucket can be filled to.
+      @cell(integer) options.interruptgrace Number of milliseconds a script gets to respond
+        to the interrupt signal when shutting down/restarting, beforing being hard terminated.
+  */
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->_options := ValidateOptions(
+        [ restartspacing :=   1000
+        , quickrestarts :=    4
+        , debug :=            FALSE
+        , interruptgrace :=   5000
+        ], options);
+
+    RegisterMultiEventCallback("system:systemconfig", PTR this->GotConfigEvent);
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  ASYNC MACRO RunJob(RECORD script)
+  {
+    RECORD pos := RecordLowerBound(this->_scripts, script, [ "ID" ]);
+    IF (NOT pos.found)
+      RETURN;
+
+    IF (this->_options.debug)
+      JobLog(script.id, `Starting script ${script.script}`);
+
+    DATETIME started := GetCurrentDatetime();
+
+    // Calculate the minimum next restart time
+    DATETIME bucket := AddTimeToDate(-this->_options.restartspacing * this->_options.quickrestarts, started);
+    IF (this->_scripts[pos.position].nextstart > bucket)
+      bucket := this->_scripts[pos.position].nextstart;
+    this->_scripts[pos.position].nextstart := AddTimeToDate(this->_options.restartspacing, bucket);
+
+    RECORD jobdata;
+    IF (script.script LIKE "*#*")
+    {
+      jobdata := CreateJob("wh::internal/asyncrunner.whscr");
+      IF (ObjectExists(jobdata.job))
+        jobdata.job->ipclink->SendMessage(CELL[ task := "runfunction", func := script.script, script.args ]);
+    }
+    ELSE
+      jobdata := CreateJob(script.script);
+
+    IF (IsDefaultValue(jobdata.job))
+    {
+      IF (this->_options.debug)
+        JobLog(script.id, `Script failed to load`);
+
+      STRING message := SELECT AS STRING COLUMN message FROM jobdata.errors WHERE COLUMN message != "";
+      PRINT(`${script.scriptshort} failed to start with error message: ${message}\n`);
+
+      LogHarescriptException(NEW HarescriptErrorException(jobdata.errors), [ addcurrentstack := FALSE ]);
+      this->_scripts[pos.position].lastrun := CELL
+          [ exitcode :=       -1
+          , jobdata.errors
+          , started
+          , finished :=       started
+          , output :=         STRING[]
+          ];
+
+      this->ScheduleRuns();
+      RETURN;
+    }
+
+    this->_scripts[pos.position].job := jobdata.job;
+    this->_scripts[pos.position].started := started;
+    INTEGER outputhandle := jobdata.job->CaptureOutput();
+    STRING groupid := jobdata.job->groupid;
+    jobdata.job->Start();
+
+    IF (this->_options.debug)
+      JobLog(script.id, `Script started`);
+
+    OBJECT itr := MakeJobAsyncIterator(jobdata.job, CELL[ outputhandle, autoclose := FALSE ]);
+
+    RECORD lastrundata;
+
+    FOR (RECORD evt := AWAIT itr->Next(); NOT evt.done; evt := AWAIT itr->Next())
+    {
+      pos := RecordLowerBound(this->_scripts, script, [ "ID" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      SWITCH (evt.value.type)
+      {
+        CASE "output"
+        {
+          INSERT evt.value.data INTO this->_scripts[pos.position].output AT END;
+          IF (LENGTH(this->_scripts[pos.position].output) > 100)
+            DELETE FROM this->_scripts[pos.position].output AT 0;
+          PRINT(`${script.scriptshort} output: ${evt.value.data}\n`);
+
+          FOREVERY (OBJECT proxy FROM this->_proxies)
+            IF (proxy->watchedscript = script.id)
+              proxy->EmitEvent("output", DEFAULT RECORD);
+        }
+        CASE "close"
+        {
+          IF (IsValueSet(evt.value.errors) OR evt.value.exitcode != 0)
+          {
+            STRING message := SELECT AS STRING COLUMN message FROM evt.value.errors WHERE COLUMN message != "";
+            PRINT(`${script.scriptshort} terminated with exitcode ${evt.value.exitcode}${message = "" ? "" : `, error message: ${message}`}\n`);
+            LogHarescriptException(NEW HarescriptErrorException(evt.value.errors), CELL[ addcurrentstack := FALSE, groupid ]);
+          }
+
+          lastrundata := CELL
+              [ evt.value.exitcode
+              , evt.value.errors
+              , started
+              , finished :=       GetCurrentDateTime()
+              , output :=         Detokenize(this->_scripts[pos.position].output, "\n") || (IsValueSet(this->_scripts[pos.position].output) ? "\n" : "")
+              ];
+        }
+      }
+    }
+
+    IF (this->_options.debug)
+      JobLog(script.id, `Script finished execution`);
+
+    pos := RecordLowerBound(this->_scripts, script, [ "ID" ]);
+    IF (pos.found)
+    {
+      IF (this->_scripts[pos.position].waitinterruptcb != 0)
+      {
+        UnregisterCallback(this->_scripts[pos.position].waitinterruptcb);
+        this->_scripts[pos.position].waitinterruptcb := 0;
+      }
+
+      IF (this->_scripts[pos.position].removing)
+        DELETE FROM this->_scripts AT pos.position;
+      ELSE
+      {
+        this->_scripts[pos.position].job := DEFAULT OBJECT;
+        this->_scripts[pos.position].output := STRING[];
+        this->_scripts[pos.position].lastrun := lastrundata;
+        this->_scripts[pos.position].terminating := FALSE;
+      }
+    }
+
+    jobdata.job->Close();
+    ClosePipe(outputhandle);
+
+    this->ScheduleRuns();
+  }
+
+  MACRO EmitStateChange()
+  {
+    FOREVERY (OBJECT proxy FROM this->_proxies)
+      proxy->EmitEvent("state", DEFAULT RECORD);
+  }
+
+  MACRO GotNextRun()
+  {
+    this->_nextruncb := 0;
+    this->ScheduleRuns();
+  }
+
+  MACRO RecalculateNowEnabled()
+  {
+    BOOLEAN dbwritable := IsDatabaseWritable();
+    UPDATE this->_scripts
+       SET nowenabled := ("readonly" IN databasemodes) OR dbwritable;
+  }
+
+  MACRO ScheduleRuns()
+  {
+    IF (NOT RecordExists(this->_shuttingdowndefer))
+    {
+      this->RecalculateNowEnabled();
+
+      DATETIME now := GetCurrentDateTime();
+      DATETIME nextrun := MAX_DATETIME;
+      FOREVERY (RECORD script FROM this->_scripts)
+      {
+        IF (IsDefaultValue(script.job) AND script.nowenabled)
+        {
+          IF (script.nextstart <= now)
+            this->RunJob(script);
+          ELSE IF (nextrun > script.nextstart)
+            nextrun := script.nextstart;
+        }
+        ELSE IF (IsValueSet(script.job) AND NOT script.nowenabled)
+          this->RestartScript(script.id);
+      }
+
+      IF (this->_nextruncb != 0)
+        UnregisterCallback(this->_nextruncb);
+      IF (nextrun = MAX_DATETIME)
+        this->_nextruncb := 0;
+      ELSE
+        RegisterTimedCallback(nextrun, PTR this->GotNextRun);
+    }
+    ELSE
+    {
+      IF (NOT RecordExists(SELECT FROM this->_scripts WHERE IsValueSet(COLUMN job)))
+        this->_shuttingdowndefer.resolve(TRUE);
+    }
+
+    this->EmitStateChange();
+  }
+
+  /** Called when a script where ->SendInterrupt is called for doesn't terminate quickly
+      @param id Script id
+  */
+  MACRO GotInterruptWaitTimeout(INTEGER64 id)
+  {
+    RECORD pos := RecordLowerBound(this->_scripts, CELL[ id ], [ "ID" ]);
+    IF (pos.found)
+    {
+      IF (this->_options.debug)
+        JobLog(id, `Didn't respond to interrupt, sending terminate`);
+
+      this->_scripts[pos.position].waitinterruptcb := 0;
+      IF (ObjectExists(this->_scripts[pos.position].job) AND NOT this->_scripts[pos.position].terminating)
+      {
+        this->_scripts[pos.position].job->Terminate();
+        this->_scripts[pos.position].terminating := TRUE;
+      }
+    }
+  }
+
+  STRING FUNCTION GetScriptShort(STRING script)
+  {
+    RETURN Tokenize(script, "/")[END-1];
+  }
+
+  MACRO GotConfigEvent(STRING event, RECORD ARRAY data)
+  {
+    this->ScheduleRuns();
+  }
+
+  // -----------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** List the currently active scripts
+      @return Script listing
+      @cell(integer64) return.id Script ID
+      @cell(string) return.script Script library/function
+      @cell(variant array) return.args Function arguments
+      @cell(string) return.state 'waiting', 'running', 'removing'
+      @cell(datetime) return.started Date when current job started
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListScripts()
+  {
+    RETURN
+        SELECT id
+             , script
+             , args
+             , state :=           removing ? "removing" : nowenabled ? ObjectExists(COLUMN job) ? "running" : "waiting" : "disabled"
+             , started :=         ObjectExists(COLUMN job) ? started : DEFAULT DATETIME
+             , nowenabled
+          FROM this->_scripts;
+  }
+
+  /** Get info about a script
+      @param id Script ID
+      @return Script listing
+      @cell(integer64) return.id Script ID
+      @cell(string) return.script Script library/function
+      @cell(variant array) return.args Function arguments
+      @cell(string) return.state 'waiting', 'running', 'removing'
+      @cell(datetime) return.started Date when current job started
+      @cell(string array) return.output Last lines of output
+      @cell(record) return.lastrun Results of last run
+      @cell(datetime) return.lastrun.started Date when job started
+      @cell(datetime) return.lastrun.finished Date when job finished
+      @cell(integer) return.lastrun.exitcode Exit code
+      @cell(record array) return.lastrun.errors Errors
+      @cell(string) return.lastrun.output Last lines of output
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetScriptInfo(INTEGER64 id)
+  {
+    RETURN
+        SELECT COLUMN id
+             , script
+             , args
+             , databasemodes
+             , state :=           removing ? "removing" : nowenabled ? ObjectExists(COLUMN job) ? "running" : "waiting" : "disabled"
+             , started :=         ObjectExists(COLUMN job) ? started : DEFAULT DATETIME
+             , output :=          Detokenize(output, "\n") || (IsValueSet(output) ? "\n" : "")
+             , nowenabled
+             , lastrun
+          FROM this->_scripts
+         WHERE COLUMN id = VAR id;
+  }
+
+  /** Adds a script to run
+      @param script Script library / function
+      @cell(string array) options.args Arguments for script functions
+      @cell(string array) options.databasemodes
+      @return Creation result
+      @cell(integer64) return.id Script id
+  */
+  PUBLIC RECORD FUNCTION AddScript(STRING script, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ args :=             STRING[]
+        , databasemodes :=    [ "readonly", "online" ]
+        ], options);
+
+    this->_idcounter := this->_idcounter + 1;
+    INTEGER64 id := this->_idcounter;
+
+    INSERT CELL
+        [ id
+        , script
+        , scriptshort :=    this->GetScriptShort(script)
+        , options.args
+        , options.databasemodes
+        , job :=            DEFAULT OBJECT
+        , output :=         STRING[]
+        , started :=        DEFAULT DATETIME
+        , nextstart :=      DEFAULT DATETIME
+        , lastrun :=        DEFAULT RECORD
+        , removing :=       FALSE
+        , waitinterruptcb := 0 // ->SendInterrupt called
+        , terminating :=    FALSE // ->Terminate() called
+        , nowenabled :=     TRUE
+        ] INTO this->_scripts AT END;
+
+    IF (this->_options.debug)
+      JobLog(id, `Adding script: ${script}`);
+
+    this->ScheduleRuns();
+
+    RETURN CELL[ id ];
+  }
+
+  /** Request script restart
+      @param id Script id
+  */
+  PUBLIC MACRO RestartScript(INTEGER64 id)
+  {
+    RECORD pos := RecordLowerBound(this->_scripts, CELL[ id ], [ "ID" ]);
+    IF (pos.found)
+    {
+      IF (ObjectExists(this->_scripts[pos.position].job) AND this->_scripts[pos.position].waitinterruptcb = 0 AND NOT this->_scripts[pos.position].terminating)
+      {
+        IF (this->_options.interruptgrace > 0 AND this->_scripts[pos.position].job->SendInterrupt())
+        {
+          IF (this->_options.debug)
+            JobLog(id, `Sent interrupt, is handled by script`);
+          this->_scripts[pos.position].waitinterruptcb := RegisterTimedCallback(AddTimeToDate(this->_options.interruptgrace, GetCurrentDatetime()), PTR this->GotInterruptWaitTimeout(id));
+        }
+        ELSE
+        {
+          IF (this->_options.debug)
+            JobLog(id, `Sent terminate`);
+          this->_scripts[pos.position].job->Terminate();
+          this->_scripts[pos.position].terminating := TRUE;
+        }
+      }
+    }
+  }
+
+  /** Request script removal
+      @param id Script id
+  */
+  PUBLIC MACRO RemoveScript(INTEGER64 id)
+  {
+    RECORD pos := RecordLowerBound(this->_scripts, CELL[ id ], [ "ID" ]);
+    IF (pos.found)
+    {
+      IF (this->_options.debug)
+        JobLog(id, `Removing script`);
+
+      // Remove the script only when shutdown is done
+      IF (ObjectExists(this->_scripts[pos.position].job))
+      {
+        this->RestartScript(id);
+        this->_scripts[pos.position].removing := TRUE;
+        this->_scripts[pos.position].nextstart := MAX_DATETIME;
+      }
+      ELSE
+        DELETE FROM this->_scripts AT pos.position;
+      this->EmitStateChange();
+    }
+  }
+
+  /** Add a service API proxy
+      @param(object #JobServiceRunnerAPI) proxy API proxy object
+  */
+  PUBLIC MACRO AddProxy(OBJECT proxy)
+  {
+    INSERT proxy INTO this->_proxies AT END;
+  }
+
+  /** Remove a service API proxy
+      @param(object #JobServiceRunnerAPI) proxy API proxy object
+  */
+  PUBLIC MACRO RemoveProxy(OBJECT proxy)
+  {
+    INTEGER pos := SearchElement(this->_proxies, proxy);
+    IF (pos != -1)
+      DELETE FROM this->_proxies AT pos;
+  }
+
+  /** Execute graceful shutdown, using interrupt signals. Returns when shutdown is complete
+      @cell(boolean) options.terminatescript Terminate this script when shutdown is complete
+  */
+  PUBLIC ASYNC MACRO Shutdown(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ terminatescript :=    FALSE
+        ], options);
+
+    IF (this->_options.debug)
+      JobLog(0, `Got shutdown command`);
+
+    IF (NOT RecordExists(this->_shuttingdowndefer))
+    {
+      this->_shuttingdowndefer := CreateDeferredPromise();
+
+      FOREVERY (RECORD script FROM this->_scripts)
+        this->RestartScript(script.id);
+    }
+    AWAIT this->_shuttingdowndefer.promise;
+
+    IF (options.terminatescript)
+      TerminateScript();
+  }
+>;
+
+/** API object for the job service runner
+*/
+PUBLIC STATIC OBJECTTYPE JobServiceRunnerAPI EXTEND WebHareServiceProxyBase
+<
+  OBJECT _servicerunner;
+
+  PUBLIC INTEGER64 watchedscript;
+
+  /** Create a new service proxy for the JobServiceRunner object
+      @param(object #JobServiceRunner) servicerunner Service runner
+  */
+  MACRO NEW(OBJECT servicerunner)
+  : WebHareServiceProxyBase("system:jobservicerunner")
+  {
+    this->_servicerunner := servicerunner;
+    this->_servicerunner->AddProxy(PRIVATE this);
+  }
+
+  /// Called when the client disconnects
+  UPDATE PUBLIC MACRO OnClose()
+  {
+    this->_servicerunner->RemoveProxy(PRIVATE this);
+  }
+
+  /** List the currently active scripts
+      @return @includecelldef #JobServiceRunner::ListScripts.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListScripts()
+  {
+    RETURN this->_servicerunner->ListScripts();
+  }
+
+  /** Get info about a single script
+      @param id Script ID
+      @return @includecelldef #JobServiceRunner::GetScriptInfo.return
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetScriptInfo(INTEGER64 id)
+  {
+    RETURN this->_servicerunner->GetScriptInfo(id);
+  }
+
+  /** List the currently active scripts
+      @param script @includecelldef #JobServiceRunner::AddScript.script
+      @param options @includecelldef #JobServiceRunner::AddScript.options
+      @return @includecelldef #JobServiceRunner::AddScript.return
+  */
+  PUBLIC RECORD FUNCTION AddScript(STRING script, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->_servicerunner->AddScript(script, options);
+  }
+
+  /** Request script restart
+      @param id Script id
+  */
+  PUBLIC MACRO RestartScript(INTEGER64 id)
+  {
+    this->_servicerunner->RestartScript(id);
+  }
+
+  /** Request script removal
+      @param id Script id
+  */
+  PUBLIC MACRO RemoveScript(INTEGER64 id)
+  {
+    this->_servicerunner->RemoveScript(id);
+  }
+
+  /** Send 'output' events when outout changes for this scriot
+      @param id Script id
+  */
+  PUBLIC MACRO SetWatchedScript(INTEGER64 id)
+  {
+    this->watchedscript := id;
+  }
+>;
+
+/** Constructs a new API object for a JobServiceRunner
+    @param(object #JobServiceRunner) servicerunner Service runner
+    @return(object #JobServiceRunnerAPI) API object
+*/
+PUBLIC OBJECT FUNCTION NewJobServiceRunnerAPI(OBJECT servicerunner)
+{
+  RETURN NEW JobServiceRunnerAPI(servicerunner);
+}

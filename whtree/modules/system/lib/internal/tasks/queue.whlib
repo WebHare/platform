@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/taskqueue.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/tasks/recordslogfile.whlib";
 
 
@@ -94,6 +95,9 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   /// Object that keeps the persistent records log
   OBJECT recordslog;
 
+  /// Whether the can accept new items
+  BOOLEAN pvt_canaccept;
+
   /// Whether currently processing items
   BOOLEAN pvt_isactive;
 
@@ -153,6 +157,12 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
     }
 
     this->SetSchedulingInfo([ concurrenttasks := 1 ]);
+  }
+
+  MACRO ActivateProcessing()
+  {
+    this->pvt_isactive := TRUE;
+    this->AssignWork();
   }
 
   MACRO SetSchedulingInfo(RECORD data)
@@ -383,6 +393,12 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   // Update functions
   //
 
+  /** Called just before scheduling starts, service state 'started' has been reached.
+  */
+  MACRO BeforeSchedulingStart()
+  {
+  }
+
   /** Returns scheduling info
       @return Scheduling info
       @cell(integer) return.concurrenttasks Concurrent tasks to run
@@ -452,11 +468,12 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   {
     BOOLEAN queue_ok := this->ReadQueue();
 
-    this->pvt_isactive := TRUE;
+    this->pvt_canaccept := TRUE;
     IF (NOT queue_ok)
       this->TryRebuildPersistentQueue();
 
-    this->AssignWork();
+    //Queues should be functional after 'started' and may not depend on any poststart initialization (that would cause WaitForPublishCompletion in poststartscripts to race)
+    CreateWHServiceStatePromise("started")->Then(PTR this->ActivateProcessing);
   }
 
   /** Pushes a new task for processing
@@ -474,8 +491,8 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
           , scheduledate := DEFAULT DATETIME
           ], options);
 
-    IF (options.writetolog AND NOT this->pvt_isactive)
-      THROW NEW Exception(`Not yet active!`);
+    IF (options.writetolog AND NOT this->pvt_canaccept)
+      THROW NEW Exception(`Cannot accept new items yet!`);
 
     STRING taskcontentid := this->GetTaskContentId(taskdata);
 
@@ -567,6 +584,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
     IF (this->debuglevel >= debuglevel_all)
       this->DebugLog(`  Shutting down`);
 
+    this->pvt_canaccept := FALSE;
     this->pvt_isactive := FALSE;
     FOREVERY (OBJECT action FROM this->running_actions)
       action->Cancel();

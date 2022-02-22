@@ -178,6 +178,25 @@ WHILE (NOT break_out)
       WaitUntil(DEFAULT RECORD, AddTimeToDate(50, GetCurrentDateTime()));
       BroadcastEvent("hs:test", [ j := 1 ]);
     }
+    CASE "interruptcallback"
+    {
+      AddInterruptCallback(PTR link->SendMessage([ type := "interrupt" ]));
+      link->SendReply([ type := "ack" ], rec.msgid);
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
+    }
+    CASE "control"
+    {
+      WHILE (TRUE)
+      {
+        RECORD data := link->ReceiveMessage(MAX_DATETIME);
+        SWITCH (data.msg.type)
+        {
+          CASE "output"       { PRINT(data.msg.data); }
+          CASE "crash"        { ABORT(data.msg.data); }
+          CASE "terminate"    { TerminateScript(); }
+        }
+      }
+    }
 
   DEFAULT
     {
