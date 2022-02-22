@@ -20,7 +20,11 @@
   </servicemanager>
 
   <services>
-    <webservice name="search" transports="jsonrpc whremoting" library="internal/rpc_search.whlib" primarytrans="auto" prefix="RPC_">
+    <webservice name="search" transports="jsonrpc whremoting" library="lib/internal/rpc_search.whlib" primarytrans="auto" prefix="RPC_">
+      <accesscheck />
+    </webservice>
+    <!-- backend API. not intended for external usage but wrapped through a JS library so we can switch to eg a more cacheable REST api in the future -->
+    <webservice name="backend" transports="jsonrpc" library="lib/internal/backendrpc.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck />
     </webservice>
 

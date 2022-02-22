@@ -9,6 +9,7 @@ LOADLIB "mod::consilio/lib/catalog.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
@@ -143,6 +144,20 @@ MACRO TestSuggestFields()
   TestEq(0, Length(suggestions));
 }
 
+MACRO TestSuggestAPI()
+{
+  //Note: backend is an internal API and allowed to change as long as we fix our JS wrappers
+
+  STRING suggesttoken := GetConsilioRPCToken(testfw->GetCatalogName_1());
+  RECORD result;
+
+  TestThrowsLike("*Autosuggest is not enabled*", PTR testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo"));
+
+  suggesttoken := GetConsilioRPCToken(testfw->GetCatalogName_1(), [ autosuggest := TRUE ]);
+  result := testfw->browser->CallJSONRPC(GetPrimaryWebHareInterfaceURL() || "wh_services/consilio/backend", "Autosuggest", suggesttoken, "aap boo");
+  TestEqMembers([[ text  := "aap boom" ]], result.suggestions, "*");
+}
+
 MACRO TestSuggestFieldsLegacy()
 {
   // Create and fill the test site
@@ -179,9 +194,9 @@ MACRO TestSuggestFieldsLegacy()
   TestEq(1, SELECT AS INTEGER num FROM suggestions WHERE text = "blafile");
 }
 
-
 RunTestframework(
     [ PTR TestSuggestFields
+    , PTR TestSuggestAPI
     , PTR TestSuggestFieldsLegacy
     ],
     [ consilio := TRUE

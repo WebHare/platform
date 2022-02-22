@@ -3,6 +3,8 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
+LOADLIB "mod::consilio/lib/api.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
@@ -103,6 +105,9 @@ OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
     TestEq("mod::webhare_testsuite/webdesigns/basetest/", this->designfolder);
     TestEq("webhare_testsuite:basetest", this->assetpack);
     TestEqLike("20??????T??????Z", GetAssetPackBuildVersion(this->assetpack));
+
+    INSERT CELL consiliotoken := GetConsilioRPCToken("webhare_testsuite:testsitecatalog", [ autosuggest := TRUE ])
+           INTO this->jssiteconfig;
   }
 
   UPDATE PUBLIC RECORD FUNCTION GetPageConfig()

@@ -1,0 +1,18 @@
+<?wh
+LOADLIB "mod::consilio/lib/internal/rpc_search.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+PUBLIC RECORD FUNCTION RPC_AutoSuggest(STRING token, STRING words, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD tok := DecryptForThisServer("consilio:suggest", token);
+  IF(NOT tok.ag)
+    THROW NEW Exception(`Autosuggest is not enabled for this token`);
+
+  //At some point these RPCs wont be public anymore and can be merged into us
+  //For now we just take the arguments used elsewhere
+  //TODO rate control and caching!
+  OpenPrimary();
+  RECORD result := RPC_Suggest([ type := "catalog", catalog := tok.t ], words, [ doccount := "", count := 10 ]);
+  RETURN CELL [ suggestions := SELECT text := value FROM result."values" ];
+}
