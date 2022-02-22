@@ -123,15 +123,20 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
   TestEq(GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl2/", TT("baseurl")->value);
+
   //set a variable
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("setvariables->add"));
   TT(":URL variable")->value := "x";
   TT(":Value")->value := "42";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/";
+  //set a domain whitelist
+  AWAIT ExpectScreenChange(+1, PTR TTClick("allowedurls->add"));
+  TT(":Domain mask")->value := "*.webhare.dev";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
+  TT("baseurl")->value := GetPrimaryWebhareInterfaceURL() || "testoutput/webhare_testsuite.shorturl3/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Open"));
 
@@ -146,6 +151,13 @@ ASYNC MACRO TestShortURLAPP_AsSysop_2()
   TestEq(DEFAULT RECORD, TT("domains")->selection);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.net/");
+  AWAIT ExpectAndAnswerMessagebox("Ok",PTR TTClick(":Ok"), [ messagemask := "*domain*gamma.webhare.net*" ]);
+  TT("target")->value := MakeIntExtExternalLink("https://gamma.webhare.dev/");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 }
 

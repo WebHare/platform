@@ -35,6 +35,11 @@ MACRO TestShortURLAPIDry() //dry-run, we'll roll it all back!
   testfw->RollbackWork();
 
   TestEq(DEFAULT OBJECT, OpenShortURLDomainById(testdomainobject->id));
+
+  testfw->BeginWork();
+  testdomain := CreateShortURLDomain("ephemeral.bea.gl", [ allowedurls := [[ domain := "x.y.z" ]]]);
+  TestEq([[ domain := "x.y.z" ]], testdomain->GetDomainSettings().allowedurls);
+  testfw->RollbackWork();
 }
 
 PUBLIC MACRO TestShortURLAPI()
@@ -157,20 +162,28 @@ PUBLIC MACRO TestShortURLAPI()
   TestEq(TRUE, testfw->browser->GotoWebPage(anchorlink.shorturl));
   TestEq(anchorlink.targeturl, testfw->browser->GetResponseHeader("Location"));
 
-  //Setup forward vars
+  //Setup forward vars and a whitelist
   testfw->BeginWork();
   testdomain->UpdateDomainSettings([ setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
                                                      ,[ name := "type", value := "click" ]
                                                      ]
                                    , domain := "test2.bea.gl"
+                                   , allowedurls := [[ domain := "*.webhare.net" ]]
                                    ]);
-  TestEqMembers([ domain := "test2.bea.gl"
-                , baseurl := testdomain->baseurl
-                , setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
-                                  ,[ name := "type", value := "click" ]
-                                  ]
-                ], testdomain->GetDomainSettings(), "*,-FSSETTINGID");
+  TestEq([ domain := "test2.bea.gl"
+         , baseurl := testdomain->baseurl
+         , setvariables := [[ name := "utm_campaign" , value := "AndereCampagne" ]
+                           ,[ name := "type", value := "click" ]
+                           ]
+         , allowedurls := [[ domain := "*.webhare.net" ]
+                          ]
+         ], testdomain->GetDomainSettings());
+
   TestEq("test2.bea.gl", testdomain->domain);
+
+  TestThrowsLike("Unacceptable*x.webhare.dev*", PTR testdomain->CreateExternalShortUrl("https://x.webhare.dev/123"));
+  TestEq(TRUE, testdomain->CreateExternalShortUrl("https://x.webhare.net/123").isnew);
+
   testfw->CommitWork();
 
   TestThrowsLike("No such short*", PTR OpenShortURLDomain("test.bea.gl"));

@@ -2283,9 +2283,12 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="allowedurlprops">Allowed URL</text>
+        <text tid="allowedurls">Allowed URLs</text>
         <text tid="baseurl">Base URL</text>
         <text tid="domain">Domain name</text>
         <text tid="domainalreadyexists">The domain '<param p="1"/>' already exists as a short URL domain</text>
+        <text tid="domainmask">Domain mask</text>
         <text tid="domainprops">Short URL domain properties</text>
         <text tid="isinterfacewebserver">This URL is a WebHare interface and cannot be used for short URLs</text>
         <text tid="nothostedhere">This URL is not hosted on this WebHare</text>
@@ -2313,6 +2316,7 @@
         <text tid="suredeleteurls">Are you sure you want to delete the selected short url(s)?</text>
         <text tid="target">Target page</text>
         <text tid="targeturl">Target url</text>
+        <text tid="unacceptabledomain">Not allowed to create a short URL pointing to domain '<param p="1"/>'</text>
         <text tid="urlprops">Short URL properties</text>
         <text tid="view">View</text>
         <text tid="warnexistingshortlink">This link already has an existing short URL: <param p="1"/><br/><br/>Are you sure you want to create a new short URL?</text>

@@ -156,6 +156,11 @@ PUBLIC STATIC OBJECTTYPE URLProps EXTEND TolliumScreenBase
       fb->AddErrorFor(^shortname, this->GetTid(".invalidshortname"));
     IF(^expirationdate->value != DEFAULT DATETIME AND ^expirationdate->value <= GetCurrentDatetime() )
       fb->AddErrorFor(^expirationdate, this->GetTid(".invaliddate"));
+
+    STRING baddomain := this->contexts->^shortdomain->__GetBadDomain(^target->value);
+    IF(baddomain != "")
+      fb->AddErrorFor(^target, this->GetTid(".unacceptabledomain", baddomain));
+
     IF(NOT fb->Finish())
       RETURN 0; //some basic constraint failed
 

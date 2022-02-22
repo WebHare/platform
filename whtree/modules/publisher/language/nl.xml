@@ -2282,9 +2282,12 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="allowedurlprops">Toegestane URL</text>
+        <text tid="allowedurls">Toegestane URLs</text>
         <text tid="baseurl">Basis-URL</text>
         <text tid="domain">Domeinnaam</text>
         <text tid="domainalreadyexists">Het domein '<param p="1"/>' bestaat al als verkort URL-domein</text>
+        <text tid="domainmask">Domeinmasker</text>
         <text tid="domainprops">Verkorte URL domeineigenschappen</text>
         <text tid="isinterfacewebserver">Deze URL is een WebHare interface en kan niet voor verkorte URLs gebruikt worden</text>
         <text tid="nothostedhere">Deze URL wordt niet op deze WebHare gehost</text>
@@ -2312,6 +2315,7 @@
         <text tid="suredeleteurls">Weet je zeker dat je de geselecteerde verkorte url(s) wil verwijderen?</text>
         <text tid="target">Bestemming</text>
         <text tid="targeturl">Bestemming</text>
+        <text tid="unacceptabledomain">Het is niet toegestaan een verkorte URL naar domein '<param p="1"/>' te maken</text>
         <text tid="urlprops">Korte URL eigenschappen</text>
         <text tid="view">Bekijken</text>
         <text tid="warnexistingshortlink">Deze link heeft al een verkorte URL: <param p="1"/><br/><br/>Weet je zeker dat je een nieuwe verkorte URL wil maken?</text>
