@@ -331,7 +331,7 @@
 
   <consilio>
     <!-- modern syntax -->
-    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources">
+    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" priority="9">
       <customsource tag="loremindex" contentobject="lib/consilio/loremindex.whlib#IndexLibrary"  />
       <customsource tag="dbindex" contentobject="lib/consilio/dbindex.whlib#DBContent"  />
     </catalog>
