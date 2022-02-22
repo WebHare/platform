@@ -146,7 +146,7 @@ MACRO TestSuggestFields()
 
 MACRO TestSuggestAPI()
 {
-  //Note: backend is an internal API and allowed to change as long as we fix our JS warppers
+  //Note: backend is an internal API and allowed to change as long as we fix our JS wrappers
 
   STRING suggesttoken := GetConsilioRPCToken(testfw->GetCatalogName_1());
   RECORD result;
