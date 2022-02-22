@@ -406,10 +406,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
         Print(` data-wh-max="${groupdescription.max}"`);
     }
 
-    Print('><a class="wh-anchor"');
-    IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
-      Print(` id="${EncodeValue(groupdescription.firstid)}-anchor"`);
-    Print('></a>');
+    Print('>');
 
     IF (groupdescription.type != "group" AND (NOT CellExists(groupdescription, "hidetitle") OR NOT groupdescription.hidetitle))
     {
@@ -433,7 +430,10 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
       Print(`</label>`);
     }
 
-    Print(`<div class="wh-form__fields">`);
+    Print('<div class="wh-form__fields"><a class="wh-anchor"');
+    IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
+      Print(` id="${EncodeValue(groupdescription.firstid)}-anchor"`);
+    Print('></a>');
 
     renderer();
 
