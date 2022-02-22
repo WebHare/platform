@@ -22,7 +22,7 @@ are invoked
 
 - Docker launches `/opt/container/launch.sh`
 - `wh console` gets exec-ed
-  - Console/self build installations will generally invoke `wh console` directly (or indirectly through `wh (u)mic`
+  - Console/self build installations will generally invoke `wh console` directly (or indirectly through `wh (u)mic`)
 - `webhare console` gets exec-ed
   - boots the whmanager, compiler and dbserver
   - waits for compiler and dbserver to respond to their tcp/ip ports
@@ -31,7 +31,6 @@ are invoked
     - it will then initiate the RestartReset procedure
       - RestartReset waits for the index to be up-to-date. This is where a WebHare with broken indices will stall until the
         rebuild is complete
-      - It will then proceed to recompile all site profiles and apply WRD schema updates in parallel. It will waitfor both to complete.
     - the application runner will wait for the system configuration to become available and then executes the `<apprunnerconfig>` from all modules to gather the standalone services (i.e. services that don't depend on WebHare to be started) to run, including the `poststart` scripts and Consilio, if it's configured
   - waits for the startupscript to complete (if it fails, webhare startup is aborted)
   - launches scheduler
@@ -66,10 +65,11 @@ For every module group applies their database definitions, and runs the followin
 - `<runonce when="aftertablecreation">`
 - `<runonce when="afterregistryupdate">`
 
-It will then proceed to recompile all site profiles, and wait for it to complete.
+It will then proceed to recompile all site profiles and apply WRD schema updates. The schema update and siteprofile compilation
+tasks will run in parallel. It will wait for both to complete.
 
 Broadcasts various events so everyone know there has been a softreset. This will trigger the webserver to
-reload its configuration, the adhoccahe to flush, etc
+reload its configuration, the adhoccache to flush, etc
 
 ### Debugging
 If WebHare doesn't seem to fully start (eg 'Online' doesn't appear and the webhareservice-startup script doesn't
