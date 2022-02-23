@@ -8,21 +8,12 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-MACRO PrepIt()
-{
-  testfw->BeginWork();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
-  testfw->CommitWork();
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // ObjectProps
 //
 ASYNC MACRO ObjectProps()
 {
-  testfw->SetTestUser("lisa");
-
   testfw->BeginWork();
 
   OBJECT root := OpenTestsuiteSite()->rootobject;
@@ -33,43 +24,44 @@ ASYNC MACRO ObjectProps()
                           , [ arraytest := [[ textcell := "Row 1" ]]]);
   testfw->CommitWork();
 
-  testfw->SetTestUser("sysop");
-
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[imglink->whfspath] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
   AWAIT ExpectScreenChange(+1, PTR TT("path")->__test_executebrowse());
 
   //the thumbnail view should have inited.
   TestEQ(TRUE, TT("filesthumbs")->__test_preinitdone, "The preinit for the thumbnail view was not invoked");
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab isn't enabled in propstest so shouldn't appear");
   TestEq(FALSE, ObjectExists(topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex")));
 
-  OBJECT betatab := TT(":Beta test tab");
-  TestEQ(TRUE, ObjectExists(betatab));
+  { //test editing the existing file
+    OBJECT betatab := TT(":Beta test tab");
+    TestEQ(TRUE, ObjectExists(betatab));
 
-  OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
-  TestEq(1, Length(arrayedit->value));
+    OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
+    TestEq(1, Length(arrayedit->value));
 
-  AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
-  TT("textcell")->value := "New row";
-  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
-  TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
+    AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
+    TT("textcell")->value := "New row";
+    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
+    TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
 
-  TT("_whfscell")->value := staticfile;
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+    TT("_whfscell")->value := staticfile;
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEq(2, Length(arrayedit->value));
-  TestEq(1, Length(arrayedit->selection));
-  TestEq(staticfile, arrayedit->selection[0]._whfscell);
+    TestEq(2, Length(arrayedit->value));
+    TestEq(1, Length(arrayedit->selection));
+    TestEq(staticfile, arrayedit->selection[0]._whfscell);
 
-  //Nowe edit it
-  AWAIT ExpectScreenChange(+1, PTR arrayedit->editbutton->TolliumClick());
-  TestEq(staticfile, TT("_whfscell")->value, "Selection not properly retained");
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+    //Now edit it
+    AWAIT ExpectScreenChange(+1, PTR arrayedit->editbutton->TolliumClick());
+    TestEq(staticfile, TT("_whfscell")->value, "Selection not properly retained");
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  }
 
   RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
   TestEq(2, Length(data.arraytest));
@@ -132,5 +124,4 @@ RunTestframework([ PTR ObjectProps
                  , PTR TestPinFlip
                  , PTR TestObjectPropsThroughObjectEditor
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
-                                   ,[ login := "lisa" ]
                                    ]]);
