@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -499,6 +500,54 @@ STRING FUNCTION ValidateIndexTag(STRING indextag)
     THROW NEW Exception(`Invalid indextag '${indextag}'`);
 
   RETURN indextag;
+}
+
+RECORD ARRAY FUNCTION GetContentSourceMatches(INTEGER ARRAY candidateids)
+{
+  RETURN SELECT indexid, fsobject
+           FROM consilio.contentsources
+          WHERE fsobject IN candidateids
+                AND contentprovider = "publisher:webhare"
+                AND orphansince = DEFAULT DATETIME
+                AND tag NOT LIKE "$consilio$deleted$*"
+       ORDER BY SearchElement(candidateids, fsobject) DESC; //prefer closest match
+
+}
+
+/** @short Look up the 'best' catalog for a folder/site
+    @long Lookup the catalog to use. Prefers catalog that more specifically target this folder and catalogs that contain less other contentsources
+    @param folder Folder it to look up. If you're not specifically targetting folders we recommend specifying the site id
+    @return Catalog name (as suitable for RunConsilioSearch). Empty if no catalog found */
+PUBLIC STRING FUNCTION GetConsilioPublisherCatalog(INTEGER folder)
+{
+  RECORD ARRAY candidates := GetContentSourceMatches([folder]);
+  IF(Length(candidates) = 0)
+    candidates := GetContentSourceMatches(GetWHFSTree(folder,0));
+
+  IF(Length(candidates) = 0)
+    RETURN "";
+
+  IF(Length(candidates) > 1) //more than 1? eliminate all but the closest match
+    DELETE FROM candidates AS c WHERE fsobject != candidates[0].fsobject;
+
+  RECORD ARRAY catalogs := SELECT id, name
+                             FROM consilio.indices
+                            WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT indexid FROM candidates);
+
+  IF(Length(catalogs) = 0)
+    RETURN "";
+
+  IF(Length(catalogs) =  1)
+    RETURN catalogs[0].name;
+
+  //Prefer the catalog which most closely matches what we need. resolve ties by taking the lowest indexid (we need a stable result..)
+  INTEGER smallestcatalog := SELECT AS INTEGER indexid
+                               FROM consilio.contentsources
+                              WHERE indexid IN (SELECT AS INTEGER ARRAY id FROM catalogs)
+                           GROUP BY indexid
+                           ORDER BY COUNT(*), indexid;
+
+  RETURN SELECT AS STRING name FROM catalogs WHERE id = smallestcatalog;
 }
 
 /** @short Search an index
@@ -1016,6 +1065,8 @@ STATIC OBJECTTYPE Catalog
   PUBLIC MACRO DeleteSelf()
   {
     UPDATE consilio.indices SET name := "$consilio$deleted$" || id WHERE id = this->id;
+    UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id WHERE indexid = this->id;
+
     GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     this->catalog.id := 0; //to be safe
 
