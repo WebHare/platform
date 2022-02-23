@@ -333,6 +333,22 @@ PUBLIC RECORD FUNCTION ParseImportMetadata(BLOB infile, OBJECT decoder)
   RETURN [folder := thisfolder, files := files, meta := meta ];
 }
 
+PUBLIC INTEGER ARRAY FUNCTION GetWHFSTree(INTEGER startingpoint, INTEGER stopfolder)
+{
+  INTEGER cur := startingpoint;
+  INTEGER ARRAY tree;
+  INTEGER maxiterations := 16;
+
+  WHILE(cur != 0 AND maxiterations>0)
+  {
+    INSERT cur INTO tree AT 0;
+    IF(cur = stopfolder)
+      BREAK;
+    maxiterations := maxiterations - 1;
+    cur := SELECT AS INTEGER parent FROM system.fs_objects WHERE fs_objects.id = cur;
+  }
+  RETURN tree;
+}
 
 PUBLIC BOOLEAN FUNCTION IsParentObjectOf(INTEGER suspectedparent, INTEGER child)
 {
