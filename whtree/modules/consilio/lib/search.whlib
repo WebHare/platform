@@ -504,6 +504,7 @@ STATIC OBJECTTYPE SearchObject
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
+
     RECORD result := SearchIndexManager(this->catalog_id, query, options);
     IF (result.status != SearchOk)
       THROW NEW SearchException(result.status, "Search error: " || result.status);
