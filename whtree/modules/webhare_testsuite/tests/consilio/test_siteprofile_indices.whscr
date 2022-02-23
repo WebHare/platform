@@ -33,7 +33,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
-  TestEq("webhare_testsuite.testsite", result.results[0].title);
+  TestEq("WebHare testsuite site", result.results[0].title);
 
   result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("Pellentesque"));
   TestEq(TRUE, Length(result.results) > 0);
