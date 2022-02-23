@@ -230,7 +230,7 @@ STATIC OBJECTTYPE ShortURLDomain
     RETURN this->CreateShortUrl( MakeIntExtInternalLink(internallink, append), options);
   }
 
-  //Still looking for a way to have ValidateLink give a tollium-usable mesasge without duplicating code. so creating a private entrypoint for now.
+  //Still looking for a way to have ValidateLink give a tollium-usable message without duplicating code. so creating a private entrypoint for now.
   PUBLIC STRING FUNCTION __GetBadDomain(RECORD intextlink)
   {
     IF(intextlink.internallink = 0 //external link

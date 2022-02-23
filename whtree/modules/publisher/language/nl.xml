@@ -2317,7 +2317,7 @@
         <text tid="shortname-placeholder">(automatisch aangemaakt)</text>
         <text tid="shortnamealreadyexists">Deze verkorte URL bestaat al</text>
         <text tid="shorturl">Korte url</text>
-        <text tid="shorturlexport">Verkorte URl export voor <param p="1"/></text>
+        <text tid="shorturlexport">Verkorte URL export voor <param p="1"/></text>
         <text tid="suredeleteurls">Weet je zeker dat je de geselecteerde verkorte url(s) wil verwijderen?</text>
         <text tid="target">Bestemming</text>
         <text tid="targeturl">Bestemming</text>
