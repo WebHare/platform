@@ -172,7 +172,7 @@ MACRO SiteOutputContainTest()
   TestEq(0, cansetoutput.sitecontaininglocation);
 
   //place the new site inside the testsite (will fail, need subloc foreign folder)
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc");
+  cansetoutput := TestSiteOutputAvailability(subsite1->id, testsite->outputweb, testsite->outputfolder||"subloc");
   TestEq(FALSE, cansetoutput.success);
   TestEq(testsite->outputfolder||"subloc/", cansetoutput.outputfolder);
   TestEq(0, cansetoutput.siteonlocation);
@@ -180,7 +180,7 @@ MACRO SiteOutputContainTest()
   TestEq( [[ parent := testsite->root, id:=0, name := "subloc", site := 0 ]], cansetoutput.neededfolders);
 
   //place the new site a bit deeper inside the testsite (will still fail, needing subloc foreign folder)
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  cansetoutput := TestSiteOutputAvailability(subsite1->id, testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
   TestEq(FALSE, cansetoutput.success);
   TestEq(0, cansetoutput.siteonlocation);
   TestEq(testsite->id, cansetoutput.sitecontaininglocation);
@@ -188,7 +188,7 @@ MACRO SiteOutputContainTest()
 
   //well, let's create it, but as a file, so that there is no way to fix this. it'll still complain about subloc
   OBJECT sublocfile := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFile( [ name := cansetoutput.neededfolders[0].name ]);
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  cansetoutput := TestSiteOutputAvailability(subsite1->id, testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
   TestEq(FALSE, cansetoutput.success);
   TestEq(0, cansetoutput.siteonlocation);
   TestEq(testsite->id, cansetoutput.sitecontaininglocation);
@@ -198,7 +198,7 @@ MACRO SiteOutputContainTest()
   sublocfile->DeleteSelf();
   OBJECT sublocfolder := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFolder( [ name := cansetoutput.neededfolders[0].name ]);
 
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  cansetoutput := TestSiteOutputAvailability(subsite1->id, testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
   TestEq(FALSE, cansetoutput.success);
   TestEq(0, cansetoutput.siteonlocation);
   TestEq(testsite->id, cansetoutput.sitecontaininglocation);
@@ -206,7 +206,7 @@ MACRO SiteOutputContainTest()
 
   //create subsubloc then, wrong type again
   OBJECT subsublocfolder := OpenWHFSObject(cansetoutput.neededfolders[0].parent)->CreateFolder( [ name := cansetoutput.neededfolders[0].name ]);
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
+  cansetoutput := TestSiteOutputAvailability(subsite1->id, testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
   TestEq(FALSE, cansetoutput.success);
   TestEq(0, cansetoutput.siteonlocation);
   TestEq(testsite->id, cansetoutput.sitecontaininglocation);
@@ -214,18 +214,10 @@ MACRO SiteOutputContainTest()
 
   //fix subsubloc's type
   subsublocfolder->UpdateMetadata([type:=1]);
-  cansetoutput := subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
-  TestEq(TRUE, cansetoutput.success);
-  TestEq(0, cansetoutput.siteonlocation);
-  TestEq(0, cansetoutput.sitecontaininglocation);
-  TestEq(DEFAULT RECORD ARRAY, cansetoutput.neededfolders);
+  subsite1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder||"subloc/subsubloc");
 
   //get the site out of here again
-  cansetoutput := subsite1->SetPrimaryOutput(0, "");
-  TestEq(TRUE, cansetoutput.success);
-  TestEq(0, cansetoutput.siteonlocation);
-  TestEq(0, cansetoutput.sitecontaininglocation);
-  TestEq(DEFAULT RECORD ARRAY, cansetoutput.neededfolders);
+  subsite1->SetPrimaryOutput(0, "");
 
   testfw->CommitWork();
 }
@@ -245,11 +237,11 @@ MACRO SiteOutputForeignTest()
 
   OBJECT ft1root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_ft1"]);
   OBJECT ft1 := CreateSiteFromFolder(ft1root->id);
-  TestEq(TRUE, ft1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/a").success);
+  ft1->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/a");
 
   OBJECT ft2root := testfw->GetWHFSTestRoot()->CreateFolder([name := "webhare_testsuite_ft2"]);
   OBJECT ft2 := CreateSiteFromFolder(ft2root->id);
-  TestEq(TRUE, ft2->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/b/c/d/").success);
+  ft2->SetPrimaryOutput(testsite->outputweb, testsite->outputfolder || "foreigntest/b/c/d/");
 
   /* create a site ft3 (testsite->outputfolder)/foreigntest
      this should confllict */
