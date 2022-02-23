@@ -29,6 +29,7 @@ STATIC OBJECTTYPE SFTPConnection
   MACRO NEW(STRING server, STRING username, STRING password)
   {
     this->server := server;
+    this->port := 22; //default
     STRING ARRAY parts := Tokenize(this->server, ":");
     IF (Length(parts) = 2)
     {
@@ -94,14 +95,15 @@ STATIC OBJECTTYPE SFTPConnection
 
     // Create and start the smbclient process
     STRING cmd;
-    FOREVERY (STRING trycmd FROM [ "/usr/local/bin/lftp", "/usr/bin/lftp" ])
+    STRING ARRAY candidatepaths := [ "/usr/local/bin/lftp", "/usr/bin/lftp" ];
+    FOREVERY (STRING trycmd FROM candidatepaths)
       IF (RecordExists(GetDiskFileProperties(trycmd)))
       {
         cmd := trycmd;
         BREAK;
       }
     IF (cmd = "")
-      THROW NEW Exception("Could not find lftp");
+      THROW NEW Exception(`Could not find lftp executable, tried: ${Detokenize(candidatepaths,', ')}`);
 
     OBJECT proc := CreateProcess(cmd, args, FALSE, TRUE, TRUE, TRUE);
     proc->Start();
