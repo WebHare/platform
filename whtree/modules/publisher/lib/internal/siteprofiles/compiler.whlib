@@ -55,7 +55,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                     , profilerefs          := RECORD[]
                     , success              := FALSE
                     , applies              := RECORD[]
-                    , globalsettings       := RECORD[]
                     , webrules             := RECORD[]
                     , addtocatalogs        := RECORD[]
                     , prebuilttag_typeid   := 0
@@ -521,11 +520,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
             addrule := CELL[...rule, DELETE ruletype, siteprofileids := INTEGER[] ];
 
           INSERT addrule INTO this->result.applies AT END;
-        }
-        ELSE IF(rule.ruletype = "globalsetting")
-        {
-          RECORD addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
-          INSERT addrule INTO this->result.globalsettings AT END;
         }
         ELSE IF(rule.ruletype = "sitesetting")
         {

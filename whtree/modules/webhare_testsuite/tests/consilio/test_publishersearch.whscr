@@ -120,7 +120,6 @@ MACRO PublisherSearchTest()
   TestEq(0, result.totalcount);
   TestEQ(STRING[], result.eventmasks, "A nothing query will never return anything, so no events to listen to");
 
-
   // Search for all objects within the test folder
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));

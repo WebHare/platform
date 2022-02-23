@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
                                                      , [ name := "pin", type := "switch" ]
+                                                     , [ name := "striprtdextension", type := "switch" ]
                                                      , [ name := "saveurlhistory", type := "switch" ]
                                                      , [ name := "restoreurlhistory", type := "switch" ]
                                                      , [ name := "__restoremodificationdatefromurlhistory", type := "switch" ]
@@ -32,7 +33,7 @@ IF(args.pin AND args.unpin)
 
 OBJECT trans := OpenPrimary();
 OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
-BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory);
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory OR args.striprtdextension);
 INTEGER ARRAY startobjids;
 
 IF((args.restoreurlhistory OR args.__restoremodificationdatefromurlhistory) AND args.saveurlhistory)
@@ -53,7 +54,7 @@ FOREVERY(STRING path FROM args.paths)
 
 RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchparent)
 {
-  RETURN SELECT id, whfspath, isfolder, ispinned
+  RETURN SELECT id, name, whfspath, isfolder, ispinned
            FROM system.fs_objects
           WHERE (matchparent ? (parent IN objids) : (id IN objids));
 }
@@ -67,12 +68,30 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
   }
   ELSE
   {
+    GetPrimary()->BeginWork();
+
     IF(args.pin OR args.unpin)
     {
       FOREVERY(RECORD topin FROM SELECT id,whfspath FROM objects WHERE ispinned = args.unpin)
       {
         Print( (args.pin ? "Pin: " : "Unpin: ") || topin.whfspath || "\n");
         OpenWHFSObject(topin.id)->UpdateMetadata( [ ispinned := args.pin ]);
+      }
+    }
+    IF(args.striprtdextension)
+    {
+      FOREVERY(RECORD tofix FROM SELECT * FROM objects WHERE ToUppercase(name) LIKE "*.RTD" AND NOT isfolder)
+      {
+        STRING newname := Left(tofix.name, Length(tofix.name) - 4);
+        IF(RecordExists(SELECT FROM objects WHERE ToUppercase(name) = ToUppercase(newname)))
+        {
+          PrintTo(2, `Cannot rename ${tofix.whfspath} to ${newname} - conflicting item in folder\n`);
+        }
+        ELSE
+        {
+          Print(`Renaming ${tofix.whfspath} to ${newname}\n`);
+          UPDATE system.fs_objects SET name := newname WHERE id = tofix.id;
+        }
       }
     }
     IF(args.saveurlhistory)
@@ -122,6 +141,11 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
         IF(obj.modificationdate != DEFAULT DATETIME)
           UPDATE system.fs_objects SET modificationdate := obj.modificationdate WHERE id = obj.id;
     }
+
+    IF(args.dryrun)
+      GetPrimary()->RollbackWork();
+    ELSE
+      GetPrimary()->CommitWork();
   }
 
   IF(NOT recursive)
@@ -134,11 +158,5 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
   ExecuteAction(GetInterestingStuff(folderids, TRUE), recursive);
 }
 
-GetPrimary()->BeginWork();
 
 ExecuteAction(GetInterestingStuff(startobjids, FALSE), args.recursive);
-
-IF(args.dryrun)
-  GetPrimary()->RollbackWork();
-ELSE
-  GetPrimary()->CommitWork();

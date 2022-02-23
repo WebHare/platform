@@ -129,47 +129,6 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileSettings(STRING ns, STRING loca
   RETURN applytester->GetCustomSettings(ns,localname);
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileGlobalSettings(STRING ns, STRING localname)
-{
-  RECORD csp := GetcachedSiteProfiles();
-  RECORD ARRAY retval;
-
-  RECORD ARRAY siteprofiles;
-
-  FOREVERY(RECORD globalsetting FROM csp.globalsettings)
-    IF(globalsetting.ns = ns AND globalsetting.localname = localname)
-    {
-      RECORD pos := RecordLowerBound(siteprofiles, globalsetting, [ "SITEPROFILE" ]);
-      OBJECT siteprof;
-      IF (NOT pos.found)
-      {
-        TRY
-        {
-          siteprof := OpenSiteProfile(globalsetting.siteprofile);
-        }
-        CATCH(OBJECT<RetrieveResourceException> e) //eg a race between modulereset/siteprofile compile and actual deletion
-        {
-          LogHarescriptException(e);
-        }
-        INSERT CELL[ ...globalsetting, siteprof := OpenSiteProfile(globalsetting.siteprofile) ] INTO siteprofiles AT pos.position;
-      }
-      ELSE
-      {
-        siteprof := siteprofiles[pos.position].siteprof;
-      }
-
-      IF(NOT ObjectExists(siteprof))
-        CONTINUE;
-
-      OBJECT ARRAY elements := siteprof->xmldoc->documentelement->childnodes->GetCurrentElements();
-      IF(globalsetting.idx >= Length(elements))
-        CONTINUE;
-
-      INSERT CELL[ siteprofile := siteprof, node := elements[globalsetting.idx], globalsetting.siteprofileids, sitefilter := ReadSiteFilter(elements[globalsetting.idx]) ] INTO retval AT END;
-    }
-  RETURN SELECT * FROM retval WHERE ObjectExists(siteprofile);
-}
-
 PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
 {
   RECORD ARRAY sitedesigns;
