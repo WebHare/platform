@@ -6,6 +6,9 @@
       <string name="name" />
       <string name="value" />
     </array>
+    <array name="allowedurls">
+      <string name="domain" />
+    </array>
   </contenttype>
 
 </siteprofile>

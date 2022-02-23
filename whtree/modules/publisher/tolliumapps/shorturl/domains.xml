@@ -43,14 +43,36 @@
       <record name="props" />
     </compositions>
 
-    <body>
-      <textedit composition="props" cellname="domain" width="1pr" required="true" />
-      <textedit composition="props" cellname="baseurl" width="1pr" />
-      <heading tid=".setvariables" />
-      <arrayedit composition="props" cellname="setvariables" width="1pr" roweditscreen="#setvariableprops">
-        <column name="name" type="text" tid=".variablename" />
-        <column name="value" type="text" tid=".variablevalue" />
-      </arrayedit>
+    <body spacers="none">
+      <tabs>
+        <tab tid="~properties">
+          <textedit composition="props" cellname="domain" width="1pr" required="true" />
+          <textedit composition="props" cellname="baseurl" width="1pr" />
+        </tab>
+        <tab tid=".setvariables">
+          <arrayedit composition="props"
+                     cellname="setvariables"
+                     name="setvariables"
+                     width="1pr"
+                     minwidth="60x"
+                     height="1pr"
+                     orderable="true"
+                     roweditscreen="#setvariableprops">
+            <column name="name" type="text" tid=".variablename" />
+            <column name="value" type="text" tid=".variablevalue" />
+          </arrayedit>
+        </tab>
+        <tab tid=".allowedurls">
+          <arrayedit composition="props"
+                     cellname="allowedurls"
+                     name="allowedurls"
+                     width="1pr"
+                     height="1pr"
+                     roweditscreen="#allowedurlprops">
+            <column name="domain" type="text" tid=".domainmask" />
+          </arrayedit>
+        </tab>
+      </tabs>
     </body>
   </screen>
 
@@ -62,6 +84,16 @@
     <body>
       <textedit composition="row" cellname="name" width="1pr" required="true" tid=".variablename" />
       <textedit composition="row" cellname="value" width="1pr" tid=".variablevalue" />
+    </body>
+  </screen>
+
+  <screen name="allowedurlprops" footerbuttons="ok cancel" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row" cellname="domain" width="1pr" required="true" tid=".domainmask" />
     </body>
   </screen>
 

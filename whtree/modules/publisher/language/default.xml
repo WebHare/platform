@@ -2283,9 +2283,12 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="allowedurlprops">Allowed URL</text>
+        <text tid="allowedurls">Allowed URLs</text>
         <text tid="baseurl">Base URL</text>
         <text tid="domain">Domain name</text>
         <text tid="domainalreadyexists">The domain '<param p="1"/>' already exists as a short URL domain</text>
+        <text tid="domainmask">Domain mask</text>
         <text tid="domainprops">Short URL domain properties</text>
         <text tid="isinterfacewebserver">This URL is a WebHare interface and cannot be used for short URLs</text>
         <text tid="nothostedhere">This URL is not hosted on this WebHare</text>
@@ -2298,11 +2301,16 @@
       </textgroup>
       <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
         <text tid="apptitle">Short url</text>
+        <text tid="bulkcreate">Bulk create</text>
         <text tid="clear">Clear</text>
+        <text tid="createurls">Create URLs</text>
         <text tid="creationdate">Creation date</text>
         <text tid="expirationdate">Expiration date</text>
+        <text tid="exportall">Export all</text>
+        <text tid="exportselection">Export selection</text>
         <text tid="invaliddate">Should be a future date</text>
         <text tid="invalidshortname">Invalid characters in name. Allowed are: a-z0-9-</text>
+        <text tid="nourlstoimport">No URLs to import</text>
         <text tid="search">Search</text>
         <text tid="searchfor">Search for</text>
         <text tid="selectdomain">Select domain</text>
@@ -2310,9 +2318,11 @@
         <text tid="shortname-placeholder">(auto-generated)</text>
         <text tid="shortnamealreadyexists">This short URL is already in use</text>
         <text tid="shorturl">Short url</text>
+        <text tid="shorturlexport">Short URL export for <param p="1"/></text>
         <text tid="suredeleteurls">Are you sure you want to delete the selected short url(s)?</text>
         <text tid="target">Target page</text>
         <text tid="targeturl">Target url</text>
+        <text tid="unacceptabledomain">Not allowed to create a short URL pointing to domain '<param p="1"/>'</text>
         <text tid="urlprops">Short URL properties</text>
         <text tid="view">View</text>
         <text tid="warnexistingshortlink">This link already has an existing short URL: <param p="1"/><br/><br/>Are you sure you want to create a new short URL?</text>

@@ -2282,9 +2282,12 @@
     </textgroup>
     <textgroup gid="shorturl">   <!-- tolliumapps.shorturl -->
       <textgroup gid="domains">   <!-- tolliumapps.shorturl.domains -->
+        <text tid="allowedurlprops">Toegestane URL</text>
+        <text tid="allowedurls">Toegestane URLs</text>
         <text tid="baseurl">Basis-URL</text>
         <text tid="domain">Domeinnaam</text>
         <text tid="domainalreadyexists">Het domein '<param p="1"/>' bestaat al als verkort URL-domein</text>
+        <text tid="domainmask">Domeinmasker</text>
         <text tid="domainprops">Verkorte URL domeineigenschappen</text>
         <text tid="isinterfacewebserver">Deze URL is een WebHare interface en kan niet voor verkorte URLs gebruikt worden</text>
         <text tid="nothostedhere">Deze URL wordt niet op deze WebHare gehost</text>
@@ -2297,11 +2300,16 @@
       </textgroup>
       <textgroup gid="shorturl">   <!-- tolliumapps.shorturl.shorturl -->
         <text tid="apptitle">Verkorte URLs</text>
+        <text tid="bulkcreate">In bulk aanmaken</text>
         <text tid="clear">Reset</text>
+        <text tid="createurls">URLs aanmaken</text>
         <text tid="creationdate">Aanmaakdatum</text>
         <text tid="expirationdate">Vervaldatum</text>
+        <text tid="exportall">Exporteer alles</text>
+        <text tid="exportselection">Exporteer selectie</text>
         <text tid="invaliddate">Datum moet in de toekomst zijn</text>
         <text tid="invalidshortname">Foutieve tekens in naam. Toegestaan zijn: a-z0-9-</text>
+        <text tid="nourlstoimport">Geen URLs om te importeren</text>
         <text tid="search">Zoeken</text>
         <text tid="searchfor">Zoek naar</text>
         <text tid="selectdomain">Domein kiezen</text>
@@ -2309,9 +2317,11 @@
         <text tid="shortname-placeholder">(automatisch aangemaakt)</text>
         <text tid="shortnamealreadyexists">Deze verkorte URL bestaat al</text>
         <text tid="shorturl">Korte url</text>
+        <text tid="shorturlexport">Verkorte URL export voor <param p="1"/></text>
         <text tid="suredeleteurls">Weet je zeker dat je de geselecteerde verkorte url(s) wil verwijderen?</text>
         <text tid="target">Bestemming</text>
         <text tid="targeturl">Bestemming</text>
+        <text tid="unacceptabledomain">Het is niet toegestaan een verkorte URL naar domein '<param p="1"/>' te maken</text>
         <text tid="urlprops">Korte URL eigenschappen</text>
         <text tid="view">Bekijken</text>
         <text tid="warnexistingshortlink">Deze link heeft al een verkorte URL: <param p="1"/><br/><br/>Weet je zeker dat je een nieuwe verkorte URL wil maken?</text>

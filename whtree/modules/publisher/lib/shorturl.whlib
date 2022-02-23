@@ -54,7 +54,8 @@ STATIC OBJECTTYPE ShortURLDomain
   {
     RETURN CELL[ domain := this->folder.name
                , this->settings.baseurl
-               , this->settings.setvariables
+               , setvariables := (SELECT *, DELETE fs_settingid FROM this->settings.setvariables)
+               , allowedurls := (SELECT *, DELETE fs_settingid FROM this->settings.allowedurls)
                ];
   }
 
@@ -63,6 +64,7 @@ STATIC OBJECTTYPE ShortURLDomain
     changes := ValidateOptions([ baseurl := ""
                                , domain := ""
                                , setvariables := RECORD[]
+                               , allowedurls :=  RECORD[]
                                ], changes, [ title := "changes"
                                            , optional := [ "*" ]
                                            ]);
@@ -80,6 +82,11 @@ STATIC OBJECTTYPE ShortURLDomain
     IF(CellExists(changes,'setvariables'))
       newinstancedata := CELL[ ...newinstancedata
                              , changes.setvariables
+                             ];
+
+    IF(CellExists(changes,'allowedurls'))
+      newinstancedata := CELL[ ...newinstancedata
+                             , changes.allowedurls
                              ];
 
     IF(CellExists(changes,'domain') AND changes.domain != this->domain)
@@ -223,6 +230,38 @@ STATIC OBJECTTYPE ShortURLDomain
     RETURN this->CreateShortUrl( MakeIntExtInternalLink(internallink, append), options);
   }
 
+  //Still looking for a way to have ValidateLink give a tollium-usable message without duplicating code. so creating a private entrypoint for now.
+  PUBLIC STRING FUNCTION __GetBadDomain(RECORD intextlink)
+  {
+    IF(intextlink.internallink = 0 //external link
+       AND Length(this->settings.allowedurls) > 0)
+    {
+      RECORD unp := UnpackURL(intextlink.externallink);
+      BOOLEAN ismatch;
+      FOREVERY(RECORD allow FROM this->settings.allowedurls)
+        IF(ToUppercase(unp.host) LIKE ToUppercase(allow.domain))
+        {
+          ismatch := TRUE;
+          BREAK;
+        }
+
+      IF(NOT ismatch)
+        RETURN unp.host;
+    }
+
+    RETURN "";
+  }
+
+  MACRO ValidateLink(RECORD intextlink)
+  {
+    STRING unphost := this->__GetBadDomain(intextlink);
+    IF(unphost != "")
+      THROW NEW Exception(`Unacceptable domain '${unphost}' for this short url`);
+
+    IF(intextlink.internallink = 0 AND NOT IsValidPlainHTTPURL(intextlink.externallink))
+      THROW NEW Exception(`Invalid URL ${intextlink.externallink}`);
+  }
+
   /** @short Create a shorturl for a page
       @param intextlink IntExtLink record
       @param options record
@@ -241,6 +280,8 @@ STATIC OBJECTTYPE ShortURLDomain
                                , shortname := ""
                                , expirationdate := DEFAULT DATETIME
                                ], options, [ optional := [ "description" ] ]);
+
+    this->ValidateLink(intextlink);
 
     RECORD existinglink;
     IF(options.shortname = "" AND NOT options.forcenew)
@@ -327,6 +368,7 @@ STATIC OBJECTTYPE ShortURLDomain
     IF(CellExists(changes, 'target'))
     {
       RECORD intextlink := changes.target;
+      this->ValidateLink(intextlink);
       setmetadata := CELL[ filelink     := intextlink.internallink
                          , externallink := intextlink.internallink != 0 ? intextlink.append : intextlink.externallink
                          , type         := intextlink.internallink != 0 ? whconstant_whfstype_internallink : whconstant_whfstype_externallink
@@ -467,6 +509,7 @@ PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAUL
 {
   options := ValidateOptions([ baseurl := ""
                              , setvariables := RECORD[]
+                             , allowedurls := RECORD[]
                              ], options);
 
   IF(NOT IsValidWHFSName(domain, FALSE))
@@ -485,6 +528,7 @@ PUBLIC OBJECT FUNCTION CreateShortURLDomain(STRING domain, RECORD options DEFAUL
   newfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/shorturl/domainfolder",
     CELL[ options.baseurl
         , options.setvariables
+        , options.allowedurls
         ]);
 
   IF(options.baseurl != "")
