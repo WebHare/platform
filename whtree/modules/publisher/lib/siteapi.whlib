@@ -279,11 +279,10 @@ STATIC OBJECTTYPE SiteObject
   /** Updates the current webserver and relative url within that webserver where this site is hosted locally.
       @param newoutputweb Id of the webserver that will host this site, 0 for no hosting
       @param newoutputfolder Output folder, relative to site root where this site is hosted.
-      @return @includecelldef #UpdateSiteMetadata.return
   */
-  PUBLIC RECORD FUNCTION SetPrimaryOutput(INTEGER newoutputweb, STRING newoutputfolder)
+  PUBLIC MACRO SetPrimaryOutput(INTEGER newoutputweb, STRING newoutputfolder)
   {
-    RETURN this->UpdateSiteMetadata([outputweb:=newoutputweb, outputfolder := newoutputfolder]);
+    this->UpdateSiteMetadata([outputweb:=newoutputweb, outputfolder := newoutputfolder]);
   }
 
   /** Update the metadata for this site
@@ -297,18 +296,9 @@ STATIC OBJECTTYPE SiteObject
       @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
       @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
       @cell(integer) metadata.historydays Number of days to keep history
-      @return Update result @includecelldef #TestSiteOutputAvailability.return
-      @cell return.success Whether the operation was successful. Can be false when modifying the outputweb or outputfolder
   */
-  PUBLIC RECORD FUNCTION UpdateSiteMetadata(RECORD metadata)
+  PUBLIC MACRO UpdateSiteMetadata(RECORD metadata)
   {
-    RECORD retval := [ success := TRUE
-                     , outputfolder := ""
-                     , siteonlocation := 0
-                     , sitecontaininglocation := 0
-                     , neededfolders := DEFAULT RECORD ARRAY
-                     ];
-
     BOOLEAN republishsite;
     RECORD siterecupdate := ValidateOptions( [ versioningpolicy := ""
                                              , sitedesign := ""
@@ -339,9 +329,34 @@ STATIC OBJECTTYPE SiteObject
 
       IF(newoutputweb != currentrec.outputweb OR newoutputfolder != currentrec.outputfolder)
       {
-        RECORD test := TestSiteOutputAvailability(this->id, newoutputweb, newoutputfolder);
-        IF(NOT test.success)
-          retval := MakeUpdatedRecord(retval, test);
+        RECORD analyze_new_location := TestSiteOutputAvailability(this->id, newoutputweb, newoutputfolder);
+        IF(NOT analyze_new_location.success)
+        {
+          //TODO siteprops.whlib does the same as us here... can we share the code?
+          IF(analyze_new_location.siteonlocation != 0)
+          {
+            STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.siteonlocation;
+            THROW NEW Exception(`Site '${sitename}' already uses (an ancestor of) the new output folder.`);
+          }
+          ELSE IF(analyze_new_location.sitecontaininglocation != 0)
+          {
+            STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = analyze_new_location.sitecontaininglocation;
+            THROW NEW Exception(`Site '${sitename}' already uses (an ancestor of) the new output folder.`);
+          }
+          ELSE
+          {
+            FOREVERY(RECORD conflict FROM analyze_new_location.neededfolders)
+            {
+              IF(conflict.site=0)
+                CONTINUE;
+
+              STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = conflict.site;
+              STRING destfolder := SELECT AS STRING fullpath FROM system.fs_objects WHERE id = conflict.parent;
+
+              THROW NEW Exception(`The site '${sitename}' already uses a subfolder of the specified path and conflicts. This may be resolved by creating a foreign folder named '${conflict.name}' in this site at '${destfolder}'`);
+            }
+          }
+        }
 
         IF(this->id = whconstant_whfsid_webharebackend AND newoutputweb != 0)
         {
@@ -353,15 +368,12 @@ STATIC OBJECTTYPE SiteObject
         }
 
         DELETE CELL outputfolder FROM siterecupdate;
-        INSERT CELL outputfolder := test.outputfolder INTO siterecupdate;
+        INSERT CELL outputfolder := analyze_new_location.outputfolder INTO siterecupdate;
 
         IF(newoutputweb != 0)
           republishsite := TRUE;
       }
     }
-
-    IF(NOT retval.success)
-      RETURN retval;
 
     OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
     IF(NOT ObjectExists(sitesettingstype))
@@ -405,7 +417,6 @@ STATIC OBJECTTYPE SiteObject
     }
 
     GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
-    RETURN retval;
   }
 >;
 

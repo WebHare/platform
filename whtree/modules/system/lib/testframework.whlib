@@ -1623,8 +1623,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := sitename ] );
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
-    IF (NOT newsite->SetPrimaryOutput(this->GetTestOutputServer(), this->useseparateoutputport ? '/' : '/webhare-testsuite.output/').success)
-      ABORT("Could not set primary output");
+    newsite->SetPrimaryOutput(this->GetTestOutputServer(), this->useseparateoutputport ? '/' : '/webhare-testsuite.output/');
 
     RECORD ARRAY unpacked_files := UnpackArchive(archive, ".tar.gz");
     RETURN ImportWHFSArchive(siteroot, archive, [ overwrite := FALSE ]);
@@ -1658,18 +1657,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     IF(options.enableoutput)
     {
       IF(this->useseparateoutputport)
-      {
-        RECORD res := newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath('/', options.outputpath) || "/");
-        IF(NOT res.success)
-        {
-          DumpValue(res,'tree');
-          ABORT("Failed to create the testsite, foreign folder conflicts?");
-        }
-      }
+        newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath('/', options.outputpath) || "/");
       ELSE
-      {
         SetupSiteTestOutput(newsite, MergePath("webhare_testsuite.testoutput/", options.outputpath));
-      }
     }
 
     RETURN newsite;
@@ -2450,13 +2440,7 @@ PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO
     options.outputweb := backendsite->outputweb;
   }
 
-  RECORD setresult := site->SetPrimaryOutput(options.outputweb, `/testoutput/${sitename}/`);
-  IF(NOT setresult.success)
-  {
-    DumpValue(setresult);
-    THROW NEW Exception("Unable to set testsite output");
-  }
-
+  site->SetPrimaryOutput(options.outputweb, `/testoutput/${sitename}/`);
   RETURN site;
 }
 
