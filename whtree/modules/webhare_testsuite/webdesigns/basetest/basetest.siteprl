@@ -954,12 +954,14 @@
         <tryfile path="whdata::tmp/webhare_testsuite.datastorage/[siteslug]/file.shtml" />
         <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
       </webrule>
-      <webrule path="/tmp/subsub2/" match="initial" redirecttodir="site::webhare_testsuite.testsite/tmp/sub2" />
+      <webrule path="/tmp/subsub2/" match="initial">
+        <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
+      </webrule>
       <webrule path="/tmp/secret/"
                match="initial"
-               redirecttodir="site::webhare_testsuite.testsite/tmp/sub2"
                requirehttpauth="true">
         <account password="protected" username="service" />
+        <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
       </webrule>
 
       <!-- accessrule tests (authenticating against a different primary wrdauth) -->
