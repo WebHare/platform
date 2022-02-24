@@ -560,9 +560,4 @@
 
     <intercept name="blacklist" target="fetcher_blacklist" interceptfunction="lib/internal/fetcher_blacklisting.whlib#BlacklistIntercept" />
   </hooking>
-
-  <logging>
-    <log name="searches" filename="consilio_searches" mseconds="true" />
-  </logging>
-
 </module>
