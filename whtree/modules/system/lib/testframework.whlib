@@ -18,6 +18,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestRejectedLike, TestEqLike, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException;
 
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -990,6 +991,19 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     IF(NOT this->usedatabase)
       RETURN;
+
+    //Remove any consilio indices
+    RECORD ARRAY catalogstodelete := SELECT *
+                                       FROM ListConsilioCatalogs()
+                                      WHERE tag LIKE "webhare_testsuite:consiliotest_*"  //old GetCatalogName_1/GetCatalogName_2, they may still influence consilio API using tests
+                                            OR tag LIKE "consilio:testfw_*"; //consilio API users should use these names now for clarity
+    IF(Length(catalogstodelete) > 0)
+    {
+      GetPrimary()->BeginWork();
+      FOREVERY(RECORD deletecatalog FROM catalogstodelete)
+        OpenConsilioCatalog(deletecatalog.tag)->DeleteSelf();
+      GetPrimary()->CommitWork();
+    }
 
     //Cancel any pending tasks. They are considered a big source of unneeded testfailures - webhare/platform#15
     INTEGER ARRAY taskids := SELECT AS INTEGER ARRAY id FROM LookupManagedTasks("*", [ unfinished := TRUE ]);
