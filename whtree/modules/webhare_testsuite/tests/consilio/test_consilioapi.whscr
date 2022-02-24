@@ -1,27 +1,46 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestConsilioAPI()
 {
-  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
-  TestEq(TRUE, ObjectExists(catalog));
-
   testfw->BeginWork();
-  OBJECT newcatalog := catalog->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id);
-  testfw->CommitWork();
-  newcatalog->WaitForIndexingDone([ verbose := TRUE
-                                  , deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
-                                  ]);
 
-  RECORD result := RunConsilioSearch(testfw->GetCatalogName_1(), CQParseUserQuery("simpletest"));
+  //webhare_testsuite:testsitecatalog should always exist
+  TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id));
+  TestEq("webhare_testsuite:testsitecatalog", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id));
+
+  OBJECT testcatalog1 := CreateConsilioCatalog("consilio:testfw_apitest1");
+  OBJECT testcatalog2 := CreateConsilioCatalog("consilio:testfw_apitest2");
+
+  OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id);
+
+  //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
+  //FIXME we're ignoring _score and _summary but those shouldn't exist in the database at all
+  TestEq([ [ name := "DATE_WHMODIFICATION" ]
+         , [ name := "FILETYPE" ]
+         , [ name := "SIZE" ]
+         , [ name := "TITLE" ]
+         ], SELECT name FROM consilio.contentsourcefields WHERE contentsourceid = newsource->id AND name NOT LIKE "_*" ORDER BY name);
+
+  OBJECT newsource2 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id);
+  OBJECT newsource3 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("portal1")->id);
+  TestEq("consilio:testfw_apitest2", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id)); //most specific
+  TestEq("consilio:testfw_apitest1", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id)); //less sources in catalog
+
+  testfw->CommitWork();
+
+  newsource->WaitForIndexingDone([ verbose := TRUE
+                                 , deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
+                                 ]);
+
+  RECORD result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
 }
 
 RunTestframework(
     [ PTR TestConsilioAPI
-    ],
-    [ consilio := TRUE
     ]);

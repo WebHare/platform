@@ -1021,29 +1021,13 @@ OBJECTTYPE WHFSObject
   //
   // Tree
   //
-  INTEGER ARRAY FUNCTION GetTree(INTEGER stopfolder)
-  {
-    INTEGER cur := this->id;
-    INTEGER ARRAY tree;
-    INTEGER maxiterations := 16;
-
-    WHILE(cur != 0 AND maxiterations>0)
-    {
-      INSERT cur INTO tree AT 0;
-      IF(cur = stopfolder)
-        BREAK;
-      maxiterations := maxiterations - 1;
-      cur := SELECT AS INTEGER parent FROM system.fs_objects WHERE fs_objects.id = cur;
-    }
-    RETURN tree;
-  }
 
   /** @short Get the tree from the publisher root to this object
       @return An array of integers containing all the ids of all objects up to, and including, this object
   */
   PUBLIC INTEGER ARRAY FUNCTION GetWHFSTree()
   {
-    RETURN this->GetTree(0);
+    RETURN GetWHFSTree(this->id, 0);
   }
   /** @short Get the tree from the publisher root to this object
       @return An array of integers containing all the ids from the site root folder up to, and including, this object
@@ -1052,7 +1036,7 @@ OBJECTTYPE WHFSObject
   {
     IF(this->parentsite = 0)
       RETURN DEFAULT INTEGER ARRAY;
-    RETURN this->GetTree(this->parentsite);
+    RETURN GetWHFSTree(this->id, this->parentsite);
   }
 
   PUBLIC BOOLEAN FUNCTION IsParentOf(INTEGER otherobj)

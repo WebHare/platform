@@ -23,7 +23,7 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
   IF(NOT RecordExists(contentsource))
     THROW NEW Exception(`WaitContentSourceDone: No such content source #${contentsourceid}`);
 
-  STRING describesource := `content source #${contentsourceid} (${contentsource.tag})`;
+  STRING describesource := `content source #${contentsourceid} (tag '${contentsource.tag}', type '${contentsource.contentprovider}', fsobject ${contentsource.fsobject})`;
 
   OBJECT eventmgr := NEW EventManager;
   TRY
