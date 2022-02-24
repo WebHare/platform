@@ -271,6 +271,8 @@ export default class StructuredEditor extends EditorBase
         return;
       }
     }
+
+    event.preventDefault(); //block it, we don't know what's coming in and we'd rather get user error reports
     throw new Error("Paste detected, but no usable clipboardData");
   }
 
