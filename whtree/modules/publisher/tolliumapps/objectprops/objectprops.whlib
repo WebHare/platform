@@ -692,7 +692,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     ELSE
       ^size->value := " (" || this->tolliumuser->FormatFileSize(filesize, 2) ||  ")";
 
-    SetWHFSObjectLastModifiedField(^modified, this->sourceitem);
+    SetWHFSObjectLastModifiedField(^modified, this->isnew ? DEFAULT OBJECT : this->sourceitem);
   }
 
   MACRO PrepareDialog()
