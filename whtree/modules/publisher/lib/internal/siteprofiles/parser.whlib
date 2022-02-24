@@ -943,10 +943,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "urlhistory"
             {
-              apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","passthrough"])
+              apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","accesscheck"])
                                   , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
                                   , store := ParseXSBoolean(node->GetAttribute("store"))
-                                  , passthrough := ParseXSList(node->GetAttribute("passthrough"))
+                                  , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
                                   ];
               CONTINUE;
             }
