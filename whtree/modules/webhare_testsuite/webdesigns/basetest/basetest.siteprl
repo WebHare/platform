@@ -817,6 +817,10 @@
     <to type="all" pathmask="/tmp/*follow*" />
     <urlhistory store="true" />
   </apply>
+  <apply>
+    <to type="all" pathmask="/testpages/" />
+    <urlhistory accesscheck="lib/basetest.whlib#CheckTestpagesURLHistoryAccess" />
+  </apply>
 
   <!-- consilio testing -->
   <apply>

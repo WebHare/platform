@@ -1567,7 +1567,7 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC RECORD FUNCTION GetURLHistorySettings()
   {
-    RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, passthrough := ["utm_*"] ]);
+    RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, accesscheck := "" ]);
   }
 
   PUBLIC RECORD FUNCTION GetUsePublishTemplate()

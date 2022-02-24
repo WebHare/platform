@@ -356,3 +356,8 @@ PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
     ^librarysource->fslibrary := ^objectlibrary->value;
   }
 >;
+
+PUBLIC BOOLEAN FUNCTION CheckTestpagesURLHistoryAccess(RECORD urlinfo)
+{
+  RETURN urlinfo.url LIKE "*/i-have-got-the-power";
+}

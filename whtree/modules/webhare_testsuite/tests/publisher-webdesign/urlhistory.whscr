@@ -13,6 +13,9 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 MACRO Normalizations()
 {
   TestEq("//www.example.org/", NormalizeHistoryURL("http://www.example.org"));
@@ -286,7 +289,9 @@ ASYNC MACRO TestHistoryUI()
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add")); //outside site, should be fine as we're a sysop
   TT("url")->value := GetPrimaryWebHareInterfaceURL() || "outside-my-site";
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*do not have write access*" ]);
-  TT("url")->value := root || "simpleurl/";
+  TT("url")->value := OpenTestsuiteSite()->webroot || "testpages/mytestpage";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*do not have write access*" ]);
+  TT("url")->value := OpenTestsuiteSite()->webroot || "testpages/mytestpage/i-have-got-the-power";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close")); //escape url history
