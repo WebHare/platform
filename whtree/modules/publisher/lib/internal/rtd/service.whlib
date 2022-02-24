@@ -242,7 +242,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
     RETURN insrc;
   }
 
-  MACRO SelfValidate()
+  MACRO SelfValidateAndCleanup()
   {
     RECORD ARRAY parseerrors := this->htmldoc->GetParseErrors();
     IF(Length(parseerrors)>0)
@@ -256,6 +256,28 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
     FOREVERY (OBJECT node FROM this->htmldoc->QuerySelectorAll("a")->GetCurrentElements())
       IF (node->textcontent = "" AND NOT ObjectExists(node->QuerySelector("img")))
         node->parentnode->RemoveChild(node);
+
+    // Fix image data: urls
+    FOREVERY(OBJECT img FROM this->htmldoc->QuerySelectorAll("img")->GetCurrentElements())
+      this->ValidateAndCleanupImage(img);
+  }
+
+  MACRO ValidateAndCleanupImage(OBJECT imgnode)
+  {
+    STRING src := imgnode->GetAttribute("src");
+    IF(src NOT LIKE "data:*")
+      RETURN; //TODO: discard external urls though?
+
+    RECORD img := ParseDataURL(src);
+    RECORD typeinfo := ScanBlob(img.data);
+    IF(typeinfo.mimetype NOT LIKE "image/*") //untrusted, discard
+      imgnode->Dispose();
+
+    STRING hash := EncodeUFS(GetHashForBlob(img.data, "SHA-1"));
+    IF(NOT RecordExists(SELECT FROM this->embedded WHERE contentid = hash))
+      this->InsertImage(img.data, hash || typeinfo.extension, hash);
+
+    imgnode->SetAttribute("src", (SELECT AS STRING url FROM this->embedded WHERE hash = contentid));
   }
 
   PUBLIC RECORD FUNCTION GetRTDSingleObjectPreview(STRING instanceref)
@@ -407,7 +429,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       NEW HtmlRewriterContext->RewriteEmbeddedLinks(this->htmldoc, PTR this->GetImageURL);
     }
 
-    this->SelfValidate();
+    this->SelfValidateAndCleanup();
   }
 
   //Get the value as the RTE component expects it
@@ -444,18 +466,21 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
 */
     this->lastseenhtmltext := StringToBlob(newvalue);
     this->htmldoc := MakeXMLDocumentFromHTML(this->lastseenhtmltext);
-    this->SelfValidate();
+    this->SelfValidateAndCleanup();
     TrimRTDWhitespace(this->htmldoc->body);
     IF(NOT ObjectExists(this->htmldoc->body->firstchild))
       this->htmldoc := DEFAULT OBJECT;
   }
 
-  PUBLIC RECORD FUNCTION InsertImage(BLOB data, STRING filename)
+  PUBLIC RECORD FUNCTION InsertImage(BLOB data, STRING filename, STRING contentid DEFAULTSTO "")
   {
+    IF(contentid = "")
+      contentid := GenerateUFS128BitId();
+
     RECORD backedimg := CreateTempUploadedFile(WrapBlob(data,filename))->GetWrapped();
     RECORD forserver := WrapCachedImage(backedimg, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE ]);
 
-    INSERT CELL contentid := GenerateUFS128BitId()
+    INSERT CELL contentid := contentid
               , url := forserver.link
            INTO backedimg;
 
