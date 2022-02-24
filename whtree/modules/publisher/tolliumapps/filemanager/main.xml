@@ -438,7 +438,7 @@
           <item tid=".siteproperties" action="siteproperties" />
           <divider/>
           <item tid=".linkcheck" action="linkcheck" />
-          <item tid=".queries" action="queries" disablemode="hidden" />
+          <!-- <item tid=".queries" action="queries" disablemode="hidden" /> -->
           <item tid=".showmodifications" action="showmodifications" />
           <item tid=".issues" action="reportissues" />
           <item action="exportseoreport" />
