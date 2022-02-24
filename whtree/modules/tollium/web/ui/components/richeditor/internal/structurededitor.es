@@ -271,7 +271,9 @@ export default class StructuredEditor extends EditorBase
         return;
       }
     }
-    throw new Error("Paste detected, but no usable clipboardData");
+
+    event.preventDefault(); //block it, we don't know what's coming in and we'd rather get user error reports
+    throw new Error(`Paste detected, but no usable clipboardData (${JSON.stringify(Array.from(clipboardData?.types ?? [ "no clipboardData" ]))})`);
   }
 
   async _pasteContent(pastecontent, mode)

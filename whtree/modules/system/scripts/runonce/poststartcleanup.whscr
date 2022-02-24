@@ -40,6 +40,9 @@ DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/sys
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().installationroot || ".wh.connectinfo");
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().basedataroot || ".wh.connectinfo");
 
+//4.34 drops consilio_searches logfiles
+DeleteDiskWildcardsRecursive(GetWebHareConfiguration().basedataroot || "log/consilio_searches.????????.log");
+
 OBJECT trans := OpenPrimary();
 trans->BeginWork();
 

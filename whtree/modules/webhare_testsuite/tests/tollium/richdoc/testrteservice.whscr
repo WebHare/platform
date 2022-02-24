@@ -267,7 +267,25 @@ MACRO NewImage()
   TestEq(0, Length(exportrec.embedded));
 }
 
+MACRO FixDataURLImage()
+{
+  OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  editable->SetHTMLFromClientRTE(`<html><body><p class="normal"><img src="data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" /></p></body></html>`);
+
+  RECORD exportdata := editable->ExportAsRecord();
+  TestEq(1, Length(exportdata.embedded));
+  TestEq(43, Length(exportdata.embedded[0].data));
+  TestEqLike(`*<img src="cid:${exportdata.embedded[0].contentid}"/>*`, BlobToString(exportdata.htmltext));
+
+  editable->SetHTMLFromClientRTE(`<html><body><p class="normal"><img src="data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" /><img src="data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" /></p></body></html>`);
+  exportdata := editable->ExportAsRecord();
+
+  TestEq(1, Length(exportdata.embedded)); //should dedupe
+  TestEq(43, Length(exportdata.embedded[0].data));
+  TestEqLike(`*<img src="cid:${exportdata.embedded[0].contentid}"/><img src="cid:${exportdata.embedded[0].contentid}"/>*`, BlobToString(exportdata.htmltext));
+}
+
 RunTestFramework([ PTR RTECreation
                  , PTR NewImage
-                 ],
-                 [ profile := TRUE ]);
+                 , PTR FixDataURLImage
+                 ]);

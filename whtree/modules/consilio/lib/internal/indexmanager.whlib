@@ -638,7 +638,9 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
           INSERT [ name := "exclude-urls", value := Detokenize(options.exclude_urls, "\t") ] INTO vars AT END;
 
         STRING queryvalue := __FormatQuery(indexid, query, [ language := options.lang ]);
-        ModuleLog("consilio:searches", EncodeJSON(CELL[ ...searchstart, query := queryvalue ]));
+        IF(IsDebugTagEnabled("consilio:searches"))
+          LogDebug("consilio:search", "Indexmanager search", EncodeJSON(CELL[ ...searchstart, query := queryvalue ]));
+
         BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
                                                      , query := queryvalue
                                                      , options.restrict_to
@@ -784,7 +786,9 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                              , body := searchquery
                              ];
 
-        ModuleLog("consilio:searches", EncodeJSON(CELL[ ...searchstart, searchquery := finalquery ]));
+        IF(IsDebugTagEnabled("consilio:searches"))
+          LogDebug("consilio:search", "OpenSearch search", EncodeJSON(CELL[ ...searchstart, searchquery := finalquery ]));
+
         BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
                                                      , uuid := queryuuid
                                                      , searchquery := finalquery
@@ -870,10 +874,11 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                  ]);
       }
     }
-    ModuleLog("consilio:searches", EncodeJSON(CELL[ event := "searchdone" //FIXME separate 'done' and 'fail'
+
+    IF(IsDebugTagEnabled("consilio:searches"))
+      LogDebug("consilio:search", "Search complete",
+                                   EncodeJSON(CELL[ event := "searchdone" //FIXME separate 'done' and 'fail'
                                                   , queryuuid
-//                                                  , status := response.status
-//                                                  , code := CellExists(response, "code") ? response.code : 0
                                                   , numresults := result.totalcount
                                                   , time_msecs := GetDatetimeDifference(querystart, GetCurrentDateTime()).msecs
                                                   ]));
