@@ -45,8 +45,14 @@ RECORD FUNCTION DoReplaceURLs(OBJECT owner, STRING ARRAY urls, INTEGER currentfi
     }
     ELSE IF(NOT skipaccesscheck AND NOT owner->contexts->user->HasRightOn("system:fs_fullaccess", existing.folder))
     {
-      RECORD urlhistorysettings := GetApplyTesterForObject(existing.folder)->GetURLHistorySettings();
-      IF(urlhistorysettings.accesscheck = "" OR NOT MakeFunctionPtr(urlhistorysettings.accesscheck)(CELL[ lookup := existing, url, user := owner->contexts->user ]))
+      OBJECT applytester := GetApplyTesterForObject(existing.folder);
+      RECORD urlhistorysettings;
+      IF(ObjectExists(applytester))
+        urlhistorysettings := applytester->GetURLHistorySettings();
+
+      IF(NOT RecordExists(urlhistorysettings)
+         OR urlhistorysettings.accesscheck = ""
+         OR NOT MakeFunctionPtr(urlhistorysettings.accesscheck)(CELL[ lookup := existing, url, user := owner->contexts->user ]))
       {
         url := (SELECT AS STRING objecturl FROM system.fs_objects WHERE id = existing.folder) ?? url;
         INSERT GetTid("publisher:urlhistory.nowriteaccess", url) INTO retval.errors AT END;
