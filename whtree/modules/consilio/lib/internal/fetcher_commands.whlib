@@ -7,7 +7,6 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -1186,15 +1185,15 @@ OBJECT FUNCTION GetContentProviderForSource(RECORD source)
 */
 RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid)
 {
-  RECORD query := MakeBooleanQuery();
-  INSERT MakeSubQuery(MakeLiteralQuery("groupid", groupid), require_required) INTO query.subqueries AT END;
+  RECORD ARRAY queries;
+  INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
   IF (indexid != 0)
-    INSERT MakeSubQuery(MakeLiteralQuery("indexid", ToString(indexid)), require_required) INTO query.subqueries AT END;
+    INSERT CQMatch("indexid", "=", ToString(indexid)) INTO queries AT END;
 
   // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
+  RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
   IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
+    result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ contentsource := 0, indexid := 0], managedonly := TRUE ]);
 
   RETURN
       SELECT DISTINCT contentsourceid := contentsource
@@ -1304,8 +1303,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 */
 RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
 {
-  RECORD query := MakeBooleanQuery();
-  INSERT MakeSubQuery(MakeLiteralQuery("contentsource", ToString(contentsourceid)), require_required) INTO query.subqueries AT END;
+  RECORD query := CQMatch("contentsource", "=", ToString(contentsourceid));
 
   INTEGER indexid := SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid;
 
@@ -1337,17 +1335,17 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
   FOREVERY (STRING field FROM extrafields)
     mapping := CellInsert(mapping, field, "");
 
-  RECORD query := MakeBooleanQuery();
-  INSERT MakeSubQuery(MakeLiteralQuery("contentsource", ToString(contentsourceid)), require_required) INTO query.subqueries AT END;
-  INSERT MakeSubQuery(MakeLiteralQuery("groupid", groupid), require_required) INTO query.subqueries AT END;
+  RECORD ARRAY queries;
+  INSERT CQMatch("contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
+  INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
 
   // Get all available groups (might take some time if the source has millions of objects)
   INTEGER indexid := SELECT AS INTEGER COLUMN indexid FROM consilio.contentsources WHERE id = contentsourceid;
 
   // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-  RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := mapping ]);
+  RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping ]);
   IF (result.totalcount > fetcher_search_window)
-    result := QueryIndexManager(indexid, query, [ count := -1, mapping := mapping ]);
+    result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping ]);
 
   RECORD ARRAY results :=
       SELECT AS RECORD ARRAY GroupedValues(results)[0]

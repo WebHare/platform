@@ -865,12 +865,44 @@ STATIC OBJECTTYPE ContentSource
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
-  /** Rebuild this content source's catalog */
-  PUBLIC MACRO RebuildCatalog()
+  RECORD FUNCTION GetBaseDebugInfo()
   {
-    //FIXME Log
+    RETURN CELL[ catalog := this->catalog->tag
+               , catalogid := this->catalog->id
+               , contentsource := this->tag ?? "fsobj #" || this->fsobject
+               , contentsourceid := this->id
+               , trace := ArraySlice(GetStackTrace(),2)
+               ];
+  }
+
+  /** Rescan this content source
+      @long Checks if the content source is update, reindex if needed. The check takes place in the background*/
+  PUBLIC MACRO RescanContentSource()
+  {
+    STRING command := "UPDATEINDEX " || this->catalog->id || " " || this->id;
+    IF(IsDebugTagEnabled("consilio:queues"))
+      LogDebug("consilio", "ContentSource::RescanContentSource", this->GetBaseDebugInfo());
+    SendQueueManagerData(GetQueueDataFromCommand(command));
+  }
+
+  /** Rebuild this content source
+      @long Force reindexing of everything in this content source. The check takes place in the background */
+  PUBLIC MACRO RebuildContentSource()
+  {
     STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
-    LogDebug("consilio", "ContentSource::RebuildCatalog", [ catalog := this->catalog->id, contentsource := this->id ]);
+    IF(IsDebugTagEnabled("consilio:queues"))
+      LogDebug("consilio", "ContentSource::RebuildContentSource", this->GetBaseDebugInfo());
+    SendQueueManagerData(GetQueueDataFromCommand(command));
+  }
+
+  /** Rebuild a single group in this content source (forceably reindex)
+      @param groupid Group id
+      @long Force reindexing of everything in this content source. The reindex takes place in the background */
+  PUBLIC MACRO RebuildGroup(STRING groupid)
+  {
+    STRING command := "FASTCHECKGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+    IF(IsDebugTagEnabled("consilio:queues"))
+      LogDebug("consilio", "ContentSource::RebuildGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 
@@ -924,153 +956,6 @@ STATIC OBJECTTYPE Catalog
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
-  }
-
-  /** List the contentsources in this catalog
-      @return List of contentsources
-      @cell(integer) return.id Id of the contentsource
-      @cell(string) return.contentprovider Content provider type
-      @cell(string) return.contentobject Content objecttype implement with this source
-      @cell(string) return.tag Tag of the contentsource
-      @cell(string) return.title Title of the contentsource
-      @cell(integer) return.fsobject Associated filesystem object
-      @cell(boolean) return.isorphan Whether the contentsource is an orphan
-  */
-  PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions([ __withdeleted := FALSE ], options);
-    RECORD ARRAY sources :=
-        SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
-             , id
-             , contentprovider
-                                //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
-             , contentobject := CellExists(settings, 'contentobject') AND settings.contentobject != "" ? settings.library || "#" || settings.contentobject : ""
-             , tag
-             , title
-             , fsobject
-             , isorphan := orphansince != DEFAULT DATETIME
-             , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
-                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
-                                AND fsobject = 0
-                                AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
-                               )
-             , definedby
-          FROM consilio.contentsources
-         WHERE indexid = this->catalog.id;
-
-    IF (NOT options.__withdeleted)
-      sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
-
-    RETURN sources;
-  }
-
-  /** Add a publisher content source
-      @param targetfolder Folder to index
-      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
-      @cell options.discardsummaries Whether to discard summaries
-      @cell options.definedby Use to describe who added this custom content source was added
-      @cell options.contentcheckinterval Override interval between rechecks
-      @rreutn Newly created content source
-  */
-  PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options :=  ValidateOptions(
-        [ maxgroupobjects :=      0
-        , discardsummaries :=     FALSE
-        , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
-        , contentcheckinterval := 0
-        ], options);
-
-    IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
-    {
-      STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
-      THROW NEW Exception(`A contentsource for folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
-    }
-
-    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-    INSERT INTO consilio.contentsources(id, indexid, contentprovider, maxgroupobjects, discardsummaries, definedby, fsobject, data)
-            VALUES(srcid, this->catalog.id, "publisher:webhare", options.maxgroupobjects, options.discardsummaries, options.definedby, targetfolder, EncodeHSON(DEFAULT RECORD));
-
-    //TODO CheckFolderInIndex ?
-    OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->RebuildCatalog() INTO GetConsilioFinishHandler()->execoncommit AT END;
-
-    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
-    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-
-    RETURN contentsource;
-  }
-
-  /** Add a new custom content source to a index
-      @param tag Tag of the new content source
-      @param contentsourceobject Library and name of object that handles indexing (lib#name)
-      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
-      @cell options.discardsummaries Whether to discard summaries
-      @cell options.definedby Use to describe who added this custom content source was added
-      @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
-      @cell options.folder Associated folder
-      @cell options.title Title for the content source
-  */
-  PUBLIC MACRO AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
-      THROW NEW Exception(`Invalid content source tag '${tag}'`);
-
-    options :=  ValidateOptions(
-        [ maxgroupobjects :=      0
-        , discardsummaries :=     FALSE
-        , definedby :=            "AddCustomContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
-        , contentcheckinterval := -1
-        , title := ""
-        ], options);
-
-    IF (RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag)))
-      THROW NEW Exception(`A contentsource with tag '${tag}' already exists (note: tags must currently be globally unique!)`);
-
-    STRING ARRAY parts := Tokenize(contentsourceobject, "#");
-    RECORD settings :=
-        [ library :=              parts[0]
-        , contentobject :=        parts[1]
-        , contentcheckinterval := options.contentcheckinterval
-        , lastcontentscheck :=    ""
-        ];
-
-    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-    INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby)
-            VALUES(srcid, this->catalog.id, "consilio:custom", tag, EncodeHSON(settings), options.maxgroupobjects, options.discardsummaries, options.definedby);
-
-    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
-    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-  }
-
-  /** @short Open catalog by tag
-      @param tag Tag of the contentsource
-      @return(object #ContentSource) The content source object
-  */
-  PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
-  {
-    RECORD match :=
-        SELECT *
-          FROM consilio.contentsources
-         WHERE indexid = this->catalog.id
-               AND ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
-    IF(RecordExists(match))
-      RETURN NEW ContentSource(this, match);
-    ELSE
-      RETURN DEFAULT OBJECT;
-  }
-
-  /** @short Open catalog by id
-      @param id Id of the contentsource
-      @return(object #ContentSource) The content source object
-  */
-  PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
-  {
-    RECORD match := SELECT * FROM consilio.contentsources WHERE contentsources.id = VAR id AND tag NOT LIKE "$consilio$deleted$*";
-    IF(RecordExists(match))
-      RETURN NEW ContentSource(this, match);
-    ELSE
-      RETURN DEFAULT OBJECT;
   }
 
   /** Update catalog settings
@@ -1243,6 +1128,165 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   }
 >;
 
+STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
+<
+  /** List the contentsources in this catalog
+      @return List of contentsources
+      @cell(integer) return.id Id of the contentsource
+      @cell(string) return.contentprovider Content provider type
+      @cell(string) return.contentobject Content objecttype implement with this source
+      @cell(string) return.tag Tag of the contentsource
+      @cell(string) return.title Title of the contentsource
+      @cell(integer) return.fsobject Associated filesystem object
+      @cell(boolean) return.isorphan Whether the contentsource is an orphan
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ __withdeleted := FALSE ], options);
+    RECORD ARRAY sources :=
+        SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
+             , id
+             , contentprovider
+                                //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
+             , contentobject := CellExists(settings, 'contentobject') AND settings.contentobject != "" ? settings.library || "#" || settings.contentobject : ""
+             , tag
+             , title
+             , fsobject
+             , isorphan := orphansince != DEFAULT DATETIME
+             , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
+                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
+                                AND fsobject = 0
+                                AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
+                               )
+             , definedby
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id;
+
+    IF (NOT options.__withdeleted)
+      sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
+
+    RETURN sources;
+  }
+
+  /** Add a publisher content source
+      @param targetfolder Folder to index
+      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
+      @cell options.discardsummaries Whether to discard summaries
+      @cell options.definedby Use to describe who added this custom content source was added
+      @cell options.contentcheckinterval Override interval between rechecks
+      @rreutn Newly created content source
+  */
+  PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options :=  ValidateOptions(
+        [ maxgroupobjects :=      0
+        , discardsummaries :=     FALSE
+        , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+        , contentcheckinterval := 0
+        ], options);
+
+    IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
+    {
+      STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
+      THROW NEW Exception(`A contentsource for folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+    }
+
+    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+    INSERT INTO consilio.contentsources(id, indexid, contentprovider, maxgroupobjects, discardsummaries, definedby, fsobject, data)
+            VALUES(srcid, this->catalog.id, "publisher:webhare", options.maxgroupobjects, options.discardsummaries, options.definedby, targetfolder, EncodeHSON(DEFAULT RECORD));
+
+    //TODO CheckFolderInIndex ?
+    OBJECT contentsource := this->OpenContentSourceById(srcid);
+    INSERT PTR contentsource->RebuildContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
+
+    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+
+    RETURN contentsource;
+  }
+
+  /** Add a new custom content source to a index
+      @param tag Tag of the new content source
+      @param contentsourceobject Library and name of object that handles indexing (lib#name)
+      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
+      @cell options.discardsummaries Whether to discard summaries
+      @cell options.definedby Use to describe who added this custom content source was added
+      @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
+      @cell options.folder Associated folder
+      @cell options.title Title for the content source
+  */
+  PUBLIC MACRO AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
+      THROW NEW Exception(`Invalid content source tag '${tag}'`);
+
+    options :=  ValidateOptions(
+        [ maxgroupobjects :=      0
+        , discardsummaries :=     FALSE
+        , definedby :=            "AddCustomContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+        , contentcheckinterval := -1
+        , title := ""
+        ], options);
+
+    IF (RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag)))
+      THROW NEW Exception(`A contentsource with tag '${tag}' already exists (note: tags must currently be globally unique!)`);
+
+    STRING ARRAY parts := Tokenize(contentsourceobject, "#");
+    RECORD settings :=
+        [ library :=              parts[0]
+        , contentobject :=        parts[1]
+        , contentcheckinterval := options.contentcheckinterval
+        , lastcontentscheck :=    ""
+        ];
+
+    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+    INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby)
+            VALUES(srcid, this->catalog.id, "consilio:custom", tag, EncodeHSON(settings), options.maxgroupobjects, options.discardsummaries, options.definedby);
+
+    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+  }
+
+  /** @short Open catalog by tag
+      @param tag Tag of the contentsource
+      @return(object #ContentSource) The content source object
+  */
+  PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
+  {
+    RECORD match :=
+        SELECT *
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id
+               AND ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
+    IF(RecordExists(match))
+      RETURN NEW ContentSource(this, match);
+    ELSE
+      RETURN DEFAULT OBJECT;
+  }
+
+  /** Rebuild all content sources in this catalog
+      @long Force reindexing of everything in this content source. The check takes place in the background */
+  //PUBLIC MACRO RebuildAllContentSources()
+  //{
+  //  STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
+  //  IF(IsDebugTagEnabled("consilio:queues"))
+  //    LogDebug("consilio", "ContentSource::RebuildContentSource", this->GetBaseDebugInfo());
+  //  SendQueueManagerData(GetQueueDataFromCommand(command));
+  //}
+
+  /** @short Open catalog by id
+      @param id Id of the contentsource
+      @return(object #ContentSource) The content source object
+  */
+  PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
+  {
+    RECORD match := SELECT * FROM consilio.contentsources WHERE contentsources.id = VAR id AND tag NOT LIKE "$consilio$deleted$*";
+    IF(RecordExists(match))
+      RETURN NEW ContentSource(this, match);
+    ELSE
+      RETURN DEFAULT OBJECT;
+  }
+>;
 
 /** @short List all Consilio catalogs
     @param options Options
@@ -1283,7 +1327,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
   {
     IF (match.type = 1)
       RETURN NEW UnmanagedCatalog(match);
-    RETURN NEW Catalog(match);
+    RETURN NEW ManagedCatalog(match);
   }
   ELSE
     RETURN DEFAULT OBJECT;
@@ -1304,7 +1348,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
   {
     IF (match.type = 1)
       RETURN NEW UnmanagedCatalog(match);
-    RETURN NEW Catalog(match);
+    RETURN NEW ManagedCatalog(match);
   }
   ELSE
     RETURN DEFAULT OBJECT;
@@ -1362,7 +1406,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   }
 
   GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-  RETURN NEW Catalog(SELECT * FROM consilio.indices WHERE id=indexid);
+  RETURN OpenConsilioCatalogById(indexid);
 }
 
 /** @short Generate linkcheck report for WRD

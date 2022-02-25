@@ -64,9 +64,6 @@
       <text tid="title">Resultaat bekijken</text>
     </textgroup>
     <textgroup gid="catalogs">   <!-- catalog.catalogs -->
-      <text tid="about">Over Consilio</text>
-      <text tid="about-copyright">Portions of this product are based on software developed by the Apache Software Foundation (http://www.apache.org/), which is copyright © 2001 The Apache Software Foundation, all rights reserved, and on Snowball, which is copyright © 2001, Dr Martin Porter.</text>
-      <text tid="about-title">Consilio</text>
       <text tid="addcatalog">Catalogus toevoegen</text>
       <text tid="addcontentsource">Contentbron toevoegen</text>
       <text tid="apptitle">Consilio catalogusbeheer</text>
@@ -75,6 +72,8 @@
       <text tid="catalog">Catalogus</text>
       <text tid="catalogthesaurus">Synoniemenlijst</text>
       <text tid="checkcatalog">Check</text>
+      <text tid="confirmrebuildcatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
+      <text tid="confirmupdatecatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
       <text tid="definedby">Gedefinieerd door</text>
       <text tid="deleteitem">Verwijderen</text>
       <text tid="edititem">Bewerken</text>
@@ -131,9 +130,7 @@
       <text tid="confirmdeletecontentsource">Weet u zeker dat u deze contentbron wilt verwijderen?</text>
       <text tid="confirmdeleteselection">Weet u zeker dat u de geselecteerde catalogi en bronnen wilt verwijderen?</text>
       <text tid="confirmpatterndelete">Weet u zeker dat u URL-patroon '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="confirmrebuildcatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
       <text tid="confirmrestart">Weet u zeker dat u de Queuemanager wilt herstarten?</text>
-      <text tid="confirmupdatecatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
       <text tid="confirmworddelete">Weet u zeker dat u <ifparam p="1" value="">deze woorden<else/>het woord '<param p="1"/>'</ifparam> wilt verwijderen?</text>
       <text tid="confirmwordgroupdelete">Weet u zeker dat u de geselecteerde woordgroep wilt verwijderen?</text>
       <text tid="indexmanagerconnectionfailed">Er kan geen verbinding worden gemaakt met Consilio.</text>

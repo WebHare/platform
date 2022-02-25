@@ -1477,7 +1477,7 @@ OBJECTTYPE QueryParserTokenStream EXTEND TokenStream
     @cell return.filters The filters
     @see MakeBooleanQuery, MakeTermQuery, MakeMatchQuery, MakeLiteralQuery, MakePhraseQuery, MakeRangeFilter
 */
-PUBLIC RECORD FUNCTION MakeFilteredQuery(RECORD query, RECORD ARRAY filters)
+PUBLIC RECORD FUNCTION MakeFilteredQuery(RECORD query, RECORD ARRAY filters)  __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (NOT CellExists(query, "_type") OR query._type NOT IN [ "boolean", "term", "match", "literal", "phrase" ])
     THROW NEW Exception("Invalid query supplied for filtered query");
@@ -1496,7 +1496,7 @@ PUBLIC RECORD FUNCTION MakeFilteredQuery(RECORD query, RECORD ARRAY filters)
     @cell return.boost The boost factor
     @see MakeSubQuery
 */
-PUBLIC RECORD FUNCTION MakeBooleanQuery(FLOAT boost DEFAULTSTO 1f)
+PUBLIC RECORD FUNCTION MakeBooleanQuery(FLOAT boost DEFAULTSTO 1f) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   RETURN [ _type := "boolean"
          , subqueries := DEFAULT RECORD ARRAY
@@ -1517,7 +1517,7 @@ PUBLIC RECORD FUNCTION MakeBooleanQuery(FLOAT boost DEFAULTSTO 1f)
     @cell return.boost The boost factor
     @see MakeMatchQuery, MakeLiteralQuery
 */
-PUBLIC RECORD FUNCTION MakeTermQuery(STRING field, STRING text, FLOAT boost DEFAULTSTO 1f)
+PUBLIC RECORD FUNCTION MakeTermQuery(STRING field, STRING text, FLOAT boost DEFAULTSTO 1f) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (field = "")
     THROW NEW Exception("Query field is required for term query");
@@ -1547,7 +1547,7 @@ PUBLIC RECORD FUNCTION MakeTermQuery(STRING field, STRING text, FLOAT boost DEFA
     @cell return.boost The query boost factor
     @see MakePhraseQuery
 */
-PUBLIC RECORD FUNCTION MakeMatchQuery(STRING ARRAY fields, STRING text, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1)
+PUBLIC RECORD FUNCTION MakeMatchQuery(STRING ARRAY fields, STRING text, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (Length(fields) = 0)
     THROW NEW Exception("Query fields are required for match query");
@@ -1574,7 +1574,7 @@ PUBLIC RECORD FUNCTION MakeMatchQuery(STRING ARRAY fields, STRING text, FLOAT AR
     @cell return.boost The boost factor
     @see MakeTermQuery
 */
-PUBLIC RECORD FUNCTION MakeLiteralQuery(STRING field, STRING term, FLOAT boost DEFAULTSTO 1f)
+PUBLIC RECORD FUNCTION MakeLiteralQuery(STRING field, STRING term, FLOAT boost DEFAULTSTO 1f) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (field = "")
     THROW NEW Exception("Query field is required for literal query");
@@ -1600,7 +1600,7 @@ PUBLIC RECORD FUNCTION MakeLiteralQuery(STRING field, STRING term, FLOAT boost D
     @cell return.slop The slop factor, i.e. the number of other words allowed between phrase words
     @cell return.boost The boost factor
 */
-PUBLIC RECORD FUNCTION MakePhraseQuery(STRING field, STRING ARRAY words, FLOAT boost DEFAULTSTO 1f)
+PUBLIC RECORD FUNCTION MakePhraseQuery(STRING field, STRING ARRAY words, FLOAT boost DEFAULTSTO 1f) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (field = "")
     THROW NEW Exception("Query field is required for phrase query");
@@ -1613,7 +1613,7 @@ PUBLIC RECORD FUNCTION MakePhraseQuery(STRING field, STRING ARRAY words, FLOAT b
          ];
 }
 
-PUBLIC RECORD FUNCTION MakeMatchPhraseQuery(STRING ARRAY fields, STRING ARRAY words, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1f)
+PUBLIC RECORD FUNCTION MakeMatchPhraseQuery(STRING ARRAY fields, STRING ARRAY words, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1f) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (Length(fields) = 0)
     THROW NEW Exception("Query fields are required for match phrase query");
@@ -1627,7 +1627,7 @@ PUBLIC RECORD FUNCTION MakeMatchPhraseQuery(STRING ARRAY fields, STRING ARRAY wo
          ];
 }
 
-PUBLIC RECORD FUNCTION MakeExistsQuery(STRING field)
+PUBLIC RECORD FUNCTION MakeExistsQuery(STRING field) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (field = "")
     THROW NEW Exception("Query field is required for exists query");
@@ -1645,7 +1645,7 @@ PUBLIC RECORD FUNCTION MakeExistsQuery(STRING field)
     @return The subquery which can be added to a boolean query's subqueries
     @see MakeBooleanQuery
 */
-PUBLIC RECORD FUNCTION MakeSubQuery(RECORD query, INTEGER require)
+PUBLIC RECORD FUNCTION MakeSubQuery(RECORD query, INTEGER require) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (NOT CellExists(query, "_type") OR query._type NOT IN [ "user", "boolean", "term", "match", "literal", "phrase", "exists" ])
     THROW NEW Exception("Invalid query supplied for subquery");
@@ -1664,7 +1664,7 @@ PUBLIC RECORD FUNCTION MakeSubQuery(RECORD query, INTEGER require)
     @param includeupper If upperterm is included in the range
     @return The range filter which can be added to a filtered query's filters
 */
-PUBLIC RECORD FUNCTION MakeRangeFilter(STRING field, VARIANT lowerterm, VARIANT upperterm, BOOLEAN includelower, BOOLEAN includeupper)
+PUBLIC RECORD FUNCTION MakeRangeFilter(STRING field, VARIANT lowerterm, VARIANT upperterm, BOOLEAN includelower, BOOLEAN includeupper) __ATTRIBUTES__(DEPRECATED "Make*Query APIs have been deprecated, switch to the consilio CQ API")
 {
   IF (field = "")
     THROW NEW Exception("Query field is required for range filter");

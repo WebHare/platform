@@ -9,8 +9,6 @@
     <messagebox name="cannotloadsettings" buttons="ok" icon="error" />
     <messagebox name="confirmdeletecatalog" buttons="yes no" icon="warning" />
     <messagebox name="confirmdeletecontentsource" buttons="yes no" icon="warning" />
-    <messagebox name="confirmrebuildcatalog" buttons="yes no" icon="warning" />
-    <messagebox name="confirmupdatecatalog" buttons="yes no" icon="warning" />
     <messagebox name="sendingcommandfailed" buttons="ok" icon="warning" />
     <messagebox name="confirmpatterndelete" buttons="yes no" icon="warning" />
     <messagebox name="searcherror" buttons="ok" icon="warning" />
