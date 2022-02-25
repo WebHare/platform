@@ -312,10 +312,14 @@ PUBLIC STATIC OBJECTTYPE GoToObject EXTEND TolliumScreenBase
     data := ValidateOptions([suggestwhere := ""], data);
 
     BOOLEAN seeallsites := this->tolliumuser->HasRightOn("system:fs_browse",0);
+    INTEGER ARRAY limitsites;
+    IF(NOT seeallsites)
+      limitsites := this->tolliumuser->HasRightOnMultiple("system:fs_browse", SELECT AS INTEGER ARRAY id FROM system.sites WHERE NOT locked);
+
     ^obj->options := SELECT title := name
                             FROM system.sites
                            WHERE NOT locked
-                                 AND (seeallsites ? TRUE : this->tolliumuser->HasRightOn("system:fs_browse",root))
+                                 AND (seeallsites ? TRUE : id IN limitsites)
                         ORDER BY ToUppercase(name);
 
     IF(data.suggestwhere != "")

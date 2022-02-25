@@ -277,7 +277,14 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.testsite:/TestPages/unpublished'*`, pvs.messages);
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
+  TestEqMembers([[ title := "webhare_testsuite.testsite" ]], TT("obj")->options, "*");
+  TT("obj")->value := "webhare_testsuite.testsite";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("webhare_testsuite.testsite", TT("foldertree")->selection.name);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
