@@ -189,8 +189,8 @@ STRING mimetype := ToUppercase(Tokenize(browser->GetResponseHeader("Content-Type
 
 // Explicitly add HTTP response status
 IF (browser->GetHTTPStatusCode() > 0)
-  AddHTTPHeader("Status", browser->GetHTTPStatusText(), FALSE);
+  AddHTTPHeader("Status", ToString(browser->GetHTTPStatusCode()), FALSE);
 ELSE
-  AddHTTPHeader("Status", "500 Could not get resource: " || browser->GetHTTPStatusText(), FALSE);
+  AddHTTPHeader("Status", "502", FALSE); //502 gateway error
 
 SendWebFile(outgoingcontent);

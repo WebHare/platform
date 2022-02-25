@@ -147,7 +147,7 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
   {
     RECORD ARRAY headers := [ [ field := "Content-Type", value := "application/json" ] ];
     IF(error!="")
-      INSERT [ field := "Status", value := "500 " || EncodeJava(UCTruncate(error,120)) ] INTO headers AT END;
+      INSERT [ field := "Status", value := "500 Encountered errors, see logs" ] INTO headers AT END;
 
     RETURN
         [ headers :=    headers
