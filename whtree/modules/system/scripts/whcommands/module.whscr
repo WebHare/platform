@@ -96,6 +96,7 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
   }
   CASE "rm","del","delete"
   {
+    OpenPrimary();
     CmdDelete(cmdargs.params);
   }
   DEFAULT
