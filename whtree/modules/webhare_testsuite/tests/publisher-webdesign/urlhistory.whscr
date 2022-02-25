@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -37,6 +38,10 @@ MACRO Normalizations()
 MACRO Prepare()
 {
   RECORD simulatedtestport := testfw->CreateWebserverPort([ port := 0, virtualhosts:=["urlhistory.example.net"], secure_keyfile := "demo", outputserver := TRUE ]);
+  testfw->BeginWork();
+  AddWebserver("http://nositehost.localhost.beta.webhare.net/");
+  testfw->CommitWork();
+
   PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ withcontent := FALSE, enableoutput := FALSE ]);
 
   testfw->BeginWork();
@@ -287,6 +292,8 @@ ASYNC MACRO TestHistoryUI()
   AWAIT ExpectScreenChange(+1, PTR TTClick("manageurlhistory"));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add")); //outside site, should be fine as we're a sysop
+  TT("url")->value := "http://nositehost.localhost.beta.webhare.net/test123/"; //fix crash when referring to a server that has no sites
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*do not have write access*" ]);
   TT("url")->value := GetPrimaryWebHareInterfaceURL() || "outside-my-site";
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*do not have write access*" ]);
   TT("url")->value := OpenTestsuiteSite()->webroot || "testpages/mytestpage";
