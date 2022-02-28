@@ -3,6 +3,8 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -65,6 +67,25 @@ ASYNC MACRO ObjectProps()
 
   RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
   TestEq(2, Length(data.arraytest));
+
+  { //Create a new file. https://gitlab.com/webhare/platform/-/issues/22 reported site= being boken then
+
+    AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+    TT("types")->value := "type:" || OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+    AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
+
+    OBJECT betatab := TT(":Beta test tab");
+    OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
+    AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
+    TT("textcell")->value := "New row";
+
+    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
+    TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
+    TT("_whfscell")->value := staticfile;
+
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new row
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new file
+  }
 
   AWAIT ExpectScreenChange(-1, PTR TTescape);
 }

@@ -1175,7 +1175,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   MACRO ResetSiteprofExtensions(INTEGER parentid, INTEGER newtype)
   {
     FOREVERY(RECORD extendprop FROM this->extendprops)
-      FOREVERY(OBJECT comp FROM extendprop.compositions)
+      FOREVERY(OBJECT comp FROM OBJECT[extendprop.instance, ...extendprop.compositions])
       {
         IF (NOT (comp EXTENDSFROM WHFSInstance))
           CONTINUE;
