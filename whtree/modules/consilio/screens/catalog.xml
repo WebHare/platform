@@ -85,7 +85,7 @@
           <item action="updatecatalog" name="updatecatalog_menu" tid=".updatecatalog" />
           <item action="rebuildcatalog" name="rebuildcatalog_menu" tid=".rebuildcatalog" />
           <item action="showerrors" name="showerrors_menu" tid=".showerrors" />
-          <item action="queryreport" />
+          <!-- <item action="queryreport" /> -->
           <item action="markcatalogascomplete" />
           <divider />
           <item action="catalogthesaurus" name="catalogthesaurus_menu" tid=".catalogthesaurus" />
@@ -108,7 +108,7 @@
         <item action="rebuildcatalog" name="rebuildcatalog_contextmenu" tid=".rebuildcatalog" />
         <item action="showerrors" name="showerrors_contextmenu" tid=".showerrors" />
         <item action="catalogthesaurus" name="catalogthesaurus_contextmenu" tid=".catalogthesaurus" />
-        <item action="queryreport" />
+        <!-- <item action="queryreport" /> -->
         <divider />
         <item action="markcatalogascomplete" disablemode="hidden" />
         <item action="delete" />
