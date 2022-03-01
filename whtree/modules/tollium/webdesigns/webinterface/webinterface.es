@@ -9,6 +9,8 @@ import * as whintegration from '@mod-system/js/wh/integration';
 
 import IndyShell from '@mod-tollium/web/ui/js/shell';
 
+//we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
+import "@mod-publisher/js/internal/polyfills/modern.es";
 
 if(document.documentElement.classList.contains('wh-tollium--app'))
 {

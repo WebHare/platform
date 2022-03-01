@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/publicconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
@@ -261,8 +262,9 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   }
 
   IF (debug)
-    Print("Fixing module symlinks\n");
+    Print("Fixing module symlinks and server configuration JS\n");
   FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
+  UpdatePublicConfig();
 
   IF (debug)
     Print("WRD schemas, siteprofiles\n");
