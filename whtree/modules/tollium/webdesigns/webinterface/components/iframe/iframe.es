@@ -85,7 +85,10 @@ export default class ObjIFrame extends ComponentBase
       if(msg.type == "print")
         this.iframe.contentWindow.setTimeout("window.print()", 10);
       else if(msg.type == "postmessage")
+      {
+        //TODO ratelimit or bllck ths origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
+      }
       else if(msg.type == "calljs")
       {
         var cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
@@ -342,6 +345,7 @@ window.addEventListener('message', function(evt)
 {
   if (typeof evt.data != "object")
     return; // Tollium expects a data RECORD
+
   let matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow == event.source);
   if(!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;

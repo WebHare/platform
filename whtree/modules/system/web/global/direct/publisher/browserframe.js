@@ -117,12 +117,6 @@ function onIframeLoad(event)
   if (uri && curdata)
   {
     curdata.src = uri;
-    //Only forward navigation events if the last interaction was 'recent'
-    if(was_user_interaction)
-    {
-      //console.log("isInteraction: informing about local navigation to " + curdata.src);
-      todd.doCallback({ type: "urlloaded", src: curdata.src });
-    }
   }
 }
 

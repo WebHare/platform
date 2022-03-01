@@ -65,10 +65,10 @@
     </xs:annotation>
     <xs:complexType>
       <xs:attributeGroup ref="tc:ComponentBase" />
-      <xs:attribute name="onurlchange" type="tc:Handler">
+      <xs:attribute name="onpreviewedobjectchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tai:callbacksignature arguments="string"/>
+            <tai:callbacksignature arguments="integer string"/>
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>

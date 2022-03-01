@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
@@ -58,7 +59,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Public variables and properties
   //
 
-  PUBLIC MACRO PTR onurlchange;
+  PUBLIC MACRO PTR onpreviewedobjectchange;
 
   /** Whether to show versioning status and actions
   */
@@ -72,7 +73,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   UPDATE PUBLIC MACRO StaticInit(RECORD data)
   {
     TolliumFragmentBase::StaticInit(data);
-    this->onurlchange := data.onurlchange;
+    this->onpreviewedobjectchange := data.onpreviewedobjectchange;
     this->pvt_showversionactions := data.showversionactions;
   }
 
@@ -495,13 +496,14 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
     ELSE
     {
-      this->SetFileId(this->previewfileid, reloadmessages, reloadsource, FALSE);
+      this->SetFileId(this->previewfileid, reloadmessages, reloadsource);
     }
   }
 
   // Set the currently previewed file
-  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource, BOOLEAN was_iframe_interaction)
+  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource)
   {
+    BOOLEAN was_iframe_interaction;
     IF (fileid = this->previewfileid AND NOT reloadmessages AND NOT reloadsource)
     {
       // Always update the versioning messages, a save of a denied draft changes its message
@@ -570,18 +572,36 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Callbacks
   //
 
+  MACRO OnbrowserMessage(RECORD data, STRING origin)
+  {
+    data := EnforceStructure([ type := "", location := ""], data);
+    IF(LookupPublisherURL(origin).webserver = 0) //not hosted here
+    {
+      //TODO consider telling the server to block this origin from communicating any further messages? a hostile site could trigger a lot of traffic - but that might be better handled at iframe.whlib level
+      Print(`Ignoring postmessage from unknown origin '${origin}'`);
+      RETURN; //ignore
+    }
+
+    IF(data.type = "webhare-navigation")
+    {
+      Print(`Got webhare-location with url ${data.location}\n`);
+      //^browserframe->src := data.location; //TODO why update location? this would only trigger navigational resets!
+      IF(this->onpreviewedobjectchange != DEFAULT MACRO PTR)
+      {
+        STRING url := Tokenize(Tokenize(data.location, "#")[0], "?")[0];
+
+        //TODO not sure why we need to update currenturl ... why should we worry about that state which we can't 100% guaranteed follow anyway?
+        this->currenturl := url;
+
+        RECORD findit := LookupPublisherURL(url);
+        this->onpreviewedobjectchange(findit.file ?? findit.folder, url);
+      }
+    }
+  }
   MACRO OnBrowserFrameCallback(RECORD data)
   {
     SWITCH (data.type)
     {
-      CASE "urlloaded"
-      {
-        ^browserframe->src := data.src;
-        // Strip hash and query
-        this->currenturl := Tokenize(Tokenize(data.src, "#")[0], "?")[0];
-        IF(this->onurlchange != DEFAULT MACRO PTR)
-          this->onurlchange(this->currenturl);
-      }
       CASE "navigationprevented"
       {
         IF (data.uri = "")
@@ -735,7 +755,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoPreviewRefresh()
   {
-    this->SetFileId(this->previewfileid, TRUE, TRUE, FALSE); //force reresh of both frame and the error messages
+    this->SetFileId(this->previewfileid, TRUE, TRUE); //force reresh of both frame and the error messages
   }
 
   MACRO ClearForNewURL(STRING url)
@@ -787,9 +807,11 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Public API
   //
 
-  PUBLIC MACRO SetPreview(INTEGER objid, BOOLEAN was_iframe_interaction DEFAULTSTO FALSE)
+  PUBLIC MACRO SetPreview(INTEGER objid)
   {
-    this->SetFileId(objid, FALSE, FALSE, was_iframe_interaction); //if not changed, do nothing
+    Print(`Owner asked previewbrowser to go to #${objid}\n`);
+    dumpvalue(getstacktrace(),'boxed');
+    this->SetFileId(objid, FALSE, FALSE);
   }
 
   PUBLIC MACRO SetPreviewURL(STRING newurl)
