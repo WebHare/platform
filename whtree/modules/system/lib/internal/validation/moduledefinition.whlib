@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/localization.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
@@ -120,11 +121,12 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         this->AddWarningForLine(dependency->linenum, "requireversion has been deprecated. Use moduleversion= and specify a semver mask if you want to match a module, or webhareversion= to make this dependency rule only apply to the specified WebHare version");
 
     FOREVERY(OBJECT wrdschema FROM this->xml->ListElements(whconstant_xmlns_moduledef,"schema"))
-    {
-      STRING deffile := MakeAbsoluteResourcePath(this->respath, wrdschema->GetAttribute("definitionfile"));
-      IF(deffile != "" AND NOT RecordExists(RetrieveWebHareResource(deffile, [ allowmissing := TRUE ])))
-        this->AddErrorForLine(wrdschema->linenum, `Cannot find '${deffile}'`);
-    }
+      IF(IsNodeApplicableToThisWebHare(wrdschema))
+      {
+        STRING deffile := MakeAbsoluteResourcePath(this->respath, wrdschema->GetAttribute("definitionfile"));
+        IF(deffile != "" AND NOT RecordExists(RetrieveWebHareResource(deffile, [ allowmissing := TRUE ])))
+          this->AddErrorForLine(wrdschema->linenum, `Cannot find '${deffile}'`);
+      }
 
     FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
       this->AddWarning(appcontext, "<appcontexts> have been deprecated");
