@@ -73,7 +73,7 @@ FOREVERY (RECORD cat FROM catalogs)
 
   // Open the catalog
   OBJECT catalog := OpenConsilioCatalogById(cat.id);
-  IF(NOT ObjectExists(catalog))
+  IF(NOT ObjectExists(catalog) OR NOT catalog->ismanaged)
     CONTINUE; //already gone..
 
   // Check the catalog's content sources
@@ -119,11 +119,6 @@ FOREVERY (RECORD cat FROM catalogs)
     }
     trans->CommitWork();
   }
-
-  IF (catalog->tag NOT LIKE "*:*") //does not look like a managed catalog (yet?) - prevent us from immediately deleting manually created indices
-    CONTINUE;
-  IF (catalog->type IN [ whconstant_consilio_catalogtype_moduleindex, whconstant_consilio_catalogtype_fieldgroup ])
-    CONTINUE; // Unmanaged index or fieldgroup
 }
 
 IF (Length(updated_contentsources) > 0) //ADDME also fire something on eg priority change ?

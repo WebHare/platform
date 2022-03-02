@@ -947,8 +947,8 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Tag of this catalog
   PUBLIC PROPERTY tag(this->catalog.name,-);
 
-  /// @type(integer) Type of the catalog (0 for managed index, 1 for module index)
-  PUBLIC PROPERTY type(this->catalog.type,-);
+  /// @type(boolean) Is this a managed catalog?
+  PUBLIC PROPERTY ismanaged(GetIsManaged,-);
 
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
@@ -956,6 +956,11 @@ STATIC OBJECTTYPE Catalog
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
+  }
+
+  BOOLEAN FUNCTION GetIsManaged()
+  {
+    RETURN this->catalog.type = whconstant_consilio_catalogtype_siteprofindex;
   }
 
   /** Update catalog settings
@@ -1293,7 +1298,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
     @return List of catalogs
     @cell return.id Catalog id
     @cell return.tag Catalog tag
-    @cell return.type Catalog type (0: managed catalog, 1: unmanaged catalog)
+    @cell(boolean) return.ismanaged True if this is managed catalog (supports contentsources)
     @cell return.indexmanager Index manager
 */
 PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1302,10 +1307,10 @@ PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFA
   RECORD ARRAY catalogs :=
       SELECT id
            , tag := name
-           , type
+           , ismanaged := type = whconstant_consilio_catalogtype_siteprofindex
            , indexmanager
         FROM consilio.indices
-       WHERE type != 2
+       WHERE type != whconstant_consilio_catalogtype_fieldgroup
              AND (options.__withdeleted OR name NOT LIKE "$consilio$deleted$*");
   IF (options.__withdeleted)
     catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;
@@ -1321,7 +1326,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
   RECORD match :=
       SELECT * FROM consilio.indices
        WHERE ToUppercase(indices.name) = ToUppercase(tag)
-             AND type != 2
+             AND type != whconstant_consilio_catalogtype_fieldgroup
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
@@ -1342,7 +1347,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
   RECORD match :=
       SELECT * FROM consilio.indices
        WHERE indices.id = VAR id
-             AND type != 2
+             AND type != whconstant_consilio_catalogtype_fieldgroup
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
