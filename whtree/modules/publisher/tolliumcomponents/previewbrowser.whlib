@@ -479,7 +479,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   {
     STRING src;
     IF(this->suppressrendering)
-      src := "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
+      src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
     ELSE IF(IsAbsoluteURL(this->currenturl))
       src := this->currenturl;
 
@@ -500,7 +500,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     ^previewmessage->htmlvalue := this->lastsethtmlvalue;
     ^info->visible := Length(this->previewmessages) > 0;
 
-    STRING src := this->suppressrendering ? ""
+    STRING src := this->suppressrendering ? this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html"
                 : UpdateURLVariables(this->currenturl,
                       [ "__whpub_lang_" := this->owner->tolliumuser->language
                       , "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)

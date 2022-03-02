@@ -114,7 +114,7 @@ ASYNC MACRO WalkTheTree()
   {
     // The preview url should be empty and the secure vs unsecure message should be shown, as the headless controller is secure
     // and the test site is not
-    TestEq("", pvs.browserurl);
+    TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
     TestEq(TRUE, pvs.showingmessages);
     TestEqLike(`*The site is unsecure*<a *`, pvs.messages);
   }
@@ -157,7 +157,7 @@ ASYNC MACRO WalkTheTree()
   //Verify an unknown file
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="unknownfile";
   pvs := TT("previewbrowser")->GetPreviewState();
-  dumpvalue(pvs);
+
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/unknownfile", pvs.displayurl);
   TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/unknown.shtml*", pvs.browserurl);
   TestEq(FALSE, pvs.showingmessages);
@@ -189,7 +189,7 @@ ASYNC MACRO WalkTheTree()
   //Go to the indexless folder
   TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "tmp";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq("", pvs.browserurl); // No index document
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(OpenTestsuiteSite()->webroot || "tmp/", pvs.displayurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`The selected folder 'tmp' does not have an index document.`, pvs.messages);
@@ -199,7 +199,7 @@ ASYNC MACRO WalkTheTree()
 
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
-  TestEq("", pvs.browserurl); // File was never published, so nothing is shown
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*<a *errors*', pvs.messages);
 
@@ -214,7 +214,7 @@ ASYNC MACRO WalkTheTree()
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.link";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
-  TestEq("", pvs.browserurl); // Target was never published
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*internal link*crash.rtd*', pvs.messages);
   TestEqLike('*<a *errors*', pvs.messages);
@@ -257,7 +257,7 @@ ASYNC MACRO WalkTheTree()
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="externallink";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("https://www.webhare.dev/", pvs.displayurl);
-  TestEq("", pvs.browserurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`This external link links to URL 'https://www.webhare.dev/'. <a href="preview:showexternallink">Click here to open this link.</a>`, pvs.messages);
 
@@ -267,7 +267,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.displayurl);
-  TestEq("", pvs.browserurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`This external link does not seem to be linked to an existing file.<br />Errors have occurred during publication. <a href="preview:showerrors">Click here to view the errors.</a>`, pvs.messages);
 
@@ -283,7 +283,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/unpublished/", pvs.displayurl);
-  TestEq("", pvs.browserurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.testsite:/TestPages/unpublished'*`, pvs.messages);
 
