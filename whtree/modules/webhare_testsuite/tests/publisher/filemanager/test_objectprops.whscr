@@ -68,7 +68,7 @@ ASYNC MACRO ObjectProps()
   RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
   TestEq(2, Length(data.arraytest));
 
-  { //Create a new file. https://gitlab.com/webhare/platform/-/issues/22 reported site= being boken then
+  { //Create a new file. https://gitlab.com/webhare/platform/-/issues/22 reported site= being broken then
 
     AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
     TT("types")->value := "type:" || OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
