@@ -750,12 +750,15 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
 
 PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 {
-  STRING whdatamods := GetWebhareConfiguration().varroot || "nodejs/node_modules/";
+  STRING whdatamods := GetWebhareConfiguration().basedataroot || "nodejs/node_modules/";
+  STRING storageroot := GetWebhareConfiguration().basedataroot || "storage/";
   CreateDiskDirectoryRecursive(whdatamods, TRUE);
 
   RECORD ARRAY tocheck := SELECT name
                                , path := GetModuleInstallationRoot(name)
+                               , storage := storageroot || name
                                , currentrootlink := ReadSoftLink(whdatamods || "@mod-" || name)
+                               , currentstoragelink := ReadSoftLink(whdatamods || "@storage-" || name)
                             FROM ToRecordArray(modules,"name");
 
   FOREVERY(RECORD tofix FROM tocheck)
@@ -763,19 +766,26 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
     IF(tofix.path="")
       CONTINUE;
 
-    STRING shouldberootlink := tofix.path;
-    IF(tofix.currentrootlink != shouldberootlink)
+    IF(tofix.currentrootlink != tofix.path)
     {
       //create using temp, overwiting any existing link where needed
-      CreateSoftLink(whdatamods || "@mod-" || tofix.name || ".tmp", shouldberootlink);
+      CreateSoftLink(whdatamods || "@mod-" || tofix.name || ".tmp", tofix.path);
       MoveDiskPath(whdatamods || "@mod-" || tofix.name || ".tmp", whdatamods || "@mod-" || tofix.name);
+    }
+    IF(tofix.currentstoragelink != tofix.storage)
+    {
+      //create using temp, overwiting any existing link where needed
+      CreateSoftLink(whdatamods || "@storage-" || tofix.name || ".tmp", tofix.storage);
+      MoveDiskPath(whdatamods || "@storage-" || tofix.name || ".tmp", whdatamods || "@storage-" || tofix.name);
     }
   }
 
   IF(isallmodules)
   {
-    RECORD ARRAY deletelinks := SELECT * FROM ReadDiskDirectory(whdatamods,"@mod-*") WHERE Substring(name,5) NOT IN modules;
+    RECORD ARRAY deletelinks := (SELECT * FROM ReadDiskDirectory(whdatamods,"@mod-*") WHERE Substring(name,5) NOT IN modules)
+                                CONCAT
+                                (SELECT * FROM ReadDiskDirectory(whdatamods,"@storage-*") WHERE Substring(name,9) NOT IN modules);
     FOREVERY(RECORD tokill FROM deletelinks)
-      DeleteDiskFile(whdatamods || tokill.name);
+      DeleteDiskFile(tokill.path);
   }
 }
