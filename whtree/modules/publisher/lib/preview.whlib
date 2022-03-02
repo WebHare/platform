@@ -1,8 +1,77 @@
 <?wh
-PUBLIC OBJECTTYPE PreviewObjectBase
-<
-  PUBLIC STRING FUNCTION GetPreviewUrl(INTEGER objectid)
-  {
+/** @short Publisher (browser) previews
+    @long This library exports the publisher.sites, files and folder tables, and offers
+          functions to browse and search through these tables.
+    @topic sitedev/whfs
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+/** @short Get a preview link for a page
+    @param fsobject FS object to show (live version)
+    @cell options.validuntil Validity of the link. Defaults to 1 day
+    @cell options.password Password to protect the preview with
+    @cell options.version Exact version to view (eg a draft).
+    @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
+PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ validuntil := DEFAULT DATETIME
+                              , password := ""
+                              , version := 0
+                              ], options);
+
+  IF(options.validuntil = DEFAULT DATETIME)
+    options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
+
+  INTEGER showversion := options.version ?? fsobject;
+
+  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
+  IF(baseurl = "")
     RETURN "";
-  }
->;
+
+  RECORD viewdata := [ id := showversion, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = showversion), v := options.validuntil, p := options.password ];
+  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
+  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
+}
+
+/** @short Get a link that will show a specific A/B test variant
+    @param navigationobject ID of the fsobject implementing the A/B test
+    @param targetobject ID Of the target to show. If not a current target, returns a 404.
+    @return Link that will select the requested target. Empty link if the navigationobject is not being published */
+PUBLIC STRING FUNCTION GetABTestVariantLink(INTEGER navigationobject, INTEGER targetobject)
+{
+  STRING baselink := SELECT AS STRING link FROM system.fs_objects WHERE id = navigationobject;
+  IF(baselink = "")
+    RETURN "";
+
+  RETURN UpdateURLVariables(baselink, [ "wh.variant" := EncryptForThisServer("publisher:abvariant", [ t := targetobject])]);
+}
+
+/** Describe the current preview request (for <preview browserurl> pages)
+    @long Aborts if the current request is not a valid preview request
+    @return A record describing this preview
+    @cell(integer) return.targetobject ID of the (published) object we need to show
+    @cell(integer) return.contentobject ID of the object from which we should get content (ie drafts and content links)
+*/
+PUBLIC RECORD FUNCTION DescribePreviewRequest()
+{
+  RECORD info := DecryptForThisServer("publisher:previewbrowser", GetWebVariable("preview"), [fallback := DEFAULT RECORD]);
+  IF(NOT RecordExists(info))
+    AbortWithHTTPError(400);
+
+  //On development, this URL will be valid for 8 hours, but on live for only 15 seconds (TODO: we could signal our parent "hey, refresh us!" if we discover that the link is expired)
+  INTEGER timeout := GetDtapStage() = "development" ? 8*60*60*1000 : 15000;
+  IF(info.when < AddTimeToDate(-timeout, GetCurrentDatetime()))
+    AbortWithHTTPError(403);
+
+  RETURN CELL[ targetobject := info.source
+             , contentobject := info.content
+             ];
+}

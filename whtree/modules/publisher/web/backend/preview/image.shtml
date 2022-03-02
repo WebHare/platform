@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/preview.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+RECORD req := DescribePreviewRequest();
+
+OpenPrimary();
+RECORD contentinfo := OpenWHFSObject(req.contentobject)->GetWrapped();
+
+LoadWittyLibrary("mod::publisher/lib/internal/builtinpages/showimage.witty","HTML-NI")->Run(
+  CELL[ clienturl := UpdateURLVariables(SELECT AS STRING link FROM system.fs_objects WHERE id = req.targetobject, [ random := GenerateUFS128BitId() ])
+      , checkered_background
+      , contentinfo.width
+      , contentinfo.height
+      ]);

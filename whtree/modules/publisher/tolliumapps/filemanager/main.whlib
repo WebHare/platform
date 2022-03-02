@@ -826,6 +826,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ^filelist->value := [ INTEGER(indexdoc.id) ];
     }
 
+    this->UpdateSelectedPreview();
   }
 
   MACRO OnListSelect()
@@ -1047,15 +1048,15 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO UpdateSelectedPreview()
   {
-    RECORD ARRAY fileselection := ^filelist->selection;
+    //We ignore focus but look at selection. multiselection in filelist = no preview, 1 = show file, 0 = show containing folder
+    RECORD ARRAY selection := ^filelist->selection;
     INTEGER topreview;
-    //Print("Updating preview: " || Detokenize((SELECT AS STRING ARRAY ToString(id) FROM fileselection), ",") || "\n");
-    IF(Length(fileselection) > 1)
-      topreview := 0;
-    ELSE IF(Length(fileselection) = 1)
-      topreview := ^filelist->selection[0].id;
+    IF(Length(selection) = 1)
+      topreview := selection[0].id;
+    ELSE IF(Length(selection) = 1)
+      topreview := selection[0].id;
     ELSE
-      topreview := (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = ^foldertree->value) ?? ^foldertree->value;
+      topreview := ^foldertree->value;
 
     IF(topreview = this->lastpreviewed) //if we're going to suggest a preview that the previewbrowser already suggested to us...
       RETURN; //let's not, this may trigger a navigational reset (TODO but we probably *should* refresh in the case of a completed republish (static) or moddate change (dynamic) ?)

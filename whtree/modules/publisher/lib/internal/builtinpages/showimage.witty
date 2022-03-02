@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Image preview</title>
+    <meta robots="noindex,nofollow" />
+    <style>
+    html, body, main
+    {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body
+    {
+      background: #ffffff url("[checkered_background]") repeat;
+    }
+
+    main
+    {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    img.wh-imagepreview__mainimage
+    {
+      display:  block;
+      max-width: 100vw;
+      max-height: 100vh;
+    }
+
+  </style>
+  </head>
+  <body>
+    <main>
+      <img class="wh-imagepreview__mainimage" src="[clienturl]" />
+    </main>
+  </body>
+</html>

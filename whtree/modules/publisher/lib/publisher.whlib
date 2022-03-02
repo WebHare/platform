@@ -20,7 +20,7 @@ LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
-LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib" EXPORT GetABTestVariantLink, GetPreviewLink;
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
@@ -855,59 +855,3 @@ PUBLIC RECORD FUNCTION MakeIntExtExternalLink(STRING href)
   RETURN [ internallink := 0, externallink := href, append := "" ];
 }
 
-/** @short Get a preview link for a page
-    @param fsobject FS object to show (live version)
-    @cell options.validuntil Validity of the link. Defaults to 1 day
-    @cell options.password Password to protect the preview with
-    @cell options.version Exact version to view (eg a draft).
-    @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
-PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions( [ validuntil := DEFAULT DATETIME
-                              , password := ""
-                              , version := 0
-                              ], options);
-
-  IF(options.validuntil = DEFAULT DATETIME)
-    options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
-
-  INTEGER showversion := options.version ?? fsobject;
-  RECORD typedata := SELECT generatepreview
-                         , previewlibrary
-                         , previewobjectname
-                      FROM system.fs_types
-                     WHERE id = (SELECT AS INTEGER type FROM system.fs_objects WHERE id = showversion);
-
-  BOOLEAN has_custom_preview := RecordExists(typedata) AND typedata.previewlibrary != "" AND typedata.previewobjectname != "";
-  IF (has_custom_preview)
-  {
-    OBJECT previewobject := MakeObject(typedata.previewlibrary, typedata.previewobjectname);
-    IF (NOT (previewobject EXTENDSFROM PreviewObjectBase))
-      THROW NEW Exception(`Previewobject ${typedata.previewobjectname} does not extend from PreviewObjectBase`);
-
-    STRING url := previewobject->GetPreviewUrl(showversion);
-    IF(url != "")
-      RETURN url;
-  }
-
-  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
-  IF(baseurl = "")
-    RETURN "";
-
-  RECORD viewdata := [ id := showversion, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = showversion), v := options.validuntil, p := options.password ];
-  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
-  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
-}
-
-/** @short Get a link that will show a specific A/B test variant
-    @param navigationobject ID of the fsobject implementing the A/B test
-    @param targetobject ID Of the target to show. If not a current target, returns a 404.
-    @return Link that will select the requested target. Empty link if the navigationobject is not being published */
-PUBLIC STRING FUNCTION GetABTestVariantLink(INTEGER navigationobject, INTEGER targetobject)
-{
-  STRING baselink := SELECT AS STRING link FROM system.fs_objects WHERE id = navigationobject;
-  IF(baselink = "")
-    RETURN "";
-
-  RETURN UpdateURLVariables(baselink, [ "wh.variant" := EncryptForThisServer("publisher:abvariant", [ t := targetobject])]);
-}
