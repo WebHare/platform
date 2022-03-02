@@ -10,7 +10,6 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
@@ -141,7 +140,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->frontendid := GenerateUFS128BitId();
 
     this->personalsettingsapp := "system:personalsettings";
-    this->jsversion := GetAssetPackBuildVersion("tollium:webinterface" || (AreOutputToolsActive() ? ".dev" : ""));
+    this->jsversion := GetAssetPackBuildVersion("tollium:webinterface");
   }
 
   RECORD FUNCTION GetRunData()
@@ -971,21 +970,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     RETURN ExecuteAction(this->wrdauthplugin->userapi, this->currentuser, action);
   }
-
-  PUBLIC RECORD FUNCTION WCS_ExecuteLoginChallenge(OBJECT webcontext, RECORD data)
-  {
-    RETURN webcontext->GetWRDAuthPlugin()->__SolveLoginChallenge(data.logincontrol);
-  }
 >;
 
 MACRO RunThePage()
 {
-  IF(GetWebVariable("showmessage")="1")
-  {
-    NEW ShowMessagePage(GetWebVariable("lang"),GetWebVariable("url"),GetWebVariable("msg"),GetWebVariable("type"),GetWebVariable("location"))->Runpage();
-    RETURN;
-  }
-
   STRING overridetoken := GetWebVariable("overridetoken");
   IF(overridetoken != "" AND NOT VerifyOverrideToken(overridetoken))
   {

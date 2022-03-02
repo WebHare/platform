@@ -1,9 +1,0 @@
-<!DOCTYPE html>
-<html data-link="[link]" data-logincontrol="[logincontrol]">
-  <head>
-    <script src="[loginscript]"></script>
-  </head>
-  <body>
-    Checking for login...
-  </body>
-</html>

@@ -119,41 +119,6 @@ MACRO TestBasics()
   TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"), "should still receive an uncompressed version");
 }
 
-MACRO TestViewSHTML()
-{
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  OBJECT emptyfile := siteroot->OpenByPath("bob.jpg");
-
-  testfw->browser->DeleteCookie("__whpub_preview");
-
-  TestEq(TRUE, testfw->browser->SendRawRequest("HEAD", emptyfile->url, RECORD[], DEFAULT BLOB), "Bob is not served correctly: " || emptyfile->url);
-  TestEq("", testfw->browser->GetResponseHeader("X-WHPub-Preview"));
-  INTEGER clength := ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0);
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url), "Page is not served correctly: " || emptyfile->url);
-  TestEq("", testfw->browser->GetResponseHeader("X-WHPub-Preview"));
-  TestEq("", testfw->browser->GetResponseHeader("Cache-Control"));
-  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
-
-  testfw->browser->SetSessionCookie("__whpub_preview", "x");
-
-  TestEq(TRUE, testfw->browser->SendRawRequest("HEAD", emptyfile->url, RECORD[], DEFAULT BLOB), "Bob is not served correctly: " || emptyfile->url);
-  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
-  TestEq("no-cache", testfw->browser->GetResponseHeader("Cache-Control"));
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url), "Page is not served correctly: " || emptyfile->url);
-  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
-
-  testfw->browser->SetSessionCookie("__whpub_preview", "debug"); //triggers potential rewrite - but not for bob.jpg
-
-  TestEq(TRUE, testfw->browser->SendRawRequest("HEAD", emptyfile->url, RECORD[], DEFAULT BLOB), "Bob is not served correctly: " || emptyfile->url);
-  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
-  TestEq("no-cache", testfw->browser->GetResponseHeader("Cache-Control"));
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(emptyfile->url), "Page is not served correctly: " || emptyfile->url);
-  Testeq(clength, ToInteger(testfw->browser->GetResponseHeader("Content-Length"),0));
-}
-
 MACRO TestAssetpackManifest()
 {
   //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
@@ -172,6 +137,5 @@ MACRO TestAssetpackManifest()
 RunTestframework([ PTR PrepTest
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
-                 , PTR TestViewSHTML
                  , PTR TestAssetpackManifest
                  ]);

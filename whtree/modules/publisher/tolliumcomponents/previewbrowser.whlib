@@ -502,8 +502,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     STRING src := this->suppressrendering ? this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html"
                 : UpdateURLVariables(this->currenturl,
-                      [ "__whpub_lang_" := this->owner->tolliumuser->language
-                      , "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
+                      [ "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
 
     ^browserframe->src := src;

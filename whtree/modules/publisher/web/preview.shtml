@@ -47,12 +47,7 @@ PUBLIC OBJECTTYPE PreviewPage EXTEND DynamicPageBase
 IF(GetWebVariable("__preview_pdf")="1" AND GetDtapStage()="development") //experimental option, so masking it behind 'dep' just to be save
 {
   STRING realurl := UpdateURLVariables(GetRequestURL(), [ __preview_pdf := "" ]);
-  RECORD ARRAY cookies;
-  IF(GetWebHeader("X-WHPub-IsPreview") = "1") //if you're using outputcontrols on the current page, forward that to the PDF too
-    cookies := [[ name := "__whpub_preview", value := "devpackage"]];
-
   SendWrappedWebFile(GeneratePDFFromURL(realurl, [ media := "print"
-                                                 , cookies := cookies
                                                  ]) );
 }
 

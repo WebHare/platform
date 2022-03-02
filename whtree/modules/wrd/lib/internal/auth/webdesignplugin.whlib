@@ -14,7 +14,6 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -64,7 +63,11 @@ RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)
 MACRO SendHTMLPage(STRING wittypath, RECORD wittydata)
 {
   AddHTTPHeader("Content-Type","text/html;charset=utf-8",FALSE);
-  ResetSecurityHeadersForPreviewPanel();
+  //Strip frame options that might prevent us from showing our message
+  AddHTTPHeader("X-Frame-Options", "", FALSE);
+  //Limit scripts to self AND the WebHare UI (TODO: consider allowing only webhare ui to host scripts for our pages?
+  AddHTTPHeader("Content-Security-Policy", `script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, FALSE);
+
   SendWebFile(LoadWittyLibrary(wittypath,"HTML-NI")->RunToBlob(wittydata));
 }
 
@@ -757,16 +760,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
     INSERT CELL submitinstruction := submitinstruction INTO trylogin;
     RETURN trylogin;
-  }
-
-  PUBLIC RECORD FUNCTION __SolveLoginChallenge(STRING logincontroltoken)
-  {
-    RECORD logincontrol := this->__DecryptLoginControlToken(logincontroltoken);
-
-    IF ("wrdauth" NOT IN logincontrol.logintypes)
-      THROW NEW Exception("This challenge cannot be resolved by wrdauth"); //TODO think we need to handle external logins ?
-
-    RETURN this->__GenerateLoginProofRedirect(logincontrol, "wrdauth", DEFAULT RECORD);
   }
 
   STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
@@ -1605,16 +1598,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
        if _j and _c exist but the login cookie doesn't (the JS clientside code will redirect if it sees ?wrdauth-returnto) */
     loginpage := ResolveToAbsoluteURL(loginpage, '/.wrd/auth/gologin?url=') || EncodeURL(loginpage);
 
-    //If we get a challenge, we're supposed to hand that off to WebHare's login. Without a challenge, lets just run the login
-    IF(RecordExists(challenge) AND (GetWebCookie("__whpub_preview") != "" OR GetWebVariable("__whpub_clock_") != ""))
-    {
-      //Give a loginscript link relative to the WebHare UI... that one should be reachable if you have a preview cookie...
-      RECORD wittydata := [ link := loginpage
-                          , logincontrol := logincontrol
-                          , loginscript := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.webhare/direct/publisher/publisher_login.js")
-                          ];
-      SendHTMLPage("mod::wrd/lib/internal/auth/publisher_login.witty", wittydata);
-    }
     Redirect(loginpage);
   }
 

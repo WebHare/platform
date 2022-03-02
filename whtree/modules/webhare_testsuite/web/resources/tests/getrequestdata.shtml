@@ -12,7 +12,6 @@ RECORD data :=
     , clienturl :=        GetClientRequestURL()
     , clientbinding :=    GetClientBinding()
     , serverurl :=        GetRequestURL()
-    , ispreview :=        GetWebHeader("X-WHPub-IsPreview") = "1"
     , headers :=          GetAllWebHeaders()
     ];
 

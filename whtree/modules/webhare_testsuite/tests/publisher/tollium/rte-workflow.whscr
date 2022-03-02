@@ -59,20 +59,6 @@ ASYNC MACRO EditRTD()
 
   TestEq(TRUE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
 
-  //Now test if "__whpub_preview" doesn't interfere with password checking
-  testfw->browser->SetSessionCookie("__whpub_preview", "debug");
-  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
-  TestEQ(previewlink, testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
-
-  TestEq(FALSE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
-
-  form := testfw->browser->document->GetElement("form");
-  form->GetElement("*[name='password']")->SetAttribute("value", "secret");
-  testfw->browser->SubmitForm(form);
-
-  TestEq(TRUE, BlobToString(testfw->browser->content) LIKE "*This is a previewable text*");
-  TestEQ(previewlink, testfw->browser->GetResponseHeader("X-WHPUB-PREVIEW"));
-
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 
