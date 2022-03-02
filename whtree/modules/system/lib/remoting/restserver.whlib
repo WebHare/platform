@@ -210,11 +210,11 @@ RECORD FUNCTION RunRestCallInternal(STRING apispecification, STRING method, STRI
 
     STRING status;
     IF (e EXTENDSFROM RPCBadRequestException)
-      status := "400 Bad request: " || e->what;
+      status := "400 Bad request";
     ELSE IF (NOT executed_request AND e EXTENDSFROM RPCInvalidArgsException) // Returnvalue validation should return 500's
-      status := "422 Invalid arguments: " || e->what;
+      status := "422 Invalid arguments";
     ELSE
-      status := "500 Internal error: " || e->what;
+      status := "500 Internal error";
 
     RETURN
         [ endpoint := endpoint

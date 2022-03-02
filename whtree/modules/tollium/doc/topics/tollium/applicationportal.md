@@ -9,7 +9,7 @@ You can pass the following variables on the URL to customize or debug various To
 - openas=[username]       Log in as the specified user (requires sysop privileges)
 - language=[en]           Override the user language
 - intolerant=1            Throw on error conditions, instead of just trying to make it work
-- transport=[transport]   Force transport type. (transport must be one of 'shardedworker', 'jsonrpc' or 'websocket')
+- transport=[transport]   Force transport type. (transport must be one of 'jsonrpc' or 'websocket')
 - go=                     Portal/frontend specific parameters
 - notifications=0         Disable notifications
 ```
