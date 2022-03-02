@@ -111,6 +111,7 @@ to_recheck := SELECT contentsources.id
                    , contentsources.data
                    , contentsources.fsobject
                    , indices.name
+                   , catalogid := indices.id
                 FROM consilio.contentsources
                    , consilio.indices
                WHERE contentsources.indexid = indices.id
