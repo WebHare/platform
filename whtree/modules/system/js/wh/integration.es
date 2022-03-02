@@ -121,8 +121,4 @@ if(typeof window !== 'undefined') //check we're in a browser window, ie not serv
     config.obj={};
   if(!config.site)
     config.site={};
-
-  let errhandler = config["system:errorhandler"];
-  if(errhandler)
-    console.error(errhandler.statuscode + " " + errhandler.statusmessage);
 }

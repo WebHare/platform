@@ -82,7 +82,7 @@ RECORD FUNCTION FixupHarescripterrorInfo(INTEGER errorcode, RECORD harescriptinf
         , data.resources
         ];
   }
-  RETURN CELL[...harescriptinfo, statuscode := errorcode, statusmessage := data.statusheader ];
+  RETURN CELL[...harescriptinfo, statuscode := errorcode ];
 }
 
 /** Generate an error, using webdesign if possible for nicer formatting
@@ -150,10 +150,6 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     }
   }
 
-  //Add extra info if status was added as HTTP/2 cannot pass on status messages
-  IF(harescriptinfo.statusmessage != "")
-    AddHTTPHeader("X-WebHare-Error-Status", harescriptinfo.statuscode || " " || harescriptinfo.statusmessage, TRUE);
-
   IF(NOT RecordExists(urlinfo) OR urlinfo.site = 0)
     RETURN; //cannot handle in design, so let the webserver figure it out
 
@@ -181,7 +177,6 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
 
     OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, errorcode, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
     webdesign->htmlclasses := webdesign->htmlclasses CONCAT [ "wh-errorpage", "wh-errorpage--" || errorcode];
-    webdesign->SetJSPluginConfig("system:errorhandler", CELL[harescriptinfo.statuscode, harescriptinfo.statusmessage]);
     webdesign->isstandardcontentpage := TRUE; //hopefully trigger the necessary div/centering/margins on designs that need it
 
     webdesign->PrepareErrorPage(errorcode, harescriptinfo, url);

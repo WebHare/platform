@@ -533,12 +533,10 @@ MACRO Status404()
                                                      ], "multipart/form-data"));
   TestEq("A custom 404!", BlobToString(browser->content,1000));
   TestEq(404, browser->GetHTTPStatus().code);
-  TestEq("Bla Bla", browser->GetHTTPStatus().message);
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "404" ]
                                                      ,[ name := "customstatus", value := "401 weird status"]
                                                      ], "multipart/form-data"));
   TestEq(401, browser->GetHTTPStatus().code);
-  TestEq("weird status", browser->GetHTTPStatus().message);
   //Cache-Control must be no-chace, this was a dynamic SHTML request
   TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
 
@@ -561,12 +559,12 @@ MACRO StatusBad()
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statusbad" ]
                                                      ], "multipart/form-data"));
   TestEq(FALSE, RecordExists(SELECT FROM browser->responseheaders WHERE ToUppercase(field)="BAD"));
-  TestEq("404 Bad", browser->GetHTTPStatusText());
+  TestEq(404, browser->GetHTTPStatusCode());
 
   //Test overlong headers
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statuslong" ]
                                                      ], "multipart/form-data"));
-  TestEq("404 I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm oka", browser->GetHTTPStatusText());
+  TestEq(404, browser->GetHTTPStatusCode());
 }
 
 MACRO TestIPChecks() //combine IP filtering and x-forwarded-for checking

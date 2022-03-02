@@ -113,13 +113,11 @@ void ShtmlContextData::GetErrorInfo(HSVM *vm, HSVM_VariableId id_set)
         HSVM_ColumnId col_errors = HSVM_GetColumnId(vm, "ERRORS");
         HSVM_ColumnId col_groupid = HSVM_GetColumnId(vm, "GROUPID");
         HSVM_ColumnId col_resources = HSVM_GetColumnId(vm, "RESOURCES");
-        HSVM_ColumnId col_statusheader = HSVM_GetColumnId(vm, "STATUSHEADER");
 
         HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
 
         GetMessageList(vm, HSVM_RecordCreate(vm, id_set, col_errors), hs_errors, true);
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, id_set, col_groupid), error_groupid);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, id_set, col_statusheader), statusheader);
         HSVM_VariableId var_resources = HSVM_RecordCreate(vm, id_set, col_resources);
         HSVM_SetDefault(vm, var_resources, HSVM_VAR_StringArray);
         for (auto &resource: hs_errors.GetLoadedResources())
@@ -400,16 +398,11 @@ void ShtmlContextData::ClientRemoteIp(HSVM *vm, HSVM_VariableId id_set)
 
 void ShtmlContextData::AddHeader(HSVM *vm)
 {
-//        WebServer::Connection *_webcon=_webcon;
-        static const char status[] = "Status";
         Blex::StringPair headerline;
         HSVM_StringGet(vm, HSVM_Arg(0), &headerline.begin, &headerline.end);
 
         Blex::StringPair data;
         HSVM_StringGet(vm, HSVM_Arg(1), &data.begin, &data.end);
-
-        if(Blex::StrCaseCompare(headerline.begin, headerline.end, status, status + sizeof status - 1) == 0)
-                statusheader.assign(data.begin, data.end);
 
         bool always_add = HSVM_BooleanGet(vm, HSVM_Arg(2));
 
@@ -423,12 +416,6 @@ void ShtmlContextData::AddHeader(HSVM *vm)
         std::pair< bool, bool > res = shtml->AsyncRunTask(task, vm, true);
         if (res.first && !res.second) //ADDME No real need for this check if rewrite works fine, let hsvm do the reporting
             HSVM_ReportCustomError(vm, "Cannot AddHeader after flushing the response");
-/*
-        if(!_webcon->CanSetHeaders())
-            HSVM_ReportCustomError(vm, "Cannot AddHeader after flushing the response");
-        else
-            _webcon->AddHeader(headerline.begin,headerline.size(),data.begin,data.size(),always_add);
-*/
 }
 
 void ShtmlContextData::SessionList (HSVM *vm, HSVM_VariableId id_set)

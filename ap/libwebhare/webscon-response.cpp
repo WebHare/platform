@@ -202,31 +202,8 @@ void Connection::ScheduleHeaderForSending()
         {
                 output_header.Store("HTTP/1.1 ");
 
-                //Sanitize the status message. truncate if needed and abort at first non-printable
-                if(protocol.status_additional_message.size() > 300)
-                    protocol.status_additional_message.resize(300);
-                for(auto itr = protocol.status_additional_message.begin(); itr != protocol.status_additional_message.end(); ++itr)
-                  if(*itr < 32 || *itr >= 127)
-                {
-                        protocol.status_additional_message.resize(std::distance(protocol.status_additional_message.begin(), itr));
-                        break;
-                }
-
-                if (protocol.status_additional_message.empty())
-                {
-                        const StatusData *status=webserver->GetStatusData(protocol.status_so_far);
-                        output_header.Store(status->title);
-                }
-                else
-                {
-                        // Two spaces, max 10 uint32_t digits and a space
-                        char statuscode[13] = { '0','0' };
-                        char *code_end = Blex::EncodeNumber< uint32_t >(protocol.status_so_far, 10, &statuscode[0]);
-                        *code_end = ' ';
-                        output_header.StoreData(code_end - 3, 4);
-                        output_header.Store(protocol.status_additional_message);
-                }
-
+                const StatusData *status=webserver->GetStatusData(protocol.status_so_far);
+                output_header.Store(status->title);
                 output_header.Store("\r\n");
                 for (unsigned i=0;i<send_headers.size();++i)
                 {

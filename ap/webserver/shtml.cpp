@@ -396,7 +396,6 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
                 shtmlcontext->hs_errors = *errors_for_errorpage;
                 shtmlcontext->error_groupid = errors_groupid;
         }
-        shtmlcontext->statusheader = webcon->GetProtocolInfo().status_additional_message;
         shtmlcontext->srhprogid = app->sessionid;
         shtmlcontext->webcon_async_itf = webcon_async_itf;
 
