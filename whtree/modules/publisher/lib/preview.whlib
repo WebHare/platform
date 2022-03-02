@@ -73,5 +73,6 @@ PUBLIC RECORD FUNCTION DescribePreviewRequest()
 
   RETURN CELL[ targetobject := info.source
              , contentobject := info.content
+             , languagecode := info.lang
              ];
 }

@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/internal/previewpages.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+INTEGER FUNCTION GetRootindexDoc()
+{
+  INTEGER rootindexdoc := (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = 16) ?? 16;
+  RETURN rootindexdoc;
+}
+
+RECORD req := DescribePreviewRequest();
+
+OpenPrimary();
+RECORD contentinfo := OpenWHFSObject(req.contentobject)->GetWrapped();
+
+NEW ShowMessagePage(req.languagecode, GetRequestURL(), "notviewable", contentinfo.mimetype,"")->RunPageForWHFSId(GetRootindexDoc());

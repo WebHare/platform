@@ -221,6 +221,7 @@ testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webha
 testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
 testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
 testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
+testpages->CreateFile( [ name := "unknownfile", type := 0, publish := TRUE, data := StringToBlob("\x00\x01\x02\x03") ]);
 
 OBJECT unpublishedpage := testpages->CreateFile( [ name := "unpublished", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := FALSE ]);
 testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);

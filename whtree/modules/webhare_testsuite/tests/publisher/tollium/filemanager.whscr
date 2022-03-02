@@ -154,6 +154,15 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
   TestEqLike("*/rangetestfile.jpeg?random=*", testfw->browser->QS("img.wh-imagepreview__mainimage")->GetAttribute("src"));
 
+  //Verify an unknown file
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="unknownfile";
+  pvs := TT("previewbrowser")->GetPreviewState();
+  dumpvalue(pvs);
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/unknownfile", pvs.displayurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/unknown.shtml*", pvs.browserurl);
+  TestEq(FALSE, pvs.showingmessages);
+  TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
+
   //Find a simple file that should be published
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="simpletest.rtd";
 

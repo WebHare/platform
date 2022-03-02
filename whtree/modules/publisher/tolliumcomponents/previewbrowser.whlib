@@ -24,6 +24,7 @@ LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -171,17 +172,35 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
   }
 
+  STRING FUNCTION GetPreviewToken(RECORD selectedfile, RECORD contentfile)
+  {
+    RETURN EncryptForThisServer("publisher:previewbrowser",
+                [ source := selectedfile.id
+                , when := GetCurrentDatetime()
+                , content := contentfile.id
+                , lang := GetTidLanguage()
+                ]);
+  }
+
   RECORD FUNCTION GetPreviewData(INTEGER fileid)
   {
-    RECORD selectedfile := SELECT id, name, url, type, published, filelink, externallink, parentsite, isfolder FROM system.fs_objects WHERE id = VAR fileid;
+    /* Determine the viewer to use. In order we'll try:
+       - any explicit previewsetting: <preview browserurl=...> - this will handle eg. images
+       - widget rendering
+       - see if we can expect HTML (the resulting link is a 'needstemplate') - then we'll directly link
+       - fall back to the unknown.shtml handler
+       */
+
+    RECORD selectedfile := SELECT id, name, link, type, published, filelink, externallink, parentsite, isfolder FROM system.fs_objects WHERE id = VAR fileid;
     IF(NOT RecordExists(selectedfile))
       RETURN DEFAULT RECORD;
 
-    this->currenturl := selectedfile.url;
+    this->currenturl := "";
     RECORD data := [ fileid := fileid
                    ];
 
     RECORD contentfile := selectedfile;
+    INTEGER targetfiletype := selectedfile.type;
 
     IF(selectedfile.type IN [ 19, 20 ]) //19: internallink, 20: contentlink
     {
@@ -189,6 +208,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
       IF(RecordExists(target))
       {
+        targetfiletype := target.type;
         IF(selectedfile.type = 20 ) //contentlink
           contentfile := target;
 
@@ -252,6 +272,8 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     OBJECT applytester := GetApplyTesterForObject(selectedfile.id);
     RECORD previewinfo := applytester->GetPreviewSettings();
+
+
     BOOLEAN generatewidgetpreview;
     IF(previewinfo.browserurl != "")
     {
@@ -268,13 +290,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       }
 
       IF(this->currenturl != "")
-        this->currenturl := UpdateURLVariables(this->currenturl,
-            [ preview := EncryptForThisServer("publisher:previewbrowser",
-              [ source := selectedfile.id
-              , when := GetCurrentDatetime()
-              , content := contentfile.id
-              ])
-            ]);
+        this->currenturl := UpdateURLVariables(this->currenturl, [ preview := this->GetPreviewToken(selectedfile, contentfile) ]);
     }
     ELSE
     {
@@ -322,13 +338,28 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
         this->suppressrendering := TRUE; // Never published, nothing to show
       }
     }
-    ELSE IF(TestFlagFromPublished(selectedfile.published, 400000))
+    ELSE IF(TestFlagFromPublished(selectedfile.published, PublishedFlag_Warning))
     {
       // Publication warnings
       INSERT [ level := 1
              , message := GetTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
              ] INTO this->previewmessages AT END;
 
+    }
+
+    IF(this->currenturl = "") //still no preview
+    {
+      //We need to know if we can expect HTML if we show the file's URL. So we look at the target's type (and for internal & contentlink, we'll look at the final file)
+      RECORD fileinfo := DescribeContentTypeById(targetfiletype, [ isfolder := selectedfile.isfolder, mockifmissing := TRUE ]);
+      IF(fileinfo.needstemplate OR fileinfo.id = 35) //dynamic folder contents
+      {
+        this->currenturl := selectedfile.link;
+      }
+      ELSE
+      {
+        STRING unknownpage := this->contexts->controller->baseurl || ".publisher/backend/preview/unknown.shtml";
+        this->currenturl := UpdateURLVariables(unknownpage, [ preview := this->GetPreviewToken(selectedfile, contentfile) ]);
+      }
     }
 
     IF (GetScheduledFromPublished(selectedfile.published))
