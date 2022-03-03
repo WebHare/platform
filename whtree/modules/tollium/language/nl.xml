@@ -75,6 +75,7 @@
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="databasereadonly">De database is in alleen-lezen mode en daardoor kunnen er nu geen wijzigingen worden gemaakt. Probeer het later nog eens.</text>
       <text tid="field_required">Het veld '<param p="1"/>' dient ingevuld te worden</text>
+      <text tid="image_toosmall">Het veld '<param p="1"/>' dient een afbeelding te bevatten van minimaal <param p="2"/> - is nu <param p="3"/>.</text>
       <text tid="invalid_date">Het veld '<param p="1"/>' bevat een ongeldige datum</text>
       <text tid="invalid_float">Het veld '<param p="1"/>' dient een geldige waarde te bevatten</text>
       <text tid="invalid_hostname">Het veld '<param p="1"/>' dient een hostname te bevatten (bv 'myserver.example.net')</text>
@@ -645,14 +646,21 @@
       <text tid="dominantcolor">Dominante kleur</text>
       <text tid="edit_image">Afbeelding bewerken</text>
       <text tid="filename">Bestandsnaam</text>
+      <text tid="imagedimensions">Afmetingen afbeelding</text>
+      <text tid="imagesizehint-expectedsize">De afbeelding wordt weergegeven met de afmetingen <param p="1"/>x<param p="2"/></text>
+      <text tid="imagesizehint-minsize">De afbeelding moet minimaal <param p="1"/>x<param p="2"/> zijn</text>
+      <text tid="imagesizehint-recommendedsize">Voor de optimale weergave moet de afbeelding minimaal <param p="1"/>x<param p="2"/> zijn</text>
       <text tid="invalidextension">De bestandsnaam moet eindigen op '<param p="1"/>'</text>
       <text tid="media_library">Een afbeelding selecteren uit de mediabibliotheek</text>
+      <text tid="moreinfo">Meer info.…</text>
+      <text tid="moreinformation">Meer informatie</text>
       <text tid="no_image">Geen afbeelding ingesteld</text>
       <text tid="other_actions">Andere acties</text>
       <text tid="replace-medialibrary">Vanuit mediabibliotheek vervangen</text>
       <text tid="replace-publisher">Vanuit Publisher vervangen</text>
       <text tid="replace-upload">Via upload vervangen</text>
       <text tid="select_image">Een afbeelding selecteren uit de Publisher</text>
+      <text tid="sizehint">Aangeraden afmeting: <param p="1"/>x<param p="2"/></text>
       <textgroup gid="editor">   <!-- components.imgedit.editor -->
         <text tid="autocontrast">Automatisch contrast</text>
         <text tid="blur">Vager maken</text>

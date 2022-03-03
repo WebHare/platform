@@ -16,6 +16,59 @@ RECORD imgeditbackground := [ src := checkered_background
                             , position := [ "top", "left" ]
                             ];
 
+RECORD FUNCTION ValidateDimension(STRING newdim, BOOLEAN allowpercentage)
+{
+  IF(newdim = "")
+    RETURN DEFAULT RECORD;
+
+  IF(newdim LIKE "*%")
+  {
+    IF(NOT allowpercentage)
+      THROW NEW Exception(`No percentage value '${newdim}' allowed`);
+
+    INTEGER perc := ToInteger(Left(newdim,Length(newdim)-1),0);
+    IF(perc <= 0 OR perc > 1000)
+      THROW NEW Exception(`Invalid percentage value '${newdim}'`);
+
+    RETURN CELL[ percentage := perc, x := 0, y := 0 ];
+  }
+  ELSE IF(newdim LIKE "*x*")
+  {
+    STRING ARRAY toks := Tokenize(newdim,'x');
+    INTEGER x := ToInteger(toks[0],0);
+    INTEGER y := Length(toks) >= 2 ? ToInteger(toks[1],0) : 0;
+
+    IF(x <= 0 OR x > 10000 OR y <= 0 OR y > 10000)
+      THROW NEW Exception(`Invalid dimension value '${newdim}'`);
+
+    RETURN CELL[ percentage := 0, x, y ];
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Invalid image dimension '${newdim}'`);
+  }
+}
+
+RECORD FUNCTION CalculatePercentage(INTEGER percentage, STRING basedim)
+{
+  RECORD parsedbasedim := ValidateDimension(basedim, FALSE);
+  IF(NOT RecordExists(parsedbasedim))
+    THROW NEW Exception(`Cannot take percentage '${percentage}%' from an empty value`);
+
+  RETURN CELL[ x := (parsedbasedim.x * percentage) / 100
+             , y := (parsedbasedim.y * percentage) / 100
+             ];
+}
+
+RECORD FUNCTION CalculateAbsoluteDimension(STRING newdim, STRING parentdim)
+{
+  RECORD dimension := ValidateDimension(newdim, TRUE);
+  IF (dimension.percentage != 0)
+    dimension := CalculatePercentage(dimension.percentage, parentdim);
+
+  RETURN dimension;
+}
+
 /////////////////////////////////////////////////////////////////////
 // The image edit component
 
@@ -33,6 +86,9 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   RECORD pvt_imgsize;
   INTEGER ARRAY pvt_publisherroots;
   OBJECT ARRAY pvt_custommenuitems;
+  STRING __minsize;
+  STRING __expectedsize;
+  STRING __recommendedsize;
 
 
   // ---------------------------------------------------------------------------
@@ -45,19 +101,30 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   // Called when value has changed
   PUBLIC FUNCTION PTR onchange;
 
-  UPDATE PUBLIC PROPERTY title(this->preview->title, this->preview->title);
-  UPDATE PUBLIC PROPERTY width(this->preview->width, this->preview->width);
-  UPDATE PUBLIC PROPERTY height(this->preview->height, this->preview->height);
-  UPDATE PUBLIC PROPERTY hint(this->preview->hint, this->preview->hint);
+  UPDATE PUBLIC PROPERTY title(this->container->title, this->container->title);
+  UPDATE PUBLIC PROPERTY width(this->container->width, this->container->width);
+  UPDATE PUBLIC PROPERTY height(this->container->height, this->container->height);
+  UPDATE PUBLIC PROPERTY hint(this->container->hint, this->container->hint);
+
   UPDATE PUBLIC PROPERTY required(this->preview->required, this->preview->required);
   UPDATE PUBLIC PROPERTY upload(pvt_upload, SetUpload);
   UPDATE PUBLIC PROPERTY publisher(pvt_publisher, SetPublisher);
   UPDATE PUBLIC PROPERTY medialibrary(pvt_medialibrary, SetMediaLibrary);
   UPDATE PUBLIC PROPERTY publisherroots(pvt_publisherroots, pvt_publisherroots);
 
+  UPDATE PUBLIC PROPERTY minsize(__minsize, SetMinSize);
+  UPDATE PUBLIC PROPERTY expectedsize(__expectedsize, SetExpectedSize);
+  UPDATE PUBLIC PROPERTY recommendedsize(__recommendedsize, SetRecommendedSize);
+
   PUBLIC PROPERTY imgsize(pvt_imgsize, SetImgSize);
   PUBLIC PROPERTY customactions(GetCustomActions, SetCustomActions);
 
+  PUBLIC PROPERTY info(^moreinformation->value, ^moreinformation->value);
+  PUBLIC PROPERTY htmlinfo(-, ^moreinformation->htmlvalue);
+
+
+  ///Are we enforcing size checks(requires a user-initiated change)
+  PUBLIC BOOLEAN enforcingsizechecks;
 
   // ---------------------------------------------------------------------------
   //
@@ -86,9 +153,18 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->upload := def.upload;
     this->publisher := def.publisher;
     this->medialibrary := def.medialibrary;
+
     this->imgsize := def.imgsize;
+    ^imagedimensionsheader->isheading := TRUE; //'secret' property to make a <text> appear as a heading. we can't use <heading> as its a block component
+
+    this->SetExpectedSize(def.expectedsize);
+    this->SetMinSize(def.minsize);
+    this->SetRecommendedSize(def.recommendedsize);
+    ^moreinformation->value := def.info;
+    ^moreinfo->htmlvalue := `<a href="#">${EncodeHTML(GetTid("tollium:components.imgedit.moreinfo"))}`;
 
     this->customactions := SELECT AS OBJECT ARRAY component FROM def.actions;
+    this->UpdateMoreInfoVisibility();
   }
 
   UPDATE PUBLIC MACRO PreInitComponent()
@@ -100,6 +176,8 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   UPDATE PUBLIC MACRO PostInitComponent()
   {
     this->UpdateButtonState();
+
+    //this->UpdateSizeInformation(); // FIXME
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
@@ -113,6 +191,17 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     IF(this->required AND NOT RecordExists(this->value))
     {
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+      RETURN;
+    }
+
+    IF(RecordExists(this->value) AND this->__minsize != "" AND this->enforcingsizechecks)
+    {
+      RECORD minsize := ValidateDimension(this->__minsize, TRUE);
+      IF(minsize.percentage != 0)
+        minsize := CalculatePercentage(minsize.percentage, this->__expectedsize);
+
+      IF(this->value.width < minsize.x OR this->value.height < minsize.y)
+        work->AddErrorFor(this, GetTid("tollium:common.errors.image_toosmall", fieldtitle, `${minsize.x}x${minsize.y}`, `${this->value.width}x${this->value.height}`));
     }
   }
 
@@ -141,6 +230,126 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   //
   // Helper functions
   //
+
+  MACRO SetExpectedSize(STRING expectedsize)
+  {
+    IF(expectedsize = this->__expectedsize)
+      RETURN;
+
+    ValidateDimension(expectedsize, FALSE);
+    this->__expectedsize := expectedsize;
+
+    this->UpdateSizeInformation();
+  }
+
+  MACRO SetMinSize(STRING minsize)
+  {
+    IF(minsize = this->__minsize)
+      RETURN;
+
+    ValidateDimension(minsize, TRUE);
+    this->__minsize := minsize;
+
+    this->UpdateSizeInformation();
+    this->UpdateMoreInfoVisibility();
+  }
+
+  MACRO SetRecommendedSize(STRING recommendedsize)
+  {
+    IF(recommendedsize = this->__recommendedsize)
+      RETURN;
+
+    ValidateDimension(recommendedsize, TRUE);
+    this->__recommendedsize := recommendedsize;
+
+    this->UpdateSizeInformation();
+    this->UpdateMoreInfoVisibility();
+  }
+
+  MACRO SetImgSize(RECORD imgsize)
+  {
+    this->pvt_imgsize := FixImgSize(imgsize);
+
+    this->act_upload->imgsize := this->imgsize;
+    this->editaction->imgsize := this->imgsize;
+    this->droptarget->acceptdrops.accepttypes :=
+        SELECT *, imgsize := this->imgsize
+          FROM this->droptarget->acceptdrops.accepttypes;
+
+    this->UpdateSizeInformation();
+    this->UpdateMoreInfoVisibility();
+  }
+
+  MACRO SetInfo(STRING info)
+  {
+    ^moreinformation->htmlvalue := info;
+    this->UpdateMoreInfoVisibility();
+  }
+
+  MACRO UpdateMoreInfoVisibility()
+  {
+    // NOTE: We don't trigger on only the expected size set, because if it's the only
+    //       value which is set it will already be displayed.
+    BOOLEAN hasmoreinfo := ^moreinformation->value != "";
+
+    ^moreinfo->visible := hasmoreinfo OR this->__minsize != "" OR this->__recommendedsize != "";
+    ^moreinformationheader->visible := hasmoreinfo;
+    ^moreinformation->visible := hasmoreinfo;
+  }
+
+  MACRO UpdateSizeInformation()
+  {
+    IF (this->__expectedsize != "")
+    {
+      RECORD displaysize;
+      IF (this->__recommendedsize != "")
+      {
+        displaysize := ValidateDimension(this->__recommendedsize, TRUE);
+        IF(displaysize.percentage != 0)
+          displaysize := CalculatePercentage(displaysize.percentage, this->__expectedsize);
+      }
+      ELSE
+        displaysize := ValidateDimension(this->__expectedsize, FALSE);
+
+      ^sizehint->value := GetTid("tollium:components.imgedit.sizehint", ToString(displaysize.x), ToString(displaysize.y));
+    }
+    ELSE IF (RecordExists(this->imgsize) AND this->imgsize.method != "none")
+    {
+      STRING ARRAY sizehints;
+
+      IF (this->imgsize.setwidth > 0)
+        INSERT "\u2194 " || this->imgsize.setwidth INTO sizehints AT END;
+      IF (this->imgsize.setheight > 0)
+        INSERT "\u2195 " || this->imgsize.setheight INTO sizehints AT END;
+
+      ^sizehint->value := Detokenize(sizehints, " ");
+    }
+
+    STRING ARRAY sizehints;
+    RECORD expectedsize := ValidateDimension(this->__expectedsize, FALSE);
+    IF (this->__minsize != "")
+    {
+      RECORD size := CalculateAbsoluteDimension(this->__minsize, this->__expectedsize);
+      IF (NOT RecordExists(expectedsize) OR size.x != expectedsize.x OR size.y != expectedsize.y)
+        INSERT GetTid("tollium:components.imgedit.imagesizehint-minsize", ToString(size.x), ToString(size.y)) INTO sizehints AT END;
+    }
+    IF (this->__recommendedsize != "")
+    {
+      RECORD size := CalculateAbsoluteDimension(this->__recommendedsize, this->__expectedsize);
+      IF (NOT RecordExists(expectedsize) OR size.x != expectedsize.x OR size.y != expectedsize.y)
+        INSERT GetTid("tollium:components.imgedit.imagesizehint-recommendedsize", ToString(size.x), ToString(size.y)) INTO sizehints AT END;
+    }
+    IF (RecordExists(expectedsize))
+    {
+      INSERT GetTid("tollium:components.imgedit.imagesizehint-expectedsize", ToString(expectedsize.x), ToString(expectedsize.y)) INTO sizehints AT END;
+    }
+
+    STRING hinttext;
+    FOREVERY(STRING hint FROM sizehints)
+      hinttext := hinttext || `• ${hint}<br >`;
+
+    ^imagedimensions->htmlvalue := hinttext;
+  }
 
   UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
   {
@@ -181,7 +390,9 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->value := newphoto; //this picks up dominantcolor
     IF (this->onchange != DEFAULT FUNCTION PTR)
       this->onchange();
+
     this->SetDirty();
+    this->enforcingsizechecks := TRUE;
   }
 
   // 'select from publisher' button action callback
@@ -327,6 +538,15 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
       this->value := newval;
   }
 
+  MACRO DoShowInfoPanel(STRING url)
+  {
+    ^mytabs->selectedtab := ^infotab;
+  }
+
+  MACRO DoHideInfoPanel()
+  {
+    ^mytabs->selectedtab := ^imagetab;
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -427,25 +647,6 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
       RETURN DEFAULT INTEGER ARRAY;
 
     RETURN applytester->GetLibrary(this->medialibrary);
-  }
-
-  MACRO SetImgSize(RECORD imgsize)
-  {
-    this->pvt_imgsize := FixImgSize(imgsize);
-    STRING ARRAY sizehints;
-    IF (RecordExists(this->imgsize) AND this->imgsize.method != "none")
-    {
-      IF (this->imgsize.setwidth > 0)
-        INSERT "\u2194 " || this->imgsize.setwidth INTO sizehints AT END;
-      IF (this->imgsize.setheight > 0)
-        INSERT "\u2195 " || this->imgsize.setheight INTO sizehints AT END;
-    }
-    this->sizehint->value := Detokenize(sizehints, " ");
-    this->act_upload->imgsize := this->imgsize;
-    this->editaction->imgsize := this->imgsize;
-    this->droptarget->acceptdrops.accepttypes :=
-        SELECT *, imgsize := this->imgsize
-          FROM this->droptarget->acceptdrops.accepttypes;
   }
 
   OBJECT ARRAY FUNCTION GetCustomActions()
