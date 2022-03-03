@@ -142,7 +142,7 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*not*published*', pvs.messages);
 
-  //This file should NOT be published
+  //This file should be published, but it's handled by a specific preview
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="rangetestfile.jpeg";
   pvs := TT("previewbrowser")->GetPreviewState();
 
@@ -162,6 +162,16 @@ ASYNC MACRO WalkTheTree()
   TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/unknown.shtml*", pvs.browserurl);
   TestEq(FALSE, pvs.showingmessages);
   TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
+
+  //Test multiselect
+  TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name IN ["simpletest.rtd","rangetestfile.jpeg"];
+  TestEq(2, Length(TT("filelist")->selection), "Confirm multipel select");
+
+  //Check the previewed url
+  pvs := TT("previewbrowser")->GetPreviewState();
+  TestEq("", pvs.displayurl);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html*", pvs.browserurl);
+  TestEq(FALSE, pvs.showingmessages);
 
   //Find a simple file that should be published
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="simpletest.rtd";
