@@ -50,6 +50,8 @@ You can also use the `<baseproperties` noindex/nofollow/noarchive settings to en
 certain files (eg 'noindex' on search pages). Alternatively, you can use the `seotabrequireright` attribute
 to limit the access to the SEO tab.
 
+You can also directly set noindex/nofollow/noarchive settings on the `<baseperoperties>` tag.
+
 ### Migrating away from the consilio robots plugin
 The consilio `<robots xmlns="http://www.webhare.net/xmlns/consilio" />` has been deprecated
 and is no longer needed to add a meta-robots tag. To migrate away from this tag:
