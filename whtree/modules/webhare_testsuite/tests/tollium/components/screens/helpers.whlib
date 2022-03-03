@@ -1,5 +1,17 @@
 <?wh
 
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SubmittingScreen EXTEND TolliumScreenBase
+<
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginFeedback()->Finish();
+  }
+>;
+
+
 PUBLIC RECORD ARRAY FUNCTION MySourceFilter(OBJECT contexts, RECORD ARRAY rows, STRING input)
 {
   IF(input = "")
