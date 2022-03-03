@@ -86,7 +86,7 @@ export default class ObjIFrame extends ComponentBase
         this.iframe.contentWindow.setTimeout("window.print()", 10);
       else if(msg.type == "postmessage")
       {
-        //TODO ratelimit or bllck ths origin until the server confirmed it actually wants to talk with this origin
+        //TODO ratelimit or block this origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
       }
       else if(msg.type == "calljs")
