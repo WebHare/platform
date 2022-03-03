@@ -54,7 +54,7 @@ FOREVERY(STRING path FROM args.paths)
 
 RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchparent)
 {
-  RETURN SELECT id, name, whfspath, isfolder, ispinned
+  RETURN SELECT id, name, whfspath, isfolder, ispinned, parent
            FROM system.fs_objects
           WHERE (matchparent ? (parent IN objids) : (id IN objids));
 }
@@ -82,10 +82,14 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
     {
       FOREVERY(RECORD tofix FROM SELECT * FROM objects WHERE ToUppercase(name) LIKE "*.RTD" AND NOT isfolder)
       {
-        STRING newname := Left(tofix.name, Length(tofix.name) - 4);
-        IF(RecordExists(SELECT FROM objects WHERE ToUppercase(name) = ToUppercase(newname)))
+        STRING newname := TrimWhitespace(Left(tofix.name, Length(tofix.name) - 4));
+        IF(RecordExists(SELECT FROM objects WHERE objects.parent = tofix.parent AND ToUppercase(name) = ToUppercase(newname)))
         {
           PrintTo(2, `Cannot rename ${tofix.whfspath} to ${newname} - conflicting item in folder\n`);
+        }
+        ELSE IF(NOT IsValidWHFSName(newname,FALSE))
+        {
+          PrintTo(2, `Cannot rename ${tofix.whfspath} to ${newname} - resulting filename is invalid\n`);
         }
         ELSE
         {
