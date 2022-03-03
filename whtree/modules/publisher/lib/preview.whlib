@@ -1,7 +1,5 @@
 <?wh
 /** @short Publisher (browser) previews
-    @long This library exports the publisher.sites, files and folder tables, and offers
-          functions to browse and search through these tables.
     @topic sitedev/whfs
 */
 
