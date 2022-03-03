@@ -3,7 +3,7 @@ import * as dompack from 'dompack';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as swipe from 'dompack/browserfix/swipelistener';
 
-//The gallery controller launches modal mode whenever an image is clicked and should offer nicer keyboard controlers
+//The gallery controller launches modal mode whenever an image is clicked and should offer nicer keyboard controllers
 export default class ModalGalleryBase
 {
   constructor(gallery, select)

@@ -4,7 +4,7 @@ import * as dompack from 'dompack';
 
 //TODO can we split the fullscreen overlay rendering frmo
 
-//The gallery controller launches fullscreen mode whenever an image is clicked and should offer nicer keyboard controlers
+//The gallery controller launches fullscreen mode whenever an image is clicked and should offer nicer keyboard controllers
 export default class GalleryControllerBase
 {
   constructor(node, options)

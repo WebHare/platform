@@ -37,25 +37,5 @@
         [/if]
       </figure>
     [/forevery]
-
-
-[!      [forevery slides]
-        <div class="photoalbumwidget__item">
-          <img class="b-lazy"
-               data-src="[image_grid.link]"
-               data-srcset="[image_grid.link] 1x, [image_grid_2x.link] 2x"
-               title="[title]"
-               data-width="[image_grid.width]"
-               data-height="[image_grid.height]"
-               alt="[alt]"
-               />
-          [if title]<div class="photoalbumwidget__item-title">[title]</div>[/if]
-        </div>
-      [/forevery]
-  </div> !]
   </section>
-[!  [if not ispreview]
-    [embed photoalbum_carrousel]
-  [/if]
-!]
 [/component]

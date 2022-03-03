@@ -8,7 +8,7 @@ dompack.register('.wh-gallery', node => setupGallery(node));
 ```
 
 Note that WH 4.33.1 and up offer an empty stub for setupGallery so you can
-already refer to this library when experimenting, ass versions before 4.34 will
+already refer to this library when experimenting, as versions before 4.34 will
 not generate `wh-gallery` elements anyway.
 
 

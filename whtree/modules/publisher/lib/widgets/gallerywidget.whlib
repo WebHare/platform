@@ -44,13 +44,6 @@ PUBLIC STATIC OBJECTTYPE GalleryWidgetBase EXTEND WidgetBase
     RETURN GetAdhocCached(CELL[ forfolder ], PTR GetCacheableImages(forfolder));
   }
 
-  //UPDATE PUBLIC MACRO Render()
-  //{
-  //  MACRO PTR ARRAY columns := MACRO PTR[ this->GetRTDBody(this->data.rtdleft)
-  //                                      , this->GetRTDBody(this->data.rtdright)
-  //                                      ];
-  //  this->RenderMultiColumnPreview(columns);
-  //}
   UPDATE PUBLIC MACRO RenderLive()
   {
     INTEGER forfolder := this->context->targetfolder->id;

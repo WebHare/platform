@@ -29,7 +29,7 @@ export class DefaultModalGallery extends ModalGalleryBase
                      <div class="wh-gallery-modal__close" data-action="close"><i class="fal fa-times"></i></div>
                      <h2 class="wh-gallery-modal__title">{this.title}</h2>
                      {this.slidescontainer}
-                   </div>;//
+                   </div>;
 
     this.previousnode = <div class="wh-gallery-modal__previous" onClick={() => this.previousImage()}><i class="fal fa-angle-left"></i></div>;
     this.overlay.appendChild(this.previousnode);
