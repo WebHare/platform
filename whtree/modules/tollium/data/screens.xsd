@@ -2619,6 +2619,12 @@ To change a <xs:attribute /> for adding descriptions
           </xs:annotation>
         </xs:attribute>
         <xs:attributeGroup ref="Onchange" />
+        <xs:attribute name="expectedsize" />
+        <xs:attribute name="minsize" />
+        <xs:attribute name="recommendedsize" />
+        <xs:attribute name="aspectratio" />
+        <xs:attribute name="info" />
+        <xs:attribute name="infotid" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
