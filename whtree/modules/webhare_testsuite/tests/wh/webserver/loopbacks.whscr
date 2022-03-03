@@ -533,12 +533,10 @@ MACRO Status404()
                                                      ], "multipart/form-data"));
   TestEq("A custom 404!", BlobToString(browser->content,1000));
   TestEq(404, browser->GetHTTPStatus().code);
-  TestEq("Bla Bla", browser->GetHTTPStatus().message);
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "404" ]
                                                      ,[ name := "customstatus", value := "401 weird status"]
                                                      ], "multipart/form-data"));
   TestEq(401, browser->GetHTTPStatus().code);
-  TestEq("weird status", browser->GetHTTPStatus().message);
   //Cache-Control must be no-chace, this was a dynamic SHTML request
   TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
 
@@ -561,12 +559,12 @@ MACRO StatusBad()
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statusbad" ]
                                                      ], "multipart/form-data"));
   TestEq(FALSE, RecordExists(SELECT FROM browser->responseheaders WHERE ToUppercase(field)="BAD"));
-  TestEq("404 Bad", browser->GetHTTPStatusText());
+  TestEq(404, browser->GetHTTPStatusCode());
 
   //Test overlong headers
   TestEq(FALSE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "statuslong" ]
                                                      ], "multipart/form-data"));
-  TestEq("404 I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm okay, I sleep all night and I work all day.I'm a lumberjack and I'm oka", browser->GetHTTPStatusText());
+  TestEq(404, browser->GetHTTPStatusCode());
 }
 
 MACRO TestIPChecks() //combine IP filtering and x-forwarded-for checking
@@ -1287,7 +1285,6 @@ MACRO TestWHPubPreview()
       , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , localip :=        "127.0.0.1"
       , localport :=      testport.portnumber
-      , ispreview :=      FALSE
       ], data, "*");
 
   // Test with proxy headers in the request (send through trusted port)
@@ -1314,13 +1311,11 @@ MACRO TestWHPubPreview()
       , remoteport :=     0
       , localip :=        `2001:db8::2`
       , localport :=      testport.portnumber
-      , ispreview :=      FALSE
       ], data, "*");
 
   previewbrowser->Close();
 
   previewbrowser := NEW WebBrowser;
-  previewbrowser->SetSessionCookie("__whpub_preview", "debug");
 
   // When requesting the a port-hosted page with a (locally nonsense) host header, the preview page should still serve the correct page
   res := previewbrowser->GotoWebPage(baseurl || "getrequestdata.shtml", [ headers := [ [ field := "host", value := "proxyhost:821" ] ] ]);
@@ -1332,7 +1327,6 @@ MACRO TestWHPubPreview()
       , serverurl :=      `http://127.0.0.1:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , localip :=        "127.0.0.1"
       , localport :=      testport.portnumber
-      , ispreview :=      TRUE
       ], data, "*");
 
   // When requesting the a port-hosted page with a (locally nonsense) host header, the preview page should still serve the correct page
@@ -1359,82 +1353,74 @@ MACRO TestWHPubPreview()
       , remoteport :=     0
       , localip :=        `2001:db8::2`
       , localport :=      testport.portnumber
-      , ispreview :=      TRUE
       ], data, "*");
 
   //Test redirection to https
   previewbrowser->autofollow := FALSE;
 //  browser->debug:=TRUE;
 
-  FOREVERY(BOOLEAN withcookie FROM [FALSE,TRUE])
-  {
-    previewbrowser->Close();
-    previewbrowser := NEW WebBrowser;
-    IF (withcookie)
-      previewbrowser->SetSessionCookie("__whpub_preview", "debug");
+  previewbrowser->Close();
+  previewbrowser := NEW WebBrowser;
 
-    //Access secure1 through trusted port over http. should redirect to https immediately (getrequestdata.shtml does not get a chance to run)
-    res := previewbrowser->SendRawRequest("GET", "http://secure1.example.net:" || vhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
-        [ [ field := "host", value := "secure1.example.net:" || vhostport.portnumber ]
-        , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
-                                                                 , binding :=   vhostport.portid
-                                                                 , proto :=     "http"
-                                                                 , forip :=     "2001:db8::1"
-                                                                 , localip :=   "2001:db8::2"
-                                                                 , localport := vhostport.portnumber
-                                                                 ])
-          ]
-        ], DEFAULT BLOB,
-        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+  //Access secure1 through trusted port over http. should redirect to https immediately (getrequestdata.shtml does not get a chance to run)
+  res := previewbrowser->SendRawRequest("GET", "http://secure1.example.net:" || vhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+      [ [ field := "host", value := "secure1.example.net:" || vhostport.portnumber ]
+      , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                               , binding :=   vhostport.portid
+                                                               , proto :=     "http"
+                                                               , forip :=     "2001:db8::1"
+                                                               , localip :=   "2001:db8::2"
+                                                               , localport := vhostport.portnumber
+                                                               ])
+        ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
 
-    TestEq(301, previewbrowser->GetHTTPStatusCode());
-    TestEq("https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml", previewbrowser->GetResponseheader("location"));
+  TestEq(301, previewbrowser->GetHTTPStatusCode());
+  TestEq("https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml", previewbrowser->GetResponseheader("location"));
 
-    //'Follow' the secure1 redirect
-    res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
-        [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
-        , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
-                                                                 , binding :=   securevhostport.portid
-                                                                 , proto :=     "https"
-                                                                 , forip :=     "2001:db8::1"
-                                                                 , localip :=   "2001:db8::2"
-                                                                 , localport := securevhostport.portnumber
-                                                                 ])
-          ]
-        ], DEFAULT BLOB,
-        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+  //'Follow' the secure1 redirect
+  res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+      [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
+      , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                               , binding :=   securevhostport.portid
+                                                               , proto :=     "https"
+                                                               , forip :=     "2001:db8::1"
+                                                               , localip :=   "2001:db8::2"
+                                                               , localport := securevhostport.portnumber
+                                                               ])
+        ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
 
-    TestEq(200, previewbrowser->GetHTTPStatusCode());
-    data := DecodeHSONBlob(previewbrowser->content);
-    TestEQMembers(
-        [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
-        , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
-        , remoteip :=       `2001:db8::1`
-        , localip :=        "2001:db8::2"
-        , localport :=      securevhostport.portnumber
-        , ispreview :=      withcookie
-        ], data, "*");
+  TestEq(200, previewbrowser->GetHTTPStatusCode());
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , remoteip :=       `2001:db8::1`
+      , localip :=        "2001:db8::2"
+      , localport :=      securevhostport.portnumber
+      ], data, "*");
 
-    //Test compatibility with old style headers
-    res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
-        [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
-        , [ field := "X-Forwarded-For", value := "2001:db8::1" ]
-        , [ field := "X-Forwarded-Proto", value := "https" ]
-        , [ field := "X-Webhare-Proxy", value := "999999999" ]
-        ], DEFAULT BLOB,
-        [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
+  //Test compatibility with old style headers
+  res := previewbrowser->SendRawRequest("GET", "https://secure1.example.net:" || securevhostport.portnumber || "/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+      [ [ field := "host", value := "secure1.example.net:" || securevhostport.portnumber ]
+      , [ field := "X-Forwarded-For", value := "2001:db8::1" ]
+      , [ field := "X-Forwarded-Proto", value := "https" ]
+      , [ field := "X-Webhare-Proxy", value := "999999999" ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().trustedport, connectssl := FALSE ]);
 
-    TestEq(200, previewbrowser->GetHTTPStatusCode());
-    data := DecodeHSONBlob(previewbrowser->content);
-    TestEQMembers(
-        [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
-        , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
-        , remoteip :=       `2001:db8::1`
-        //, localip :=        "2001:db8::2"                  //not reliably available
-        //, localport :=      securevhostport.portnumber     //not reliably available
-        , ispreview :=      withcookie
-        ], data, "*");
-  }
+  TestEq(200, previewbrowser->GetHTTPStatusCode());
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , serverurl :=      `https://secure1.example.net:${securevhostport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , remoteip :=       `2001:db8::1`
+      //, localip :=        "2001:db8::2"                  //not reliably available
+      //, localport :=      securevhostport.portnumber     //not reliably available
+      ], data, "*");
 
   previewbrowser->Close();
 }

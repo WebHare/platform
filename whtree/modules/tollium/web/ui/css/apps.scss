@@ -778,34 +778,6 @@ html.stylescrollbars ::-webkit-scrollbar-corner
 
 
 /****************************************************************************************************************************
- * Iframe
- */
-/* line 1374, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-t-iframe {
-  display: block;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-/* line 1381, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-t-iframe > iframe {
-  width: 100%;
-  height: 100%;
-  display: block;
-  margin: 0;
-  padding: 0;
-  border: none;
-  -moz-transform-origin: 0 0;
-  -o-transform-origin: 0 0;
-  -webkit-transform-origin: 0 0;
-  transform-origin: 0 0;
-}
-/* line 1392, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-html.moveInProgress t-iframe {
-  pointer-events: none;
-}
-/****************************************************************************************************************************
  * RichEdit
  */
 /* line 1415, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */

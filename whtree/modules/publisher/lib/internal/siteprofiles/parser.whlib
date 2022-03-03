@@ -849,6 +849,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , uploadtypemapping := DEFAULT RECORD ARRAY
                     , urlevents := DEFAULT RECORD
                     , urlhistory := DEFAULT RECORD
+                    , preview := DEFAULT RECORD
                     , usepublishtemplate := DEFAULT RECORD
                     , webdesign := DEFAULT RECORD
                     , formdefinitions := DEFAULT RECORD ARRAY
@@ -939,6 +940,15 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                       , seotitle := ParseXSBoolean(node->GetAttribute("seotitle"))
                                       , headertitle := ParseXSBoolean(node->GetAttribute("headertitle"))
                                       ];
+              CONTINUE;
+            }
+            CASE "preview"
+            {
+              apply.preview := [ haslist := GetHasList(node, ["browserurl","browseinsite","ignorepublish"])
+                               , browserurl := node->GetAttribute("browserurl")
+                               , browseinsite := ParseXSBoolean(node->GetAttribute("browseinsite"))
+                               , ignorepublish := ParseXSBoolean(node->GetAttribute("ignorepublish"))
+                               ];
               CONTINUE;
             }
             CASE "urlhistory"

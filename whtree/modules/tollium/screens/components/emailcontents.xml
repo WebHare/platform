@@ -41,7 +41,6 @@
               <iframe name="preview"
                       width="1pr"
                       height="1pr"
-                      enablesandbox="true"
                       sandbox="allow-popups allow-popups-to-escape-sandbox" />
             </panel>
           </panel>

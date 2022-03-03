@@ -1,5 +1,6 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import "./iframe.scss";
 
 export default class ObjIFrame extends ComponentBase
 {
@@ -10,28 +11,29 @@ export default class ObjIFrame extends ComponentBase
     this.addcomps = [];
     this.loaded = false;
     this.queuedmessages = [];
-    this.data=null;
+    this.data = null;
 
     this.node = dompack.create("t-iframe", { dataset: { name: this.name }});
     this.iframe = dompack.create("iframe"
                                  , { marginWidth: 0
                                    , marginHeight: 0
                                    , frameBorder: 0
-                                   , src: this.calcFrameSourceUri(data)
                                    , on:
                                        { load: this.gotIFrameLoad.bind(this)
                                       }
                                  });
-    if(data.enablesandbox)
+    if(data.sandbox != "none")
       this.iframe.sandbox = data.sandbox;
+    this.iframe.src = this.calcFrameSourceUri(data);
 
     this.node.appendChild(this.iframe);
     this.node.propTodd = this;
 
+    this.viewport = data.viewport;
     if(data.addcomps)
       this.setAdditionalComponents(data.addcomps);
-    this.data = data.data;
 
+    this.data = data.data;
     this.selectionflags = [];
   }
 
@@ -83,7 +85,10 @@ export default class ObjIFrame extends ComponentBase
       if(msg.type == "print")
         this.iframe.contentWindow.setTimeout("window.print()", 10);
       else if(msg.type == "postmessage")
+      {
+        //TODO ratelimit or block this origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
+      }
       else if(msg.type == "calljs")
       {
         var cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
@@ -113,6 +118,50 @@ export default class ObjIFrame extends ComponentBase
     dompack.setStyles(this.node, { "width": this.width.set
                                  , "height": this.height.set
                                  });
+
+    if(this.viewport)
+    {
+      this.iframe.style.width = this.viewport.width + "px";
+      this.iframe.style.height = this.viewport.height + "px";
+
+      // If the requested viewport is smaller than the <t-iframe>, just center the iframe within the viewport (TODO this can probably be done with pure css)
+      if (this.viewport.width <= this.width.set && this.viewport.height <= this.height.set)
+      {
+        this.iframe.style.transform = "";
+        this.iframe.style.left = (Math.round((this.width.set - this.viewport.width) / 2)) + "px";
+        this.iframe.style.top = (Math.round((this.height.set - this.viewport.height) / 2)) + "px";
+      }
+      else
+      {
+        // Make the this.iframe fit in the viewport by zooming it
+        let fracx = this.width.set / this.viewport.width;
+        let fracy = this.height.set / this.viewport.height;
+        let zoomfactor = Math.min(fracx, fracy);
+        this.iframe.style.transform = "scale(" + zoomfactor + ")";
+
+        // Center the this.iframe horizontally or vertically
+        if (fracx < fracy)
+        {
+          let newy = Math.min(Math.round(fracx * this.viewport.height), this.height.set);
+          this.iframe.style.left = "0px";
+          this.iframe.style.top = (Math.round((this.height.set - newy) / 2)) + "px";
+        }
+        else
+        {
+          let newx = Math.min(Math.round(fracy * this.viewport.width), this.width.set);
+          this.iframe.style.left = (Math.round((this.width.set - newx) / 2)) + "px";
+          this.iframe.style.top = "0px";
+        }
+      }
+    }
+    else
+    {
+      this.iframe.style.width = "100%";
+      this.iframe.style.height = "100%";
+      this.iframe.style.transform = "";
+      this.iframe.style.top = "0";
+      this.iframe.style.left = "0";
+    }
 
     if (this.width.set != this.prevwidth || this.height.set != this.prevheight)
     {
@@ -145,6 +194,16 @@ export default class ObjIFrame extends ComponentBase
       case 'data':
         this.data = data.data;
         this.postQueuedMessages(true);
+        return;
+      case 'sandbox':
+        if(data.sandbox == 'none')
+          this.iframe.removeAttribute("sandbox");
+        else
+          this.iframe.sandbox = data.sandbox;
+        return;
+      case 'viewport':
+        this.viewport = data.viewport;
+        this.relayout();
         return;
     }
 
@@ -286,6 +345,7 @@ window.addEventListener('message', function(evt)
 {
   if (typeof evt.data != "object")
     return; // Tollium expects a data RECORD
+
   let matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow == event.source);
   if(!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;

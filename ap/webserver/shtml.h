@@ -133,8 +133,6 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
         HareScript::ErrorHandler hs_errors;
         ///Group id of script that generated hs_errors
         std::string error_groupid;
-        ///Last seen Status header
-        std::string statusheader;
         ///Program ID, if we're synchronous
         std::string srhprogid;
         ///Blob to send, if any

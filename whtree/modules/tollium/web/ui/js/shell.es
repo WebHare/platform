@@ -47,7 +47,7 @@ require('../css/shell.css');
 require('../css/apps.scss');
 require('../skins/default/skin.scss');
 require('../skins/default/controls.scss');
-import "./loginrequests.es"; //process preview panel login requests
+
 var toddImages = require("@mod-tollium/js/icons");
 
 import TowlNotifications from './shell/towl';

@@ -133,7 +133,7 @@ async function runTask(taskcontext, data)
      TODO: switch to @mod- paths instead of full disk paths, a bit cleaner. even though the paths we leak into the source map are trivially guessable
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
-  let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/modern.es")] : [])
+  let rootfiles = [ ...(bundle.bundleconfig.webharepolyfills ? [path.join(bridge.getInstallationRoot(), "modules/publisher/js/internal/polyfills/all.es")] : [])
                   , bundle.entrypoint
                   , ...bundle.bundleconfig.extrarequires.filter(node => !!node)
                   ];

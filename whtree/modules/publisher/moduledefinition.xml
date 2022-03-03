@@ -155,12 +155,6 @@
     <webrule path="root:/.publisher/backend/" match="initial" handlebydir="web/backend/" />
 
     <webrule path="allroots:/.publisher/preview/" match="initial" redirecttoscript="web:/preview.shtml" priority="after" />
-    <webrule path="allroots:__whpub_preview"
-             match="cookie"
-             ignorepaths="*.whsock* /wh_services/* /wh_services.whsock/* /wh_events/* /.tollium/ui/*"
-             redirecttoscript="web:/view.shtml"
-             priority="after"
-             />
 
     <webruleset name="allowcorsall" tid="module.webruleset-allowcorsall">
       <webrule path="/" match="initial">

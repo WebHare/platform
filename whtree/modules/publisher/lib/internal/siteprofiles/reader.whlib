@@ -1570,6 +1570,11 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, accesscheck := "" ]);
   }
 
+  PUBLIC RECORD FUNCTION GetPreviewSettings()
+  {
+    RETURN this->GetCachedProperty("preview", [ browserurl := "", browseinsite := FALSE, ignorepublish := FALSE ]);
+  }
+
   PUBLIC RECORD FUNCTION GetUsePublishTemplate()
   {
     RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"

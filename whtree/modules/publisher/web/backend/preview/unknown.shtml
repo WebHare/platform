@@ -1,22 +1,23 @@
 <?wh
 
-LOADLIB "wh::internet/urls.whlib";
-
+LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 
-PUBLIC MACRO ResetSecurityHeadersForPreviewPanel()
+INTEGER FUNCTION GetRootindexDoc()
 {
-  //Strip frame options that might prevent us from showing our message
-  AddHTTPHeader("X-Frame-Options", "", FALSE);
-  //Limit scripts to self AND the WebHare UI (TODO: consider allowing only webhare ui to host scripts for our pages?
-  AddHTTPHeader("Content-Security-Policy", `script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, FALSE);
+  INTEGER rootindexdoc := (SELECT AS INTEGER indexdoc FROM system.fs_objects WHERE id = 16) ?? 16;
+  RETURN rootindexdoc;
 }
 
-PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
+//TODO Don't build up a whole tollium webdesign, just replace this all with a simple witty
+OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
 <
   STRING url;
   STRING msg;
@@ -50,10 +51,6 @@ PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
     BOOLEAN urltarget;
     SWITCH (this->msg)
     {
-      CASE "nopreview"
-      {
-        // Shown when not inside a site, when a folder without index document is selected or when an unpublished file is selected
-      }
       CASE "notviewable"
       {
         // Shown when a file is selected with a MIME type which is not directly viewable within the browser (i.e. not an image or
@@ -62,15 +59,6 @@ PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
         message := GetTid("publisher:components.previewbrowser.showmessage.notviewable-message", this->type);
         urlmessage := GetTid("publisher:components.previewbrowser.showmessage.notviewable-urlmessage");
         urltarget := TRUE;
-      }
-      CASE "redirection"
-      {
-        // Shown when a previewed file redirects to another location
-        STRING location := this->location;
-        title := GetTid("publisher:components.previewbrowser.showmessage.redirection-title");
-        message := GetTid("publisher:components.previewbrowser.showmessage.redirection-message", location);
-        urlmessage := GetTid("publisher:components.previewbrowser.showmessage.redirection-urlmessage");
-        this->url := location; // The url link should open the new location
       }
     }
 
@@ -86,3 +74,9 @@ PUBLIC OBJECTTYPE ShowMessagePage EXTEND DynamicPageBase
     <?wh }
   }
 >;
+
+RECORD req := DescribePreviewRequest();
+
+OpenPrimary();
+RECORD contentinfo := OpenWHFSObject(req.contentobject)->GetWrapped();
+NEW ShowMessagePage(req.languagecode, GetRequestURL(), "notviewable", contentinfo.mimetype,"")->RunPageForWHFSId(GetRootindexDoc());

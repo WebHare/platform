@@ -438,22 +438,6 @@ MACRO TestRequireExternalLoggedinUser()
 
   STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
 
-  testfw->browser->autofollow := FALSE;
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl));
-  TestEq(303, testfw->browser->GetHTTPStatusCode(), "should be redirect us to the login");
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl || "?__whpub_clock_=1"));
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "should show us a JS loginpage as this page requires a remote challenge");
-  TestEQ("", testfw->browser->GetResponseHeader("X-Frame-Options"));
-  TestEQ(`script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, testfw->browser->GetResponseHeader("Content-Security-Policy"));
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl || "?__whpub_clock_=1", [ headers := [[ field := "Accept-Encoding", value := "gzip" ]]]));
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "should be redirect to login page as we have no session");
-
-  TestEq("", testfw->browser->GetResponseHeader("Content-Encoding"), "Should not GZIP wrdauth pages!"); //OR ensure they're properly compressed. but we were sending uncompresed pages with a compressed header!
-
-  testfw->browser->autofollow := TRUE;
   TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl));
   TesteqLike("*wh-tollium--app*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
 
@@ -519,17 +503,6 @@ MACRO TestCrossDomainLogin()
   STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
   STRING accessrulelogin := thirdpartybaseurl || "accessruleaccounts/";
 
-  testfw->browser->autofollow := FALSE;
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
-  TestEq(303, testfw->browser->GetHTTPStatusCode(), "should be redirect us to the login");
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin || "?__whpub_clock_=1"));
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "should show us a JS loginpage as this page requires a remote challenge #2");
-  TestEQ("", testfw->browser->GetResponseHeader("X-Frame-Options"));
-  TestEQ(`script-src ${UnpackURL(GetPrimaryWebhareInterfaceURL()).origin}`, testfw->browser->GetResponseHeader("Content-Security-Policy"));
-
-  testfw->browser->autofollow := TRUE;
   TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
   TesteqLike("*wh-tollium--app*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
 

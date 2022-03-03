@@ -89,7 +89,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   BOOLEAN foldertreevisible;
   INTEGER filelistmode; // 0: default (multirow), 1: list (single row)
   BOOLEAN autoselectindex;
-  BOOLEAN updatingafternavigation;
 
   RECORD extensions;
   RECORD sitepolicies;
@@ -762,7 +761,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     RunEditFolderHooks(DEFAULT RECORD, obj.id);
     work->Finish();
     ^foldertree->ReloadOverview();
-    this->UpdateCurrentlyPreviewed();; // Update file list and preview
   }
 
   /*
@@ -828,12 +826,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         ^filelist->value := [ INTEGER(indexdoc.id) ];
     }
 
-    this->UpdateCurrentlyPreviewed();
+    this->UpdateSelectedPreview();
   }
 
   MACRO OnListSelect()
   {
-    this->UpdateCurrentlyPreviewed();
+    this->UpdateSelectedPreview();
   }
 
   MACRO OnListStatusClick(RECORD file)
@@ -1030,17 +1028,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     }
   }
 
-  MACRO UpdateCurrentlyPreviewed()
-  {
-    RECORD ARRAY fileselection := ^filelist->selection;
-    //Print("Updating preview: " || Detokenize((SELECT AS STRING ARRAY ToString(id) FROM fileselection), ",") || "\n");
-    IF(Length(fileselection) > 1)
-      ^previewbrowser->SetPreview(0, this->updatingafternavigation);
-    ELSE IF(Length(fileselection) = 1)
-      ^previewbrowser->SetPreview(^filelist->selection[0].id, this->updatingafternavigation);
-    ELSE
-      ^previewbrowser->SetPreview(^foldertree->value, this->updatingafternavigation);
-  }
 
    // ---------------------------------------------------------------------------
   //
@@ -1056,73 +1043,40 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   // ---------------------------------------------------------------------------
   //
-  // Misc. callbacks
+  // Preview control
   //
 
-  MACRO OnPreviewUrlChange(STRING url)
+  MACRO UpdateSelectedPreview()
   {
-    BOOLEAN updatingafternavigation := this->updatingafternavigation;
-    TRY
-    {
-      this->updatingafternavigation := TRUE;
+    //We ignore focus but look at selection. multiselection in filelist = no preview, 1 = show file, 0 = show containing folder
+    RECORD ARRAY selection := ^filelist->selection;
+    INTEGER topreview;
+    IF(Length(selection) > 1)
+      topreview := 0;
+    ELSE IF(Length(selection) = 1)
+      topreview := selection[0].id;
+    ELSE
+      topreview := ^foldertree->value;
 
-      //Print("Incoming previewmessage:" || data.type || " " || data.uri || "\n");
-      RECORD findit := LookupPublisherURL(url);
-      IF (findit.folder = 0 OR NOT this->tolliumuser->HasRightOn("system:fs_browse", findit.folder))
-      {
-      }
-      ELSE IF (SELECT AS BOOLEAN locked FROM system.sites WHERE id = findit.site)
-      {
-        // The URL points to a locked site
-        // Message: 'object in locked site'?
-        //ADDME: Is this even possible? Objects in locked sites don't have url's, do they?
-      }
-      ELSE IF (findit.__directfile != 0)
-      {
-        //Print("OnPreviewMessage, preview moved to file: " || findit.__directfile || ", folder: " || findit.folder || "\n");
+    IF(topreview = this->lastpreviewed) //if we're going to suggest a preview that the previewbrowser already suggested to us...
+      RETURN; //let's not, this may trigger a navigational reset (TODO but we probably *should* refresh in the case of a completed republish (static) or moddate change (dynamic) ?)
 
-        // If the file we're about to select is the target of the currently selected internal link, assume the navigation
-        // occurred because the internal link's target was being previewed. In that case, don't select the target and treat
-        // the currently selected file as the last previewed.
-        // We don't have to check for external links, because they are not previewed directly within the previewbrowser.
-        // If the file we're about to select is within a different site than the one that is currently selected, don't
-        // select the new file (disable cross-site auto-navigation).
-        IF (Length(^filelist->value) = 1
-            AND (RecordExists(SELECT FROM system.fs_objects WHERE id = ^filelist->value[0] AND type = 19 AND filelink = findit.__directfile)
-                OR RecordExists(SELECT FROM system.fs_objects WHERE parent = ^filelist->value[0] AND type = 19 AND filelink = findit.__directfile)
-                OR NOT RecordExists(SELECT FROM system.fs_objects WHERE id = ^filelist->value[0] AND parentsite = findit.site)))
-        {
-          this->lastpreviewed := ^filelist->value[0];
-          RETURN;
-        }
-        this->lastpreviewed := findit.__directfile;
-
-        INTEGER currentfolder := ^foldertree->value;
-        INTEGER selectobject := findit.__directfile;
-        IF(currentfolder != findit.folder) //need a new folder?
-        {
-          RECORD folderinfo := SELECT indexdoc FROM system.fs_objects WHERE id=findit.folder AND parent=currentfolder;
-          IF(RecordExists(folderinfo) AND findit.__directfile IN [0,folderinfo.indexdoc]) //indexdoc selection - no real need to switch folders
-          {
-            selectobject := findit.folder;
-          }
-          ELSE
-          {
-            ^foldertree->SetValueIfValid(findit.folder);
-          }
-        }
-        IF (RecordExists(SELECT FROM ^filelist->rows WHERE rowkey = selectobject))
-          ^filelist->value := [ selectobject ];
-        //this->frame->focused := ^filelist;
-
-        //If OnSelect events get cached, we'll need to flush those or be able to add metadata to onselect requests
-      }
-    }
-    FINALLY
-    {
-      this->updatingafternavigation := updatingafternavigation;
-    }
+    this->lastpreviewed := topreview;
+    ^previewbrowser->SetPreview(topreview);
   }
+
+  MACRO OnPreviewedObjectChange(INTEGER newid, STRING newurl)
+  {
+    Print(`Received ${newid} with url ${newurl}\n`);
+    this->lastpreviewed := newid;
+    IF(newid != 0 AND this->tolliumuser->HasRightOn("system:fs_browse", newid))
+      this->SelectObject(newid);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Misc. callbacks
+  //
 
   MACRO OnVersioningEvent(RECORD ARRAY events)
   {
@@ -1872,7 +1826,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
     //TODO shouldbn't need these, clean up if we indeed don't
     //^foldertree->ReloadOverview();
-    //this->UpdateCurrentlyPreviewed(); // Update file list and preview
   }
 
   MACRO DoPinItems()
@@ -1898,7 +1851,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
     // TODO these should be triggered by events (whfs and 'published' events), if it works we can remove this:
     //^foldertree->ReloadOverview();
-    //this->UpdateCurrentlyPreviewed(); // Update file list and preview
   }
 
   /// Replace the selected file

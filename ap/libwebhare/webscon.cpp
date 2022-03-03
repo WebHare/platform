@@ -589,17 +589,9 @@ void Connection::DecodeStatusHeader(std::string const &blamescript)
                 else
                 {
                         protocol.status_so_far = (StatusCodes)statuscode;
-                        while (status_decode.second != status_str->end() && *status_decode.second==' ')
-                            ++status_decode.second;
-                        if(status_decode.second != status_str->end())
-                            protocol.status_additional_message.assign(status_decode.second, status_str->end());
-
                         if(statuscode == StatusInternalError) //internal server error. log to errors.log because unlogged 500s confuse webmasters
                         {
-                                if(!protocol.status_additional_message.empty())
-                                    request->ErrorLog("Script " + blamescript + " manually set status code 500 with message: " + protocol.status_additional_message);
-                                else
-                                    request->ErrorLog("Script " + blamescript + " manually set status code 500 without further information");
+                                request->ErrorLog("Script " + blamescript + " manually set status code 500");
                         }
                 }
                 /* Delete status, it's not really a header line */
@@ -1206,7 +1198,6 @@ RequestRef::~RequestRef()
 void Connection::Protocol::Reset()
 {
         status_so_far=StatusOK;
-        status_additional_message.clear();
 
         WS_PRINT("Resetting protocol data for conn " << this);
 

@@ -369,8 +369,6 @@ class BLEXLIB_PUBLIC Connection : public Blex::Dispatcher::Connection
                 bool async_response;
                 ///Status code so far
                 StatusCodes status_so_far;
-                ///Status message if available
-                std::string status_additional_message;
                 ///Pending error code
                 std::string pending_error_message;
                 ///Is this a websockets connections

@@ -262,14 +262,18 @@
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.pdf"
-            webhare_builtintypeid="11" />
+            webhare_builtintypeid="11">
+    <preview browserurl="/.publisher/backend/preview/direct.shtml" />
+  </filetype>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/imagefile"
             kind="rawfile"
             icon="tollium:files/image"
             requirescontent="true"
             tid="publisher:filetypes.image"
-            webhare_builtintypeid="12" />
+            webhare_builtintypeid="12">
+    <preview browserurl="/.publisher/backend/preview/image.shtml" />
+  </filetype>
 
   <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/multimediafile"

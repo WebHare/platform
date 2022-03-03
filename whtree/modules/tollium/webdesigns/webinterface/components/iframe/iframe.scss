@@ -1,0 +1,25 @@
+t-iframe
+{
+  display: block;
+  overflow: hidden; //clips the dropshadow, especially when iframe is fullscreen
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+t-iframe > iframe
+{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  transform-origin: 0 0;
+}
+
+t-iframe > iframe:not([src="about:blank"]) //don't show border around an empty site
+{
+  box-shadow: 0 0 10px rgba(0, 0, 0, .5);
+}

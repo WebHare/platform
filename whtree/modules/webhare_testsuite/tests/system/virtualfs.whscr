@@ -488,7 +488,7 @@ MACRO TestMargeThroughWebdav()
   dumpvalue(fulldirlisting,'boxed');
   */
 
-  TestThrowsLike('*not allowed on this server*', PTR webdavserver->ListDirectoryRecursive("/webdav"), 'full list is no longer accessible');
+  TestThrowsLike('*403*', PTR webdavserver->ListDirectoryRecursive("/webdav"), 'full list is no longer accessible');
 
   STRING subtestpath := "publisher/webhare_testsuite.testfolder/webhare_testsuite.site";
   BLOB testdata := StringToBlob("Ik ben een testbestandje");
