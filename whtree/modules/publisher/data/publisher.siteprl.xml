@@ -262,7 +262,9 @@
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.pdf"
-            webhare_builtintypeid="11" />
+            webhare_builtintypeid="11">
+    <preview browserurl="/.publisher/backend/preview/direct.shtml" />
+  </filetype>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/imagefile"
             kind="rawfile"

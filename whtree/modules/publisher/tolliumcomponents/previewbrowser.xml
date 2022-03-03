@@ -44,7 +44,8 @@
           <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
         </line>
       </panel>
- -->      <panel name="browserpanel" backgroundcolor="#b6b2b2" height="1pr"><!-- Same background color as RTD -->
+ -->
+      <panel name="browserpanel" backgroundcolor="#ffffff" height="1pr">
         <iframe name="browserframe" height="1pr" oncallback="onbrowserframecallback" onmessage="onbrowsermessage"/>
       </panel>
     </contents>

@@ -152,7 +152,7 @@ ASYNC MACRO WalkTheTree()
   //verify the image.shtml is showing our image (quick test that all the preview APIs are functional)
   TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/image.shtml*", pvs.browserurl);
   TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
-  TestEqLike("*/rangetestfile.jpeg?random=*", testfw->browser->QS("img.wh-imagepreview__mainimage")->GetAttribute("src"));
+  TestEqLike("*/rangetestfile.jpeg?hash=*", testfw->browser->QS("img.wh-imagepreview__mainimage")->GetAttribute("src"));
 
   //Verify an unknown file
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="unknownfile";
