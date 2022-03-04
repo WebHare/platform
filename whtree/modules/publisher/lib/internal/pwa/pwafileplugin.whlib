@@ -52,7 +52,7 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
   UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
   {
     IF(objectprops->applytester->IsTypeNeedsTemplate())
-      objectprops->AddTabsExtension(Resolve("/tolliumapps/pwaplugin.xml#pwatab"), "http://www.webhare.net/xmlns/publisher/pwasettings");
+      objectprops->AddTabsExtension(Resolve("/tolliumapps/objectprops/pwa.xml#pwatab"), "http://www.webhare.net/xmlns/publisher/pwasettings");
   }
 
   PUBLIC BOOLEAN FUNCTION HasFeature(STRING feature)
