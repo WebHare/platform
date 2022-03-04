@@ -254,9 +254,9 @@ describe("test_compileerrors", (done) =>
 
   // Test for esbuild issue https://github.com/evanw/esbuild/issues/1657
   if (process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY != "modern")
+  {
     it("esbuild value collapse fix", async function()
     {
-
       this.timeout(60000);
 
       let result = await compileAdhocTestBundle(path.join(__dirname,"optimizations/regressions.es"), false);
@@ -276,6 +276,21 @@ describe("test_compileerrors", (done) =>
       // Check if numerical values are collapsed properly
       assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
     });
+
+    it("TypeScript is working", async function()
+    {
+      this.timeout(60000);
+
+      let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript.ts", false);
+      assert(result.haserrors === false);
+
+      let filedeps = Array.from(result.info.dependencies.fileDependencies);
+      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
+      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
+      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
+      assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
+    });
+  }
 
   it("cleanup", () =>
   {
