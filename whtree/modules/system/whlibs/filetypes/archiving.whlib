@@ -886,7 +886,7 @@ PUBLIC BLOB FUNCTION MakeZlibCompressedFile(BLOB infile, STRING format, INTEGER 
   RETURN MakeBlobFromStream(outfile);
 }
 
-PUBLIC MACRO CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
 PUBLIC MACRO CloseZlibDecompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
 
 /** @short Open and decompress a blob
