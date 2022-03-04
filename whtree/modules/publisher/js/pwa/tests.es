@@ -51,5 +51,5 @@ export async function forceRefresh()
 
 async function triggerUpdate(type)
 {
-  return await test.invoke('mod::webhare_testsuite/tests/publisher/pwa/lib/tests.whlib#TriggerUpdate', type, test.getWin().location.href);
+  return await test.invoke('mod::publisher/lib/internal/pwa/tests.whlib#TriggerUpdate', type, test.getWin().location.href);
 }

@@ -2,15 +2,12 @@
 
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/publisher.whlib";
-
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-PUBLIC CONSTANT STRING webharetestsuite_pwa_sitename := "webhare_testsuite.pwa";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 
 PUBLIC MACRO TestInvoke_TriggerUpdate(STRING type, STRING url)
 {
