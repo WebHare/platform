@@ -12,7 +12,7 @@ LOADLIB "wh::files.whlib";
 // Implementation of HMAC in HareScript is based on the pseudocode in http://en.wikipedia.org/wiki/HMAC#Implementation
 
 /** @short Create a streaming hasher
-    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512")
+    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512", "CRC32")
     @param key_salt Optional key or salt for the specified algorithm
     @return Hasher stream id */
 PUBLIC INTEGER FUNCTION CreateStreamingHasher(STRING algorithm, STRING key_salt DEFAULTSTO "")
@@ -34,7 +34,7 @@ PUBLIC STRING FUNCTION MakeHashFromStreamer(INTEGER streamerid)
 
 /** @short Return the hash for a string
     @param text Text to hash
-    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512", "HMAC:MD5", "HMAC:SHA-1",
+    @param algorithm Hashing algorithm ("MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512", "CRC32", "HMAC:MD5", "HMAC:SHA-1",
         "HMAC:SHA-256", "HMAC:SHA-384", "HMAC:SHA-512")
     @param key_salt Optional key or salt for the specified algorithm
     @return The hash, as binary data (you probably want to use EncodeBase16 on the result) */

@@ -835,6 +835,7 @@ void GetHasher(HashAlgorithm::Type type, std::unique_ptr< Hasher > *hasher)
         case HashAlgorithm::SHA256:     hasher->reset(new SHA256); break;
         case HashAlgorithm::SHA384:     hasher->reset(new MultiHasher(NID_sha384)); break;
         case HashAlgorithm::SHA512:     hasher->reset(new MultiHasher(NID_sha512)); break;
+        case HashAlgorithm::CRC32:      hasher->reset(new CRC32Hasher); break;
         default: throw std::logic_error("Invalid hasher type");
         }
 }
@@ -1067,6 +1068,18 @@ Blex::StringPair MultiHasher::FinalizeHash()
         if (!retval)
             throw std::runtime_error("EVP_DigestFinal returned error: " + GetLastSSLErrors());
         return Blex::StringPair(reinterpret_cast<char*>(&digest), reinterpret_cast<char*>(&digest) + outlen);
+}
+
+void CRC32Hasher::Process(const void *data, unsigned length)
+{
+        crc.Do(data, length);
+}
+
+Blex::StringPair CRC32Hasher::FinalizeHash()
+{
+        uint32_t value = crc.GetValue();
+        Blex::putu32msb(hash, value);
+        return Blex::StringPair(reinterpret_cast<char*>(hash), reinterpret_cast<char*>(hash) + CRC32HashLen);
 }
 
 RC4::RC4()

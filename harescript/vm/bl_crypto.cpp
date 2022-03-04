@@ -52,6 +52,8 @@ Blex::HashAlgorithm::Type GetHashAlgorithmFromString(HSVM *vm, std::string const
             return Blex::HashAlgorithm::SHA384;
         else if(algo=="SHA-512")
             return Blex::HashAlgorithm::SHA512;
+        else if(algo=="CRC32")
+            return Blex::HashAlgorithm::CRC32;
 
         HSVM_ThrowException(vm, ("Hash algorithm '" + algo + "' not supported.").c_str());
         return Blex::HashAlgorithm::Unknown;

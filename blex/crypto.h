@@ -10,6 +10,7 @@
 #include <openssl/blowfish.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <blex/crc.h>
 
 #undef uint64_t // sha.h defines it.
 
@@ -31,6 +32,8 @@ const unsigned SHA256HashLen = 256/8;
 const unsigned SHA384HashLen = 384/8;
 /// Length of a SHA256 Hash in bytes
 const unsigned SHA512HashLen = 512/8;
+/// Length of a SHA256 Hash in bytes
+const unsigned CRC32HashLen = 32/8;
 /// Length of a blowfish type/salt
 const unsigned BlowfishSaltLen = 7 + 22;
 /// Length of a full blowfish crypted password, including salt and the "WHBF:" prefix
@@ -51,7 +54,8 @@ enum Type
         SHA224,
         SHA256,
         SHA384,
-        SHA512
+        SHA512,
+        CRC32
 };
 } // End of namespace HashAlgorithm
 
@@ -341,6 +345,18 @@ class BLEXLIB_PUBLIC MultiHasher: public Hasher
         Blex::StringPair FinalizeHash();
 };
 
+class BLEXLIB_PUBLIC CRC32Hasher: public Hasher
+{
+    private:
+        Blex::Crc32 crc;
+        char hash[CRC32HashLen];
+
+    public:
+        /** Hash the specified buffer */
+        void Process(const void *data,unsigned length);
+        /** Finalize the result and return the resulting hash. May be called only once */
+        Blex::StringPair FinalizeHash();
+};
 
 /** RC4 crypt class. RC4 is symmetric - the same key is used for both encryption
     and decryption */
