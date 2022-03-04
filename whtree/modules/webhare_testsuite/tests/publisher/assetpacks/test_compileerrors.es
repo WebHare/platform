@@ -287,7 +287,7 @@ describe("test_compileerrors", (done) =>
       let filedeps = Array.from(result.info.dependencies.fileDependencies);
       assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
       assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
-      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
+      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
       assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
     });
   }
