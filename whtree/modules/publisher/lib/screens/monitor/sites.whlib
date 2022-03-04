@@ -90,7 +90,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
     RECORD ARRAY webdesigns :=
           [ [ rowkey := "", title := "" ] ]
           CONCAT
-          SELECT TEMPORARY _title := (Left(title, 1) = ":" ? Right(title, Length(title)-1) : title) || " (" || Length(SELECT FROM sites WHERE sitedesign = wdesign.rowkey) || ")"
+          SELECT TEMPORARY _title := GetTid(title) || " (" || Length(SELECT FROM sites WHERE sitedesign = wdesign.rowkey) || ")"
                , rowkey
                , title := _title
             FROM GetAvailableWebDesigns(FALSE) AS wdesign
@@ -101,7 +101,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
     RECORD ARRAY webfeatures :=
           [ [ rowkey := "", title := "" ] ]
           CONCAT
-          SELECT TEMPORARY _title := (Left(title, 1) = ":" ? Right(title, Length(title)-1) : title) || " (" || Length(SELECT FROM sites WHERE wfeature.rowkey IN sites.webfeatures) || ")"
+          SELECT TEMPORARY _title := GetTid(title) || " (" || Length(SELECT FROM sites WHERE wfeature.rowkey IN sites.webfeatures) || ")"
                , rowkey
                , title := _title
             FROM GetAvailableWebFeatures() AS wfeature
