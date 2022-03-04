@@ -53,6 +53,9 @@ Alternatively the pwafile offers a 'force refresh' date in its settings. updatin
 if they are reloaded. This causes a double-forced refresh so it's less friendly but is a way to get broken update code out of
 an app.
 
+If you want the PWA to be republished whenever the assetpack changes, use `aftercompiletask="publisher:republishassetpackusers"`
+in its `<assetpack>` definition.
+
 ## Tips and tricks
 Chrome is recommended for PWA development. You'll need the Applications debugging tab, and you can visit chrome://inspect/#service-workers
 to inspect service workers. If the current serviceworker is started by the current tab, you may see some log messages in the
