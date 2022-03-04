@@ -6,12 +6,10 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::webhare_testsuite/tests/publisher/pwa/lib/tests.whlib";
-
 
 MACRO TestAppLayout()
 {
-  OBJECT pwasite := OpenSiteByName(webharetestsuite_pwa_sitename);
+  OBJECT pwasite := OpenSiteByName("webhare_testsuite.pwa");
 
   //Test whether an update is needed
   STRING application := pwasite->webroot || "pwatest/";
