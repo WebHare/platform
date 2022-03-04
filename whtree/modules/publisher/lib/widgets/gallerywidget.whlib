@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+
+//TODO thumbnail sizes (and other settings?) should be configurable through <apply>s
+RECORD gallery_gridthumb    := [ method := "fit", setheight := 150 ];
+RECORD gallery_gridthumb_2x := [ method := "fit", setheight := 150*2, quality := 50 ];
+
+RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
+{
+  RECORD ARRAY images := SELECT TEMPORARY __wrapped := WrapFSObjectData(id, DEFAULT BLOB, CELL[scandata,name])
+                              , id
+                              , title
+                              , description
+                              , link //TODO if it turns out hte image is REALLY big, we should probably still create an image cache link
+                              , thumbnail := WrapCachedImage(__wrapped, gallery_gridthumb)
+                              , thumbnail_2x := WrapCachedImage(__wrapped, gallery_gridthumb_2x)
+                              , dominantcolor := __wrapped.dominantcolor
+                              , width := __wrapped.rotation IN [90,270] ? __wrapped.height : __wrapped.width
+                              , height := __wrapped.rotation IN [90,270] ? __wrapped.width : __wrapped.height
+                           FROM system.fs_objects
+                          WHERE parent = forfolder
+                                AND type = 12
+                                AND link != ""
+                      ORDER BY ordering, ToUppercase(name), id;
+
+
+  RETURN [ value := images
+         , ttl := 15 * 60 * 1000
+         , eventmasks := OpenWHFSObject(forfolder)->GetEventMasks()
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE GalleryWidgetBase EXTEND WidgetBase
+<
+  RECORD ARRAY FUNCTION GetImages(INTEGER forfolder)
+  {
+    RETURN GetAdhocCached(CELL[ forfolder ], PTR GetCacheableImages(forfolder));
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    INTEGER forfolder := this->context->targetfolder->id;
+    RECORD ARRAY images := this->GetImages(forfolder);
+
+    this->EmbedComponent(CELL[ images
+                             ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE RenderGalleryWidgetPage EXTEND StaticPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    RETURN PTR webdesign->RenderWidgetInstance(([ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/gallery" ]));
+  }
+>;

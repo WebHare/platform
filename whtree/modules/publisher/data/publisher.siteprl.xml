@@ -640,7 +640,7 @@
     <to type="file"
         filetype="http://www.webhare.net/xmlns/publisher/contentlisting"
         parenttype="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/photogallery.whlib#PhotoGalleryRenderer" />
+    <bodyrenderer objectname="mod::publisher/lib/widgets/gallerywidget.whlib#RenderGalleryWidgetPage" />
   </apply>
 
   <apply priority="-1000">

@@ -22,6 +22,11 @@ require('../pages/wrdauthtest/wrdauthtest');
 require('../pages/listtest/listtest');
 require('../pages/customform2/customform2');
 
+/////////////////////////////////////////
+// Gallery (wh-gallery)
+import setupGallery from '@mod-publisher/js/gallery/defaultgallery';
+dompack.register('.wh-gallery', node => setupGallery(node));
+
 /////////////////////////////////////////////////////////
 // Forms
 import { getTid, getHTMLTid } from "@mod-tollium/js/gettid";

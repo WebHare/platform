@@ -165,6 +165,22 @@ OBJECT mailresultcustomwitty := webtools->CreateFile( [ name := "mailresult-cust
 `)]);
 OBJECT mailresultwitty := webtools->CreateFile( [ name := "mailresult.html.witty", data := StringToBlob("<body>[if iscancel]Too bad you've cancelled [field.firstname.text]![else]Hello [field.firstname.text]![/if]</body>") ]);
 
+//Set up a photoalbum
+OBJECT photoalbumfolder := testsite->rootobject->CreateFolder([ name := "photoalbum", type := 3 ]);
+photoalbumfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/publisher/contentlisting", publish := TRUE ], [ setindex := TRUE ]);
+photoalbumfolder->CreateFile([ name := "landscape_5.jpg", type := 12, publish := TRUE, ordering := 1, data := GetWebHareResource("mod::webhare_testsuite/data/test/landscape_5.jpg")
+                             , title := "A waterfall, in landscape"
+                             , description := "A picture of a waterfall in jungle-like forest with the number 5 in the middle"
+                             ]);
+photoalbumfolder->CreateFile([ name := "portrait_4.jpg",  type := 12, publish := TRUE, ordering := 2, data := GetWebHareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/portrait_4.jpg")
+                             , title := "A waterfall, in portrait"
+                             , description := "A picture of a waterfall near a road with the number 4 in the middle"
+                             ]);
+photoalbumfolder->CreateFile([ name := "snowbeagle.jpg",  type := 12, publish := TRUE, ordering := 3, data := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg")
+                             , title := "Snowy-nose"
+                             , description := "A picture of a young male beagle with a snow powdered nose on a snowy roof"
+                             ]);
+
 //Set up active content tests
 OBJECT actestsfolder := testsite->rootobject->CreateFolder([ name := "actests" ]);
 actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
