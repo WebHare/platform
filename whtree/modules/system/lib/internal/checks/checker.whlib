@@ -216,9 +216,9 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := ":The WebHare database is in readonly mode!"
            ] INTO messages AT END;
   }
-  ELSE IF(GetDatabaseType() = "whdb" AND NOT IsDtapLive())
+  ELSE IF(GetDatabaseType() = "whdb")
   {
-    INSERT [ msg := ":You are not testing the PostgreSQL database yet!"
+    INSERT [ msg := ":You need to switch to the PostgreSQL database - use `wh convert-to-postgresql`. WebHare 4.36 and higher will no longer support the 'dbase' format or the 'dbserver'"
            ] INTO messages AT END;
   }
 
