@@ -6,6 +6,8 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -26,6 +28,7 @@ RECORD ARRAY to_recheck := SELECT contentsources.id
                                 , contentsources.contentprovider
                                 , contentsources.data
                                 , indices.name
+                                , catalogid := indices.id
                              FROM consilio.contentsources
                                 , consilio.indices
                             WHERE contentsources.indexid = indices.id
@@ -65,13 +68,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
 
     IF(NOT settings.dryrun)
     {
-      BOOLEAN res := UpdateConsilioContentSource(contentsource.id);
-
-      IF (NOT res)
-      {
-        Print(`Could not update content source ${contentsource.id}\n`);
-        CONTINUE;
-      }
+      OpenConsilioCatalogById(contentsource.catalogid)->OpenContentSourceById(contentsource.id)->RescanContentSource();
     }
 
     // Update the lastcontentscheck data field
@@ -114,6 +111,7 @@ to_recheck := SELECT contentsources.id
                    , contentsources.data
                    , contentsources.fsobject
                    , indices.name
+                   , catalogid := indices.id
                 FROM consilio.contentsources
                    , consilio.indices
                WHERE contentsources.indexid = indices.id
@@ -152,17 +150,22 @@ FOREVERY (RECORD contentsource FROM to_recheck)
   IF (settings.debug)
     Print(`Checking ${Length(dynamicpages)} dynamic pages within folder ${contentsource.fsobject}\n`);
   BOOLEAN res := TRUE;
-  FOREVERY (INTEGER page FROM dynamicpages)
+
+  IF(Length(dynamicpages) > 0)
   {
-    IF(settings.dryrun OR settings.debug)
+    OBJECT csource := OpenConsilioCatalogById(contentsource.catalogid)->OpenContentSourceById(contentsource.id);
+
+    FOREVERY (INTEGER page FROM dynamicpages)
     {
-      Print(`CheckConsilioGroup contentsourceid=${contentsource.id} page=${page}\n`);
-      IF(settings.dryrun)
-        CONTINUE;
+      IF(settings.dryrun OR settings.debug)
+      {
+        Print(`CheckConsilioGroup contentsourceid=${contentsource.id} page=${page}\n`);
+        IF(settings.dryrun)
+          CONTINUE;
+      }
+
+      csource->RebuildGroup(ToString(page));
     }
-    res := CheckConsilioGroup(contentsource.id, ToString(page));
-    IF (NOT res)
-      BREAK;
   }
 
   IF (NOT res)

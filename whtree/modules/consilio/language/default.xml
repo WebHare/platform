@@ -64,9 +64,6 @@
       <text tid="title">View result</text>
     </textgroup>
     <textgroup gid="catalogs">   <!-- catalog.catalogs -->
-      <text tid="about">About Consilio</text>
-      <text tid="about-copyright">Portions of this product are based on software developed by the Apache Software Foundation (http://www.apache.org/), which is copyright © 2001 The Apache Software Foundation, all rights reserved, and on Snowball, which is copyright © 2001, Dr Martin Porter.</text>
-      <text tid="about-title">Consilio</text>
       <text tid="addcatalog">Add Catalog</text>
       <text tid="addcontentsource">Add Content Source</text>
       <text tid="apptitle">Consilio catalog management</text>
@@ -75,6 +72,8 @@
       <text tid="catalog">Catalog</text>
       <text tid="catalogthesaurus">Thesaurus</text>
       <text tid="checkcatalog">Check</text>
+      <text tid="confirmrebuildcatalog">Are you sure you want to check '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
+      <text tid="confirmupdatecatalog">Are you sure you want to update '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
       <text tid="definedby">Defined by</text>
       <text tid="deleteitem">Delete</text>
       <text tid="edititem">Edit</text>
@@ -131,9 +130,7 @@
       <text tid="confirmdeletecontentsource">Are you sure you want to delete this content source?</text>
       <text tid="confirmdeleteselection">Are you sure you want to delete the selected catalogs and sources?</text>
       <text tid="confirmpatterndelete">Are you sure you want to delete URL pattern '<param p="1"/>'?</text>
-      <text tid="confirmrebuildcatalog">Are you sure you want to check '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
       <text tid="confirmrestart">Are you sure you want to restart the Queue Manager?</text>
-      <text tid="confirmupdatecatalog">Are you sure you want to update '<param p="1"/>'? The catalog will be usable while it is being checked.</text>
       <text tid="confirmworddelete">Are you sure you want to delete <ifparam p="1" value="">these words<else/>the word '<param p="1"/>'</ifparam>?</text>
       <text tid="confirmwordgroupdelete">Are you sure you want to delete the selected word group?</text>
       <text tid="indexmanagerconnectionfailed">No connection to Consilio could be made.</text>

@@ -23,7 +23,7 @@ INTEGER FUNCTION GetIndexForContentSource(INTEGER contentsourceid)
 /** @short Rebuild one index or all indexes
     @param indexid The index to check, or 0 for all indexes
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   IF (NOT IsValidIndexId(indexid))
     RETURN FALSE;
@@ -36,25 +36,13 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioIndex(INTEGER indexid)
 /** @short Update one index or all indexes
     @param indexid The index to check, or 0 for all indexes
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid)
+PUBLIC BOOLEAN FUNCTION UpdateConsilioIndex(INTEGER indexid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   IF (NOT IsValidIndexId(indexid))
     RETURN FALSE;
 
   LogDebug("consilio", "ContentSourceStatus", "UpdateConsilioIndex", indexid);
   STRING command := "UPDATEINDEX " || indexid;
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
-}
-
-/** @short Delete an index
-    @param indexid The index to delete
-*/
-PUBLIC BOOLEAN FUNCTION DeleteConsilioIndex(INTEGER indexid)
-{
-  IF (indexid = 0)
-    RETURN FALSE;
-
-  STRING command := "DELETEINDEX " || indexid || " 0";
   RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
 }
 
@@ -94,7 +82,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioContentSourceByTag(STRING contentsourcetag)
 /** @short Check a content source
     @param contentsourceid The content source to update
 */
-PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid)
+PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSource(INTEGER contentsourceid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0)
@@ -118,18 +106,6 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioContentSourceByTag(STRING contentsourcetag
       RETURN FALSE;
   }
   RETURN TRUE;
-}
-
-/** @short Delete a content source
-    @param contentsourceid The content source to delete
-*/
-PUBLIC BOOLEAN FUNCTION DeleteConsilioContentSource(INTEGER indexid, INTEGER contentsourceid)
-{
-  IF (indexid = 0)
-    RETURN FALSE;
-
-  STRING command := "DELETEINDEX " || indexid || " " || contentsourceid;
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
 }
 
 /** @short Add or update a group in the given content source, replacing all content
@@ -161,7 +137,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING 
   RETURN TRUE;
 }
 
-PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   options := ValidateOptions([ force := FALSE ], options);
 
@@ -172,20 +148,6 @@ PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, 
           , groupid
           ];
   RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, options));
-}
-
-/** @short Add or update a group in the given content source, only replacing the modified content
-    @param contentsourceid Id of the content source which is responsible for the group
-    @param groupid Id of the group to add or update
-*/
-PUBLIC BOOLEAN FUNCTION UpdateConsilioGroup(INTEGER contentsourceid, STRING groupid)
-{
-  INTEGER indexid := GetIndexForContentSource(contentsourceid);
-  IF (indexid = 0 AND ToInteger(groupid, -1) <= 0)
-    RETURN FALSE;
-
-  STRING command := "UPDATEGROUP " || indexid || " " || contentsourceid || " \"" || EncodeJava(groupid) || "\"";
-  RETURN RecordExists(SendQueueManagerData(GetQueueDataFromCommand(command)));
 }
 
 /** @short Add or update a group in the given content source, only replacing the modified content
@@ -203,18 +165,6 @@ PUBLIC BOOLEAN FUNCTION UpdateConsilioGroupByTag(STRING contentsourcetag, STRING
   RETURN TRUE;
 }
 
-PUBLIC OBJECT FUNCTION UpdateConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ force := FALSE ], options);
-
-  RECORD data :=
-      CELL[ action := "UPDATEGROUP"
-          , commanddate := GetCurrentDateTime()
-          , contentsourcetag
-          , groupid
-          ];
-  RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, options));
-}
 
 
 PUBLIC BOOLEAN FUNCTION __DeactivateConsilioGroup(STRING groupid)
@@ -227,7 +177,7 @@ PUBLIC BOOLEAN FUNCTION __DeactivateConsilioGroup(STRING groupid)
     @param indexid Id of the index to delete the group from, or 0 for all indexes
     @param groupid Id of the group to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid)
+PUBLIC BOOLEAN FUNCTION DeleteConsilioGroup(INTEGER indexid, STRING groupid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   IF (NOT IsValidIndexId(indexid) OR groupid = "")
     RETURN FALSE;
@@ -251,23 +201,12 @@ PUBLIC BOOLEAN FUNCTION DeleteConsilioGroupByTag(STRING contentsourcetag, STRING
   RETURN TRUE;
 }
 
-PUBLIC OBJECT FUNCTION DeleteConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid)
-{
-  RECORD data :=
-      CELL[ action := "DELETEGROUP"
-          , commanddate := GetCurrentDateTime()
-          , contentsourcetag
-          , groupid
-          ];
-  RETURN CreatePromise(PTR HandleCommandSynchronously(data, #1, #2, DEFAULT RECORD));
-}
-
 /** @short Add or update a single object in the index
     @param contentsourceid Id of the content source which is responsible for the object
     @param groupid Id of the group which contains the object
     @param objectid Id of the object
 */
-PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING groupid, STRING objectid)
+PUBLIC BOOLEAN FUNCTION CheckConsilioObject(INTEGER contentsourceid, STRING groupid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   INTEGER indexid := GetIndexForContentSource(contentsourceid);
   IF (indexid = 0 OR objectid = "")
@@ -297,7 +236,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioObjectByTag(STRING contentsourcetag, STRING
     @param indexid Id of the index to delete the object from, or 0 for all indexes
     @param groupid Id of the object to delete
 */
-PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid)
+PUBLIC BOOLEAN FUNCTION DeleteConsilioObject(INTEGER indexid, STRING objectid) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
 {
   IF (NOT IsValidIndexId(indexid) OR objectid = "")
     RETURN FALSE;

@@ -5,13 +5,14 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 
+INTEGER waitindex;
+
 RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
 {
   STRING args := Detokenize(options, " ");
   STRING command := "STATUS" || (args != "" ? " " || args : "");
   RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
 }
-
 
 PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -26,6 +27,7 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
   STRING describesource := `content source #${contentsourceid} (tag '${contentsource.tag}', type '${contentsource.contentprovider}', fsobject ${contentsource.fsobject})`;
 
   OBJECT eventmgr := NEW EventManager;
+  waitindex := waitindex + 1;
   TRY
   {
     eventmgr->RegisterInterest("consilio:contentsource." || contentsourceid);
@@ -58,7 +60,8 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
         {
           IF(options.verbose)
           {
-            Print(`Index checking for ${describesource} isn't complete, still waiting...\n`);
+            Print(`Index checking for ${describesource} isn't complete, still waiting... (wait #${waitindex})\n`);
+            dumpvalue(GetStackTrace(), 'boxed');
             warnedwait := TRUE;
           }
           addsecs := addsecs < 5 ? addsecs + 1 : addsecs;

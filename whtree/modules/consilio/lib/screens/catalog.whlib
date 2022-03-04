@@ -330,34 +330,26 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
   MACRO DoUpdateCatalog()
   {
-    IF (RecordExists(^catalogs->selection))
-    {
-      IF (this->RunMessageBox(".confirmupdatecatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag) = "yes")
-      {
-        IF (^catalogs->selection.catalog AND NOT UpdateConsilioIndex(^catalogs->selection.id))
-          this->RunMessageBox(".sendingcommandfailed");
-        ELSE IF (^catalogs->selection.contentsource AND NOT UpdateConsilioContentSource(^catalogs->selection.id))
-          this->RunMessageBox(".sendingcommandfailed");
-        ELSE
-          ^catalogs->Invalidate();
-      }
-    }
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmupdatecatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
+      RETURN;
+
+    OBJECT catalog := OpenConsilioCatalogById(^catalogs->selection.catalogid);
+    IF (^catalogs->selection.contentsource)
+      catalog->OpenContentSourceById(^catalogs->selection.id)->RescanContentSource();
+    ELSE FOREVERY(RECORD csource FROM catalog->ListContentSources())
+      catalog->OpenContentSourceById(csource.id)->RescanContentSource();
   }
 
   MACRO DoRebuildCatalog()
   {
-    IF (RecordExists(^catalogs->selection))
-    {
-      IF (this->RunMessageBox(".confirmrebuildcatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag) = "yes")
-      {
-        IF (^catalogs->selection.catalog AND NOT CheckConsilioIndex(^catalogs->selection.id))
-          this->RunMessageBox(".sendingcommandfailed");
-        ELSE IF (^catalogs->selection.contentsource AND NOT CheckConsilioContentSource(^catalogs->selection.id))
-          this->RunMessageBox(".sendingcommandfailed");
-        ELSE
-          ^catalogs->Invalidate();
-      }
-    }
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmrebuildcatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
+      RETURN;
+
+    OBJECT catalog := OpenConsilioCatalogById(^catalogs->selection.catalogid);
+    IF (^catalogs->selection.contentsource)
+      catalog->OpenContentSourceById(^catalogs->selection.id)->RebuildContentSource();
+    ELSE FOREVERY(RECORD csource FROM catalog->ListContentSources())
+      catalog->OpenContentSourceById(csource.id)->RebuildContentSource();
   }
 
   MACRO DoCatalogThesaurus()
@@ -539,8 +531,10 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       IF (catalog.indexmanager > 0 AND RecordExists(this->laststatus) AND RecordExists(this->laststatus.catalogsizes) AND CellExists(this->laststatus.catalogsizes, catalog.name))
         catalogsize := ToString(GetCell(this->laststatus.catalogsizes, catalog.name));
 
-      INSERT CELL[...baserow
+      INSERT
+         CELL[...baserow
              , id := catalog.id
+             , catalogid := catalog.id
              , rowkey := "catalog_" || catalog.id
              , title := catalog.description
              , loglevel := catalog.loglevel
