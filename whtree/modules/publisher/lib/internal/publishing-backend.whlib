@@ -65,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE PublicationProcess
     this->fileid := fileid;
     this->basedata := GetMainPublishInfo(this->fileid);
     IF(NOT RecordExists(this->basedata))
-      THROW NEW Exception("Unable to retrieve base publication settings for #" || this->fileid);
+      RETURN; //allow our caller to deal with this without generating exception, as a missing output site/folder is relatively normal
 
     this->output := DescribeDiskOutput(this->basedata.siteid, this->basedata.folderfullpath);
 

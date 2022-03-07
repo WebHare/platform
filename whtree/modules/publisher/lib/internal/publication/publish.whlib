@@ -50,6 +50,13 @@ PUBLIC STATIC OBJECTTYPE Reader
     TRY
     {
       this->process := NEW PublicationProcess(fileid);
+      IF(NOT RecordExists(this->process->basedata))
+      {
+        //the file can't be published anymore (site locked, webhare-private..). just dequeue it without making any more noise
+        this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
+        retval := 0;
+        RETURN 0;
+      }
     }
     CATCH(OBJECT e)
     {
@@ -193,7 +200,8 @@ PUBLIC STATIC OBJECTTYPE Reader
 
     IF(errortype != 0)
     {
-      PRINT(`Error ${errortype} publishing file #${fileid}${errordata != "" ? ": " || errordata : ""}\n`);
+      IF(errortype != 112) //'locked' errors are common, don't make noise about this
+        PRINT(`Error ${errortype} publishing file #${fileid}${errordata != "" ? ": " || errordata : ""}\n`);
       INSERT CELL errordata := LimitUTF8Bytes(errordata, 1024) INTO fileupdate;
     }
     ELSE
