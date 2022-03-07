@@ -33,11 +33,17 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
 
   message := Left(message,4096);
 
+  STRING logline := EncodeJava(logsource) || "\t" || EncodeJava(channel) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(message);
+  IF(RecordExists(data))
+  {
   STRING encodeddata := EncodeHSON(data);
   IF(Length(message)+Length(encodeddata)>127*1024)
     encodeddata := "-";
 
-  ModuleLog("system:notice", EncodeJava(logsource) || "\t" || EncodeJava(channel) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(message) || "\t" || encodeddata);
+    logline := logline || "\t" || encodeddata;
+  }
+
+  ModuleLog("system:notice", logline);
 }
 
 
@@ -47,7 +53,7 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
-PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data)
+PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
   LogNotice(logsource, "ERROR", message, data);
 }
@@ -57,7 +63,7 @@ PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data)
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
-PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data)
+PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
   LogNotice(logsource, "WARNING", message, data);
 }
@@ -67,7 +73,7 @@ PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data)
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */
-PUBLIC MACRO LogInfo(STRING logsource, STRING message, RECORD data)
+PUBLIC MACRO LogInfo(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
   LogNotice(logsource, "INFO", message, data);
 }

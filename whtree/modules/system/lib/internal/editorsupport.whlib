@@ -123,11 +123,12 @@ PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAU
       STRING ARRAY linetoks := Tokenize(line,"\t");
       IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
         CONTINUE;
-      IF (Length(linetoks) < 4)
+      IF (Length(linetoks) < 5)
         CONTINUE;
 
       STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
       STRING source := Substring(linetoks[0], Length(whentext)+3);
+      STRING encodeddata_raw := Length(linetoks) > 5 ? linetoks[5] : "";
 
       RECORD linedata :=
           [ when :=            MakeDateFromText(whentext)
@@ -136,8 +137,8 @@ PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAU
           , srhid :=           linetoks[2]
           , externalsource :=  DecodeJava(linetoks[3])
           , message :=         DecodeJava(linetoks[4])
-          , encodeddata_raw := linetoks[5]
-          , data :=            linetoks[5] IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
+          , encodeddata_raw := encodeddata_raw
+          , data :=            encodeddata_raw IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
           ];
 
       IF (linedata.message IN [ "harescript-error", "javascript-error" ])
