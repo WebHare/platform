@@ -490,9 +490,8 @@ PUBLIC STATIC OBJECTTYPE ExcelSheet
 
     IF(Length(this->allrows)>0)
     {
-      RETURN Length(this->allrows) + 1;
-      //OBJECT lastrow := this->allrows[Length(this->allrows)-1].rownode;
-      //RETURN ToInteger(lastrow->GetAttribute("r"),0);
+      OBJECT lastrow := this->allrows[Length(this->allrows)-1].rownode;
+      RETURN ToInteger(lastrow->GetAttribute("r"),0);
     }
     RETURN 1;
   }
