@@ -1688,6 +1688,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   PUBLIC OBJECT ASYNC FUNCTION WaitAndProcessEvents(FUNCTION PTR until, STRING waitingfor, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ deadline := 60 * 1000 ], options);
+
+    BOOLEAN didstacktrace;
     DATETIME deadline := AddTimeToDate(options.deadline, GetCurrentDateTime());
     DATETIME nextreport := AddTimeToDate(1000, GetCurrentDateTime());
 
@@ -1704,6 +1706,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       {
         Print(" ...waiting for: " || waitingfor || "\n");
         nextreport := AddTimeToDate(1000, GetCurrentDateTime());
+        IF(NOT didstacktrace) //allow us to see where the wait is..
+        {
+          DumpValue(GetStackTrace(),'boxed');
+          didstacktrace := TRUE;
+        }
       }
       AWAIT NEW WaitableTimer(100)->WaitSignalled();
     }
