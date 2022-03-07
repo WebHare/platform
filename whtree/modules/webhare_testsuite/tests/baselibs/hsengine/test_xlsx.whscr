@@ -378,9 +378,9 @@ MACRO TestXLS_XLSXImport()
 
   TestEq(TRUE, Length(progressevents) >= 2); //at least events for first and last row;
   TestEq(1, progressevents[0].cur);
-  TestEq(15, progressevents[0].total);
-  TestEq(15, progressevents[END-1].cur);
-  TestEq(15, progressevents[0].total);
+  TestEq(14, progressevents[0].total);
+  TestEq(14, progressevents[END-1].cur);
+  TestEq(14, progressevents[0].total);
 
   quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ floatmode := "money", dotrimwhitespace := FALSE ]);
   TestEq(7,Length(quickexport));
@@ -406,7 +406,7 @@ MACRO TestXLS_XLSXImport()
   TestEq("Christopher Testing", quickexport[1].D);
 }
 
-MACRO TestXLSX_WeirdNewFormat()
+MACRO TestXLSX_Regressions()
 {
   RECORD ARRAY quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("country-codes.xlsx"));
   TestEq("Afghanistan", quickexport[0].naam);
@@ -415,6 +415,11 @@ MACRO TestXLSX_WeirdNewFormat()
   quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("entiteit-selectielijst.xlsx"));
   TestEq("Duits gymnasium (12-jarig)", quickexport[0].naam);
   TestEq("Thema", quickexport[END-1].soort);
+
+  quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("big-gap.xlsx"));
+  TestEqMembers([[ "product id" := "wrd:ABEBE16951DC86B688A02D48EA7C59E3", type := "fixed" ]
+                ,[ "product id" := "wrd:4E2AF6ECE903ED26D7B84170BC7F332B", type := "fixed" ]
+                ],quickexport,'*');
 }
 
 Print("\n === Running TestXLSX\n");
@@ -425,4 +430,4 @@ TestXLSX_empty();
 TestXLSX_CorruptData();
 TestXLS_XLSXImport();
 TestXLS_CrohoImport();
-TestXLSX_WeirdNewFormat();
+TestXLSX_Regressions();
