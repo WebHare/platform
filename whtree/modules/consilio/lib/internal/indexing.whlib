@@ -61,7 +61,8 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
           IF(options.verbose)
           {
             Print(`Index checking for ${describesource} isn't complete, still waiting... (wait #${waitindex})\n`);
-            dumpvalue(GetStackTrace(), 'boxed');
+            IF(NOT warnedwait)
+              dumpvalue(GetStackTrace(), 'boxed');
             warnedwait := TRUE;
           }
           addsecs := addsecs < 5 ? addsecs + 1 : addsecs;
