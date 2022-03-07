@@ -954,9 +954,29 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 
+  /** Index manager of this catalog
+      @cell id Id of the indexmanager
+      @cell name Name of the indexmanager
+      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
+  */
+  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
+
+  /** Name of the index on the index manager (Elasticsearch only) */
+  PUBLIC PROPERTY indexname(GetIndexName, -);
+
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
+  }
+
+  RECORD FUNCTION GetIndexManager()
+  {
+    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
+  }
+
+  STRING FUNCTION GetIndexName()
+  {
+    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -991,28 +1011,8 @@ STATIC OBJECTTYPE Catalog
 
 STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 <
-  /** Index manager of this catalog
-      @cell id Id of the indexmanager
-      @cell name Name of the indexmanager
-      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
-  */
-  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
-
-  /** Name of the index on the index manager (Elasticsearch only) */
-  PUBLIC PROPERTY indexname(GetIndexName, -);
-
   //have we ensured yet that the index exists?
   STRING ARRAY ensured;
-
-  RECORD FUNCTION GetIndexManager()
-  {
-    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
-  }
-
-  STRING FUNCTION GetIndexName()
-  {
-    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
-  }
 
   /** @short Add objects to this catalog
       @param objects The objects to add

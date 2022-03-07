@@ -1,10 +1,7 @@
 <?wh
 LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::consilio/lib/catalog.whlib";
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
-LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -57,18 +54,13 @@ BLOB FUNCTION GetTestPage(INTEGER fileid, BOOLEAN noindex, BOOLEAN nofollow)
 
 MACRO TestHTMLIndexing()
 {
-  OBJECT search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
-
   // The testfile has two pages, with the first page linking to the second page
-
 
   // First page has robots "index, follow" -> both pages should be indexed
   testfw->BeginWork();
-
-  INTEGER indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
+  OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots");
   OBJECT siteroot := GetTestsuiteTempFolder();
-  AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
-  INTEGER contentsourceid := SELECT AS INTEGER id FROM consilio.contentsources WHERE COLUMN indexid = VAR indexid;
+  OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id);
 
   OBJECT testfile := siteroot->CreateFile(
       [ name := "robottest.shtml"
@@ -86,9 +78,9 @@ MACRO TestHTMLIndexing()
 
   testfw->WaitForPublishCompletion(siteroot->id);
   WaitForPromise(fileevent);
-  testfw->WaitConsilioQueueEmpty();
+  newsource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  RECORD res := search_obj->Search("page", 0, -1);
+  RECORD res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(2, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
@@ -100,10 +92,10 @@ MACRO TestHTMLIndexing()
   // First page now has robots "noindex, follow" -> only second page should be indexed
   testfw->CommitWork();
 
-  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
-  testfw->WaitConsilioQueueEmpty();
+  newsource->RebuildGroup(ToString(testfile->id));
+  newsource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  res := search_obj->Search("page", 0, -1);
+  res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEq(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
 
@@ -114,10 +106,10 @@ MACRO TestHTMLIndexing()
   // First page has robots "index, nofollow" -> only first page should be indexed
   testfw->CommitWork();
 
-  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
-  testfw->WaitConsilioQueueEmpty();
+  newsource->RebuildGroup(ToString(testfile->id));
+  newsource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  res := search_obj->Search("page", 0, -1);
+  res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
 
@@ -128,17 +120,16 @@ MACRO TestHTMLIndexing()
   testfile->UpdateData(GetTestPage(testfile->id, TRUE, TRUE));
   testfw->CommitWork();
 
-  CheckConsilioGroup(contentsourceid, ToString(testfile->id));
-  testfw->WaitConsilioQueueEmpty();
+  newsource->RebuildGroup(ToString(testfile->id));
+  newsource->WaitForIndexingDone([ verbose := TRUE ]);
 
-  res := search_obj->Search("page", 0, -1);
+  res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(0, res.totalcount);
 }
 
 RunTestframework(
     [ PTR TestHTMLIndexing ],
-    [ consilio := TRUE
-    , testusers :=
+    [ testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
         ]
     ]);
