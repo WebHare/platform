@@ -2,6 +2,9 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -29,4 +32,15 @@ MACRO TestAppLayout()
   TestEq("/", testfw->browser->GetResponseHeader("Service-Worker-Allowed"));
 }
 
-RunTestframework([ PTR TestAppLayout ]);
+ASYNC MACRO TestProps()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), OpenSiteByName("webhare_testsuite.pwa")->OpenByPath("pwatest")->id));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+}
+
+
+RunTestframework([ PTR TestAppLayout
+                 , PTR TestProps
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]
+                    ]);

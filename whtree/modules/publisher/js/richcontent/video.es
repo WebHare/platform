@@ -2,6 +2,7 @@ import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./video.css";
 import "../internal/rtd.lang.json";
+import * as consenthandler from '@mod-publisher/js/analytics/consenthandler.es';
 
 
 let youtubedomain = 'www.youtube.com';
@@ -122,10 +123,10 @@ function launchVideo(node, video, opts)
   switch(video.network)
   {
     case 'youtube':
-      initYouTube(node,video,opts);
+      initYouTube(node,video,opts||{});
       break;
     case 'vimeo':
-      initVimeo(node,video,opts);
+      initVimeo(node,video,opts||{});
       break;
   }
 }
@@ -141,8 +142,6 @@ function initializeVideoElementV1(node)
 function initializeVideoElementV2(node)
 {
   let video = JSON.parse(node.dataset.whVideo);
-  let opts = node.dataset.whVideoOptions ? JSON.parse(node.dataset.whVideoOptions) : {};
-  opts.autoplay=true;
 
   let videonodes = dompack.qSA(node, ".wh-video--activate");
 
@@ -150,7 +149,7 @@ function initializeVideoElementV2(node)
   {
     videonode.addEventListener("click", function()
       {
-        activateVideo(videonode, video, opts);
+        activateVideo(videonode, video);
       });
 
     let playbutton = videonode.querySelector(".wh-video__playbutton");
@@ -160,7 +159,7 @@ function initializeVideoElementV2(node)
 
     playbutton.addEventListener("click", function()
       {
-        activateVideo(videonode, video, opts);
+        activateVideo(videonode, video, { autoplay: true });
       });
 
     playbutton.addEventListener("keypress", function(evt)
@@ -169,8 +168,14 @@ function initializeVideoElementV2(node)
         if (evt.keyCode != 13 && evt.keyCode != 32)
           return;
 
-        activateVideo(videonode, video, opts);
+        activateVideo(videonode, video, { autoplay: true});
       });
+
+    if(video.autoplay) //activate immediately
+      if(node.dataset.whConsentRequired)
+        consenthandler.onConsent(node.dataset.whConsentRequired, () => activateVideo(videonode, { ...video, mute: true }, { autoplay: true }));
+      else
+        activateVideo(videonode, { ...video, mute: true }, { autoplay: true });
   }
 }
 

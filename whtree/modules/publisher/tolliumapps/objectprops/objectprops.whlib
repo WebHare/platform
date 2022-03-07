@@ -1160,7 +1160,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       CATCH (OBJECT<TolliumException> e)
       {
         LogHarescriptException(e);
-        THROW NEW PropertyEditorException(extendprop.extension, e);
+        THROW NEW PropertyEditorException(extendprop.tabsextension, e);
       }
       CATCH (OBJECT e)
       {
@@ -1187,7 +1187,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         CATCH (OBJECT<TolliumException> e)
         {
           LogHarescriptException(e);
-          THROW NEW PropertyEditorException(extendprop.extension, e);
+          THROW NEW PropertyEditorException(extendprop.tabsextension, e);
         }
         CATCH (OBJECT e)
         {
@@ -1295,7 +1295,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         LogHarescriptException(e);
         // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
         // the component, so we can skip this propertyeditor in the next initialization.
-        THROW NEW PropertyEditorException(propeditor.extension, e);
+        THROW NEW PropertyEditorException(propeditor.tabsextension, e);
       }
     }
   }
