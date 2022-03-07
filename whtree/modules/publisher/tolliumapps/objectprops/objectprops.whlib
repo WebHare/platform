@@ -150,7 +150,6 @@ OBJECTTYPE ObjectPropsAPI
                                        , name := extensionsname
                                        , selector := extensionsname
                                        , taboptions := taboptions
-
                                        ]);
   }
 

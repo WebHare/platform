@@ -225,7 +225,7 @@ RECORD FUNCTION RunRestCallInternal(STRING apispecification, STRING method, STRI
     {
       status := "500 Internal error";
       IF(IsWHDebugOptionSet("etr"))
-        message := e->what; //don't leak raw  exceptions unless 'etr' is enabled
+        message := e->what; //don't leak raw exceptions unless 'etr' is enabled
     }
 
     RECORD error := CELL[ message := message ?? status ];
