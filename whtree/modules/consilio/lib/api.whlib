@@ -921,6 +921,7 @@ STATIC OBJECTTYPE ContentSource
   PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     DoWaitForContentSourceDone(this->id, options);
+    RefreshIndexManager(this->catalog->indexmanager.id, this->catalog->id);
   }
 
   /// Get the path this source refers to
