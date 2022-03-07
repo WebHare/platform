@@ -290,7 +290,7 @@ describe("test_compileerrors", (done) =>
       assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
       assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
 
-      result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false, 'cannot load TypeScript in JS');
+      result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
       assert(result.haserrors === true);
     });
   }
