@@ -36,9 +36,9 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
   STRING logline := EncodeJava(logsource) || "\t" || EncodeJava(channel) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(message);
   IF(RecordExists(data))
   {
-  STRING encodeddata := EncodeHSON(data);
-  IF(Length(message)+Length(encodeddata)>127*1024)
-    encodeddata := "-";
+    STRING encodeddata := EncodeHSON(data);
+    IF(Length(message)+Length(encodeddata)>127*1024)
+      encodeddata := "-";
 
     logline := logline || "\t" || encodeddata;
   }
@@ -170,3 +170,13 @@ PUBLIC MACRO LogRPCForSoapClient(STRING logsource, STRING sourcetracker, OBJECT 
   LogRPCForWebbrowser(logsource, sourcetracker, soapclient->__GetBrowser());
 }
 
+/** @short Write a marker with optional text to all primary logfiles
+    @param text Text to write with the mark */
+PUBLIc MACRO WriteLogMarker(STRING text)
+{
+  STRING mark := `--- MARK${text != "" ? `: ${text}` : ''} ---`;
+  LogDebug("system:debug", mark);
+  LogInfo("system:debug", mark, DEFAULT RECORD);
+  ModuleLog("system:rpc", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
+  ModuleLog("system:servicemanager", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
+}

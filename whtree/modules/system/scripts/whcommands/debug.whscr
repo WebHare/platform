@@ -328,11 +328,7 @@ Executed instrs.:   ${stats.instructions}
             [ [ name := "text", type := "param" ]
             ]);
 
-      STRING mark := `--- MARK${args.text != "" ? `: ${args.text}` : ''} ---`;
-      LogDebug("system:debug", mark);
-      LogInfo("system:debug", mark, DEFAULT RECORD);
-      ModuleLog("system:rpc", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
-      ModuleLog("servicemanager", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
+      WriteLogMarker(args.text);
     }
     CASE "setconfig"
     {
