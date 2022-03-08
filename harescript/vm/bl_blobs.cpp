@@ -73,6 +73,22 @@ void GetStreamLength(VarId id_set, VirtualMachine *vm)
         HSVM_Integer64Set(*vm, id_set, HSVM_GetStreamLength(*vm, streamid));
 }
 
+void GetStreamPointer(VarId id_set, VirtualMachine *vm)
+{
+        int32_t streamid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
+        HSVM_Integer64Set(*vm, id_set, HSVM_GetStreamOffset(*vm, streamid));
+}
+
+void SetStreamPointer(VirtualMachine *vm)
+{
+        int32_t streamid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
+        int64_t offset = HSVM_Integer64Get(*vm, HSVM_Arg(1));
+        if (offset < 0)
+            HSVM_ThrowException(*vm, "Canot set the blob stream offset to a negative value");
+        if (!HSVM_SetStreamOffset(*vm, streamid, offset))
+            HSVM_ThrowException(*vm, "Could not set blob stream offset");
+}
+
 void FinishBlob(VarId id_set, VirtualMachine *vm)
 {
         int32_t streamid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
@@ -961,6 +977,7 @@ void CloseZlibCompressor(VirtualMachine *vm)
                 HSVM_ReportCustomError(*vm, "Invalid zlib compressor stream id");
                 return;
         }
+
         HSVM_UnregisterIOObject(*vm, id);
         context->compressingstreams[id].reset();
 }
@@ -1164,6 +1181,8 @@ void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATESTREAM::I:",MakeBlob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSTREAMLENGTH::6:I",GetStreamLength));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSTREAMPOINTER::6:I",GetStreamPointer));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETSTREAMPOINTER:::I6",SetStreamPointer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MAKEBLOBFROMSTREAM::X:I",FinishBlob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATEZIPARCHIVEINTERNAL::I:",CreateArchive));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_ADDFILETOARCHIVE:::ISXD",AddFileToArchive));

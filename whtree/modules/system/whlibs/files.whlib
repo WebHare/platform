@@ -176,9 +176,20 @@ PUBLIC INTEGER FUNCTION CreateStream()
 /** @short Get the length of the stream so far
     @param streamid File ID, as returned by CreateStream
     @return The number of bytes already written to this stream
-    @see PrintTo,SendBlobTo,MakeBlobFromStream */
+    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream */
 PUBLIC INTEGER64 FUNCTION GetStreamLength(INTEGER streamid) __ATTRIBUTES__(EXTERNAL);
 
+/** @short Get the offset of the stream so far
+    @param streamid File ID, as returned by CreateStream
+    @return The offset of the file pointer within the stream
+    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,SetStreamOffset */
+PUBLIC INTEGER64 FUNCTION GetStreamPointer(INTEGER streamid) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Get the length of the stream so far
+    @param streamid File ID, as returned by CreateStream
+    @param newoffset New stream offset. Cannot be negative.
+    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,GetStreamOffset */
+PUBLIC MACRO SetStreamPointer(INTEGER streamid, INTEGER64 newoffset) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short Open an existing file on disk as a blob
     @param path Path to the file to open.
