@@ -467,6 +467,34 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     this->PrepareDialog();
 
     this->UpdatePinned(); // also calls this->ApplyVersioningPolicy();
+
+    IF(ReadRegistryKey("publisher.filemgr.objectpropssidetabs")) //EXPERIMENTAL!
+    {
+      ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
+      FOREVERY(OBJECT page FROM ^maintabs->pages)
+      {
+        page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
+        page->vscroll := TRUE;
+      }
+    }
+    ELSE
+    {
+      ^tablistgrid->visible := FALSE;
+      ^maintabs->RemoveFromParent();
+      ^tablistgrid->parent->InsertComponentBefore(^maintabs,^tablistgrid,TRUE);
+      ^tablistcell->visible := FALSE;
+      ^maintabs->type := "regular";
+
+      FOREVERY(OBJECT page FROM ^maintabs->pages)
+      {
+        page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
+      }
+    }
+  }
+
+  MACRO OnTabChange() //FIXME convert to visibleon. EXPERIMENTAL
+  {
+    ^maintabs->selectedtab := (^tablist->selection ?? ^tablist->rows[0]).page;
   }
 
   MACRO UpdateMakeIndexVisibility()

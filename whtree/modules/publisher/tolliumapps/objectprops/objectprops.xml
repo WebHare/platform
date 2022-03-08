@@ -1,15 +1,23 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         library="objectprops.whlib"
-         gid="tolliumapps.objectprops.objectprops">
+         gid="tolliumapps.objectprops.objectprops"
+         library="objectprops.whlib">
 
-  <screen name="objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
+  <screen name="objectprops"
+          width="80x"
+          height="30x"
+          minwidth="70x"
+          allowresize="true"
+          defaultbutton="ok_button"
+          flags="ispinned"
+          savestate="size"
+          title="">
     <actions>
-      <action name="addtask" tid="tollium:common.actions.add" onexecute="doaddtask" frameflags="!ispinned" />
-      <action name="edittask" tid="tollium:common.actions.edit" onexecute="doedittask" frameflags="!ispinned">
+      <action name="addtask" frameflags="!ispinned" onexecute="doaddtask" tid="~add" />
+      <action name="edittask" frameflags="!ispinned" onexecute="doedittask" tid="~edit">
         <enableon source="tasks" min="1" max="1" />
       </action>
-      <action name="deletetask" tid="tollium:common.actions.delete" onexecute="dodeletetask" frameflags="!ispinned">
+      <action name="deletetask" frameflags="!ispinned" onexecute="dodeletetask" tid="~delete">
         <enableon source="tasks" min="1" max="1" />
       </action>
       <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
@@ -18,135 +26,174 @@
       <action name="cancelrequest" onexecute="docancelrequest" title="" />
       <action name="restore" onexecute="dorestore" title="" />
     </actions>
+
     <compositions>
       <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
     </compositions>
-    <body layout="form" height="1pr" spacers="none">
-      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" visible="false" spacers="left right" borders="bottom">
-        <panel name="versioningmessagepanel" height="1pr" width="1pr" layout="left">
+
+    <body height="1pr" layout="form" spacers="none">
+      <panel name="versioningmessagesbox" backgroundcolor="#FEFFDE" borders="bottom" spacers="left right" visible="false">
+        <panel name="versioningmessagepanel" width="1pr" height="1pr" layout="left">
           <line>
-            <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
-            <text name="revertdraft" title="" valuetid="versioning.revertdraft" action="canceldraft" visible="false" />
-            <text name="withdrawrequest" title="" valuetid="versioning.withdrawrequest" action="cancelrequest" visible="false" />
-            <text name="restoreitem" title="" valuetid="versioning.restore" action="restore" visible="false" />
+            <text name="versioningmessage" width="1pr" title="" value="" wordwrap="true" />
+            <text name="revertdraft" action="canceldraft" title="" valuetid="versioning.revertdraft" visible="false" />
+            <text name="withdrawrequest"
+                  action="cancelrequest"
+                  title=""
+                  valuetid="versioning.withdrawrequest"
+                  visible="false" />
+            <text name="restoreitem" action="restore" title="" valuetid="versioning.restore" visible="false" />
           </line>
         </panel>
         <text name="versioningmovemessage" title="" value="" />
       </panel>
-      <tabs name="maintabs" height="1pr">
-        <tab name="maintab" tid=".maintab">
-          <!-- FIXME do we need this? heading tid=".formtitle" /-->  <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
+      <grid height="1pr" name="tablistgrid">
+        <cell width="25x" name="tablistcell">
+          <list name="tablist"
+                height="1pr"
+                borders="right"
+                columnheaders="false"
+                onselect="ontabchange"
+                selectmode="single"
+                sortable="false">
+            <column name="tab" type="text" title="" />
+          </list>
+        </cell>
+        <cell width="1pr" spacers="none">
+          <tabs name="maintabs" type="server" height="1pr">
+            <tab name="maintab" tid=".maintab">
+              <!-- FIXME do we need this? heading tid=".formtitle" / -->
 
-          <!-- general fields -->
-          <textedit tid="~name" name="name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
-          <textedit tid="tollium:common.labels.title" name="title" width="1pr" maxlength="256" />
-          <textedit name="headertitle" composition="seosettings" cellname="headertitle" width="1pr" maxlength="256" tid="common.seosettings.headertitle" />
-          <textedit name="seotitle" composition="seosettings" cellname="seotitle" width="1pr" maxlength="256" tid="common.seosettings.seotitle" />
-          <textarea tid="tollium:common.labels.description" name="description" height="3gr" maxlength="2048" showcounter="true" />
-          <textarea tid="tollium:common.labels.keywords" name="keywords" height="1gr" maxlength="1024" showcounter="true"/>
-          <panel name="settings"></panel> <!-- this is just an insertion point. fixes #49 -->
+              <!-- FIXME this was box name='settings', we'll probably need to fix it as an insertion point -->
 
-          <!-- link-type specific fields -->
-          <publisher:intextlink name="link" width="1pr" visible="false" />
-          <publisher:browseforobject name="path" acceptfolders="false" width="1pr" visible="false" onchange="onpathchange" />
+              <!-- general fields -->
+              <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
+              <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+              <textedit composition="seosettings"
+                        cellname="headertitle"
+                        name="headertitle"
+                        width="1pr"
+                        maxlength="256"
+                        tid="common.seosettings.headertitle" />
+              <textedit composition="seosettings"
+                        cellname="seotitle"
+                        name="seotitle"
+                        width="1pr"
+                        maxlength="256"
+                        tid="common.seosettings.seotitle" />
+              <textarea name="description" height="3gr" maxlength="2048" showcounter="true" tid="~description" />
+              <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
+              <panel name="settings" />  <!-- this is just an insertion point. fixes #49 -->
 
-          <!-- Site-specific fields -->
+              <!-- link-type specific fields -->
+              <publisher:intextlink name="link" width="1pr" visible="false" />
+              <publisher:browseforobject name="path"
+                                         width="1pr"
+                                         acceptfolders="false"
+                                         onchange="onpathchange"
+                                         visible="false" />
 
+              <!-- Site-specific fields -->
 
-
-          <!-- box name=settings endewd here -->
-          <heading tid=".info" name="typeh"/>
-          <line>
-            <text name="type"/>
-            <text name="size"  title=""/> <!--tid=".size"-->
-          </line>
-          <text name="modified" title="" />
-
-          <text name="deleted" tid=".deleted" visible="false" />
-          <text name="originallocation" visible="false" />
-
-          <spacer name="properties" visible="false" /> <!-- this is just an insertion point -->
-
-          <heading name="restrictions" />
-          <line layout="left">
-            <checkbox name="pinobject" title="" onchange="updatepinned" visible="false" />
-            <text name="objectpinned" title="" visible="false" />
-          </line>
-
-          <!-- box name=restictions ended here -->
-
-          <panel name="publishpanel">
-            <!-- Actually a bit of a hack to center the text both horizontally and vertically -->
-            <panel name="notpublished" visible="false">
-              <text name="notpublishedtext" title="" value="" />
-            </panel>
-            <panel  name="publicationsettings">
-              <line layout="left">
-                <checkbox name="publish" title="" labeltid=".publish" />
+              <!-- box name=settings endewd here -->
+              <heading name="typeh" tid=".info" />
+              <line>
+                <text name="type" />
+                <text name="size" title="" />  <!-- tid=".size" -->
               </line>
+              <text name="modified" title="" />
+              <text name="deleted" tid=".deleted" visible="false" />
+              <text name="originallocation" visible="false" />
+              <spacer name="properties" visible="false" />  <!-- this is just an insertion point -->
+              <heading name="restrictions" />
               <line layout="left">
-                <checkbox name="makeindex" title="" labeltid=".makeindex" />
+                <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
+                <text name="objectpinned" title="" visible="false" />
               </line>
-            </panel>
-          </panel>
-        </tab>
-        <tab name="seotab" title="">
-          <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags"/>
-          <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
-          <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
-          <textedit composition="seosettings"
-                    cellname="customrobots"
-                    name="customrobots"
-                    width="1pr"
-                    tid="common.seosettings.customrobots"
-                    placeholdertid="common.seosettings.customrobots-placeholder"/>
 
-          <publisher:browseforobject composition="seosettings"
-                             cellname="canonical"
-                             name="canonical"
-                             width="1pr"
-                             acceptfolders="false"
-                             tid="common.seosettings.canonical" />
-          <textarea composition="seosettings" cellname="comments" width="1pr" tid="~comments" placeholdertid=".comments-placeholder" height="3gr"/>
-          <spacer name="seotabinsertpoint" visible="false" /> <!-- this is just an insertion point -->
-        </tab>
-        <tab name="tasksettings" height="1pr">
-          <grid height="1pr">
-            <col width="1pr" />
-            <col />
-            <row height="1pr">
-              <cell>
-                <list name="tasks"
-                      gid=".tasks"
-                      selectmode="single"
-                      emptytid=".notasks"
-                      sortcolumn="when"
-                      sortable="false"
-                      width="1pr" minwidth="60x" height="1pr" minheight="6x">
-                  <column name="task" type="text" />
-                  <column name="when" type="datetime" precision="minutes" width="16x" storeutc="true" />
-                </list>
-              </cell>
-              <cell>
-                <panel name="tasksactions">
-                  <button action="addtask" width="1pr" />
-                  <button action="edittask" width="1pr" />
-                  <button action="deletetask" width="1pr" />
+              <!-- box name=restictions ended here -->
+              <panel name="publishpanel">
+                <!-- Actually a bit of a hack to center the text both horizontally and vertically -->
+                <panel name="notpublished" visible="false">
+                  <text name="notpublishedtext" title="" value="" />
                 </panel>
-              </cell>
-            </row>
-          </grid>
-        </tab>
-        <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
-          <includefragment fragment="consilio:report.objectreport" name="objectreport" />
-        </tab>
-      </tabs>
+                <panel name="publicationsettings">
+                  <line layout="left">
+                    <checkbox name="publish" labeltid=".publish" title="" />
+                  </line>
+                  <line layout="left">
+                    <checkbox name="makeindex" labeltid=".makeindex" title="" />
+                  </line>
+                </panel>
+              </panel>
+            </tab>
+            <tab name="seotab" title="">
+              <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
+              <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
+              <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
+              <textedit composition="seosettings"
+                        cellname="customrobots"
+                        name="customrobots"
+                        width="1pr"
+                        placeholdertid="common.seosettings.customrobots-placeholder"
+                        tid="common.seosettings.customrobots" />
+              <publisher:browseforobject composition="seosettings"
+                                         cellname="canonical"
+                                         name="canonical"
+                                         width="1pr"
+                                         acceptfolders="false"
+                                         tid="common.seosettings.canonical" />
+              <textarea composition="seosettings"
+                        cellname="comments"
+                        width="1pr"
+                        height="3gr"
+                        placeholdertid=".comments-placeholder"
+                        tid="~comments" />
+              <spacer name="seotabinsertpoint" visible="false" />  <!-- this is just an insertion point -->
+            </tab>
+            <tab name="tasksettings" height="1pr">
+              <grid>
+                <col width="1pr" />
+                <col />
+                <row height="1pr">
+                  <cell>
+                    <list name="tasks"
+                          width="1pr"
+                          height="8gr"
+                          minwidth="60x"
+                          minheight="6x"
+                          emptytid=".notasks"
+                          gid=".tasks"
+                          selectmode="single"
+                          sortable="false"
+                          sortcolumn="when">
+                      <column name="task" type="text" />
+                      <column name="when" type="datetime" width="16x" precision="minutes" storeutc="true" />
+                    </list>
+                  </cell>
+                  <cell>
+                    <panel name="tasksactions">
+                      <button width="1pr" action="addtask" />
+                      <button width="1pr" action="edittask" />
+                      <button width="1pr" action="deletetask" />
+                    </panel>
+                  </cell>
+                </row>
+              </grid>
+            </tab>
+            <tab name="linkcheck" layout="left" tid=".linkcheck" visible="false">
+              <includefragment name="objectreport" fragment="consilio:report.objectreport" />
+            </tab>
+          </tabs>
+        </cell>
+      </grid>
     </body>
+
     <footer layout="right">
       <line>
         <button name="requestapproval_button" action="requestapproval" tid=".requestapproval" visible="false" />
-        <button name="ok_button" tid="tollium:common.actions.ok" tolliumresult="ok" />
-        <button name="cancel_button" tid="tollium:common.actions.cancel" tolliumresult="cancel" />
+        <button name="ok_button" tid="~ok" tolliumresult="ok" />
+        <button name="cancel_button" tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>
   </screen>

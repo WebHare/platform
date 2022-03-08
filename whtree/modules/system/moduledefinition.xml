@@ -2046,10 +2046,11 @@ The full base URL on which this site will be published, calculated by combining 
         <obsoletekey name="devbrowsertargets" />
       </node>
       <node name="filemgr">
-        <boolean name="showwhfsprivate" description="Show the WebHare private folder (/whfs-private/)" />
-        <boolean name="showwebharebackend" description="Show the WebHare backend site (/WebHare backend)" />
-        <boolean name="showblitoverlays" description="Show object status overlays in de Publisher" initialval="false" />
+        <obsoletekey name="showwhfsprivate" />
+        <obsoletekey name="showwebharebackend" />
+        <obsoletekey name="showblitoverlays"/>
         <boolean name="defaultautotitles" description="Default autotitle setting" initialval="false" />
+        <boolean name="objectpropssidetabs" description="Enable experimental objectprops sidetabs" initialval="false" />
       </node>
       <node name="trashcan">
         <integer name="trashcanexpire" initialval="90" description="Expiry time for trashcan items in days (0 to disable)" />
