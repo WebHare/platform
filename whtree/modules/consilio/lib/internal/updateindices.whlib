@@ -219,14 +219,8 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         }
         ELSE
         {
-          indexrec :=
-              [ id := MakeAutonumber(consilio.indices, "id")
-              , type := whconstant_consilio_catalogtype_moduleindex
-              , name := indexname
-              , priority := setpriority
-              ];
-          INSERT indexrec INTO consilio.indices;
-          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
+          OBJECT newindex := CreateConsilioCatalog(indexname, [ priority := setpriority, managed := FALSE ]);
+          indexrec := CELL[ newindex->id, name := indexname ];
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
       }

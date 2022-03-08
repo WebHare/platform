@@ -469,7 +469,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
   IF (NOT (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1))
-    THROW NEW Exception("Invalid index for GetIndexManagerMapping");
+    THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
   RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);

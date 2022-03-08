@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+OBJECT trans := OpenPrimary();
+
+IF(trans->ColumnExists("consilio","indices","id"))
+{
+  trans->BeginWork();
+  UPDATE consilio.indices SET indexname := "c_" || ToLowercase(EncodeBase16(DecodeBase64(GenerateUFS128BitId()))) WHERE indexname = "";
+  trans->CommitWork();
+}

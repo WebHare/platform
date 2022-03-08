@@ -10,6 +10,7 @@
   </meta>
 
   <servicemanager>
+    <runonce tag="fixindexnames" script="scripts/runonce/fixindexnames.whscr" when="afterschemacreation" />
     <runonce tag="setcontentsourcefsobjects" script="scripts/runonce/setcontentsourcefsobjects.whscr" when="poststart" />
     <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
@@ -139,8 +140,8 @@
           Type of index: 0 regular index, 1 module index, 2 fieldgroup
         </d:documentation>
       </d:integer>
-      <d:varchar name="indexname" maxlength="128">
-        <d:documentation>Index name (elasticsearch)</d:documentation>
+      <d:varchar name="indexname" maxlength="128" nullable="false">
+        <d:documentation>Index name in OpenSearch</d:documentation>
       </d:varchar>
       <d:varchar name="definedby" maxlength="512">
         <d:documentation>Source where we last saw this index</d:documentation>
