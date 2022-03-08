@@ -511,6 +511,10 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
     IF (__indexmanager_debugall OR result != SearchOk)
       LogDebug("IndexManager", "EnsureIndexManagerMapping", indexid, mapping, result, response);
   }
+  ELSE
+  {
+    THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
+  }
   RETURN result;
 }
 

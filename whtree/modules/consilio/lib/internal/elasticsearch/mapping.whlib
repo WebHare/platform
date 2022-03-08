@@ -33,7 +33,11 @@ RECORD FUNCTION GetFieldDefinition(STRING name, STRING type, RECORD parentstae)
 
 PUBLIC RECORD FUNCTION GetIndexFieldDefinition(STRING name)
 {
-  RETURN GetFieldDefinition(name, 'index', defaultparentstate);
+  OBJECT node := GetIndexFieldDefinitionNode(name, "catalog") ?? GetIndexFieldDefinitionNode(name, "index");
+  IF(NOT ObjectExists(node))
+    THROW NEW Exception(`Cannot find catalog mapping for '${name}'`);
+
+  RETURN ParseIndexField(node, Tokenize(name,':')[0], defaultparentstate);
 }
 PUBLIC RECORD FUNCTION GetFieldgroupFieldDefinition(STRING fieldgroup, BOOLEAN strict)
 {
@@ -59,6 +63,13 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
     state.strict := ParseXSBoolean(fieldnode->GetAttribute("strict"));
 
   RECORD ARRAY properties;
+
+  IF(fieldnode->localname="catalog")
+    FOREVERY(STRING fieldgroup FROM ParseXSList(fieldnode->GetAttribute("fieldgroups")))
+    {
+      RECORD subresult := GetFieldDefinition(QualifyName(module, fieldgroup), "fieldgroup", state);
+      properties := properties CONCAT subresult.properties;
+    }
 
   FOREVERY(OBJECT subfield FROM fieldnode->ListChildren("*","*"))
   {
