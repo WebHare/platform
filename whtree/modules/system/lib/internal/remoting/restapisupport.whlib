@@ -1188,11 +1188,11 @@ PUBLIC STATIC OBJECTTYPE RestTester
         IF(RecordExists(traceinfo) AND CellExists(traceinfo,'error'))
         {
           exc->what := "Remote client error: " || traceinfo.error.message;
-
-          exc->trace := RECORD ARRAY(traceinfo.error.trace)
-                        CONCAT
-                        //experimental: try to make it more clear we transferred servers
-                        [[ col := 0, filename := "___restclient_to_restserver___", func := prep.url, line := 0]];
+          IF(CellExists(traceinfo.error,'trace'))
+            exc->trace := RECORD ARRAY(traceinfo.error.trace)
+                          CONCAT
+                          //experimental: try to make it more clear we transferred servers
+                          [[ col := 0, filename := "___restclient_to_restserver___", func := prep.url, line := 0]];
         }
       }
       CATCH(OBJECT e)

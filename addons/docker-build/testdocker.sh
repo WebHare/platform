@@ -467,10 +467,10 @@ create_container()
   echo "`date` Created container with id: $CONTAINERID"
   eval TESTENV_CONTAINER$NR=\$CONTAINERID
 
-  if [[ "$CI_RUNNER_DESCRIPTION" =~ ^.+\.docker$ ]]; then # Running on our infra, so predictable paths
+  if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
     echo ""
-    echo "To access the runner:    SV ssh ${CI_RUNNER_DESCRIPTION/.*}"
-    echo "To access the container: SV ssh ${CI_RUNNER_DESCRIPTION/-*} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
+    echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
+    echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
     echo ""
   fi
 

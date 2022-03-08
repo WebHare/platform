@@ -71,6 +71,30 @@ MACRO EnsurePrimary()
   }
 }
 
+PUBLIC RECORD FUNCTION ParseNoticeLogLine(STRING line)
+{
+  STRING ARRAY linetoks := Tokenize(line,"\t");
+  IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
+    RETURN DEFAULT RECORD;
+  IF (Length(linetoks) < 5)
+    RETURN DEFAULT RECORD;
+
+  STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
+  STRING source := Substring(linetoks[0], Length(whentext)+3);
+  STRING encodeddata_raw := Length(linetoks) > 5 ? linetoks[5] : "";
+
+  RETURN
+      [ when :=            MakeDateFromText(whentext)
+      , source :=          source
+      , channel :=         linetoks[1]
+      , srhid :=           linetoks[2]
+      , externalsource :=  DecodeJava(linetoks[3])
+      , message :=         DecodeJava(linetoks[4])
+      , encodeddata_raw := encodeddata_raw
+      , data :=            encodeddata_raw IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
+      ];
+}
+
 /** Get a list of errors from today's error log
     @cell(integer) options.count Number of errors to get
     @return List of notice errors
@@ -120,27 +144,8 @@ PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAU
 
     FOREVERY (STRING line FROM lines)
     {
-      STRING ARRAY linetoks := Tokenize(line,"\t");
-      IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
-        CONTINUE;
-      IF (Length(linetoks) < 4)
-        CONTINUE;
-
-      STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
-      STRING source := Substring(linetoks[0], Length(whentext)+3);
-
-      RECORD linedata :=
-          [ when :=            MakeDateFromText(whentext)
-          , source :=          source
-          , channel :=         linetoks[1]
-          , srhid :=           linetoks[2]
-          , externalsource :=  DecodeJava(linetoks[3])
-          , message :=         DecodeJava(linetoks[4])
-          , encodeddata_raw := linetoks[5]
-          , data :=            linetoks[5] IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
-          ];
-
-      IF (linedata.message IN [ "harescript-error", "javascript-error" ])
+      RECORD linedata := ParseNoticeLogLine(line);
+      IF (RecordExists(linedata) AND linedata.message IN [ "harescript-error", "javascript-error" ])
         INSERT linedata INTO parterrors AT END;
     }
 

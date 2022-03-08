@@ -212,6 +212,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       }
 
       MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
+      WriteLogMarker("Test " || testinfo.testname || (testinfo.xfail ? " (xfailed)" : ""));
 
       INSERT testinfo.testname INTO result.executed AT END;
       BOOLEAN success;
