@@ -181,25 +181,20 @@ OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
 <
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
-    STRING ARRAY linetoks := Tokenize(line,"\t");
-    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
-      RETURN DEFAULT RECORD;
-    IF (Length(linetoks) < 4)
+    RECORD parsedline := ParseNoticeLogLine(line);
+    IF(NOT RecordExists(parsedline))
       RETURN DEFAULT RECORD;
 
-    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
-    STRING source := Substring(linetoks[0], Length(whentext)+3);
-
-    RECORD retval := [ raw :=             line
-                     , when :=            MakeDateFromText(whentext)
-                     , source :=          source
-                     , code :=            linetoks[1]
-                     , srhid :=           linetoks[2]
-                     , externalsource :=  linetoks[3]
-                     , type :=            linetoks[4]
-                     , message :=         DecodeHSON(linetoks[5])
-                     ];
-    RETURN retval;
+    //translate. we should probably align the record structure of both readers
+    RETURN CELL[ raw :=             parsedline
+               , parsedline.when
+               , parsedline.source
+               , code :=            parsedline.channel
+               , parsedline.srhid
+               , parsedline.externalsource
+               , type :=            parsedline.message
+               , message :=         parsedline.data
+               ];
   }
 >;
 
