@@ -112,7 +112,6 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    //TODO allow a way to select 'raw'/no-ngram mode so we can adopt <index> too
     OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag);
     IF(catalog->definedby != want.definedby)
       catalog->UpdateCatalog( CELL[ want.definedby ]);
