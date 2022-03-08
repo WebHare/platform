@@ -2312,9 +2312,7 @@ void SemanticChecker::V_SwitchStatement (SwitchStatement *obj, bool)
                         VerifyTypeWithCast(*it2, type);
                         if (!context.errorhandler.AnyErrors())
                         {
-                                if (!carim->Optimize(*it2))
-                                    context.errorhandler.AddErrorAt((*it2)->position, Error::ExpectedConstantExpression);
-                                else
+                                if (carim->ForceOptimizeWithCells(*it2))
                                 {
                                         Constant *value = dynamic_cast<Constant *>(*it2);
                                         if (!value)

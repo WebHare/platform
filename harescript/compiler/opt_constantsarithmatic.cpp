@@ -22,6 +22,7 @@ Opt_ConstantsArithmatic::Opt_ConstantsArithmatic(AstCoder *coder, TypeStorage &t
 , context(context)
 , stackm(context.stackm)
 , forceconstexpr(false)
+, withcells(false)
 {
 }
 
@@ -57,6 +58,7 @@ bool Opt_ConstantsArithmatic::BinaryOp(LineColumn pos, void (StackMachine::* sta
         }
         catch (VMRuntimeError &e)
         {
+                forceconstexpr = false;
                 errorhandler.AddErrorAt(pos, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
                 stackm.PopVariablesN(2);
                 return false;
@@ -71,6 +73,7 @@ bool Opt_ConstantsArithmatic::UnaryOp(LineColumn pos, void (StackMachine::* stac
         }
         catch (VMRuntimeError &e)
         {
+                forceconstexpr = false;
                 errorhandler.AddErrorAt(pos, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
                 stackm.PopVariablesN(1);
                 return false;
@@ -91,6 +94,7 @@ int32_t Opt_ConstantsArithmatic::Compare(LineColumn pos)
         }
         catch (VMRuntimeError &e)
         {
+                forceconstexpr = false;
                 errorhandler.AddErrorAt(pos, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
                 stackm.PopVariablesN(2);
         }
@@ -108,6 +112,7 @@ bool Opt_ConstantsArithmatic::CastOp(LineColumn pos, VariableTypes::Type totype,
         }
         catch (VMRuntimeError &e)
         {
+                forceconstexpr = false;
                 errorhandler.AddErrorAt(pos, static_cast<Error::Codes>(e.code), e.msg1, e.msg2);
                 stackm.PopVariablesN(1);
                 return false;
@@ -154,6 +159,18 @@ Constant * Opt_ConstantsArithmatic::ForceOptimize(Rvalue* & obj)
         forceconstexpr = true;
         Constant *retval = Optimize(obj);
         forceconstexpr = saved_forceconstexpr;
+        return retval;
+}
+
+Constant * Opt_ConstantsArithmatic::ForceOptimizeWithCells(Rvalue* & obj)
+{
+        bool saved_forceconstexpr = forceconstexpr;
+        bool saved_withcells = withcells;
+        forceconstexpr = true;
+        withcells = true;
+        Constant *retval = Optimize(obj);
+        forceconstexpr = saved_forceconstexpr;
+        withcells = saved_withcells;
         return retval;
 }
 
@@ -913,7 +930,23 @@ Optimizable Opt_ConstantsArithmatic::V_RecordCellDelete (RecordCellDelete *, Emp
 }
 Optimizable Opt_ConstantsArithmatic::V_RecordColumnConst (RecordColumnConst *obj, Empty)
 {
-        Optimize(obj->record);
+        Constant *c = Optimize(obj->record);
+        if (forceconstexpr && withcells && c && c->type == VariableTypes::Record)
+        {
+                ColumnNameId colid = stackm.columnnamemapper.GetMapping(obj->name);
+                VarId cell = stackm.RecordCellGetByName(c->var, colid);
+
+                if (cell)
+                {
+                        context.stackm.CopyFrom(Push(), cell);
+                        return Multiple;
+                }
+                else
+                {
+                        forceconstexpr = false;
+                        context.errorhandler.AddErrorAt(obj->position, Error::UnknownColumn, obj->name);
+                }
+        }
         return None;
 }
 Optimizable Opt_ConstantsArithmatic::V_ObjectExtend(AST::ObjectExtend *obj, Empty)
