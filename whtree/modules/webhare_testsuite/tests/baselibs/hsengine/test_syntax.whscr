@@ -683,6 +683,15 @@ __CONSTREF RECORD b := [ d := cref ];
 CONSTANT RECORD c := CELL[ ...b ];
 //                            ^ E:222 # Expected a constant expression
 `);
+}
+
+MACRO LocationsTest()
+{
+  // Column position was wrong for 0x and 0b encoded numbers
+  TestAnnotatedCompile(`<?wh
+INTEGER value := 0x11 + 0b110 + "a";
+//                              ^ E:169 STRING # Expected a numeric
+`);
 
 }
 
@@ -701,3 +710,4 @@ ConditionalCompileTest();
 ShadowingTest();
 SuggestParenthesesTest();
 ConstantsTest();
+LocationsTest();
