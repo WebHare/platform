@@ -21,6 +21,7 @@ require('../pages/formtest/formtest');
 require('../pages/wrdauthtest/wrdauthtest');
 require('../pages/listtest/listtest');
 require('../pages/customform2/customform2');
+require('../pages/customformdef/customformdef');
 
 /////////////////////////////////////////
 // Gallery (wh-gallery)

@@ -1,0 +1,31 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformdef"
+            kind="virtualfile"
+            extensions=".customformdef"
+            icon="tollium:files/application_x-webhare-survey"
+            title="WebHare testsuite customformdef type">
+    <dynamicexecution routerfunction="customformdef.whlib#CustomFormDefRouter" />
+    <formdefinitions path="customformdef.formdef.xml" />
+    <formintegration allowsubmittype="true" />
+    <setobjecteditor screen="#editcustomformdef" />
+  </filetype>
+
+  <apply>
+    <to type="file" parentmask="/webtools/" />
+    <allowfiletype typemask="http://www.webhare.net/xmlns/webhare_testsuite/customformdef" />
+  </apply>
+
+  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
+          name="editcustomformdef"
+          library="customformdef.whlib">
+    <actions>
+      <action name="results" onexecute="doresults" />
+    </actions>
+    <body>
+      <button title="Results" action="results" />
+    </body>
+  </screen>
+
+
+</siteprofile>

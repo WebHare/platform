@@ -1,0 +1,19 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms"
+                 library="customformdef.whlib">
+
+  <form name="customform" jshandler="webhare_testsuite:customformdef" objectname="customform">
+    <page>
+      <textedit name="name" title="Name" />
+      <textedit name="email" title="Email" required="true" validationchecks="email" />
+    </page>
+
+    <page role="thankyou">
+      <richtext name="thankyou" title="">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>Thank you!</p>
+        </body>
+      </richtext>
+    </page>
+  </form>
+
+</formdefinitions>

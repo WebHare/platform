@@ -6,6 +6,11 @@
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib" EXPORT OpenForm;
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 
 /** @short Open a formdefinition WHFS file
@@ -24,10 +29,42 @@ PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DE
 */
 PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ formname := "webtoolform" ], options);
-  OBJECT formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+  options := ValidateOptions([ formdefresource := "", formname := "webtoolform" ], options);
+  OBJECT formdef;
+  IF (options.formdefresource != "")
+  {
+    TRY
+    {
+      BLOB formdefxml := GetWebHareResource(options.formdefresource);
+      OBJECT formdeffile := CreateNewFormdefinitionsFile();
+      formdeffile->ImportFromRecord([ formtext := formdefxml ]);
+      formdef := formdeffile->OpenFormDefinition(options.formname);
+    }
+    CATCH (OBJECT e)
+    {
+      LogHareScriptException(e);
+    }
+  }
+  ELSE
+  {
+    formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+  }
   IF(NOT ObjectExists(formdef))
     RETURN DEFAULT OBJECT;
 
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef);
+}
+
+PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid)
+{
+  RECORD storehandler :=
+      [ handlertype := `${xmlns_forms}#storeresultshandler`
+      , guid := ""
+      , condition := DEFAULT RECORD
+      , settings := CELL[]
+      , handlertask := ""
+      , handlertaskfor := "submit"
+      , handlerobject := "mod::publisher/lib/webtools/formhandlers/storeresults.whlib#StoreResultsHandler"
+      ];
+  RETURN InstantiateFormHandler(form, storehandler, formid);
 }

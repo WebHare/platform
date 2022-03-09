@@ -64,12 +64,12 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                        FROM tostorage.attachments;
     }
 
-    IF(RecordExists(form->pagedata))
+    IF(MemberExists(form, "pagedata") AND RecordExists(form->pagedata))
       INSERT CELL pagedata := form->pagedata INTO storerow;
 
     // Store encoded results as blob if too large for string field
     RECORD store := PrepareAnyForDatabase(storerow);
-    OBJECT formobject := OpenWHFSObject(form->__form.webtoolformid);
+    OBJECT formobject := OpenWHFSObject(this->__handlerinfo.formid);
 
     // Check if we have a logged in WRD user
     OBJECT wrdauthplugin := form->GetWRDAuthPlugin();

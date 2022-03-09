@@ -602,6 +602,30 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 }
 
 
+PUBLIC BOOLEAN FUNCTION RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ uselanguage := "" ], options);
+  IF (options.uselanguage = "")
+  {
+    OBJECT applytester := GetApplyTesterForObject(formresults->GetStorageObject()->id);
+    IF (ObjectExists(applytester))
+      options.uselanguage := applytester->GetSiteLanguage();
+  }
+  IF (options.uselanguage = "")
+    options.uselanguage := parentscreen->contexts->user->language;
+
+  parentscreen->RunScreen("mod::publisher/tolliumapps/formedit/results.xml#results", CELL
+      [ fsobjid := formresults->GetStorageObject()->id
+      , formobj := formresults->__formdef
+      , options.uselanguage
+      , testablehandlers := RECORD[]
+      , showpending := FALSE
+      ]);
+
+  RETURN TRUE;
+}
+
+
 /** Show a single form result
     @param parentscreen Screen invoking us
     @param formresults Form results
@@ -638,4 +662,3 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
           ]);
   RETURN TRUE;
 }
-

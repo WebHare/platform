@@ -1,0 +1,64 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
+
+PUBLIC OBJECT FUNCTION CustomFormDefRouter(OBJECT webdesign)
+{
+  IF (GetFormWebVariable("error") = "formunavailable")
+    RETURN NEW SimpleWebPage(PTR EmbedWittyComponent("formunavailable", [ why := "The form is currently unavailable" ]));
+  RETURN NEW CustomFormDefPage;
+}
+
+PUBLIC STATIC OBJECTTYPE CustomFormDefPage EXTEND WebPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    RETURN PTR this->webdesign->OpenForm("customform")->RenderForm();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CustomForm EXTEND FormBase
+<
+  RECORD FUNCTION Submit(RECORD extradata)
+  {
+    RECORD options := CELL
+        [ idfieldvalue := "registrationguid"
+        , guid := GenerateUFS128BitId()
+        ];
+    OBJECT work := this->BeginWork();
+    OBJECT storehandlerobject := InitializeStoreResultsHandler(this, this->formcontext->targetobject->id);
+    RECORD submitresult := storehandlerobject->Submit(this, extradata, options);
+
+    RETURN [ success := work->Finish(), resultsguid := options.guid ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditCustomFormDef EXTEND TolliumScreenBase
+<
+  OBJECT formobject;
+
+  MACRO Init(RECORD data)
+  {
+    this->formobject := OpenWHFSObject(data.id);
+  }
+
+  MACRO DoResults()
+  {
+    OBJECT formresults := OpenFormFileResults(this->formobject,
+        [ formdefresource := Resolve("customformdef.formdef.xml")
+        , formname := "customform"
+        ]);
+    RunFormResultsDialog(this, formresults);
+  }
+>;
