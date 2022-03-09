@@ -602,7 +602,12 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 }
 
 
-PUBLIC BOOLEAN FUNCTION RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECORD options DEFAULTSTO DEFAULT RECORD)
+/** Show a single form result
+    @param parentscreen Screen invoking us
+    @param formresults Form results
+    @cell(string) options.uselanguage The language to show the results in, defaults to the form's language, falls back to the
+        current user's language */
+PUBLIC MACRO RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ uselanguage := "" ], options);
   IF (options.uselanguage = "")
@@ -621,8 +626,6 @@ PUBLIC BOOLEAN FUNCTION RunFormResultsDialog(OBJECT parentscreen, OBJECT formres
       , testablehandlers := RECORD[]
       , showpending := FALSE
       ]);
-
-  RETURN TRUE;
 }
 
 

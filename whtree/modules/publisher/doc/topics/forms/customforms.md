@@ -122,21 +122,36 @@ submission has succeeded (ie no errors).
 ## Witty fields
 The following witty fields are available when setting up the form template.
 
-- formrender:
-Renders the complete form, including `<form>` and `</form>`.
+- `[formrender]`: Renders the complete form, including `<form>` and `</form>`.
+- `[formattributes]`: Prints the final part of a `<form>` tag. Use like this: `<form class="wh-form" [form.formattributes]>`
+- `[formallfields]`: Renders all fields in the form
+- `[formbuttons]`:
+- `[formrender]`:
+- `[<field>.render]`: Renders the specified field
 
-- formattributes:
+## Form storage
 
-Prints the final part of a `<form>` tag. Use like this: `<form class="wh-form" [form.formattributes]>`
+WebHare has a builtin form storage that is used for Publisher (webtool) forms. To use this storage in your custom form, you
+can use a storage handler in your `Submit` handler:
 
-- formallfields:
+```harescript
+    RECORD options := CELL
+        [ idfieldvalue := "email"
+        , guid := GenerateUFS128BitId()
+        ];
+    OBJECT work := this->BeginWork();
+    OBJECT storehandlerobject := InitializeStoreResultsHandler(this, this->formcontext->targetobject->id);
+    RECORD submitresult := storehandlerobject->Submit(this, extradata, options);
+    work->Finish();
+```
 
-Renders all fields in the form
+To view the results for your form, you can use the results dialog by calling `RunFormResultsDialog`:
 
-- formbuttons:
-
-- formrender:
-
-- `<field>`.render
-
-Renders the specified field
+```harescript
+    OBJECT formfile := OpenWHFSObject(id);
+    OBJECT formresults := OpenFormFileResults(formfile,
+        [ formdefresource := Resolve("[path].formdef.xml")
+        , formname := "<formname>"
+        ]);
+    RunFormResultsDialog(this, formresults);
+```

@@ -33,7 +33,7 @@ PUBLIC STATIC OBJECTTYPE CustomForm EXTEND FormBase
   RECORD FUNCTION Submit(RECORD extradata)
   {
     RECORD options := CELL
-        [ idfieldvalue := "registrationguid"
+        [ idfieldvalue := "email"
         , guid := GenerateUFS128BitId()
         ];
     OBJECT work := this->BeginWork();

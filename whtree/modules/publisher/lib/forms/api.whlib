@@ -15,7 +15,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 /** @short Open a formdefinition WHFS file
     @param formfile File to open
-    @return AN opened formdefinition
+    @return(object %FormDefinitionsFile) An opened formdefinition
 */
 PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -25,7 +25,10 @@ PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DE
 
 /** @short Open the result storage of a formdefinition WHFS file
     @param formfile File to open
-    @return Form results, or DEFAULT OBJECT if the file does not contain a valid webtool form
+    @cell(string) options.formname The name of the form to open the results for, defaults to `webtoolform` for webtool forms
+    @cell(string) options.formdefresouce The resource name of a custom form definitions file, defaults to the form definitions
+        file for the formfile object if it's a webtool form file
+    @return(object %WHFSForm) Form results, or DEFAULT OBJECT if the file does not contain a valid webtool form
 */
 PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -55,6 +58,11 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef);
 }
 
+/** @short Initialize a webtool form storage handler
+    @param form The form object this storage handler is storing the results for
+    @param formid The id of the form file to store the results
+    @return(object %StoreResultsHandler) The store results handler
+*/
 PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid)
 {
   RECORD storehandler :=
