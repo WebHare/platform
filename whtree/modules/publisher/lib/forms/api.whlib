@@ -80,7 +80,7 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
     @cell(string) idfieldvalue The name of the field that should have a unique value across all form results
     @cell(boolean) isedit If this is an edit of an existing result
     @cell(boolean) ispending If this is a pending result that has to be confirmed before it's final
-    @return(object %StoreResultsHandler) The store results handler
+    @return Submission result
 */
 PUBLIC RECORD FUNCTION StoreFormResults(OBJECT form, RECORD extradata, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
