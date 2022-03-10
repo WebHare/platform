@@ -1,0 +1,76 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+RECORD FUNCTION CreateDummyImage(INTEGER x, INTEGER y)
+{
+  OBJECT canvas := CreateEmptyCanvas(x,y,ColorWhite);
+  BLOB data := canvas->ExportAsPNG(FALSE);
+  canvas->Close();
+  RETURN WrapBlob(data, `dummy-${x}x${y}.png`);
+}
+
+ASYNC MACRO TestImgeditExpectations()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" footerbuttons="ok cancel" objectname="${Resolve("screens/helpers.whlib#SubmittingScreen")}">
+      <body>
+        <imgedit name="imgedit1" expectedsize="320x480" minsize="50%" title="Edit 1" infotid="webhare_testsuite:test.richtext"/>
+        <imgedit name="imgedit2" expectedsize="300x200" minsize="50%" recommendedsize="200%" title="Edit 2" />
+      </body>
+    </screen>`)));
+
+  TestEq(FALSE, TT("imgedit1")->enforcingsizechecks, "Initially we're not enforcing any checks yet");
+
+  //Test parsing
+  TestEq("50%", TT("imgedit1")->minsize);
+  TestEq("", TT("imgedit1")->recommendedsize);
+  TestEq("320x480", TT("imgedit1")->expectedsize);
+
+  TEstEq("Dit is bold\nvolgende\nregel",TT("imgedit1")->info);
+
+  TestThrowsLike("*Invalid*dimension*", PTR MemberUpdate(TT("imgedit1"), "expectedsize", "640"));
+  TestThrowsLike("*Invalid*dimension*", PTR MemberUpdate(TT("imgedit1"), "expectedsize", "640 x 320"));
+  TestThrowsLike("*No*percentage*", PTR MemberUpdate(TT("imgedit1"), "expectedsize", "50%"));
+  TestEq("320x480", TT("imgedit1")->expectedsize);
+
+  TT("imgedit1")->expectedsize := "640x480";
+  TestEq("640x480", TT("imgedit1")->expectedsize);
+
+  TT("imgedit1")->value := CreateDummyImage(320,239);
+  TestEq(FALSE, TT("imgedit1")->enforcingsizechecks, "Setting a value doesn't yet enable enforcements");
+
+  TT("imgedit1")->enforcingsizechecks := TRUE; //TODO simulate an action that does this
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*Edit 1*320x240*320x239*" ]);
+
+  TT("imgedit1")->value := CreateDummyImage(320,240);
+
+  /* TODO:
+     - deal with minsize set to percentage but expectedsize being empty (what do we expect to happen? just ignore)
+     - come up with percentages that requires rounding up/down for minsize and test the edge cases so rounding behavior is stable
+     - not failing validation when an existing image is not touched
+  */
+  TestEqLike("*optimal*at least*600x400*", TT("imgedit2")->^imagedimensions->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+
+  //Test whether just setting a value without editing is accepted
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" footerbuttons="ok cancel" objectname="${Resolve("screens/helpers.whlib#SubmittingScreen")}">
+      <body>
+        <imgedit name="imgedit1" expectedsize="320x480" minsize="50%" title="Edit 1" infotid="webhare_testsuite:test.richtext"/>
+      </body>
+    </screen>`)));
+
+  TT("imgedit1")->value := CreateDummyImage(320,239);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //just setting a
+}
+
+RunTestframework([PTR TestImgeditExpectations ]);

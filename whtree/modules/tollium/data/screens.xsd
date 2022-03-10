@@ -120,6 +120,24 @@ To change a <xs:attribute /> for adding descriptions
     <xs:restriction base="tc:ComponentRef" />
   </xs:simpleType>
 
+  <xs:simpleType name="AbsDimensions">
+    <xs:annotation>
+      <xs:documentation>Absolute dimensions</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='\d+x\d+'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Dimensions">
+    <xs:annotation>
+      <xs:documentation>Absolute or relative dimensions</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='(\d+x\d+)|\d+%'/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <!-- A color: #000000-#ffffff, #00000000-#ffffffff (with last two digits specifying alpha) or 'transparent' -->
   <xs:simpleType name="Color">
     <xs:restriction base="tc:Color" />
@@ -2619,12 +2637,37 @@ To change a <xs:attribute /> for adding descriptions
           </xs:annotation>
         </xs:attribute>
         <xs:attributeGroup ref="Onchange" />
-        <xs:attribute name="expectedsize" />
-        <xs:attribute name="minsize" />
-        <xs:attribute name="recommendedsize" />
+        <xs:attribute name="expectedsize" type="AbsDimensions">
+          <xs:annotation>
+            <xs:documentation>The specified recommended minumum image width (to be "useable" in the different places it'll be used, usually for low-DPI displays). The expected size will be shown, but not enforced (use minimagewidth for that purpose). Expected format: "1600x640"</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="minsize" type="Dimensions">
+          <xs:annotation>
+            <xs:documentation>If a newly uploaded/chosen image is less wide than specified it'll be rejected. Examples of supported syntaxes: "1600x640" and "90%" (both the width and height must be at least 90% of the size specified in the expectedsize attribute.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
+        <xs:attribute name="recommendedsize" type="Dimensions">
+          <xs:annotation>
+            <xs:documentation>The specified recommended minumum image height (taking into account all different uses, page layouts and high-DPI displays). This will be shown, but not enforced (use minimageheight for that purpose). Examples of supported syntaxes: "1600x640" and "200%" (for "retina" displays)</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
         <xs:attribute name="aspectratio" />
-        <xs:attribute name="info" />
-        <xs:attribute name="infotid" />
+
+        <xs:attribute name="info">
+          <xs:annotation>
+            <xs:documentation>Text to show as additional information.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="infotid" type="Tid">
+          <xs:annotation>
+            <xs:documentation>The tid to use to show additional information.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
