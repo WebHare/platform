@@ -604,6 +604,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->RunScreen("results.xml#results",
         [ fsobjid := this->GetFormWHFSObjectId()
         , formobj := this->curform
+        , formname := this->curform->name
         , uselanguage := this->uselanguage
         , testablehandlers := this->testablehandlers
         , showpending := ObjectExists(this->confirmationhandler)

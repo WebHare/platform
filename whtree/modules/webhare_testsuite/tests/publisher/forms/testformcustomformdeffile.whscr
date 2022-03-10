@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/testfw/forms.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT formfile;
+
+MACRO BuildForm()
+{
+  testfw->BeginWork();
+
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  formfile := webtoolsfolder->OpenByName("customformdef"); //clean old version to prevent V2 test hitting V1 custom form
+  IF(ObjectExists(formfile))
+    formfile->RecycleSelf();
+
+  OBJECT formtype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/customformdef");
+  TestEq(TRUE, ObjectExists(formtype), "My customtype http://www.webhare.net/xmlns/webhare_testsuite/customformdef is not registered");
+  formfile := webtoolsfolder->CreateFile( [ name := "customformdef", type := formtype->id, publish := TRUE ]);
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(webtoolsfolder->id);
+}
+
+ASYNC MACRO CustomForm()
+{
+  // Get results object for our non-webtool form
+  OBJECT webtoolresults := OpenFormFileResults(formfile, [ formname := "webhare_testsuite:customform#customform" ]);
+
+  // Do a form submission
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD submitrec :=
+      [ name := "P. Giménez & Henkie 😇"
+      , email := "testfw+formtest@beta.webhare.net"
+      ];
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  // Check incoming results
+  TestEq(1, webtoolresults->GetResultsCount());
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEQ("new", submitted.submittype);
+  TestEq(submitrec.name, submitted.response.name);
+  TestEq(submitrec.email, submitted.response.email);
+
+  // Check results screen
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("Results")); // The edit screen for the custom for file has only one button "Results"
+  TestEq(1, Length(TT("^results")->rows));
+  RECORD ARRAY fields := UnpackRecord(TT("^results")->rows[0]);
+  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.name : FALSE));
+  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.email : FALSE));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR CustomForm
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

@@ -605,6 +605,34 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
 /** Show a single form result
     @param parentscreen Screen invoking us
     @param formresults Form results
+    @cell(string) options.uselanguage The language to show the results in, defaults to the form's language, falls back to the
+        current user's language */
+PUBLIC MACRO RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ uselanguage := "" ], options);
+  IF (options.uselanguage = "")
+  {
+    OBJECT applytester := GetApplyTesterForObject(formresults->GetStorageObject()->id);
+    IF (ObjectExists(applytester))
+      options.uselanguage := applytester->GetSiteLanguage();
+  }
+  IF (options.uselanguage = "")
+    options.uselanguage := parentscreen->contexts->user->language;
+
+  parentscreen->RunScreen("mod::publisher/tolliumapps/formedit/results.xml#results", CELL
+      [ fsobjid := formresults->GetStorageObject()->id
+      , formobj := formresults->__formdef
+      , formname := formresults->__formname
+      , options.uselanguage
+      , testablehandlers := RECORD[]
+      , showpending := FALSE
+      ]);
+}
+
+
+/** Show a single form result
+    @param parentscreen Screen invoking us
+    @param formresults Form results
     @param resultguid Result guid
     @cell(string array) options.hidefields List of base fields to hide (ipaddress, ipcountrycode, url, useragent, when)
     @return False if the requested results could not be found */
@@ -638,4 +666,3 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
           ]);
   RETURN TRUE;
 }
-

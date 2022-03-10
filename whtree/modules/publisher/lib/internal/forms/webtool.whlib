@@ -7,7 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
-LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -66,16 +66,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       RETURN;
 
     // Instantiate the fixed store results handler
-    RECORD storehandler :=
-        [ handlertype := `${xmlns_forms}#storeresultshandler`
-        , guid := ""
-        , condition := DEFAULT RECORD
-        , settings := CELL[]
-        , handlertask := ""
-        , handlertaskfor := "submit"
-        , handlerobject := "mod::publisher/lib/webtools/formhandlers/storeresults.whlib#StoreResultsHandler"
-        ];
-    this->storehandlerobject := InstantiateFormHandler(this, storehandler, this->__form.webtoolformid);
+    this->storehandlerobject := InitializeStoreResultsHandler(this, this->__form.webtoolformid);
 
     // Initialize the form handlers
     FOREVERY (RECORD handler FROM this->__form.handlers)

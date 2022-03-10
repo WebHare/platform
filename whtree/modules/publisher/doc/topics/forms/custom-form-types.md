@@ -2,23 +2,16 @@
 
 Siteprofile:
 ```xml
-  <contenttype namespace="http://www.example.net/xmlns/customform">
-    <member name="somedata" type="string" />
-  </contenttype>
   <filetype typedef="http://www.example.net/xmlns/customform"
+            kind="virtualfile"
             extensions=".customform"
             title="WebHare testsuite customform type"
             icon="tollium:files/application_x-webhare-survey"
-            blobiscontent="false"
-            needstemplate="true"
-            isacceptableindex="true"
-            ispublishable="true"
-            ispublishedassubdir="true">
+            isacceptableindex="true">
+    <members>
+      <string name="somedata" />
+    </members>
     <dynamicexecution routerfunction="customform.whlib#CustomFormRouter" />
-  </filetype>
-
-  <apply>
-    <to type="file" filetype="http://www.example.net/xmlns/customform" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
     <extendformeditor settingsextension="customform.xml#props" />
   </apply>

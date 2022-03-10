@@ -15,9 +15,25 @@ LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
 
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+
+PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid)
+{
+  RECORD storehandler :=
+      [ handlertype := `${xmlns_forms}#storeresultshandler`
+      , guid := ""
+      , condition := DEFAULT RECORD
+      , settings := CELL[]
+      , handlertask := ""
+      , handlertaskfor := "submit"
+      , handlerobject := "mod::publisher/lib/webtools/formhandlers/storeresults.whlib#StoreResultsHandler"
+      ];
+  RETURN InstantiateFormHandler(form, storehandler, formid);
+}
 
 PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
 <
@@ -64,12 +80,12 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                        FROM tostorage.attachments;
     }
 
-    IF(RecordExists(form->pagedata))
+    IF(MemberExists(form, "pagedata") AND RecordExists(form->pagedata))
       INSERT CELL pagedata := form->pagedata INTO storerow;
 
     // Store encoded results as blob if too large for string field
     RECORD store := PrepareAnyForDatabase(storerow);
-    OBJECT formobject := OpenWHFSObject(form->__form.webtoolformid);
+    OBJECT formobject := OpenWHFSObject(this->__handlerinfo.formid);
 
     // Check if we have a logged in WRD user
     OBJECT wrdauthplugin := form->GetWRDAuthPlugin();

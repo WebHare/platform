@@ -907,6 +907,7 @@
   <applysiteprofile path="mod::webhare_testsuite/tests/publisher/contentlibraries/libs/contentlibraries.siteprl.xml" />
   <applysiteprofile path="pages/customform/customform.siteprl.xml" />
   <applysiteprofile path="pages/customform2/customform2.siteprl.xml" />
+  <applysiteprofile path="pages/customformdef/customformdef.siteprl.xml" />
 
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
