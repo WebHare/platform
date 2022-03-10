@@ -17,6 +17,7 @@
   <jstest file="testimageoverlays.es" />
   <jstest file="testimageoverlays-mapedit.es" />
   <test script="testimageoverlays.whscr" />
+  <test script="testimgedit-recommendations.whscr" />
   <jstest file="testimgedit.es" />
   <jstest file="testimgedit-refpoint.es" />
   <jstest file="testimgedit-rotate.es" />
