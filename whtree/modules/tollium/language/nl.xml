@@ -652,7 +652,7 @@
       <text tid="imagesizehint-recommendedsize">Voor de optimale weergave moet de afbeelding minimaal <param p="1"/>x<param p="2"/> zijn</text>
       <text tid="invalidextension">De bestandsnaam moet eindigen op '<param p="1"/>'</text>
       <text tid="media_library">Een afbeelding selecteren uit de mediabibliotheek</text>
-      <text tid="moreinfo">Meer info.…</text>
+      <text tid="moreinfo">Meer info…</text>
       <text tid="moreinformation">Meer informatie</text>
       <text tid="no_image">Geen afbeelding ingesteld</text>
       <text tid="other_actions">Andere acties</text>
