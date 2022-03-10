@@ -140,8 +140,7 @@ can use a storage handler in your `Submit` handler:
         , guid := GenerateUFS128BitId()
         ];
     OBJECT work := this->BeginWork();
-    OBJECT storehandlerobject := InitializeStoreResultsHandler(this, this->formcontext->targetobject->id);
-    RECORD submitresult := storehandlerobject->Submit(this, extradata, options);
+    RECORD submitresult := StoreFormResults(this, extradata, options);
     work->Finish();
 ```
 
@@ -149,9 +148,6 @@ To view the results for your form, you can use the results dialog by calling `Ru
 
 ```harescript
     OBJECT formfile := OpenWHFSObject(id);
-    OBJECT formresults := OpenFormFileResults(formfile,
-        [ formdefresource := Resolve("[path].formdef.xml")
-        , formname := "<formname>"
-        ]);
+    OBJECT formresults := OpenFormFileResults(formfile, [ formname := "<formname>" ]);
     RunFormResultsDialog(this, formresults);
 ```

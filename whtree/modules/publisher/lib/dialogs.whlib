@@ -622,6 +622,7 @@ PUBLIC MACRO RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECOR
   parentscreen->RunScreen("mod::publisher/tolliumapps/formedit/results.xml#results", CELL
       [ fsobjid := formresults->GetStorageObject()->id
       , formobj := formresults->__formdef
+      , formname := formresults->__formname
       , options.uselanguage
       , testablehandlers := RECORD[]
       , showpending := FALSE

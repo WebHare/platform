@@ -3,11 +3,13 @@
     @topic forms/api
 */
 
+LOADLIB "wh::crypto.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib" EXPORT OpenForm;
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
-LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
-LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
+LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -26,31 +28,44 @@ PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DE
 /** @short Open the result storage of a formdefinition WHFS file
     @param formfile File to open
     @cell(string) options.formname The name of the form to open the results for, defaults to `webtoolform` for webtool forms
-    @cell(string) options.formdefresouce The resource name of a custom form definitions file, defaults to the form definitions
-        file for the formfile object if it's a webtool form file
     @return(object %WHFSForm) Form results, or DEFAULT OBJECT if the file does not contain a valid webtool form
 */
 PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ formdefresource := "", formname := "webtoolform" ], options);
-  OBJECT formdef;
-  IF (options.formdefresource != "")
+  options := ValidateOptions([ formname := "webtoolform" ], options);
+
+  STRING formdefname;
+  STRING formname := options.formname;
+  IF (options.formname LIKE "*#*")
   {
-    TRY
-    {
-      BLOB formdefxml := GetWebHareResource(options.formdefresource);
-      OBJECT formdeffile := CreateNewFormdefinitionsFile();
-      formdeffile->ImportFromRecord([ formtext := formdefxml ]);
-      formdef := formdeffile->OpenFormDefinition(options.formname);
-    }
-    CATCH (OBJECT e)
-    {
-      LogHareScriptException(e);
-    }
+    formdefname := Tokenize(formname, "#")[0];
+    formname := Substring(formname, Length(formdefname) + 1);
   }
-  ELSE
+
+    // First try opening the form file directly
+  OBJECT formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+
+  // Check if there are formdefinitions applied to the file
+  IF (NOT ObjectExists(formdef))
   {
-    formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+    OBJECT applytester := GetApplyTesterForObject(formfile->id);
+    RECORD formdefs := applytester->GetFormDefinitionFile(formdefname);
+    IF (RecordExists(formdefs))
+    {
+      // We have a form definitions file resource path
+      TRY
+      {
+        // Open the form definitions file by resource path
+        BLOB formdefxml := GetWebHareResource(formdefs.path);
+        OBJECT formdeffile := CreateNewFormdefinitionsFile();
+        formdeffile->ImportFromRecord([ formtext := formdefxml ]);
+        formdef := formdeffile->OpenFormDefinition(formname);
+      }
+      CATCH (OBJECT e)
+      {
+        LogHareScriptException(e);
+      }
+    }
   }
   IF(NOT ObjectExists(formdef))
     RETURN DEFAULT OBJECT;
@@ -60,19 +75,29 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
 
 /** @short Initialize a webtool form storage handler
     @param form The form object this storage handler is storing the results for
-    @param formid The id of the form file to store the results
+    @cell(integer) formid The id of the form file to store the results
+    @cell(string) guid The result guid, defaults to a random guid, can be used to overwrite an existing result
+    @cell(string) idfieldvalue The name of the field that should have a unique value across all form results
+    @cell(boolean) isedit If this is an edit of an existing result
+    @cell(boolean) ispending If this is a pending result that has to be confirmed before it's final
     @return(object %StoreResultsHandler) The store results handler
 */
-PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid)
+PUBLIC RECORD FUNCTION StoreFormResults(OBJECT form, RECORD extradata, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD storehandler :=
-      [ handlertype := `${xmlns_forms}#storeresultshandler`
-      , guid := ""
-      , condition := DEFAULT RECORD
-      , settings := CELL[]
-      , handlertask := ""
-      , handlertaskfor := "submit"
-      , handlerobject := "mod::publisher/lib/webtools/formhandlers/storeresults.whlib#StoreResultsHandler"
-      ];
-  RETURN InstantiateFormHandler(form, storehandler, formid);
+  options := ValidateOptions(
+      [ formid := 0
+      , guid := GenerateUFS128BitId()
+      , idfieldvalue := ""
+      , isedit := FALSE
+      , ispending := FALSE
+      ], options);
+  INTEGER formid := options.formid;
+  DELETE CELL formid FROM options;
+  IF (formid = 0 AND ObjectExists(form->formcontext) AND ObjectExists(form->formcontext->targetobject))
+    formid := form->formcontext->targetobject->id;
+  IF (formid = 0)
+    THROW NEW Exception("Could not determine form file id, please set the formid option");
+
+  OBJECT handler := InitializeStoreResultsHandler(form, formid);
+  RETURN handler->Submit(form, extradata, options);
 }

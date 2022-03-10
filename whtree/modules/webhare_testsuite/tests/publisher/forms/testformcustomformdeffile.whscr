@@ -33,7 +33,7 @@ MACRO BuildForm()
 ASYNC MACRO CustomForm()
 {
   // Get results object for our non-webtool form
-  OBJECT webtoolresults := OpenFormFileResults(formfile, [ formdefresource := "mod::webhare_testsuite/webdesigns/basetest/pages/customformdef/customformdef.formdef.xml", formname := "customform" ]);
+  OBJECT webtoolresults := OpenFormFileResults(formfile, [ formname := "webhare_testsuite:customform#customform" ]);
 
   // Do a form submission
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));

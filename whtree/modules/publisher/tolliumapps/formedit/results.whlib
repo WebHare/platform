@@ -48,7 +48,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     ^migrationexportbutton->visible := this->frame->flags.issupervisor;
     ^migrationimportbutton->visible := this->frame->flags.issupervisor;
 
-    this->formresults := OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), this->form->name, this->form);
+    this->formresults := OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), data.formname, this->form);
     this->exporter := this->formresults->CreateExporter( [ language := data.uselanguage
                                                          , isfullexport := FALSE //don't need extended data
                                                          , formfields := SELECT * FROM this->form->ListFields([ applytester := this->contexts->applytester]) LIMIT 5

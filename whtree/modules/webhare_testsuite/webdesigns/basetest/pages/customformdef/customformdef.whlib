@@ -24,7 +24,7 @@ PUBLIC STATIC OBJECTTYPE CustomFormDefPage EXTEND WebPageBase
 <
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
-    RETURN PTR this->webdesign->OpenForm("customform")->RenderForm();
+    RETURN PTR this->webdesign->OpenForm("webhare_testsuite:customform#customform")->RenderForm();
   }
 >;
 
@@ -37,8 +37,7 @@ PUBLIC STATIC OBJECTTYPE CustomForm EXTEND FormBase
         , guid := GenerateUFS128BitId()
         ];
     OBJECT work := this->BeginWork();
-    OBJECT storehandlerobject := InitializeStoreResultsHandler(this, this->formcontext->targetobject->id);
-    RECORD submitresult := storehandlerobject->Submit(this, extradata, options);
+    RECORD submitresult := StoreFormResults(this, extradata, options);
 
     RETURN [ success := work->Finish(), resultsguid := options.guid ];
   }
@@ -55,10 +54,7 @@ PUBLIC STATIC OBJECTTYPE EditCustomFormDef EXTEND TolliumScreenBase
 
   MACRO DoResults()
   {
-    OBJECT formresults := OpenFormFileResults(this->formobject,
-        [ formdefresource := Resolve("customformdef.formdef.xml")
-        , formname := "customform"
-        ]);
+    OBJECT formresults := OpenFormFileResults(this->formobject, [ formname := "webhare_testsuite:customform#customform" ]);
     RunFormResultsDialog(this, formresults);
   }
 >;
