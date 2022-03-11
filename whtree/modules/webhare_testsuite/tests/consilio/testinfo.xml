@@ -19,14 +19,12 @@
   <test script="test_siteprofile_indices.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_consilioapi.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_consilioapi.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
-  <test script="test_robots.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_robots.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_robots.whscr" />
   <test script="test_customcontent.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_customcontent.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_suggestfields.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_suggestfields.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
-  <test script="test_thesaurus.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_thesaurus.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_thesaurus.whscr" />
   <test script="test_boostwords.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_boostwords.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_parsers.whscr" />
@@ -34,8 +32,7 @@
   <test script="test_publishersearch.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_linkcheck.whscr"/>
   <test script="test_publisher_linkcheck.whscr"/>
-  <test script="test_cleanup.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
-  <test script="test_cleanup.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_cleanup.whscr" />
   <test script="test_pagelists.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_pagelists.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
 

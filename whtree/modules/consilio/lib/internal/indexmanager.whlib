@@ -1825,10 +1825,12 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
 PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
 {
   STRING result := SearchOk;
+  IF(indexid=0)
+    THROW NEW Exception(`Specify the indexid please!`); //it looks like noone was using this, so we can simplify this API further? checking...
 
-  RECORD indexmanager := indexmgrid != 0
+  RECORD indexmanager :=/* indexmgrid != 0
       ? GetIndexManagers(indexmgrid)
-      : GetIndexManagersForIndex(indexid);
+      : */GetIndexManagersForIndex(indexid);
   IF (RecordExists(indexmanager))
   {
     SWITCH (indexmanager.type)
