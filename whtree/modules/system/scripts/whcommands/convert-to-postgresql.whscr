@@ -611,7 +611,15 @@ IF (NOT args.dryrun)
   IF (NOT MoveDiskPath(postgresql_migrate_dbasefolder, postgresql_final_dbasefolder))
     TerminateScriptWithError(`Could not rename dbase folder from '${postgresql_migrate_dbasefolder}' to '${postgresql_final_dbasefolder}'`);
 
-  PRINT(`Migration complete, please restart WebHare\n`);
+  IF(GetWebhareVersionInfo().docker)
+  {
+    PRINT(`Migration complete - RESTART WEBHARE using the following command:\n`);
+    PRINT("`sv restart webhare`\n");
+  }
+  ELSE
+  {
+    PRINT(`Migration complete, please restart WebHare\n`);
+  }
 }
 
 INTEGER totaltime := GetDateTimeDifference(startconversion, GetCurrentDatetime()).msecs;

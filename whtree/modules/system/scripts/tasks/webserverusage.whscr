@@ -115,17 +115,9 @@ MACRO Main()
   {
     // No mintime provided, restart where we left off the last time
     STRING checkpoint := ReadRegistryKey("system.webserver.measure.accesslogcheckpoint");
-
-    IF (checkpoint LIKE "v2:*")
-    {
-      RECORD data := DecodeHSON(SubString(checkpoint, 3));
-      mintime := data.time;
-      reader_checkpoint := data.reader;
-    }
-    ELSE
-    {
-      reader_checkpoint := checkpoint;
-    }
+    RECORD data := DecodeHSON(SubString(checkpoint, 3));
+    mintime := data.time;
+    reader_checkpoint := data.reader;
   }
 
   IF (args.d)
