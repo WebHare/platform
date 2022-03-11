@@ -4,5 +4,5 @@
   <mochanodetest file="test_waitabletimer.es" />
   <mochanodetest file="test_ipc.es" />
   <mochanodetest file="test_utf8.es" />
-  <mochanodetest file="testfinmath.es" />
+  <jstest file="testfinmath.es" />
 </group>
