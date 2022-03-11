@@ -6,6 +6,7 @@
     <page>
       <textedit name="name" />
       <textedit name="email" required="true" validationchecks="email" />
+      <select name="color" type="pulldown" placeholder="Choose" rowkeytype="string" />
     </page>
 
     <page role="thankyou">

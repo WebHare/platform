@@ -608,6 +608,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
         , uselanguage := this->uselanguage
         , testablehandlers := this->testablehandlers
         , showpending := ObjectExists(this->confirmationhandler)
+        , initcustomform := FALSE
         ]);
   }
 
