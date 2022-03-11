@@ -1296,14 +1296,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
             CONTINUE;
           }
 
-          STRING ARRAY babeltranspile;
-          FOREVERY (OBJECT babeltranspilenode FROM assetpacknode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "babeltranspile")->GetCurrentElements())
-          {
-            STRING regex := babeltranspilenode->GetAttribute("regex");
-            IF(regex != "")
-              INSERT regex INTO babeltranspile AT END;
-          }
-
           STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
           entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
 
@@ -1315,7 +1307,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                  , compatibility := forcedcompatibility ?? assetpacknode->GetAttribute("compatibility")
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
-                 , babeltranspile := babeltranspile
                  , aftercompiletask := ParseXMLModuleNamed(modulename, assetpacknode, "aftercompiletask")
                  ] INTO assetpacks AT END;
         }

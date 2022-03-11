@@ -800,15 +800,7 @@ case $INSTR in
       echo "nyc --report-dir /tmp/coverage node $NODEOPTIONS $BASE_DIR/.bin/_mocha $MOCHAPARAMS"
       exec nyc --extension .es --report-dir /tmp/coverage node $NODEOPTIONS $BASE_DIR/.bin/_mocha $MOCHAPARAMS
     elif [ "${1: -3}" == ".es" ] || [ "${2: -3}" == ".es" ]; then
-      if [ -n "$WEBHARE_BABELCACHE" ]; then
-        export BABEL_CACHE_PATH="$WEBHARE_BABELCACHE/babel-cache.json"
-      else
-        export BABEL_CACHE_PATH=$WEBHARE_DATAROOT/ephemeral/babelcache/babel-node
-      fi
-      exec node $NODEOPTIONS $BASE_DIR/@babel/node/lib/_babel-node \
-        --plugins $WEBHARE_DIR/node_modules/@babel/plugin-transform-modules-commonjs \
-        --ignore ignore_nothing --extensions ".es" \
-        $BASE_DIR/.bin/_mocha $EXTRA_WATCH "$@"
+      exec node $NODEOPTIONS $BASE_DIR/.bin/_mocha $EXTRA_WATCH "$@"
     fi
     exit 1
     ;;

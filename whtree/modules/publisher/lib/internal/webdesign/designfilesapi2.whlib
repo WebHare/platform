@@ -16,7 +16,6 @@ RECORD basebundleconfig := [ extrarequires := DEFAULT STRING ARRAY
                            , languages := DEFAULT STRING ARRAY
                            , webharepolyfills := TRUE
                            , environment := "window"
-                           , babeltranspile := STRING[]
                            , aftercompiletask := ""
                            , compatibility := "es2016"
                            ];
