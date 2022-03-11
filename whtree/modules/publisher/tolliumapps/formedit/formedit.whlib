@@ -100,8 +100,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->contexts->formcomponentapi := NEW FormComponentAPI(PRIVATE this);
     this->contexts->formcomponentapi->showadvanced := this->contexts->user->HasRight("system:supervisor");
     this->frame->flags.showdevoptions := this->contexts->user->ShowDeveloperOptions();
-    ^importwebpackitem->visible := IsModuleInstalled("webpack")
-                                   AND RecordExists(RetrieveWebhareResource("mod::webpack/lib/screens/survey-import.whlib", [ allowmissing := TRUE ]));
 
     IF (ObjectExists(this->contexts->applytester))
       this->integrationsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
@@ -294,15 +292,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   //
   // Actions
   //
-  MACRO DoImportWebpack()
-  {
-    IF(MakeFunctionPtr("mod::webpack/lib/screens/survey-import.whlib#RunSurveyImport")(this, [ form := this->curform, formobjectid := this->GetFormWHFSObjectId() ]))
-    {
-      this->MarkFormAsDirty();
-      this->ReloadList([expandall := TRUE ]);
-    }
-  }
-
   MACRO DoAddPage()
   {
     OBJECT page := this->curform->AddPage("");

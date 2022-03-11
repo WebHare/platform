@@ -34,8 +34,6 @@ LOADLIB "mod::publisher/tolliumapps/objectprops/tasks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-//LOADLIB "mod::webpack/lib/database.whlib";
-
 
 /* ADDME: andere types om te wijzigen
    ADDME: toevoegen/verwijderen van rijen */
@@ -370,7 +368,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       IF (NOT this->isfolder)
       {
         canschedule := canschedule AND this->curtype.ispublishable;
-        this->InitConsilioAndWebpackInfo();
+        this->InitConsilioInfo();
       }
 
       this->frame->title := RecordExists(this->cursite)
@@ -859,7 +857,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     ^size->visible := NOT this->isfolder AND this->curtype.blobiscontent;
   }
 
-  MACRO InitConsilioAndWebpackInfo()
+  MACRO InitConsilioInfo()
   {
     IF (this->sourceitem->isactive)
     {

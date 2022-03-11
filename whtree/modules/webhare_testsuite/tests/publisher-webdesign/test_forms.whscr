@@ -9,12 +9,12 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-MACRO TestWebpack()
+MACRO TestFormsTestPage()
 {
   STRING formtesturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.publisher/backend/testpage.shtml?fsobject=" || EncryptForThisServer("publisher:testpage", OpentestsuiteSite()->id));
   TestEQ(TRUE,testfw->browser->GotoWebPage(formtesturl), formtesturl);
 }
 
-RunTestframework([ PTR TestWebpack
+RunTestframework([ PTR TestFormsTestPage
                  ]);
 

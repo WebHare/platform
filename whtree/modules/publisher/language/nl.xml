@@ -1982,7 +1982,6 @@
       <text tid="handlers">Afhandeling</text>
       <text tid="implicthandler-dontstore">Resultaten niet opslaan</text>
       <text tid="implicthandler-storedays">Resultaten voor <ifparam p="1" value="1">1 dag<else/><param p="1"/> dagen</ifparam> opslaan</text>
-      <text tid="importwebpack">Importeer webpack formulier</text>
       <text tid="initialthankyou">Bedankt voor het invullen</text>
       <text tid="movedownhint">Omlaag verplaatsen</text>
       <text tid="movetobottomhint">Onderaan zetten</text>

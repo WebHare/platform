@@ -51,7 +51,6 @@
 
       <action name="editsource" onexecute="doeditsource" frameflags="canedit showdevoptions" shortcut="ctrl+u" />
       <helpaction name="help" manual="publisher/forms" tid="~help" languages="nl"/>
-      <action name="importwebpack" onexecute="doimportwebpack" frameflags="canedit" />
     </actions>
     <menus>
       <menu name="menubar">
@@ -69,7 +68,6 @@
         <item action="deleteitem" name="deletemenu" tid="tollium:common.actions.delete" />
         <divider />
         <item name="settingsitem" action="settings" tid=".settings" />
-        <item action="importwebpack" tid=".importwebpack" name="importwebpackitem"/>
         <item action="showresults" name="showresultsbutton" tid=".showresults" />
         <divider />
         <item title="#####" visible="false" /><!-- The insertion point for editor extension menu items -->

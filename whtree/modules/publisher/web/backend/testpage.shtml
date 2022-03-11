@@ -35,49 +35,38 @@ PUBLIC STATIC OBJECTTYPE DynamicPage EXTEND DynamicPageBase
 
     this->webdesign->pagetitle := "Forms test | " || this->webdesign->pagetitle;
     this->webdesign->isstandardcontentpage := TRUE;
-    IF(GetWebVariable("type")="webpack" AND IsModuleInstalled("webpack"))
-    {
-      formsintegrationplugin->__AddWebpack([type := 2, name := "BLEXDEV_FORM DEMO FORMULIER" ]);
-    }
 
     __CONSTREF RECORD infodoc := [ htmltext := StringToBlob(`<html><body><h2>This a heading 2</h2><p class="normal">This is a normal infotext paragraph</p></body></html>`) ];
     MACRO PTR contents;
-    IF(GetWebVariable("type")="webpack")
+    OBJECT form := OpenForm("mod::publisher/lib/internal/forms/testpage.formdef.xml", "testpage", [ webcontext := this->webdesign ]);
+    FOREVERY(RECORD field FROM form->ListFields())
     {
-    }
-    ELSE
-    {
-      OBJECT form := OpenForm("mod::publisher/lib/internal/forms/testpage.formdef.xml", "testpage", [ webcontext := this->webdesign ]);
-      FOREVERY(RECORD field FROM form->ListFields())
-      {
-        IF(alldisabled)
-          field.obj->enabled := FALSE;
-        IF(allrequired)
-          field.obj->required := TRUE;
+      IF(alldisabled)
+        field.obj->enabled := FALSE;
+      IF(allrequired)
+        field.obj->required := TRUE;
 
-        IF(infotexts)
+      IF(infotexts)
+      {
+        IF(field.obj->name IN ["radiohorizontal","checkboxhorizontal"])
         {
-          IF(field.obj->name IN ["radiohorizontal","checkboxhorizontal"])
-          {
-            CONTINUE; //cant infofield these yet
-          }
-          ELSE IF(field.obj->name IN ["radiowithaddendum","checkboxwithaddendum"])
-          {
-            UPDATE field.obj->options SET infotext := infodoc;
-          }
-          ELSE
-          {
-            field.obj->__Setinfotext(infodoc);
-          }
+          CONTINUE; //cant infofield these yet
+        }
+        ELSE IF(field.obj->name IN ["radiowithaddendum","checkboxwithaddendum"])
+        {
+          UPDATE field.obj->options SET infotext := infodoc;
+        }
+        ELSE
+        {
+          field.obj->__Setinfotext(infodoc);
         }
       }
-      contents := PTR EmbedWittyComponent("fulldemo", [ testform := form->GetWittyData() ]);
     }
+    contents := PTR EmbedWittyComponent("fulldemo", [ testform := form->GetWittyData() ]);
 
     RETURN PTR EmbedWittyComponent("mod::publisher/lib/internal/forms/testpage.witty:testpage",
                   [ fsobject := GetWebVariable("fsobject")
                   , contents := contents
-                  , haswebpack := IsModuleInstalled("webpack")
                   , allrequired := allrequired
                   , alldisabled := alldisabled
                   , infotexts := infotexts

@@ -467,7 +467,6 @@ INTEGER importxml_depth;
 STRING importxml_currenttable;
 BOOLEAN importxml_header_ok;
 STRING importxml_origin;
-BOOLEAN importxml_webpacklegacyhacks;
 STRING importxml_version;
 BOOLEAN importxml_base64;
 STRING ARRAY importxml_blobcols;
@@ -676,13 +675,6 @@ MACRO ImportXML_StartElement(STRING elementname, RECORD ARRAY attrs)
       RECORD versionfield := SELECT * FROM attrs WHERE field='version';
       IF (RecordExists(originfield) AND RecordExists(originfield))
       {
-        //Webpack legacy support hacks
-        IF(importxml_origin IN ["survey"] AND originfield.value = importxml_origin AND versionfield.value="1.0")
-        {
-          importxml_webpacklegacyhacks := TRUE;
-          versionfield.value := "1.1";
-        }
-
         IF ((importxml_origin = "" OR originfield.value = importxml_origin) AND (importxml_version="" OR versionfield.value = importxml_version))
           importxml_header_ok := TRUE;
       }
@@ -878,16 +870,6 @@ MACRO TableImporter(INTEGER trans, RECORD tabledescription, RECORD newrec, OBJEC
 
 MACRO ImportRecords(INTEGER trans, RECORD ARRAY importspecification, STRING tablename, RECORD ARRAY toimport)
 {
-  IF(importxml_webpacklegacyhacks)
-  {
-    IF(tablename="instance")
-      tablename := "webpack.instances";
-    ELSE IF(tablename="general")
-      tablename := "webpack.surveys";
-    ELSE
-      tablename := "webpack.survey_" || tablename;
-  }
-
   RECORD tabledescription := SELECT * FROM importspecification WHERE input_table = tablename;
 
   IF(NOT RecordExists(tabledescription))
@@ -942,7 +924,6 @@ MACRO ImportXMLDatabaseArchiveIntoWHDB(INTEGER trans, BLOB importarchive, RECORD
      A warning would be nice!
   */
   importxml_origin := origin;
-  importxml_webpacklegacyhacks := FALSE;
   importxml_version := version;
   importxml_progresscallback := progresscallback;
   importxml_recordsseen := 0;
