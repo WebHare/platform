@@ -889,9 +889,7 @@ RECORD FUNCTION GetPreviewResults(OBJECT user, INTEGER catalogid, INTEGER conten
       THROW NEW Exception("Do not understand query (invalid JSON)");
     tosend := EnforceStructure([method := "", path := "", body := DEFAULT RECORD], tosend);
 
-    RECORD res := SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
-    Reflect(res);
-    RETURN res;
+    RETURN SendRawJSONToElasticsearch(mgrs[0].id, tosend.method, tosend.path, tosend.body);
   }
 }
 

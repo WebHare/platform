@@ -24,7 +24,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 // -----------------------------------------------------------------------------
@@ -77,9 +76,6 @@ PUBLIC STRING FUNCTION ConfigureIndexManager(STRING param)
   }
   res := res ?? SearchOk;
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "ConfigureIndexManager", param, res);
-
   RETURN res;
 }
 
@@ -111,9 +107,6 @@ PUBLIC STRING FUNCTION ClearIndexManagerStatus(INTEGER indexmgrid)
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "ClearIndexManagerStatus", indexmgrid, res);
-
   RETURN res;
 }
 
@@ -142,9 +135,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
       }
     }
   }
-
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "GetIndexManagerState", indexmgrid, result);
 
   RETURN result;
 }
@@ -237,9 +227,6 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "GetIndexManagerIndexList", indexmgrid, options.indexsuffixes, result);
-
   RETURN result;
 }
 
@@ -278,9 +265,6 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
         result.stats := GetCell(response.result.indices, indexmanager.indexname).total;
     }
   }
-
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "GetIndexStats", indexid, options.metrics, result);
 
   RETURN result;
 }
@@ -379,9 +363,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "EnsureIndexManagerIndex", indexid, result);
-
   RETURN result;
 }
 
@@ -458,9 +439,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
   IF (result = SearchOk)
     BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "EnsureIndexManagerContentSource", indexid, contentsourceid, result);
-
   RETURN result;
 }
 
@@ -507,9 +485,6 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
       result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
     ELSE
       result := response.status;
-
-    IF (__indexmanager_debugall OR result != SearchOk)
-      LogDebug("IndexManager", "EnsureIndexManagerMapping", indexid, mapping, result, response);
   }
   ELSE
   {
@@ -647,7 +622,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
         STRING queryvalue := __FormatQuery(indexid, query, [ language := options.lang ]);
         IF(IsDebugTagEnabled("consilio:searches"))
-          LogDebug("consilio:search", "Indexmanager search", EncodeJSON(CELL[ ...searchstart, query := queryvalue ]));
+          LogDebug("consilio:searches", "Indexmanager search", CELL[ ...searchstart, query := queryvalue ]);
 
         BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
                                                      , query := queryvalue
@@ -795,7 +770,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                              ];
 
         IF(IsDebugTagEnabled("consilio:searches"))
-          LogDebug("consilio:search", "OpenSearch search", EncodeJSON(CELL[ ...searchstart, searchquery := finalquery ]));
+          LogDebug("consilio:searches", "OpenSearch search", CELL[ ...searchstart, searchquery := finalquery ]);
 
         BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
                                                      , uuid := queryuuid
@@ -884,16 +859,13 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     }
 
     IF(IsDebugTagEnabled("consilio:searches"))
-      LogDebug("consilio:search", "Search complete",
-                                   EncodeJSON(CELL[ event := "searchdone" //FIXME separate 'done' and 'fail'
-                                                  , queryuuid
-                                                  , numresults := result.totalcount
-                                                  , time_msecs := GetDatetimeDifference(querystart, GetCurrentDateTime()).msecs
-                                                  ]));
+      LogDebug("consilio:searches", "Search complete",
+                                     CELL[ event := "searchdone" //FIXME separate 'done' and 'fail'
+                                         , queryuuid
+                                         , numresults := result.totalcount
+                                         , time_msecs := GetDatetimeDifference(querystart, GetCurrentDateTime()).msecs
+                                         ]);
   }
-
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "SearchIndexManager", indexid, query, options, result);
 
   RETURN result;
 }
@@ -915,6 +887,9 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       , totalcount := 0
       , results := DEFAULT RECORD ARRAY
       ];
+
+  IF(IsDebugTagEnabled("consilio:searches"))
+    LogDebug("consilio:searches", "QueryIndexManager", CELL[ indexid, query, options ]);
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ managedonly := options.managedonly ]);
   FOREVERY (RECORD indexmanager FROM indexmanagers)
@@ -1093,8 +1068,8 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "QueryIndexManager", indexid, query, options, result);
+  IF(IsDebugTagEnabled("consilio:searches"))
+    LogDebug("consilio:searches", "QueryIndexManager done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1115,6 +1090,9 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
   RECORD result := [ status := SearchIndexNotFound
                    , suggestions := DEFAULT RECORD ARRAY
                    ];
+
+  IF(IsDebugTagEnabled("consilio:searches"))
+    LogDebug("consilio:searches", "SuggestIndexManager", CELL[ indexid, query, options ]);
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
   IF (RecordExists(indexmanager))
@@ -1241,8 +1219,8 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "SuggestIndexManager", indexid, query, options, result);
+  IF(IsDebugTagEnabled("consilio:searches"))
+    LogDebug("consilio:searches", "SuggestIndexManager done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1281,9 +1259,6 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "GetIndexManagerSize", indexid, size);
-
   RETURN size;
 }
 
@@ -1311,6 +1286,13 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                 , indextypes :=             CellExists(objects, "INDEXTYPES") ? objects.indextypes : STRING[]
                 , indexversions :=          CellExists(objects, "INDEXVERSIONS") ? objects.indexversions : STRING[]
              FROM objects;
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+  {
+    LogDebug("consilio:changes", "AddIndexManagerObjects", CELL[ indexid, contentsource, groupid, numobjects := Length(objects), options ]);
+    FOREVERY(RECORD obj FROM objects)
+      LogDebug("consilio:changes", "AddIndexManagerObjects #" || #obj, obj);
+  }
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
   IF (RecordExists(indexmanager))
@@ -1457,8 +1439,8 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
     }
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "AddIndexManagerObject", indexid, contentsource, groupid, objects, options, result);
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "AddIndexManagerObjects done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1478,6 +1460,9 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
 
   IF (groupid = "")
     RETURN SearchInvalidArgument;
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerGroup", CELL[ indexid, contentsourceid, groupid, options ]);
 
   STRING result;
   IF (groupid != "")
@@ -1530,8 +1515,8 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
   ELSE
     result := SearchInvalidArgument;
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "DeleteIndexManagerGroup", indexid, contentsourceid, groupid, result);
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerGroup done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1543,61 +1528,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
 */
 PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER contentsourceid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(
-      [ refresh := FALSE
-      ], options);
-
-  STRING result;
-
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
-  {
-    SWITCH (indexmanager.type)
-    {
-      CASE whconstant_consilio_indexmanager_legacybackend
-      {
-        RECORD ARRAY vars := [ [ name := "objectid", value := objectid ]
-                             ];
-        IF (contentsourceid != 0)
-          INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
-
-        RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
-        IF (response.status != SearchOk)
-          result := result ?? response.status;
-      }
-      CASE whconstant_consilio_indexmanager_elasticsearch
-      {
-        // No support for objectids in unmanaged indices
-        IF (indexmanager.indextype = 1)
-        {
-          IF (indexid != 0)
-            result := SearchCommandUnsupported;
-          CONTINUE;
-        }
-
-        RECORD query :=
-            [ query :=
-                [ bool :=
-                    [ must :=
-                          [ [ match := [ objectid := objectid ] ]
-                          ]
-                    ]
-                ]
-            ];
-        IF (contentsourceid != 0)
-          INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
-
-        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
-        result := response.status;
-      }
-    }
-  }
-  result := result ?? SearchOk;
-
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "DeleteIndexManagerObject", indexid, contentsourceid, objectid, result);
-
-  RETURN result;
+  RETURN DeleteIndexManagerObjects(indexid, contentsourceid, [objectid], options);
 }
 
 /** @short Delete multiple objects from an index
@@ -1615,6 +1546,9 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   options := ValidateOptions(defaultoptions, options);
 
   STRING result;
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerObjects", CELL[ indexid, contentsourceid, objectids, options ]);
 
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
   FOREVERY (RECORD indexmanager FROM indexmanagers)
@@ -1675,8 +1609,8 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
   }
   result := result ?? SearchOk;
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "DeleteIndexManagerObjects", indexid, contentsourceid, objectids, result);
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerObjects done", CELL[ result ]);
 
   RETURN result;
 }
@@ -1703,6 +1637,9 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
   options := ValidateOptions(
       [ refresh := FALSE
       ], options);
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerOutdated", EncodeJSON(CELL[ indexid, contentsourceid, groupid, objectid, deletebefore, options ]));
 
   RECORD result := [ status := SearchInvalidArgument
                    , deleted := 0
@@ -1787,8 +1724,8 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
       result.status := SearchIndexNotFound;
   }
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "DeleteIndexManagerOutdated", indexid, contentsourceid, groupid, objectid, deletebefore, result);
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerOutdated done", EncodeJSON(CELL[ result ]));
 
   RETURN result;
 }
@@ -1812,6 +1749,10 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
                    ];
 
   RECORD indexmanager := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
+
+  IF(IsDebugTagEnabled("consilio:changes"))
+    LogDebug("consilio:changes", "DeleteIndexManagerContentSource",
+                                   EncodeJSON(CELL[ indexmgrid, indexid, contentsourceid, options ]));
 
   IF (RecordExists(indexmanager) AND indexid != 0)
   {
@@ -1872,11 +1813,11 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
     }
   }
 
-  IF (result.status = SearchOk)
-    BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
+ IF(IsDebugTagEnabled("consilio:changes"))
+   LogDebug("consilio:changes", "DeleteIndexManagerContentSource done", result);
 
-  IF (__indexmanager_debugall)
-    LogDebug("IndexManager", "DeleteIndexManagerContentSource", indexmgrid, indexid, contentsourceid, result);
+ IF (result.status = SearchOk)
+    BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
 
   RETURN result;
 }
