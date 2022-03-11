@@ -30,6 +30,14 @@ PUBLIC STATIC OBJECTTYPE CustomFormDefPage EXTEND WebPageBase
 
 PUBLIC STATIC OBJECTTYPE CustomForm EXTEND FormBase
 <
+  MACRO NEW()
+  {
+    ^color->options :=
+        [ [ rowkey := "#000000", title := "Black" ]
+        , [ rowkey := "#ffffff", title := "White" ]
+        ];
+  }
+
   RECORD FUNCTION Submit(RECORD extradata)
   {
     RECORD options := CELL
@@ -54,7 +62,7 @@ PUBLIC STATIC OBJECTTYPE EditCustomFormDef EXTEND TolliumScreenBase
 
   MACRO DoResults()
   {
-    OBJECT formresults := OpenFormFileResults(this->formobject, [ formname := "webhare_testsuite:customform#customform" ]);
+    OBJECT formresults := OpenFormFileResults(this->formobject, [ formname := "webhare_testsuite:customform#customform", initcustomform := TRUE ]);
     RunFormResultsDialog(this, formresults);
   }
 >;

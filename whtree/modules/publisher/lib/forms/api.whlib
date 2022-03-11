@@ -28,11 +28,16 @@ PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DE
 /** @short Open the result storage of a formdefinition WHFS file
     @param formfile File to open
     @cell(string) options.formname The name of the form to open the results for, defaults to `webtoolform` for webtool forms
+    @cell(boolean) options.initcustomform If this is a custom form, initialize the custom form object. Make sure this doesn't
+        run code that can only run within a request context!
     @return(object %WHFSForm) Form results, or DEFAULT OBJECT if the file does not contain a valid webtool form
 */
 PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ formname := "webtoolform" ], options);
+  options := ValidateOptions(
+      [ formname := "webtoolform"
+      , initcustomform := FALSE
+      ], options);
 
   STRING formdefname;
   STRING formname := options.formname;
@@ -58,7 +63,7 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
         // Open the form definitions file by resource path
         BLOB formdefxml := GetWebHareResource(formdefs.path);
         OBJECT formdeffile := CreateNewFormdefinitionsFile();
-        formdeffile->ImportFromRecord([ formtext := formdefxml ]);
+        formdeffile->ImportFromRecord([ formtext := formdefxml ], [ resourcename := formdefs.path ]);
         formdef := formdeffile->OpenFormDefinition(formname);
       }
       CATCH (OBJECT e)
@@ -70,7 +75,7 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
   IF(NOT ObjectExists(formdef))
     RETURN DEFAULT OBJECT;
 
-  RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef);
+  RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef, CELL[ options.initcustomform ]);
 }
 
 /** @short Initialize a webtool form storage handler

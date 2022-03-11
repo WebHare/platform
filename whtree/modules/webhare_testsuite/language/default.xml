@@ -41,6 +41,11 @@
       <text tid="disabledpulldown"><html:b>Disabled</html:b> pulldown</text>
       <text tid="radiotest-2">do not translate radiotest-2!</text>
     </textgroup>
+    <textgroup gid="customform">   <!-- site.customform -->
+      <text tid="color">Favorite color</text>
+      <text tid="email">Email address</text>
+      <text tid="name">Name</text>
+    </textgroup>
     <textgroup gid="multipagetest">   <!-- site.multipagetest -->
       <text tid="lastpage">Last Page</text>
       <text tid="nextlabeltid">volgende</text>

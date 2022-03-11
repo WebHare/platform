@@ -160,6 +160,7 @@ STATIC OBJECTTYPE FormDefinition
   PUBLIC PROPERTY name(GetName, -);
   PUBLIC PROPERTY formdefinitions(pvt_formdefinitions, -);
 //  PUBLIC PROPERTY formresults(GetFormResults, -);
+  PUBLIC PROPERTY __resourcename(GetResourceName, -);
 
   MACRO NEW(OBJECT formdefinitions, OBJECT node)
   {
@@ -332,10 +333,14 @@ STATIC OBJECTTYPE FormDefinition
     component->Dispose();
   }
 
+  STRING FUNCTION GetResourceName()
+  {
+    RETURN this->formdefinitions->__resourcename ?? ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->GetResourceName() : "";
+  }
+
   PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode, OBJECT applytester)
   {
-    STRING resourcename := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->GetResourceName() : "";
-    RECORD formdef := ParseFormDef(this->node, this->name, resourcename, "", this->formdefinitions,
+    RECORD formdef := ParseFormDef(this->node, this->name, this->__resourcename, "", this->formdefinitions,
                                    [ webtoolformid := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->id : 0 ]);
     OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := TRUE, languagecode, applytester ]);
     RETURN form;
@@ -423,11 +428,13 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
 <
   OBJECT formdoc;
   OBJECT pvt_whfsobject;
+  STRING pvt_resourcename;
 
   RECORD ARRAY instances;
   RECORD ARRAY links;
 
   PUBLIC PROPERTY whfsobject(pvt_whfsobject, -);
+  PUBLIC PROPERTY __resourcename(pvt_resourcename, -); // formdefinition file for non-webtool forms
 
   MACRO NEW()
   {
@@ -632,8 +639,12 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
            ];
   }
 
-  PUBLIC MACRO ImportFromRecord(RECORD data)
+  PUBLIC MACRO ImportFromRecord(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ resourcename := "" ], options);
+    IF (options.resourcename != "")
+      this->pvt_resourcename := options.resourcename;
+
     this->formdoc := DEFAULT OBJECT;
     data := __ValidateRichDocumentLike(data, FALSE, FALSE);
 

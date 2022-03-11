@@ -1,10 +1,12 @@
 <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms"
-                 library="customformdef.whlib">
+                 library="customformdef.whlib"
+                 gid="site">
 
-  <form name="customform" jshandler="webhare_testsuite:customformdef" objectname="customform">
+  <form name="customform" jshandler="webhare_testsuite:customformdef" objectname="customform" gid=".customform">
     <page>
-      <textedit name="name" title="Name" />
-      <textedit name="email" title="Email" required="true" validationchecks="email" />
+      <textedit name="name" />
+      <textedit name="email" required="true" validationchecks="email" />
+      <select name="color" type="pulldown" placeholder="Choose" rowkeytype="string" />
     </page>
 
     <page role="thankyou">

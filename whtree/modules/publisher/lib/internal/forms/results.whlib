@@ -181,7 +181,7 @@ STATIC OBJECTTYPE FormResultExporter
 
       FOREVERY (RECORD field FROM langformfields)
       {
-        //Get the export definitino
+        //Get the export definition
         RECORD ourmatch := SELECT * FROM this->formfields WHERE formfields.name = field.name;
         IF(NOT RecordExists(ourmatch) OR NOT CellExists(ourmatch,"storename"))
           CONTINUE; // No stored results for this field
@@ -264,16 +264,17 @@ STATIC OBJECTTYPE WHFSForm
   STRING formname;
   //RECORD ARRAY formfields;
   OBJECT formdef;
+  BOOLEAN initcustomform;
   RECORD liveperlang;
   PUBLIC OBJECT __applytester;
 
   PUBLIC BOOLEAN showpendingresults;
   PUBLIC BOOLEAN showexpiredresults;
 
-  PUBLIC PROPERTY __formname(formname, -); // Used by RunFormResultsDialog
+  PUBLIC PROPERTY __formname(formname, -); // Used by DoExportResultsForMigration
   PUBLIC PROPERTY __formdef(formdef, -); // Used by RunFormResultsDialog
 
-  MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef)
+  MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef, BOOLEAN initcustomform)
   {
     IF(NOT ObjectExists(whfsobject))
       THROW NEW Exception("WHFSForm requires a valid WHFSObject");
@@ -283,6 +284,7 @@ STATIC OBJECTTYPE WHFSForm
     this->formname := formname;
     //this->formfields := formfields;
     this->formdef := formdef;
+    this->initcustomform := initcustomform;
   }
 
   PUBLIC OBJECT FUNCTION GetStorageObject()
@@ -656,10 +658,10 @@ STATIC OBJECTTYPE WHFSForm
     IF(CellExists(this->liveperlang, langcode))
       RETURN GetCell(this->liveperlang, langcode);
 
-    STRING resourcename := this->whfsobject->GetResourceName();
+    STRING resourcename := this->formdef->__resourcename ?? this->whfsobject->GetResourceName();
     RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
                                    [ webtoolformid := this->whfsobject->id ]);
-    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := TRUE, languagecode := langcode, applytester := this->__applytester ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := NOT this->initcustomform, languagecode := langcode, applytester := this->__applytester ]);
     RETURN form;
   }
 
@@ -742,14 +744,16 @@ STATIC OBJECTTYPE WHFSForm
   }
 >;
 
-PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForFormdef(OBJECT whfsobject, /*RECORD ARRAY formfields,*/ STRING formname, OBJECT formdef)
+PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForFormdef(OBJECT whfsobject, /*RECORD ARRAY formfields,*/ STRING formname, OBJECT formdef, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ formdef);
+  options := ValidateOptions([ initcustomform := FALSE ], options);
+  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ formdef, options.initcustomform);
 }
 
-PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForLiveForm(OBJECT whfsobject, RECORD ARRAY formfields, STRING formname)
+PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForLiveForm(OBJECT whfsobject, RECORD ARRAY formfields, STRING formname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ DEFAULT OBJECT);
+  options := ValidateOptions([ initcustomform := FALSE ], options);
+  RETURN NEW WHFSForm(whfsobject, formname, /*formfields,*/ DEFAULT OBJECT, options.initcustomform);
 }
 
 PUBLIC INTEGER FUNCTION GetFormExpectedExpiredResults(OBJECT applytester, INTEGER formid, RECORD instancedata)

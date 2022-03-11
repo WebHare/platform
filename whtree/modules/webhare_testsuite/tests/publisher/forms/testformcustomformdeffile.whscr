@@ -33,7 +33,7 @@ MACRO BuildForm()
 ASYNC MACRO CustomForm()
 {
   // Get results object for our non-webtool form
-  OBJECT webtoolresults := OpenFormFileResults(formfile, [ formname := "webhare_testsuite:customform#customform" ]);
+  OBJECT webtoolresults := OpenFormFileResults(formfile, [ formname := "webhare_testsuite:customform#customform", initcustomform := TRUE ]);
 
   // Do a form submission
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
@@ -41,6 +41,7 @@ ASYNC MACRO CustomForm()
   RECORD submitrec :=
       [ name := "P. Giménez & Henkie 😇"
       , email := "testfw+formtest@beta.webhare.net"
+      , color := "#ffffff"
       ];
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
@@ -51,14 +52,24 @@ ASYNC MACRO CustomForm()
   TestEQ("new", submitted.submittype);
   TestEq(submitrec.name, submitted.response.name);
   TestEq(submitrec.email, submitted.response.email);
+  // The color options are initialized in the custom form object, check if it's properly initialized
+  TestEq(submitrec.color, submitted.response.color);
 
   // Check results screen
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("Results")); // The edit screen for the custom for file has only one button "Results"
+  // Check translated column names
+  STRING namecol := SELECT AS STRING name FROM TT("^results")->columns WHERE title = "Name";
+  TestEq(TRUE, namecol != "", "Expecting 'Name' column name");
+  STRING emailcol := SELECT AS STRING name FROM TT("^results")->columns WHERE title = "Email address";
+  TestEq(TRUE, emailcol != "", "Expecting 'Email address' column name");
+  STRING colorcol := SELECT AS STRING name FROM TT("^results")->columns WHERE title = "Favorite color";
+  TestEq(TRUE, colorcol != "", "Expecting 'Favorite color' column name");
   TestEq(1, Length(TT("^results")->rows));
-  RECORD ARRAY fields := UnpackRecord(TT("^results")->rows[0]);
-  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.name : FALSE));
-  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.email : FALSE));
+  TestEq(submitrec.name, GetCell(TT("^results")->rows[0], namecol));
+  TestEq(submitrec.email, GetCell(TT("^results")->rows[0], emailcol));
+  // The title of the option is shown
+  TestEq("White", GetCell(TT("^results")->rows[0], colorcol));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
