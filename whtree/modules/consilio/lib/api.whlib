@@ -3,6 +3,7 @@
 /** @topic consilio/api
 */
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
@@ -921,6 +922,7 @@ STATIC OBJECTTYPE ContentSource
   PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     DoWaitForContentSourceDone(this->id, options);
+    RefreshIndexManager(this->catalog->indexmanager.id, this->catalog->id);
   }
 
   /// Get the path this source refers to
@@ -953,9 +955,29 @@ STATIC OBJECTTYPE Catalog
   /// @type(string) Where was this catalog defined?
   PUBLIC PROPERTY definedby(this->catalog.definedby,-);
 
+  /** Index manager of this catalog
+      @cell id Id of the indexmanager
+      @cell name Name of the indexmanager
+      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
+  */
+  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
+
+  /** Name of the index on the index manager (Elasticsearch only) */
+  PUBLIC PROPERTY indexname(GetIndexName, -);
+
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
+  }
+
+  RECORD FUNCTION GetIndexManager()
+  {
+    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
+  }
+
+  STRING FUNCTION GetIndexName()
+  {
+    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
   }
 
   BOOLEAN FUNCTION GetIsManaged()
@@ -968,11 +990,14 @@ STATIC OBJECTTYPE Catalog
       @cell(string) settings.definedby Definition location */
   PUBLIC MACRO UpdateCatalog(RECORD settings)
   {
-    settings := ValidateOptions([ definedby := ""], settings, [ optional := ["definedby"]
-                                                              , title := "settings"
-                                                              ]);
+    settings := ValidateOptions([ definedby := ""
+                                , indexmanager := 0
+                                ], settings, [ optional := ["*"]
+                                             , title := "settings"
+                                             ]);
     UPDATE consilio.indices SET RECORD settings WHERE id = this->id;
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+    this->catalog := SELECT * FROM consilio.indices WHERE id = this->id;
   }
 
   /// Delete this catalog
@@ -990,28 +1015,8 @@ STATIC OBJECTTYPE Catalog
 
 STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
 <
-  /** Index manager of this catalog
-      @cell id Id of the indexmanager
-      @cell name Name of the indexmanager
-      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
-  */
-  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
-
-  /** Name of the index on the index manager (Elasticsearch only) */
-  PUBLIC PROPERTY indexname(GetIndexName, -);
-
   //have we ensured yet that the index exists?
   STRING ARRAY ensured;
-
-  RECORD FUNCTION GetIndexManager()
-  {
-    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
-  }
-
-  STRING FUNCTION GetIndexName()
-  {
-    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
-  }
 
   /** @short Add objects to this catalog
       @param objects The objects to add
@@ -1351,7 +1356,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
              AND name NOT LIKE "$consilio$deleted$*";
   IF(RecordExists(match))
   {
-    IF (match.type = 1)
+    IF (match.type = whconstant_consilio_catalogtype_moduleindex)
       RETURN NEW UnmanagedCatalog(match);
     RETURN NEW ManagedCatalog(match);
   }
@@ -1364,8 +1369,8 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
     @param options Options
     @cell options.title An optional description for the catalog
     @cell options.priority (-9 to 9, 0 is the default)
-    @cell options.indexmanager The id of the index manager to use (if not given, the 'Builtin Consilio' index manager is used
-        if available, otherwise an error is returned)
+    @cell(boolean) options.managed Create a managed catalog. Defaults to TRUE
+    @cell options.indexmanager The id of the index manager to use (if not given and the catalog is managed we will select the default manager)
     @return(object #Catalog) Catalog object
 */
 PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1382,9 +1387,10 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , indexmanager := 0
                               , title := ""
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+                              , managed := TRUE
                               ], options, [ optional := ["indexmanager"] ]);
 
-  INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : GetDefaultIndexManager();
+  INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : options.managed ? GetDefaultIndexManager() : 0;
 
   INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
 
@@ -1396,21 +1402,27 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.priority
              , options.definedby
              , indexmanager
-             , type := whconstant_consilio_catalogtype_siteprofindex //default type..
+             , indexname := "c_" || tolowercase(encodebase16(decodebase64(generateufs128bitid())))
+             , type := options.managed ? whconstant_consilio_catalogtype_siteprofindex
+                                       : whconstant_consilio_catalogtype_moduleindex
              ] INTO consilio.indices;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
-  TRY
+  IF(options.managed) //only managed indices are created directly, as with unmanaged the caller might want to create only suffixed indices
   {
-    EnsureIndexManagerIndex(indexid, [ throwonfailure := TRUE ]);
-  }
-  CATCH
-  {
-    DELETE FROM consilio.indices WHERE id=indexid;
-    THROW;
+    TRY
+    {
+      EnsureIndexManagerIndex(indexid, [ throwonfailure := TRUE ]);
+    }
+    CATCH
+    {
+      DELETE FROM consilio.indices WHERE id=indexid;
+      THROW;
+    }
+
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
-  GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   RETURN OpenConsilioCatalogById(indexid);
 }
 

@@ -2168,8 +2168,20 @@
       </xs:element>
     </xs:sequence>
 
-    <!-- FIXME I'm not yet sure if we should explicitly add fields here (IndexField), if it should be wrapepd like <members> or if we should point to a fieldgroup -->
     <xs:attribute name="tag" type="Name" use="required" />
+
+    <xs:attribute name="managed" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>Whether we are managed (automatically filled and cleaned using contentsources)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="fieldgroups">
+      <xs:annotation>
+        <xs:documentation>List of fieldgroups for unmanaged catalog initialization</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="priority" type="xs:integer">
       <xs:annotation>
         <xs:documentation>Priority in the range -9 to 9 (0 is default priority, 9 is highest priority)</xs:documentation>

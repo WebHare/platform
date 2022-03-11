@@ -36,6 +36,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
                           , priority
                           , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
                           , contentsources := RECORD[]
+                          , managed := catalognode.node->HasAttribute("managed") ? ParseXSBoolean(catalognode.node->GetAttribute("managed")) : TRUE
                           ];
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
@@ -94,6 +95,62 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
   RETURN wantcatalogs;
 }
 
+MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want)
+{
+  RECORD ARRAY currentsources := catalog->ListContentSources();
+  FOREVERY(RECORD source FROM want.contentsources)
+  {
+    INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
+                           FROM currentsources
+                          WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare")
+                                AND fsobject = source.fsobject
+                                AND ToUppercase(tag) = ToUppercase(source.tag)) - 1;
+
+    IF(matchpos >= 0)
+    {
+      STRING expect_library, expect_contentobject;
+      IF(source.contentobject != "")
+      {
+        expect_library := Tokenize(source.contentobject,'#')[0];
+        expect_contentobject := Tokenize(source.contentobject,'#')[1];
+      }
+
+      IF(currentsources[matchpos].definedby != source.definedby
+         OR currentsources[matchpos].contentobject != source.contentobject)
+      {
+        catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[ source.definedby
+                                                                                             , settings := CELL[library := expect_library, contentobject := expect_contentobject]
+                                                                                             , tag := source.tag
+                                                                                             ]);
+      }
+
+      IF(currentsources[matchpos].isorphan)
+        catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
+
+      DELETE FROM currentsources AT matchpos; //remove from cleanup list
+      CONTINUE;
+    }
+
+    TRY
+    {
+      IF(source.contentobject = "")
+        catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+      ELSE
+        catalog->AddCustomContentSource(source.tag, source.contentobject, CELL[ source.definedby ]);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      PrintTo(2,`Failed to add catalog from ${source.definedby}: ${e->what}\n`);
+      CONTINUE;
+    }
+  }
+
+  //mark unreferred catalogs as orphan
+  FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
+    catalog->OpenContentSourceById(makeorphansource.id)->MarkAsOrphan();
+}
+
 MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -104,71 +161,28 @@ MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
     RETURN; //consilio is not initialized yet!
 
+  RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
+
   INTEGER builtin_indexmanager := GetDefaultIndexManager();
   IF(builtin_indexmanager = 0)
-    RETURN; //consilio is not initialized yet!
+    DELETE FROM wantcatalogs WHERE managed;  //don't create managed catalogs until index storage is ready
 
-  RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
-    //TODO allow a way to select 'raw'/no-ngram mode so we can adopt <index> too
-    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag);
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag, CELL[ want.managed ]);
+    IF(catalog->ismanaged != want.managed)
+    {
+      PrintTo(2, `Catalog '${want.tag} is incorrectly ${catalog->ismanaged ? "" : "not "}managed, it probably needs to be recreated\n`);
+      CONTINUE;
+    }
+
     IF(catalog->definedby != want.definedby)
       catalog->UpdateCatalog( CELL[ want.definedby ]);
 
-    RECORD ARRAY currentsources := catalog->ListContentSources();
-    FOREVERY(RECORD source FROM want.contentsources)
-    {
-      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1
-                             FROM currentsources
-                            WHERE contentprovider = (source.contentobject != "" ? "consilio:custom" : "publisher:webhare")
-                                  AND fsobject = source.fsobject
-                                  AND ToUppercase(tag) = ToUppercase(source.tag)) - 1;
+    IF(want.managed)
+      UpdateManagedCatalog(catalog, want);
 
-      IF(matchpos >= 0)
-      {
-        STRING expect_library, expect_contentobject;
-        IF(source.contentobject != "")
-        {
-          expect_library := Tokenize(source.contentobject,'#')[0];
-          expect_contentobject := Tokenize(source.contentobject,'#')[1];
-        }
-
-        IF(currentsources[matchpos].definedby != source.definedby
-           OR currentsources[matchpos].contentobject != source.contentobject)
-        {
-          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[ source.definedby
-                                                                                               , settings := CELL[library := expect_library, contentobject := expect_contentobject]
-                                                                                               , tag := source.tag
-                                                                                               ]);
-        }
-
-        IF(currentsources[matchpos].isorphan)
-          catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
-
-        DELETE FROM currentsources AT matchpos; //remove from cleanup list
-        CONTINUE;
-      }
-
-      TRY
-      {
-        IF(source.contentobject = "")
-          catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
-        ELSE
-          catalog->AddCustomContentSource(source.tag, source.contentobject, CELL[ source.definedby ]);
-      }
-      CATCH(OBJECT e)
-      {
-        LogHarescriptException(e);
-        PrintTo(2,`Failed to add catalog from ${source.definedby}: ${e->what}\n`);
-        CONTINUE;
-      }
-    }
-
-    //mark unreferred catalogs as orphan
-    FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
-      catalog->OpenContentSourceById(makeorphansource.id)->MarkAsOrphan();
   }
   trans->CommitWork();
 }
@@ -219,14 +233,8 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         }
         ELSE
         {
-          indexrec :=
-              [ id := MakeAutonumber(consilio.indices, "id")
-              , type := whconstant_consilio_catalogtype_moduleindex
-              , name := indexname
-              , priority := setpriority
-              ];
-          INSERT indexrec INTO consilio.indices;
-          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
+          OBJECT newindex := CreateConsilioCatalog(indexname, [ priority := setpriority, managed := FALSE ]);
+          indexrec := CELL[ newindex->id, name := indexname ];
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
       }

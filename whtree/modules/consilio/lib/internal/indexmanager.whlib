@@ -337,6 +337,8 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
         IF(options.suffix != "")
           THROW NEW Exception("Cannot specify a suffix for a non-module index");
 
+        /* For now we'll diable the ngram configuration ... this was an experiment that's not needed for just a 1-to-1 OpenSearch switch
+
         // Setup an nGram analyzer for suggestions and substring searches. This analyzer uses a standard tokenizer, converts
         // all text to lowercase and folders characters into their ascii equivalents (i.e. normalizes the text) and adds all
         // substrings of the terms with lengths min_gram to max_gram to the index.
@@ -371,6 +373,8 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
           result := SearchOk; // It's ok, the index aleady exists
         ELSE
           result := response.status;
+
+          */
       }
     }
   }
@@ -469,7 +473,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DE
 
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
   IF (NOT (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1))
-    THROW NEW Exception("Invalid index for GetIndexManagerMapping");
+    THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
 
   STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
   RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);
@@ -506,6 +510,10 @@ PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping
 
     IF (__indexmanager_debugall OR result != SearchOk)
       LogDebug("IndexManager", "EnsureIndexManagerMapping", indexid, mapping, result, response);
+  }
+  ELSE
+  {
+    THROW NEW Exception(`Consilio catalog #${indexid} does not support GetIndexManagerMapping`);
   }
   RETURN result;
 }

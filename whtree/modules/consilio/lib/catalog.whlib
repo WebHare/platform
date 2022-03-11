@@ -3,6 +3,8 @@
     @private Catalog management should be done through api.whlib */
 
 
+LOADLIB "wh::crypto.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -61,8 +63,8 @@ PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, R
 
   // Create index
   INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
-  INSERT INTO consilio.indices(id, name, description, loglevel, priority, indexmanager)
-         VALUES (indexid, catalog_name, description, loglevel, priority, indexmanager);
+  INSERT INTO consilio.indices(id, name, description, loglevel, priority, indexmanager, indexname)
+         VALUES (indexid, catalog_name, description, loglevel, priority, indexmanager, "c_" || ToLowercase(EncodeBase16(DecodeBase64(GenerateUFS128BitId()))));
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   STRING result := EnsureIndexManagerIndex(indexid);

@@ -517,15 +517,18 @@ MACRO TestUpdateCheckIndex()
 {
   //moved these tests to the end as they can be slow on a large database
   // Update the index, both objects should still be present
+  OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs)->OpenContentSource("publisher:fsobjects");
+  fsobjectssource->RescanContentSource();
+  fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
+
   INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
-  UpdateConsilioIndex(catalogid);
-  testfw->WaitIndexDone(catalogid);
   RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 
   // Check the index, both objects should still be present
-  CheckConsilioIndex(catalogid);
-  testfw->WaitIndexDone(catalogid);
+  fsobjectssource->RebuildContentSource();
+  fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
+
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 
@@ -546,6 +549,5 @@ RunTestframework([ PTR TestWHFSContentHandler
                  , PTR PublisherSearchTest
                  , PTR TestUpdateCheckIndex
                  ]
-                 , [ consilio := TRUE
-                   , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                 , [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]]);

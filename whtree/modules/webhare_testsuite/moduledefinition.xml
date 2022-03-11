@@ -372,9 +372,8 @@
       <boolean name="db_*" />
     </fieldgroup>
 
-    <index tag="module_reference">
-      <addfieldgroup ref="consilio:test_reference_group" />
-    </index>
+    <catalog tag="module_reference" managed="false" fieldgroups="consilio:test_reference_group" />
+
     <fieldgroup tag="test_reference_group">
       <text name="testsuite" />
     </fieldgroup>
