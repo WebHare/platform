@@ -51,19 +51,21 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
            ]);
 
     ^bundles->rows := SELECT TEMPORARY settings := ParseAssetPackSettings(outputtag, bundles.settings)
+                           , TEMPORARY status := havestatus
+                                                  ? haserrors
+                                                        ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
+                                                        : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
+                                                  : ""
                            , rowkey := outputtag
                            , id
-                           , status := havestatus 
-                                            ? haserrors
-                                                  ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
-                                                  : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK" 
-                                            : ""
+                           , status := status
+                           , status_sort := status || " " || outputtag
                            , outputtag
                            , lastcompile
                            , watchcount
                            , dev := (outputtag NOT LIKE "*:*" OR settings.dev) ? 1 : 0
                            , dummy := ""
-                           , compatibility := compatibility ?? "webpack"
+                           , compatibility := compatibility ?? "es2016"
                        FROM bundles;
 
     this->LoadConfig();

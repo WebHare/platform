@@ -15,13 +15,6 @@ let testframetabname = 'testframe' + Math.random();
 if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
 
-function correctWebpackFilename(url)
-{
-  if (url.match(/webpack:\/\/\/[^/]/))
-    url = "webpack:////" + url.slice(11);
-  return url;
-}
-
 function getTestRoots()
 {
   var iframe = document.querySelector("#testframeholder iframe");
@@ -609,9 +602,7 @@ class TestFramework
       document.documentElement.classList.add('testframework--havefullerror');
 
       let filtered = stacktrace.filter(({ filename }) =>
-          !filename.endsWith("/buildbabelexternalhelpers.js") &&
           !filename.endsWith("/ap.js") &&
-          !filename.endsWith("/regenerator-runtime/runtime.js") &&
           !filename.endsWith("/testframework.es") &&
           !filename.endsWith("/testframework-rte.es") &&
           !filename.includes("/dompack/testframework/") &&
@@ -630,7 +621,7 @@ class TestFramework
       stackframes = stackframes.map(frame => (
           { line:       frame.lineNumber
           , func:       frame.functionName
-          , filename:   correctWebpackFilename(frame.fileName)
+          , filename:   frame.fileName
           , col:        frame.columnNumber
           }));
 
@@ -640,9 +631,7 @@ class TestFramework
       });
 
       let filtered = stackframes.filter(({ filename }) =>
-          !filename.endsWith("/buildbabelexternalhelpers.js") &&
           !filename.endsWith("/ap.js") &&
-          !filename.endsWith("/regenerator-runtime/runtime.js") &&
           !filename.endsWith("/testframework.es") &&
           !filename.endsWith("/testframework-rte.es") &&
           !filename.includes("/dompack/testframework/") &&

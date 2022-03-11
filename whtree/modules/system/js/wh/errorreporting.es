@@ -37,13 +37,6 @@ if (dompack.debugflags.pro)
   root.Promise = MyPromise;
 }
 
-function correctWebpackFilename(url)
-{
-  if (url.match(/webpack:\/\/\/[^/]/))
-    url = "webpack:////" + url.slice(11);
-  return url;
-}
-
 function installHandlers()
 {
   // We'll use the onerror handler - the error event doesn't give much extra stuff
@@ -128,7 +121,7 @@ async function reportException(errorobj, options)
         stackframes = stackframes.map(frame => (
             { line:       frame.lineNumber
             , func:       frame.functionName
-            , filename:   correctWebpackFilename(frame.fileName)
+            , filename:   frame.fileName
             , col:        frame.columnNumber
             }));
       }

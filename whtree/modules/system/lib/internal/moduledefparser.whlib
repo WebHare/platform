@@ -1269,7 +1269,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     RECORD ARRAY designs;
     RECORD ARRAY assetpacks;
 
-    STRING forcedcompatibility := GetEnvironmentVariable("WEBHARE_ASSETPACK_FORCE_COMPATIBILITY");
     FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webdesign")->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(child))
@@ -1299,12 +1298,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
           entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
 
+          STRING compatibility := assetpacknode->GetAttribute("compatibility") ?? "es2016";
+          IF(compatibility IN ["webpack","modern"])
+            compatibility := "es2016";
+
           INSERT [ name := assetpackname
                  , entrypoint := entrypoint
                  , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))
                  , designroot := designroot
                  , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
-                 , compatibility := forcedcompatibility ?? assetpacknode->GetAttribute("compatibility")
+                 , compatibility := compatibility
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
                  , aftercompiletask := ParseXMLModuleNamed(modulename, assetpacknode, "aftercompiletask")

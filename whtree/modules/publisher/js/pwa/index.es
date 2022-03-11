@@ -91,7 +91,7 @@ export async function onReady(initfunction, options)
 
   if(options.reportusage)
   {
-    //fromIXME determinate app name. we should probably get Versioninfo and everything from webpack or from $wh variables on the page!
+    //determinate app name. we should probably get Versioninfo and webhare/other version numbers too
     pxl.sendPxlEvent("publisher:pwastart", { ds_appname: settings.getAppName() });
   }
 

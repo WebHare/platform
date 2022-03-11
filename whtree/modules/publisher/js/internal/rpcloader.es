@@ -65,37 +65,7 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
          };
 }
 
-async function runRPCLoader(context, rpcfile, callback)
-{
-  // context.inputValue[0] is the parsed JSON object from the 'json' loader
-  try
-  {
-    let result = await generateRPCWrappers(context.resourcePath, rpcfile);
-    result.dependencies.forEach(dep => context.addDependency(dep));
-    result.warnings.forEach(warning => context.emitWarning(warning));
-
-    callback(null, result.output);
-  }
-  catch(e)
-  {
-    console.log('caught runrpcloader error:',e);
-    context.emitError(e);
-    callback(null, '/*\n' + JSON.stringify(e) + '\n*/\n');
-  }
-}
-
-function webpackJSONRPCLoader(source)
-{
-  let callback = this.async();
-  if (!callback)
-    return "";
-
-  this.cacheable(true);
-  runRPCLoader(this, source, callback);
-}
-
-module.exports = webpackJSONRPCLoader;
-
+module.exports = {};
 
 module.exports.getESBuildPlugin = (captureplugin) => ({
     name: "jsonrpc",

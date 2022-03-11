@@ -20,7 +20,7 @@ MACRO CHeckURLS()
 
   OBJECT doc := testfw->browser->document;
   OBJECT ARRAY links := doc->getElements('link[rel="stylesheet"]');
-  TestEq(1, Length(links)); //one style.css from webpack
+  TestEq(1, Length(links)); //one style.css from the bundler
 
   STRING csslink := links[0]->GetAttribute("href");
   STRING imglink := doc->GetElementById("bobimagelink")->textcontent;
