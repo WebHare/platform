@@ -2491,6 +2491,32 @@ PUBLIC INTEGER FUNCTION RedirectOutputTo(INTEGER newoutputid) __ATTRIBUTES__(EXT
 // Debugging/implementation functions
 //
 
+/** @short Log debugging data
+    @param logsource Source or call of the debug message.
+                     This is used for searching, determining the origin or grouping of log messages of this type.
+                     Guideline: prefix the source with your module, for example "modulename:mytask.results"
+    @param message Message
+    @param args Optional extra debugging arguments. These will be stored HSON encoded. Arguments which push the length of the debug line over 127 KB won't be logged and will be stored as '-' */
+PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+
+  STRING msg := EncodeJava(logsource) || "\t" || __HS_GetCurrentGroupID() || "\t" || EncodeJava(GetExternalSessionData());
+  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
+  {
+    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
+    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
+      encodedarg := "-";
+    msg := msg || '\t' || encodedarg;
+  }
+
+  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
+    __onmodulelog("system:debug", msg);
+  ELSE
+    PrintTo(2, `[system:debug] ${msg}\n`);
+}
+
 /** @short Signal a fatal error
     @long Abort the currently run script, and generate an error message describing the problem
     @param errordata Error to display to the user of the script, or data to format
