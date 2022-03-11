@@ -96,7 +96,10 @@ Set debug flags:
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
-You can also set custom debug flags and check them using %IsDebugTagEnabled.
+You can also set custom debug flags for your own modules and check them using %IsDebugTagEnabled. These should be prefixed
+with your modulename and a double colon (`:`)
+
+To set multiple flags separate them by commas (`,`).
 
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner

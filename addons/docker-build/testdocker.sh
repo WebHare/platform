@@ -148,9 +148,9 @@ if [ -n "$ISMODULETEST" ]; then
 fi
 
 if [ "$COVERAGE" == "1" ]; then
-  WEBHARE_DEBUG="cov $WEBHARE_DEBUG"
+  WEBHARE_DEBUG="cov,$WEBHARE_DEBUG"
 elif [ "$PROFILE" == "1" ]; then
-  WEBHARE_DEBUG="apr $WEBHARE_DEBUG"
+  WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
 
 TESTLIST="$@"

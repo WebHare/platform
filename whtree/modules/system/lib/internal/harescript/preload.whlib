@@ -81,7 +81,7 @@ MACRO ReadDebugConfig()
   IF (debug_str != "")
   {
     __debugconfig :=
-        [ tags :=           Tokenize(debug_str, " ")
+        [ tags :=           Tokenize(debug_str, ",")
         , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
         , context :=        GetEnvironmentVariable("WEBHARE_DEBUGCONTEXT")
         ];
