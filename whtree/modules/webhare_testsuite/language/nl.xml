@@ -38,6 +38,11 @@
       <text tid="terms">with the <html:a href="http://www.example.net/terms">terms</html:a>.</text>
       <text tid="zwei">Z<html:i>wei</html:i></text>
     </textgroup>
+    <textgroup gid="customform">   <!-- site.customform -->
+      <text tid="color">Favoriete kleur</text>
+      <text tid="email">E-mailadress</text>
+      <text tid="name">Naam</text>
+    </textgroup>
     <textgroup gid="multipagetest">   <!-- site.multipagetest -->
       <text tid="lastpage">Last Page</text>
       <text tid="nextlabeltid">volgende</text>

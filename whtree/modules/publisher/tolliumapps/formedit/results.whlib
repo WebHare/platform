@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -48,10 +49,10 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     ^migrationexportbutton->visible := this->frame->flags.issupervisor;
     ^migrationimportbutton->visible := this->frame->flags.issupervisor;
 
-    this->formresults := OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), data.formname, this->form);
+    this->formresults := CellExists(data, "formresults") ? data.formresults : OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), data.formname, this->form, CELL[ data.initcustomform ]);
     this->exporter := this->formresults->CreateExporter( [ language := data.uselanguage
                                                          , isfullexport := FALSE //don't need extended data
-                                                         , formfields := SELECT * FROM this->form->ListFields([ applytester := this->contexts->applytester]) LIMIT 5
+                                                         , formfields := SELECT *, title := DecodeHTML(GetHTMLTid(title)) FROM this->form->ListFields([ applytester := this->contexts->applytester, languagecode := data.uselanguage ]) LIMIT 5
                                                          ]);
 
     RECORD ARRAY columns := SELECT *
@@ -201,7 +202,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
 
   MACRO DoExportResultsForMigration(OBJECT downloadhandler)
   {
-    RECORD exportfile := ExportFormResults(this->fsobjid);
+    RECORD exportfile := ExportFormResults(this->fsobjid, [ formname := this->formresults->__formname ]);
     IF(RecordExists(exportfile))
       downloadhandler->SendFile(exportfile.data, exportfile.mimetype, exportfile.filename);
     ELSE

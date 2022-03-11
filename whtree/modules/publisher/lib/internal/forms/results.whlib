@@ -181,7 +181,7 @@ STATIC OBJECTTYPE FormResultExporter
 
       FOREVERY (RECORD field FROM langformfields)
       {
-        //Get the export definitino
+        //Get the export definition
         RECORD ourmatch := SELECT * FROM this->formfields WHERE formfields.name = field.name;
         IF(NOT RecordExists(ourmatch) OR NOT CellExists(ourmatch,"storename"))
           CONTINUE; // No stored results for this field
@@ -270,7 +270,7 @@ STATIC OBJECTTYPE WHFSForm
   PUBLIC BOOLEAN showpendingresults;
   PUBLIC BOOLEAN showexpiredresults;
 
-  PUBLIC PROPERTY __formname(formname, -); // Used by RunFormResultsDialog
+  PUBLIC PROPERTY __formname(formname, -); // Used by DoExportResultsForMigration
   PUBLIC PROPERTY __formdef(formdef, -); // Used by RunFormResultsDialog
 
   MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef)
@@ -656,7 +656,7 @@ STATIC OBJECTTYPE WHFSForm
     IF(CellExists(this->liveperlang, langcode))
       RETURN GetCell(this->liveperlang, langcode);
 
-    STRING resourcename := this->whfsobject->GetResourceName();
+    STRING resourcename := this->formdef->__resourcename ?? this->whfsobject->GetResourceName();
     RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
                                    [ webtoolformid := this->whfsobject->id ]);
     OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := TRUE, languagecode := langcode, applytester := this->__applytester ]);

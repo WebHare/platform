@@ -55,10 +55,14 @@ ASYNC MACRO CustomForm()
   // Check results screen
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("Results")); // The edit screen for the custom for file has only one button "Results"
+  // Check translated column names
+  STRING namecol := SELECT AS STRING name FROM TT("^results")->columns WHERE title = "Name";
+  TestEq(TRUE, namecol != "", "Expecting 'Name' column name");
+  STRING emailcol := SELECT AS STRING name FROM TT("^results")->columns WHERE title = "Email address";
+  TestEq(TRUE, emailcol != "", "Expecting 'Email address' column name");
   TestEq(1, Length(TT("^results")->rows));
-  RECORD ARRAY fields := UnpackRecord(TT("^results")->rows[0]);
-  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.name : FALSE));
-  TestEq(TRUE, RecordExists(SELECT FROM fields WHERE TypeID(value) = TypeID(STRING) ? value = submitrec.email : FALSE));
+  TestEq(submitrec.name, GetCell(TT("^results")->rows[0], namecol));
+  TestEq(submitrec.email, GetCell(TT("^results")->rows[0], emailcol));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
