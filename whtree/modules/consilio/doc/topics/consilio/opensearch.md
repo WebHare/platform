@@ -1,13 +1,13 @@
-# Elasticsearch
-Consilio can be configured to use an external Elasticsearch cluster for storage.
-We also ship a Elasticsearch with WebHare which Consilio can use (and which will
+# Opensearch
+Consilio can be configured to use an external OpenSearch cluster for storage.
+We also ship OpenSearch with WebHare which Consilio can use (and which will
 eventually replace its own index manager)
 
-## Builtin Elasticsearch
+## Builtin OpenSearch
 To start the builtin elasticsearch engine, run `wh consilio:enable_builtin_elasticsearch`
 
 ### Useful commands
-Useful commands for the builtin Elasticsearch, assuming it's running on the
+Useful commands for the builtin OpenSearch, assuming it's running on the
 default interface http://127.0.0.1:13685/
 
 ```bash
@@ -23,18 +23,18 @@ curl 'http://127.0.0.1:13685/<indexname>/_mapping?pretty=true'
 # Delete all indices starting with myprefix__
 curl -XDELETE 'http://127.0.0.1:13685/myprefix__*'
 
-# Run a Kibana for your local elasticsearch
-brew install kibana #or whatever package manager you're using
-kibana --elasticsearch.hosts=http://127.0.0.1:13685/
+# Run a dashboard for your local opensearch, MacOS with homebrew:
+brew install opensearch-dashboards
+/usr/local/opt/opensearch-dashboards/bin/opensearch-dashboards --opensearch.hosts=http://127.0.0.1:13685/
 open http://127.0.0.1:5601/
 ```
 
 
 ### Troubleshooting
 - `failed to obtain node locks`
-If Elasticsearch shuts itself down complaining about locks, verify that no
+If OpenSearch shuts itself down complaining about locks, verify that no
 other instance is already running
 
 - newly created index not visible in Kibana
-Indices will not show up in Kibana's "Create index pattern" page if they are
+Indices will not show up in the dashboard's "Create index pattern" page if they are
 still empty.
