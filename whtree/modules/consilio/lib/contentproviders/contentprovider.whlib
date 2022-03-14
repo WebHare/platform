@@ -708,14 +708,8 @@ PUBLIC BOOLEAN FUNCTION UpdateContentSourceFieldsById(INTEGER contentsourceid)
     RECORD data := DecodeHSON(contentsource.data);
     DELETE CELL data FROM contentsource;
     INSERT CELL data := data INTO contentsource;
-    TRY
-    {
-      cpobj->Init(contentsource);
-      RETURN UpdateContentSourceFields(cpobj);
-    }
-    CATCH (OBJECT e)
-    {
-    }
+    cpobj->Init(contentsource);
+    RETURN UpdateContentSourceFields(cpobj);
   }
   RETURN FALSE;
 }

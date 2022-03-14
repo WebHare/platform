@@ -18,6 +18,9 @@ MACRO TestConsilioAPI()
   TestEq(TRUE, testcatalog1->ismanaged);
   TestEq(TRUE, SELECT AS BOOLEAN ismanaged FROM ListConsilioCatalogs() WHERE tag = "consilio:testfw_apitest1");
 
+  //having indexnames makes log analysis easier
+  Print(`consilio:testfw_apitest1 => ${testcatalog1->indexname}, consilio:testfw_apitest2 => ${testcatalog2->indexname}\n`);
+
   OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id);
 
   //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
@@ -39,7 +42,13 @@ MACRO TestConsilioAPI()
                                  , deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
                                  ]);
 
-  RECORD result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest"));
+  RECORD result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("OneOfTheSimpleFiles"));
+  TestEq(TRUE, Length(result.results) > 0);
+
+  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest.rtd"));
+  TestEq(TRUE, Length(result.results) > 0);
+
+  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
 }
 

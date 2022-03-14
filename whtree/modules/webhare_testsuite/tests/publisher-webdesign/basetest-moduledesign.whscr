@@ -56,7 +56,7 @@ MACRO TestTestSite()
   TestEq(FALSe, contentdiv->HasAttribute('data-sitelanguage-ps'));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/simpletest"));
-  TestEq("simpletest.rtd", testfw->browser->QS(`meta[name="description"]`)->GetAttribute("content"));
+  TestEq("simpletest.rtd - OneOfTheSimpleFiles", testfw->browser->QS(`meta[name="description"]`)->GetAttribute("content"));
 }
 
 MACRO Prepare()

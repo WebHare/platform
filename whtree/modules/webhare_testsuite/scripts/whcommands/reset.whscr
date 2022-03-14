@@ -9,6 +9,10 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
+
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -261,7 +265,7 @@ FOREVERY(STRING filename FROM ["simpletest.rtd","v2videotest.rtd","consenttest.r
 {
   OBJECT testfile  := testpages->CreateFile([name := filename, typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
   testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
-        [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">${filename}</p><div class="wh-rtd-embeddedobject" data-instanceid="videoobject"></div></body></html>`)
+        [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">${filename} - OneOfTheSimpleFiles</p><div class="wh-rtd-embeddedobject" data-instanceid="videoobject"></div></body></html>`)
                   , instances := [[ instanceid := "videoobject"
                                   , data := MakeVideoEmbedInstance("youtube", "BAf7lcYEXag")
                                   ]
@@ -351,3 +355,6 @@ IF(ObjectExists(alttestsite))
 
 IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
   Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
+
+//recreate catalogs for our testsite subfolders
+FixConsilioIndices();
