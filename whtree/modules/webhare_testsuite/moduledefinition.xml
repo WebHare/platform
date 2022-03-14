@@ -16,8 +16,8 @@
   </meta>
 
   <servicemanager>
-    <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" />
-    <runonce       tag="setuppwasite" script="tests/publisher/pwa/setuppwasite.whscr" when="poststart" />
+    <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
+    <runonce       tag="setuppwasite" script="tests/publisher/pwa/setuppwasite.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
     <runonce       tag="fixdevserver_20200110" script="scripts/runonce/fixdevserver.whscr" when="poststart" />
     <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
     <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
