@@ -641,7 +641,7 @@ MACRO TestSiteProfiles()
 MACRO TestTidScan()
 {
   //Test validation when limitlanguages used for nonprimary language
-  //First some sanity checks that the language files still look the way we need m'
+  //First some sanity checks that the language files still look the way we need 'm. valuetid= is of type RichTid so an extra check whether thatworks too
   TestEq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", GetTIDForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
   TestEq("IsNLOnly", GetTIDForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
 
@@ -650,7 +650,7 @@ MACRO TestTidScan()
     <screen name="createscreen" implementation="none" tid="aaa.limitlanguage_nl.isnlonly">
       <body>
         <text tid="aaa.limitlanguage_nl.nonexisting" />
-        <text tid="~add" />
+        <text valuetid="~add" />
       </body>
     </screen>
   </screens>`);
@@ -658,7 +658,7 @@ MACRO TestTidScan()
   RECORD res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := nltidscreen ]);
   TestEq([[ attrname := "tid", col := 0, line := 3, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:aaa.limitlanguage_nl.isnlonly" ]
          ,[ attrname := "tid", col := 0, line := 5, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:aaa.limitlanguage_nl.nonexisting" ]
-         ,[ attrname := "tid", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "~add" ]
+         ,[ attrname := "valuetid", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "~add" ]
          ], res.tids);
   TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
 

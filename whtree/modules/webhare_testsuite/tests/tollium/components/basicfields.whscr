@@ -41,7 +41,7 @@ MACRO DateTimeClamping() //test precision clamping
   SetValue(scr->bigdt, MakeDatetime(1234567,8,13,23,59,57));
   TestEq(MakeDatetime(9999,8,13,23,59,57), scr->bigdt->value);
 
-  TestThrows(PTR SetValue(scr->bigdt, MAX_DATETIME)); //only acceptable if value = max_datetime
+  TestThrowslike('Cannot represent*MAX_DATETIME*',PTR SetValue(scr->bigdt, MAX_DATETIME)); //only acceptable if value = max_datetime
 
   TestEq(MakeDate(2009,8,13), scr->da1->value);
   TestEq(MakeDateTime(2009,8,13,8,9,0), scr->dt1->value);
@@ -89,9 +89,40 @@ MACRO TestBasicFieldsRegressions()
   TestEq(50f, scr->floateditcomma->value);
 }
 
+ASYNC MACRO TestTextField()
+{
+  //also test linefeed handling (although this is also more a bit of clarification: it's not us but it's XML that gets rid of any non-&#10; break - https://www.w3.org/TR/xml/#AVNormalize)
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" implementation="none">
+      <body>
+        <text name="text1" value="this &lt;b>is&lt;/b> text
+
+now lf:&#10;next line" />
+        <text name="text2" htmlvalue="this &lt;b>is&lt;/b> text &#60;p>no para&#60;/p>" />
+        <text name="text3" valuetid="webhare_testsuite:test.richtext" />
+      </body>
+    </screen>`)));
+
+  TestEq("this <b>is</b> text  now lf:\nnext line", TT("text1")->value);
+  TestEq("this &#60;b&#62;is&#60;/b&#62; text  now lf:<br />next line", TT("text1")->htmlvalue);
+
+  TestEq("this is text no para", TT("text2")->value);
+  TestEq("this <b>is</b> text no para", TT("text2")->htmlvalue,"verify <P> was completely ignored");
+
+  TestEq("Dit is bold\nvolgende\nregel", TT("text3")->value);
+  TestEq("Dit is <b>bold</b><br />volgende<br />regel", TT("text3")->htmlvalue);
+
+  TT("text3")->htmlvalue := `Hey <a href="a&b">click</a> this!`;
+  TestEq("Hey click this!", TT("text3")->value);
+  TestEq(`Hey <a href="a&#38;b">click</a> this!`, TT("text3")->htmlvalue);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 Runtestframework( [ PTR InputValidations
                   , PTR DateTimeClamping
                   , PTR DateTimeLocalTZValue
                   , PTR TestBasicFieldsRegressions
+                  , PTR TestTextField
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]
                   ]);

@@ -303,9 +303,9 @@ STATIC OBJECTTYPE PageParser
   {
     RETURN ParseXMLTidPtr(this->GetCurrentResourceName(), this->GetCurrentGid(), el, type);
   }
-  PUBLIC STRING FUNCTION ParseTPNS(OBJECT el, STRING ns, STRING type)
+  PUBLIC STRING FUNCTION ParseTPNS(OBJECT el, STRING ns, STRING type, BOOLEAN richtid)
   {
-    RETURN ParseXMLTidPtrNS(this->GetCurrentResourceName(), this->GetCurrentGid(), el, ns, type);
+    RETURN ParseXMLTidPtrNS(this->GetCurrentResourceName(), this->GetCurrentGid(), el, ns, type, richtid);
   }
 
   /** Given a component node and its component info, assign a name to the component that it will result in.
@@ -1780,7 +1780,7 @@ VARIANT FUNCTION GetXMLFieldStoreValue(OBJECT element, STRING ns, STRING attrnam
     {
       CASE "tid"
       {
-        RETURN curpageparser->ParseTPNS(element, ns, attrname);
+        RETURN curpageparser->ParseTPNS(element, ns, attrname, field.richtid);
       }
       CASE "tidptr"
       {

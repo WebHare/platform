@@ -82,9 +82,19 @@
               ("." gid)* ("." tid) === ("." word)+ === (\.[^:. ]+)+
      -->
   <xs:simpleType name="Tid">
+    <xs:annotation>
+      <xs:documentation>A pointer to a translateable text</xs:documentation>
+    </xs:annotation>
     <xs:restriction base="xs:string">
       <xs:pattern value="[-\w_]+:([^:. ]+\.)+[^:. ]+|[^:. ]*(\.[^:. ]+)+|~([^:. ]+\.)?[^:. ]+" />
     </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RichTid">
+    <xs:annotation>
+      <xs:documentation>A pointer to a translateable rich text</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="Tid" />
   </xs:simpleType>
 
   <!-- a list of '*' or '!*' masks. excluding all special characters for now except for the two globs, in case we want to add more complex patterns-->

@@ -57,10 +57,10 @@ PUBLIC STRING FUNCTION ParseXMLTidDirectly(STRING resourcename, OBJECT el, STRIN
 */
 PUBLIC STRING FUNCTION ParseXMLTidPtr(STRING resourcename, STRING currentgid, OBJECT el, STRING attrname)
 {
-  RETURN ParseXMLTidPtrNS(resourcename, currentgid, el, "", attrname);
+  RETURN ParseXMLTidPtrNS(resourcename, currentgid, el, "", attrname, FALSE);
 }
 
-PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, OBJECT el, STRING ns, STRING attrname)
+PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, OBJECT el, STRING ns, STRING attrname, BOOLEAN richtid)
 {
   /* validate resourcename, as we used to accept modulename for now we'll tolerate it for old code, but only if targetted at
      an external module (eg embedded blexdev_formsapi). this check can probably go away post 4.29 */
@@ -86,6 +86,9 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, 
 
     RETURN tid;
   }
+
+  IF(richtid AND el->HasAttributeNS(ns, "html" || attrname))
+    RETURN "<>" || el->GetAttributeNS(ns, "html" || attrname);
 
   IF(el->HasAttributeNS(ns, attrname))
     RETURN ":" || el->GetAttributeNS(ns, attrname);

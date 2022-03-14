@@ -379,9 +379,11 @@ PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEF
   IF(tid = "")
     RETURN "";
 
-  STRING prefix := Left(tid,1);
-  IF(prefix = ":")
+  IF(tid LIKE ":*")
     RETURN Substring(tid,1);
+  ELSE IF(tid LIKE "<>*")
+    RETURN DecodeHTML(Substring(tid,2));
+
 
   RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), FALSE);
 }
@@ -399,9 +401,10 @@ PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2
   IF(tid = "")
     RETURN "";
 
-  STRING prefix := Left(tid,1);
-  IF(prefix = ":")
+  IF(tid LIKE ":*")
     RETURN EncodeHTML(Substring(tid,1));
+  ELSE IF(tid LIKE "<>*")
+    RETURN Substring(tid,2);
 
   RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), TRUE);
 }
@@ -420,9 +423,10 @@ PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING
   IF(tid = "")
     RETURN "";
 
-  STRING prefix := Left(tid,1);
-  IF(prefix = ":")
+  IF(tid LIKE ":*")
     RETURN Substring(tid,1);
+  ELSE IF(tid LIKE "<>*")
+    RETURN DecodeHTML(Substring(tid,2));
 
   RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), FALSE);
 }
@@ -441,9 +445,10 @@ PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING languagecode, STRING tid, ST
   IF(tid = "")
     RETURN "";
 
-  STRING prefix := Left(tid,1);
-  IF(prefix = ":")
+  IF(tid LIKE ":*")
     RETURN EncodeHTML(Substring(tid,1));
+  ELSE IF(tid LIKE "<>*")
+    RETURN Substring(tid,2);
 
   RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), TRUE);
 }
