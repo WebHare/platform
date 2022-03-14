@@ -1,5 +1,8 @@
 ﻿<?wh (* ISSYSTEMLIBRARY *)
 
+//Callback to ModuleLog(STRING type, STRING message) implementation
+PUBLIC MACRO PTR __onmodulelog; //used for testframework to record the log
+
 PUBLIC STRING FUNCTION GetCallingLibrary(BOOLEAN skip_system) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING FUNCTION __DoEvpCrypt(STRING algo, BOOLEAN encrypt, STRING keydata, STRING data, STRING iv) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, CONSTANT);
 PUBLIC         MACRO    __HS_COLLECTGARBAGE() __ATTRIBUTES__(EXTERNAL);

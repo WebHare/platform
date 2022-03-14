@@ -6,8 +6,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
-FUNCTION PTR logdebug;
-
 PUBLIC BOOLEAN __debugwebsockets := FALSE;
 
 PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
@@ -80,9 +78,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
   MACRO Log(VARIANT ARRAY data) __ATTRIBUTES__(VARARG)
   {
     VARIANT ARRAY prefix := [ "system:websockets", this->localisclient ? "client" : "server" ];
-    IF (logdebug = DEFAULT FUNCTION PTR)
-      logdebug := MakeFunctionPtr("mod::system/lib/logging.whlib#LogDebug");
-    CallMacroPtrVA(logdebug, prefix CONCAT data);
+    CallMacroPtrVA(PTR LogDebug, prefix CONCAT data);
   }
 
   VARIANT FUNCTION WaitReadSignalledHelper(INTEGER handle, DATETIME wait_until)

@@ -78,29 +78,6 @@ PUBLIC MACRO LogInfo(STRING logsource, STRING message, RECORD data DEFAULTSTO DE
   LogNotice(logsource, "INFO", message, data);
 }
 
-/** @short Log debugging data
-    @param logsource Source or call of the debug message.
-                     This is used for searching, determining the origin or grouping of log messages of this type.
-                     Guideline: prefix the source with your module, for example "modulename:mytask.results"
-    @param message Message
-    @param args Optional extra debugging arguments. These will be stored HSON encoded. Arguments which push the length of the debug line over 127 KB won't be logged and will be stored as '-' */
-PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
-{
-  IF(logsource="")
-    THROW NEW Exception("A log source must be specified");
-
-  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData());
-  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
-  {
-    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
-    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
-      encodedarg := "-";
-    msg := msg || '\t' || encodedarg;
-  }
-
-  ModuleLog("system:debug", msg);
-}
-
 /** @short Log a list of Harescript errors to the notice log (via a HarescriptErrorException)
     @param errors Errors to log
     @param options Options @includecelldef LogHarescriptException.options

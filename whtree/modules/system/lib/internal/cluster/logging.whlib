@@ -5,6 +5,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/hssupport.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -12,8 +13,6 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-
-PUBLIC MACRO PTR __onlogentry; //used for testframework to record the log
 
 RECORD __auditcontext;
 
@@ -627,9 +626,10 @@ PUBLIC OBJECTTYPE MultiFileLogReader
 */
 PUBLIC MACRO ModuleLog(STRING name, STRING line)
 {
-  __SYSTEM_REMOTELOG(name, line);
-  IF(__onlogentry != DEFAULT MACRO PTR)
-    __onlogentry(name, line);
+  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
+    __onmodulelog(name, line);
+  ELSE
+    PrintTo(2, `[${name}] ${line}\n`);
 }
 
 

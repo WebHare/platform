@@ -1406,7 +1406,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     IF(NOT ObjectExists(lock))
       THROW NEW Exception("Unable to acquire the global testframework lock - you cannot run two tests at the same time");
 
-    __onlogentry := PTR this->RecordModuleLogEntry;
+    __onmodulelog := PTR this->RecordModuleLogEntry(__onmodulelog, #1, #2);
 
     TRY
     {
@@ -1416,8 +1416,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     FINALLY lock->Close();
   }
 
-  MACRO RecordModuleLogEntry(STRING log, STRING line)
+  MACRO RecordModuleLogEntry(MACRO PTR currentlogger, STRING log, STRING line)
   {
+    IF(IsValueSet(currentlogger))
+      currentlogger(log,line);
+
     INSERT CELL[ log
                , when := GetCurrentDatetime()
                , source := "local"

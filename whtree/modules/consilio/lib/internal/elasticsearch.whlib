@@ -21,6 +21,20 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+MACRO UpdateRequestDebugSetting(OBJECT browser)
+{
+  //the setting can change while running, so always recheck
+  IF(IsDebugTagEnabled("consilio:traffic"))
+  {
+    IF(Length(browser->pvt_traffichooks) = 0)
+      LogRPCForWebbrowser("consilio:traffic", "", browser);
+  }
+  ELSE
+  {
+    browser->pvt_traffichooks := MACRO PTR[];
+  }
+}
+
 PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 <
   PUBLIC RECORD error;
@@ -105,6 +119,8 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
       indexmanager.browser := NEW WebBrowser();
       indexmanager.browser->timeout := elastic_timeout * 1000;
     }
+
+    UpdateRequestDebugSetting(indexmanager.browser);
     IF (indexmanager.clusterstatus NOT IN [ "yellow", "green" ])
     {
       FetcherDebug(ConsilioDebugInfo, "Connecting to Elasticsearch");
@@ -199,9 +215,8 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     RECORD ARRAY headers;
     IF (Length(body) > 0)
       INSERT [ field := "Content-Type", value := options.ndjson ? "application/x-ndjson" : "application/json" ] INTO headers AT END;
-    IF (__indexmanager_debugall)
-      LogDebug("IndexManager", "Elasticsearch curl", `curl -X${method} "${url}"${Length(body) > 0 ? ` ${Detokenize((SELECT AS STRING ARRAY ` -H '${field}: ${value}'` FROM headers), " ")} -d'${BlobToString(body)}'` : ""}`);
 
+    UpdateRequestDebugSetting(indexmanager.browser);
     indexmanager.browser->timeout := options.timeout;
     BOOLEAN success := indexmanager.browser->SendRawRequest(method, url, headers, body);
 

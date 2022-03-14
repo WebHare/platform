@@ -20,8 +20,9 @@ STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL)
 
 
 PUBLIC STRING __forcecurrentsite; //used by publishjob.whscr to set the proper resolution base for currentsite::
-FUNCTION PTR __logdebug;
 PUBLIC INTEGER __currentwhfsscriptid; //we need our storedscriptproperty FILEID to support currentsite:: witty loads from SHTML files. see basetest-moduledesign test
+
+__onmodulelog := PTR __SYSTEM_REMOTELOG;
 
 BLOB FUNCTION GetWebhareResource(STRING path)
 {
@@ -81,7 +82,7 @@ MACRO ReadDebugConfig()
   IF (debug_str != "")
   {
     __debugconfig :=
-        [ tags :=           Tokenize(debug_str, " ")
+        [ tags :=           Tokenize(debug_str, ",")
         , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
         , context :=        GetEnvironmentVariable("WEBHARE_DEBUGCONTEXT")
         ];
