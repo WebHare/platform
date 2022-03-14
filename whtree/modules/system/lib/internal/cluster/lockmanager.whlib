@@ -3,7 +3,30 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/** Connect to the mutex manager, wait for it to come online if needed
+    @return(object wh::internal/jobs.whlib#IPCLinkEndPoint) IPC link to the module manager
+*/
+PUBLIC OBJECT FUNCTION ConnectToMutexManager()
+{
+  //Wait up to 60 seconds (perhaps a bit more) for the mutexmanager to be reachable
+  //it might be unreachable for a few seconds after a crash or during webhare startup
+  FOR(INTEGER attempt := 0; attempt < 600; attempt := attempt + 1)
+  {
+    OBJECT link := ConnectToIPCPort("system:whmanager");
+    IF(ObjectExists(link)) //whmanager reached... that gives us contact with the lock
+    {
+      RECORD global_res := link->DoRequest([ type := "connect", port := "system:mutexmanager" ]);
+      IF (global_res.status = "ok" AND global_res.msg.status = "ok")
+        RETURN link; //success!
+
+      // Connect to remote port failed, destroy link to whmanager
+      link->Close();
+    }
+    Sleep(100);
+  }
+  THROW NEW Exception("Unable to connect to the mutex manager");
+}
 
 /// Lockmanager for this session
 OBJECT lockmgr;

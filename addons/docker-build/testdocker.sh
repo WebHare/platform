@@ -439,12 +439,6 @@ create_container()
   # Allow whdata to be mounted on ephemeral (overlayfs) storage
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
-  if [ "$COVERAGE" == "1" ]; then
-    echo "WEBHARE_DEBUGSESSION=coverage" >> ${TEMPBUILDROOT}/env-file
-  elif [ "$PROFILE" == "1" ]; then
-    echo "WEBHARE_DEBUGSESSION=functionprofile" >> ${TEMPBUILDROOT}/env-file
-  fi
-
   if [ -n "$USERSERVERCONFIG" ]; then
     echo "WEBHARE_CONFIGURL=file:///config/serverconfig.xml" >> ${TEMPBUILDROOT}/env-file
   else #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz

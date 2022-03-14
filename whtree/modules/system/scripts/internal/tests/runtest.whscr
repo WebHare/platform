@@ -44,7 +44,7 @@ OBJECT jstestrunner;
 STRING ARRAY testtypes;
 STRING chromeurl;
 BOOLEAN keepsessions;
-STRING profiling; // "", "cov", "apr", "system-cov", "system-apr"
+STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 
 
@@ -299,17 +299,6 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             ]);
       }
 
-      IF (profiling LIKE "system-*")
-      {
-        __SYSTEM_SETSYSTEMCONFIG(CELL
-            [ ...GetSystemConfigurationRecord()
-            , debugconfig :=  [ tags :=           [ SubString(profiling, 7) ]
-                              , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
-                              , context :=        testinfo.testname
-                              ]
-            ]);
-      }
-
       OBJECT itr := jstestrunner->RunTest(testinfo);
       WHILE (TRUE)
       {
@@ -367,14 +356,6 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           BREAK;
         }
       }
-
-      IF (profiling LIKE "system-*")
-      {
-        __SYSTEM_SETSYSTEMCONFIG(CELL
-            [ ...GetSystemConfigurationRecord()
-            , DELETE debugconfig
-            ]);
-      }
     }
     DEFAULT
     {
@@ -398,22 +379,9 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
     Print("\n");
   }
 
-  IF (profiling != "")
+  IF (profiling != "") //TODO how usefil is this, as we'd be clearing out any other debug settings for our child process
   {
-    IF (profiling LIKE "system-*")
-    {
-      __SYSTEM_SETSYSTEMCONFIG(CELL
-          [ ...GetSystemConfigurationRecord()
-          , debugconfig :=  [ tags :=           [ SubString(profiling, 7) ]
-                            , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
-                            , context :=        testname
-                            ]
-          ]);
-    }
-    ELSE
-    {
-      addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
-    }
+    addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
   }
 
   RECORD ARRAY env := GetEnvironment();
@@ -526,14 +494,6 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
 
   CloseProcess(procid);
 
-  IF (profiling LIKE "system-*")
-  {
-    __SYSTEM_SETSYSTEMCONFIG(CELL
-        [ ...GetSystemConfigurationRecord()
-        , DELETE debugconfig
-        ]);
-  }
-
   IF (timeout <= GetCurrentDateTime())
   {
     PRINT(delayed_output);
@@ -598,20 +558,7 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
   IF (profiling != "")
   {
     RECORD ARRAY env := SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_DEBUG";
-    IF (profiling LIKE "system-*")
-    {
-      // needed to remove WEBHARE_DEBUG from env, that overrides the system configuration record
-      __SYSTEM_SETSYSTEMCONFIG(CELL
-          [ ...GetSystemConfigurationRecord()
-          , debugconfig :=  [ tags :=           [ profiling ]
-                            , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
-                            , context :=        testname
-                            ]
-          ]);
-    }
-    ELSE
-      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
-
+    env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
     job->SetEnvironment(env);
   }
   job->Start();
@@ -704,14 +651,6 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
   BOOLEAN hasfailed := Length(errors)>0 OR exitcode != 0;
 
   job->Close();
-
-  IF (profiling LIKE "system-*")
-  {
-    __SYSTEM_SETSYSTEMCONFIG(CELL
-        [ ...GetSystemConfigurationRecord()
-        , DELETE debugconfig
-        ]);
-  }
 
   IF (timeout <= GetCurrentDateTime())
   {
@@ -811,8 +750,6 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "p", type := "switch", defaultvalue := FALSE]
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
-                                    , [name := "systemcoverage", type := "switch" ]
-                                    , [name := "systemprofile", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
                                     , [name := "skip", type := "stringlist"]
                                     , [name := "breakonerror", type := "switch"]
@@ -849,7 +786,7 @@ autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
 chromeurl := parsedargs.chromeurl;
 keepsessions := parsedargs.keepsessions;
-profiling := parsedargs.systemcoverage ? "system-cov" : parsedargs.coverage ? "cov" : parsedargs.systemprofile ? "system-apr" : "";
+profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
 
 STRING ARRAY requiretags, excludetags;

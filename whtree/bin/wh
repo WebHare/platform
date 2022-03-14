@@ -363,16 +363,6 @@ export WEBHARE_DBASE_READONLY="$WEBHARE_DBASE_READONLY"
 export WEBHARE_VERSION="$WEBHARE_VERSION"
 HERE
 
-  if [ "$1" != "" ]; then
-    if [ -z "$WEBHARE_DEBUGSESSION" ]; then
-      WEBHARE_DEBUGSESSION=default
-    fi
-    cat << HERE >> $WEBHARE_DATAROOT/.webhare-envsettings.sh
-export WEBHARE_DEBUG="$1"
-export WEBHARE_DEBUGSESSION="$WEBHARE_DEBUGSESSION"
-HERE
-  fi
-
   # Are we the 'primary' installation for a WEBHARE_DIR ?
   if [ -z "$WEBHARE_NOINSTALLATIONINFO" -a -z "$WEBHARE_IN_DOCKER" ]; then
     cp $WEBHARE_DATAROOT/.webhare-envsettings.sh $WEBHARE_DIR/.webhare-envsettings.sh
@@ -585,27 +575,33 @@ case $INSTR in
       echo ""
     fi
 
-    if [ "$DEBUGTAGS" == "" ]; then
-      # no processing needed, just exec
-      exec $WEBHARE_DIR/bin/webhare "$@" console
-      exit 255
-    fi
-
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
 
-      echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/$WEBHARE_DEBUGSESSION"
+      echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       echo
     fi
 
-    echo "Starting console mode"
-    cd "$WEBHARE_DATAROOT"/tmp
+    # envvar WEBHARE_DEBUG should be treated as an 'initial' value so we move it
+    if [ -n "$WEBHARE_DEBUG" ]; then
+      export __WEBHARE_DEBUG_INITIALSETTING="$WEBHARE_DEBUG"
+      WEBHARE_DEBUG=""
+    fi
+
+    # reset current directory, make sure we're not on a mountpunt (and would dump any coredumps over the network)
+    cd /tmp/
+
+    if [ "$DEBUGTAGS" == "" ]; then # no processing needed, just exec
+      exec $WEBHARE_DIR/bin/webhare "$@" console
+      exit 255
+    fi
+
     $WEBHARE_DIR/bin/webhare "$@" console
 
     if [ "$DEBUGTAGS" == "cov" ]; then
       echo
-      echo "Processing coverage data in ${WEBHARE_DATAROOT}ephemeral/profiles/$WEBHARE_DEBUGSESSION"
+      echo "Processing coverage data in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
       echo "Results are available in ${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
       TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
