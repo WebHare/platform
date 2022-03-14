@@ -154,22 +154,6 @@ MACRO TestXML()
   TestEqualString( 33, "href=\"booklist.xsl\" type=\"text/xml\"", xmlresult[0].xml_content);
 */
 
-  /* Test squashing */
-  RECORD ARRAY squash := SelectAndSquashXML(xmldoc,"/b:books/*");
-  TestEq(2, Length(squash));
-  TestEqualString( 35, "book", squash[0].xml_name);
-  TestEqualString( 36, "book", squash[1].xml_name);
-  TestEq(XmlElementNode, squash[0].xml_type);
-  TestEq(XmlElementNode, squash[1].xml_type);
-  TestEqualString( 39, "book_4", squash[0]."attr_xml:id");
-  TestEqualString( 40, "book_8", squash[1]."attr_xml:id");
-  TestEqualString( 41, "abcdefghi", squash[0].xml_content);
-  TestEqualString( 42, "defjklmno", squash[1].xml_content);
-  TestEqualString( 43, "John Smith", squash[0].author);
-  TestEqualString( 44, "<Jim Doe> & \"Jane Doe\"", squash[1].author);
-  TestEqualString( 45, "About a John", squash[0].title);
-  TestEqualString( 46, "My first book", squash[1].title);
-
   /* Test selecting of nodes */
   // Select all nodes, whatever their type, within the 'book' element with an attribute id="4"
   xmlresult := SelectXML(xmldoc, "//b:book[@xml:id='book_4']/node()");
