@@ -32,7 +32,8 @@ ASYNC MACRO TestImgeditExpectations()
   TestEq("", TT("imgedit1")->recommendedsize);
   TestEq("320x480", TT("imgedit1")->expectedsize);
 
-  TEstEq("Dit is bold\nvolgende\nregel",TT("imgedit1")->info);
+  TestEq("Dit is bold\nvolgende\nregel",TT("imgedit1")->info);
+  TEstEq("Dit is <b>bold</b><br />volgende<br />regel",TT("imgedit1")->htmlinfo);
 
   TestThrowsLike("*Invalid*dimension*", PTR MemberUpdate(TT("imgedit1"), "expectedsize", "640"));
   TestThrowsLike("*Invalid*dimension*", PTR MemberUpdate(TT("imgedit1"), "expectedsize", "640 x 320"));

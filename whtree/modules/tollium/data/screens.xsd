@@ -2659,10 +2659,15 @@ To change a <xs:attribute /> for adding descriptions
 
         <xs:attribute name="info">
           <xs:annotation>
-            <xs:documentation>Text to show as additional information.</xs:documentation>
+            <xs:documentation>Plain Text to show as additional information.</xs:documentation>
           </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="infotid" type="Tid">
+        <xs:attribute name="htmlinfo">
+          <xs:annotation>
+            <xs:documentation>HTML Text to show as additional information.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="infotid" type="sc:RichTid">
           <xs:annotation>
             <xs:documentation>The tid to use to show additional information.</xs:documentation>
           </xs:annotation>

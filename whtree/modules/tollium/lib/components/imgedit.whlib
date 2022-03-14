@@ -120,7 +120,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   PUBLIC PROPERTY customactions(GetCustomActions, SetCustomActions);
 
   PUBLIC PROPERTY info(^moreinformation->value, ^moreinformation->value);
-  PUBLIC PROPERTY htmlinfo(-, ^moreinformation->htmlvalue);
+  PUBLIC PROPERTY htmlinfo(^moreinformation->htmlvalue, ^moreinformation->htmlvalue);
 
 
   ///Are we enforcing size checks(requires a user-initiated change)
@@ -160,7 +160,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->SetExpectedSize(def.expectedsize);
     this->SetMinSize(def.minsize);
     this->SetRecommendedSize(def.recommendedsize);
-    ^moreinformation->value := def.info;
+    ^moreinformation->htmlvalue := def.info;
     ^moreinfo->htmlvalue := `<a href="#">${EncodeHTML(GetTid("tollium:components.imgedit.moreinfo"))}`;
 
     this->customactions := SELECT AS OBJECT ARRAY component FROM def.actions;
