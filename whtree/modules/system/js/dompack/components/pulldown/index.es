@@ -1,4 +1,4 @@
-import * as dompack from "../../src/index.es";
+import * as dompack from "../../index.es";
 import SelectList from "../internal/selectlist.es";
 import KeyboardHandler from "../../extra/keyboard.es";
 
