@@ -51,6 +51,9 @@ Block comments can be used whenenclosed in '{ }'.
 Example:
 - `{/* A JSX comment */}`
 
+You can also create documentfragments using the `<> ... nodes </>` syntax. This is useful when you want
+to hold a list of nodes without needing to create a wrapper. Eg: `<><div id="div2"/><div id="div3"/></>` will create
+a fragment holding these two DIVs. Many standard DOM APIs will accept a fragment in places where they also accept a node.
 
 ## JSX components
 

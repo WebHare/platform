@@ -149,6 +149,7 @@ async function runTask(taskcontext, data)
       , outdir: path.join(bundle.outputpath,"build")
       , entryNames: "ap"
       , jsxFactory: 'dompack.jsxcreate'
+      , jsxFragment: 'dompack.jsxfragment'
       , write: false
       , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
       , plugins: [ captureplugin.getPlugin()

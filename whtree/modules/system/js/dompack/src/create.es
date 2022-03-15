@@ -131,6 +131,7 @@ export function create(elementname, attributes)
     import * as dompack from 'dompack';
 
     /* @jsx dompack.jsxcreate *\/
+    /* @jsxFrag dompack.jsxfragment *\/
     your code
 */
 export function jsxcreate(element, attributes, ...childNodes)
@@ -150,3 +151,9 @@ export function jsxcreate(element, attributes, ...childNodes)
   return createElement(element, attributes, true);
 }
 
+export function jsxfragment(inp)
+{
+  let frag = document.createDocumentFragment();
+  frag.append(...inp.childNodes);
+  return frag;
+}

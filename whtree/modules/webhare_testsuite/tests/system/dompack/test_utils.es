@@ -43,4 +43,13 @@ test.registerTests(
     test.eq(true, node.hasAttribute("attr4"));
     test.eq("", node.getAttribute("attr4"));
   }
+
+, "jsx-syntax"
+, async function()
+  {
+    let node1 = <div id="div1"/>;
+    node1.append(<><div id="div2"/><div id="div3"/></>);
+    test.eq('<div id="div2"></div><div id="div3"></div>', node1.innerHTML);
+  }
+
 ]);
