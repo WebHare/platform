@@ -828,6 +828,8 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
       RECORD result := AWAIT AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE);
       IF(result.success)
       {
+        work->Cancel();
+        work := this->BeginWork();
         ScheduleTimedTask("system:checkwebservers");
         work->Finish();
         this->tolliumresult := "ok";

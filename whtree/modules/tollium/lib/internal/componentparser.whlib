@@ -329,13 +329,13 @@ RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcena
 {
   OBJECT attrtype := decl->type_definition;
   BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon);
+  BOOLEAN isrichtid := (attrtype->name = "RichTid") AND (attrtype->target_namespace = whconstant_xmlns_systemcommon);
 
   RECORD fieldrec := ParseAttributeType(decl);
-
-  IF(RecordExists(SELECT FROM tids WHERE namespaceuri = decl->target_namespace AND basename = decl->name))
+  IF(RecordExists(SELECT FROM tids WHERE namespaceuri = decl->target_namespace AND (basename = decl->name OR "html" || basename = decl->name)))
   {
     //This one is not directly interesting, but it still shouldn't conflict
-    IF(istid)
+    IF(istid OR isrichtid)
       THROW NEW Exception("Title counterpart of a tid is also declared as tid: " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
     IF(TypeId(fieldrec.defaultvalue) != TypeID(STRING))
       THROW NEW Exception("Title counterpart of a tid with an improper type: " || decl->target_namespace || ":" || decl->name || " in " || resourcename || ":" || decl->source_xml_node->linenum);
@@ -345,7 +345,7 @@ RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcena
     RETURN DEFAULT RECORD; //already dealt with its tid counterpart.
   }
 
-  IF(istid)
+  IF(istid OR isrichtid)
     RETURN DEFAULT RECORD; //already dealt with tids
 
   INSERT CELL name := decl->name INTO fieldrec;
@@ -498,12 +498,13 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       IF(tid.namespaceuri="")
       {
         RECORD fieldrec :=
-            [ name :=           tid.name
-            , basename :=       tid.basename
-            , defaultvalue :=   ""
-            , finaltype :=      TYPEID(STRING)
-            , recordtype :=     tid.type // 'tid' or 'tidptr'
-            ];
+            CELL[ tid.name
+                , tid.basename
+                , defaultvalue :=   ""
+                , finaltype :=      TYPEID(STRING)
+                , recordtype :=     tid.type // 'tid' or 'tidptr'
+                , tid.richtid
+                ];
 
         IF(tid.defaulttid != '')
         {
@@ -680,7 +681,11 @@ RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
   FOREVERY(OBJECT attr FROM attruses)
   {
     OBJECT attrtype := attr->attribute_declaration->type_definition;
-    IF((attrtype->name = "Tid" OR attrtype->name="TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon))
+    BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon);
+    BOOLEAN isrichtid := (attrtype->name = "RichTid") AND (attrtype->target_namespace = whconstant_xmlns_systemcommon);
+    BOOLEAN isptr := attrtype->name = "TidPtr";
+
+    IF(istid OR isrichtid)
     {
       STRING name := attr->attribute_declaration->name;
       STRING basename := name;
@@ -690,12 +695,13 @@ RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
       ELSE IF(basename="tid") //explicitly "tid"
         basename := "title";
 
-      RECORD tid :=  [ name :=          attrtype->name = "Tid" ? basename : name
+      RECORD tid :=  [ name :=          isptr ? name : basename
                      , basename :=      basename
                      , namespaceuri :=  attr->attribute_declaration->target_namespace
                      , defaulttid :=    ''
-                     , type :=          attrtype->name = "Tid" ? "tid" : "tidptr"
+                     , type :=          isptr ? "tidptr" : "tid"
                      , attr :=          attr
+                     , richtid :=       isrichtid
                      ];
 
       IF(RecordExists(attr->attribute_declaration->value_constraint) AND attr->attribute_declaration->value_constraint.type='default')

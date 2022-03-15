@@ -2445,7 +2445,7 @@ PUBLIC OBJECT FUNCTION EnsureTestSite(STRING sitename, RECORD options DEFAULTSTO
   {
     OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
     IF(backendsite->outputweb = 0)
-      THROW NEW Exception(`The backend site '${backendsite->name}' requires an output webserver`);
+      THROW NEW Exception(`The backend site '${backendsite->name}' requires an output webserver (usually setup automatically by WEBHARE_CI=1)`);
 
     options.outputweb := backendsite->outputweb;
   }

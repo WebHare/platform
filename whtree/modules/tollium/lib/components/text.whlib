@@ -2,8 +2,54 @@
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
+
+STRING FUNCTION CleanupHTML(STRING intext)
+{
+  OBJECT doc := MakeXMLDocumentFromHTML(StringToBlob("<body>" || intext || "</body>"));
+  RETURN CleanupHTMLRecursive(doc->body);
+}
+STRING FUNCTION CleanupHTMLRecursive(OBJECT parent)
+{
+  STRING retval;
+  FOR(OBJECT node := parent->firstchild; ObjectExists(node); node := node->nextsibling)
+  {
+    IF(node->nodetype = 3)
+    {
+      retval := retval || EncodeHTML(node->nodevalue);
+    }
+    ELSE IF(node->nodetype != 1)
+    {
+      CONTINUE;
+    }
+    ELSE
+    {
+      STRING tag := ToLowercase(node->nodename);
+      SWITCH(tag)
+      {
+        CASE "a"
+        {
+          STRING link := node->GetAttribute("href");
+          IF(link != "")
+            retval := `${retval}<a href="${EncodeValue(link)}">${CleanupHTMLRecursive(node)}</a>`;
+        }
+        CASE "br"
+        {
+          retval := retval || "<br />";
+        }
+        CASE "b", "i", "u", "li", "ul", "ol"
+        {
+          retval := `${retval}<${tag}>${CleanupHTMLRecursive(node)}</${tag}>`;
+        }
+        DEFAULT
+        {
+          retval := retval || CleanupHTMLRecursive(node);
+        }
+      }
+    }
+  }
+  RETURN retval;
+}
 
 /////////////////////////////////////////////////////////////////////
 // A read only field
@@ -32,7 +78,7 @@ PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
   PUBLIC MACRO PTR onclicklink;
 
   PUBLIC PROPERTY value (GetValue, SetValue);
-  PUBLIC PROPERTY htmlvalue (-, SetHtmlValue);
+  PUBLIC PROPERTY htmlvalue (GetHtmlValue, SetHtmlValue);
 
   PUBLIC PROPERTY action(pvt_action, SetAction);
   PUBLIC PROPERTY labelfor (pvt_labelfor, SetLabelFor);
@@ -61,8 +107,7 @@ PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     TolliumComponentBase::StaticInit(def);
-
-    this->contents := def.value;
+    this->htmlvalue := def.value;
     this->wordwrap := def.wordwrap;
     this->ellipsis := def.ellipsis;
     this->selectable := def.selectable;
@@ -128,20 +173,15 @@ PUBLIC OBJECTTYPE TolliumText EXTEND TolliumComponentBase
     }
   }
 
+  STRING FUNCTION GetHtmlValue()
+  {
+    RETURN this->pvt_htmlvalue ?? EncodeHTML(this->contents);
+  }
+
   MACRO SetHtmlValue(STRING newtext)
   {
-    IF(newtext!="")
-    {
-      //ADDME adhoccache or preparse in screenparser to cut down on LIBXML invocations.
-      //ADDME perhaps a quick heuristic to see if we really need the heavy cleanup guns ?
-      OBJECT rewriter := NEW HtmlRewriter;
-      rewriter->parsemode := "inline";
-      rewriter->ParseXmlDocument(MakeXMLDocumentFromHTML(StringToBlob(newtext), "UTF-8"));
-
-      STRING finalvalue := rewriter->parsed_text;
-      //abort(newtext || " -> " || Finalvalue);
-      newtext := finalvalue;
-    }
+    IF(newtext != "")
+      newtext := CleanupHTML(newtext);
 
     this->contents := DecodeHTML(newtext);
     this->pvt_htmlvalue := newtext;

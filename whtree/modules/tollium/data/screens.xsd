@@ -4446,8 +4446,21 @@ To change a <xs:attribute /> for adding descriptions
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="value" type="xs:string"  />
-    <xs:attribute name="valuetid" type="Tid"  />
+    <xs:attribute name="htmlvalue" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Text to display (as HTML)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="value" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Text to display (plain text)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="valuetid" type="sc:RichTid">
+      <xs:annotation>
+        <xs:documentation>TID of text to display (rich texts supported)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="action" type="ComponentRef"  />
     <xs:attribute name="onclicklink" type="tc:Handler">
       <xs:annotation>

@@ -9,9 +9,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
-
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -21,7 +18,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
@@ -30,12 +26,8 @@ LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
-RECORD args := ParseArguments(GetConsoleArguments(),
-    [ [ name := "module", type := "param" ]
-    ]);
-
-IF(args.module != "") //we're being requested for a specific module auto-installed
-  RETURN; //then don't run. we only want to be in the global loop
+IF(GetPrimaryWebhareInterfaceURL() = "")
+  TerminateScriptWithError(`Not initializing testsite until there's a primary interface URL (usually setup automatically by WEBHARE_CI=1)`);
 
 OBJECT trans := OpenPrimary();
 
