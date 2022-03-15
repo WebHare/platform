@@ -384,7 +384,6 @@ PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEF
   ELSE IF(tid LIKE "<>*")
     RETURN DecodeHTML(Substring(tid,2));
 
-
   RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), FALSE);
 }
 

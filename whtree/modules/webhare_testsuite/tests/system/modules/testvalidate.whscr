@@ -641,7 +641,7 @@ MACRO TestSiteProfiles()
 MACRO TestTidScan()
 {
   //Test validation when limitlanguages used for nonprimary language
-  //First some sanity checks that the language files still look the way we need 'm. valuetid= is of type RichTid so an extra check whether thatworks too
+  //First some sanity checks that the language files still look the way we need 'm. valuetid= is of type RichTid so an extra check whether that works too
   TestEq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", GetTIDForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
   TestEq("IsNLOnly", GetTIDForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
 
