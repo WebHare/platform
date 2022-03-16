@@ -347,8 +347,9 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
                     ]
                 ]
             ];
-
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", config, "PUT");
+*/
+        RECORD config;
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", config, "PUT", [ throwonfailure := TRUE ]);
         IF (response.status = SearchHTTPError
             AND RecordExists(response.result)
             AND response.result.status = 400
@@ -358,8 +359,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
         ELSE
           result := response.status;
 
-          */
-      }
+     }
     }
   }
 
@@ -422,8 +422,9 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
               [ type := "completion"
               ] INTO settings.properties;
 
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/_doc", settings, "PUT");
-        IF (response.status = SearchHTTPError
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/", settings, "PUT", [ throwonfailure := TRUE ]);
+
+        IF (response.status = SearchHTTPError //TOOD are we even sure this parse is correct? better explicitly test-coverage it
             AND RecordExists(response.result)
             AND response.result.status = 400
             AND RecordExists(response.result.error)
@@ -994,7 +995,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
 
         INSERT CELL _source := requested_fields INTO searchquery;
 
-        // Optimization when scoring isn't relevant
+        // Optimization when scoring isn't relevant - https://opensearch.org/docs/latest/opensearch/ux/#sort-results
         INSERT CELL sort := [ "_doc" ] INTO searchquery;
 
         IF (options.first != defaultoptions.first)
@@ -1363,7 +1364,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             FOREVERY (RECORD obj FROM objgroup.objs)
             {
               // action_and_meta_data
-              INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix), "_type" := "_doc" ]] INTO bulkrequests AT END;
+              INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
               // optional_source
               INSERT obj.documentfields INTO bulkrequests AT END;
             }
@@ -1421,7 +1422,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             // optional_source
             INSERT document INTO bulkrequests AT END;
 
-            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_doc/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
+            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
           }
         }
 

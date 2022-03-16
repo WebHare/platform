@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 
 MACRO __SYSTEM_SETSYSTEMCONFIG(RECORD data) __ATTRIBUTES__(EXTERNAL);
@@ -887,6 +888,14 @@ FOREVERY (STRING param FROM parsedargs.param)
 
 IF (parsedargs.testname = "")
   parsedargs.testname := "all";
+
+//Tests are unsafe until WebHare is ready
+IF(NOT RecordExists(PollWHServiceState("poststartdone")))
+{
+  Print(`Waiting for WebHare to reach 'poststartdone'\n`);
+  WHILE(NOT RecordExists(PollWHServiceState("poststartdone")))
+    Sleep(100);
+}
 
 RECORD ARRAY alltests;
 WHILE (TRUE)

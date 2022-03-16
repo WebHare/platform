@@ -230,8 +230,8 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
         ] INTO apps AT END;
   IF(RecordExists(SELECT FROM consilio.indexmanagers WHERE type=2 AND address="builtin-elasticsearch"))
     INSERT
-        [ name := "consilio:elasticsearch"
-        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_elasticsearch.sh" ]
+        [ name := "consilio:opensearch"
+        , args := STRING[ GetWebhareConfiguration().installationroot || "bin/launch_opensearch.sh" ]
         , isstandalone := TRUE
         ] INTO apps AT END;
   RETURN apps;
