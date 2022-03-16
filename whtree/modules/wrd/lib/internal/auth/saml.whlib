@@ -606,7 +606,7 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
         doc,
         endpoint.binding,
         isrequest, CELL
-        [ destination :=      endpoint.location
+        [ destination :=      endpoint.responselocation ?? endpoint.location
         , sign :=             BlobToString(this->GetKeyPair()->privatekey)
         , relaystate
         , signaturealgorithm
@@ -1044,6 +1044,10 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
   OBJECT idp := GetAuthPluginIDP(wrdauthplugin);
   OBJECT sp := idp->GetConnectedSPById(decoded_req.sp);
 
+  RECORD endpoint := RecordExists(decoded_req.r)
+      ? sp->GetEndpointOfTypeByIdx("AssertionConsumerService", decoded_req.r.acs)
+      : sp->SelectEndpointOfType("AssertionConsumerService");
+
   DATETIME now := GetCurrentDateTime();
 
   // Must be an xs:NCNAME
@@ -1076,10 +1080,31 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
 
     OBJECT idp_config := wrdauthplugin->GetSAMLIDPConfig();
 
-    RECORD statdata := idp_config->GenerateAuthenticationStatement();
+    DATETIME validuntil := AddTimeToDate(5 * 60 * 1000, now); // valid for 5 mins
+
+    RECORD statdata := idp_config->GenerateAuthenticationStatement2(CELL
+        [ sp
+        , endpoint
+        , requestid :=        RecordExists(decoded_req.r) ? decoded_req.r.id : ""
+        , now
+        ]);
+
+    // Auto-add subjectconfirmation if not present, looks like it's usually required
+    IF (NOT CellExists(statdata.subject, ""))
+    {
+      INSERT CELL subjectconfirmation :=
+          [ [ method :=       "urn:oasis:names:tc:SAML:2.0:cm:bearer"
+            , subjectconfirmationdata :=
+                    [ inresponseto :=     RecordExists(decoded_req.r) ? decoded_req.r.id : ""
+                    , recipient :=        endpoint.responselocation ?? endpoint.location
+                    , notonorafter :=     validuntil
+                    ]
+            ]
+          ] INTO statdata.subject;
+    }
 
     // Round time, and decrease a little to allow differing clocks
-    DATETIME reference_time := AddTimeToDate(-1000, GetRoundedDateTime(GetCurrentDateTime(), 1000));
+    DATETIME reference_time := AddTimeToDate(-1000, GetRoundedDateTime(now, 1000));
 
     response.assertion :=
         [ [ version :=        "2.0"
@@ -1102,7 +1127,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
                 ]
           , conditions :=
                 [ notbefore :=      reference_time
-                , notonorafter :=   AddTimeToDate(5 * 6000, reference_time) // valid for 5 mins
+                , notonorafter :=   validuntil
                 , audiencerestriction :=
                                     [ [ audience := [ STRING(sp->GetSAMLEntityID()) ]
                                       ]
@@ -1131,10 +1156,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
         [ value := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed"
         ] INTO response.status.statuscode;
   }
-
-  RECORD endpoint := RecordExists(decoded_req.r)
-      ? sp->GetEndpointOfTypeByIdx("AssertionConsumerService", decoded_req.r.acs)
-      : sp->SelectEndpointOfType("AssertionConsumerService");
 
   RETURN idp->EncodeAndSignDocument(response, endpoint, decoded_req.rs, FALSE);
 }

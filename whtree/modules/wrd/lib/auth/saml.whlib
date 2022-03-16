@@ -74,7 +74,6 @@ PUBLIC STATIC OBJECTTYPE SAMLIDPConfigBase
   //
 
   /** Generates the data for an authentication statement for the currently logged in user
-
       @return
       @cell(record) return.subject
       @cell(record) return.subject.nameid
@@ -87,6 +86,26 @@ PUBLIC STATIC OBJECTTYPE SAMLIDPConfigBase
   PUBLIC RECORD FUNCTION GenerateAuthenticationStatement()
   {
     THROW NEW Exception("This function must be overridden");
+  }
+
+  /** Generates the data for an authentication statement for the currently logged in user
+      @param requestdata Data describing the request
+      @cell(object ../internal/auth/saml.whlib#SAMLConnectedServiceProvider) requestdata.sp Receiving service provider
+      @cell(string) requestdata.requestid SAML request id, empty for IdP-initiated login
+      @cell(record) requestdata.endpoint Endpoint this statement is sent to #includecelldef ../internal/auth/saml.whlib#SAMLConnectedServiceProvider::GetEndpointOfTypeByIdx.return
+      @cell(datetime) requestdata.now Signature time of the authentication response
+      @return Authentication statement data
+      @cell(record) return.subject
+      @cell(record) return.subject.nameid
+      @cell(string) return.subject.nameid.format
+      @cell(string) return.subject.nameid.value
+      @cell(record array) return.attributes
+      @cell(string) return.attributes.name
+      @cell(string) return.attributes.value
+  */
+  PUBLIC RECORD FUNCTION GenerateAuthenticationStatement2(RECORD requestdata)
+  {
+    RETURN this->GenerateAuthenticationStatement();
   }
 
 >;
