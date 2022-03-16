@@ -86,6 +86,7 @@ struct Instruction
         {}
 
         Instruction & operator =(Instruction const &) = default;
+        Instruction(Instruction const &) = default;
 };
 
 struct InstructionBlock
