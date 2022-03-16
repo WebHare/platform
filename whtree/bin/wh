@@ -559,11 +559,13 @@ case $INSTR in
       shift;
     fi
 
+    [ -n "$DEBUGTAGS" ] && WEBHARE_DEBUG="$WEBHARE_DEBUG,$DEBUGTAGS"
+
     check_webhare_not_running
     setup_for_console
 
     getwhparameters
-    setup_webhare_envsettings "$DEBUGTAGS"
+    setup_webhare_envsettings
 
     # Show version and restore information
     echo -n "WebHare version: $WEBHARE_VERSION"
@@ -914,7 +916,7 @@ HERE
     if [ -x "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" ]; then
       "$WEBHARE_DATAROOT/etc/fresh-db-setup.sh" &
     fi
-    exec $WEBHARE_DIR/bin/wh "$@" console
+    exec $WEBHARE_DIR/bin/wh console "$@"
     exit 255
     ;;
 
