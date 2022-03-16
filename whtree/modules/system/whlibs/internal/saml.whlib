@@ -127,7 +127,7 @@ PUBLIC OBJECTTYPE SAMLCoder
                 [ [ namespace := ns_saml,     nodename := "BaseId",         type := "unsupported" ]
                 , [ namespace := ns_saml,     nodename := "NameID",         type := "entity" ]
                 , [ namespace := ns_saml,     nodename := "EncryptedID",    type := "unsupported" ]
-                , [ namespace := ns_saml,     nodename := "SubjectConfirmation", type := "entity" ]
+                , [ namespace := ns_saml,     nodename := "SubjectConfirmation", type := "entity-array" ]
                 ]
           ]
 
