@@ -49,7 +49,7 @@ import 'font-awesome/css/font-awesome.css';
 ```
 
 Note that we generally recommend to use JavaScript `import` for CSS files and
-not `@import` as the former allows Webpack to de-duplicate the CSS import.
+not `@import` as the former allows the bundler to de-duplicate the CSS import.
 
 ## Developing your own modules
 If you want to develop your own modules (for use with WebHare or to also

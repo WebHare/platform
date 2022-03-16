@@ -205,7 +205,7 @@ export function configureGTMFormSubmit(opts)
     eventname = opts.eventname;
 }
 
-//ADDME if we ever figure out a webpack trick to flush this command to the top of all imports/loads, that would be great
+//ADDME if we ever figure out a bundler trick to flush this command to the top of all imports/loads, that would be great (we could consider *ALWAYS* putting this in the generated startup code, or we'd need to do a tree pre-walk to see if gtm.es is loaded anywhere)
 if(!window.dataLayer)
   window.dataLayer=[];
 

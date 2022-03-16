@@ -1870,16 +1870,14 @@
         <xs:complexType>
           <xs:sequence>
             <xs:element name="babeltranspile" minOccurs="0" maxOccurs="unbounded">
-              <xs:complexType>
-                <xs:attribute name="regex" />
-              </xs:complexType>
+              <xs:annotation>
+                <xs:documentation>Deprecated, no longer has any effect</xs:documentation>
+              </xs:annotation>
             </xs:element>
           </xs:sequence>
           <xs:attribute name="name" type="xs:string">
             <xs:annotation>
-              <xs:documentation>
-                Name for this assetpack. If not set, the webdesign name is used
-              </xs:documentation>
+              <xs:documentation>Name for this assetpack. If not set, the webdesign name is used</xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="entrypoint" type="xs:string" use="required">

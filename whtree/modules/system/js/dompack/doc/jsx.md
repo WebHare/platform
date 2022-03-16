@@ -4,7 +4,7 @@ WARNING: this documentation was written when dompack was a separate module and m
 
 With dompack.create, DOM elements can be created quickly. However, when building larger trees of html, the resulting code can become a bit unreadable. With the Dompack JSX support, the tree can be written in JSX, resulting in cleaner syntax.
 
-Dompack directly creates HTML elements from the JSX (like nativejsx, but using standard Babel JSX). This differs from React, which creates virtual DOM elements (ReactElement), and later syncs those to the DOM.
+Dompack directly creates HTML elements from the JSX. This differs from React, which creates virtual DOM elements (ReactElement), and later syncs those to the DOM.
 
 The properties on elements are passed directly to dompack.create, so they can be a bit different from normal React node properties.
 

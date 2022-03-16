@@ -25,7 +25,7 @@ DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pd"
 
 IF(GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "")
 {
-  //4.30: Legacy ephemeral data - now inside the docker
+  //4.30: Legacy ephemeral data - now inside the docker layers which are automatically discarded on restart
   DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/babelcache");
   DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/compilecache");
 

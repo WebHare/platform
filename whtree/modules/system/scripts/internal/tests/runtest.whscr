@@ -397,12 +397,6 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
     Print("\n");
   }
 
-  // Ensure the BABEL_CACHE_PATH is set for babel-node
-  INSERT
-      [ name :=     "BABEL_CACHE_PATH"
-      , value :=    GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(GetWebHareConfiguration().varroot, "ephemeral/babelcache/babel-node")
-      ] INTO addenv AT END;
-
   IF (profiling != "")
   {
     IF (profiling LIKE "system-*")

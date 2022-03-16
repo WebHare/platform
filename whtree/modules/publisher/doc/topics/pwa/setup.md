@@ -86,7 +86,7 @@ If `pwa--serviceworker.js` cannot be found, make sure you applied `pwa-in-root.s
   to prevent endless loops spamming the logs. we need an easy way to disable or reset this counter
   - outputtools.js toolbox may be useful for this, 'just' add an idb reset action
 
-- pwa--servicekeeper.js isn't webpack-built. we may need this soon to keep its code clean
+- pwa--servicekeeper.js isn't bundled. we may need this soon to keep its code clean
 
 - we probably need to move stuff configured in PWABase (add url, exclusions) from the wh.config to a separate manifest
 

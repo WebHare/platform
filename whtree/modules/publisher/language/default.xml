@@ -1983,7 +1983,6 @@
       <text tid="handlers">Form handlers</text>
       <text tid="implicthandler-dontstore">Do not save results</text>
       <text tid="implicthandler-storedays">Store results for <ifparam p="1" value="1">1 day<else/><param p="1"/> days</ifparam></text>
-      <text tid="importwebpack">Import webpack survey</text>
       <text tid="initialthankyou">Thank you for your response</text>
       <text tid="movedownhint">Move down</text>
       <text tid="movetobottomhint">Move to bottom</text>

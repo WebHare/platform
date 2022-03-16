@@ -549,12 +549,10 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
   IF (CellExists(javascriptmsg, "TRACE"))
   {
     trace :=
-        SELECT TEMPORARY normalized_filename := Substitute(Substitute(filename, "file://", ""), "webpack://", "")
-             , filename :=    normalized_filename LIKE "webpack://*"
-                                    ? SubString(normalized_filename, 10)
-                                    : normalized_filename LIKE "*/.system/jstests/!/*.?s"
-                                          ? testscript
-                                          : normalized_filename
+        SELECT TEMPORARY normalized_filename := Substitute(filename, "file://", "")
+             , filename :=    normalized_filename LIKE "*/.system/jstests/!/*.?s"
+                                ? testscript
+                                : normalized_filename
              , line :=        CellExists(trace, "LINE") ? line : 0
              , col :=         CellExists(trace, "COL") ? col : 0
              , func :=        CellExists(trace, "FUNC") ? func : ""

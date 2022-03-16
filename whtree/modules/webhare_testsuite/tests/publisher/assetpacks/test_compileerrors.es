@@ -1,12 +1,6 @@
 /* globals describe it */
 
-/* now more of a generic 'compiler issues' test
-
-   to manually run this testset for both webpack and esbuild:
-
-   wh runtest publisher.assetpacks.test_compileerrors_webpack
-   wh runtest publisher.assetpacks.test_compileerrors_es2016
-   wh runtest publisher.assetpacks.test_compileerrors_esnext
+/* wh runtest publisher.assetpacks.test_compileerrors
 
    set WEBHARE_ASSETPACK_DEBUGREWRITES=1 for rewrite debug info
 */
@@ -17,10 +11,7 @@ const path = require("path");
 
 const bridge = require('@mod-system/js/wh/bridge');
 let baseconfig;
-let assetCompiler = require('@mod-publisher/js/internal/assetcompile.es');
-
-if(!process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY) //as long as we do both esnext AND modern... run the test twice
-  throw new Error("WEBHARE_ASSETPACK_FORCE_COMPATIBILITY *must* be set to ensure you're running the test you want");
+let assetCompiler = require('@mod-publisher/js/internal/esbuild/compiletask.es');
 
 async function compileAdhocTestBundle(entrypoint, isdev)
 {
@@ -59,9 +50,6 @@ async function compileAdhocTestBundle(entrypoint, isdev)
     manifest.assets.forEach(file =>
       {
         let subpath = file.subpath;
-        if(subpath.startsWith('st/') && result.compiler=='webpack') //the move to 'st/' isnt done during build, but after... so don't look for st/ here. esbuild stops bothering with the st/ folder
-          subpath = subpath.substr(3);
-
         let fullpath = path.join("/tmp/compileerrors-build-test/build/", subpath.toLowerCase());
         if(!fs.existsSync(fullpath))
           throw new Error(`Missing file ${fullpath}`);
@@ -82,8 +70,6 @@ describe("test_compileerrors", (done) =>
 
   it("should properly detect broken scss", async function()
   {
-    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
-
     let result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es", true);
     assert(result.haserrors === true);
     assert(Array.isArray(result.info.errors));
@@ -110,8 +96,6 @@ describe("test_compileerrors", (done) =>
 
   it("should properly report broken location", async function()
   {
-    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
-
     let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/include-import-fail.es"), true);
     assert(result.haserrors === true);
     assert(Array.isArray(result.info.errors));
@@ -134,11 +118,7 @@ describe("test_compileerrors", (done) =>
 
   it("looking for a nonexisting module should register missingDependencies on node_modules", async function()
   {
-    this.timeout(60000); //esbuild doesn't need this, but webpack surely does...
-
     let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-module.es"), true);
-    if(result.compiler == 'webpack')
-      return; //dropping support for this in the future, and webpack is often too slow to trigger the CI races
 
     assert(result.haserrors === true);
 
@@ -166,8 +146,6 @@ describe("test_compileerrors", (done) =>
 
   it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.es", false);
     assert(result.haserrors === false);
 
@@ -178,8 +156,6 @@ describe("test_compileerrors", (done) =>
 
   it("scss files dependencies", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(path.join(__dirname,"dependencies/regressions.scss"), false);
     assert(result.haserrors === false);
 
@@ -191,8 +167,6 @@ describe("test_compileerrors", (done) =>
 
   it("rpc.json files pull in system/js/wh/rpc.es as dependency (prod)", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.rpc.json", false);
     assert(result.haserrors === false);
 
@@ -204,8 +178,6 @@ describe("test_compileerrors", (done) =>
 
   it("lang.json files pull in extra dependencies", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/base-for-deps.lang.json", true);
     assert(result.haserrors === false);
 
@@ -218,8 +190,6 @@ describe("test_compileerrors", (done) =>
 
   it("combine-deps pulls all these in as dependencies", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/combine-deps.es", true);
     assert(result.haserrors === false);
 
@@ -242,8 +212,6 @@ describe("test_compileerrors", (done) =>
 
   it("test other tricky dependencies", async function()
   {
-    this.timeout(60000);
-
     let result = await compileAdhocTestBundle(__dirname + "/dependencies/regressions.es");
     assert(result.haserrors === false);
 
@@ -253,47 +221,40 @@ describe("test_compileerrors", (done) =>
   });
 
   // Test for esbuild issue https://github.com/evanw/esbuild/issues/1657
-  if (process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY != "modern")
+  it("esbuild value collapse fix", async function()
   {
-    it("esbuild value collapse fix", async function()
-    {
-      this.timeout(60000);
+    let result = await compileAdhocTestBundle(path.join(__dirname,"optimizations/regressions.es"), false);
+    assert(result.haserrors === false);
 
-      let result = await compileAdhocTestBundle(path.join(__dirname,"optimizations/regressions.es"), false);
-      assert(result.haserrors === false);
+    /* Older versions of esbuild collapsed global values, i.e.
+        margin-bottom: 0;
+        margin-left: unset;
+        margin-right: unset;
+        margin-top: 0;
+       became
+        margin: 0 unset;
+    */
+    let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
+    assert(css.match(/.test1a{.*margin-left:unset.*}/));
+    assert(css.match(/.test1a{.*padding-left:initial.*}/));
+    // Check if numerical values are collapsed properly
+    assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
+  });
 
-      /* Older versions of esbuild collapsed global values, i.e.
-          margin-bottom: 0;
-          margin-left: unset;
-          margin-right: unset;
-          margin-top: 0;
-         became
-          margin: 0 unset;
-      */
-      let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
-      assert(css.match(/.test1a{.*margin-left:unset.*}/));
-      assert(css.match(/.test1a{.*padding-left:initial.*}/));
-      // Check if numerical values are collapsed properly
-      assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
-    });
+  it("TypeScript is working", async function()
+  {
+    let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript.ts", false);
+    assert(result.haserrors === false);
 
-    it("TypeScript is working", async function()
-    {
-      this.timeout(60000);
+    let filedeps = Array.from(result.info.dependencies.fileDependencies);
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
+    assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
+    assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
 
-      let result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript.ts", false);
-      assert(result.haserrors === false);
-
-      let filedeps = Array.from(result.info.dependencies.fileDependencies);
-      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
-      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
-      assert(filedeps.includes(path.join(__dirname,"/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
-      assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/publisher/js/internal/polyfills/modern.es")));
-
-      result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
-      assert(result.haserrors === true);
-    });
-  }
+    result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
+    assert(result.haserrors === true);
+  });
 
   it("cleanup", () =>
   {

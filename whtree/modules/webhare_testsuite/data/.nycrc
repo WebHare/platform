@@ -1,7 +1,6 @@
  {
     "exclude": [ "**/node_modules/**" ],
     "extension": [ ".js", ".es" ],
-    "require": [ "babel-polyfill", "@mod-system/js/internal/babel-register" ],
     "sourceMap": false,
     "instrument": false,
     "include": "**",

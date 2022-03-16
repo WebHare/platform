@@ -1,7 +1,5 @@
-// WARNING: This file is loaded by both webpack (babel) and nodejs code and
-//          should avoid babel-only features not yet supported by nodejs
-
-// import * as texttype from 'dompack/types/text';
+/** @import: import * as texttype from 'dompack/types/text';
+*/
 
 export function encodeTextNode(str)
 {

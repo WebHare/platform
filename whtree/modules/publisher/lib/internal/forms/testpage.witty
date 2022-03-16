@@ -2,9 +2,6 @@
   <h1 title="This is a <h1>">Publisher forms test page</h1>
   <p>
     <a href="?fsobject=[fsobject]">Full demo</a>&nbsp;&nbsp;&nbsp;
-    [if haswebpack]
-      <a href="?fsobject=[fsobject]&amp;type=webpack">WebPack survey test</a>
-    [/if]
   </p>
   [contents]
 [/component]

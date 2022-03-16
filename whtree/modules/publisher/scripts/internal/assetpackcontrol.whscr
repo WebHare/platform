@@ -786,7 +786,6 @@ STATIC OBJECTTYPE AssetPackController
                                  , languages := modulepack.supportedlanguages
                                  , modulepack.webharepolyfills
                                  , modulepack.environment
-                                 , modulepack.babeltranspile
                                  , modulepack.aftercompiletask
                                  , modulepack.assetbaseurl
                                  , modulepack.compatibility

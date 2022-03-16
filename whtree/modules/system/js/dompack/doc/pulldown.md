@@ -13,7 +13,7 @@ dompack pulldown relies on dompack and SCSS, and leaves the choice of used class
 you should never modify) to you.
 
 ## Feature shortlist
-- Clean ES6/7 (Babel) and SCSS setup
+- Clean ES6/7 and SCSS setup
 - Automatically resize the select control based on the content of the options
 - Native HTML5 events
 - Automatically picks up changes made to the original DOM select and applies it to the replaced control

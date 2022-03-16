@@ -1,11 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="broken-scss dependencies optimizations">
-  <mochanodetest name="test_compileerrors_webpack" file="test_compileerrors.es">
-    <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="modern" />
-  </mochanodetest>
-  <mochanodetest name="test_compileerrors_es2016" file="test_compileerrors.es">
-    <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="es2016" />
-  </mochanodetest>
-  <mochanodetest name="test_compileerrors_esnext" file="test_compileerrors.es">
-    <env name="WEBHARE_ASSETPACK_FORCE_COMPATIBILITY" value="esnext" />
-  </mochanodetest>
+  <mochanodetest name="test_compileerrors" file="test_compileerrors.es" />
 </group>

@@ -72,7 +72,7 @@ MACRO TestBasics()
 
   OBJECT doc := testfw->browser->document;
   OBJECT ARRAY links := doc->getElements('link[rel="stylesheet"]');
-  TestEq(1, Length(links)); //one style.css from webpack
+  TestEq(1, Length(links)); //one style.css from the bundler
 
   // Ensure the assetpack is compiled at least once
   testfw->EnsureCompiledAssetpack("webhare_testsuite:basetest");
