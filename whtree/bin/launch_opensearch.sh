@@ -9,7 +9,7 @@ echo "Max open files: $(ulimit -n)"
 
 eval $("$WEBHARE_DIR/bin/webhare" printparameters)
 OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
-OPENSEARCHROOT="$WEBHARE_DATAROOT/elasticsearch"
+OPENSEARCHROOT="$WEBHARE_DATAROOT/opensearch"
 
 # Rename old data folder
 if [ -d "$WEBHARE_DATAROOT/elasticsearch" ] && [ ! -d "$OPENSEARCHROOT" ]; then

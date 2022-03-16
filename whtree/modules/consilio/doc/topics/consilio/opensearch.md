@@ -1,4 +1,4 @@
-# Opensearch
+# OpenSearch
 Consilio can be configured to use an external OpenSearch cluster for storage.
 We also ship OpenSearch with WebHare which Consilio can use (and which will
 eventually replace its own index manager)
