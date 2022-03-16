@@ -635,12 +635,12 @@ fi
 
 if [ -n "$COVERAGE" ]; then
   $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::system/debug/analyze_coverage.whscr
-  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles coverage > $ARTIFACTS/coverage.tar.gz
+  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
   echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
 fi
 
 if [ -n "$PROFILE" ]; then
-  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles functionprofile > $ARTIFACTS/functionprofile.tar.gz
+  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
   echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
 fi
 
