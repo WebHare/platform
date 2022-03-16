@@ -1080,7 +1080,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
 
     OBJECT idp_config := wrdauthplugin->GetSAMLIDPConfig();
 
-    DATETIME validuntil := AddTimeToDate(5 * 60 * 1000, GetCurrentDatetime()); // valid for 5 mins
+    DATETIME validuntil := AddTimeToDate(5 * 60 * 1000, now); // valid for 5 mins
 
     RECORD statdata := idp_config->GenerateAuthenticationStatement2(CELL
         [ sp
