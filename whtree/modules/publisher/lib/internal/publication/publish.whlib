@@ -85,7 +85,7 @@ PUBLIC STATIC OBJECTTYPE Reader
         {
           outputrun->errorcode  := 115;
           outputrun->errordata := conflictfile;
-          this->FinishPublishing(DEFAULT OBJECT, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
+          this->FinishPublishing(outputrun, fileid, 0, DEFAULT RECORD ARRAY, FALSE);
           RETURN 0;
         }
       }

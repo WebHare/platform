@@ -1,4 +1,4 @@
-import * as dompack from "../src/index.es";
+import * as dompack from "../index.es";
 
 /** Add swipe event */
 

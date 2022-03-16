@@ -1,4 +1,4 @@
-import * as dompack from '../../src/index.es';
+import * as dompack from '../../index.es';
 import * as dialogapi from '../../api/dialog.es';
 
 export class BasicDialog extends dialogapi.DialogBase
