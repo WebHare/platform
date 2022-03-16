@@ -379,7 +379,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
     Print("\n");
   }
 
-  IF (profiling != "") //TODO how usefil is this, as we'd be clearing out any other debug settings for our child process
+  IF (profiling != "") //TODO how useful is this, as we'd be clearing out any other debug settings for our child process
   {
     addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
   }

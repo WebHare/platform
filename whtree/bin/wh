@@ -603,8 +603,8 @@ case $INSTR in
       echo
       echo "Processing coverage data in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
-      echo "Results are available in ${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
-      TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/${WEBHARE_DEBUGSESSION}/index.html"
+      echo "Results are available in ${WEBHARE_DATAROOT}ephemeral/profiles/default/index.html"
+      TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/default/index.html"
     fi
 
     setup_webhare_envsettings # Reset to defaults
