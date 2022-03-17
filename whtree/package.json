@@ -22,7 +22,6 @@
     "stack-trace": "0.0.10",
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.9",
-    "whatwg-fetch": "^3.0.0",
     "ws": "^7.2.3"
   },
   "private": true,

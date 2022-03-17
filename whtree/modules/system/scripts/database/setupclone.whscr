@@ -12,7 +12,7 @@ LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
 
 
 BOOLEAN FUNCTION HaveLocking()

@@ -408,7 +408,14 @@
     <usepublishtemplate script="mod::publisher/scripts/internal/publishwebdesign.whscr" />
     <extendproperties extension="mod::publisher/screens/objectprops/specialtypes.xml#prebuiltpage"
                       contenttype="http://www.webhare.net/xmlns/publisher/prebuiltpage" />
+    <preview browserurl="/.publisher/backend/preview/nopreview.html" />
   </filetype>
+
+  <!-- inform developers that we're phasing out prebuilt pages -->
+  <apply maxservertype="development">
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/prebuiltpage" />
+    <preview browserurl="/.publisher/backend/preview/nopreview-prebuiltpage.html" />
+  </apply>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/wittyfile"
             blobiscontent="true"

@@ -8,14 +8,12 @@ LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::system.whlib";
 
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
-MACRO __SYSTEM_REMOTELOG(STRING logname, STRING line) __ATTRIBUTES__(EXTERNAL);
-RECORD FUNCTION __SYSTEM_GETSYSTEMCONFIG() __ATTRIBUTES__(EXTERNAL);
 MACRO EnableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
 MACRO DisableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
 RECORD FUNCTION __INTERNAL_GetRawFunctionProfile() __ATTRIBUTES__(EXTERNAL);
 BOOLEAN FUNCTION CreateDiskDirectoryRecursive(STRING directory, BOOLEAN visible) __ATTRIBUTES__(EXTERNAL);
-RECORD FUNCTION __SYSTEM_WHCOREPARAMETERS() __ATTRIBUTES__(EXTERNAL);
 STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL);
 
 
@@ -76,35 +74,62 @@ MACRO GotTooManyUnhandledRejections()
   __SYSTEM_REMOTELOG("system:debug", msg);
 }
 
+RECORD FUNCTION ReadDebugSettingFromEnv(STRING varcontent)
+{
+  __debugconfig :=
+      [ tags :=           STRING[]
+      , outputsession :=  "default"
+      , context :=        ""
+      ];
+
+  FOREVERY(STRING cmd FROM Tokenize(varcontent,","))
+  {
+    IF(cmd = "" OR cmd="reset")
+      CONTINUE;
+
+    IF(cmd LIKE "session=*")
+      __debugconfig.outputsession := Substring(cmd,8);
+    ELSE IF(cmd LIKE "context=*")
+      __debugconfig.context := Substring(cmd,8);
+    ELSE
+      INSERT cmd INTO __debugconfig.tags AT END;
+  }
+
+  RETURN __debugconfig;
+}
+
 MACRO ReadDebugConfig()
 {
   STRING debug_str := GetEnvironmentVariable("WEBHARE_DEBUG");
   IF (debug_str != "")
   {
-    __debugconfig :=
-        [ tags :=           Tokenize(debug_str, ",")
-        , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
-        , context :=        GetEnvironmentVariable("WEBHARE_DEBUGCONTEXT")
-        ];
+    ReadDebugSettingFromEnv(debug_str);
+    RETURN;
   }
-  ELSE
+
+  RECORD systemconfig := __SYSTEM_GETSYSTEMCONFIG();
+  IF (CellExists(systemconfig, "DEBUGCONFIG") AND TypeID(systemconfig.debugconfig) = TypeID(RECORD))
   {
-    RECORD systemconfig := __SYSTEM_GETSYSTEMCONFIG();
-    IF (CellExists(systemconfig, "DEBUGCONFIG") AND TypeID(systemconfig.debugconfig) = TypeID(RECORD))
+    // Do NOT crash on configuration record errors
+    TRY
     {
-      // Do NOT crash on configuration record errors
-      TRY
-        __debugconfig := ValidateOptions(
-            [ tags :=             STRING[]
-            , outputsession :=    "default"
-            , context :=          ""
-            ], systemconfig.debugconfig);
-      CATCH
-        __debugconfig := DEFAULT RECORD;
+      __debugconfig := ValidateOptions(
+          [ tags :=             STRING[]
+          , outputsession :=    "default"
+          , context :=          ""
+          ], systemconfig.debugconfig);
+      RETURN;
     }
-    ELSE
-      __debugconfig := DEFAULT RECORD;
+    CATCH
+    {
+      //Ignore. leave __debugconfig as it is
+    }
   }
+
+  //If we have initial settings (set by wh console) apply those.
+  debug_str := GetEnvironmentVariable("__WEBHARE_DEBUG_INITIALSETTING");
+  IF(debug_str != "")
+    __SYSTEM_SETSYSTEMCONFIG(CELL[...systemconfig, debugconfig := ReadDebugSettingFromEnv(debug_str) ]);
 }
 
 /** Returns the debug configuration of the database
