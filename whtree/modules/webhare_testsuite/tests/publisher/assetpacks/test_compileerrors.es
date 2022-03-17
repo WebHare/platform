@@ -187,11 +187,14 @@ describe("test_compileerrors", (done) =>
     assert(filedeps.includes(path.join(__dirname,"/dependencies/regressions.scss")));
     assert(filedeps.includes(path.join(__dirname,"/dependencies/deeper/deeper.scss")));
 
-    let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
-    let urls = [...css.matchAll(/(url\(.*\))/g)].map(_ => _[1]);
-    assert(urls.length == 1);
-    assert(urls[0].startsWith("url("));
-    assert(!urls[0].startsWith("url(/"));
+    if (process.env.WEBHARE_ASSETPACK_FORCE_COMPATIBILITY != "modern")
+    {
+      let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
+      let urls = [...css.matchAll(/(url\(.*\))/g)].map(_ => _[1]);
+      assert(urls.length == 1);
+      assert(urls[0].startsWith("url("));
+      assert(!urls[0].startsWith("url(/"));
+    }
   });
 
   it("rpc.json files pull in system/js/wh/rpc.es as dependency (prod)", async function()
