@@ -233,7 +233,7 @@ async function runTask(taskcontext, data)
       if(missingpath && missingpath[0]=='~') //Modules are prefixed with ~ in webpack style
         missingpath = missingpath.substr(1);
       if(missingpath)
-        missingextensions = ["",".scss"];
+        missingextensions = ["",".scss",".sass"];
     }
   }
 

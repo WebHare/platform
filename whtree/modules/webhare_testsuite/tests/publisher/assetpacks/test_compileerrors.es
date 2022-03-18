@@ -142,6 +142,7 @@ describe("test_compileerrors", (done) =>
     assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/my.scss")));
     assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss")));
     assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.sass")));
 
     result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet-singlequote.scss"), true);
     assert(result.haserrors === true);
@@ -231,6 +232,10 @@ describe("test_compileerrors", (done) =>
     let filedeps = Array.from(result.info.dependencies.fileDependencies);
 
     assert(filedeps.includes(path.join(bridge.getInstallationRoot(),"modules/system/js/dompack/browserfix/reset.css")));
+
+    let css = "" + fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css");
+    assert(css.match(/.test2{.*margin-left:1px.*}/));
+    assert(css.match(/.test3{.*margin-left:2px.*}/));
   });
 
   // Test for esbuild issue https://github.com/evanw/esbuild/issues/1657
