@@ -142,6 +142,14 @@ describe("test_compileerrors", (done) =>
     assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/my.scss")));
     assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss")));
     assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
+
+    result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-stylesheet-singlequote.scss"), true);
+    assert(result.haserrors === true);
+
+    missingdeps = Array.from(result.info.dependencies.missingDependencies);
+    assert(missingdeps.includes(path.join(bridge.getModuleInstallationRoot("webhare_testsuite"), "node_modules/@vendor/submodule/my2.scss")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss")));
+    assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss.scss")));
   });
 
   it("Any package (or at least with ES files) includes the poyfill as dep (prod)", async function()
