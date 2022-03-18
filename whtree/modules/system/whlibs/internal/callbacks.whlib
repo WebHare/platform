@@ -2,6 +2,7 @@
 
 LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/debug.whlib";
 
 
 /// Event stream for event callbacks and broadcasts. Init with -2 so it doesn't clash with any handles or -1 (usual timeout return)
@@ -459,6 +460,9 @@ MACRO DoBroadcastEvent(STRING event, RECORD msg, BOOLEAN islocal)
 {
   IF(event IN __internal_forbidden_broadcasts)
     THROW NEW Exception("Attempting to broadcast event '" || event || "' while handling an event of that type");
+
+  IF(IsDebugTagEnabled("evt"))
+    LogDebug(islocal ? "system:broadcastlocalevent" : "system:broadcastevent", event, msg);
 
   INSERT CELL __recordexists := RecordExists(msg)
             , __sourcegroup := __HS_GetCurrentGroupID()
