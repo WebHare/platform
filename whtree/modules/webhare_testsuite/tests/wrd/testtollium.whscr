@@ -198,8 +198,6 @@ OBJECT ASYNC FUNCTION  TestListColumns()
 
 OBJECT ASYNC FUNCTION TestModernWRDContext()
 {
-  GetTestController()->RegisterAppContext("wrd:schema", testfw->GetWRDSchema());
-
   OBJECT dialog := GetTestController()->LoadScreen("webhare_testsuite:tests/wrd.entitycontext", [tag := "TEST1", create := FALSE]);
   AWAIT ExpectScreenChange(+1, PTR dialog->RunModal());
   TestEq("person1@example.net", dialog->email->value);

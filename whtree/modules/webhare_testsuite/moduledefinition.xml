@@ -234,10 +234,6 @@
     <log name="test" filename="betatest" rotates="4" mseconds="true"/>
   </logging>
 
-  <appcontexts>
-    <wrdschema xmlns="http://www.webhare.net/xmlns/wrd/appcontext" name="testwrdschema" schema="wrd:testschema"/>
-  </appcontexts>
-
   <moduleregistry>
     <node name="tests">
       <string name="ingenicomode" />
