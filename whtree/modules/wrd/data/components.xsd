@@ -117,7 +117,7 @@
       <xs:attribute name="wrdtype" type="xs:string">
         <xs:annotation>
           <xs:documentation>
-            Tag of wrdtype to use. Requires a wrd:schema appcontext
+            Tag of wrdtype to use. Requires a wrdschema context
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -583,14 +583,6 @@
       </xs:annotation>
       <xs:attributeGroup ref="QueryAttributes" />
 
-      <xs:attribute name="wrdcontext" type="xs:string">
-        <xs:annotation>
-          <xs:documentation>
-            <html:p>Name of the WRD appcontext to retrieve the wrd schema from (use in combination with 'querytag' attribute)</html:p>
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-
       <xs:attribute name="wrdschema" type="xs:string">
         <xs:annotation>
           <xs:documentation>
@@ -789,27 +781,15 @@
   </xs:complexType>
 
   <xs:attributeGroup name="ContextAndType">
-    <xs:attribute name="wrdcontext" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Name of the WRD appcontext to retrieve the wrd schema from (use in combination with 'wrdtype' attribute)</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
     <xs:attribute name="wrdschema" type="xs:string">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>Name of the WRD schema to use (if no wrdcontext is specified)</html:p>
-        </xs:documentation>
+        <xs:documentation>Name of the WRD schema to use</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 
     <xs:attribute name="wrdtype" type="xs:string">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>Name of the WRD type to use (from the schema from the appcontext specified by the 'wrdcontext' attribute)</html:p>
-        </xs:documentation>
+        <xs:documentation>Name of the WRD type to use</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>

@@ -43,18 +43,7 @@ PUBLIC STATIC OBJECTTYPE QueryResults EXTEND WRDQueryBase
     //ADDME: Should we provide a way to (statically) specify an owner entity id?
     IF(NOT this->owner->tolliumcontroller->isvalidation)
     {
-      IF(def.wrdcontext != "")
-      {
-        OBJECT wrdschema := this->owner->GetAppContext(def.wrdcontext);
-        IF(NOT ObjectExists(wrdschema))
-          THROW NEW TolliumException(this, "No WRD schema associated with context '" || def.wrdcontext || "'");
-
-        // Try to load the stored query
-        this->pvt_wrdquery := wrdschema->GetStoredQueryByTag(0, def.querytag);
-        IF (NOT ObjectExists(this->pvt_wrdquery))
-          THROW NEW TolliumException(this, "Could not find stored query '" || def.querytag || "' in WRD schema '" || wrdschema->tag || "'");
-      }
-      ELSE IF (def.wrdschema != "")
+      IF (def.wrdschema != "")
         this->SetStoredQuery(def.wrdschema, 0, def.querytag);
       ELSE
       {

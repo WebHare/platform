@@ -170,26 +170,15 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
 
     IF(definition.wrdtype != "" AND NOT this->owner->tolliumcontroller->isvalidation) // skip when validating
     {
-      OBJECT wrdschema;
-      IF(definition.wrdcontext="")
-      {
-        IF(NOT ObjectExists(this->contexts->wrdschema))
-          THROW NEW Exception(`Entitylists with wrdtype (here: '${definition.wrdtype}') but without wrdschema requires a contexts->wrdschema`);
-        wrdschema := this->contexts->wrdschema;
-      }
-      ELSE
-      {
-        wrdschema := this->GetAppContext(definition.wrdcontext); //FIXME this prevents this objecttype from going STATIC
-        IF(NOT ObjectExists(wrdschema))
-          THROW NEW TolliumException(this, `No WRD schema associated with context '${definition.wrdcontext}'`);
-      }
+      OBJECT wrdschema := this->contexts->wrdschema;
+      IF(NOT ObjectExists(wrdschema))
+        THROW NEW Exception(`Entitylists with wrdtype (here: '${definition.wrdtype}') but without wrdschema requires a contexts->wrdschema`);
 
       this->wrdtype := wrdschema->GetType(definition.wrdtype);
       IF(NOT ObjectExists(this->wrdtype))
       {
         STRING bestmatch := GetBestMatch(definition.wrdtype, SELECT AS STRING ARRAY tag FROM wrdschema->ListTypes());
-        THROW NEW Exception("No such WRD type '" || definition.wrdtype || "' in schema '" || wrdschema->tag || "'"
-            || (bestmatch != "" ? ", did you mean type '" || bestmatch || "'?" : ""));
+        THROW NEW Exception(`No such WRD type '${definition.wrdtype}' in schema '${wrdschema->tag}' ${bestmatch != "" ? ", did you mean type '" || bestmatch || "'?" : ""}`);
       }
     }
   }
