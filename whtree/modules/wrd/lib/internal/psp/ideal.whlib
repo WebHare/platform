@@ -29,17 +29,16 @@ STRING ideal_version := "3.3.1";
 
 STRING ns_xmldsig := "http://www.w3.org/2000/09/xmldsig#";
 
-// ADDME for future updates, getting these certificates somewhere instead of
-//       hardcoding them would be a lot safer. Can webhare-services help ?
+// TODO Just let the user specify the URL and the certificate, so we don't need to do a webhare update to update these
 // Banks we support for the merchant (the person/shop who must receive the money)
 PUBLIC RECORD ARRAY acquirers :=
   [ [ tag := "ABN"
     , title := "ABN Amro"
     , live := [ certificate := "mod::wrd/data/payments/idealcertificates/abnamro.cer"
-              , url := "https://abnamro.ideal-payment.de:443/ideal/iDEALv3"
+              , url := "https://ecommerce.abnamro.nl:443/ideal/iDEALv3"
               ]
     , test := [ certificate := "mod::wrd/data/payments/idealcertificates/abnamro.test.cer"
-              , url := "https://abnamro-test.ideal-payment.de:443/ideal/iDEALv3"
+              , url := "https://ecommerce-test.abnamro.nl:443/ideal/iDEALv3"
               ]
     ]
   , [ tag := "FRIES"
