@@ -88,6 +88,7 @@ Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it de
 Set debug flags:
 - `wrq`: Show webrequests (formerly `__webbrowser_debugall := TRUE`)
 - `evt`: Event broadcasts
+- `ahc`: Ad-hoc Cache requests and stores
 - `apr`: All new started scripts make a function CPU profile
 - `cov`: All new started scripts make a coverage profile
 - `que`: Log task/queue actions

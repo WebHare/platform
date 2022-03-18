@@ -29,7 +29,11 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
   VARIANT retval;
 
   IF (result.found)
+  {
+    IF(IsDebugTagEnabled("ahc"))
+      LogDebug("system:adhoccache", "GetAdhocCached direct match", GetStackTrace()[1].filename, cachetag);
     RETURN result.value;
+  }
 
   OBJECT lockmgr := OpenLocalLockManager();
 
@@ -52,7 +56,11 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
         lock := lockmgr->LockLocalSemaphore(semaphoretag, 10000);
         result := GetAdhocCacheData(cachetag);
         IF (result.found)
+        {
+          IF(IsDebugTagEnabled("ahc"))
+            LogDebug("system:adhoccache", "GetAdhocCached inside lock match", GetStackTrace()[1].filename, cachetag);
           RETURN result.value;
+        }
 
         // Value not available... take mutex lock for recalculation (not needed in other branch, already
         // got exclusive lock there).
@@ -61,11 +69,18 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
 
       result := GetAdhocCacheData(cachetag);
       IF (result.found)
+      {
+        IF(IsDebugTagEnabled("ahc"))
+          LogDebug("system:adhoccache", "GetAdhocCached after lock match", GetStackTrace()[1].filename, cachetag);
         RETURN result.value;
+      }
     }
 
     // Start listening for events
     eventcollector := __HS_EVENT_CREATECOLLECTOR([ "*" ]);
+
+    IF(IsDebugTagEnabled("ahc"))
+      LogDebug("system:adhoccache", "GetAdhocCached executing cachegetter", GetStackTrace()[1].filename, cachetag);
 
     VARIANT gotresult := cachegetter();
     DATETIME expires;
@@ -83,13 +98,21 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       {
         expires := gotresult.ttl;
         IF (IsDefaultValue(expires)) // ttl = DEFAULT DATETIME - don't store in the cache
+        {
+          IF(IsDebugTagEnabled("ahc"))
+            LogDebug("system:adhoccache", "GetAdhocCached retrieved but not storing", GetStackTrace()[1].filename, cachetag);
           RETURN gotresult.value;
+        }
       }
       ELSE
       {
         INTEGER ttl := gotresult.ttl;
         IF (ttl = 0) // ttl = 0 - don't store in the cache
+        {
+          IF(IsDebugTagEnabled("ahc"))
+            LogDebug("system:adhoccache", "GetAdhocCached retrieved but not storing", GetStackTrace()[1].filename, cachetag);
           RETURN gotresult.value;
+        }
         IF (ttl < 0)
           THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": invalid TTL (" || ttl || "), it must be positive");
         expires := AddTimeToDate(ttl, GetCurrentDatetime());
@@ -104,6 +127,9 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       eventmasks := gotresult.eventmasks;
     }
 
+    IF(IsDebugTagEnabled("ahc"))
+      LogDebug("system:adhoccache", "GetAdhocCached storing", GetStackTrace()[1].filename, cachetag, CELL[...gotresult, DELETE value]);
+
     // SetAdhocCacheData takes extra locks when using the collector, avoid that if possible
     IF (IsValueSet(eventmasks))
     {
@@ -114,6 +140,12 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       SetAdhocCacheData(cachetag, gotresult.value, expires, eventmasks, 0);
 
     RETURN gotresult.value;
+  }
+  CATCH(OBJECT e)
+  {
+    IF(IsDebugTagEnabled("ahc"))
+      LogDebug("system:adhoccache", "GetAdhocCached failing due to exception", GetStackTrace()[1].filename, cachetag, e->what);
+    THROW;
   }
   FINALLY
   {
