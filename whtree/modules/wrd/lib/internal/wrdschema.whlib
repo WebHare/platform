@@ -1042,16 +1042,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       STRING schemaresource := options.schemaresource;
       IF(schemaresource = "")
       {
-        schemadef := GetModuleWRDSchemaDefinition(this->tag, TRUE); //legacy lookup: also find name mismatches
+        schemadef := GetModuleWRDSchemaDefinition(this->tag);
         IF(NOT RecordExists(schemadef))
           THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
-
-        IF(schemadef.isexact AND ToUppercase(this->tag) = ToUppercase(schemadef.originalname))
-        {
-          IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(schemadef.tag)))
-            THROW NEW Exception(`Trying to rename '${schemadef.originalname}' to '${schemadef.tag}' but that schema already exists. Perhaps '${schemadef.originalname}' got recreated after being renamed?`);
-          this->UpdateMetadata([ tag := schemadef.tag ]); //time to rename to the proper name!
-        }
 
         schemaresource := schemadef.definitionfile;
 

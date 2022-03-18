@@ -373,28 +373,6 @@ MACRO DomainValuesSync()
   testfw->CommitWork();
 }
 
-MACRO TestImportExisting()
-{
-  testfw->BeginWork();
-  IF(RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"))
-    OpenWRDSchema("webhare_testsuite")->DeleteSelf(); //NOTE NOT scoped to webhare_testsuite:* namespace, as testing the rename to a proper tagged namee is the whole point of this test
-
-  CreateWRDSchema("webhare_testsuite");
-  testfw->CommitWork();
-
-  TestEq(TRUE,  RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"));
-  TestEq("", OpenWRDSchema("webhare_testsuite")->title);
-  TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));
-
-  //This should trigger a rename
-  TestEq(TRUE, UpdateAllModuleSchemas());
-
-  TestEq(FALSE, RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite"));
-  TestEq(TRUE,  RecordExists(SELECT FROM wrd.schemas WHERE name="webhare_testsuite:renametest"));
-  TestEq("WebHare testsuite renametest schema", OpenWRDSchema("webhare_testsuite:renametest")->title);
-}
-
-
 MACRO TestCreate()
 {
   testfw->BeginWork();
@@ -755,6 +733,5 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestAccountSettings
                  , PTR TestMerge
                  , PTR TestConversion
-                 , PTR TestImportExisting //SLOW due to UpdateAllModuleSchemas, so now last
                  ], [ wrdauth := FALSE]);
 
