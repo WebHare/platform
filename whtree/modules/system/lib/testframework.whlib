@@ -14,6 +14,7 @@ LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internal/testfuncs.whlib" EXPORT TestEQ, TestEqFloat, TestThrows, TestThrowsLike, TestRejected, TestRejectedLike, TestEqLike, TestEqStructure, TestEqMembers, TestEqCSSColor, show_test_progress, TestFailException;

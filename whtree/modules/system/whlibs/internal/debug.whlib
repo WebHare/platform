@@ -1,0 +1,87 @@
+<?wh (* ISSYSTEMLIBRARY *)
+LOADLIB "wh::internal/interface.whlib";
+
+STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER Function Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION GetExternalSessionData() __ATTRIBUTES__(EXTERNAL);
+RECORD ARRAY FUNCTION GetStackTrace() __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION EncodeHSON(VARIANT arg)
+{
+  RETURN JSONENCODETOSTRING(arg, TRUE, DEFAULT RECORD);
+}
+VARIANT FUNCTION GetSortedSet(VARIANT input)
+{
+  RETURN __HS_SQL_SortArray(input, FALSE, TRUE);
+}
+
+PUBLIC RECORD __debugconfig;
+
+//Callback to ModuleLog(STRING type, STRING message) implementation
+PUBLIC MACRO PTR __onmodulelog; //used for testframework to record the log
+
+/** @short Log debugging data
+    @param logsource Source or call of the debug message.
+                     This is used for searching, determining the origin or grouping of log messages of this type.
+                     Guideline: prefix the source with your module, for example "modulename:mytask.results"
+    @param message Message
+    @param args Optional extra debugging arguments. These will be stored HSON encoded. Arguments which push the length of the debug line over 127 KB won't be logged and will be stored as '-' */
+PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  IF(logsource = "")
+    logsource := GetStackTrace()[1].filename;
+
+  STRING msg := EncodeJava(logsource) || "\t" || __HS_GetCurrentGroupID() || "\t" || EncodeJava(GetExternalSessionData());
+  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
+  {
+    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
+    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
+      encodedarg := "-";
+    msg := msg || '\t' || encodedarg;
+  }
+
+  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
+    __onmodulelog("system:debug", msg);
+  ELSE
+    PrintTo(2, `[system:debug] ${msg}\n`);
+}
+
+/** Returns whether a tag is currently enabled in the current debugging configuration
+    @param tag Tag to test for
+    @return Whether the debug tag has been enabled
+*/
+PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag)
+{
+  RETURN RecordExists(__debugconfig) AND tag IN __debugconfig.tags;
+}
+
+PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
+{
+  __debugconfig :=
+      [ tags :=           STRING[]
+      , outputsession :=  "default"
+      , context :=        ""
+      ];
+
+  STRING ARRAY cmdtokens := Tokenize(varcontent,",");
+  IF("reset" IN cmdtokens)
+    RETURN __debugconfig;
+
+  FOREVERY(STRING cmd FROM cmdtokens)
+  {
+    IF(cmd = "")
+      CONTINUE;
+
+    IF(cmd LIKE "session=*")
+      __debugconfig.outputsession := Substring(cmd,8);
+    ELSE IF(cmd LIKE "context=*")
+      __debugconfig.context := Substring(cmd,8);
+    ELSE
+      INSERT cmd INTO __debugconfig.tags AT END;
+  }
+
+  __debugconfig.tags := GetSortedset(__debugconfig.tags);
+  RETURN __debugconfig;
+}
+

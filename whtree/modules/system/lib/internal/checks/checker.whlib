@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -219,6 +220,18 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   ELSE IF(GetDatabaseType() = "whdb")
   {
     INSERT [ msg := ":You need to switch to the PostgreSQL database - use `wh convert-to-postgresql`. WebHare 4.36 and higher will no longer support the 'dbase' format or the 'dbserver'"
+           ] INTO messages AT END;
+  }
+
+  IF(RecordExists(__debugconfig) AND NOT IsDefaultValue(__debugconfig.tags))
+  {
+    STRING tags := Detokenize(__debugconfig.tags, ",");
+    IF(__debugconfig.outputsession != "default")
+      tags := tags || ",session=" || __debugconfig.outputsession;
+    IF(__debugconfig.context != "")
+      tags := tags || ",context=" || __debugconfig.context;
+
+    INSERT [ msg := `:Debugging flags enabled: ${tags}`
            ] INTO messages AT END;
   }
 

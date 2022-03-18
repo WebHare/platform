@@ -2,8 +2,8 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -27,7 +27,7 @@ Commands:
   joblist [-v] [process] [mask]       Show the (optionally filtered) list of jobs in a process
   terminate [process] [mask]          Terminate jobs in a process
   getconfig                           Show currently enabled debug features
-  setconfig [-s session] [tags]       Set enabled debug features (eg. 'apr', 'cov')
+  setconfig [tags]                    Set enabled debug features (eg. 'apr', 'cov')
   stacktrace process jobmask          Get a stack trace of the specified job
   jobstats process jobmask            Get job statistics (eg memory usage) for the specified job
   jobhandles process jobmask          Get job handle list for the specified job
@@ -82,23 +82,19 @@ STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
 
 MACRO ShowDebugConfig(RECORD debugconfig)
 {
-  STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
-  IF (envsettings LIKE "* WEBHARE_DEBUG=*")
-    PRINT("Debugging settings are set globally by 'wh console' and cannot be changed\n");
-  ELSE IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
-    PRINT("Debugging settings are controlled by the environment variable WEBHARE_DEBUG\n");
-
   IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
+  {
     PRINT(`All debugging features are disabled\n`);
+  }
   ELSE
   {
-    PRINT(`Enabled debug features: ${Detokenize(debugconfig.tags, ", ")}\n`);
-    IF ("apr" IN debugconfig.tags)
-      PRINT("- [apr] global function profiling\n");
-    ELSE IF ("cov" IN debugconfig.tags)
-      PRINT("- [cov] global coverage profiling\n");
-    IF (NOT IsDefaultValue(debugconfig.tags))
-      PRINT(`Profiling session: ${debugconfig.outputsession}\n`);
+    STRING tags := Detokenize(debugconfig.tags, ",");
+    IF(debugconfig.outputsession != "default")
+      tags := tags || ",session=" || debugconfig.outputsession;
+    IF(debugconfig.context != "")
+      tags := tags || ",context=" || debugconfig.context;
+
+    PRINT(`Enabled debug features: ${tags}\n`);
   }
 }
 
@@ -332,26 +328,15 @@ Executed instrs.:   ${stats.instructions}
     }
     CASE "setconfig"
     {
+      STRING ARRAY tags;
       ParseSubArgs(
-            [ [ name := "s", type := "stringopt" ]
-            , [ name := "tags", type := "paramlist" ]
+            [ [ name := "tags", type := "paramlist" ]
             ]);
 
-      STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
-      IF (envsettings LIKE "* WEBHARE_DEBUG=*")
-        TerminateScriptWithError("The debugging settings are set globally by 'wh console' and cannot be changed.");
-
+      //we'll accept both space and comma seperated
+      RECORD debugconfig := ReadDebugSetting(Detokenize(args.tags,','));
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
         Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only have effect on processes that don't have it set.\n");
-
-      STRING session := RecordExists(__debugconfig) ? __debugconfig.outputsession : "";
-      RECORD debugconfig :=
-          [ tags :=             args.tags
-          , outputsession :=    args.s ?? session ?? "default"
-          ];
-
-      IF (Detokenize(args.tags, ",") = "reset")
-        debugconfig := DEFAULT RECORD;
 
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
       ShowDebugConfig(debugconfig);
