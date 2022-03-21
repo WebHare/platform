@@ -420,8 +420,6 @@ export class ApplicationBase
       //activate
       this.appnodes.root.classList.add('appcanvas--visible');
 
-      if(this.shell.applicationbar && this.apptab)
-        this.shell.applicationbar.setActiveShortcut(this.apptab);
       this.setAppTitle(this.title);
       this.shell.onApplicationStackChange();
     }

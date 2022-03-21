@@ -199,7 +199,6 @@ export default class ApplicationBar
         newtab.onupdateapp = this.onUpdateApp.bind(this, newtab);
         newtab.app = app;
         newtab.menuitem = <li onClick={evt => this._onActivateTab(evt,app)}>{app.title}</li>;
-        newtab.menuitem.todd_app = app;
         newtab.fixed = fixed;
 
         app.appnodes.root.addEventListener("tollium:updatescreen", newtab.onupdatescreen);
