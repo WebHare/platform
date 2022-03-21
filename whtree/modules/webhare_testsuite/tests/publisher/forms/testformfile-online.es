@@ -57,7 +57,7 @@ test.registerTests(
       test.true(thankyou[0].closest('form').dataset.whFormResultguid);
 
       await test.wait( () => Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").length == 1);
-      let lastsubmitevent = Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").slice(-1)[0];
+      let lastsubmitevent = Array.from(test.getWin().dataLayer).filter(_ => _.event == "publisher:formsubmitted").at(-1);
       test.eq("muhdata", lastsubmitevent.form);
     }
 

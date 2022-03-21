@@ -47,8 +47,8 @@ function testMenuTap(event)
   activatetouches.push(Date.now());
   activatetouches = activatetouches.slice(-expectnumtouches);
 
-  let totaltime = (activatetouches.slice(-1)[0] - activatetouches[0]);
-  if((activatetouches.slice(-1)[0] - activatetouches[0]) < expecttaptime) // fast enough
+  let totaltime = (activatetouches.at(-1) - activatetouches[0]);
+  if((activatetouches.at(-1) - activatetouches[0]) < expecttaptime) // fast enough
   {
     if(activatetouches.length > 1)
       dompack.stop(event);

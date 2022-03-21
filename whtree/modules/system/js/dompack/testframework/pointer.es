@@ -452,7 +452,7 @@ function getPartPosition(part)
 
   if(typeof part.x=='undefined')
     relx = coords.width * 0.5;
-  else if(typeof part.x=='string' && part.x.slice(-1)=='%')
+  else if(typeof part.x=='string' && part.x.at(-1)=='%')
     relx = coords.width * parseInt(part.x)/100;
   else if(typeof part.x=='number')
     relx = part.x;
@@ -461,7 +461,7 @@ function getPartPosition(part)
 
  if(typeof part.y=='undefined')
     rely = coords.height * 0.5;
-  else if(typeof part.y=='string' && part.y.slice(-1)=='%')
+  else if(typeof part.y=='string' && part.y.at(-1)=='%')
     rely = coords.height * parseInt(part.y)/100;
   else if(typeof part.y=='number')
     rely = part.y;

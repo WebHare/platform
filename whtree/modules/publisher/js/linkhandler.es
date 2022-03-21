@@ -24,7 +24,7 @@ function onLinkClick(event)
 
   if(linkopenoptions.extensions)
   {
-    var ext = link.href.split('?')[0].split('#')[0].split('.').slice(-1)[0];
+    var ext = link.href.split('?')[0].split('#')[0].split('.').at(-1);
     if(ext && linkopenoptions.extensions.find(match => match.toUpperCase() == ext.toUpperCase()))
     {
       link.target = "_blank";

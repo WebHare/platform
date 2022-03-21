@@ -1,5 +1,23 @@
-//Polyfills still needed in compatiblity=modern mode (AND IE11/Edge mode)
-
+if(!Array.prototype.at)
+{ //not supported by Safari 15.3 and earlier
+  Array.prototype.at = function(index)
+  {
+    let len = this.length;
+    if(index < 0)
+      index = len + index;
+    return this[index]; //will return 'undefined' if index is out of range
+  };
+}
+if(!String.prototype.at)
+{ //not supported by Safari 15.3 and earlier
+  String.prototype.at = function(index)
+  {
+    let len = this.length;
+    if(index < 0)
+      index = len + index;
+    return this[index]; //will return 'undefined' if index is out of range
+  };
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //

@@ -368,7 +368,7 @@ class IndyShell
   {
     //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
     if(!$todd.getActiveApplication() && this.applicationbar.apps.length > 0)
-      this.applicationbar.apps.slice(-1)[0].app.activateApp();
+      this.applicationbar.apps.at(-1).app.activateApp();
   }
   onApplicationEnded(app)
   {
@@ -470,7 +470,7 @@ class IndyShell
       document.getElementById('openinfo').textContent = settings.openinfo;
     }
 
-    var curapp = $todd.applicationstack.slice(-1)[0];
+    var curapp = $todd.applicationstack.at(-1);
     if (curapp)
       curapp.setAppTitle(curapp.title);
 

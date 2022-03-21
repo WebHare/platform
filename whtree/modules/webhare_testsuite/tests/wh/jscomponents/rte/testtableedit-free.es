@@ -447,7 +447,7 @@ test.registerTests(
         rte.stateHasChanged();
 
         // Scroll to the last td
-        var last_td = Array.from(rte.getContentBodyNode().getElementsByTagName('td')).slice(-1)[0];
+        var last_td = Array.from(rte.getContentBodyNode().getElementsByTagName('td')).at(-1);
         last_td.scrollIntoView();
 
         // See if we really scrolled

@@ -80,7 +80,7 @@ export class ApplicationBase
   ///@}
 
   /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
-    screenstack.slice(-1)[0] is the currently active and only enabled screen */
+    screenstack.at(-1) is the currently active and only enabled screen */
     this.screenstack = [];
   /* the screenmap contains the screens owned by this application (never includes foreign windows) */
     this.screenmap = {};
@@ -343,7 +343,7 @@ export class ApplicationBase
 
     if(!this.visible)
     {
-      if(this == $todd.applicationstack.slice(-1)[0]) //we're the currently selected app
+      if(this == $todd.applicationstack.at(-1)) //we're the currently selected app
       {
         if($todd.applicationstack.length >= 2)
           $todd.applicationstack[$todd.applicationstack.length-2].activateApp();
@@ -387,11 +387,11 @@ export class ApplicationBase
   //
   isActiveApplication()
   {
-    return this == $todd.applicationstack.slice(-1)[0];
+    return this == $todd.applicationstack.at(-1);
   }
   activateApp()
   {
-    let curapp = $todd.applicationstack.slice(-1)[0];
+    let curapp = $todd.applicationstack.at(-1);
 
     if(curapp != this)
     {
@@ -426,8 +426,8 @@ export class ApplicationBase
       this.shell.onApplicationStackChange();
     }
 
-    if(this.screenstack.slice(-1)[0])
-      this.screenstack.slice(-1)[0].focus();
+    if(this.screenstack.at(-1))
+      this.screenstack.at(-1).focus();
     else
       focusZones.focusZone(this.appnodes.root);
   }
@@ -477,7 +477,7 @@ export class ApplicationBase
   setAppTitle(newtitle)
   {
     this.title = newtitle;
-    if ($todd.applicationstack.slice(-1)[0] == this)
+    if ($todd.applicationstack.at(-1) == this)
     {
       let prefix = this.shell.getCurrentSettings().browsertitleprefix;
       document.title = (prefix ? prefix + ' ' : '') + this.title;

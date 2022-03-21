@@ -210,7 +210,7 @@ class ScreenProxy
 
 function $app(win)
 {
-  return new AppProxy(win,win.__todd.applicationstack.slice(-1)[0]);
+  return new AppProxy(win,win.__todd.applicationstack.at(-1));
 }
 function $screen(win)
 {
@@ -221,7 +221,7 @@ window.$screen = $screen;
 
 function getCurrentApp()
   {
-    return new AppProxy(test.getWindow(), test.getWindow().__todd.applicationstack.slice(-1)[0]);
+    return new AppProxy(test.getWindow(), test.getWindow().__todd.applicationstack.at(-1));
   }
 function getCurrentScreen()
   {
