@@ -4,9 +4,12 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
+STRING ARRAY brokenmodules;
+IF(Length(CheckNodeModulesInModule(GetWebhareConfiguration().installationroot)) > 0)
+  INSERT "webhare" INTO brokenmodules AT END;
 
-RECORD ARRAY issues := CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
 FOREVERY (STRING modulename FROM GetInstalledModulenames())
-  issues := issues CONCAT CheckNodeModulesInModule(GetModuleInstallationRoot(modulename));
+  IF(Length(CheckNodeModulesInModule(GetModuleInstallationRoot(modulename))) > 0)
+    INSERT modulename INTO brokenmodules AT END;
 
-PRINT(Detokenize((SELECT AS STRING ARRAY DISTINCT basepath || "\n" FROM issues), ""));
+Print(Detokenize(brokenmodules,'\n')||'\n');

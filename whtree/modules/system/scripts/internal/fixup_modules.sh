@@ -35,15 +35,15 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   gzip --keep /opt/wh/whtree/node_modules/flag-icon-css/flags/*/*.svg
 
   #Compile the rest parallel to fixmodules
-  echo "Compiling the other core modules (parallel)"
+  echo "Compiling the other core modules (background)"
   $WHTREE/bin/wh exec whcompile -q /opt/wh/whtree/modules/consilio /opt/wh/whtree/modules/publisher /opt/wh/whtree/modules/socialite /opt/wh/whtree/modules/tollium /opt/wh/whtree/modules/wrd &
   COMPILEPID=$!
 
-  echo "Running fixmodules (parallel)"
-  wh fixmodules tollium
+  echo "Running fixmodules"
+  wh fixmodules --onlymodules --nocompile tollium
   RETVAL=$?
   if [ $RETVAL != 0 ]; then
-    echo "Fixmodules failed with errorcode RETVAL"
+    echo "Fixmodules failed with errorcode $RETVAL"
     FAIL=1
   fi
 

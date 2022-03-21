@@ -546,6 +546,7 @@ fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
+  # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "`date` Check assetpacks"
   if ! $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     testfail "wait assetpacks failed (errorcode $?)"
