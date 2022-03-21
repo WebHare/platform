@@ -7,7 +7,8 @@
 
 LOADLIB "wh::internal/formatter.whlib";
 LOADLIB "wh::internal/transservices.whlib";
-LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncContext, __HS_INTERNAL_RemoveAsyncContext, __HS_INTERNAL_AsyncContext, GetAsyncStackTrace, PrintTo, __HS_GETRESETTHROWVAR, __HS_THROWEXCEPTION;
+LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncContext, __HS_INTERNAL_RemoveAsyncContext, __HS_INTERNAL_AsyncContext, GetAsyncStackTrace, PrintTo, __HS_GETRESETTHROWVAR, __HS_THROWEXCEPTION, __HS_TYPEID, __HS_SQL_SortArray;
+LOADLIB "wh::internal/debug.whlib" EXPORT LogDebug, IsDebugTagEnabled;
 
 RECORD abort_errordata;
 PUBLIC MACRO PTR __system_reflecthook;
@@ -2491,32 +2492,6 @@ PUBLIC INTEGER FUNCTION RedirectOutputTo(INTEGER newoutputid) __ATTRIBUTES__(EXT
 // Debugging/implementation functions
 //
 
-/** @short Log debugging data
-    @param logsource Source or call of the debug message.
-                     This is used for searching, determining the origin or grouping of log messages of this type.
-                     Guideline: prefix the source with your module, for example "modulename:mytask.results"
-    @param message Message
-    @param args Optional extra debugging arguments. These will be stored HSON encoded. Arguments which push the length of the debug line over 127 KB won't be logged and will be stored as '-' */
-PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
-{
-  IF(logsource="")
-    THROW NEW Exception("A log source must be specified");
-
-  STRING msg := EncodeJava(logsource) || "\t" || __HS_GetCurrentGroupID() || "\t" || EncodeJava(GetExternalSessionData());
-  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
-  {
-    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
-    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
-      encodedarg := "-";
-    msg := msg || '\t' || encodedarg;
-  }
-
-  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
-    __onmodulelog("system:debug", msg);
-  ELSE
-    PrintTo(2, `[system:debug] ${msg}\n`);
-}
-
 /** @short Signal a fatal error
     @long Abort the currently run script, and generate an error message describing the problem
     @param errordata Error to display to the user of the script, or data to format
@@ -3830,12 +3805,10 @@ PUBLIC MACRO            __HS_SQL_ReportWhereResult(INTEGER quid, BOOLEAN matches
 PUBLIC INTEGER FUNCTION __HS_SQL_GetAction(INTEGER quid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 PUBLIC INTEGER FUNCTION __HS_SQL_GetRecAction(INTEGER quid) __ATTRIBUTES__(EXTERNAL);
 PUBLIC VARIANT FUNCTION __HS_SQL_MakeArrayOfValue(VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-PUBLIC INTEGER FUNCTION __HS_TYPEID(VARIANT a) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC RECORD  FUNCTION __HS_SQL_OverwriteRecord(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC RECORD  FUNCTION __HS_SQL_MergeRecords(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC RECORD ARRAY FUNCTION __HS_SQL_Reorder_Results(RECORD ARRAY inputdata, STRING ordering) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC RECORD ARRAY FUNCTION __HS_SQL_MakeDistinct(RECORD ARRAY data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-PUBLIC VARIANT FUNCTION __HS_SQL_SortArray(VARIANT list, BOOLEAN reverse, BOOLEAN makedistinct) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC RECORD ARRAY FUNCTION __HS_SQL_GETARRAYRESULTS(INTEGER quid) __ATTRIBUTES__(EXTERNAL, NOSTATEMODIFY);
 PUBLIC VARIANT FUNCTION __HS_GetPrivateMember(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 PUBLIC            MACRO __HS_SetPrivateMember(OBJECT obj, STRING membername, VARIANT value) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -4734,15 +4707,6 @@ PUBLIC VARIANT FUNCTION RoundToMultiple(VARIANT value, VARIANT roundunit, STRING
       THROW NEW Exception(`The value should be an INTEGER, INTEGER64 or MONEY, got ${GetTypeName(TypeID(value))}`);
     }
   }
-}
-
-/** Returns whether a tag is currently enabled in the current debugging configuration
-    @param tag Tag to test for
-    @return Whether the debug tag has been enabled
-*/
-PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag)
-{
-  RETURN RecordExists(__debugconfig) AND tag IN __debugconfig.tags;
 }
 
 

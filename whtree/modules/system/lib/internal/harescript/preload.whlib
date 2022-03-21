@@ -5,6 +5,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/hssupport.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::system.whlib";
 
@@ -74,36 +75,12 @@ MACRO GotTooManyUnhandledRejections()
   __SYSTEM_REMOTELOG("system:debug", msg);
 }
 
-RECORD FUNCTION ReadDebugSettingFromEnv(STRING varcontent)
-{
-  __debugconfig :=
-      [ tags :=           STRING[]
-      , outputsession :=  "default"
-      , context :=        ""
-      ];
-
-  FOREVERY(STRING cmd FROM Tokenize(varcontent,","))
-  {
-    IF(cmd = "" OR cmd="reset")
-      CONTINUE;
-
-    IF(cmd LIKE "session=*")
-      __debugconfig.outputsession := Substring(cmd,8);
-    ELSE IF(cmd LIKE "context=*")
-      __debugconfig.context := Substring(cmd,8);
-    ELSE
-      INSERT cmd INTO __debugconfig.tags AT END;
-  }
-
-  RETURN __debugconfig;
-}
-
 MACRO ReadDebugConfig()
 {
   STRING debug_str := GetEnvironmentVariable("WEBHARE_DEBUG");
   IF (debug_str != "")
   {
-    ReadDebugSettingFromEnv(debug_str);
+    ReadDebugSetting(debug_str);
     RETURN;
   }
 
@@ -129,7 +106,7 @@ MACRO ReadDebugConfig()
   //If we have initial settings (set by wh console) apply those.
   debug_str := GetEnvironmentVariable("__WEBHARE_DEBUG_INITIALSETTING");
   IF(debug_str != "")
-    __SYSTEM_SETSYSTEMCONFIG(CELL[...systemconfig, debugconfig := ReadDebugSettingFromEnv(debug_str) ]);
+    __SYSTEM_SETSYSTEMCONFIG(CELL[...systemconfig, debugconfig := ReadDebugSetting(debug_str) ]);
 }
 
 /** Returns the debug configuration of the database
