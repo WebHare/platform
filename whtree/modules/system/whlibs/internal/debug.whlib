@@ -1,4 +1,8 @@
 <?wh (* ISSYSTEMLIBRARY *)
+/** @topic harescript-core/builtins
+    @public
+*/
+
 LOADLIB "wh::internal/interface.whlib";
 
 STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
