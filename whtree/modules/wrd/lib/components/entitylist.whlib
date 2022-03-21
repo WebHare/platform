@@ -215,6 +215,7 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
   MACRO SetSelectMultiple(BOOLEAN setting)
   {
     ^entities->selectmode := setting ? "multiple" : "single";
+    this->ReapplyDeleteHandler();
   }
 
   BOOLEAN FUNCTION GetFalse()
@@ -596,8 +597,13 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
   MACRO ReapplyDeleteHandler()
   {
-    ^entities->onrowdelete := this->pvt_deletemode != "" OR this->pvt_onentitydelete != DEFAULT FUNCTION PTR ? PTR this->dorowdelete : DEFAULT MACRO PTR;
-    ^entities->onrowsdelete := this->pvt_deletemode != "" OR this->pvt_onentitiesdelete != DEFAULT FUNCTION PTR ? PTR this->dorowsdelete : DEFAULT MACRO PTR;
+    // Keep the current selectmultiple value as setting ^entities->onrowdelete may reset it
+    BOOLEAN selectmultiple := this->selectmultiple;
+    ^entities->onrowdelete := NOT selectmultiple AND (this->pvt_deletemode != "" OR this->pvt_onentitydelete != DEFAULT FUNCTION PTR) ? PTR this->dorowdelete : DEFAULT MACRO PTR;
+    ^entities->onrowsdelete := selectmultiple AND (this->pvt_deletemode != "" OR this->pvt_onentitiesdelete != DEFAULT FUNCTION PTR) ? PTR this->dorowsdelete : DEFAULT MACRO PTR;
+    // Re-apply the selectmode as it may have been changed by setting ^entities->onrowdelete or ^entities->onrowsdelete
+    IF (this->selectmultiple != selectmultiple)
+      ^entities->selectmode := selectmultiple ? "multiple" : "single";
   }
 
   /** Run an entity add/edit screen

@@ -598,6 +598,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     ^deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : ^"delete";
 
     ^list->enabled := this->pvt_enabled OR this->__viewifdisabled;
+    ^list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
 
     this->UpdateDropTarget();
   }
@@ -697,6 +698,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
     ArrayListEditBase::RefreshActions();
     ^add->enabled := ^add->enabled AND this->pvt_onrowedit != DEFAULT FUNCTION PTR;
     ^edit->enabled := ^edit->enabled AND this->pvt_onrowedit != DEFAULT FUNCTION PTR;
+    this->list->selectmode := this->onrowsdelete != DEFAULT FUNCTION PTR ? "multiple" : "single";
   }
 
   UPDATE MACRO SetOnRowEdit(FUNCTION PTR onrowedit)
@@ -801,7 +803,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   {
     ArrayListEditBase::RefreshActions();
     ^add->enabled := ^add->enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
-    this->list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
   }
 
   MACRO SetMaxRows(INTEGER newmaxrows)
