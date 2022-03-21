@@ -184,6 +184,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
     //Get the actual modules and their versions
     VARIANT packagejson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package.json")));
     VARIANT packagelockjson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]) ?? StringToBlob("{}"), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+    BLOB packagelockjsondata := GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]);
 
     IF (IsDefaultValue(packagejson) OR TypeID(packagejson) != TypeID(RECORD))
       THROW NEW Exception(`Package folder ${nodefolder.basepath} contains an invalid package.json`);
@@ -196,6 +197,14 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
 
     FOREVERY (RECORD rec FROM SELECT * FROM flatmodules WHERE range = "" LIMIT 1)
       INSERT [ error := `Package '${rec.name}' in package.json has an empty version range. Please put one in.` ] INTO issues AT 0;
+
+    IF(Length(packagelockjsondata) = 0) //there was no package-lock.json
+    {
+      IF(Length(UnpackRecord(deps)) = 0)
+        RETURN issues; //No dependencies. Then it's okay to have no package-lock.json
+
+      RETURN [ ...issues, [ error := `package-lock.json file missing. Please run 'npm install'` ] ];
+    }
 
     IF (NOT packagelockjson->HasProp("lockfileVersion"))
     {
