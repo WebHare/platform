@@ -227,13 +227,13 @@ async function runTask(taskcontext, data)
     resolveerror = buildresult.errors.find(error => error.text.match(/Can't find stylesheet to/));
     if(resolveerror) //attempt to extract the path
     {
-      missingpath = resolveerror.text.match(/@import *"(.*)"/)[1]
-                    || resolveerror.text.match(/@import *'(.*)'/)[1];
+      missingpath = resolveerror.text.match(/@import *"(.*)"/)?.[1]
+                    || resolveerror.text.match(/@import *'(.*)'/)?.[1];
 
       if(missingpath && missingpath[0]=='~') //Modules are prefixed with ~ in webpack style
         missingpath = missingpath.substr(1);
       if(missingpath)
-        missingextensions = ["",".scss"];
+        missingextensions = ["",".scss",".sass"];
     }
   }
 

@@ -9,6 +9,7 @@
       <dependency module="system"/>
       <dependency module="wrd"/>
     </packaging>
+    <validation options="nowarnings" />
   </meta>
 
   <servicemanager>

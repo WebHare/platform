@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
@@ -15,7 +15,7 @@ INTEGER publisher_index, publisher_source;
 
 INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
 {
-  RECORD query := MakeTermQuery("whfstree", ToString(folderid));
+  RECORD query := CQMatch("whfstree", "=", ToString(folderid));
   RECORD result := QueryIndexManager(publisher_index, query, [ count := -1, mapping := [ whfsid := "" ] ]);
   IF (result.status = SearchOk)
     RETURN

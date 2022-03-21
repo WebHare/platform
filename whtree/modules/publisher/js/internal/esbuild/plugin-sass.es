@@ -32,9 +32,13 @@ function lookupSassURL(startingpoint, url)
     if(!target)
       target = compileutils.resolveWebHareAssetPath(startingpoint, url + ".scss");
     if(!target)
+      target = compileutils.resolveWebHareAssetPath(startingpoint, url + ".sass");
+    if(!target)
       target = compileutils.resolveWebHareAssetPath(startingpoint, addUnderscoreToFilename(url));
     if(!target)
       target = compileutils.resolveWebHareAssetPath(startingpoint, addUnderscoreToFilename(url + ".scss"));
+    if(!target)
+      target = compileutils.resolveWebHareAssetPath(startingpoint, addUnderscoreToFilename(url + ".sass"));
 
     //console.error("resolveWebHareAssetPath",target);
     if(!target)
@@ -51,6 +55,13 @@ function lookupSassURL(startingpoint, url)
         if(err2)
           return resolve(target); //then resolve to the original path and let it fail
         return resolve(target + ".scss"); //found it as '.scss'
+      });
+
+      fs.access(target + ".sass", fs.F_OK, err2 =>
+      {
+        if(err2)
+          return resolve(target); //then resolve to the original path and let it fail
+        return resolve(target + ".sass"); //found it as '.sass'
       });
     });
   });
