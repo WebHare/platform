@@ -914,7 +914,7 @@ STATIC OBJECTTYPE ContentSource
               , indexid := this->catalog->id
               ];
 
-      //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catlaog
+      //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
       RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data, [ rebuild := data.action != "UPDATEGROUP"
                                         , refresh := TRUE
                                         ]);
