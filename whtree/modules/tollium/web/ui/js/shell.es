@@ -145,10 +145,7 @@ class IndyShell
   startBackendApplication(appname, parentapp, options)
   {
     if(appname == '__jsapp_hack__') //FIXME proper way to start JS frontend apps
-    {
-      this.startFrontendApplication('TestJSApp', parentapp, {src:'/tollium_todd.res/webhare_testsuite/tollium/jsapp.js'});
-      return;
-    }
+      return this.startFrontendApplication('TestJSApp', parentapp, {src:'/tollium_todd.res/webhare_testsuite/tollium/jsapp.js'});
 
     $todd.towl.hideNotification("tollium:shell.frontendclose");
 
@@ -394,8 +391,7 @@ class IndyShell
   {
     this.isloggingoff = true; //prevent dashboard etc from playing during a logoff
 
-    while($todd.applications.length)
-      $todd.applications[0].terminateApplication();
+    $todd.applications.forEach(app => app.terminateApplication());
 
     this.wrdauth.logout();
   }
@@ -479,7 +475,7 @@ class IndyShell
     if(whconnect.hasConnect())
       whconnect.postToConnect({ method:'register', version: settings.version, servername: settings.servername });
   }
-  sendApplicationMessage(app, target, message, reuse_instance, isfrontendapp, webvars, inbackground)
+  sendApplicationMessage(app, target, message, reuse_instance, inbackground, appoptions)
   {
     if($todd.IsDebugTypeEnabled('communication'))
       console.log('toddSendApplicationMessage: app:' + app + ' reuse:' + reuse_instance + ' target:' + JSON.stringify(target) + " message:" + JSON.stringify(message));
@@ -510,31 +506,27 @@ class IndyShell
             $todd.applications[i].queueEventAsync("$appmessage", { message: message || null, onlynonbusy: true }).then(reply =>
             {
               if (reply && reply.busy)
-                this.startBackendApplication(app, null, { target: target, message: message, isfrontendapp: isfrontendapp, webvars:webvars, inbackground: inbackground });
-              else
-                $todd.applications[i].activateApp();
+                return this.startBackendApplication(app, null, { target: target, message: message, inbackground: inbackground, ...appoptions });
+
+              $todd.applications[i].activateApp();
             });
           }
-          return;
+          return $todd.applications[i];
         }
       }
     }
 
     if (app == "tollium:builtin.oauth")
-    {
-      this.startFrontendApplication(app, null,
-                              { onappbar: true
-                              });
-      return;
-    }
-    this.startBackendApplication(app, null, { target: target, message: message, isfrontendapp: isfrontendapp, webvars:webvars, inbackground: inbackground });
+      return this.startFrontendApplication(app, null, { onappbar: true, ...appoptions });
+
+    return this.startBackendApplication(app, null, { target: target, message: message, inbackground: inbackground, ...appoptions });
   }
   executeInstruction(instr)
   {
     if(instr.type=='appmessage')
     {
       //ADDME background flag is now missing with initial launches, but i think it should just be specified by caller
-      this.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse_instance, instr.isfrontendapp, instr.webvars, instr.inbackground);
+      this.sendApplicationMessage(instr.app, instr.target, instr.message, instr.reuse_instance, instr.inbackground);
       return;
     }
 
@@ -756,6 +748,7 @@ $todd.handleApplicationErrors = async function(app,data)
   app.requireComponentTypes(['panel','button','action','textarea'], reportApplicationError.bind(null,app,data,messages,trace));
 };
 
+//TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
 function reportApplicationError(app,data,messages,trace)
 {
   //Set up a crash handler dialog
@@ -799,7 +792,7 @@ function reportApplicationError(app,data,messages,trace)
   crashdialog.setMessageHandler("frame", "close", closeAppAfterError.bind(null, app, result, null));
   crashdialog.setMessageHandler("closeaction", "execute", (data, callback) => closeAppAfterError(app, result, callback));
   crashdialog.setMessageHandler("debugaction", "execute", debugApp.bind(null, crashdialog, app, data));
-  crashdialog.setMessageHandler("restartaction", "execute", restartApp.bind(null, crashdialog, app, data));
+  crashdialog.setMessageHandler("restartaction", "execute", () => app.restartApp());
 
   // Disable debug option after timeout
   if (data.debugtimeout)
@@ -833,17 +826,8 @@ function debugApp(crashdialog, app, data, x, ondone)
   crashdialog.actionEnabler();
 
   // appid is A:<groupid>
-  $shell.sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) }, false);
+  $shell.sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });
   ondone();
-}
-function restartApp(crashdialog, app, data, x, ondone)
-{
-  console.log('action restartApp');
-  crashdialog.getComponent("debugaction").xml_enabled = false;
-  crashdialog.getComponent("restartaction").xml_enabled = false;
-  crashdialog.actionEnabler();
-
-  app.restart().then(ondone);
 }
 
 function onWebHareConnectError(error)
