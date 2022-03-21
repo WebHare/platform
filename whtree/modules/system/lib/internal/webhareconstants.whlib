@@ -224,7 +224,7 @@ PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
 PUBLIC CONSTANT INTEGER whconstant_default_failreschedule := 15 * 60 * 1000;
 
 // these schemanames are part of webhare's or the database's implementation and don't need explicit dbschemas
-PUBLIC CONSTANT STRING ARRAY whconstant_builtin_schemas := ["system_rights","information_schema","pg_catalog","pg_toast"];
+PUBLIC CONSTANT STRING ARRAY whconstant_builtin_schemas := ["system_rights","information_schema","pg_catalog","pg_toast","webhare_internal"];
 
 //common namespaces
 PUBLIC CONSTANT STRING whconstant_xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
