@@ -5,6 +5,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
@@ -899,12 +900,34 @@ STATIC OBJECTTYPE ContentSource
   /** Rebuild a single group in this content source (forceably reindex)
       @param groupid Group id
       @long Force reindexing of everything in this content source. The reindex takes place in the background */
-  PUBLIC MACRO RebuildGroup(STRING groupid)
+  PUBLIC MACRO RebuildGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    STRING command := "FASTCHECKGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
-    IF(IsDebugTagEnabled("consilio:queues"))
-      LogDebug("consilio", "ContentSource::RebuildGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
-    SendQueueManagerData(GetQueueDataFromCommand(command));
+    options := ValidateOptions( [ foreground := FALSE ], options);
+
+    IF(options.foreground)
+    {
+      RECORD data :=
+          CELL[ action := "CHECKGROUP"
+              , commanddate := GetCurrentDateTime()
+              , contentsourceid := this->id
+              , groupid
+              , indexid := this->catalog->id
+              ];
+
+      //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catlaog
+      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data, [ rebuild := data.action != "UPDATEGROUP"
+                                        , refresh := TRUE
+                                        ]);
+      IF (Length(result.errors) > 0)
+        THROW NEW Exception(result.errors[0].message);
+    }
+    ELSE
+    {
+      STRING command := "FASTCHECKGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+      IF(IsDebugTagEnabled("consilio:queues"))
+        LogDebug("consilio", "ContentSource::RebuildGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
+      SendQueueManagerData(GetQueueDataFromCommand(command));
+    }
   }
 
   /// Delete this content source
