@@ -190,6 +190,23 @@ ASYNC MACRO TestEntitiesEdit()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Now verify the entitylist wrapping the above editor
+  GetTestController()->contexts->wrdschema := OpenWRDSchema("wrd:testschema");
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <wrd:entitylist name="entities" wrdtype="test_domain_1">
+        <column name="wrd_title" type="text" />
+      </wrd:entitylist>
+    </body>
+  </screen>`)));
+
+  TestEq(FALSE, TT("entities")->selectmultiple);
+  TT("entities")->selectmultiple := TRUE;
+  TestEq(TRUE, TT("entities")->selectmultiple);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestFramework([ PTR CreateWRDTestSchema
