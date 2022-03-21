@@ -56,23 +56,15 @@ if [ -z "$ONLYBROKEN" ]; then
     getmoduledir MODULEDIR $P
     cd $MODULEDIR
     if [ -f package.json ]; then
-      if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-        npm install --ignore-scripts # upgrade lockfile
-      else
         npm install --ignore-scripts --no-save
       fi
-    fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
       if cd $Q 2>/dev/null ; then
         echo "Updating webdesign '$MODULENAME:`basename \"$Q\"`'"
 
         if [ -f package.json ]; then
-          if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-            npm install --ignore-scripts # upgrade lockfile
-          else
             npm install --ignore-scripts --no-save
-          fi
           NPMRETVAL=$?
           if [ "$NPMRETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $NPMRETVAL
@@ -98,11 +90,7 @@ else
     if cd "$path" 2>/dev/null ; then
       echo "Updating $path"
       if [ -f package.json ]; then
-        if grep -q '"lockfileVersion": *1' package-lock.json 2> /dev/null; then
-          npm install --ignore-scripts # upgrade lockfile
-        else
           npm install --ignore-scripts --no-save
-        fi
         NPMRETVAL=$?
         if [ "$NPMRETVAL" != "0" ]; then
           echo NPM FAILED with errorcode $NPMRETVAL
