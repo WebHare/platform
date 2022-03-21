@@ -1655,7 +1655,7 @@ void PGSQLTransactionDriver::ScanTypes()
                 "  FROM pg_catalog.pg_type t"
                 "       JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid"
                 "       JOIN pg_catalog.pg_proc p ON t.typinput = p.oid"
-                " WHERE nspname = 'public' AND t.typname = 'webhare_blob' AND proname = 'record_in'";
+                " WHERE (nspname = 'public' OR nspname = 'webhare_internal') AND t.typname = 'webhare_blob' AND proname = 'record_in'";
         query.astext = true;
 
         auto resultset = ExecQuery(query, false);

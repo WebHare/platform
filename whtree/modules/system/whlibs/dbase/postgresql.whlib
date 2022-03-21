@@ -1365,14 +1365,15 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
       DEFAULT
       {
         RECORD rec := this->__ExecSQL(`
-            SELECT t.oid, t.typname, t.typbasetype, a.oid AS arrayeltoid
+            SELECT t.oid, t.typname, t.typbasetype, n.nspname, a.oid AS arrayeltoid
               FROM pg_catalog.pg_type t
-                   LEFT OUTER JOIN pg_catalog.pg_type a ON a.typarray = t.oid
+                   INNER JOIN pg_catalog.pg_namespace n ON (t.typnamespace = n.oid)
+                   LEFT OUTER JOIN pg_catalog.pg_type a ON (a.typarray = t.oid)
              WHERE t.oid = $1`, [ args := VARIANT[ atttypid ] ]);
 
         IF (rec.typbasetype != 0)
           RETURN this->GetDefaultValue(rec.typbasetype, atthasdef, attmissingval);
-        IF (rec.typname = "webhare_blob")
+        IF (rec.nspname = "webhare_internal" AND rec.typname = "webhare_blob")
           RETURN DEFAULT BLOB;
         IF (rec.arrayeltoid != 0)
         {
@@ -1441,7 +1442,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
              , character_octet_length :=    attlen
              , character_maximum_length :=  atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? atttypmod - 4 : atttypid IN [ OID_BIT, OID_VARBIT ] ? atttypmod : 0 // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
              , is_nullable :=               RecordExists(foreignkey) ? attnotnull = FALSE : check_expression = ""
-             , data_type :=                 typname || (atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? `(${atttypmod - 4})` : atttypid IN [ OID_BIT, OID_VARBIT ] ? `(${atttypmod})` : "")
+             , data_type :=                 (nspname = "pg_catalog" ? "" : nspname || ".") || typname || (atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? `(${atttypmod - 4})` : atttypid IN [ OID_BIT, OID_VARBIT ] ? `(${atttypmod})` : "")
              , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
              , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
              , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
@@ -1449,8 +1450,10 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
              , referenced_table_oid :=      RecordExists(foreignkey) ? foreignkey.confrelid : 0
           FROM catalog.pg_attribute
              , catalog.pg_type
+           , catalog.pg_namespace
          WHERE attrelid = table_oid
            AND pg_type.oid = atttypid
+           AND pg_namespace.oid = pg_type.typnamespace
            AND NOT attisdropped
            AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
 

@@ -227,7 +227,7 @@ RECORD ARRAY FUNCTION GetCacheableColumns(OBJECT trans, STRING schemaname, STRIN
            , character_octet_length :=    attlen
            , character_maximum_length :=  atttypid IN [ 1042, 1043 ] ? atttypmod - 4 : atttypid IN [ 1560, 1562 ] ? atttypmod : 0 // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
            , is_nullable :=               attnotnull = FALSE
-           , data_type :=                 typname || (atttypid IN [ 1042, 1043 ] ? `(${atttypmod - 4})` : atttypid IN [ 1560, 1562 ] ? `(${atttypmod})` : "")
+           , data_type :=                 (nspname = "pg_catalog" ? "" : nspname || ".") || typname || (atttypid IN [ 1042, 1043 ] ? `(${atttypmod - 4})` : atttypid IN [ 1560, 1562 ] ? `(${atttypmod})` : "")
            , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
            , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
            , is_unique_constraint_name := (SELECT AS STRING COLUMN conname FROM attr_constraints WHERE contype = "u" OR contype = "p")
@@ -238,8 +238,10 @@ RECORD ARRAY FUNCTION GetCacheableColumns(OBJECT trans, STRING schemaname, STRIN
            , foreignkey_constraint_name := (SELECT AS STRING COLUMN conname FROM attr_constraints WHERE contype = "f")
         FROM catalog.pg_attribute
            , catalog.pg_type
+           , catalog.pg_namespace
        WHERE attrelid = table_oid
          AND pg_type.oid = atttypid
+         AND pg_namespace.oid = pg_type.typnamespace
          AND NOT attisdropped
          AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
 
@@ -515,7 +517,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     CASE "money"        { colrec.dbtype := "numeric"; }
     CASE "blob"
     {
-      colrec.dbtype := "webhare_blob";
+      colrec.dbtype := "webhare_internal.webhare_blob";
 
       // No foreign key for webhare_internal.webhare_blob table
       IF (table_schema != "webhare_internal" OR table_name != "blob")
@@ -553,7 +555,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
       CASE "bool"       { defaultvalue := `false`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> false))`; }
       CASE "bytea"      { defaultvalue := `'\\x'::bytea`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '\\x'::bytea))`; }
       CASE "timestamp"  { defaultvalue := `'-infinity'::timestamp without time zone`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '-infinity'::timestamp without time zone))`; }
-      CASE "webhare_blob" { defaultvalue := ``; }
+      CASE "webhare_internal.webhare_blob" { defaultvalue := ``; }
       DEFAULT   { ABORT(`No default value for type '${colrec.dbtype}'`); }
     }
 
@@ -765,7 +767,7 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
       IF (NOT RecordExists(colrec))
         THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
-      IF (colrec.dbtype = "webhare_blob" OR colrec.references_table != "")
+      IF (colrec.dbtype = "webhare_internal.webhare_blob" OR colrec.references_table != "")
         cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NOT NULL)`;
       ELSE
         cmd := cmd || `${PostgreSQLEscapeIdentifier(col.name)} <> ${colrec.defval}`;
@@ -1346,7 +1348,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
         CASE "float8"         { coldef.dbtype := "FLOAT"; }
         CASE "timestamp"      { coldef.dbtype := "DATETIME"; }
         CASE "numeric"        { coldef.dbtype := "MONEY"; }
-        CASE "webhare_blob"   { coldef.dbtype := "BLOB"; }
+        CASE "webhare_internal.webhare_blob"   { coldef.dbtype := "BLOB"; }
         DEFAULT
         {
           IF (ToLowercase(coldef.dbtype) LIKE "varchar(*")
@@ -1357,7 +1359,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
         }
       }
 
-      IF (col.referenced_table_name!="" AND col.data_type != "webhare_blob")
+      IF (col.referenced_table_name!="" AND col.data_type != "webhare_internal.webhare_blob")
       {
         coldef.references_schema := col.referenced_table_schema;
         coldef.references_table := col.referenced_table_name;
