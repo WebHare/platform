@@ -648,7 +648,7 @@ class TagEdit
 
     if (this.tags.length && haveSelection)
     {
-      this._setSelectedTag(this.tags.slice(-1)[0].node);
+      this._setSelectedTag(this.tags.at(-1).node);
       if (this.selectedTag)
       {
         this.inputnode.blur();

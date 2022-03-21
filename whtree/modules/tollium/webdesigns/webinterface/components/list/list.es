@@ -549,7 +549,7 @@ export default class ObjList extends ComponentBase
       var row=rows[i];
 
       //Find a parent
-      while(currentstack.length && currentstack.slice(-1)[0][3] >= row[3])
+      while(currentstack.length && currentstack.at(-1)[3] >= row[3])
         currentstack.pop();
 
       if(!currentstack.length)
@@ -558,9 +558,9 @@ export default class ObjList extends ComponentBase
       }
       else
       {
-        if(!currentstack.slice(-1)[0][0].subrows)
-          currentstack.slice(-1)[0][0].subrows=[];
-        currentstack.slice(-1)[0][0].subrows.push(row);
+        if(!currentstack.at(-1)[0].subrows)
+          currentstack.at(-1)[0].subrows=[];
+        currentstack.at(-1)[0].subrows.push(row);
       }
       currentstack.push(row);
     }

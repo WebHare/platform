@@ -13,6 +13,127 @@ import { ToddImage } from "../components/jsx";
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+const appbarsymbol = Symbol();
+
+class ApplicationTab
+{
+  constructor(appbar, app, fixed)
+  {
+    this._appbar = appbar;
+
+    // New application
+    this.root =
+        <div className="t-apptab t-apptab--hasicon"
+             on={{ "contextmenu": event => this.onTabContextMenu(event)
+                 , "click": event => this.onTabClick(event)
+                }}>
+          {this.icon=<ToddImage image={app.appicon || 'tollium:tollium/tollium'}
+                                  width={app.appiconwidth || 16}
+                                  height={app.appiconheight || 16}
+                                  color="w"
+                                  className="t-apptab__icon" />}
+          {this.close = <span className="t-apptab__close" />}
+          {this.title = <span title={app.title} className="t-apptab__title">{app.title}</span> }
+          {this.countbadge = <span className="t-apptab__countbadge" display="none" />}
+        </div>;
+
+    this.root[appbarsymbol] = { tabmodifier: ''
+                              , tab: this
+                              };
+    this.menuitem = <li onClick={evt => this._onActivateTab(evt)}>{app.title}</li>;
+    this.fixed = fixed;
+
+    this._onupdatescreen = event => this.onUpdateScreen(event);
+    this._onupdateapp = event => this.onUpdateApp(event);
+    this.replaceApp(app);
+  }
+
+  replaceApp(newapp)
+  {
+    let wasactive = this.app && this.app === $todd.getActiveApplication();
+    if(this.app)
+    {
+      this.app.appnodes.root.removeEventListener("tollium:updatescreen", this._onupdatescreen);
+      this.app.appnodes.root.removeEventListener("tollium:updateapp", this._onupdateapp);
+    }
+    this.app = newapp;
+    if(this.app)
+    {
+      this.app.appnodes.root.addEventListener("tollium:updatescreen", this._onupdatescreen);
+      this.app.appnodes.root.addEventListener("tollium:updateapp", this._onupdateapp);
+      if(wasactive)
+        this.app.activateApp();
+    }
+  }
+
+  destroy()
+  {
+    this.replaceApp(null);
+    this.root.remove();
+  }
+
+  _onActivateTab(event)
+  {
+    dompack.stop(event);
+    this.app.activateApp();
+  }
+
+  onUpdateScreen(event)
+  {
+    if(event.detail.screen.parentwindow == null) //we only honor updates from the toplevel screen
+      this.root.classList.toggle("t-apptab--allowclose", event.detail.allowclose);
+  }
+
+  onUpdateApp(event)
+  {
+    this.root.classList.toggle('t-apptab--hasicon', !!this.app.appicon);
+    this.root.classList.toggle('t-apptab--hasissues', this.app.hasissues);
+    this.root.classList.toggle('t-apptab--isdebugrunning', this.app.isdebugged && !this.app.isdebugpaused);
+    this.root.classList.toggle('t-apptab--isdebugpaused', this.app.isdebugged && this.app.isdebugpaused);
+    if(this.root[appbarsymbol].tabmodifier != this.app.tabmodifier)
+    {
+      if(this.root[appbarsymbol].tabmodifier)
+        this.root.classList.remove('t-apptab--' + this.root[appbarsymbol].tabmodifier);
+      if(this.app.tabmodifier)
+        this.root.classList.add('t-apptab--' + this.app.tabmodifier);
+      this.root[appbarsymbol].tabmodifier = this.app.tabmodifier;
+    }
+
+    if (this.app.appicon)
+      toddImages.updateImage(this.icon, this.app.appicon, this.app.appiconwidth, this.app.appiconheight, 'w');
+    this.title.textContent = this.app.title;
+    this.title.title = this.app.title;
+    this.menuitem.textContent = this.app.title;
+    this._appbar._resize();
+  }
+
+  onTabClick(event)
+  {
+    this.app.activateApp();
+    if(event.target.closest(".t-apptab__close")) //it's the closer being clicked
+      this.app.requestClose();
+  }
+  onTabContextMenu(event)
+  {
+    dompack.stop(event);
+
+    var appmenu = this.app.generateAppMenu();
+    dompack.empty(this._appbar.apptabmenu);
+    appmenu.forEach(menuitem =>
+    {
+      let item = menuitem.isdivider ? <li class="divider" /> : <li onClick={evt => this.onTabContextMenuClick(evt, menuitem)}>{menuitem.title}</li>;
+      this._appbar.apptabmenu.appendChild(item);
+    });
+
+    menu.openAt(this._appbar.apptabmenu, event);
+  }
+  onTabContextMenuClick(event, menuitem)
+  {
+    dompack.stop(event);
+    if(menuitem.cmd)
+      this.app.executeCommand(menuitem.cmd);
+  }
+}
 
 /****************************************************************************************************************************
  * The application tabs bar
@@ -33,7 +154,6 @@ export default class ApplicationBar
     this.appnavmenu = null;
     this.scrollstate = null;
     this.scrollstepscheduled = false;
-    this.appbarsymbol = 'tolliumAppBar';
     this.tabmodifier = '';
 
     this.shell = shell;
@@ -137,12 +257,6 @@ export default class ApplicationBar
     menu.openAt(this.appnavmenu, this.nav_node, { direction: 'down', align: 'right' });
   }
 
-  _onActivateTab(event, app)
-  {
-    dompack.stop(event);
-    app.activateApp();
-  }
-
   _gotoApp(how, idx)
   {
     if(how == 'relative')
@@ -171,39 +285,10 @@ export default class ApplicationBar
 
     if(show)
     {
-      var newtab;
+      let newtab;
       if(appidx < 0)
       {
-        newtab = {};
-
-        // New application
-        newtab.root =
-            <div className="t-apptab t-apptab--hasicon"
-                 on={{ "contextmenu": event => this.onTabContextMenu(app,event)
-                     , "click": event => this.onTabClick(app,event)
-                    }}>
-              {newtab.icon=<ToddImage image={app.appicon || 'tollium:tollium/tollium'}
-                                      width={app.appiconwidth || 16}
-                                      height={app.appiconheight || 16}
-                                      color="w"
-                                      className="t-apptab__icon" />}
-              {newtab.close = <span className="t-apptab__close" />}
-              {newtab.title = <span title={app.title} className="t-apptab__title">{app.title}</span> }
-              {newtab.countbadge = <span className="t-apptab__countbadge" display="none" />}
-            </div>;
-
-        newtab.root[this.appbarsymbol] = { tabmodifier: ''
-                                         , tab: newtab
-                                         };
-        newtab.onupdatescreen = this.onUpdateScreen.bind(this, newtab);
-        newtab.onupdateapp = this.onUpdateApp.bind(this, newtab);
-        newtab.app = app;
-        newtab.menuitem = <li onClick={evt => this._onActivateTab(evt,app)}>{app.title}</li>;
-        newtab.menuitem.todd_app = app;
-        newtab.fixed = fixed;
-
-        app.appnodes.root.addEventListener("tollium:updatescreen", newtab.onupdatescreen);
-        app.appnodes.root.addEventListener("tollium:updateapp", newtab.onupdateapp);
+        newtab = new ApplicationTab(this, app, fixed);
       }
       else
       {
@@ -233,10 +318,7 @@ export default class ApplicationBar
       if(appidx < 0)
         return;
 
-      var tab = this.apps[appidx];
-      app.appnodes.root.removeEventListener("tollium:updatescreen", tab.onupdatescreen);
-      app.appnodes.root.removeEventListener("tollium:updateapp", tab.onupdateapp);
-      tab.root.remove();
+      this.apps[appidx].destroy();
       this.apps.splice(appidx, 1);
     }
 
@@ -323,64 +405,16 @@ export default class ApplicationBar
     }
     this._recalculateCSSClasses();
   }
-  onTabClick(app, event)
-  {
-    app.activateApp();
-    if(event.target.closest(".t-apptab__close")) //it's the closer being clicked
-      app.requestClose();
-  }
-  onTabContextMenu(app, event)
-  {
-    dompack.stop(event);
-
-    var appmenu = app.generateAppMenu();
-
-    dompack.empty(this.apptabmenu);
-    appmenu.forEach(menuitem =>
-    {
-      let item = menuitem.isdivider ? <li class="divider" /> : <li onClick={evt => this.onTabContextMenuClick(evt, app, menuitem)}>{menuitem.title}</li>;
-      this.apptabmenu.appendChild(item);
-    });
-
-    menu.openAt(this.apptabmenu, event);
-  }
-  onTabContextMenuClick(event, app, menuitem)
-  {
-    dompack.stop(event);
-    if(menuitem.cmd)
-      app.executeCommand(menuitem.cmd);
-  }
-  onUpdateScreen(tab, event)
-  {
-    if(event.detail.screen.parentwindow == null) //we only honor updates from the toplevel screen
-      tab.root.classList.toggle("t-apptab--allowclose", event.detail.allowclose);
-  }
-  onUpdateApp(tab, event)
-  {
-    tab.root.classList.toggle('t-apptab--hasicon', !!tab.app.appicon);
-    tab.root.classList.toggle('t-apptab--hasissues', tab.app.hasissues);
-    tab.root.classList.toggle('t-apptab--isdebugrunning', tab.app.isdebugged && !tab.app.isdebugpaused);
-    tab.root.classList.toggle('t-apptab--isdebugpaused', tab.app.isdebugged && tab.app.isdebugpaused);
-    if(tab.root[this.appbarsymbol].tabmodifier != tab.app.tabmodifier)
-    {
-      if(tab.root[this.appbarsymbol].tabmodifier)
-        tab.root.classList.remove('t-apptab--' + tab.root[this.appbarsymbol].tabmodifier);
-      if(tab.app.tabmodifier)
-        tab.root.classList.add('t-apptab--' + tab.app.tabmodifier);
-      tab.root[this.appbarsymbol].tabmodifier = tab.app.tabmodifier;
-    }
-
-    if (tab.app.appicon)
-      toddImages.updateImage(tab.icon, tab.app.appicon, tab.app.appiconwidth, tab.app.appiconheight, 'w');
-    tab.title.textContent = tab.app.title;
-    tab.title.title = tab.app.title;
-    tab.menuitem.textContent = tab.app.title;
-    //    this.appnavmenu.fireEvent("wh-refresh"); //does not seem to really need refresh to update app items?
-    //tab.root.classList.toggle("allowclose", event.allowclose);
-    this._resize();
-  }
   anyShortcuts()
   {
     return this.apps.length>0;
+  }
+  replaceAppWith(oldapp, newapp)
+  {
+    let idx = this.apps.findIndex(_ => _.app == oldapp);
+    if(idx == -1) //old app isn't on the bar either
+      return;
+
+    this.apps[idx].replaceApp(newapp);
   }
 }

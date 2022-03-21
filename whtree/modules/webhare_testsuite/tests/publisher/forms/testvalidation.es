@@ -109,7 +109,7 @@ test.registerTests(
       await test.wait('ui');
 
       //the CLIENT should have detected this..
-      let errorinfo = test.getPxlLog(/^publisher:form.+/).slice(-1)[0];
+      let errorinfo = test.getPxlLog(/^publisher:form.+/).at(-1);
       test.eq('client', errorinfo.data.ds_formmeta_errorsource);
     }
 

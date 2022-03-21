@@ -31,7 +31,7 @@ test.registerTests(
         await test.wait("ui");
       }
 
-      test.click(test.qSA('t-toolbar t-button').slice(-1)[0]);
+      test.click(test.qSA('t-toolbar t-button').at(-1));
       test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Settings")[0]);
       await test.wait("ui");
 

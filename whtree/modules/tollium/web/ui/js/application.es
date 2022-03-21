@@ -80,7 +80,7 @@ export class ApplicationBase
   ///@}
 
   /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
-    screenstack.slice(-1)[0] is the currently active and only enabled screen */
+    screenstack.at(-1) is the currently active and only enabled screen */
     this.screenstack = [];
   /* the screenmap contains the screens owned by this application (never includes foreign windows) */
     this.screenmap = {};
@@ -343,11 +343,12 @@ export class ApplicationBase
 
     if(!this.visible)
     {
-      if(this == $todd.applicationstack.slice(-1)[0]) //we're the currently selected app
+      if(this == $todd.applicationstack.at(-1)) //we're the currently selected app
       {
         if($todd.applicationstack.length >= 2)
           $todd.applicationstack[$todd.applicationstack.length-2].activateApp();
       }
+
       $todd.applicationstack = $todd.applicationstack.filter(app => app != this);
       this.shell.onApplicationStackChange();
     }
@@ -387,11 +388,11 @@ export class ApplicationBase
   //
   isActiveApplication()
   {
-    return this == $todd.applicationstack.slice(-1)[0];
+    return this == $todd.applicationstack.at(-1);
   }
   activateApp()
   {
-    let curapp = $todd.applicationstack.slice(-1)[0];
+    let curapp = $todd.applicationstack.at(-1);
 
     if(curapp != this)
     {
@@ -420,14 +421,12 @@ export class ApplicationBase
       //activate
       this.appnodes.root.classList.add('appcanvas--visible');
 
-      if(this.shell.applicationbar && this.apptab)
-        this.shell.applicationbar.setActiveShortcut(this.apptab);
       this.setAppTitle(this.title);
       this.shell.onApplicationStackChange();
     }
 
-    if(this.screenstack.slice(-1)[0])
-      this.screenstack.slice(-1)[0].focus();
+    if(this.screenstack.at(-1))
+      this.screenstack.at(-1).focus();
     else
       focusZones.focusZone(this.appnodes.root);
   }
@@ -436,7 +435,7 @@ export class ApplicationBase
   terminateApplication()
   {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
-    this.setVisible(false);
+    this.setVisible(false); //also removes us from $todd.applications
 
     $todd.applications = $todd.applications.filter(app => app != this);
     return this.resetApp().finally( () =>
@@ -477,7 +476,7 @@ export class ApplicationBase
   setAppTitle(newtitle)
   {
     this.title = newtitle;
-    if ($todd.applicationstack.slice(-1)[0] == this)
+    if ($todd.getActiveApplication() == this)
     {
       let prefix = this.shell.getCurrentSettings().browsertitleprefix;
       document.title = (prefix ? prefix + ' ' : '') + this.title;
@@ -496,6 +495,11 @@ export class ApplicationBase
 
   executeCommand(cmd)
   {
+    if(cmd.type === 'currentapp:restart')
+    {
+      this.restartApp();
+      return;
+    }
     //unknown, pass it to the shell
     this.shell.executeInstruction(cmd);
   }
@@ -591,6 +595,14 @@ export class ApplicationBase
                       { text: getTid("tollium:shell.errors.errortitle")
                       , buttons: [{ name: 'close', title: getTid("tollium:common.actions.close") }]
                       });
+  }
+
+  restartApp()
+  {
+    //restart the application using its current target.
+    let newapp =this.shell.sendApplicationMessage(this.appname, this.apptarget, null, false, true, { onappbar: false });
+    this.shell.applicationbar.replaceAppWith(this, newapp);
+    this.terminateApplication();
   }
 }
 
@@ -732,9 +744,6 @@ export class BackendApplication extends ApplicationBase
       case "error":
       case "expired":
       {
-        if (data.appid != this.whsid)
-          return; // this message is for an old app (we've restarted since then)
-
         if (!this.closebusylock)
           this.closebusylock = this.getBusyLock();
 
@@ -762,16 +771,6 @@ export class BackendApplication extends ApplicationBase
   start(frontendid)
   {
     this.frontendid = frontendid;
-  }
-
-  restart()
-  {
-    let restartlock = this.getBusyLock();
-    return this.resetApp().then( () =>
-    {
-      this.launchApp(true);
-      restartlock.release();
-    });
   }
 
   generateAppMenu()
@@ -1081,9 +1080,6 @@ export class BackendApplication extends ApplicationBase
   {
     switch(cmd.type)
     {
-      case 'currentapp:restart':
-        this.restart();
-        break;
       case 'currentapp:controllermsg':
         this.queueEvent("$controllermessage", cmd.msg, true);
         break;
@@ -1144,7 +1140,7 @@ export class BackendApplication extends ApplicationBase
     }
     console.error('Unexpected application update type: ' +node.type);
   }
-  async launchApp(restart)
+  async launchApp()
   {
     let initlock = this.getBusyLock();
     //FIXME whitelist options instead of deleting them

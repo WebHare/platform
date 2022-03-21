@@ -1236,7 +1236,7 @@ export default class Frame extends ComponentBase
     this.displayapp = displayapp;
     this.displayapp.appnodes.root.addEventListener("tollium:appcanvas-resize", this.desktoplistener);
 
-    var parent = this.displayapp.screenstack.slice(-1)[0];
+    var parent = this.displayapp.screenstack.at(-1);
     if(parent)
       parent.setActive(false);
 
@@ -1271,7 +1271,7 @@ export default class Frame extends ComponentBase
   {
     this.displayapp.screenstack = this.displayapp.screenstack.filter(screen => screen != this); //erase
 
-    var parent = this.displayapp.screenstack.slice(-1)[0];
+    var parent = this.displayapp.screenstack.at(-1);
     if(parent)
       parent.setActive(true);
 

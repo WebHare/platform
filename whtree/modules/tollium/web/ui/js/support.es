@@ -88,7 +88,7 @@ $todd.fastunload= window.location.href.indexOf('fastunload=1') != -1;
 
 $todd.getActiveApplication = function()
 {
-  return $todd.applicationstack.slice(-1)[0];
+  return $todd.applicationstack.at(-1);
 };
 
 /****************************************************************************************************************************

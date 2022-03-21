@@ -52,4 +52,22 @@ test.registerTests(
     test.eq('<div id="div2"></div><div id="div3"></div>', node1.innerHTML);
   }
 
+, "Array/String.prototype.at polyfill"
+, async function()
+  {
+    test.eq(undefined, [1,2,3].at(3));
+    test.eq(1, [1,2,3].at(0));
+    test.eq(3, [1,2,3].at(2));
+    test.eq(3, [1,2,3].at(-1));
+    test.eq(1, [1,2,3].at(-3));
+    test.eq(undefined, [1,2,3].at(-4));
+
+    test.eq(undefined, "123".at(3));
+    test.eq("1", "123".at(0));
+    test.eq("3", "123".at(2));
+    test.eq("3", "123".at(-1));
+    test.eq("1", "123".at(-3));
+    test.eq(undefined, "123".at(-4));
+  }
+
 ]);

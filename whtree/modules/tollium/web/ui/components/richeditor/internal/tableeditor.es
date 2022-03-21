@@ -1253,7 +1253,7 @@ export class TableEditor
       else
       {
         // Get the tr we're resizing
-        var resizetr = getBodyTRs(this.node).slice(-1)[0];
+        var resizetr = getBodyTRs(this.node).at(-1);
 
         // Resize the column
         resizetr.style.height = Math.max(parseInt(resizetr.style.height) + event.detail.movedY, 0) + 'px';
