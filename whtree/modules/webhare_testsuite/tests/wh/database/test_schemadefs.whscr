@@ -63,7 +63,7 @@ MACRO TestSchemadefs()
 
           // noupdate isn't set in postgresql
           DELETE CELL documentation, location, noupdate FROM c;
-          DELETE CELL noupdate FROM pc;
+          DELETE CELL noupdate, defval_raw, defval_isdefault FROM pc;
           IF (EncodeHSON(c) != EncodeHSON(pc))
           {
             PRINT(`Diff in ${modulename}.${t.name}.${c.name}:\n`);

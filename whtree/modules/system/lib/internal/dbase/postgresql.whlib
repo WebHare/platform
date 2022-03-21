@@ -1322,6 +1322,8 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
           [ name :=                     col.column_name
           , dbtype :=                   ToUppercase(col.data_type)
           , defval :=                   ""
+          , defval_isdefault :=         FALSE
+          , defval_raw :=               col.column_default
           , internalcolumnname :=       ""
           , isunique :=                 col.is_unique
           , nullable :=                 FALSE
@@ -1380,7 +1382,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
             IF (ToLowercase(col.column_default) = "true")
               encoded_defval := ToUppercase(col.column_default);
             ELSE
-              is_null_default := ToLowercase(col.column_default) = "false";
+              coldef.defval_isdefault := ToLowercase(col.column_default) = "false";
           }
           CASE "int4", "int8", "float8", "numeric"
           {
@@ -1388,7 +1390,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
               encoded_defval := col.column_default;
             ELSE
             {
-              is_null_default := col.column_default = "0" OR col.column_default LIKE "nextval(*" OR col.column_default LIKE "*.webhare_autonrs_*";
+              coldef.defval_isdefault := col.column_default = "0" OR col.column_default LIKE "nextval(*" OR col.column_default LIKE "*.webhare_autonrs_*";
 
               RECORD ARRAY match := sequence_generator->Exec(col.column_default);
               IF (RecordExists(match))
@@ -1408,28 +1410,26 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
           CASE "varchar"
           {
             IF (col.column_default = `''::text`)
-              is_null_default := TRUE;
+              coldef.defval_isdefault := TRUE;
             ELSE IF (col.column_default LIKE `'*'::text`)
               encoded_defval := Left(col.column_default, LENGTH(col.column_default) - 6);
           }
           CASE "bytea"
           {
             IF (col.column_default = `'\\x'::bytea`)
-              is_null_default := TRUE;
+              coldef.defval_isdefault := TRUE;
             ELSE IF (col.column_default LIKE `'*'::bytea`)
               encoded_defval := Left(col.column_default, LENGTH(col.column_default) - 7);
           }
           CASE "timestamp"
           {
             IF (col.column_default = `'-infinity'::timestamp without time zone`)
-              is_null_default := TRUE;
+              coldef.defval_isdefault := TRUE;
           }
         }
 
         IF (encoded_defval != "")
           coldef.defval := encoded_defval;
-        ELSE IF (NOT is_null_default)
-          ABORT(`Do not support default value '${EncodeValue(col.column_default)}' for type '${col.data_type}'`);
       }
 
       IF (coldef.dbtype = "VARCHAR")
