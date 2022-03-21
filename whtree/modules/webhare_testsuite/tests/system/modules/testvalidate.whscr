@@ -501,18 +501,6 @@ MACRO TestValidateWitty()
 
 MACRO TestValidateModuleDef()
 {
-  BLOB moduledef_next := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
-  <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
-    <meta />
-    <appcontexts />
-    <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" />
-  </module>`);
-
-  RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next ]);
-  //DumpValue(res.errors);
-  TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
-         ], SELECT line, message FROM res.warnings ORDER BY line,message)  ;
-
   BLOB moduledef_badsearchproviders := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
     <meta />
@@ -521,7 +509,7 @@ MACRO TestValidateModuleDef()
     </publisher>
   </module>`);
 
-  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
+  RECORD res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
   TestEq([[ line := 5, message := `No such library 'mod::webhare_testsuite/lib/nosuch.whlib' (looking for 'SearchProviderBase')` ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 

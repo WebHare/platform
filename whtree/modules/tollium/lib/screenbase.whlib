@@ -38,7 +38,7 @@ STRING FUNCTION FixupLocalTid(STRING localtid)
 }
 
 /** @short A tollium scope, which can contain static tollium objects and callback handlers */
-PUBLIC OBJECTTYPE TolliumScope EXTEND TolliumAppContextSystem
+PUBLIC OBJECTTYPE TolliumScope
 <
   BOOLEAN gavepublic;
   PUBLIC OBJECT parentscope;
@@ -127,7 +127,6 @@ PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
   {
     EXTEND this BY TolliumScope;
     this->pvt_invisibletitle := TRUE;
-    this->__pvt_tacs_parent := this->owner;
   }
 
   // ---------------------------------------------------------------------------
@@ -142,8 +141,6 @@ PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
       this->parentscope := this->owner;
     ELSE
       this->parentscope := this->owner->tolliumscreenmanager->GetToddComponentNoFail(description.tolliumscope.scope);
-
-    this->__pvt_tacs_parent := this->parentscope;
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
@@ -357,9 +354,9 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     this->pvt_tolliumscreenid := "todd" || Right("000000000" || screencounter, 10);
     this->pvt_tolliumparent := __screenbuildinfo.parent;
     this->pvt_tolliumcontroller := __screenbuildinfo.controller;
-    this->__pvt_tacs_parent := __screenbuildinfo.parent ?? __screenbuildinfo.controller; //FIXME also link up fragments to their screen
-    IF(ObjectExists(this->__pvt_tacs_parent))
-      this->pvt_contexts := NEW TolliumContexts((__screenbuildinfo.contextparent ?? this->__pvt_tacs_parent)->contexts, this);
+    OBJECT __pvt_tacs_parent := __screenbuildinfo.parent ?? __screenbuildinfo.controller;
+    IF(ObjectExists(__pvt_tacs_parent))
+      this->pvt_contexts := NEW TolliumContexts((__screenbuildinfo.contextparent ?? __pvt_tacs_parent)->contexts, this);
 
     FOREVERY(RECORD context FROM UnpackRecord(__screenbuildinfo.options.contexts))
       MemberUpdate(this->contexts, context.name, context.value);

@@ -17,8 +17,7 @@ PUBLIC STRING ARRAY FUNCTION GetWRDSchemaDefCandidates(RECORD ARRAY schemarule)
   {
     STRING ARRAY localcandidates := SELECT AS STRING ARRAY tag
                                       FROM currentwrdschemas
-                                     WHERE ToUppercase(tag) LIKE ToUppercase(rule.tag)
-                                           OR (rule.originalname != "" AND ToUppercase(tag) = ToUppercase(rule.originalname));
+                                     WHERE ToUppercase(tag) LIKE ToUppercase(rule.tag);
 
     IF(Length(localcandidates) = 0 AND rule.autocreate)
       localcandidates := STRING[rule.tag];

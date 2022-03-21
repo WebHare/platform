@@ -123,7 +123,7 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
     STRING deffile := metadata.schemaresource;
     IF(deffile = "")
     {
-      RECORD def := GetModuleWRDSchemaDefinition(tag, FALSE);
+      RECORD def := GetModuleWRDSchemaDefinition(tag);
       IF(NOT RecordExists(def))
         THROW NEW Exception(`No schema definition available for WRD schema '${tag}'`);
 

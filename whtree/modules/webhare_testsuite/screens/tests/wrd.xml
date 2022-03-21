@@ -32,7 +32,7 @@
                  minwidth="60x"
                  minheight="6x"
                  >
-        <wrd:entityrefcolumn name="guid" field="wrd_contact_email" type="text" width="1pr" inputkind="wrd_guid" wrdcontext="testwrdschema" wrdtype="wrd_person"/>
+        <wrd:entityrefcolumn name="guid" field="wrd_contact_email" type="text" width="1pr" inputkind="wrd_guid"  wrdtype="wrd_person"/>
         <column name="weight" type="integer" align="right" width="8x" />
       </arrayedit>
     </body>

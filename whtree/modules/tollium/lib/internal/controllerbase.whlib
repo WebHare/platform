@@ -1294,7 +1294,7 @@ PUBLIC OBJECTTYPE TolliumAsyncWindowOpenBase EXTEND TolliumAsyncFileTransferBase
     @topic tollium/appdev
     @public
 */
-PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
+PUBLIC OBJECTTYPE TolliumControllerBase
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -2246,24 +2246,18 @@ PUBLIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       RETURN;
     }
 
-    TRY
-    {
-      RECORD contextinfo := [ language := GetTidLanguage() ];
-      this->__LoadAppContexts(module.globalappcontexts, contextinfo);
-      this->currentapplication := app;
-      SetErrorContextInfo([ source := "tollium:app", app := app.name, user_wrdid := this->tolliumuser->entityid, language := GetTidLanguage() ]);
+    RECORD contextinfo := [ language := GetTidLanguage() ];
+    this->currentapplication := app;
+    SetErrorContextInfo([ source := "tollium:app", app := app.name, user_wrdid := this->tolliumuser->entityid, language := GetTidLanguage() ]);
 
-      //Warn all but production servers that they really need to stop using postgres. This may be our last attempt to warn before we start removing dbserver from default builds. Don't break CI though..
-      IF(GetDtapStage() != "production" AND GetDatabaseType() = "whdb" AND GetEnvironmentVariable("WEBHARE_CI") = "")
-        this->RunSimpleScreen("error", "You need to switch to the PostgreSQL database!\n\nNon-production WebHares will remove the current dbserver very soon. WebHare 4.36+ will remove support for the dbserver entirely.", [ title := "Upcoming requirement to use PostgreSQL" ]);
+    //Warn all but production servers that they really need to stop using postgres. This may be our last attempt to warn before we start removing dbserver from default builds. Don't break CI though..
+    IF(GetDtapStage() != "production" AND GetDatabaseType() = "whdb" AND GetEnvironmentVariable("WEBHARE_CI") = "")
+      this->RunSimpleScreen("error", "You need to switch to the PostgreSQL database!\n\nNon-production WebHares will remove the current dbserver very soon. WebHare 4.36+ will remove support for the dbserver entirely.", [ title := "Upcoming requirement to use PostgreSQL" ]);
 
-      IF (this->__DoIntegratedAppLaunch(this, app, data))
-        RETURN;
+    IF (this->__DoIntegratedAppLaunch(this, app, data))
+      RETURN;
 
-      this->RunMessageBox("tollium:commondialogs.applaunchfailure", appname);
-    }
-    FINALLY
-      this->__ClearAppContexts();
+    this->RunMessageBox("tollium:commondialogs.applaunchfailure", appname);
   }
 
   PUBLIC BOOLEAN FUNCTION __DoIntegratedAppLaunch(OBJECT parent, RECORD app, RECORD data)

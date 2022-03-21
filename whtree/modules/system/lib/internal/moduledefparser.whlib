@@ -643,27 +643,6 @@ PUBLIC RECORD ARRAY FUNCTION GetDashboardPanels(STRING modulename, OBJECT moddef
   RETURN results;
 }
 
-//FIXME get rid of appcontexts, but for now, we'll support just WRD
-PUBLIC RECORD ARRAY FUNCTION ParseAppContexts(STRING modulename, OBJECT node)
-{
-  RECORD ARRAY contexts;
-
-  FOREVERY(OBJECT child FROM node->childnodes->GetCurrentElements())
-  {
-    IF(child->namespaceuri != "http://www.webhare.net/xmlns/wrd/appcontext" OR child->localname != "wrdschema")
-      THROW NEW Exception("Unknown appcontext " || child->namespaceuri || ":" || child->localname);
-
-    INSERT [ name := child->GetAttribute("name")
-           , lib := "mod::wrd/lib/internal/tolliumfuncs.whlib"
-           , objtype := "WRDAppContextSupport"
-           , data := [ wrdschema := child->GetAttribute("schema")
-                     , api2017 := ParseXSBoolean(child->GetAttribute("api2017"))
-                     ]
-           ] INTO contexts AT END;
-  }
-  RETURN contexts;
-}
-
 PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modulename, OBJECT node, STRING childgid)
 {
   RECORD ARRAY designs;
@@ -761,7 +740,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     RECORD app := [ name :=           node->GetAttribute("name")
                   , screen :=         node->GetAttribute("screen")
                   , appfunction :=    ""
-                  , appcontexts :=    RECORD[]
                   , linenum :=        node->linenum
                   ];
 
@@ -790,13 +768,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     }
 
     app.name := this->moduledef.name || ":" || app.name;
-
-    OBJECT appcontexts := node->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "appcontexts")->Item(0);
-    IF(ObjectExists(appcontexts))
-    {
-      this->AddWarning(node, "<appcontexts> have been deprecated and generalized into this->contexts");
-      app.appcontexts := ParseAppContexts(this->moduledef.name, appcontexts);
-    }
 
     RETURN MakeMergedRecord(app, ParseChecks(this->moduledef.name, node, TRUE));
   }
@@ -839,10 +810,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       STRING childgid := ParseGid(modulename, rootgid, child);
       SWITCH(child->localname)
       {
-        CASE"appcontexts"
-        {
-          this->moduledef.globalappcontexts := ParseAppContexts(modulename, child);
-        }
         CASE"servicemanager"
         {
           FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())

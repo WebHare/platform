@@ -14,7 +14,6 @@
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/wrd/schemadefinition" schemaLocation="mod::wrd/data/validation/moduleschemadef.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/whdb/databaseschema" schemaLocation="mod::system/data/validation/databaseschema.xsd" />
 
   <xs:annotation>
@@ -166,7 +165,6 @@
           <xs:field xpath="@tag" />
         </xs:unique>
       </xs:element>
-      <xs:element name="appcontexts" type="AppContexts" />
       <xs:element name="portal" type="Portal">
         <xs:unique name="appnames">
           <xs:selector xpath="./m:application" />
@@ -257,12 +255,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-  </xs:complexType>
-
-  <xs:complexType name="AppContexts">
-    <xs:sequence>
-      <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
-    </xs:sequence>
   </xs:complexType>
 
   <xs:complexType name="Rights">
@@ -802,7 +794,6 @@
           </xs:annotation>
           <xs:complexType>
             <xs:sequence>
-              <xs:element name="appcontexts" type="AppContexts" minOccurs="0"/>
               <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
             </xs:sequence>
             <xs:attributeGroup ref="AppAttributes" />

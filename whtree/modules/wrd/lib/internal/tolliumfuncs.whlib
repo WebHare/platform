@@ -129,24 +129,6 @@ PUBLIC STRING FUNCTION GetSchemaBaseKey(OBJECT wrdschema)
   RETURN "wrd.interface." || RegSafeName(wrdschema->tag) || '.';
 }
 
-
-PUBLIC OBJECTTYPE WRDAppContextSupport
-<
-  PUBLIC RECORD FUNCTION ParseNode(OBJECT node)
-  {
-    RETURN
-        [ wrdschema := node->GetAttribute ("schema")
-        , api2017 := ParseXSBoolean(node->GetAttribute("api2017"))
-        ];
-  }
-  PUBLIC OBJECT FUNCTION ConstructAppContext(RECORD data, RECORD context)
-  {
-    IF (data.api2017)
-      RETURN OpenWRDSchema(data.wrdschema);
-    RETURN OpenWRDSchemaByName(data.wrdschema, context.language);
-  }
->;
-
 PUBLIC OBJECT FUNCTION GetTypeFromData(OBJECT component, OBJECT screen, RECORD indata)
 {
   IF(indata.wrdtype = "" OR NOT HavePrimaryTransaction()) // skip when validating
@@ -156,12 +138,6 @@ PUBLIC OBJECT FUNCTION GetTypeFromData(OBJECT component, OBJECT screen, RECORD i
   IF(ObjectExists(component->contexts->wrdschema))
   {
     wrdschema := component->contexts->wrdschema;
-  }
-  ELSE IF(indata.wrdcontext != "")
-  {
-    wrdschema := screen->GetAppContext(indata.wrdcontext);
-    IF(NOT ObjectExists(wrdschema))
-      THROW NEW TolliumException(component, "No WRD schema associated with context '" || indata.wrdcontext || "'");
   }
   ELSE IF(indata.wrdschema != "")
   {

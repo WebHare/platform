@@ -128,10 +128,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
           this->AddErrorForLine(wrdschema->linenum, `Cannot find '${deffile}'`);
       }
 
-    FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
-      this->AddWarning(appcontext, "<appcontexts> have been deprecated");
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
-      this->AddHint(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
+      this->AddError(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }
 >;
 
