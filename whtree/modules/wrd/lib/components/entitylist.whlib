@@ -11,7 +11,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
+PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
   //
   // Private variables
