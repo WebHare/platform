@@ -137,7 +137,7 @@ PUBLIC BOOLEAN FUNCTION CheckConsilioGroupByTag(STRING contentsourcetag, STRING 
   RETURN TRUE;
 }
 
-PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API")
+PUBLIC OBJECT FUNCTION CheckConsilioGroupSynchronously(STRING contentsourcetag, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(DEPRECATED "Direct queuemgmt has been deprecated, switch to the consilio API and use RebuildGroup(..., [ foreground := TRUE ])")
 {
   options := ValidateOptions([ force := FALSE ], options);
 

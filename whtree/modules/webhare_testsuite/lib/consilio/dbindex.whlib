@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";

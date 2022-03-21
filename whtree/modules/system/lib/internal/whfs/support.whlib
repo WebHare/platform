@@ -690,8 +690,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadGlobalResourceDirByPath(INTEGER startfolder, ST
 {
   INTEGER whfsid;
 
-  // Ensure / at end, need it for stuff like "module::tollium"
-  IF (findpath NOT LIKE "*/")
+  // Ensure / at end, need it for stuff like "module::tollium", but don't append / to eg wh:: as wh::/ would be invalid
+  IF (findpath NOT LIKE "*/" AND findpath NOT LIKE "*::")
     findpath := findpath || "/";
 
   STRING diskresult := GetDiskPathForAsset(findpath, reportpath, FALSE);
