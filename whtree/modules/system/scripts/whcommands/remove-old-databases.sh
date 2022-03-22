@@ -5,7 +5,7 @@ if [ -d $WEBHARE_DATAROOT/postgresql/db.switchto ]; then
 fi
 
 if [ -d $WEBHARE_DATAROOT/dbase -a -f $WEBHARE_DATAROOT/postgresql/db/postgresql.conf -a "$__WEBHARE_DBASE" == "postgresql" ] ; then
-  echo "It looks like you've switched to PostgresSQL so removing old dbserver 'dbase' directory in..."
+  echo "It looks like you've switched to PostgreSQL so removing old dbserver 'dbase' directory in..."
   sleep 1
   for P in 5 4 3 2 1 ; do
     echo "$P..."
