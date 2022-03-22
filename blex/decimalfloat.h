@@ -63,6 +63,16 @@ struct BLEXLIB_PUBLIC DecimalFloat
         */
         ParseResult ParseNumberString(char const *ptr, char const *limit, char *postfix, const char **finish);
 
+        /** Set values from a float, so that equivalent ParseNumberString would return the same float as mush as possible
+            @param value Value to set
+        */
+        void FromFloat(double value);
+
+        /** Encodes the current number as a float string
+            @param decimals Nr of decimals to print, -1 for free-form (scientific mode allowed too)
+        */
+        std::string ToFloatString(int decimals) const;
+
         ///Digits of the real value
         uint64_t digits;
         ///Whether the value needs to be negated

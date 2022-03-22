@@ -179,8 +179,8 @@ MACRO ImgCacheTest()
   TestEq(`#000001 url("${wrapped.link}") 0.0000% 1.2500%/cover`, wrapped.css);
 
   wrapped := WrapCachedImage(homer->GetWrapped(), [ method := "none" ]);
-  TestEq("0.1562% 0.2083%", wrapped.refpoint_backgroundposition);
-  TestEq(`#000001 url("${wrapped.link}") 0.1562% 0.2083%/cover`, wrapped.css);
+  TestEq("0.1563% 0.2083%", wrapped.refpoint_backgroundposition);
+  TestEq(`#000001 url("${wrapped.link}") 0.1563% 0.2083%/cover`, wrapped.css);
 
   //Grayscale homer
   STRING grayhomerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "none", grayscale := TRUE ]);

@@ -60,7 +60,7 @@ MACRO TestJSON()
   TestEq([action:="$activate", param := DEFAULT RECORD, forms := DEFAULT VARIANT ARRAY, pushsession := "", taskbar := FALSE ],
                 DecodeJSON('{"action":"$activate","param":null,"forms":[],"pushsession":"","taskbar":false}'));
 
-  TestJSONEnDeCode('0.582346', FLOAT(0.5823461), DEFAULT RECORD);
+  TestJSONEnDeCode('0.5823461', FLOAT(0.5823461), DEFAULT RECORD);
 
   TestEq([line:=0], DecodeJSON('{"line":0}'));
 
@@ -80,7 +80,15 @@ MACRO TestJSON()
   TestEq([ 'Ch\u00E2tel' := "yeey" ], DecodeJSON('{ "Ch\u00E2tel" : "yeey" }'));
 
   TestEq("-1.5", EncodeJSON(-1.5));
-  TestEq("-1.500000", EncodeJSON(-1.5f));
+  TestEq("-1.5", EncodeJSON(-1.5f));
+  TestEq("-1.51212121212", EncodeJSON(-1.51212121212f));
+  TestEq("0.000001", EncodeJSON(0.000001f));
+  TestEq("4e-7", EncodeJSON(4e-7));
+  TestEq("5.001e-7", EncodeJSON(5.001e-7));
+  TestEqLike("1e40", EncodeJSON(1e40));
+  TestEqLike("1.000000000000001e40", EncodeJSON(1.000000000000001e40));
+  TestEqLike( "9.99999999999999e39", EncodeJSON(0.999999999999999e40));
+  TestEqLike(`1e308`, EncodeJSON(1e308));
   TestEq('"2012-11-10T09:08:07.654Z"', EncodeJSON(AddTimeToDate(654,MakeDateTime(2012,11,10,9,8,7))));
   TestEq('"2012-11-10T09:08:07.000Z"', EncodeJSON(MakeDateTime(2012,11,10,9,8,7)));
   TestEq('"2012-11-10T00:00:00.000Z"', EncodeJSON(MakeDate(2012,11,10)));

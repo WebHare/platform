@@ -347,6 +347,25 @@ BLEX_TEST_FUNCTION(TestPow10)
         BLEX_TEST_CHECK(std::pow(double(10), 23) + 1e9 > Blex::FloatPow10(23));
 }
 
+void TestFromFloat(F64 val)
+{
+        Blex::DecimalFloat df;
+        df.FromFloat(val);
+
+        BLEX_TEST_CHECKEQUAL(val, df.ToFloat());
+
+        std::string str = df.ToFloatString(-1);
+        const char *str_c = str.c_str();
+        const char *str_c_end = str_c + str.size();
+
+        Blex::DecimalFloat df2;
+        const char *eot = str_c_end;
+        df2.ParseNumberString(str_c, str_c_end, nullptr, &eot);
+        BLEX_TEST_CHECKEQUAL(str_c_end, eot);
+
+        BLEX_TEST_CHECKEQUAL(val, df2.ToFloat());
+}
+
 BLEX_TEST_FUNCTION(TestDecimalFloat)
 {
         // ADDME: tests for floats
@@ -631,6 +650,60 @@ BLEX_TEST_FUNCTION(TestDecimalFloat)
 // Money multiply
         BLEX_TEST_CHECKEQUAL(1099511627775ll, Blex::MoneyMultiply(10995116277754ll, 10000ll)); // 10*(2^40-1)+5
         BLEX_TEST_CHECKEQUAL(1099511627776ll, Blex::MoneyMultiply(10995116277755ll, 10000ll)); // 10*(2^40-1)+5
+
+        // FromFloat
+        TestFromFloat(1e16);
+        TestFromFloat(2e16);
+        TestFromFloat(5e15);
+        TestFromFloat(1);
+        TestFromFloat(0.1);
+        TestFromFloat(2);
+        TestFromFloat(4.3);
+        TestFromFloat(4.31);
+        TestFromFloat(4.301);
+        TestFromFloat(4.3001);
+        TestFromFloat(4.30001);
+        TestFromFloat(4.300001);
+        TestFromFloat(4.3000001);
+        TestFromFloat(4.30000001);
+        TestFromFloat(4.300000001);
+        TestFromFloat(4.3000000001);
+        TestFromFloat(4.30000000001);
+        TestFromFloat(4.300000000001);
+        TestFromFloat(4.3000000000001);
+        TestFromFloat(4.30000000000001);
+        TestFromFloat(4.300000000000001);
+        TestFromFloat(4.3000000000000009);
+        TestFromFloat(4.3000000000000008);
+        TestFromFloat(4.3000000000000007);
+        TestFromFloat(4.3000000000000006);
+        TestFromFloat(4.3000000000000005);
+        TestFromFloat(4.3000000000000004);
+        TestFromFloat(4.3000000000000003);
+        TestFromFloat(4.3000000000000002);
+        TestFromFloat(4.3000000000000001);
+        TestFromFloat(1e10);
+
+        double itr = 1;
+        for (unsigned i = 0; i < 1000; ++i)
+        {
+                TestFromFloat(itr);
+                itr *= 1.343534645464645465645644;
+        }
+
+        double low = 1;
+        for (unsigned i = 0; i < 1075; ++i) // i == 1075 -> low == 0
+        {
+                TestFromFloat(low);
+                low /= 2;
+        }
+
+        double high = 1;
+        for (unsigned i = 0; i < 1024; ++i) // i == 1024 -> high == inf
+        {
+                TestFromFloat(high);
+                high *= 2;
+        }
 }
 
 BLEX_TEST_FUNCTION(TestPodVector)

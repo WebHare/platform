@@ -374,7 +374,7 @@ MACRO TestXLS_XLSXImport()
   RECORD ARRAY quickexport := GetOOXMLSpreadsheetRows(OpenTestFile("xlsimport.xlsx"), [ onprogress := PTR OnProgress]);
   TestEq(7,Length(quickexport));
   TestEq("Christopher Testing", quickexport[0]."first name");
-  Testeq("3.333330", quickexport[1]."money");
+  Testeq("3.33333", quickexport[1]."money");
 
   TestEq(TRUE, Length(progressevents) >= 2); //at least events for first and last row;
   TestEq(1, progressevents[0].cur);

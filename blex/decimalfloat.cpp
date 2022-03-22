@@ -6,6 +6,9 @@
 #include <limits>
 #include <float.h>
 
+#include "vendor/dragonbox/dragonbox.h"
+#include "vendor/fast_float/fast_float.h"
+
 namespace Blex
 {
 
@@ -355,15 +358,36 @@ int64_t DecimalFloat::ToS64() const
 
 F64 DecimalFloat::ToFloat() const
 {
-        // FloatPow10 returns inexact numbers with negative exponents, so divide by negative exponent to stay exact when possible
-        F64 res = exponent > 0
-            ? digits * FloatPow10(exponent)
-            : digits / FloatPow10(-exponent);
+        if (digits == 0)
+            return negate ? -0.0 : 0.0;
 
-        if (negate)
-            res = -res;
+        // Fast path: if digits < 1<<53 it is exactly representable, as are powers of 10 from -22 to 22
+        if (digits < (1ll << 53) && exponent >= -22 && exponent <= 22)
+        {
+                double result;
+                if (exponent >= 0)
+                    result = double(digits) * FloatPow10(exponent);
+                else
+                    result = double(digits) / FloatPow10(-exponent);
+                return negate ? -result : result;
+        }
 
-        return res;
+        /* Haven't found a library we can input digits and exponent to, so we need to encode the number as a string to parse
+           ADDME: allow ParseNumberStrings to accept more digits to input here
+        */
+        char buffer[128];
+        char *ptr = buffer;
+
+        ptr = Blex::EncodeNumber(digits, 10, buffer);
+        *(ptr++) = 'e';
+        ptr = Blex::EncodeNumber(exponent, 10, ptr);
+        *(ptr++) = 0;
+
+        double result;
+        auto answer = fast_float::from_chars(buffer, ptr, result);
+        if (answer.ec != std::errc())
+            return INFINITY; // Use infinity as error, make sure ConvertableToFloat return false
+        return negate ? -result : result;
 }
 
 DecimalFloat::ParseResult DecimalFloat::ParseNumberString(char const *ptr, char const *limit, char *postfix, const char **finish)
@@ -539,8 +563,8 @@ DecimalFloat::ParseResult DecimalFloat::ParseNumberString(char const *ptr, char 
                                         ++ptr;
                                         if (*ptr == '+' || *ptr == '-')
                                         {
-                                               negative = *ptr == '-';
-                                               ++ptr;
+                                                negative = *ptr == '-';
+                                                ++ptr;
                                         }
 
                                         signed evalue = 0;
@@ -551,6 +575,10 @@ DecimalFloat::ParseResult DecimalFloat::ParseNumberString(char const *ptr, char 
                                                 evalue = evalue * 10 + signed(*ptr - '0');
                                                 have_digit = true;
                                                 ++ptr;
+
+                                                // Don't accept too large exponents
+                                                if (evalue > 65535)
+                                                    return PR_Error_IllegalExponent;
                                         }
 
                                         if (!have_digit)
@@ -586,6 +614,97 @@ DecimalFloat::ParseResult DecimalFloat::ParseNumberString(char const *ptr, char 
             *finish = ptr;
 
         return dot ? PR_FloatingPoint : PR_Integer;
+}
+
+void DecimalFloat::FromFloat(double value)
+{
+        negate = std::signbit(value);
+        if (value == 0)
+        {
+                // Can't use dragonbox for the value 0
+                digits = 0;
+                exponent = 0;
+                return;
+        }
+
+        // convert infinity and NaN to DBL_MAX
+        if (negate ? !(value >= -DBL_MAX) : !(value <= DBL_MAX))
+            value = negate ? -DBL_MAX : DBL_MAX;
+
+        auto v = jkj::dragonbox::to_decimal(value);
+        negate = v.is_negative;
+        digits = v.significand;
+        exponent = v.exponent;
+}
+
+std::string DecimalFloat::ToFloatString(int decimals) const
+{
+        /* Historically, we printed everything without exponents. This function tries to avoid
+           using scientific notiation when the number < 1e18 or >= 1e6.
+        */
+        uint64_t mydigits = digits;
+        int myexponent = exponent;
+
+        // avoid trailing zeroes as much as possible
+        while (mydigits && (mydigits % 10) == 0)
+        {
+                mydigits /= 10;
+                ++myexponent;
+        }
+
+        // if we want a certain number of decimals, chop them off if we have too many
+        if (decimals >= 0)
+        {
+                while (-myexponent > decimals)
+                {
+                    // Round at the last chopped of variable (maybe we should round to even...)
+                    if (-myexponent == decimals + 1)
+                         mydigits += 5;
+                    mydigits /= 10;
+                    ++myexponent;
+                }
+        }
+
+        std::string retval;
+        Blex::EncodeNumber(mydigits, 10, std::back_inserter(retval));
+
+        unsigned digitcount = retval.size();
+        int dotpos = digitcount + myexponent;
+        if ((dotpos > -6 && dotpos < 18) || decimals >= 0)
+        {
+                if (dotpos < 0)
+                {
+                        retval.insert(0, -dotpos, '0');
+                        dotpos = 0;
+                }
+
+                signed minsize = std::max< signed >(dotpos + (decimals < 0 ? 0 : decimals), retval.size());
+                if (signed(retval.size()) < minsize)
+                    retval.insert(retval.end(), minsize - retval.size(), '0');
+
+                if (dotpos == 0)
+                {
+                        retval.insert(0, 1, '0');
+                        ++dotpos;
+                }
+
+                if (dotpos < signed(retval.size()))
+                    retval.insert(dotpos, 1, '.');
+        }
+        else
+        {
+                // scientific notation
+                if (retval.size() > 1)
+                {
+                        myexponent += digitcount - 1;
+                        retval.insert(1, 1, '.');
+                }
+                retval.insert(retval.end(), 1, 'e');
+                Blex::EncodeNumber(myexponent, 10, std::back_inserter(retval));
+        }
+        if (negate)
+            retval.insert(0, 1, '-');
+        return retval;
 }
 
 static F64 powersof10[] =
