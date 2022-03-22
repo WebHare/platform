@@ -1240,7 +1240,7 @@ int HSVM_RedirectJobOutputTo(struct HSVM *vm, int newoutput)
 }
 
 
-int HSVM_MakeBlobFromFilesystem(HSVM *vm, HSVM_VariableId storeid, const char *filepath, int /*loadtype*/)
+int HSVM_MakeBlobFromFilesystem(HSVM *vm, HSVM_VariableId storeid, const char *filepath)
 {
         START_CATCH_VMEXCEPTIONS
         std::string path = filepath;

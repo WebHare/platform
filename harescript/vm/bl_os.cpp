@@ -1124,7 +1124,7 @@ void HS_GetHSResource(VarId id_set, VirtualMachine *vm)
 
         HSVM_VariableId resblob = HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "DATA"));
 
-        int errorcode = HSVM_MakeBlobFromFilesystem(*vm, resblob, path.c_str(), 6/*resource*/);
+        int errorcode = HSVM_MakeBlobFromFilesystem(*vm, resblob, path.c_str());
         HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "ERROR")), errorcode);
 }
 void HS_OpenBlobAsFile(VarId id_set, VirtualMachine *vm)

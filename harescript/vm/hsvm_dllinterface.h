@@ -858,9 +858,8 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
     @param vm Virtual machine
     @param storeid Variable in which the Blob should be stored
     @param filepath Path to the file
-    @param type Type of the file to open (2=Witty, 6=Resource)
     @return 0 on success, 1 if the path was invalid, 2 if the file was not found */
- HSVM_PUBLIC int HSVM_MakeBlobFromFilesystem(struct HSVM *vm, HSVM_VariableId storeid, const char *filepath, int type) ;
+ HSVM_PUBLIC int HSVM_MakeBlobFromFilesystem(struct HSVM *vm, HSVM_VariableId storeid, const char *filepath) ;
 
 /** Open a blob for reading
     @param vm Virtual machine
