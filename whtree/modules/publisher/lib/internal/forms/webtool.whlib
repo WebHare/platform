@@ -8,7 +8,7 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
-LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/buildformhandler.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 

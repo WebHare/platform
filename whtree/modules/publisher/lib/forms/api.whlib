@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 
 /** @short Open a formdefinition WHFS file
@@ -78,31 +79,4 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef, CELL[ options.initcustomform ]);
 }
 
-/** @short Initialize a webtool form storage handler
-    @param form The form object this storage handler is storing the results for
-    @cell(integer) formid The id of the form file to store the results
-    @cell(string) guid The result guid, defaults to a random guid, can be used to overwrite an existing result
-    @cell(string) idfieldvalue The name of the field that should have a unique value across all form results
-    @cell(boolean) isedit If this is an edit of an existing result
-    @cell(boolean) ispending If this is a pending result that has to be confirmed before it's final
-    @return Submission result
-*/
-PUBLIC RECORD FUNCTION StoreFormResults(OBJECT form, RECORD extradata, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ formid := 0
-      , guid := GenerateUFS128BitId()
-      , idfieldvalue := ""
-      , isedit := FALSE
-      , ispending := FALSE
-      ], options);
-  INTEGER formid := options.formid;
-  DELETE CELL formid FROM options;
-  IF (formid = 0 AND ObjectExists(form->formcontext) AND ObjectExists(form->formcontext->targetobject))
-    formid := form->formcontext->targetobject->id;
-  IF (formid = 0)
-    THROW NEW Exception("Could not determine form file id, please set the formid option");
 
-  OBJECT handler := InitializeStoreResultsHandler(form, formid);
-  RETURN handler->Submit(form, extradata, options);
-}

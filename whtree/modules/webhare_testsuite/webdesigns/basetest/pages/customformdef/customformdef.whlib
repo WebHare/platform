@@ -43,11 +43,12 @@ PUBLIC STATIC OBJECTTYPE CustomForm EXTEND FormBase
     RECORD options := CELL
         [ idfieldvalue := "email"
         , guid := GenerateUFS128BitId()
+        , extradata
         ];
     OBJECT work := this->BeginWork();
-    RECORD submitresult := StoreFormResults(this, extradata, options);
+    STRING resultsguid := this->StoreFormValue(options);
 
-    RETURN [ success := work->Finish(), resultsguid := options.guid ];
+    RETURN CELL[ success := work->Finish(), resultsguid ];
   }
 >;
 
