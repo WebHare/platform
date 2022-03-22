@@ -3,17 +3,18 @@
     @topic forms/api
 */
 
-LOADLIB "wh::crypto.whlib";
-
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib" EXPORT OpenForm;
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib" EXPORT CreateNewFormdefinitionsFile, OpenWHFSFormDefinitionsFile;
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
-LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 
 /** @short Open a formdefinition WHFS file
@@ -79,4 +80,53 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef, CELL[ options.initcustomform ]);
 }
 
+PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, OBJECT webcontext, OBJECT applytester, BOOLEAN selfhosted, INTEGER targetid)
+{
+  OBJECT formdefs := OpenWHFSFormDefinitionsFile(formobject);
+  OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
+  IF(NOT ObjectExists(mainform))
+    RETURN DEFAULT OBJECT;
 
+  INTEGER webtoolformid := formobject->id;
+  OBJECT openasdraft := OpenWHFSDraft(webtoolformid);
+  IF(ObjectExists(openasdraft))
+    webtoolformid := openasdraft->source;
+
+  RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [/* externalformname := formname
+                                                                                      , */webtoolformid := webtoolformid
+                                                                                      ]);
+  IF(parseresult.objectname = "")
+    parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
+
+  OBJECT form := OpenFormByDef(parseresult, CELL[ webcontext, applytester ]);
+//ABORT(targetid);
+  IF(NOT selfhosted OR (GetDtapStage() = "development" AND formobject->whfspath NOT IN __webhare_ci_routingexceptions)) // in the future we should ALWAYS take the __formwidget path
+    form->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [ target := targetid ]);
+
+  RETURN form;
+}
+
+/** @short Open a webtool form directly
+    @param formid File id to open
+    @return Opened form */
+PUBLIC OBJECT FUNCTION OpenWebtoolForm(INTEGER formid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ applytester := DEFAULT OBJECT
+                             , webcontext := DEFAULT OBJECT
+                             ], options);
+
+  IF(NOT ObjectExists(options.applytester))
+    IF(ObjectExists(options.webcontext))
+      options.applytester := options.webcontext->applytester;
+    ELSE
+      options.applytester := GetApplyTesterForObject(formid);
+
+  IF(options.webcontext = DEFAULT OBJECT)
+    options.webcontext := __GetWebContextForApplyTester(options.applytester, formid);
+
+  OBJECT form := __DoOpenWebtoolForm(OpenWHFSObject(formid), options.webcontext, options.applytester, TRUE, formid);
+  IF(NOT ObjectExists(form))
+    THROW NEW Exception(`Cannot open form for fsobject #${formid}`);
+
+  RETURN form;
+}

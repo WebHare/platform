@@ -23,7 +23,7 @@ PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
   }
   UPDATE PUBLIC MACRO ValidateForm(OBJECT work)
   {
-    INSERT CELL testsuitehandler := "TSHANDLER-42" INTO this->form->pagedata;
+    this->form->pagedata := CELL[...this->form->pagedata, testsuitehandler := "TSHANDLER-42" ];
   }
   PUBLIC STRING FUNCTION GetSettingX()
   {

@@ -36,15 +36,15 @@ MACRO DirectFormStorage1()
   RECORD source := WrapBlob(GetWebHareResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg");
   liveform->^upload->value := source;
 
-  RECORD res := liveform->__SubmitFormNow();
+  RECORD res := liveform->FormExecuteSubmit();
   TestEq(1, formresults->GetResultsCount());
 
-  RECORD submitted := formresults->GetSingleResult(res.resultsguid);
+  RECORD submitted := formresults->GetSingleResult(res.result.resultsguid);
   TestEqLike("mod::webhare_testsuite/*", submitted.useragent);
 
   //Open in edit mode
   liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
-  liveform->EditExistingResult(res.resultsguid);
+  liveform->EditExistingResult(res.result.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
   TestEq(TRUE, liveform->^upload->value.hash != "", "should have a hash after storage");
@@ -65,10 +65,10 @@ MACRO DirectFormStorage1()
   //Make sure image stays after editing something else
   liveform->^firstname->value := "Kereltje";
 
-  liveform->__SubmitFormNow();
+  liveform->FormExecuteSubmit();
   TestEq(1, formresults->GetResultsCount()); //should have been an edit
 
-  submitted := formresults->GetSingleResult(res.resultsguid);
+  submitted := formresults->GetSingleResult(res.result.resultsguid);
   //dumpvalue(submitted);
   TestEq("Kereltje", submitted.response.firstname);
   TestEqMembers(source, submitted.response.upload, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
@@ -88,12 +88,12 @@ MACRO DirectFormStorage2()
   RECORD source := WrapBlob(StringToBlob("Gimme gimme gimme"), "man(1).txt");
   liveform->^upload->value := source;
 
-  RECORD res := liveform->__SubmitFormNow();
+  RECORD res := liveform->FormExecuteSubmit();
   TestEq(2, formresults->GetResultsCount());
 
   //Open in edit mode
   liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
-  liveform->EditExistingResult(res.resultsguid);
+  liveform->EditExistingResult(res.result.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
 
@@ -107,7 +107,7 @@ MACRO DirectFormStorage2()
 
   liveform->^upload->UpdateFromJS([filename := filehost.value.filename, link := filehost.value.link]);
 
-  liveform->__SubmitFormNow();
+  liveform->FormExecuteSubmit();
 }
 
 MACRO VerifyAndCleanupMail()
@@ -123,32 +123,32 @@ MACRO WorkHandlingErrors()
 
   // Test no transaction leaking, and correct handling of work errors
   liveform->^mode->value := "nofinish";
-  TestThrowsLike("*returned with work still open*", PTR liveform->__SubmitFormNow());
+  TestThrowsLike("*returned with work still open*", PTR liveform->FormExecuteSubmit());
 
   liveform->^mode->value := "normal";
-  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+  TestEQ(DEFAULT RECORD, liveform->FormExecuteSubmit().result);
 
   liveform->^mode->value := "throws";
-  TestThrowsLike("Form exception", PTR liveform->__SubmitFormNow());
+  TestThrowsLike("Form exception", PTR liveform->FormExecuteSubmit());
 
   liveform->^mode->value := "normal";
-  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+  TestEQ(DEFAULT RECORD, liveform->FormExecuteSubmit().result);
 
   liveform->^mode->value := "doublework";
-  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+  TestEQ(DEFAULT RECORD, liveform->FormExecuteSubmit().result);
 
   liveform->^mode->value := "doublebegin";
-  TestThrowsLike("*another work object is still open*", PTR liveform->__SubmitFormNow());
+  TestThrowsLike("*another work object is still open*", PTR liveform->FormExecuteSubmit());
 
   liveform->^mode->value := "normal";
-  TestEQ(DEFAULT RECORD, liveform->__SubmitFormNow());
+  TestEQ(DEFAULT RECORD, liveform->FormExecuteSubmit().result);
 
   liveform->^twolevel->value := [ throwsomething := TRUE ];
-  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->__SubmitFormNow());
+  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->FormExecuteSubmit());
 
   liveform->^mode->value := "nofinish";
   liveform->^twolevel->value := [ throwsomething := TRUE ];
-  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->__SubmitFormNow());
+  TestThrowsLike("*throwsomething was present in the value record*", PTR liveform->FormExecuteSubmit());
 }
 
 MACRO TestAttributeMatching()
