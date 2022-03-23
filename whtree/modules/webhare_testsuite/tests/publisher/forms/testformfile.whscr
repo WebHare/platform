@@ -91,6 +91,7 @@ PUBLIC MACRO FillInForm()
                                 ,[ htmltitle := "CustomSelect" ]
                                 ,[ htmltitle := "Textarea"
                                  , value := ""
+                                 , type := "textarea"
                                  ]
                                 ,[ htmltitle := "Checkboxes" ]
                                 ,[ htmltitle := "Radio" ]
@@ -100,7 +101,11 @@ PUBLIC MACRO FillInForm()
                                  , max := 2147483647
                                  , value := 0
                                  ]
-                                ,[ htmltitle := "Checkbox" ]
+                                ,[ htmltitle := "Checkbox"
+                                 , type := "checkbox"
+                                 , value := FALSE
+                                 , orientation := "vertical"
+                                 ]
                                 ,[ htmltitle := "Address" ]
                                 ,[ htmltitle := "Time" ]
                                 ,[ htmltitle := "Imgedit" ]

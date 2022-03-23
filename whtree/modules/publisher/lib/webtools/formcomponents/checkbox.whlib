@@ -103,6 +103,15 @@ PUBLIC OBJECTTYPE CheckBoxField EXTEND FormFieldBase
                , type := "checkbox"
                ];
   }
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RETURN CELL[ ...FormFieldBase::GetRenderTree()
+               , type := "checkbox"
+               , htmllabel := this->pvt_htmllabel
+               , this->value
+               , orientation := "vertical"
+               ];
+  }
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
   {
     RETURN this->value;

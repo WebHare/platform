@@ -67,4 +67,11 @@ PUBLIC OBJECTTYPE TextAreaField EXTEND TextEditFieldBase
                , type := "textarea"
                ];
   }
+
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RETURN CELL[ ...TextEditFieldBase::GetRenderTree()
+               , type := "textarea"
+               ];
+  }
 >;

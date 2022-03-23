@@ -14,6 +14,7 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'title'), "Fields should have 'htmltitle' not 'title'");
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'prefix'), "Fields should have 'htmlprefix' not 'prefix'");
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'suffix'), "Fields should have 'htmlsuffix' not 'suffix'");
+    TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'label'), "Fields should have 'htmllabel' not 'label'");
 
     FOREVERY(RECORD field FROM page.fields)
     {
@@ -21,6 +22,18 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
       TestEq("STRING", GetTypeName(TYPEID(field.htmltitle)));
       TestEq("RECORD", GetTypeName(TYPEID(field.groupdataset)));
       TestEq("RECORD", GetTypeName(TYPEID(field.visiblecondition)));
+
+      IF(CellExists(field,'orientation')) //TODO or should ALL fields have types?
+        TestEq(TRUE, field.orientation IN ['horizontal','vertical']);
+
+      IF(CellExists(field,'type')) //TODO or should ALL fields have types?
+      {
+        IF(field.type = "checkbox")
+        {
+          TestEq("BOOLEAN", GetTypeName(TYPEID(field.value)));
+          TestEq(FALSE, CellExists(field,'selected'), 'The tree should encode value true/false unline __GetRenderData()');
+        }
+      }
 
       TestEqLike("?*#?*", field.qname, "Must be a valid qname");
       TestEq(TRUE, SearchSubstring(field.qname,'?') = -1, "Qname shouldn't contain a ?");
