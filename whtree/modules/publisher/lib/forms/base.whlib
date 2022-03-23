@@ -723,6 +723,15 @@ PUBLIC OBJECTTYPE FormBase
     RETURN wittydata;
   }
 
+  PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+
+    RETURN CELL[ classes := this->formclasses
+               , config := BuildFormConfig(this)
+               , dataset := this->formdataset
+               ];
+  }
+
   PUBLIC MACRO RenderForm()
   {
     this->__GetRenderer()->RenderForm(this->GetWittyData());
@@ -771,30 +780,18 @@ PUBLIC OBJECTTYPE FormBase
   {
     Print(` method="post"`);
     Print(' action="javascript:console.error(\'No RPC handler installed\');"');
-    IF(this->__form.externalformname != "") //this is also the trigger for eg Upload fields to take over (as they can't work with POST submission)
-      Print(` data-wh-form-id="${EncodeValue(this->__form.externalformname)}"`);
-    IF(this->formref != "")
-      Print(` data-wh-form-ref="${EncodeValue(this->formref)}"`);
-    IF(this->formbacklink != "")
-      Print(` data-wh-form-backlink="${EncodeValue(this->formbacklink)}"`);
 
-    IF(this->formjshandler != "")
-      Print(` data-wh-form-handler="${EncodeValue(this->formjshandler)}"`);
-    IF(RecordExists(this->formvariables))
-      FOREVERY(RECORD field FROM UnpackRecord(this->formvariables))
-      {
-        STRING rowkeytype := ToLowercase(GetTypeName(TypeID(field.value)));
-        Print(` data-wh-form-var-${ToLowercase(GetSafeName(field.name))}="${EncodeValue(UnmapValueType(rowkeytype, field.value, "", FALSE))}"`);
-      }
+    Print(GetDatasetAsString(CELL[...this->formdataset
+                                 ,...GetFormVariablesAsDataset(this->formvariables)
+                                 ,...GetFormConfigAsDataset(BuildFormConfig(this))
+                                 ]));
 
-    Print(GetDatasetAsString(this->formdataset));
     FOREVERY(FUNCTION PTR callback FROM this->__formattributescallbacks)
     {
       STRING toadd := TrimWhitespace(callback());
       IF(toadd != "")
         Print(" " || toadd);
     }
-
   }
 
   MACRO __FormNavigation()

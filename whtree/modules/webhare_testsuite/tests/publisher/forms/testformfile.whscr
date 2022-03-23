@@ -35,6 +35,11 @@ PUBLIC MACRO FillInForm()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(formfile->url, [ longurl := RepeatText("X",1000) ])));
 
+  //Verify the form contents
+  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+  TestEqMembers([ classes := STRING[]
+                ], rendertree, "*");
+
   OBJECT firstemailfield := testfw->browser->document->QuerySelector("input[type=email]");
   TestEq("test@beta.webhare.net", firstemailfield->GetAttribute("value"), "Prefill failed");
   TestEqLike("webtoolform-*", firstemailfield->GetAttribute("id"), "IDs are incorrect");

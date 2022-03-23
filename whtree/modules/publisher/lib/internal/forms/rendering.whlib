@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
@@ -900,3 +901,32 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
       this->RenderField(field);
   }
 >;
+
+PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
+{
+  RETURN [ id := form->__form.externalformname
+         , "ref" := form->formref
+         , "backlink" := form->formbacklink
+         , handler := form->formjshandler
+         ];
+}
+PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD formconfig)
+{
+  RECORD dataset;
+  FOREVERY(RECORD rec FROM UnpackRecord(formconfig))
+    IF(rec.value != "")
+      dataset := CellInsert(dataset, "wh-form-" || rec.name, rec.value);
+
+  RETURN dataset;
+}
+
+PUBLIC RECORD FUNCTION GetFormVariablesAsDataset(RECORD variables)
+{
+  RECORD dataset;
+  FOREVERY(RECORD field FROM UnpackRecord(variables))
+  {
+    STRING rowkeytype := ToLowercase(GetTypeName(TypeID(field.value)));
+    dataset := CellInsert(dataset, `wh-form-var-${ToLowercase(GetSafeName(field.name))}`, UnmapValueType(rowkeytype, field.value, "", FALSE));
+  }
+  RETURN dataset;
+}
