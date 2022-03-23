@@ -7,26 +7,6 @@ LOADLIB "mod::publisher/lib/forms/components.whlib" EXPORT FormHandlerBase;
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-PUBLIC OBJECT FUNCTION InstantiateFormhandler(OBJECT form, RECORD handler, INTEGER formid)
-{
-  RECORD save_formhandlerinit := __pvt_formhandlerinit;
-  OBJECT handlerobj;
-  TRY
-  {
-    __pvt_formhandlerinit := CELL[ handler, formid, form ];
-    STRING handlername := handler.handlertype = "http://www.webhare.net/xmlns/publisher/forms#customhandler" ? handler.settings.handlerobject : handler.handlerobject;
-    handlerobj := handlername != "" ? MakeObject(handlername) : NEW FormHandlerBase;
-    IF(handlerobj NOT EXTENDSFROM FormHandlerBase)
-      THROW NEW Exception(`Form submit handler '${handler.handlerobject}' doesn't derive from FormHandlerBase`);
-  }
-  FINALLY
-  {
-    __pvt_formhandlerinit := save_formhandlerinit;
-  }
-
-  RETURN handlerobj;
-}
-
 RECORD FUNCTION GetFormInstance(OBJECT formdefinitions, STRING id)
 {
   RETURN ObjectExists(formdefinitions) ? formdefinitions->GetInstance(id) : DEFAULT RECORD;

@@ -136,13 +136,14 @@ can use a storage handler in your `Submit` handler:
 
 ```harescript
     RECORD options := CELL
-        [ idfieldvalue := "email"
-        , guid := GenerateUFS128BitId()
+        [ idfieldvalue := "email" //deduplicate results on email
         ];
     OBJECT work := this->BeginWork();
-    RECORD submitresult := StoreFormResults(this, extradata, options);
+    STRING guid := this->StoreFormValue(extradata, options);
     work->Finish();
 ```
+
+You can also generate your own GUID using %GenerateUFS128BitId and pass it as the `guid` option.
 
 To view the results for your form, you can use the results dialog by calling `RunFormResultsDialog`:
 

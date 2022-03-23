@@ -15,11 +15,13 @@ LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/webtools/internal/buildformhandler.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
 
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+//TODO we probably don't need to setup store results as a true handler anymore, as 'submit' is its only real entrypoint
 
 PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid)
 {

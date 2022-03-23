@@ -18,6 +18,7 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
@@ -105,6 +106,7 @@ PUBLIC MACRO CustomForm()
 
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   TestEQ("new", submitted.submittype);
+  Testeq("en", submitted.languagecode);
   TestEq("NissanMicra", submitted.response.prize);
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("testfw+formtest@beta.webhare.net", submitted.response.email);
@@ -335,7 +337,6 @@ MACRO CustomForm_SuppressMail()
 MACRO CustomForm_NL()
 {
   SnoozeRateLimits(); //bump the timeout
-
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
   OBJECT customformfile_nl := OpenTestsuiteSite()->OpenByPath("webtools/customform2-nl");
   TestEq(TRUE, testfw->browser->GotoWebPage(customformfile_nl->url));
@@ -367,6 +368,7 @@ MACRO CustomForm_NL()
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   RECORD witty := webtoolresults->GetWittyResultdata(submitted);
 
+  TestEq("nl", submitted.languagecode);
   TestEq("Nee", witty.field.checkboxfield.text);
   TestEq("21 juni 2017", witty.field.date.text);
   TestEq(FormatDatetime("%#d %b %Y", UTCToLocal(submitted.when,"CET"), "nl"), witty.submitdate);

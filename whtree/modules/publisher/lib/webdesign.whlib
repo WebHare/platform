@@ -27,6 +27,7 @@ LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
@@ -94,6 +95,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   RECORD pvt_pageconfig;
   BOOLEAN pvt_startedrendering;
   OBJECT pvt_webtoolform;
+  INTEGER __pageformcount;
 
   //Link mode. FIXME: make private or add public property to access
   PUBLIC STRING pvt_linkmode;
@@ -402,7 +404,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
          and the short-circuit path doesn't open the webdesign
       BOOLEAN selfhosted := this->contentobject->typens NOT IN [ "http://www.webhare.net/xmlns/publisher/formwebtool", "http://www.webhare.net/xmlns/publisher/formwidget"];
       */
-      this->pvt_webtoolform := this->DoOpenWebtoolForm(this->contentobject, TRUE /*selfhosted*/);
+
+      //Content links store their content with the central form, but autosave/drafts etc use the targetobject
+      this->pvt_webtoolform := this->DoOpenWebtoolForm(this->contentobject, TRUE /*selfhosted*/, this->targetobject->type = whconstant_whfstype_contentlink ? this->contentobject->id : this->targetobject->id);
     }
 
     RETURN this->pvt_webtoolform;
@@ -621,31 +625,18 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     }
   }
 
-  OBJECT FUNCTION DoOpenWebtoolForm(OBJECT formobject, BOOLEAN selfhosted)
+   //formtargetid is where the answers are routed to and extensions come form. may differ from formobject when previewing/contentobjecting (targetobject will point to final location, but contentobject/formobject to draft)
+  OBJECT FUNCTION DoOpenWebtoolForm(OBJECT formobject, BOOLEAN selfhosted, INTEGER formtargetid)
   {
-    OBJECT formdefs := OpenWHFSFormDefinitionsFile(formobject);
-    OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
-    IF(NOT ObjectExists(mainform))
-      RETURN DEFAULT OBJECT;
+    OBJECT form := __DoOpenWebtoolForm(formobject, this, this->targetapplytester, selfhosted, formtargetid);
+    IF(NOT ObjectExists(form))
+      RETURN form;
 
-    INTEGER webtoolformid := formobject->id;
-    OBJECT openasdraft := OpenWHFSDraft(webtoolformid);
-    IF(ObjectExists(openasdraft))
-      webtoolformid := openasdraft->source;
-
-    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [/* externalformname := formname
-                                                                                        , */webtoolformid := webtoolformid
-                                                                                        ]);
-    IF(parseresult.objectname = "")
-      parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
-
-    OBJECT form := OpenFormByDef(parseresult, [ webcontext := this
-                                              , applytester := this->targetapplytester
-                                              ]);
     IF(NOT selfhosted)
     {
-      form->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [target := formobject->id]);
-      form->formidprefix := "formwidget_" || formobject->id || "_";
+      //ensure relatively stable but unique IDs for all forms on the page:
+      this->__pageformcount := this->__pageformcount + 1;
+      form->formidprefix := "formwidget_" || this->__pageformcount || "_";
     }
 
     RETURN form;
@@ -656,7 +647,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       @return(object %WebtoolFormBase) The requested form */
   PUBLIC OBJECT FUNCTION OpenWebtoolForm(OBJECT formobject)
   {
-    RETURN this->DoOpenWebtoolForm(formobject, FALSE);
+    RETURN this->DoOpenWebtoolForm(formobject, FALSE, formobject->id);
   }
 
   /** Render specified function as body for a widget preview

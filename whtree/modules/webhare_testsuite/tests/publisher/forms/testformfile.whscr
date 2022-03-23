@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -113,7 +114,7 @@ PUBLIC MACRO FillInForm()
 
   TestEq(42, webtoolresults->GetResultKey(res.result.resultsguid, "Test"));
   TestEq([x := RepeatText("x",10000)], webtoolresults->GetResultKey(res.result.resultsguid, "big"));
-  TestThrows(PTR webtoolresults->GetResultKey(res.result.resultsguid, "nosuchkey"));
+  TestThrowsLike('Cannot find key*', PTR webtoolresults->GetResultKey(res.result.resultsguid, "nosuchkey"));
   TestEq(SortArray(STRING["test","big"]), SortArray(webtoolresults->ListResultKeys(res.result.resultsguid)));
 
   //Try a direct export
@@ -364,6 +365,64 @@ PUBLIC MACRO FillInForm()
   TestEq(RepeatText("x", 8192), GetCell(lastresult, col_textarea));
 }
 
+MACRO TestDirectFormSubmission()
+{
+  //ensure no pending mail from previous tests
+  testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ count := 0 ]);
+
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT form := OpenWebtoolForm(formfile->id);
+  OBJECT emailfield := SELECT AS OBJECT obj FROM form->ListFields() WHERE title = ":Email";
+
+  RECORD result;
+  RECORD submitrec := [ firstname := "Pjötjr"
+                      , upload := WrapBlob(StringToBlob("Demosubmission"), "demo.txt")
+                      , imgedit := WrapBlob(GetWebhareResource("mod::system/web/tests/goudvis.png"), "goudvis.png")
+                      , date := MakeDate(2017,6,23)
+                      , checkboxes := ["copt1","copt3"]
+                      , coptsub3 := "coptsub3-text"
+                      , checkboxfield := TRUE
+                      , integerfield := 42
+                      , time := MakeTime(13,47,0)
+                      , address := [ country := "BE"
+                                   , street := "Koningin Astridplein"
+                                   , nr_detail := "27"
+                                   , zip := "2018"
+                                   , city := "Antwerpen"
+                                   , province := "Antwerpen"
+                                   ]
+                      ];
+
+  form->formvalue := submitrec;
+  TestEqMembers(submitrec, form->formvalue, '*');
+  result := form->FormExecuteSubmit();
+
+  TestEqMembers([[ message := "This value is required.", comp := emailfield ]]
+                , result.errors, "*");
+
+  form->formvalue := CellUpdate(form->formvalue, emailfieldname, "testfw+formtest@beta.webhare.net");
+  result := form->FormExecuteSubmit();
+  STRING guid1 := result.result.resultsguid;
+
+  RECORD ARRAY ownermail := testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
+  TestEq(2,Length(ownermail)); //we only get the email for the successfull form
+  TestEq("Your Form Was Filled", ownermail[0].subject);
+  TestEq("Your Form Was Filled", ownermail[1].subject);
+  TestEq(["copt1+jstest@beta.webhare.net","mailresult+jstest@beta.webhare.net"], SELECT AS STRING ARRAY receiver FROM ownermail ORDER BY receiver);
+
+  result := form->FormExecuteSubmit();
+
+  STRING guid2 := result.result.resultsguid;
+
+  TestEq(TRUE, guid1 != guid2);
+
+  ownermail := testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
+  TestEq(2,Length(ownermail)); //we only get the email for the successfull form
+  TestEq("Your Form Was Filled", ownermail[0].subject);
+  TestEq("Your Form Was Filled", ownermail[1].subject);
+  TestEq(["copt1+jstest@beta.webhare.net","mailresult+jstest@beta.webhare.net"], SELECT AS STRING ARRAY receiver FROM ownermail ORDER BY receiver);
+}
+
 MACRO TestFormAnchors()
 {
   RECORD form := BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, filename := "experimental-anchors", publish := TRUE ]);
@@ -378,7 +437,7 @@ ASYNC MACRO TestFormApp()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "form" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
 
-  TestEq(3, Length(TT("results")->rows));
+  TestEq(5, Length(TT("results")->rows));
   TT("results")->selection := TT("results")->rows[0];
   AWAIT ExpectScreenChange(+1, PTR TTClick("showresult"));
   TestEq("Piëtje", TT(":First name")->value);
@@ -436,7 +495,7 @@ ASYNC MACRO TestFormApp()
   STRING resultguid := res.result.resultsguid;
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
-  TestEq(4, Length(TT("results")->rows));
+  TestEq(6, Length(TT("results")->rows));
 
   //test singleresult dialog
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -456,7 +515,7 @@ ASYNC MACRO TestFormApp()
   TT("results")->selection := ArraySlice(TT("results")->rows,0,2);
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Delete"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
-  TestEq(2, Length(TT("results")->rows));
+  TestEq(4, Length(TT("results")->rows));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Delete all"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
@@ -565,6 +624,7 @@ ASYNC MACRO TestCloseForm()
 
 RunTestframework([ PTR BuildForm
                  , PTR FillInForm
+                 , PTR TestDirectFormSubmission
                  , PTR TestFormAnchors
                  , PTR TestFormApp
                  , PTR TestContentLink

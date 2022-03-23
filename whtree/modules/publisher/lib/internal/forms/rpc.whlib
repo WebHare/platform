@@ -5,6 +5,7 @@ LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
@@ -23,10 +24,14 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
+//TODO perhaps we shouldn't do lookuppublisherurl at all and simply encode Content + Target ids into the form url
 INTEGER FUNCTION GetAssociatedFSObject(RECORD submitinfo)
 {
   STRING url := GetWebOriginURL(submitinfo.url);
   RECORD lookupres := LookupPublisherURL(url);
+
+  IF(lookupres.ispreview)
+    lookupres.file := SELECT AS INTEGER filelink FROM system.fs_objects WHERE id = lookupres.file;
 
   IF(lookupres.folder=0)
     THROW NEW Exception(`Unable to determine the source of the request (${url})`);
@@ -84,8 +89,13 @@ RECORD FUNCTION Submit(RECORD submitinfo)
 {
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
+  form->formcheckratelimits := TRUE;
   form->__FormSetData(submitinfo.fields);
-  RETURN form->__FormDoSubmit(submitinfo, FALSE);
+  RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
+  RECORD submitres := form->FormExecuteSubmit(CELL[extradata]);
+  submitres.errors :=  SELECT name := Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
+  submitres.warnings :=  SELECT name := Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.warnings;
+  RETURN submitres;
 }
 
 VARIANT FUNCTION Invoke(RECORD submitinfo)

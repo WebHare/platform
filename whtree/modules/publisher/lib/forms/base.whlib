@@ -5,13 +5,16 @@
 /* Returns FormBase class and basic functions needed to implement backends for your forms (but not form files) */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
+LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
@@ -42,6 +45,9 @@ PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formdefinitionfile, STRING for
   RETURN OpenForm(formdefinitionfile, formname, options)->GetWittyData();
 }
 */
+
+//Exceptions for CI to support deprecated formrouting until we've fully removed support.
+PUBLIC CONSTANT STRING ARRAY __webhare_ci_routingexceptions := ["/webhare-tests/webhare_testsuite.testsite/webtools/customform","/webhare-tests/webhare_testsuite.testsite/webtools/customform-nl"];
 
 //we're not using this text yet, but prevent it from being deleted. can't mark individual tids as 'keep'
 CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsrequired";
@@ -253,7 +259,7 @@ PUBLIC OBJECTTYPE FormBase
   //
 
   /// The current value of the form as a record
-  PUBLIC PROPERTY formvalue(__GetFormValue, -);
+  PUBLIC PROPERTY formvalue(__GetFormValue, __SetFormValue);
 
   /// Rendering engine for this form
   PUBLIC OBJECT formrenderer;
@@ -349,6 +355,23 @@ PUBLIC OBJECTTYPE FormBase
       IF (NOT fld.obj->novalue AND fld.name NOT LIKE "*.*" /* ignore subfields */ )
         val := CellInsert(val, fld.name, fld.obj->value);
     RETURN val;
+  }
+
+  MACRO __SetFormValue(RECORD newvalue)
+  {
+    FOREVERY(RECORD toset FROM UnpackRecord(newvalue))
+    {
+      RECORD matchfield := SELECT * FROM this->__formfields WHERE ToUppercase(name) = toset.name OR ToUppercase(guid) = toset.name;
+      IF(NOT RecordExists(matchfield))
+      {
+        STRING bestmatch := GetBestMatch(toset.name, SELECT AS STRING ARRAY name FROM this->__formfields);
+        THROW NEW Exception(`No matching form field '${toset.name}' in the form value${bestmatch != "" ? `, did you mean '${bestmatch}' ?` : ""}`);
+      }
+      IF(matchfield.obj->novalue)
+        THROW NEW Exception(`Form field '${toset.name}' has no value, it cannot be set`);
+
+      matchfield.obj->value := toset.value;
+    }
   }
 
   STRING FUNCTION __GetFormURL()
@@ -597,11 +620,22 @@ PUBLIC OBJECTTYPE FormBase
       THROW NEW RPCTooManyRequestsException((limitresult.backoff + 999)/1000);
   }
 
-  PUBLIC RECORD FUNCTION __FormDoSubmit(RECORD rpcsubmitinfo, BOOLEAN isinternalsubmit)
+  /** Submit the form using its current values
+      @cell(record) options.extradata Extra data to pass to the form
+      @return Submission information
+      @cell(boolean) return.success True if form was successfully submitted
+      @cell(record) return.result Submission result record (contains the result of Submit)
+      @cell(string) return.result.resultsguid GUID under which the results were stored
+      @cell(record array) return.errors Fatal errors preventing submission
+      @cell(object) return.errors.obj Object reporting the error (you would generally take its 'name' or 'title')
+      @cell(string) return.errors.message Error message
+      @cell(record array) return.warnings Non-fatal warnings
+      @cell(object) return.warnings.obj Object reporting the warning (you would generally take its 'name' or 'title')
+      @cell(string) return.warnings.message Warning message
+  */
+  PUBLIC RECORD FUNCTION FormExecuteSubmit(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT isinternalsubmit)
-      this->formcheckratelimits := TRUE;
-
+    options := ValidateOptions([ extradata := DEFAULT RECORD], options);
     //Construct the fields - FIXME move this back to NEW() but it gives confusing errors. #586
     IF(NOT MemberExists(this,'submit'))
       THROW NEW Exception("The object handling this form has no Submit() function to handle submissions");
@@ -614,7 +648,7 @@ PUBLIC OBJECTTYPE FormBase
     BOOLEAN worknotclosed;
     TRY
     {
-      result := submit(CellExists(rpcsubmitinfo,'extrasubmit') ? rpcsubmitinfo.extrasubmit : DEFAULT RECORD);
+      result := submit(options.extradata);
     }
     FINALLY
     {
@@ -630,8 +664,8 @@ PUBLIC OBJECTTYPE FormBase
 
     RETURN [ success := Length(this->__formerrors) = 0
            , result := result
-           , errors :=   (SELECT name := Objectexists(comp) ? comp->name : "", message := text, metadata FROM this->__formerrors   ORDER BY ObjectExists(comp) ? comp->formorder : -1)
-           , warnings := (SELECT name := Objectexists(comp) ? comp->name : "", message := text, metadata FROM this->__formwarnings ORDER BY ObjectExists(comp) ? comp->formorder : -1)
+           , errors :=   (SELECT comp, message := text, metadata FROM this->__formerrors   ORDER BY ObjectExists(comp) ? comp->formorder : -1)
+           , warnings := (SELECT comp, message := text, metadata FROM this->__formwarnings ORDER BY ObjectExists(comp) ? comp->formorder : -1)
            ];
   }
 
@@ -1085,17 +1119,39 @@ PUBLIC OBJECTTYPE FormBase
     }
   }
 
-  PUBLIC RECORD FUNCTION __SubmitFormNow()
+  /** @short Store the current value of the form
+      @cell(integer) options.formid The id of the form file to store the results (defaults to current target)
+      @cell(string) options.guid The result guid, defaults to a random guid, can be used to overwrite an existing result
+      @cell(string) options.idfieldvalue The name of the field that should have a unique value across all form results
+      @cell(boolean) options.isedit If this is an edit of an existing result
+      @cell(boolean) options.ispending If this is a pending result that has to be confirmed before it's final
+      @cell(record) options.extradata Additional data to pass to the submit handler
+      @return The guid used to store the result
+  */
+  PUBLIC STRING FUNCTION StoreFormValue(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RECORD res := this->__FormDoSubmit(DEFAULT RECORD, TRUE); //internal submit, no limiting
-    IF(NOT res.success)
-    {
-      LogDebug("publisher:form", "Server-side form submission failure", res);
-      THROW NEW Exception("Form submission failed"); //FIXME report the errors
-    }
-    RETURN res.result;
-  }
+    options := ValidateOptions(
+        [ formid := 0
+        , guid := ""
+        , idfieldvalue := ""
+        , isedit := FALSE
+        , ispending := FALSE
+        , extradata := DEFAULT RECORD
+        ], options);
 
+    IF(options.guid = "")
+      options.guid := GenerateUFS128BitId();
+
+    INTEGER formid := options.formid ?? this->__form.webtoolformid;
+    DELETE CELL formid FROM options;
+    IF (formid = 0 AND ObjectExists(this->formcontext) AND ObjectExists(this->formcontext->targetobject))
+      formid := this->formcontext->targetobject->id;
+    IF (formid = 0)
+      THROW NEW Exception("Could not determine form file id, please set the formid option");
+
+    OBJECT handler := InitializeStoreResultsHandler(this, formid);
+    RETURN handler->Submit(this, options.extradata, CELL[...options, DELETE extradata]).result.guid;
+  }
 >;
 
 /** Base class for hooking into a webtoolform. Invoked in frontend and in tollium contexts to allow forms to add extra
@@ -1109,6 +1165,12 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
   MACRO NEW()
   {
     this->__form := __passthrough.form;
+  }
+
+  /** @short Invoked before rendering the form
+  */
+  PUBLIC MACRO PrepareRendering()
+  {
   }
 
   /** @short Do additional form validation
@@ -1190,12 +1252,25 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
     {
       CASE "SUBMIT"
       {
+        IF(GetDtapStage()="development" AND this->webdesign->targetobject->whfspath NOT IN __webhare_ci_routingexceptions)
+          THROW NEW Exception(`Routing form submissions through the WCS_ APIs is deprecated. Switch to webtoolformhooks`);
+
         RECORD submitinfo := args[0];
+        this->form->formcheckratelimits := TRUE;
         this->form->__FormSetData(submitinfo.fields);
-        RETURN this->form->__FormDoSubmit(submitinfo, FALSE);
+        RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
+
+        RECORD submitres := this->form->FormExecuteSubmit(CELL[extradata]);
+        //duplicate with rpc.whlib Submit, but WCS_CallFormService will go away anyway
+        submitres.errors :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
+        submitres.warnings :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.warnings;
+        RETURN submitres;
       }
       CASE "INVOKE"
       {
+        IF(GetDtapStage()="development" AND this->webdesign->targetobject->whfspath NOT IN __webhare_ci_routingexceptions)
+          THROW NEW Exception(`Routing form submissions through the WCS_ APIs is deprecated. Switch to webtoolformhooks`);
+
         RECORD submitinfo := args[0];
         this->form->__FormSetData(submitinfo.fields);
         RETURN this->form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
