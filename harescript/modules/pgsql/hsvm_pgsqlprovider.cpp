@@ -1375,7 +1375,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                         if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
                                                 std::string resourcepath = "direct::" + driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
-                                                if (!HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str(), 7))
+                                                if (!HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str()))
                                                 {
                                                         PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
 

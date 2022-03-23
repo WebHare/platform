@@ -228,7 +228,11 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
     RECORD bundle := SELECT * FROM status.bundles WHERE outputtag IN matches;
     IF (bundle.haserrors)
       PrintBundleErrors(output, bundle.outputtag);
+
   }
+
+  IF(RecordExists(SELECT FROM status.bundles WHERE haserrors))
+    SetConsoleExitCode(1);
 }
 
 SWITCH (args.command)

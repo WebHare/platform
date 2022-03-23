@@ -849,7 +849,7 @@ void GetWittyLibraryBlob(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_ColumnId col_data = HSVM_GetColumnId(hsvm,"DATA");
 
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
-        bool success = HSVM_MakeBlobFromFilesystem(hsvm, HSVM_RecordCreate(hsvm, id_set, col_data), HSVM_StringGetSTD(hsvm,HSVM_Arg(0)).c_str(), 2/*witty*/) == 0;
+        bool success = HSVM_MakeBlobFromFilesystem(hsvm, HSVM_RecordCreate(hsvm, id_set, col_data), HSVM_StringGetSTD(hsvm,HSVM_Arg(0)).c_str()) == 0;
         HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, id_set, col_success), success);
 }
 

@@ -129,7 +129,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       }
 
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
-      this->AddError(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
+      this->AddError(legacywrdschemas, `<wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }
 >;
 

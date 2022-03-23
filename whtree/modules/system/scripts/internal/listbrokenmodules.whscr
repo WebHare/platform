@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
+
+STRING ARRAY brokenmodules;
+IF(Length(CheckNodeModulesInModule(GetWebhareConfiguration().installationroot)) > 0)
+  INSERT "webhare" INTO brokenmodules AT END;
+
+FOREVERY (STRING modulename FROM GetInstalledModulenames())
+  IF(Length(CheckNodeModulesInModule(GetModuleInstallationRoot(modulename))) > 0)
+    INSERT modulename INTO brokenmodules AT END;
+
+Print(Detokenize(brokenmodules,'\n')||'\n');

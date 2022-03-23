@@ -29,173 +29,6 @@ RECORD ARRAY FUNCTION ListNodePackageRoots(STRING basepath)
   RETURN packageroots;
 }
 
-STRING FUNCTION GetPackageVersion(RECORD packagedata)
-{
-  IF(packagedata._requested.type = "git")
-    RETURN packagedata._resolved;
-
-  RETURN packagedata.version;
-}
-
-RECORD FUNCTION ParseV1Package(STRING scope, RECORD direntry)
-{
-  STRING jsonpath := MergePath(direntry.path, 'package.json');
-  RECORD package := [ name := ToLowercase(scope || direntry.name)
-                    , packagefile := jsonpath
-                    , packagedata := DecodeJSONBlob(GetDiskResource(jsonpath, [ allowmissing := TRUE ]))
-                    , error := ""
-                    , reportedversion := ""
-                    , actualversion := ""
-                    , modified := direntry.modified
-                    ];
-
-  IF(TypeID(package.packagedata) != TypeID(RECORD) OR NOT RecordExists(package.packagedata) OR NOT CellExists(package.packagedata,'_requested') OR NOT CellExists(package.packagedata._requested,'raw'))
-  {
-    package.error := "Missing or invalid package.json";
-    RETURN package;
-  }
-
-  package.reportedversion := package.packagedata.version;
-  package.actualversion := GetPackageVersion(package.packagedata);
-  RETURN package;
-}
-
-RECORD ARRAY FUNCTION ListActualV1Packages(STRING packagedir)
-{
-  RECORD ARRAY packages;
-
-  FOREVERY(RECORD direntry FROM ReadDiskDirectory(packagedir,"*"))
-  {
-    IF(direntry.type != 1 OR direntry.name LIKE ".*")
-      CONTINUE;
-    IF(direntry.name LIKE "@*") //scoped packages
-    {
-      FOREVERY(RECORD subdirentry FROM ReadDiskDirectory(direntry.path,"*"))
-        INSERT ParseV1Package(direntry.name || "/", subdirentry) INTO packages AT END;
-      CONTINUE;
-    }
-    INSERT ParseV1Package("",direntry) INTO packages AT END;
-  }
-
-  RETURN packages;
-}
-
-/** Recursively return all modules in a package-lock list, no grouping
-*/
-RECORD ARRAY FUNCTION FlattenLockedModules(RECORD ARRAY modules)
-{
-  RECORD ARRAY newmodules := modules;
-  FOREVERY (RECORD rec FROM modules)
-    IF (CellExists(rec, "dependencies"))
-    {
-      newmodules := newmodules CONCAT FlattenLockedModules(
-          SELECT ...value
-               , name :=    ToLowercase(name)
-            FROM UnpackRecord(rec.dependencies));
-    }
-  RETURN newmodules;
-}
-
-/** Check if only requested modules are present in the package-lock
-*/
-RECORD ARRAY FUNCTION CheckRequests(RECORD ARRAY flatmodules, RECORD ARRAY flatlockmodules)
-{
-  RECORD ARRAY issues;
-
-  /* Get all modules in the packagelock, ensure they have requires and dependencies cells.
-     Order on name and version for quick access
-  */
-  flatlockmodules :=
-      SELECT name
-           , version
-           , requires :=        (CellExists(row, "requires") ? row.requires : DEFAULT RECORD)
-           , dependencies :=    (CellExists(row, "dependencies") ? row.dependencies : DEFAULT RECORD)
-           , used :=            FALSE
-        FROM FlattenLockedModules(flatlockmodules) AS row
-    ORDER BY name, version;
-
-  // Add position within array for updates of subselections
-  flatlockmodules :=
-      SELECT *
-           , pos := #flatlockmodules
-        FROM flatlockmodules;
-
-  // List of all items scheduled at least once in the worklist
-  STRING ARRAY scheduled := SELECT AS STRING ARRAY `${name}:${range}` FROM flatmodules;
-
-  // Process all dependencies
-  RECORD ARRAY worklist := flatmodules;
-  WHILE (NOT IsDefaultValue(worklist))
-  {
-    RECORD item := worklist[0];
-    DELETE FROM worklist AT 0;
-
-    // Get all modules from the packagelock with this name
-    RECORD ARRAY namematches :=
-        SELECT *
-             , satisfiesrange := NPMPackageVersionSatisfiesRange(version, item.range)
-          FROM RecordRange(flatlockmodules, item, [ "NAME" ]);
-
-    // Any matches?
-    BOOLEAN anymatch := RecordExists(SELECT FROM namematches WHERE satisfiesrange);
-    STRING wrongversion := Detokenize((SELECT AS STRING ARRAY version FROM namematches WHERE NOT satisfiesrange), ", ");
-
-    FOREVERY (RECORD rec FROM namematches)
-    {
-      // If there are range match, process only those, otherwise process them all
-      IF (anymatch AND NOT rec.satisfiesrange)
-        CONTINUE;
-
-      IF (NOT flatlockmodules[rec.pos].used)
-      {
-        // Mark as used
-        flatlockmodules[rec.pos].used := TRUE;
-
-        // Get all requires and dependencies
-        RECORD ARRAY requires :=
-            SELECT name := ToLowercase(name)
-                 , range := value
-              FROM UnpackRecord(rec.requires);
-
-        requires := requires CONCAT
-            SELECT name := ToLowercase(name)
-                 , range := value.version
-              FROM UnpackRecord(rec.dependencies);
-
-        // Add unscheduled items into the worklist
-        FOREVERY (RECORD req FROM requires)
-        {
-          STRING tag := `${req.name}:${req.range}`;
-          IF (tag NOT IN scheduled)
-          {
-            INSERT req INTO worklist AT END;
-            INSERT tag INTO scheduled AT END;
-          }
-        }
-      }
-    }
-
-    IF (NOT anymatch)
-    {
-      IF (wrongversion != "")
-      {
-        INSERT [ error := `Wrong version for module ${item.name}, expect: ${item.range} but actual: ${wrongversion}` ] INTO issues AT END;
-      }
-      ELSE
-      {
-        INSERT [ error := `Missing module ${item.name}` ] INTO issues AT END;
-      }
-    }
-  }
-
-  // See if we have any modules that weren't requested. ADDME: try to process their requires/dependencies to return only the top-level package
-  FOREVERY (RECORD rec FROM flatlockmodules)
-    IF (NOT rec.used)
-      INSERT [ error := `Module ${rec.name} version ${rec.version} is installed but not requested` ] INTO issues AT END;
-
-  RETURN issues;
-}
-
 RECORD ARRAY FUNCTION ListActualV2Packages(STRING packagedir, STRING path)
 {
   RECORD ARRAY packages;
@@ -364,33 +197,15 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
     FOREVERY (RECORD rec FROM SELECT * FROM flatmodules WHERE range = "" LIMIT 1)
       INSERT [ error := `Package '${rec.name}' in package.json has an empty version range. Please put one in.` ] INTO issues AT 0;
 
-    IF (NOT packagelockjson->HasProp("lockfileVersion") OR packagelockjson->GetProp("lockfileVersion") = 1)
+    IF (NOT packagelockjson->HasProp("lockfileVersion"))
     {
-      // lockfile v1: resolve data is stored in package.json of all installed packages
-      RECORD ARRAY actualnodemodules := ListActualV1Packages(nodefolder.modulespath);
-
-      issues := issues CONCAT SELECT error := `${error} (${packagefile})` FROM actualnodemodules WHERE error != '';
-
-      //Decode package-lock.json modules
-      RECORD lockdeps := packagelockjson->HasProp('dependencies') ? packagelockjson->GetProp("dependencies", [ fallback := CELL[] ])->GetValue() : CELL[];
-      RECORD ARRAY flatlockmodules := SELECT optional := FALSE, ...value, name := ToLowercase(name) FROM UnpackRecord(lockdeps);
-
-      issues := issues CONCAT CheckRequests(flatmodules, flatlockmodules);
-
-      IF (LENGTH(issues) != 0)
-        RETURN [ ...issues, [ error := `package-lock.json is not in sync with package.json. package.json should not be modified manually. Please run 'npm install'` ] ];
-
-      //Compare actual modules against packagelock.json
-      RECORD ARRAY matchlockactual := JoinArrays(flatlockmodules, "name", actualnodemodules
-                                        , [ packagedata := DEFAULT RECORD, actualversion := "" ]
-                                        , [ rightouterjoin := TRUE, presentfield := "present", leftouterjoin := [ name := "", version := "", expectfrom := "" ] ]);
-
-      // Allow missing packages when they are optional
-      RECORD ARRAY installmismatches := SELECT * FROM matchlockactual WHERE (present != "both" OR version != actualversion) AND (present != "left" OR NOT optional);
-      IF (RecordExists(installmismatches))
-        RETURN [ ...issues, [ error := `Installed modules are not in sync with package-lock.json, please run 'wh fixmodules'` ] ];
+      RETURN [ ...issues, [ error := `package-lock.json missing version. Please run 'npm install'` ] ];
     }
-    ELSE IF (packagelockjson->GetProp("lockfileVersion") = 2)
+    ELSE IF(packagelockjson->GetProp("lockfileVersion") < 2)
+    {
+      RETURN [ ...issues, [ error := `package-lock.json version '${packagelockjson->GetProp("lockfileVersion")}' not supported. Please run 'npm install'` ] ];
+    }
+    ELSE
     {
       // Read the packages from the package-lock.json
       RECORD ARRAY lockpackages := packagelockjson->HasProp("packages") ? SELECT * FROM packagelockjson->GetProp("packages")->Unpack() ORDER BY name : RECORD[];
@@ -457,8 +272,6 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
       // check if all requested stuff is present on disk, and no extra modules installed
       issues := issues CONCAT CheckV2Requests(packages, flatmodules);
     }
-    ELSE
-      THROW NEW Exception(`Package-lock.json version ${packagelockjson->GetProp("lockfileVersion")} not supported`);
 
     RETURN issues;
   }
