@@ -215,7 +215,6 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
   MACRO SetSelectMultiple(BOOLEAN setting)
   {
     ^entities->selectmode := setting ? "multiple" : "single";
-    this->ReapplyDeleteHandler();
   }
 
   BOOLEAN FUNCTION GetFalse()
@@ -558,6 +557,12 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
   //
   // Getters & setters
   //
+
+  UPDATE MACRO SetSelectMultiple(BOOLEAN setting)
+  {
+    EntityListBase::SetSelectMultiple(setting);
+    this->ReapplyDeleteHandler();
+  }
 
   MACRO SetDeleteMode(STRING deletemode)
   {
