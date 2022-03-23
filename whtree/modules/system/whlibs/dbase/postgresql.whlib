@@ -1450,7 +1450,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
              , referenced_table_oid :=      RecordExists(foreignkey) ? foreignkey.confrelid : 0
           FROM catalog.pg_attribute
              , catalog.pg_type
-           , catalog.pg_namespace
+             , catalog.pg_namespace
          WHERE attrelid = table_oid
            AND pg_type.oid = atttypid
            AND pg_namespace.oid = pg_type.typnamespace
