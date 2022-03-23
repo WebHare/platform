@@ -49,7 +49,7 @@ FOREVERY (RECORD schemarec FROM trans->GetSchemaListing())
   FOREVERY (RECORD tablerec FROM trans->GetTableListing(schemarec.schema_name))
     IF (schemarec.schema_name != "webhare_internal" OR tablerec.table_name != "blob")
       FOREVERY (RECORD columnrec FROM trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
-        IF (columnrec.data_type = "webhare_blob")
+        IF (columnrec.data_type = "webhare_internal.webhare_blob")
         {
           RECORD ARRAY refs := trans->__ExecSQL(`SELECT ${tablerec.primary_key_name} as id, (${columnrec.column_name}).id as blob_id FROM ${schemarec.schema_name}.${tablerec.table_name} WHERE (${columnrec.column_name}).id = ANY($1)`, [ args := VARIANT[ error_ids ] ]);
           allrefs := allrefs CONCAT refs;

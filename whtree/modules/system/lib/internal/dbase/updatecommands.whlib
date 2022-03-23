@@ -5,6 +5,10 @@ LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
 
+STRING FUNCTION XMLComment(STRING input)
+{
+  RETURN `<!-- ${Substitute(input,'--','- -')} -->`;
+}
 
 RECORD ARRAY FUNCTION ValidateSchemaSpecs(RECORD ARRAY schemaspecs)
 {
@@ -240,6 +244,7 @@ PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
           def := def || ' ondelete="' || ToLowercase(coldef.ondelete) || '"';
       }
 
+      INTEGER64 autonumberstart := Cellexists(coldef,'autonumberstart') ? coldef.autonumberstart : 0i64;
       IF (coldef.isunique)
         def := def || ' unique="true"';
       IF (NOT coldef.nullable)
@@ -248,14 +253,20 @@ PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
         def := def || ' noupdate="true"';
       IF (coldef.defval != "")
           def := def || ` default="${coldef.defval}"`;
-      IF (CellExists(coldef, "autonumberstart") AND coldef.autonumberstart > 0)
-        def := def||' autonumberstart="' || coldef.autonumberstart || '"';
+      IF (autonumberstart > 0)
+        def := def||' autonumberstart="' || autonumberstart || '"';
       IF (CellExists(coldef, "maxlength") AND coldef.maxlength != 0)
         def := def||' maxlength="' || coldef.maxlength || '"';
       IF(coldef.internalcolumnname!="")
         def := def||' internalcolumnname="' || EncodeValue(coldef.internalcolumnname) || '"';
 
-      def := def || ' />\n';
+      def := def || ' />';
+
+      //We output the raw defaultvalue as a comment if we didn't manage to encode it as a WebHare value
+      IF(CellExists(coldef,'defval_raw') AND coldef.defval_raw != "" AND coldef.defval = "" AND autonumberstart = 0 AND NOT coldef.defval_isdefault)
+        def := `${def} ${XMLComment(`Cannot encode default value: ${coldef.defval_raw}`)}`;
+
+      def := def || '\n';
     }
 
     FOREVERY (RECORD indexdef FROM tabledef.indices)

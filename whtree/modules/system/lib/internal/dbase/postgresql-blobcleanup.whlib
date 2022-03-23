@@ -122,7 +122,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
       {
         FOREVERY (RECORD columnrec FROM this->trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
         {
-          IF (columnrec.data_type != "webhare_blob" OR (schemarec.schema_name = "webhare_internal" AND tablerec.table_name = "blob"))
+          IF (columnrec.data_type != "webhare_internal.webhare_blob" OR (schemarec.schema_name = "webhare_internal" AND tablerec.table_name = "blob"))
             CONTINUE;
 
           // Select via raw query so we won't get itnto problems with missing blobs, and avoid blob lookup

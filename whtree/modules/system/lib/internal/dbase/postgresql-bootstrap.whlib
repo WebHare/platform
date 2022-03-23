@@ -42,10 +42,27 @@ MACRO EnsureBlobTable(OBJECT trans)
       FROM pg_catalog.pg_type t
            JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
            JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-     WHERE nspname = 'public' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
+     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
   {
     trans->BeginWork();
-    trans->__ExecSQL(`CREATE TYPE webhare_blob AS (id text, size int8)`);
+
+    IF (NOT trans->SchemaExists("webhare_internal"))
+      trans->CreateSchema("webhare_internal", "", "");
+
+    IF (RecordExists(trans->__ExecSQL(`
+      SELECT t.oid, t.typname
+        FROM pg_catalog.pg_type t
+             JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+             JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
+       WHERE nspname = 'public' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
+    {
+      //Pre 4.35 we created this type in public, but that makes a 'DROP SCHEMA public' terribly dangerous. Migrate it to our schema
+      trans->__ExecSQL(`ALTER TYPE public.webhare_blob SET SCHEMA webhare_internal`);
+    }
+    ELSE
+    {
+      trans->__ExecSQL(`CREATE TYPE webhare_internal.webhare_blob AS (id text, size int8)`);
+    }
     trans->CommitWork();
 
     // Rescan types for the blob type
@@ -55,8 +72,6 @@ MACRO EnsureBlobTable(OBJECT trans)
   IF (NOT trans->ColumnExists("webhare_internal", "blob", "id"))
   {
     trans->BeginWork();
-    IF (NOT trans->SchemaExists("webhare_internal"))
-      trans->CreateSchema("webhare_internal", "", "");
 
     __LegacyCreateTable(trans, "webhare_internal", "blob",
        [ primarykey :=  "id"

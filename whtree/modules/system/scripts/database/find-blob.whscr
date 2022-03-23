@@ -1,9 +1,7 @@
 <?wh
 
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::dbase/dynquery.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
-LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
@@ -15,27 +13,18 @@ RECORD info := ParseArguments(GetConsoleArguments(),
 
 OBJECT trans := OpenPrimary();
 
-INTEGER ARRAY blobids;
+STRING ARRAY blobids;
 
-IF (Detokenize(info.ids, ",") = "used")
-{
-  trans->BeginWork();
-  blobids := SELECT AS INTEGER ARRAY blobid FROM __SendWHDBCommand(trans->id, "show usedblobs");
-  trans->RollbackWork();
-  PRINT(`Showing ${LENGTH(blobids)} used blobs\n`);
-}
-ELSE
-{
-  FOREVERY(STRING id FROM info.ids)
-    INSERT ToInteger(id,0) INTO blobids AT END;
-}
+FOREVERY(STRING id FROM info.ids)
+  INSERT id INTO blobids AT END;
 
 IF(Length(blobids)=0)
   RETURN;
 
 blobids := SortArray(blobids);
 
-RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB";
+RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from postgresql_information_schema.columns where data_type="USER-DEFINED" AND udt_name="webhare_blob";
+
 FOREVERY(RECORD col FROM relevant_columns)
 {
   BOOLEAN allow := LENGTH(info."table") = 0;
@@ -45,59 +34,22 @@ FOREVERY(RECORD col FROM relevant_columns)
   IF (NOT allow)
     CONTINUE;
 
-  Print("Reading " || col.table_schema || "." || col.table_name || "." || col.column_name);
+  IF(col.table_schema = "webhare_internal")
+    CONTINUE;
+
+  STRING name := col.table_schema || "." || col.table_name || "." || col.column_name;
+  Print(`${name}\n`);
   FlushOutputBuffer();
   INTEGER numbytes, num_mb; //ADDME switch to integer64 as soon as 2.37 is gone everywhere
 
-  OBJECT q := NEW DynamicQuery;
   BOOLEAN have_id := trans->ColumnExists(col.table_schema, col.table_name, "ID");
-  STRING ARRAY getcols := [STRING(col.column_name)];
-  IF(have_id)
-    INSERT "ID" INTO getcols AT END;
 
-  q->AddTable("data", trans->id, col.table_schema||'.'||col.table_name, getcols);
-  RECORD ARRAY contents := q->Execute();
-  PRINT("\rScanning " || col.table_schema || "." || col.table_name || "." || col.column_name);
-
-  FOREVERY(RECORD r FROM SELECT * FROM contents)
+  STRING tablename := PostgreSQLEscapeIdentifier(col.table_schema) || "." || PostgreSQLEscapeIdentifier(col.table_name);
+  FOREVERY(STRING id FROM blobids)
   {
-    BLOB blb := GetCell(r.data, col.column_name);
-    IF (NOT LowerBound(blobids, __GETWHDBBLOBINTERNALID(blb)).found)
-      CONTINUE;
-
-    Print("\n" || col.table_schema || "." || col.table_name || "." || col.column_name);
-
-    IF(have_id)
-    {
-      Print(", id=" || r.data.id);
-      IF (col.table_schema || "." || col.table_name = "SYSTEM.FS_SETTINGS")
-      {
-        RECORD rec :=
-            SELECT fs_objects.id
-                 , whfspath
-              FROM system.fs_objects
-                 , system.fs_instances
-                 , system.fs_settings
-             WHERE fs_settings.id = r.data.id
-               AND fs_instances.id = fs_settings.fs_instance
-               AND fs_objects.id = fs_instances.fs_object;
-
-        IF (RecordExists(rec))
-          PRINT(` (fsobj: ${rec.id}, ${rec.whfspath})`);
-      }
-      IF (col.table_schema || "." || col.table_name = "SYSTEM.FS_OBJECTS")
-      {
-        RECORD rec :=
-            SELECT fs_objects.id
-                 , whfspath
-              FROM system.fs_objects
-             WHERE id = r.data.id;
-
-        IF (RecordExists(rec))
-          PRINT(` (fsobj: ${rec.id}, ${rec.whfspath})`);
-      }
-    }
-    FlushOutputBuffer();
+    STRING cmd := `select ${have_id ? "id" : "ctid"} from ${tablename} where (${PostgreSQLEscapeIdentifier(col.column_name)}).id = ${PostgreSQLEscapeLiteral("AAAB" || id)}`;
+    RECORD ARRAY results := trans->__ExecSQL(cmd);
+    FOREVERY(RECORD row FROM results)
+      Print(`Match ${name}: ${have_id ? `id=${row.id}` : `ctid=${row.ctid}`} has blob ${id}\n`);
   }
-  Print("\n");
 }

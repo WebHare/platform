@@ -806,7 +806,7 @@ PUBLIC STRING FUNCTION __whdb_GetHarescriptType(STRING dbase_type)
     {
       RETURN "DATETIME";
     }
-    CASE "webhare_blob"
+    CASE "webhare_internal.webhare_blob"
     {
       RETURN "BLOB";
     }
