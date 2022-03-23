@@ -106,47 +106,6 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 
   SWITCH (testinfo.type)
   {
-    CASE "file"
-    {
-      STRING name := testinfo.testname;
-
-      IF (autotests AND testinfo.skipauto)
-      {
-        IF (testrunner->print_debug)
-          Print("; Skipping test: " || testinfo.testname || "\n");
-
-        result.status := "ok";
-        RETURN result;
-      }
-
-      FOREVERY (STRING skip FROM skips)
-        IF (ToUppercase(name) LIKE ToUppercase(skip) OR ToUppercase(name) LIKE ToUppercase(name || ".*"))
-        {
-          IF (testrunner->print_debug)
-            Print("; Skipping group: " || testinfo.testname || "\n");
-
-          result.status := "ok";
-          RETURN result;
-        }
-
-      RECORD ARRAY tests := testrunner->GatherTests(testinfo.path, testinfo.testname, [ testmask ], DEFAULT STRING ARRAY, testinfo.folder, FALSE);
-
-      FOREVERY (RECORD test FROM tests)
-      {
-        RECORD localresult := RunTest(test, testmask, FALSE, skips);
-        result.executed := result.executed CONCAT localresult.executed;
-        IF (localresult.status = "fail")
-        {
-          result.status := "fail";
-          result.failed := result.failed CONCAT localresult.failed;
-          IF (breakonerror)
-            BREAK;
-        }
-        ELSE IF (localresult.status = "ok" AND result.status = "none")
-          result.status := "ok";
-      }
-    }
-
     CASE "test", "mochanodetest"
     {
       IF ("backend" NOT IN testtypes)

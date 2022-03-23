@@ -242,15 +242,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
             BOOLEAN okifmissing := ParseXSBoolean(elt->GetAttribute("okifmissing"));
             RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
             tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, nodeexclusive, okifmissing, validationconfig);
-  /*
-            INSERT
-                [ type := "file"
-                , testname := subtestname
-                , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
-                , path := subfile
-                , params := params
-                , exclusive := nodeexclusive
-                ] INTO tests AT END;*/
           }
           ELSE IF (script != "")
           {
@@ -314,7 +305,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
     RETURN FALSE;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, BOOLEAN okifmissing, RECORD validationconfig DEFAULTSTO DEFAULT RECORD)
+  RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN exclusive, BOOLEAN okifmissing, RECORD validationconfig DEFAULTSTO DEFAULT RECORD)
   {
 
   //  IF (print_debug)
