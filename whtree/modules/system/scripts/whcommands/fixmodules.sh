@@ -55,28 +55,29 @@ for MODULENAME in ${MODULESLIST[@]}; do
     echo "Updating WebHare Platform"
     cd "$WEBHARE_DIR"
     npm install --no-save --ignore-scripts
-    NPMRETVAL=$?
-    if [ "$NPMRETVAL" != "0" ]; then
+    RETVAL=$?
+    if [ "$RETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $NPMRETVAL
       FAILED=1
     fi
   else # MODULENAME != webhare
     getmoduledir MODULEDIR $MODULENAME
-    cd $MODULEDIR
+    cd "$MODULEDIR"
     if [ -f package.json ]; then
+      echo "Installing NPM modules for module '$MODULENAME'"
       npm install --ignore-scripts --no-save
     fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
       if cd $Q 2>/dev/null ; then
-        echo "Updating webdesign '$MODULENAME:`basename \"$Q\"`'"
+        echo "Installing NPM modules for webdesign '$MODULENAME:$(basename \"$Q\")'"
 
         if [ -f package.json ]; then
           npm install --ignore-scripts --no-save
-          NPMRETVAL=$?
-          if [ "$NPMRETVAL" != "0" ]; then
+          RETVAL=$?
+          if [ "$RETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $NPMRETVAL
-            FAIL=1
+            FAILED=1
           fi
         fi
       fi
@@ -85,15 +86,20 @@ for MODULENAME in ${MODULESLIST[@]}; do
     if [ -x $MODULEDIR/scripts/fixmodules-plugin.sh ]; then
       cd $MODULEDIR
       $MODULEDIR/scripts/fixmodules-plugin.sh
-      FIXRETVAL=$?
-      if [ "$FIXRETVAL" != "0" ]; then
-        echo "Module plugin for module '$MODULEDIR' failed with errorcode $FIXRETVAL"
+      RETVAL=$?
+      if [ "$RETVAL" != "0" ]; then
+        echo "Module plugin for module '$MODULEDIR' failed with errorcode $RETVAL"
         FAILED=1
       fi
     fi
 
-    if [ -z "$NOCOMPILE" ] && ! wh assetpacks recompile "$MODULENAME:*"; then
-      FAILED=1
+    if [ -z "$NOCOMPILE" ]; then
+      wh assetpacks recompile "$MODULENAME:*";
+      RETVAL=$?
+      if [ "$RETVAL" != "0" ]; then
+        echo "wh assetapcks recompile for module '$MODULEDIR' failed with errorcode $RETVAL"
+        FAILED=1
+      fi
     fi
 
   fi # ends MODULENAME != webhare
