@@ -417,7 +417,7 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
   }
 >;
 
-PUBLIC OBJECTTYPE GlobalTestForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE GlobalTestForm EXTEND FormBase
 <
   MACRO NEW()
   {
@@ -430,7 +430,7 @@ PUBLIC OBJECTTYPE GlobalTestForm EXTEND FormBase
   }
 >;
 
-PUBLIC OBJECTTYPE DynamicTestForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE DynamicTestForm EXTEND FormBase
 <
   OBJECT newradiogroup;
 
@@ -514,7 +514,7 @@ PUBLIC OBJECTTYPE DynamicTestForm EXTEND FormBase
   }
 >;
 
-PUBLIC OBJECTTYPE RTDForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE RTDForm EXTEND FormBase
 <
   STRING filename;
 
@@ -697,7 +697,7 @@ PUBLIC STATIC OBJECTTYPE PaymentNoiseHandler EXTEND FormHandlerBase
   }
 >;
 
-PUBLIC OBJECTTYPE AddressForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE AddressForm EXTEND FormBase
 <
   STRING filename;
 

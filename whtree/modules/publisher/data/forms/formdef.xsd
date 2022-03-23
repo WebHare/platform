@@ -176,21 +176,6 @@
     </xs:choice>
   </xs:group>
 
-  <xs:group name="LegacyContents">
-    <xs:sequence>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:group ref="LineComponents" />
-        <xs:element ref="textarea" />
-        <xs:element ref="rtd" />
-        <xs:element ref="imgedit" />
-        <xs:element ref="upload" />
-        <xs:element ref="richtext" />
-        <xs:element ref="address" />
-      </xs:choice>
-      <xs:element name="defaultformbuttons" type="DefaultFormButtons" minOccurs="0" maxOccurs="1" />
-    </xs:sequence>
-  </xs:group>
-
   <xs:group name="PageContents">
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -215,13 +200,9 @@
           </xs:choice>
         </xs:complexType>
       </xs:element>
-      <xs:choice>
-        <!-- A form contains either form components or pages -->
-        <xs:group ref="LegacyContents" />
-        <xs:sequence>
-          <xs:element ref="page" minOccurs="0" maxOccurs="unbounded" />
-        </xs:sequence>
-      </xs:choice>
+      <xs:sequence>
+        <xs:element ref="page" minOccurs="0" maxOccurs="unbounded" />
+      </xs:sequence>
       <!-- Deleted nodes which may have been answered -->
       <xs:element name="trash" minOccurs="0" maxOccurs="1">
         <xs:complexType>
@@ -1078,15 +1059,5 @@
       <xs:attribute name="max" type="xs:integer" />
     </xs:complexType>
   </xs:element>
-
-  <xs:complexType name="DefaultFormButtons">
-    <xs:attribute name="buttons" type="sc:NameList" use="required" />
-    <xs:attribute name="default" type="sc:Name" />
-  </xs:complexType>
-
-  <!-- pre 429 appinfo compatibility -->
-  <xs:element name="formcomponent" type="fai:__Appinfoformcomponent"/>
-  <xs:element name="formhandler" type="fai:__Appinfoformhandler"/>
-
 
 </xs:schema>

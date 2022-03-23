@@ -4,7 +4,7 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-PUBLIC OBJECTTYPE EmbedVideoForm EXTEND FormBase
+PUBLIC STATIC OBJECTTYPE EmbedVideoForm EXTEND FormBase
 <
   MACRO NEW()
   {
@@ -16,9 +16,9 @@ PUBLIC OBJECTTYPE EmbedVideoForm EXTEND FormBase
     RECORD video;
     IF(NOT work->HasFailed())
     {
-      video := GuessEmbeddedVideoFromCode(this->videourl->value);
+      video := GuessEmbeddedVideoFromCode(^videourl->value);
       IF(NOT RecordExists(video))
-        work->AddErrorFor(this->videourl, GetTid("publisher:site.rtd.embedvideo.unrecognized"));
+        work->AddErrorFor(^videourl, GetTid("publisher:site.rtd.embedvideo.unrecognized"));
     }
     IF(NOT work->Finish())
       RETURN DEFAULT RECORD;

@@ -96,20 +96,9 @@ OBJECTTYPE FormParser
   {
     RECORD result :=
         [ handlers := DEFAULT RECORD ARRAY
-        , buttons := DEFAULT RECORD ARRAY
         , field := DEFAULT RECORD
         ];
-    IF(fld->localname = "defaultformbuttons")
-    {
-      FOREVERY(STRING button FROM ParseXSList(fld->GetAttribute("buttons")))
-      {
-        INSERT [ name := button
-               , title := GetTid("tollium:common.actions." || button)
-               , result := button
-               ] INTO result.buttons AT END;
-      }
-      RETURN result;
-    }
+
     IF (fld->localname = "trash")
     {
       RETURN result;
@@ -197,7 +186,7 @@ OBJECTTYPE FormParser
 
   PUBLIC RECORD FUNCTION ParseFormContent(OBJECT root, OBJECT parent, STRING gid, OBJECT formdefinitions, INTEGER formpage)
   {
-    RECORD ARRAY fields, buttons, handlers;
+    RECORD ARRAY fields, handlers;
     STRING ARRAY seenfieldnames;
     OBJECT ARRAY includes;
 
@@ -215,7 +204,6 @@ OBJECTTYPE FormParser
         {
           RECORD result := this->ParseSingleFormNode(root, fld, gid, formdefinitions, formpage, ToUppercase(groupresult.field.name));
           handlers := result.handlers;
-          buttons := buttons CONCAT result.buttons;
           IF (RecordExists(result.field))
           {
             INSERT result.field INTO fields AT END;
@@ -227,7 +215,6 @@ OBJECTTYPE FormParser
       {
         RECORD result := this->ParseSingleFormNode(root, fld, gid, formdefinitions, formpage, "");
         handlers := result.handlers;
-        buttons := buttons CONCAT result.buttons;
         IF (RecordExists(result.field))
         {
           INSERT result.field INTO fields AT END;
@@ -235,7 +222,7 @@ OBJECTTYPE FormParser
         }
       }
     }
-    RETURN CELL[ fields, buttons, handlers ];
+    RETURN CELL[ fields, handlers ];
   }
 >;
 
@@ -254,7 +241,6 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
 
   RECORD formdef := [ fields := RECORD[]
                     , pages := RECORD[]
-                    , buttons := RECORD[]
                     , handlers := RECORD[]
                     , name := formname
                     , externalformname := options.externalformname ?? formname
@@ -262,7 +248,6 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
                     , objectname := ""
                     , idprefix := formnode->GetAttribute("idprefix") ?? (lookupname ?? formname) || "-"
                     , defs := formdefinitions
-                    , legacymode := FALSE
                     , jshandler := ""
                     , prevlabel := ParseXMLTidPtr(resourcename, gid, formnode, "prevlabel")
                     , nextlabel := ParseXMLTidPtr(resourcename, gid, formnode, "nextlabel")
@@ -286,68 +271,43 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
   }
 
   OBJECT ARRAY pages := formnode->GetChildElementsByTagNameNS(xmlns_forms, "page")->GetCurrentElements();
-  IF(Length(pages)=0)
+  formdef.jshandler := formnode->GetAttribute("jshandler") ?? "publisher:rpc";
+
+  //FIXME shouldn't we share formdef code and use its ListPages() ?
+
+  FOREVERY(OBJECT page FROM pages)
   {
-    //assume a legacy form definition
-    RECORD parseres := parser->ParseFormContent(formnode, formnode, gid, formdefinitions, 0);
-    formdef.fields := parseres.fields;
-    formdef.buttons := parseres.buttons;
-    formdef.legacymode := TRUE;
+    RECORD parseres := parser->ParseFormContent(page, page, gid, formdefinitions, #page);
+    formdef.fields := formdef.fields CONCAT parseres.fields;
 
-    INSERT [ name := ""
-           , guid := ""
-           , role := ""
-           , title := ""
-           , redirect := ""
-           , fields := parseres.fields
-           , visiblecondition := DEFAULT RECORD
-           ] INTO formdef.pages AT END;
-
-    if(formnode->GetAttribute("jshandler") != "")
-      parser->AddError(formnode, "jshandlers are not allowed in 'legacy' forms. Convert to <pages> syntax");
-  }
-  ELSE
-  {
-    formdef.jshandler := formnode->GetAttribute("jshandler") ?? "publisher:rpc";
-
-    //FIXME reject defaultformbuttons in the 4.11 parser? do we need it?
-    //FIXME shouldn't we share formdef code and use its ListPages() ?
-
-    FOREVERY(OBJECT page FROM pages)
+    RECORD addpage :=
+        [ name := page->GetAttribute("name")
+        , guid := page->GetAttribute("guid")
+        , role := page->GetAttribute("role")
+        , title := ParseXMLTidPtr(resourcename, gid, page, "pagetitle")
+        , redirect := page->GetAttribute("redirect")
+        , fields := parseres.fields
+        , visiblecondition := DEFAULT RECORD
+        ];
+    IF(NOT options.validatexmlonly)
     {
-      RECORD parseres := parser->ParseFormContent(page, page, gid, formdefinitions, #page);
-      formdef.fields := formdef.fields CONCAT parseres.fields;
-
-      RECORD addpage :=
-          [ name := page->GetAttribute("name")
-          , guid := page->GetAttribute("guid")
-          , role := page->GetAttribute("role")
-          , title := ParseXMLTidPtr(resourcename, gid, page, "pagetitle")
-          , redirect := page->GetAttribute("redirect")
-          , fields := parseres.fields
-          , visiblecondition := DEFAULT RECORD
-          ];
-      IF(NOT options.validatexmlonly)
+      IF (ObjectExists(formdefinitions))
+        addpage.redirect := formdefinitions->ResolveLinkRefToUrl(addpage.redirect);
+      ELSE IF (addpage.redirect LIKE "x-wh-internallink:*")
+        parser->AddError(page, `Illegal use of internal redirect link for a file without formdefinitions`);
+      FOREVERY(STRING attr FROM ["requiredcondition","visiblecondition","enabledcondition"])
       {
-        IF (ObjectExists(formdefinitions))
-          addpage.redirect := formdefinitions->ResolveLinkRefToUrl(addpage.redirect);
-        ELSE IF (addpage.redirect LIKE "x-wh-internallink:*")
-          parser->AddError(page, `Illegal use of internal redirect link for a file without formdefinitions`);
-        FOREVERY(STRING attr FROM ["requiredcondition","visiblecondition","enabledcondition"])
-        {
-          IF(ObjectExists(formdefinitions))
-            addpage := CellUpdate(addpage, "visiblecondition", formdefinitions->GetConditionAttribute(page, "visibleconditionid"));
-          ELSE IF(page->HasAttribute(attr||"id"))
-            parser->AddError(page, `Illegal use of 'visibleconditionid' for a file without formdefinitions`);
-        }
+        IF(ObjectExists(formdefinitions))
+          addpage := CellUpdate(addpage, "visiblecondition", formdefinitions->GetConditionAttribute(page, "visibleconditionid"));
+        ELSE IF(page->HasAttribute(attr||"id"))
+          parser->AddError(page, `Illegal use of 'visibleconditionid' for a file without formdefinitions`);
       }
-
-      INSERT addpage INTO formdef.pages AT END;
     }
 
-    formdef.handlers := ParseFormHandlers(formnode, resourcename, gid, formdefinitions, options.validatexmlonly);
+    INSERT addpage INTO formdef.pages AT END;
   }
 
+  formdef.handlers := ParseFormHandlers(formnode, resourcename, gid, formdefinitions, options.validatexmlonly);
   formdef.warnings := formdef.warnings CONCAT parser->warnings;
   formdef.errors := formdef.errors CONCAT parser->errors;
   IF(NOT options.accepterrors AND Length(formdef.errors)>0)

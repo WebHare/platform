@@ -240,7 +240,6 @@ PUBLIC OBJECTTYPE FormBase
       @cell obj
   */
   RECORD ARRAY __formfields;
-  RECORD ARRAY __formbuttons;
   RECORD ARRAY __formpages;
   OBJECT __wrdauthplugin;
   BOOLEAN __didsearchwrdauthplugin;
@@ -331,7 +330,6 @@ PUBLIC OBJECTTYPE FormBase
     __passthrough := DEFAULT RECORD;
     this->formjshandler := this->__form.jshandler;
     this->formidprefix := this->__form.idprefix;
-    this->__formbuttons := this->__form.buttons;
     this->__formlanguagecode := this->__form.languagecode ?? ObjectExists(this->formcontext) ? this->formcontext->languagecode : "en";
     this->formprevlabel :=    GetTidForLanguage(this->__formlanguagecode, this->__form.prevlabel ?? /*TID*/"publisher:site.forms.previouspage");
     this->formnextlabel :=    GetTidForLanguage(this->__formlanguagecode, this->__form.nextlabel ?? /*TID*/"publisher:site.forms.nextpage");
@@ -394,8 +392,6 @@ PUBLIC OBJECTTYPE FormBase
       OBJECT fldobj := this->__InstantiateField(parent, fld);
       INSERT fldobj INTO instantiated AT END;
       MemberInsert(this, "^" || fld.name, FALSE, fldobj);
-      IF(this->__form.legacymode)
-        MemberInsert(this, fld.name, FALSE, fldobj); //legacy support - forms should from now on always use '^' syntax!
     }
     RETURN instantiated;
   }
@@ -713,7 +709,6 @@ PUBLIC OBJECTTYPE FormBase
                         , formallpages := PTR this->__FormAllPages
                         , formrender := PTR this->RenderForm
                         , formrendernav := PTR this->__FormNavigation
-                        , formbuttons := (SELECT result, title FROM this->__formbuttons)
                         , formclasses := [ "wh-form", "wh-styledinput", ...this->formclasses ]
                         ];
 
