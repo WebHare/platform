@@ -121,7 +121,7 @@ async function reportException(errorobj, options)
         stackframes = stackframes.map(frame => (
             { line:       frame.lineNumber
             , func:       frame.functionName
-            , filename:   frame.fileName
+            , filename:   frame.fileName.replace("/@whpath/", "")
             , col:        frame.columnNumber
             }));
       }
