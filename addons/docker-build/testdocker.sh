@@ -513,8 +513,7 @@ HERE
     if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
       die "chown modules failed"
     fi
-    FIXPARAMS=--onlymodules
-    if ! $SUDO docker exec $CONTAINERID wh fixmodules $FIXPARAMS ; then
+    if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlybroken --onlymodules ; then
       testfail "wh fixmodules failed"
     fi
   fi
