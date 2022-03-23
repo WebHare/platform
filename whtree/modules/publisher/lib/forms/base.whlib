@@ -623,7 +623,7 @@ PUBLIC OBJECTTYPE FormBase
   /** Submit the form using its current values
       @cell(record) options.extradata Extra data to pass to the form
       @return Submission information
-      @cell(boolean) return.success True if form was successfully set
+      @cell(boolean) return.success True if form was successfully submitted
       @cell(record) return.result Submission result record (contains the result of Submit)
       @cell(string) return.result.resultsguid GUID under which the results were stored
       @cell(record array) return.errors Fatal errors preventing submission
@@ -1171,7 +1171,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
   */
   PUBLIC MACRO PrepareRendering()
   {
-
   }
 
   /** @short Do additional form validation

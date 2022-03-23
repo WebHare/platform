@@ -24,7 +24,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
-//TODO perhaps we shouldn't do lookuppublisherurl at all an simply encode Content + Target ids into the form url
+//TODO perhaps we shouldn't do lookuppublisherurl at all and simply encode Content + Target ids into the form url
 INTEGER FUNCTION GetAssociatedFSObject(RECORD submitinfo)
 {
   STRING url := GetWebOriginURL(submitinfo.url);
@@ -93,8 +93,8 @@ RECORD FUNCTION Submit(RECORD submitinfo)
   form->__FormSetData(submitinfo.fields);
   RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
   RECORD submitres := form->FormExecuteSubmit(CELL[extradata]);
-  submitres.errors :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
-  submitres.warnings :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.warnings;
+  submitres.errors :=  SELECT name := Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
+  submitres.warnings :=  SELECT name := Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.warnings;
   RETURN submitres;
 }
 
