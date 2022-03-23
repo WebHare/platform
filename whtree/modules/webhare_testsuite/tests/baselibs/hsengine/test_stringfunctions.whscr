@@ -681,12 +681,18 @@ MACRO EncodePackettest()
   TestEq( "hallo!\0", (EncodePacket("test1:a*", [ test1 := "hallo!" ] )));
 
   TestEq( "hallo!", (EncodePacket("test1:r*", [ test1 := "hallo!" ] )));
+  TestEq( "!ollah", (EncodePacket("test1:R*", [ test1 := "hallo!" ] )));
   TestEq( "hall", (EncodePacket("test1:r4", [ test1 := "hallo!" ] )));
+  TestEq( "llah", (EncodePacket("test1:R4", [ test1 := "hallo!" ] )));
   TestEq( "hallo!", (EncodePacket("test1:r8", [ test1 := "hallo!" ] )));
-  TestThrows(PTR EncodePacket("test1:r", [ test1 := "hallo!" ] ));
+  TestEq( "!ollah", (EncodePacket("test1:R8", [ test1 := "hallo!" ] )));
+  TestThrowsLike("Invalid packet definition 'test1:r'", PTR EncodePacket("test1:r", [ test1 := "hallo!" ] ));
+  TestThrowsLike("Invalid packet definition 'test1:R'", PTR EncodePacket("test1:R", [ test1 := "hallo!" ] ));
 
   TestEq( "tesgaaf", EncodePacket("test1:r*,:@3,test2:r*", [ test1 := "test", test2 := "gaaf" ]));
   TestEq( "test\0\0\0gaaf", EncodePacket("test1:r*,:@7,test2:r*", [ test1 := "test", test2 := "gaaf" ]));
+  TestEq( "tsefaag", EncodePacket("test1:R*,:@3,test2:R*", [ test1 := "test", test2 := "gaaf" ]));
+  TestEq( "tset\0\0\0faag", EncodePacket("test1:R*,:@7,test2:R*", [ test1 := "test", test2 := "gaaf" ]));
 
   TestEq( "00000000008042C0", EncodeBase16(EncodePacket("test1:F", [ test1 := -37f ])));
   TestEq( "0000000000804240", EncodeBase16(EncodePacket("test1:F", [ test1 := +37f ])));
@@ -753,12 +759,15 @@ MACRO DecodePackettest()
   TestEqualRecord(26, DEFAULT RECORD, DecodePacket("a:A3,b:a2", "hall"));
   TestEqualRecord(27, [ a := "h",  b:= "lo" ], DecodePacket("a:A*,b:a*", "h lo\0"));
   TestEqualRecord(28, [ a := "h",  b:= "lo\0" ], DecodePacket("a:A*,b:r*", "h lo\0"));
+  TestEqualRecord(28, [ a := "h",  b:= "\0ol" ], DecodePacket("a:A*,b:R*", "h lo\0"));
   TestEqualRecord(29, [ a := "h",  b:= "lo" ],   DecodePacket("a:A*,b:r*", "h lo"));
+  TestEqualRecord(29, [ a := "h",  b:= "ol" ],   DecodePacket("a:A*,b:R*", "h lo"));
   TestEqualRecord(30, DEFAULT RECORD,            DecodePacket("a:A*,b:a*", "h lo"));
   TestEqualRecord(31, [ a := "h",  b:= "l",  c:="o" ],   DecodePacket("a:A*,b:r1,c:r1", "h lo"));
   TestEqualRecord(32, [ a := "h",  b:= "lo", c:= ""  ],   DecodePacket("a:A*,b:r2,c:r*", "h lo"));
 
   TestEqualRecord(33, [ a := "hallo", b := "allo", c:= ""  ],   DecodePacket("a:r*,:@1,b:r*,:@100,c:r*", "hallo"));
+  TestEqualRecord(33, [ a := "ollah", b := "olla", c:= ""  ],   DecodePacket("a:R*,:@1,b:R*,:@100,c:r*", "hallo"));
   TestEqualFloat (34, -37f,   DecodePacket("a:F", DecodeBase16("00000000008042C0")).a);
   TestEqualFloat (35, 37f,   DecodePacket("a:F2", DecodeBase16("000000000080424000000000008042C0")).a[0]);
   TestEqualFloat (36, -37f,   DecodePacket("a:F2", DecodeBase16("000000000080424000000000008042C0")).a[1]);
