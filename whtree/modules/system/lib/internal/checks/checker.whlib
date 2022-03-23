@@ -87,16 +87,15 @@ PUBLIC MACRO DeleteOldSnoozes()
 
 RECORD ARRAY FUNCTION RunDevelopmentChecks()
 {
-  RECORD ARRAY node_issues := CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
+  RECORD ARRAY node_issues := SELECT msg := `:Node module issue in WebHare Platform: ${error}`
+                                FROM CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
   FOREVERY (STRING module FROM __SYSTEM_GetInstalledModuleNames())
   {
     STRING path := GetModuleInstallationRoot(module);
-    node_issues := node_issues CONCAT CheckNodeModulesInModule(path);
+    node_issues := node_issues CONCAT SELECT msg := `:Node module issue in ${module}: ${error}`
+                                        FROM CheckNodeModulesInModule(path);
   }
-
-  RETURN
-      SELECT msg :=   ":" || error || " in " || basepath
-        FROM node_issues;
+  RETURN node_issues;
 }
 
 ASYNC FUNCTION RunAsyncChecks()

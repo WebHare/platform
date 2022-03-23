@@ -9,7 +9,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 OBJECT assetpackcontrol;
 
@@ -97,8 +96,6 @@ IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "recompile", "rebuil
 
 IF (args.color OR IsConsoleATerminal())
   SetAnsiCmdMode("enabled");
-
-OpenPrimary();
 
 TRY
 {
@@ -390,6 +387,7 @@ SWITCH (args.command)
   }
   CASE "autocompile"
   {
+    OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.params,
                                   [ [ name := "state", type := "param" ]
                                   ]);
@@ -408,13 +406,14 @@ SWITCH (args.command)
       ELSE IF (subargs.state NOT IN [ "1", "on", "enabled" ])
         Syntax(`Allowed autocompilation values: on/off\n`);
 
-      GetPrimary()->BeginWork();
+      trans->BeginWork();
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", newsuspend);
-      GetPrimary()->CommitWork();
+      trans->CommitWork();
     }
   }
   CASE "__getassetpacksbaseconfig"
   {
+    OpenPrimary();
     RECORD config := WaitForPromise(assetpackcontrol->GetAssetPacksBaseConfig());
     DumpValue(config,'tree');
   }
