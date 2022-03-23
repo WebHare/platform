@@ -39,7 +39,7 @@ NOEXEC=1 # make sure noderun is not terminal
 FAILED=0
 
 if [ -n "$ONLYBROKEN" ]; then
-  MODULESLIST=($(wh run mod::system/scripts/internal/listupdatablenodefolders.whscr))
+  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr))
 elif [ "$#" == 0 ]; then
   MODULESLIST=($(wh getmodulelist))
   if [ "$ONLYMODULES" != "1" ]; then
