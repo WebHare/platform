@@ -4,8 +4,10 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/jobs.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -47,6 +49,16 @@ BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 
+BOOLEAN interrupted;
+RECORD interruptdefer := CreateDeferredPromise();
+MACRO AbortTests()
+{
+  PrintTo(2,`Interrupt received..\n`);
+  SetConsoleExitCode(250);
+  interrupted := TRUE;
+  interruptdefer.resolve([ done := FALSE, value := [ type := "interrupt" ]]);
+}
+AddInterruptCallback(PTR AbortTests);
 
 MACRO MyPrint(STRING message)
 {
@@ -182,7 +194,9 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       {
         IF (tries != 0)
           MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Retry failed flaky test " || testinfo.testname  || " (try " || tries + 1 || ")\n");
-        success := run_in_job ? RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail) : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env);
+
+        success := run_in_job ? WaitForPromise(RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail))
+                              : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env);
         IF (success OR NOT testinfo.flaky)
           BREAK;
       }
@@ -434,6 +448,9 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
           currtype := "err";
         PrintTo(outputstream, output);
       }
+
+      IF(interrupted)
+        InterruptProcess(procid);
     }
 
     IF (NOT any_output AND NOT IsProcessrunning(procid))
@@ -485,7 +502,12 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   RETURN (exitcode = 0) != xfail;
 }
 
-BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
+RECORD FUNCTION ReturnTimeout(INTEGER timeoutduration)
+{
+  RETURN [ done := FALSE, value := [ type := "timeout" ]];
+}
+
+ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
 {
   BOOLEAN success := TRUE;
 
@@ -524,70 +546,32 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
   STRING alloutput;
   STRING currtype := "";
 
-  DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
+  //DATETIME timeout := AddTimeToDate(timeout_minutes * 60 * 1000, GetCurrentDateTime());
   BOOLEAN is_timeout;
 
-  WHILE (TRUE)
+  OBJECT itr := MakeJobAsyncIterator(job, CELL[ outputhandle := joboutput, autoclose := FALSE ]);
+  OBJECT timeout := CreateSleepPromise(timeout_minutes * 60 * 1000)->Then(PTR ReturnTimeout);
+
+  FOR (RECORD evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]); NOT evt.done; evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]))
   {
-    INTEGER handle := WaitForMultipleUntil([joboutput], DEFAULT INTEGER ARRAY, timeout);
-    IF (handle = -1 AND timeout <= GetCurrentDateTime()) // timeout
+    SWITCH(evt.value.type)
     {
-      is_timeout := TRUE;
-      BREAK;
-    }
-
-    BOOLEAN any_output := FALSE;
-    WHILE (TRUE)
-    {
-      STRING output := ReadFrom(joboutput, -16384);
-      IF (output = "")
-        BREAK;
-      IF (print_output)
+      CASE "timeout"
       {
-        any_output := TRUE;
-        IF (currtype = "err")
-          PrintTo(outputstream, "\n");
-        ELSE IF (currtype != "out")
-          PrintTo(outputstream, "> ");
-        output := Substitute(output, "\r", "\r> ");
-        output := Substitute(output, "\n", "\n> ");
-        IF (output LIKE "*\n> ")
-        {
-          currtype := "";
-          output := LEFT(output, LENGTH(output) - 2);
-        }
-        ELSE
-          currtype := "out";
-        PrintTo(outputstream, output);
+        is_timeout := TRUE;
+        BREAK;
+      }
+      CASE "output"
+      {
+        STRING output := evt.value.data;
+        PrintTo(outputstream, output||"\n");
+      }
+      CASE "interrupt"
+      {
+        job->Terminate();
+        BREAK;
       }
     }
-
-    /*WHILE (TRUE)
-    {
-      STRING output := ReadProcessErrors(procid);
-      IF (output = "")
-        BREAK;
-      IF (print_errors)
-      {
-        any_output := TRUE;
-        IF (currtype = "out")
-          PrintTo(outputstream, "\n");
-        ELSE IF (currtype != "err")
-          PrintTo(outputstream, "! ");
-        output := Substitute(output, "\n", "\n! ");
-        IF (output LIKE "*\n! ")
-        {
-          currtype := "";
-          output := LEFT(output, LENGTH(output) - 2);
-        }
-        ELSE
-          currtype := "err";
-        PrintTo(outputstream, output);
-      }
-    }
-*/
-    IF (NOT any_output AND job->IsSignalled())
-      BREAK;
   }
 
   IF (NOT delay_output AND currtype != "")
@@ -607,11 +591,11 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
       LogHarescriptErrors(errors, [ script := "direct::" || script ]);
   }
 
-  BOOLEAN hasfailed := Length(errors)>0 OR exitcode != 0;
+  BOOLEAN hasfailed := Length(errors)>0 OR exitcode != 0 OR interrupted;
 
   job->Close();
 
-  IF (timeout <= GetCurrentDateTime())
+  IF (is_timeout)
   {
     PRINT(delayed_output);
     Print("Script timed out after " || timeout_minutes || " minutes\n");
@@ -793,16 +777,19 @@ IF(NOT RecordExists(PollWHServiceState("poststartdone")))
     Sleep(100);
 }
 
+
 RECORD ARRAY alltests;
+RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
 WHILE (TRUE)
 {
-  RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
   BOOLEAN seenanytest := FALSE;
 
   RECORD ARRAY failed_tests;
 
   FOREVERY (RECORD test FROM tests)
   {
+    IF(interrupted)
+      BREAK;
     IF(NOT CheckAgainstTags(test.tags, requiretags, excludetags))
       CONTINUE;
 
