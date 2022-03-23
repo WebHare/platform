@@ -16,7 +16,7 @@ LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
-PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
+PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -128,6 +128,51 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
       base.value := this->textvalue;
 
     RETURN base;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD renderinfo := CELL[ ...FormFieldBase::GetRenderTree()
+                             , placeholder := this->placeholder
+                             , type := "text"
+                             , maxlength := CellExists(this->field, 'maxlength') ? this->field.maxlength : 0
+                             , this->value
+                             ];
+
+    IF(CellExists(this->field,'password') AND this->field.password)
+    {
+      renderinfo.type := 'password';
+    }
+    ELSE IF(CellExists(this->field,'valuetype') AND this->field.valuetype = "integer")
+    {
+      renderinfo.type := 'number';
+
+      IF(RecordExists(this->range) AND CellExists(this->range, 'min'))
+        INSERT CELL min := this->range.min INTO renderinfo;
+      ELSE
+        INSERT CELL min := -2147483648 INTO renderinfo;
+
+      IF(RecordExists(this->range) AND CellExists(this->range, 'max'))
+        INSERT CELL max := this->range.max INTO renderinfo;
+      ELSE
+        INSERT CELL max := 2147483647 INTO renderinfo;
+
+      INSERT CELL step := 1 INTO renderinfo;
+    }
+    ELSE IF(CellExists(this->field,'valuetype') AND this->field.valuetype = "money")
+    {
+      renderinfo.type := 'number';
+    }
+    ELSE IF(CellExists(this->field, 'validationchecks') AND  'email' IN this->field.validationchecks)
+    {
+      renderinfo.type := 'email';
+    }
+    ELSE IF(CellExists(this->field, 'validationchecks') AND 'url' IN this->field.validationchecks)
+    {
+      renderinfo.type := 'url';
+    }
+
+    RETURN renderinfo;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
@@ -452,7 +497,7 @@ PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(RECORD field)
   RETURN ["string"];
 }
 
-PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
+PUBLIC STATIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
 <
   // ---------------------------------------------------------------------------
   //
@@ -472,7 +517,7 @@ PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
   }
 >;
 
-PUBLIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
+PUBLIC STATIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
 < // ---------------------------------------------------------------------------
   //
   // Public properties

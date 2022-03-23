@@ -211,6 +211,30 @@ STATIC OBJECTTYPE FormPage
     Print(`</div>`);
   }
 
+  PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD ARRAY fields;
+    FOREVERY(RECORD field FROM this->page.fields)
+    {
+      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
+      IF(NOT fld.obj->IsFrontendVisible())
+        CONTINUE;
+
+      RECORD renderfld := fld.obj->GetRenderTree();
+      IF(RecordExists(renderfld))
+        INSERT renderfld INTO fields AT END;
+    }
+
+    RETURN CELL[ config := CELL[ this->title
+                               , this->page.name
+                               , this->role
+                               , redirect := this->role = "thankyou" ? this->page.redirect : ""
+                               ]
+               , visiblecondition := __ExplainConditions(this->form, OBJECT[ this ], "visiblecondition")
+               , fields
+               ];
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Getters & setters
@@ -725,10 +749,16 @@ PUBLIC OBJECTTYPE FormBase
 
   PUBLIC RECORD FUNCTION GetRenderTree()
   {
+    RECORD ARRAY pages := SELECT AS RECORD ARRAY page.obj->GetRenderTree()
+                            FROM ToRecordArray(this->__formpages, "page")
+                           WHERE page.obj->visible; //eliminate permanently invisible pages
 
     RETURN CELL[ classes := this->formclasses
                , config := BuildFormConfig(this)
+               , variables := this->formvariables
                , dataset := this->formdataset
+               , labels := GetFormLabels(this)
+               , pages
                ];
   }
 

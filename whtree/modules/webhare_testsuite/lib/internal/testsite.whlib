@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -1151,6 +1152,8 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   FillTestFormFile(formfile, options);
   GetPrimary()->PopWork();
 
+  ValidateFormRenderTree(OpenWebtoolForm(formfile->id)->GetRenderTree());
+
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
@@ -1225,15 +1228,13 @@ PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEF
 
   OpenPrimary();
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
+  IF(Length(options.withpayment) > 0)
+    CreateWRDTestSchema(CELL[options.withpayment]);
 
   RECORD formoptions := CELL[...options, DELETE which];
   RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions)
       : options.which = "custom2" ? BuildCustomWebtoolForm2(formoptions)
       : BuildWebtoolForm(formoptions);
-  IF(Length(options.withpayment) > 0)
-  {
-    CreateWRDTestSchema(CELL[options.withpayment]);
-  }
 
   RETURN CELL[...result, DELETE formfile ];
 }

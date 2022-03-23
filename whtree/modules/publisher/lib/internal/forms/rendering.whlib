@@ -4,6 +4,16 @@ LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
+PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)
+{
+  IF(NOT CellExists(groupdescription,'type'))
+    RETURN FALSE;
+  IF(groupdescription.type IN ["radiogroup","checkboxgroup","pulldown"])
+    RETURN CellExists(groupdescription,'options') AND RecordExists(SELECT FROM groupdescription.options WHERE CellExists(options,'fields') AND Length(options.fields)>0);
+  IF(groupdescription.type IN ["radio","checkbox"])
+    RETURN CellExists(groupdescription,'fields') AND Length(groupdescription.fields)>0;
+  RETURN FALSE;
+}
 
 PUBLIC MACRO ValidateSelectRendering(STRING name, RECORD rendersettings)
 {
@@ -354,17 +364,6 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
     DoRenderIntoSubfield(fld, PTR this->RenderFieldContent(fld));
   }
 
-  PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)
-  {
-    IF(NOT CellExists(groupdescription,'type'))
-      RETURN FALSE;
-    IF(groupdescription.type IN ["radiogroup","checkboxgroup","pulldown"])
-      RETURN CellExists(groupdescription,'options') AND RecordExists(SELECT FROM groupdescription.options WHERE CellExists(options,'fields') AND Length(options.fields)>0);
-    IF(groupdescription.type IN ["radio","checkbox"])
-      RETURN CellExists(groupdescription,'fields') AND Length(groupdescription.fields)>0;
-    RETURN FALSE;
-  }
-
   //A groupdescription is a subset of a fielddescription, containing at least name, title, required and groupclasses
   /*PUBLIC*/ MACRO RenderInGroup(RECORD groupdescription, MACRO PTR renderer)
   {
@@ -375,7 +374,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
                                , ...groupdescription.groupclasses
                                ];
 
-    IF(this->HasSubfields(groupdescription))
+    IF(HasSubfields(groupdescription))
       INSERT "wh-form__fieldgroup--hassubfields" INTO useclasses AT END;
 
     BOOLEAN isrequired := groupdescription.required OR (groupdescription.type = "checkboxgroup" AND groupdescription.min >= 1);
@@ -929,4 +928,19 @@ PUBLIC RECORD FUNCTION GetFormVariablesAsDataset(RECORD variables)
     dataset := CellInsert(dataset, `wh-form-var-${ToLowercase(GetSafeName(field.name))}`, UnmapValueType(rowkeytype, field.value, "", FALSE));
   }
   RETURN dataset;
+}
+
+PUBLIC RECORD FUNCTION GetFormLabels(OBJECT form)
+{
+  RETURN [ prev := form->formprevlabel
+         , next := form->formnextlabel
+         , submit := form->formsubmitlabel
+         ];
+}
+
+//TODO: __ExplainConditionsForJS should stop returning encoded json and just give us the JSON - we can more easily do that if we remove the old renderer
+PUBLIC RECORD FUNCTION __ExplainConditions(OBJECT form, OBJECT ARRAY objs, STRING conditionname)
+{
+  STRING encoded := form->__ExplainConditionsForJS(objs, conditionname);
+  RETURN DecodeJSON(encoded ?? "null");
 }

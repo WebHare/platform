@@ -7,6 +7,7 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -35,11 +36,6 @@ PUBLIC MACRO FillInForm()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(formfile->url, [ longurl := RepeatText("X",1000) ])));
 
-  //Verify the form contents
-  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
-  TestEqMembers([ classes := STRING[]
-                ], rendertree, "*");
-
   OBJECT firstemailfield := testfw->browser->document->QuerySelector("input[type=email]");
   TestEq("test@beta.webhare.net", firstemailfield->GetAttribute("value"), "Prefill failed");
   TestEqLike("webtoolform-*", firstemailfield->GetAttribute("id"), "IDs are incorrect");
@@ -64,6 +60,60 @@ PUBLIC MACRO FillInForm()
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
   emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   TestEq(TRUE, emailfieldname!="", "Email field not found");
+
+  //Verify the form contents through the rendertree
+  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+
+  TestEqMembers([ classes := STRING[]
+                , pages :=
+                  [ [ config := [ role := ""
+                                ]
+                    , fields := [[ hidetitle := FALSE
+                                 , qname := "http://www.webhare.net/xmlns/publisher/forms#textedit"
+                                 , htmltitle := "First name"
+                                 //, prefix := ""
+                                 //, suffix := ""
+                                 , type := "text"
+                                 , maxlength := 0
+                                 , required := FALSE
+                                 , name := "firstname"
+                                 , value := ""
+                                 , autocomplete := STRING["given-name"]
+                                 , groupclasses := STRING[]
+                                 ]
+                                ,[ htmltitle := "Email"
+                                 , type := "email"
+                                 , required := TRUE
+                                 , value := ""
+                                 ]
+                                ,[ htmltitle := "Groups &#38; stuff" ]
+                                ,[ htmltitle := "Upload" ]
+                                ,[ htmltitle := "Date" ]
+                                ,[ htmltitle := "CustomSelect" ]
+                                ,[ htmltitle := "Textarea"
+                                 , value := ""
+                                 ]
+                                ,[ htmltitle := "Checkboxes" ]
+                                ,[ htmltitle := "Radio" ]
+                                ,[ htmltitle := "Number"
+                                 , type := "number"
+                                 , min := -2147483648
+                                 , max := 2147483647
+                                 , value := 0
+                                 ]
+                                ,[ htmltitle := "Checkbox" ]
+                                ,[ htmltitle := "Address" ]
+                                ,[ htmltitle := "Time" ]
+                                ,[ htmltitle := "Imgedit" ]
+                                ]
+                   ]
+                 , [ config := [ role := "thankyou"
+                               ]
+                   ]
+                 ]
+                ], rendertree, "*");
+
+  TestEq(ToUppercase(emailfieldname), ToUppercase(rendertree.pages[0].fields[1].name), "verify email name case-insensitively");
 
   RECORD submitrec := [ firstname := "Piëtje"
                       , upload := [ filename := "allstar.txt"
