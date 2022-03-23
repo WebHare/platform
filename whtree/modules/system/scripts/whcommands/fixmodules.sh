@@ -57,7 +57,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
     npm install --no-save --ignore-scripts
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
-      echo NPM FAILED with errorcode $NPMRETVAL
+      echo NPM FAILED with errorcode $RETVAL
       FAILED=1
     fi
   else # MODULENAME != webhare
@@ -76,7 +76,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
           npm install --ignore-scripts --no-save
           RETVAL=$?
           if [ "$RETVAL" != "0" ]; then
-            echo NPM FAILED with errorcode $NPMRETVAL
+            echo NPM FAILED with errorcode $RETVAL
             FAILED=1
           fi
         fi
