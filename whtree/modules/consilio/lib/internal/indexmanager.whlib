@@ -157,6 +157,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
       [ status := SearchIndexNotFound
       , indices := DEFAULT INTEGER ARRAY
       , suffixes := DEFAULT STRING ARRAY
+      , statuses := DEFAULT RECORD ARRAY
       ];
 
   RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid);
@@ -186,19 +187,16 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
       }
       CASE whconstant_consilio_indexmanager_opensearch
       {
-        RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/indices/?format=json", DEFAULT RECORD, "GET");
+        RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/indices/?format=json&bytes=b", DEFAULT RECORD, "GET");
         result.status := response.status;
         IF (response.status = SearchOk)
         {
           //Find the indices we were expecting here
           RECORD ARRAY matchagainst := SELECT * FROM indexmanagers WHERE indexname != "";
 
-          // Unmanaged indices may have a suffix: <prefix>__<indexid>-<suffix>
-
-          // 0      1      2     3    4   5   6          7            8          9
-          // health status index uuid pri rep docs.count docs.deleted store.size pri.store.size
           RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
 
+          // Unmanaged indices may have a suffix: <indexname>-<suffix>
           indexlist := SELECT *
                             , indexname := indexlist."index"
                             , matchindex := (SELECT *
@@ -209,19 +207,41 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
 
           indexlist := SELECT indexid := matchindex.indexid
                             , suffix := Substring(indexname, Length(matchindex.indexname)+1)
+                            , health
+                            , docs := ToInteger(indexlist."docs.count", 0)
+                            , size := ToInteger(indexlist."pri.store.size", 0)
+                            , indexname
                          FROM indexlist
                         WHERE RecordExists(matchindex);
 
           IF (options.indexsuffixes != 0)
+          {
+            result.statuses :=
+                SELECT suffix
+                     , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
+                     , docs := Sum(docs)
+                     , size := Sum(size)
+                  FROM indexlist
+                 WHERE indexid = options.indexsuffixes
+                 GROUP BY suffix;
             result.suffixes :=
-                SELECT AS STRING ARRAY DISTINCT suffix
-                  FROM indexlist
-                 WHERE indexid = options.indexsuffixes;
+                SELECT AS STRING ARRAY suffix
+                  FROM result.statuses;
+          }
           ELSE
-            result.indices :=
-                SELECT AS INTEGER ARRAY DISTINCT indexid
+          {
+            result.statuses :=
+                SELECT indexid
+                     , health := PickFirst(SELECT AS STRING ARRAY health FROM GroupedValues(indexlist) ORDER BY SearchElement([ "red", "yellow", "green" ], health))
+                     , docs := Sum(docs)
+                     , size := Sum(size)
                   FROM indexlist
-                 WHERE indexid != 0;
+                 WHERE indexid != 0
+                 GROUP BY indexid;
+            result.indices :=
+                SELECT AS INTEGER ARRAY indexid
+                  FROM result.statuses;
+          }
         }
       }
     }
