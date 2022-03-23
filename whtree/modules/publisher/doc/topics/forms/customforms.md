@@ -127,6 +127,7 @@ The following witty fields are available when setting up the form template.
 - `[formallfields]`: Renders all fields in the form
 - `[formbuttons]`:
 - `[formrender]`:
+- `[formclasses]`: A string array with additional formclasses to use
 - `[<field>.render]`: Renders the specified field
 
 ## Form storage
