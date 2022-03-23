@@ -1,18 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
 <!-- ADDME Try to share language and gid stuff with tollium, but need a proper importer for that -->
-
-<xs:schema
-  xmlns="http://www.webhare.net/xmlns/wrd/forms"
-  xmlns:f="http://www.webhare.net/xmlns/publisher/forms"
-  xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
-  xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
-  xmlns:sc="http://www.webhare.net/xmlns/system/common"
-  xmlns:html="http://www.w3.org/1999/xhtml"
-  targetNamespace="http://www.webhare.net/xmlns/wrd/forms"
-  elementFormDefault="qualified"
-  xml:lang="en">
+<xs:schema xmlns="http://www.webhare.net/xmlns/wrd/forms"
+           xmlns:f="http://www.webhare.net/xmlns/publisher/forms"
+           xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           targetNamespace="http://www.webhare.net/xmlns/wrd/forms"
+           xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms" schemaLocation="mod::publisher/data/forms/formdef.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
@@ -21,14 +15,12 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <f:formcomponent
-            linecomponent="false"
-            editdefaults="name title hidetitle required groupclasses"
-            tid="forms.paymentmethod.name"
-            parserfunc="/lib/webtools/paymentmethod.whlib#__parsepaymentmethod"
-            fieldobject="/lib/webtools/paymentmethod.whlib#PaymentMethodField"
-            supportedvalues="record"
-            />
+          <fai:formcomponent editdefaults="name title hidetitle required groupclasses"
+                             fieldobject="/lib/webtools/paymentmethod.whlib#PaymentMethodField"
+                             linecomponent="false"
+                             parserfunc="/lib/webtools/paymentmethod.whlib#__parsepaymentmethod"
+                             supportedvalues="record"
+                             tid="forms.paymentmethod.name" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="f:BaseAttributes" />
@@ -42,12 +34,10 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <f:formhandler
-            icon="tollium:actions/confirm"
-            tid="forms.wrdauthprefill.name"
-            descriptiontid="forms.wrdauthprefill.description"
-            handlerobject="/lib/webtools/formhandlers.whlib#wrdauthprefillhandler"
-            />
+          <fai:formhandler descriptiontid="forms.wrdauthprefill.description"
+                           handlerobject="/lib/webtools/formhandlers.whlib#wrdauthprefillhandler"
+                           icon="tollium:actions/confirm"
+                           tid="forms.wrdauthprefill.name" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="f:HandlerAttributes" />
@@ -58,11 +48,10 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <f:formhandler
-            tid="forms.paymenthandler.handler"
-            handlerobject="/lib/webtools/paymenthandler.whlib#PaymentHandler"
-            editextension="/lib/webtools/paymenthandler.xml#paymentsettings"
-            parserfunc="/lib/webtools/paymenthandler.whlib#PaymentHandlerParser" />
+          <fai:formhandler editextension="/lib/webtools/paymenthandler.xml#paymentsettings"
+                           handlerobject="/lib/webtools/paymenthandler.whlib#PaymentHandler"
+                           parserfunc="/lib/webtools/paymenthandler.whlib#PaymentHandlerParser"
+                           tid="forms.paymenthandler.handler" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="sc:FormHandlerAttributes" />
