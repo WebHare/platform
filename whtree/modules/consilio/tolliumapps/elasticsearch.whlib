@@ -21,7 +21,7 @@ PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
   {
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
-                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                               WHERE type = whconstant_consilio_indexmanager_opensearch
                             ORDER BY ToUppercase(name);
     this->RefreshIndices();
   }
@@ -82,7 +82,7 @@ PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
   {
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
-                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                               WHERE type = whconstant_consilio_indexmanager_opensearch
                             ORDER BY ToUppercase(name);
     ^indexmanager->SetValueIfValid(data.indexmanager);
     ^query->value := PrettifyJSON(EncodeJSON(data.query));

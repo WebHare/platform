@@ -774,7 +774,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
   MACRO OnIndexManagerChange()
   {
     RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = ^indexmanager->value;
-    ^indexname->visible := RecordExists(indexmgr) AND indexmgr.type = whconstant_consilio_indexmanager_elasticsearch;
+    ^indexname->visible := RecordExists(indexmgr) AND indexmgr.type = whconstant_consilio_indexmanager_opensearch;
     ^indexname->required := ^indexname->visible;
     IF(^indexname->value = "" AND ^indexname->visible) //lets suggest one
       ^indexname->value := Substitute(^name->value, ":", whconstant_consilio_module_sep);

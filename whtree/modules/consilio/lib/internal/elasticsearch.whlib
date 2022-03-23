@@ -79,6 +79,11 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 >;
 
 
+PUBLIC STRING FUNCTION GetElasticsearchAddress()
+{
+  RETURN `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}`;
+}
+
 PUBLIC ASYNC FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
 {
   RETURN AWAIT CreatePromise(PTR ConnectElasticsearch(indexmgrid, #1, #2, waituntil));
@@ -108,7 +113,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
                       ];
 
       IF (indexmanager.address = "builtin-elasticsearch")
-        indexmanager.address := `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_esportoffset}`;
+        indexmanager.address := GetElasticsearchAddress();
 
       // Make sure the address doesn't end with a slash
       IF (indexmanager.address LIKE "*/")

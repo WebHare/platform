@@ -2,6 +2,8 @@
 
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
@@ -33,6 +35,10 @@ SWITCH(args.parameter)
   CASE "backendurl", "primarywebhareinterfaceurl"
   {
     Print(GetPrimaryWebhareInterfaceURL()||"\n");
+  }
+  CASE "opensearchurl"
+  {
+    Print(GetElasticsearchAddress()||"\n");
   }
   DEFAULT
   {

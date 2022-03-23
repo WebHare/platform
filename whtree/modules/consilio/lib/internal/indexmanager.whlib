@@ -44,7 +44,7 @@ PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waitunti
       {
         RETURN WaitForConsilio(indexmgrid, waituntil);
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RETURN WaitForElasticsearch(indexmgrid, waituntil);
       }
@@ -99,7 +99,7 @@ PUBLIC STRING FUNCTION ClearIndexManagerStatus(INTEGER indexmgrid)
         RECORD response := SendToConsilio(indexmanager.id, 0, "/setstatus", DEFAULT RECORD ARRAY, "POST");
         res := response.status;
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         // Not supported, ignore
         res := SearchOk;
@@ -129,7 +129,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
         IF (response.status = SearchOk)
           result.msg := Tokenize(BlobToString(response.content, 1024 * 1024), "\n");
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         result := GetElasticsearchStatus(indexmanager.id);
       }
@@ -184,7 +184,7 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
           }
         }
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/indices/?format=json", DEFAULT RECORD, "GET");
         result.status := response.status;
@@ -257,7 +257,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
     {
       // Not supported, ignore
     }
-    CASE whconstant_consilio_indexmanager_elasticsearch
+    CASE whconstant_consilio_indexmanager_opensearch
     {
       RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]);
       result.status := response.status;
@@ -288,7 +288,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
     {
       // Not supported, ignore
     }
-    CASE whconstant_consilio_indexmanager_elasticsearch
+    CASE whconstant_consilio_indexmanager_opensearch
     {
       IF (indexmanager.indextype = whconstant_consilio_catalogtype_moduleindex)
       {
@@ -379,7 +379,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
       {
         // Not supported, ignore
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         // Define a default mapping by setting the field type for some standard
         // fields to untokenized 'keyword' fields: indexid, groupid, objectid,
@@ -728,7 +728,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                  , now := GetCurrentDateTime()
                                                  ]);
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
 
@@ -989,7 +989,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
           CloseBlobFile(resultstream);
         }
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
 
@@ -1135,7 +1135,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
           }
         }
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         OBJECT tokenizer := NEW TokenStream(query);
         RECORD token := tokenizer->GetNextToken();
@@ -1241,7 +1241,7 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
         IF (response.status = SearchOk)
           size := ToInteger(GetMIMEHeader(response.headers, "Index-Size"), -1);
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         STRING suffix := indexmanager.indextype = 1 ? "*" : "";
         RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD, "GET");
@@ -1353,7 +1353,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             BREAK;
         }
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD response;
         IF (indexmanager.indextype = 1)
@@ -1484,7 +1484,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
           IF (response.status != SearchOk)
             result := result ?? response.status;
         }
-        CASE whconstant_consilio_indexmanager_elasticsearch
+        CASE whconstant_consilio_indexmanager_opensearch
         {
           // No support for groupids in unmanaged indices
           IF (indexmanager.indextype = 1)
@@ -1573,7 +1573,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
           }
         }
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         // For unmanaged indices, delete by document id
         IF (indexmanager.indextype = 1)
@@ -1677,7 +1677,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
                  WHERE objid != "";
           }
         }
-        CASE whconstant_consilio_indexmanager_elasticsearch
+        CASE whconstant_consilio_indexmanager_opensearch
         {
           // No support for outdated documents in unmanaged indices
           IF (indexmanager.indextype = 1)
@@ -1771,7 +1771,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
         IF (result.status = SearchOk)
           result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
         IF (RecordExists(indexinfo) AND indexinfo.type = 2)
@@ -1840,7 +1840,7 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
       {
         // Not supported, ignore
       }
-      CASE whconstant_consilio_indexmanager_elasticsearch
+      CASE whconstant_consilio_indexmanager_opensearch
       {
         RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "", "/_refresh", DEFAULT RECORD, "GET");
         result := response.status;
