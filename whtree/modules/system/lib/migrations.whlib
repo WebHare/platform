@@ -124,7 +124,7 @@ PUBLIC RECORD ARRAY FUNCTION ConvertContentType(STRING srctype, RECORD options D
     desttype->SetInstanceDataByDirectRef(instance.directref, data, [ isvisibleedit := FALSE ]);
 
     IF(desttype->namespace != type->namespace AND instance.settingid = 0) //top level, so we should explicitly delete..
-      type->SetInstanceData(instance.fsobject, type->defaultinstance);
+      type->SetInstanceData(instance.fsobject, type->defaultinstance, [ isvisibleedit := FALSE ]);
   }
 
   RETURN refs;
