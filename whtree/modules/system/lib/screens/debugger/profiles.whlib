@@ -572,7 +572,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GetStackTraceRows()
   {
     RECORD funcsel := this->nameslist->selection;
-    LogDebug("system:debugger-profiling-getstacktracerows", funcsel, this->stacktracelist->visible);
     IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->stacktracelist->visible)
       RETURN DEFAULT RECORD ARRAY;
 
