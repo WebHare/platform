@@ -604,7 +604,7 @@ ASYNC MACRO SetFormStateThroughApp(OBJECT formfile, BOOLEAN open_it)
   TestEq(NOT open_it, TT("available")->value, "Expect inverse 'openit' value");
   TT("available")->value := open_it;
   IF(NOT open_it)
-  TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>Temporarily closed</p>") ];
+    TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>Temporarily closed</p>") ];
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
