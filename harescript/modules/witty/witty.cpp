@@ -1097,6 +1097,13 @@ void ParsedPart::GetWittyData(HSVM_VariableId store, WittyExecutionState *wes, H
                                 HSVM_StringSet(hsvm, store, buf, endptr);
                         }
                         return;
+                case HSVM_VAR_Integer64:
+                        {
+                                char buf[32];
+                                char *endptr = Blex::EncodeNumber<int64_t>(HSVM_Integer64Get(hsvm,var), 10, buf);
+                                HSVM_StringSet(hsvm, store, buf, endptr);
+                        }
+                        return;
                 case HSVM_VAR_String:
                         {
                                 HSVM_CopyFrom(hsvm, store, var);
@@ -1183,6 +1190,8 @@ bool ParsedFile::SM_EvaluateIf(HSVM *hsvm, WittyExecutionState *wes, HSVM_Variab
                         return HSVM_BooleanGet(hsvm, varid);
                 case HSVM_VAR_Integer:
                         return HSVM_IntegerGet(hsvm, varid);
+                case HSVM_VAR_Integer64:
+                        return HSVM_Integer64Get(hsvm, varid);
                 case HSVM_VAR_String:
                         {
                                 Blex::StringPair str;
@@ -1504,6 +1513,13 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedPart::SM_PrintCell(WittyExe
                         {
                                 char buf[32];
                                 char *endptr = Blex::EncodeNumber<int32_t>(HSVM_IntegerGet(hsvm,var), 10, buf);
+                                HSVM_Print(hsvm, endptr-buf, buf);
+                                return std::make_pair(true, true);
+                        }
+                case HSVM_VAR_Integer64:
+                        {
+                                char buf[32];
+                                char *endptr = Blex::EncodeNumber<int64_t>(HSVM_Integer64Get(hsvm,var), 10, buf);
                                 HSVM_Print(hsvm, endptr-buf, buf);
                                 return std::make_pair(true, true);
                         }

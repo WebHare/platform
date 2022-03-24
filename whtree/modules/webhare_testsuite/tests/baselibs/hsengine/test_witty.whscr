@@ -202,6 +202,8 @@ MACRO SimpleTestWTE()
   TestEq(FALSE, scriptid=0);
   TestEq("Test: a", CaptureWTE(scriptid,[ test1 := TRUE, test2 := "a", test3 := "b"]));
   TestEq("Test: b", CaptureWTE(scriptid,[ test1 := FALSE, test2 := "a", test3 := "b"]));
+  TestEq("Test: a", CaptureWTE(scriptid,[ test1 := 2i64, test2 := "a", test3 := "b"]));
+  TestEq("Test: b", CaptureWTE(scriptid,[ test1 := 0i64, test2 := "a", test3 := "b"]));
 
   scriptid := ParseWitty("Test: [forevery test1][test2][/forevery]:[test2]","HTML");
   TestEq(FALSE, scriptid=0);
@@ -741,6 +743,7 @@ MACRO WittyEncoding()
   scriptid := ParseWitty("Test: [bla]", "HTML");
   TestEq(FALSE, scriptid=0);
   TestEq("Test: yeey", CaptureWTE(scriptid,[ bla := "yeey" ]));
+  TestEq('Test: 999999999999999999', CaptureWTE(scriptid,[ bla := 999999999999999999i64 ]));
 
   scriptid := ParseWitty("Test: [bla:cdata]", "HTML");
   TestEq(FALSE, scriptid=0);
@@ -754,6 +757,7 @@ MACRO WittyEncoding()
   TestEq(FALSE, scriptid=0);
   TestEq('Test: 42', CaptureWTE(scriptid,[ test := 42 ]));
   TestEq('Test: 42.123', CaptureWTE(scriptid,[ test := 42.123 ]));
+  TestEq('Test: 999999999999999999', CaptureWTE(scriptid,[ test := 999999999999999999i64 ]));
   TestEq('Test: "42"', CaptureWTE(scriptid,[ test := "42" ]));
   TestEq('Test: {"x":42}', CaptureWTE(scriptid,[ test := [ x := 42 ]]));
   TestEq('Test: {"x":"42"}', CaptureWTE(scriptid,[ test := [ x := "42" ]]));
