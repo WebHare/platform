@@ -16,6 +16,7 @@
 #include <blex/pipestream.h>
 #include <blex/logfile.h>
 #include <blex/crypto.h>
+#include <blex/utils.h>
 #include <blex/socket.h>
 #include <iostream>
 #include <cstdlib>

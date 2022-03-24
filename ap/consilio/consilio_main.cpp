@@ -2,6 +2,7 @@
 
 
 #include <blex/logfile.h>
+#include <blex/utils.h>
 #include <ap/libwebhare/webscon.h>
 #include "consilio_main.h"
 #include "consilio_janitor.h"

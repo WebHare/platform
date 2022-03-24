@@ -400,12 +400,12 @@ void RPCConnection::HookEventSignalled(Blex::Event *)
 
 std::string RPCConnection::GetRequestOpcodeName(uint8_t code)
 {
-        return Database::RequestOpcode::GetName(Database::RequestOpcode::Type(code));
+        return WHMRequestOpcode::GetName(WHMRequestOpcode::Type(code));
 }
 
 std::string RPCConnection::GetResponseOpcodeName(uint8_t code)
 {
-        return Database::ResponseOpcode::GetName(Database::ResponseOpcode::Type(code));
+        return WHMResponseOpcode::GetName(WHMResponseOpcode::Type(code));
 }
 
 } // End of namespace Database

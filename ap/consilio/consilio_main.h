@@ -2,7 +2,6 @@
 #define blex_search_indexmanager_consiliomain
 
 #include <blex/complexfs.h>
-#include "../libwebhare/dbase_client.h"
 #include "../libwebhare/whcore.h"
 #include "../libwebhare/webserve.h"
 

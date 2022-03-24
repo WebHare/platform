@@ -3,10 +3,8 @@
 #include <iostream>
 #include <blex/getopt.h>
 #include <blex/utils.h>
-#include "../libwebhare/dbase.h"
 #include "../libwebhare/whcore.h"
 #include "../libwebhare/webserve.h"
-#include <ap/libwebhare/webharedbprovider.h>
 #include "../libwebhare/eventserver.h"
 #include "server_init.h"
 #include <csignal>
@@ -379,7 +377,6 @@ bool WebHareServer::StartManagementScript()
         vmgroup.reset(group, false);
 
         HSVM *hsvm = group->CreateVirtualMachine();
-        HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(hsvm, "web server management");
         HSVM_SetOutputCallback(hsvm, 0, &WHCore::StandardErrorWriter);
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
 

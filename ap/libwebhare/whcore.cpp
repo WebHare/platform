@@ -8,7 +8,6 @@
 #include <blex/logfile.h>
 #include <harescript/vm/hsvm_events.h>
 
-#include <ap/libwebhare/dbase_client.h>
 #include <iostream>
 
 ///ADDME perhaps: also fallback to default language/skin if specific skins lacks a specific definition
@@ -109,7 +108,6 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
         consilioloc.SetIPAddress("127.0.0.1");
         consilioloc.SetPort(baseport + 3);
 
-        dbaseptr.reset(new Database::TCPFrontend(GetDbaseAddr(), clientname));
         only_shipped_fonts = options.Switch("onlyshippedfonts");
 
         if(options.Exists("moduledir"))
@@ -308,22 +306,6 @@ std::string Connection::GetModuleFolder(std::string const &modulename) const
 void Connection::AddStandardArguments(std::vector<std::string> */*arglist*/)
 {
         // No longer used, the vars here are now pushed through the environment
-}
-
-std::string Connection::GetConfigKey(Database::TransFrontend &trans, std::string const &name)
-{
-        if (trans.GetConfig().GetTableInfo(Blex::StringPair::FromStringConstant("SYSTEM.FLATREGISTRY")) == NULL)
-            return "";
-
-        static const char *columns[]={"DATA",0};
-
-        Database::ClientScanner scan(trans, false, "WHCore: Get config key");
-        scan.AddTable("SYSTEM.FLATREGISTRY", columns);
-        scan.SetLimit(1);
-        scan.AddStringSearch(0, "NAME", name.size(), &name[0], Database::SearchEqual, true);
-        if (scan.NextRow())
-            return scan.GetCell(0).String();
-        return "";
 }
 
 void Connection::ConnectToWHManager()
@@ -1494,7 +1476,7 @@ void ManagerConnection::Thread()
                                         if (!lock.TimedWait(until))
                                             break;
                                 }
-                                throw Database::Exception(Database::ErrorConnectionRefused,"Cannot connect to management server");
+                                throw std::runtime_error("Cannot connect to management server");
                         }
 
                         RPCCOMM_PRINT("Connected to whmanager");

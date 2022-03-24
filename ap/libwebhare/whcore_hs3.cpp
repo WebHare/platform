@@ -4,9 +4,7 @@
 #include <blex/utils.h>
 #include <blex/branding.h>
 #include <harescript/vm/hsvm_dllinterface.h>
-#include "dbase_client.h"
 #include "whcore_hs3.h"
-#include "webharedbprovider.h"
 #include "wh_filesystem.h"
 #include <sstream>
 #include <blex/logfile.h>
@@ -415,8 +413,6 @@ HareScript::VMGroup *ScriptEnvironment::CreateVMGroup(bool highpriority)
 
 void ScriptEnvironment::Init()
 {
-        HareScript::SQLLib::WHDB::Register(environment);
-
         //ADDME: Restore pimpl of HareScript stuff?
         environment.InvokeModuleRegistration(WHCore_ModuleEntryPoint, this);
 
@@ -446,28 +442,13 @@ ScriptEnvironment::~ScriptEnvironment()
 }
 
 /** Load and setup a WebHare-enhanced script */
-
-/* ADDME: Dit gaat allemaal niet al te goed
-   wat er MOET gebeuren is dit:
-
-   LoadScript krijgt een LOAD transactie.
-   Je mag opgeven of je wilt dat het SCRIPT ook deze transactie krijgt
-   of dat het SCRIPT wordt gerund onder de rechten van zijn EIGENAAR ?!?!
-   of moet dit ELDERS geregeld worden?
-*/
 HSVM* ScriptEnvironment::ConstructWHVM(HareScript::VMGroup *group)
 {
-        HSVM *vm = group->CreateVirtualMachine();
-
-        //Initialize WebHare database SQL support
-        HareScript::SQLLib::WHDB::InitializeContext(HareScript::GetVirtualMachine(vm), &whconn.GetDbase());
-        return vm;
+        return group->CreateVirtualMachine();
 }
 
-void ScriptEnvironment::OnNewVM(HSVM *vm)
+void ScriptEnvironment::OnNewVM(HSVM *)
 {
-        //Initialize WebHare database SQL support
-        HareScript::SQLLib::WHDB::InitializeContext(HareScript::GetVirtualMachine(vm), &whconn.GetDbase());
 }
 
 JobManagerIntegrator::JobManagerIntegrator(ScriptEnvironment &/*scriptenv*/, Connection &conn, HareScript::JobManager *jobmgr)
@@ -479,7 +460,6 @@ JobManagerIntegrator::JobManagerIntegrator(ScriptEnvironment &/*scriptenv*/, Con
         HareScript::VMGroup *vmgroup = jobmgr->CreateVMGroup(true);
         HSVM *hsvm = scriptenv.ConstructWHVM(vmgroup);
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
-        HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(hsvm, "WH environment startup script");
 
         bool any_error = !HSVM_LoadScript(hsvm, "modulescript::system/internal/hsvmbootstrap.whscr");
         bool fail=any_error;
@@ -529,17 +509,6 @@ JobManagerIntegrator::JobManagerIntegrator(ScriptEnvironment &/*scriptenv*/, Con
 
 JobManagerIntegrator::~JobManagerIntegrator()
 {
-}
-
-Database::TransFrontend* GetTransFromTableId(HareScript::VirtualMachine *vm, int32_t vm_tableid)
-{
-        HareScript::SQLLib::WHDB::WebHareDBTransaction *whdbtransdriver =
-                HareScript::SQLLib::WHDB::IsWHDBTransaction(vm, vm->GetSQLSupport().GetBindingInfo(vm_tableid).driver);
-
-        if (!whdbtransdriver)
-            return nullptr;
-
-        return &whdbtransdriver->GetDBTrans();
 }
 
 WHFileSystem::RecompileResult ScriptContextData::RecompileLibary(HareScript::ErrorHandler &handler, std::string const &uri, bool force)

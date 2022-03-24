@@ -280,8 +280,6 @@ class JobManagerIntegrator
 /** Register our functions to the environment */
 int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr);
 
-Database::TransFrontend* GetTransFromTableId(HareScript::VirtualMachine *vm, int32_t vm_tableid);
-
 void BLEXLIB_PUBLIC LogHarescriptError(Connection &conn, std::string const &source, std::string const &groupid, std::string const &externalsessiondata, HareScript::ErrorHandler const &errorhandler, std::map< std::string, std::string > const &params);
 
 } //end namespace WHCore
