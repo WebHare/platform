@@ -330,7 +330,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
 
   PUBLIC MACRO RenderForm(RECORD form)
   {
-    STRING ARRAY formclasses := [ "wh-form", "wh-styledinput", ...form.formclasses ];
+    STRING ARRAY formclasses := form.formclasses;
 
     Print(`<form class="${EncodeValue(Detokenize(formclasses,' '))}" `);
     form.formattributes();
