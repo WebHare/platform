@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
@@ -51,15 +50,6 @@ BOOLEAN FUNCTION ReportOnInit(RECORD result)
   RETURN any_error;
 }
 
-MACRO WaitForIndex()
-{
-  GetPrimary()->BeginWork();
-  __SendWHDBCommand(GetPrimary()->id,"SET CLIENT TIMEOUT TO 7200"); //2 hour timeout, index reoncstruction can take longer than 5 minutes hwn busy
-  __SendWHDBCommand(GetPrimary()->id,"WAIT INDEX");
-  __SendWHDBCommand(GetPrimary()->id,"SET CLIENT TIMEOUT TO 300"); //restore original 5 minute timeout
-  GetPrimary()->RollbackWork();
-}
-
 MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
 {
   FOREVERY(STRING msg FROM ro_result.messages)
@@ -98,14 +88,6 @@ MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
 
   RECORD result := InitModuleIndependents(modlist, init_all_modules, TRUE);
   BOOLEAN any_db_error := ReportOnInit(result);
-
-  /* Apply registry updates */
-  IF(GetPrimary()->__is_whdb)
-  {
-    GetPrimary()->BeginWork();
-    __SendWHDBCommand(GetPrimary()->id, "GRANT SELECT ON SCHEMA system_rights TO PUBLIC GRANTED BY _SYSTEM");
-    GetPrimary()->CommitWork();
-  }
 
   //And their startup scripts
   FOREVERY(RECORD module FROM modlist)
@@ -231,10 +213,6 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
     ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
     RETURN;
   }
-
-  //Ensure the index is finished, otherwise we will just interfere and further slow down system startup
-  IF(GetPrimary()->__is_whdb)
-    WaitForIndex();
 
   //bootstrap chicken&egg tables first
   IF (debug)

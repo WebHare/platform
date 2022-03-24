@@ -362,7 +362,6 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
     this->RegisterTransaction(id);
     this->pvt_isauto := auto;
     this->pvt_isprimary := isprimary;
-    this->__is_whdb := TRUE;
 
     IF(this->pvt_isauto)
     {
@@ -863,7 +862,7 @@ PUBLIC MACRO RollbackWHDBTransaction(INTEGER transid) __ATTRIBUTES__(DEPRECATED 
 PUBLIC MACRO __BindWHDBMetaTables(INTEGER whdbtrans)
 {
   OBJECT trans := GetWHDBTransaction(whdbtrans);
-  IF(NOT ObjectExists(trans) OR NOT trans->__is_whdb)
+  IF(NOT ObjectExists(trans))
     RETURN;
   information_schema := BindTransactionToSchema(whdbtrans, "information_schema");
 }

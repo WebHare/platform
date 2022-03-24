@@ -180,50 +180,8 @@ PUBLIC RECORD FUNCTION GenerateWHDBIndependentSQLCommands(RECORD ARRAY schemaspe
 
   FOREVERY(RECORD schemaspec FROM schemaspecs)
   {
-    IF(trans->__is_whdb)
-    {
-      RECORD schemadef := SELECT * FROM GetSchemata() WHERE ToUppercase(schema_name)=ToUppercase(schemaspec.name);
-      IF(RecordExists(schemadef))
-      {
-        IF(ToUppercase(schemaspec.name) NOT IN ["SYSTEM","SYSTEM_RIGHTS"])
-        {
-          //Make sure moduleowner is under control of the modulemanager
-          IF(NOT RecordExists(SELECT FROM GetExplicitRoleGrants()
-                                     WHERE grantor="MODULEOWNER"
-                                           AND grantor_schema=ToUppercase(schemaspec.name)
-                                           AND grantee="MODULEMANAGER"
-                                           AND grantee_schema="SYSTEM"
-                                           AND ToUppercase(role)=ToUppercase(schemaspec.authorization.r)
-                                           AND ToUppercase(role_schema)=ToUppercase(schemaspec.authorization.s)
-                                           AND with_admin))
-          {
-            AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER');
-          }
-        }
-      }
-      ELSE
-      {
-        AddTransOp(PTR trans->CreateSchema(schemaspec.name, schemaspec.authorization.s, schemaspec.authorization.r));
-        IF(ToUppercase(schemaspec.name) NOT IN ["SYSTEM","SYSTEM_RIGHTS"])
-          AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY ' || EncodeWHDB(schemaspec.name) || '.MODULEOWNER');
-      }
-
-      FOREVERY(RECORD role FROM schemaspec.roles)
-      {
-        IF(NOT RecordExists(SELECT FROM GetAllRoles()
-                                   WHERE ToUppercase(role_schema)=ToUppercase(schemaspec.name)
-                                         AND ToUppercase(role_name)=ToUppercase(role.name)))
-        {
-          AddCommand(trans, 'CREATE ROLE ' || EncodeWHDB(schemaspec.name) || '.' || EncodeWHDB(role.name));
-          AddCommand(trans, 'GRANT ' || EncodeWHDB(schemaspec.name) || '.' || EncodeWHDB(role.name) || ' TO SYSTEM.MODULEMANAGER WITH ADMIN OPTION GRANTED BY SYSTEM.MODULEMANAGER');
-        }
-      }
-    }
-    ELSE
-    {
-      IF(NOT RecordExists(SELECT FROM trans->GetSchemaListing() WHERE ToUppercase(schema_name) = ToUppercase(VAR schemaspec.name)))
-        AddTransOp(PTR trans->CreateSchema(schemaspec.name, schemaspec.authorization.s, schemaspec.authorization.r));
-    }
+    IF(NOT RecordExists(SELECT FROM trans->GetSchemaListing() WHERE ToUppercase(schema_name) = ToUppercase(VAR schemaspec.name)))
+      AddTransOp(PTR trans->CreateSchema(schemaspec.name, schemaspec.authorization.s, schemaspec.authorization.r));
   }
 
   RETURN ResultsSoFar();
