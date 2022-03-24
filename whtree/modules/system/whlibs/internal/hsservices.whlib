@@ -97,7 +97,7 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
 
   /** Override this function for your own resolve handling
       @param handle Signalled handle
-      @param context Contet
+      @param context Context
       @return Whether the promise is resolved (and the wait is over)
   */
   BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
