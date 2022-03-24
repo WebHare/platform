@@ -903,19 +903,23 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
 
 PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 {
-  RETURN [ id := form->__form.externalformname
-         , "ref" := form->formref
-         , "backlink" := form->formbacklink
+  RETURN [ formid := form->__form.externalformname
+         , formref := form->formref
+         , backlink := form->formbacklink
          , handler := form->formjshandler
          ];
 }
-PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD formconfig)
+PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)
 {
   RECORD dataset;
-  FOREVERY(RECORD rec FROM UnpackRecord(formconfig))
-    IF(rec.value != "")
-      dataset := CellInsert(dataset, "wh-form-" || rec.name, rec.value);
-
+  IF(rendertree.formid != "")
+    INSERT CELL "wh-form-id" := rendertree.formid INTO dataset;
+  IF(rendertree.formref != "") //TODO encode into wh-form-id
+    INSERT CELL "wh-form-ref" := rendertree.formref INTO dataset;
+  IF(rendertree.backlink != "")
+    INSERT CELL "wh-form-backlink" := rendertree.backlink INTO dataset;
+  IF(rendertree.handler != "")
+    INSERT CELL "wh-form-handler" := rendertree.handler INTO dataset;
   RETURN dataset;
 }
 

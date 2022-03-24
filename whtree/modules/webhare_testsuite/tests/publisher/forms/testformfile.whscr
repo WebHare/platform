@@ -19,7 +19,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
-//to open: https://webhare.moe.sf.webhare.nl/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/form)
+//to open: https://my.webhare.dev/?app=publisher:edit(/webhare-tests/webhare_testsuite.testsite/webtools/form)
 RECORD firstsubmitrec;
 STRING emailfieldname;
 
@@ -66,8 +66,7 @@ PUBLIC MACRO FillInForm()
 
   TestEqMembers([ classes := STRING[]
                 , pages :=
-                  [ [ config := [ role := ""
-                                ]
+                  [ [ role := ""
                     , fields := [[ hidetitle := FALSE
                                  , qname := "http://www.webhare.net/xmlns/publisher/forms#textedit"
                                  , htmltitle := "First name"
@@ -107,8 +106,7 @@ PUBLIC MACRO FillInForm()
                                 ,[ htmltitle := "Imgedit" ]
                                 ]
                    ]
-                 , [ config := [ role := "thankyou"
-                               ]
+                 , [ role := "thankyou"
                    ]
                  ]
                 ], rendertree, "*");

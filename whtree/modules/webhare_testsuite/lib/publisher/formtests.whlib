@@ -5,8 +5,12 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
 {
+  TestEq(FALSE, CellExists(rendertree,'config'), "top-level onfig was eliminated");
+  TestEqLike("?*", rendertree.formid);
+
   FOREVERY(RECORD page FROM rendertree.pages)
   {
+    TestEq(FALSE, CellExists(page,'config'), "page-level onfig was eliminated");
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'title'), "Fields should have 'htmltitle' not 'title'");
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'prefix'), "Fields should have 'htmlprefix' not 'prefix'");
     TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'suffix'), "Fields should have 'htmlsuffix' not 'suffix'");

@@ -225,11 +225,10 @@ STATIC OBJECTTYPE FormPage
         INSERT renderfld INTO fields AT END;
     }
 
-    RETURN CELL[ config := CELL[ this->title
-                               , this->page.name
-                               , this->role
-                               , redirect := this->role = "thankyou" ? this->page.redirect : ""
-                               ]
+    RETURN CELL[ this->title
+               , this->page.name
+               , this->role
+               , redirect := this->role = "thankyou" ? this->page.redirect : ""
                , visiblecondition := __ExplainConditions(this->form, OBJECT[ this ], "visiblecondition")
                , fields
                ];
@@ -754,7 +753,7 @@ PUBLIC OBJECTTYPE FormBase
                            WHERE page.obj->visible; //eliminate permanently invisible pages
 
     RETURN CELL[ classes := this->formclasses
-               , config := BuildFormConfig(this)
+               , ...BuildFormConfig(this)
                , variables := this->formvariables
                , dataset := this->formdataset
                , labels := GetFormLabels(this)
