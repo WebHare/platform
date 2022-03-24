@@ -38,7 +38,6 @@ other `wh` commands.
 To test local backup/restore process (this assumes wh-moe2 is a throwaway installation)
 
 ```bash
-# optionally use WEBHARE_INITIALDB=postgresql
 wh-moe2 freshdbconsole
 # on a second console
 wh-moe2 backuplocal

@@ -1,11 +1,4 @@
 #!/bin/bash
-rm $WEBHARE_DATAROOT/.dbserver.pid 2>/dev/null
-
-if [ "$__WEBHARE_DBASE" == "dbserver" ]; then
-  echo "Starting database server"
-  echo $$ > $WEBHARE_DATAROOT/.dbserver.pid
-  exec ${BASH_SOURCE%/*}/dbserver --listen 127.0.0.1:$WEBHARE_BASEPORT --dbasefolder $WEBHARE_DATAROOT/dbase #forward to classic dbserver
-fi
 
 # Let's start (and setup?) PostgreSQL!
 if [ -z "$WEBHARE_DBASENAME" ]; then
