@@ -23,6 +23,7 @@ class IPCLinkEndPoint;
 class JobManager;
 class OutputObject;
 class BroadcastManager;
+class AsyncStackTrace;
 
 /** WebHare input/output object */
 class BLEXLIB_PUBLIC OutputObject
@@ -39,6 +40,9 @@ class BLEXLIB_PUBLIC OutputObject
         bool wait_ignores_readbuffer;
 
     public:
+        /// Registration stack trace
+        std::unique_ptr< AsyncStackTrace > stacktrace;
+
         inline int GetId() { return id; }
         inline const char * GetType() { return type; }
 

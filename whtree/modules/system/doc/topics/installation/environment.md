@@ -95,6 +95,7 @@ Set debug flags:
 - `consilio:searches`: Consilio searches
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
+- `hs:tracehandlecreation`: Record stack traces when handles are created (currently only outputobjects)
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 

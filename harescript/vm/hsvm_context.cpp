@@ -106,7 +106,11 @@ int OutputObject::Register(HSVM *_vm)
         vm = _vm;
         id = 0;
         if (vm)
-            id = GetVirtualMachine(vm)->outobjects.Set(this);
+        {
+                VirtualMachine *ownervm = GetVirtualMachine(vm);
+                id = ownervm->outobjects.Set(this);
+                stacktrace = ownervm->GetStackTraceForOutputObject();
+        }
 
         return id;
 }
@@ -114,7 +118,10 @@ int OutputObject::Register(HSVM *_vm)
 void OutputObject::Unregister()
 {
         if (vm)
-            GetVirtualMachine(vm)->outobjects.Erase(id);
+        {
+                GetVirtualMachine(vm)->outobjects.Erase(id);
+                stacktrace.reset();
+        }
 
         vm = 0;
         id = 0;
@@ -4090,6 +4097,17 @@ void VirtualMachine::PopAsyncTraceContext()
 {
         if (!vmgroup->asynccontexts.empty())
             vmgroup->asynccontexts.pop_back();
+}
+
+std::unique_ptr< AsyncStackTrace > VirtualMachine::GetStackTraceForOutputObject()
+{
+        std::unique_ptr< AsyncStackTrace > retval;
+        if (profiledata.tracehandlecreation)
+        {
+                retval.reset(new AsyncStackTrace);
+                GetRawAsyncStackTrace(&*retval, 0, nullptr);
+        }
+        return retval;
 }
 
 void VirtualMachine::RegisterHandleKeeper(IdMapStorageRapporter *rapporter)

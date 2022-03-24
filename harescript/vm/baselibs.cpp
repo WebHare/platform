@@ -37,6 +37,8 @@ namespace HareScript {
 
 namespace Baselibs {
 
+using namespace std::literals::string_view_literals;
+
 SystemContextData::SystemContextData()
 : archives("Archive")
 , logs("Log")
@@ -2988,7 +2990,16 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                 stackm.InitVariable(elt, VariableTypes::Record);
                 stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), "Outputobject: " + std::string(type ? type : "unknown"));
                 stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), itr->GetId());
-                stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+
+                VarId var_stacktrace = stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace);
+                if (itr->stacktrace.get())
+                {
+                        std::vector< StackTraceElement > elements;
+                        vm->BuildAsyncStackTrace(*itr->stacktrace, &elements);
+                        GetVMStackTraceFromElements(vm, var_stacktrace, elements, 0, false);
+                }
+                else
+                    stackm.InitVariable(var_stacktrace, VariableTypes::RecordArray);
         }
 
         for (auto &itr: vm->idmapstorages)
@@ -3007,6 +3018,23 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
 void ListHandles(VarId id_set, VirtualMachine *vm)
 {
         EncodeHandleList(vm, vm, id_set);
+}
+
+void SetDebuggingTags(VirtualMachine *vm)
+{
+
+        auto &stackm = vm->GetStackMachine();
+        bool tracehandlecreation = false;
+
+        unsigned tagcount = stackm.ArraySize(HSVM_Arg(0));
+        for (uint32_t idx = 0; idx < tagcount; ++idx)
+        {
+                auto str = stackm.GetString(stackm.ArrayElementGet(HSVM_Arg(0), idx)).stl_stringview();
+                if (str == "hs:tracehandlecreation"sv)
+                    tracehandlecreation = true;
+        }
+
+        vm->SetTraceHandleCreation(tracehandlecreation);
 }
 
 
@@ -3147,6 +3175,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_REMOVEASYNCCONTEXT:::", PopAsyncContext));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_GETASYNCSTACKTRACE::RA:", GetAsyncStackTrace));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_LISTHANDLES::R:", ListHandles));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_SETDEBUGGINGTAGS:::SA", SetDebuggingTags));
 }
 
 void SetupConsole(VirtualMachine &vm)

@@ -63,6 +63,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         , childrencalls :=  this->childrencalls->columns
         , parentcalls :=    this->parentcalls->columns
         , nameslist :=      this->nameslist->columns
+        , stacktracelist := this->stacktracelist->columns
         ];
 
     IF (CellExists(data, "FROMDEBUGGER"))
@@ -259,6 +260,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
   }
 
+  MACRO OnNameSelected()
+  {
+    this->stacktracelist->ReloadList();
+  }
+
   // ---------------------------------------------------------------------------
   //
   // List refreshes
@@ -427,6 +433,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         this->functionslist->visible := "functions" IN lists;
         this->childrencalls->visible := "children" IN lists;
         this->parentcalls->visible := "parents" IN lists;
+        this->stacktracelist->visible := "stacktrace" IN lists;
 
         IF (this->lasttype != "")
           this->SaveInterfaceState(this->lasttype);
@@ -440,6 +447,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           this->ReconfigureList("functionslist", "functions");
         IF ("names" IN lists)
           this->ReconfigureList("nameslist", "names");
+        IF ("stacktrace" IN lists)
+          this->ReconfigureList("stacktracelist", "stacktrace");
+
+        this->ct_children->visible := this->childrencalls->visible;
+        this->ct_parents->visible := this->parentcalls->visible;
+        this->ct_trace->visible := this->stacktracelist->visible;
       }
       ELSE
       {
@@ -451,12 +464,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           this->childrencalls->ReloadList();
         IF (this->parentcalls->visible)
           this->parentcalls->ReloadList();
+        IF (this->stacktracelist->visible)
+          this->stacktracelist->ReloadList();
       }
     }
 
     this->functionslistpart->visible := this->functionslist->visible;
     this->nameslistpart->visible := this->nameslist->visible;
-    this->relationspart->visible := this->childrencalls->visible OR this->parentcalls->visible;
+    this->relationspart->visible := this->childrencalls->visible OR this->parentcalls->visible OR this->stacktracelist->visible;
 
     this->profileslist->borders.bottom := NOT this->relationspart->visible;
     this->nameslist->borders.bottom := NOT this->relationspart->visible;
@@ -554,6 +569,17 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RETURN this->currenthandler->GetChildrenListChildren(funcsel, parentrow);
   }
 
+  RECORD ARRAY FUNCTION GetStackTraceRows()
+  {
+    RECORD funcsel := this->nameslist->selection;
+    LogDebug("system:debugger-profiling-getstacktracerows", funcsel, this->stacktracelist->visible);
+    IF (NOT ObjectExists(this->currenthandler) OR NOT RecordExists(funcsel) OR NOT this->stacktracelist->visible)
+      RETURN DEFAULT RECORD ARRAY;
+
+
+    RETURN this->currenthandler->GetStackTraceRows(funcsel);
+  }
+
   STRING ARRAY FUNCTION GetGenericPath(STRING rowkey)
   {
     STRING ARRAY elts := Tokenize(rowkey, "-");
@@ -586,6 +612,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     STRING library := GetResourceNameFromDiskPath(selection.library, [ allowdiskpath := TRUE ]);
     RECORD posinfo := SELECT * FROM DescribeCompiledLibrary(library).functions WHERE mangledname = selection.functionname;
+
+    posinfo := CELL[ ...posinfo, ...PickCells(selection, [ "line", "col" ]) ];
     IF(RecordExists(posinfo))
       LaunchOpenInEditor(this, library, CELL[ posinfo.line, posinfo.col ]);
   }
@@ -613,6 +641,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoEditParentCallSource()
   {
     this->OpenInEditor(this->parentcalls->selection);
+  }
+
+  MACRO DoEditStackTraceSource()
+  {
+    this->OpenInEditor(this->stacktracelist->selection);
   }
 
   MACRO DoParentOpen()

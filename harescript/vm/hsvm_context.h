@@ -100,6 +100,9 @@ struct ProfileData
         /// Set to true for coverage profile
         bool profile_coverage;
 
+        /// Store stack traces at handle creation
+        bool tracehandlecreation;
+
         /// Profile per function
         struct FunctionProfile
         {
@@ -144,6 +147,7 @@ struct ProfileData
                 profile_functions = false;
                 profile_memory = false;
                 profile_coverage = false;
+                tracehandlecreation = false;
                 library_coverage_map = nullptr;
         };
 
@@ -236,8 +240,9 @@ struct AsyncStackTraceElt
         CodePtr codeptr;
 };
 
-struct AsyncStackTrace
+class AsyncStackTrace
 {
+    public:
         /// Whether this trace is pushed on the current async stack
         bool active;
 
@@ -1055,6 +1060,8 @@ class BLEXLIB_PUBLIC VirtualMachine
         void DisableCoverageProfiling();
         void ResetCoverageProfile();
 
+        void SetTraceHandleCreation(bool trace) { profiledata.tracehandlecreation = trace; }
+
         /** Load a harescript module.
             @return Handle to the module if the load was succesful, or NULL if
                     the load failed. */
@@ -1080,6 +1087,8 @@ class BLEXLIB_PUBLIC VirtualMachine
 
         void PushAsyncTraceContext(std::shared_ptr< AsyncStackTrace > const &trace, std::shared_ptr< AsyncStackTrace > const &prev_segment, unsigned skipframes);
         void PopAsyncTraceContext();
+
+        std::unique_ptr< AsyncStackTrace > GetStackTraceForOutputObject();
 
         void RegisterHandleKeeper(IdMapStorageRapporter *rapporter);
         void UnregisterHandleKeeper(IdMapStorageRapporter *rapporter);

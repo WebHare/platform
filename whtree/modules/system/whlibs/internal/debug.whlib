@@ -19,6 +19,7 @@ VARIANT FUNCTION GetSortedSet(VARIANT input)
 {
   RETURN __HS_SQL_SortArray(input, FALSE, TRUE);
 }
+MACRO __HS_INTERNAL_SETDEBUGGINGTAGS(STRING ARRAY tags) __ATTRIBUTES__(EXTERNAL);
 
 PUBLIC RECORD __debugconfig;
 
@@ -86,6 +87,7 @@ PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
   }
 
   __debugconfig.tags := GetSortedset(__debugconfig.tags);
+  __HS_INTERNAL_SETDEBUGGINGTAGS(__debugconfig.tags);
   RETURN __debugconfig;
 }
 

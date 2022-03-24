@@ -30,6 +30,7 @@
         <enableon source="functionslist" min="1" max="1" onexecute="doeditsource"/>
         <enableon source="childrencalls" min="1" max="1" onexecute="doeditchildrencallsource" />
         <enableon source="parentcalls" min="1" max="1" onexecute="doeditparentcallsource" />
+        <enableon source="stacktracelist" min="1" max="1" onexecute="doeditstacktracesource" />
       </action>
     </actions>
 
@@ -52,6 +53,9 @@
         <item action="editsource" />
       </menu>
       <menu name="parentcallscontext">
+        <item action="editsource" />
+      </menu>
+      <menu name="stacktracecontext">
         <item action="editsource" />
       </menu>
     </menus>
@@ -103,6 +107,7 @@
             <part width="2pr" name="nameslistpart" visible="false">
               <list name="nameslist"
                     selectmode="single"
+                    onselect="onnameselected"
                     sortcolumn="totalheap"
                     sortascending="false"
                     borders="top right"
@@ -117,34 +122,7 @@
           </split>
         </part>
         <part height="1pr" name="relationspart">
-<!--
-          <split type="horizontal">
-            <part width="1pr">
-              <list name="parentcalls"
-                    selectmode="single"
-                    openaction="parentopen"
-                    borders="bottom left"
-                    ongetchildren="getparentlistrows"
-                    ongetpath="getgenericpath"
-                    >
-                <column name="functionname" type="text" tree="true" width="3pr" />
-                <column name="library" type="text" width="2pr" />
-              </list>
-            </part>
-            <part width="1pr">
-              <list name="childrencalls"
-                    selectmode="single"
-                    openaction="childopen"
-                    borders="bottom right"
-                    ongetchildren="getchildrenlistrows"
-                    ongetpath="getgenericpath"
-                    >
-                <column name="functionname" type="text" tree="true" width="3pr" />
-                <column name="library" type="text" width="2pr" />
-              </list>
-            </part>
-          </split>
-<!- - -->
+
           <panel borders="left right" height="1pr">
             <tabs name="calltree" height="1pr">
               <tab name="ct_children" spacers="none">
@@ -177,9 +155,21 @@
                   <column name="library" type="text" width="2pr" />
                 </list>
               </tab>
+              <tab name="ct_trace" spacers="none">
+                <list name="stacktracelist"
+                      selectmode="single"
+                      sortascending="false"
+                      borders="bottom"
+                      ongetrows="getstacktracerows"
+                      selectcontextmenu="stacktracecontext"
+                      emptytid=".nostacktraceavailable"
+                      >
+                  <column name="functionname" type="text" tree="true" width="3pr" />
+                  <column name="library" type="text" width="2pr" />
+                </list>
+              </tab>
             </tabs>
           </panel>
-<!-- -->
         </part>
       </split>
     </body>
