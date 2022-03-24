@@ -113,8 +113,11 @@ Set to 1 to enable debug for various potential startup issues
 ### WEBHARE_ALLOWEPHEMERAL
 Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlayfs.
 
-### $WEBHARE_SHELL_PS1_POSTFIX
+### WEBHARE_SHELL_PS1_POSTFIX
 Text to append to the command prompt when using `wh shell`
+
+### TESTFW_FORCECOLOR
+If set, enables ANSI color within tests (using the test framework) even if no console is available.
 
 ## Testframework
 `wh testdocker` and `wh testmodule` support some extra variables that are useful in CI environments
