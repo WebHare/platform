@@ -874,6 +874,9 @@ PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase
 <
   MACRO NEW()
   {
+    TestEq(["formdefclass1", "formdefclass2"], this->formclasses);
+    this->formclasses := ["mycustomformclass"];
+
     ^second->visiblecondition := FCIsSet(^first);
     ^second->options :=
         SELECT *

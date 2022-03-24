@@ -343,7 +343,7 @@
     </page>
   </form>
 
-  <form name="visibleconditionsform" objectname="formtest.whlib#VisibleConditionsTestForm" jshandler="anyformhandler">
+  <form name="visibleconditionsform" objectname="formtest.whlib#VisibleConditionsTestForm" jshandler="anyformhandler" classes="formdefclass1 formdefclass2">
     <page>
       <select name="first" title="First choice" type="radio">
         <option rowkey="a" title="A" />
