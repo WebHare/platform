@@ -124,7 +124,7 @@ The following witty fields are available when setting up the form template.
 
 - `[formrender]`: Renders the complete form, including `<form>` and `</form>`.
 - `[formattributes]`: Prints the final part of a `<form>` tag. Use like this: `<form class="wh-form" [form.formattributes]>`
-- `[formallpages]`: Renders all pages in the form, whether or not they are on a page
+- `[formallpages]`: Renders all pages in the form
 - `[formallfields]`: Renders all fields in the form, whether or not they are on a page
 - `[formprologue]`: Renders the form position anchor
 - `[formrendernav]`: Render form navigation
