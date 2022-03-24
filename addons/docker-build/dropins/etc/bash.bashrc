@@ -37,6 +37,6 @@ export HISTCONTROL=
 export HISTTIMEFORMAT='%F %T '
 
 # Set prompt - we overwrote bashrc so it's our problem now
-export PS1='\u@\h:\w\$ '
+export PS1="\u@\h:\w$WEBHARE_SHELL_PS1_POSTFIX\$ "
 # Go to home directory so docker exec /bin/bash ends up there
 cd

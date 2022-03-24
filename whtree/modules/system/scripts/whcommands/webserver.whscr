@@ -92,12 +92,13 @@ MACRO AddBackend(STRING ARRAY params)
 {
   RECORD subargs := ParseArguments(params,
       [ [ name := "url", type := "param", required := TRUE ]
+      , [ name := "primary", type := "switch" ]
       , [ name := "virtual", type := "switch" ]
       ]);
 
   IF(NOT RecordExists(subargs))
   {
-    Print("Syntax: wh webserver addbackend [--virtual] <url>\n");
+    Print("Syntax: wh webserver addbackend [--virtual] [--primary] <url>\n");
     SetConsoleExitCode(1);
     TerminateScript();
   }
@@ -128,7 +129,7 @@ MACRO AddBackend(STRING ARRAY params)
          VALUES (webserverid, webserver_port_id, 1, subargs.url, '.html');
 
   BOOLEAN have_interface := RecordExists(SELECT FROM system_internal.webservers WHERE type = 1);
-  IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0)
+  IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0 OR subargs.primary)
   {
     OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
     backendsite->SetPrimaryOutput(webserverid, "/");

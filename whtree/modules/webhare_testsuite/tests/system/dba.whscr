@@ -1,0 +1,68 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestDBA()
+{
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dba"));
+
+  TT("databases")->value := "webharedb\tconsilio\tblacklist";
+  TestEqMembers(
+      [ [ name := "blacklist_pattern_key"
+        , cols := "pattern"
+        , is_unique := "Yes"
+        , is_uppercase := "No"
+        ]
+      , [ name := "blacklist_pkey"
+        , cols := "id"
+        , is_unique := "Yes"
+        , is_uppercase := "No"
+        ]
+      ], (SELECT * FROM TT("indices")->rows ORDER BY name), "*");
+
+  TT("databases")->value := "webharedb\tconsilio\tchecked_servers";
+  TestEqMembers(
+      [ [ name := "checked_servers_pkey"
+        , cols := "id"
+        , is_unique := "Yes"
+        , is_uppercase := "No"
+        ]
+      , [ name := "servers"
+        , cols := "server"
+        , is_unique := "Yes"
+        , is_uppercase := "Yes"
+        ]
+      ], (SELECT * FROM TT("indices")->rows ORDER BY name), "*");
+
+  TT("databases")->value := "webharedb\twrd\tentity_settings";
+  TestEqMembers(
+      [ [ name := "entity_attr"
+        , cols := "entity, attribute"
+        , is_unique := "No"
+        , is_uppercase := "No"
+        ]
+      , [ name := "entity_settings_pkey"
+        , cols := "id"
+        , is_unique := "Yes"
+        , is_uppercase := "No"
+        ]
+      , [ name := "unique_rawdata"
+        , cols := "attribute, unique_rawdata"
+        , is_unique := "Yes"
+        , is_uppercase := "Yes"
+        ]
+      ], (SELECT * FROM TT("indices")->rows WHERE name IN [ "entity_settings_pkey", "unique_rawdata", "entity_attr" ] ORDER BY name), "*");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestDBA
+                 ],
+                 [ testusers :=
+                      [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                      ]
+                 ]);

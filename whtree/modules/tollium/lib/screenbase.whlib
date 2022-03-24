@@ -1103,6 +1103,18 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     RETURN TRUE;
   }
 
+  /** Releases exclusive access
+  */
+  MACRO ReleaseExclusiveAccess()
+  {
+    IF (ObjectExists(this->tollium_exclusivity_handler))
+    {
+      this->tollium_exclusivity_handler->Close();
+      this->tollium_action_exclusivity_handler := DEFAULT OBJECT;
+      this->tollium_exclusivity_handler := DEFAULT OBJECT;
+    }
+  }
+
   /** Sets the result value of the screen, closing it after the current handler returns
       @param returnvalue Value to return. If a Submit handler is present, the type must agree with the return type of that handler
   */

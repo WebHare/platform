@@ -856,6 +856,27 @@ MACRO TestModTimes()
   CloseTest("TestFiles: DetectFiletypeTest");
 }
 
+MACRO TestBlobStream()
+{
+  INTEGER s := CreateStream();
+  TestEQ(0i64, GetStreamLength(s));
+  TestEQ(0i64, GetStreamPointer(s));
+  PrintTo(s, "a");
+  TestEQ(1i64, GetStreamLength(s));
+  TestEQ(1i64, GetStreamPointer(s));
+  PrintTo(s, "bcdef");
+  TestEQ(6i64, GetStreamLength(s));
+  TestEQ(6i64, GetStreamPointer(s));
+  SetStreamPointer(s, 2i64);
+  TestEQ(2i64, GetStreamPointer(s));
+  PrintTo(s, "C");
+  TestEQ(3i64, GetStreamPointer(s));
+  SetStreamPointer(s, 7i64);
+  PrintTo(s, "H");
+  TestThrowsLike("*negative*", PTR SetStreamPointer(s, -1i64));
+  TestEQ("abCdef\x00H", BlobToString(MakeBlobFromStream(s)));
+}
+
 PRINT("\n === Running TestFiles\n");
 LoopbackReaders();
 CSVTest();
@@ -873,3 +894,4 @@ ArchiveEncodingTest();
 DetectFiletypeTest();
 TestRelativePath();
 TestModTimes();
+TestBlobStream();

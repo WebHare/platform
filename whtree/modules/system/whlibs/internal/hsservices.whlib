@@ -96,7 +96,8 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
   //
 
   /** Override this function for your own resolve handling
-      @param context
+      @param handle Signalled handle
+      @param context Context
       @return Whether the promise is resolved (and the wait is over)
   */
   BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
@@ -106,7 +107,7 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncCallbackWaitHelperBase
   }
 
   /** Override this function for your cancel handling
-      @param cancelexception
+      @param cancelexception Cancel exception
   */
   MACRO HandleCancel(OBJECT cancelexception)
   {
@@ -284,8 +285,8 @@ STATIC OBJECTTYPE __HS_INTERNAL_SuspendableFunctionController
   VARIANT ARRAY stack;
 
   /** Final return value
-      @cell(boolean) done
-      @cell(variant) value
+      @cell(boolean) done Whether the generator is done
+      @cell value Return value
   */
   RECORD value;
 
@@ -1417,7 +1418,7 @@ PUBLIC OBJECT FUNCTION AsyncReadLineFrom(INTEGER inputid, INTEGER maxnumbytes, B
     @param outputid Output device to write the data to. The value 0 writes it to the standard output (the same output as @italic Print)
     @param data The blob to write
     @return True if the data was written succesfully, false if an I/O error occured.
-    @see PrintTo, CreateStream, GetDiskResource, MakeBlobFromStream
+    @see PrintTo, wh::files.whlib#CreateStream, wh::files.whlib#GetDiskResource, wh::files.whlib#MakeBlobFromStream
     @example
 //Creates a combined BLOB from file1.txt and file2.txt
 BLOB file1 := GetDiskResource("/tmp/file1.txt");

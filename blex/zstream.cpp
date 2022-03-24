@@ -1002,7 +1002,7 @@ void ZipArchiveWriter::Finalize()
                 Blex::PutLsb< uint16_t >(cdentry.commentln, 0);
                 Blex::PutLsb< uint16_t >(cdentry.startdisk, 0);
                 Blex::PutLsb< uint16_t >(cdentry.infileattr, 0);
-                Blex::PutLsb< uint16_t >(cdentry.exfileattr, uint16_t(it->is_directory ? 0x10 : 0));
+                Blex::PutLsb< uint32_t >(cdentry.exfileattr, uint16_t(it->is_directory ? 0x10 : 0));
                 Blex::PutLsb< uint32_t >(cdentry.reloffset, uint32_t(it->headerpos));
 
                 dest.Write(&cdentry, sizeof(cdentry));

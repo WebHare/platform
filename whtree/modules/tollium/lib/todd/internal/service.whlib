@@ -286,21 +286,25 @@ PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECOR
   OBJECT authplugin := GetWRDAuthPlugin(GetWebOriginURL(pathname));
   OBJECT user := authplugin->GetCurrentWebhareUser();
 
-  //Do we have a working app password?
-  STRING apppassword := DecodeBase64(user->GetRegistryKey("system.webhareconnect.webdavpassword", ""));
-  GetPrimary()->BeginWork();
-  IF(apppassword != "")
+  STRING apppassword;
+  IF (ObjectExists(user))
   {
-    RECORD status := authplugin->userapi->TryAppPasswordLogin("system:webdav", user->login, apppassword, TRUE);
-    IF(NOT RecordExists(status))
-      apppassword := "";
+    //Do we have a working app password?
+    apppassword := DecodeBase64(user->GetRegistryKey("system.webhareconnect.webdavpassword", ""));
+    GetPrimary()->BeginWork();
+    IF(apppassword != "")
+    {
+      RECORD status := authplugin->userapi->TryAppPasswordLogin("system:webdav", user->login, apppassword, TRUE);
+      IF(NOT RecordExists(status))
+        apppassword := "";
+    }
+    IF(apppassword = "") //generate one
+    {
+      apppassword := user->CreateAppPassword("system:webdav","WebHare Connect").password;
+      user->SetRegistryKey("system.webhareconnect.webdavpassword", EncodeBase64(apppassword));
+    }
+    GetPrimary()->CommitWork();
   }
-  IF(apppassword = "") //generate one
-  {
-    apppassword := user->CreateAppPassword("system:webdav","WebHare Connect").password;
-    user->SetRegistryKey("system.webhareconnect.webdavpassword", EncodeBase64(apppassword));
-  }
-  GetPrimary()->CommitWork();
 
   IF(CellExists(data,'componentpath'))
   {
@@ -319,7 +323,7 @@ PUBLIC RECORD FUNCTION RPC_GetWebdavOpenInfo(STRING pathname, STRING item, RECOR
 
   RECORD config := GetWebhareConfiguration();
 
-  RETURN [ login := user->login
+  RETURN [ login := ObjectExists(user) ? user->login : ""
          , password := apppassword
          , item := file
          , data := data

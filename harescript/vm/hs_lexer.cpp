@@ -594,23 +594,22 @@ void Lexer::MovetoNextToken()
                                 // Accept binary/decimal modifiers
                                 if (*state.tokenlimit == '0')
                                 {
-                                        ++state.tokenlimit;
-
-                                        if ((*state.tokenlimit & 0xDF) == 'B')
+                                        if ((*(state.tokenlimit+1) & 0xDF) == 'B')
                                         {
-                                                ++state.tokenlimit;
+                                                MoveByte();
+                                                MoveByte();
                                                 while (*state.tokenlimit == '0' || *state.tokenlimit == '1')
-                                                    ++state.tokenlimit;
+                                                    MoveByte();
                                                 goto parser_return;
-                                        } else if ((*state.tokenlimit & 0xDF) == 'X')
+                                        } else if ((*(state.tokenlimit+1) & 0xDF) == 'X')
                                         {
-                                                ++state.tokenlimit;
+                                                MoveByte();
+                                                MoveByte();
                                                 while ((*state.tokenlimit >= '0' && *state.tokenlimit <= '9')
                                                         || ((*state.tokenlimit & 0xDF) >= 'A' && (*state.tokenlimit & 0xDF) <= 'F'))
-                                                    ++state.tokenlimit;
+                                                    MoveByte();
                                                 goto parser_return;
                                         }
-                                        --state.tokenlimit;
                                 }
                                 else if (*state.tokenlimit == '.')
                                 {

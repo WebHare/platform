@@ -1472,9 +1472,10 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
           STRING expr := ParsePostgreSQLExpressionList(ind.indexprs)[exprpos];
           exprpos := exprpos + 1;
 
-          IF (expr LIKE `COALESCE(*, 0)`)
+          IF (expr LIKE `COALESCE(*, 0)` OR expr LIKE `COALESCE(*, (0)::bigint)`)
           {
-            STRING name := SubString(expr, 9, LENGTH(expr) - 13);
+            STRING name := SubString(expr, 9);
+            name := Left(name, SearchLastSubstring(name, ","));
             INSERT CELL[ name, len := 0 ] INTO indexdef.cols AT END;
             CONTINUE;
           }

@@ -112,6 +112,7 @@ PUBLIC STRING FUNCTION DecodeCharSet(STRING text, STRING charset) __ATTRIBUTES__
            | `a` | NUL-padded string (padded up to specified counter). If `'*'`, simply print string and NUL-terminate |
            | `A` | ASCII-padded string (paddedup to specified counter). If `'*'`, simply print string and space-terminate |
            | `r` | Raw data - inserts a string. If a counter is specified, adds at most that many bytes of the string, if `'*'`, add all data. |
+           | `R` | Raw data - inserts a string in reverse order. If a counter is specified, adds at most that many bytes of the string, if `'*'`, add all data. |
            | `f` | Float (little endian order, 32-bit) |
            | `F` | Double (little endian order, 64-bit) |
            | `g` | Float (big endian order, 32-bit) |
@@ -154,6 +155,7 @@ PUBLIC STRING FUNCTION EncodePacket(STRING format, RECORD data) __ATTRIBUTES__(E
            | `a` | NUL-padded string (padded up to specified counter). If `'*'`, simply read until NUL termination |
            | `A` | ASCII-padded string (paddedup to specified counter). If `'*'`, simply read until space termination |
            | `r` | Raw data - take a string. If a counter is specified, that many bytes is taken. If `'*'`, all remaining bytes are taken. |
+           | `R` | Raw data - take a string and reverse it. If a counter is specified, that many bytes is taken. If `'*'`, all remaining bytes are taken. |
            | `f` | Float (little endian order, 32-bit) |
            | `F` | Double (little endian order, 64-bit) |
            | `g` | Float (big endian order, 32-bit) |

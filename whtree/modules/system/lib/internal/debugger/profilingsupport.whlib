@@ -50,6 +50,11 @@ STATIC OBJECTTYPE DisplayedProfile
     THROW NEW Exception("Must be overridden");
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetStackTraceRows(RECORD functionrow)
+  {
+    THROW NEW Exception("Must be overridden");
+  }
+
   PUBLIC STRING ARRAY FUNCTION GetShownLists()
   {
     RETURN [ "functions", "children", "parents" ];
@@ -1129,25 +1134,31 @@ PUBLIC STATIC OBJECTTYPE DisplayedHandleList EXTEND DisplayedProfile
              , name
              , id
              , namesortkey :=   `${name}\n${Right(`0000000${id}`,8)}`
+             , stacktrace
           FROM this->processed.items;
   }
 
   UPDATE PUBLIC STRING ARRAY FUNCTION GetShownLists()
   {
-    RETURN [ "names" ];
+    RETURN [ "names", "stacktrace" ];
   }
 
   UPDATE PUBLIC RECORD FUNCTION GetListConfig(STRING listtype)
   {
-    RECORD ARRAY columns :=
-        [ [ name :=     "id"
-          , title :=    GetTid("system:debugger.profiles.handle")
-          , type :=     "integer"
-          , decimals := 0
-          , width :=    "12x"
-          , align :=    "right"
-          ]
-        ];
+    RECORD ARRAY columns;
+
+    IF (listtype = "names")
+    {
+      columns :=
+          [ [ name :=     "id"
+            , title :=    GetTid("system:debugger.profiles.handle")
+            , type :=     "integer"
+            , decimals := 0
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          ];
+    }
 
     RETURN
         [ istree :=         FALSE
@@ -1156,4 +1167,16 @@ PUBLIC STATIC OBJECTTYPE DisplayedHandleList EXTEND DisplayedProfile
         , datacolumns :=    columns
         ];
   }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetStackTraceRows(RECORD functionrow)
+  {
+    RETURN
+        SELECT rowkey :=        #stacktrace
+             , functionname :=  `${func}:${line}:${col}`
+             , library :=       filename
+             , line
+             , col
+          FROM functionrow.stacktrace;
+  }
+
 >;

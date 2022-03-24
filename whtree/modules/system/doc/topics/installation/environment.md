@@ -95,6 +95,7 @@ Set debug flags:
 - `consilio:searches`: Consilio searches
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
+- `handles`: Record stack traces when handles are created (currently only outputobjects)
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
@@ -111,6 +112,12 @@ Set to 1 to enable debug for various potential startup issues
 
 ### WEBHARE_ALLOWEPHEMERAL
 Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlayfs.
+
+### WEBHARE_SHELL_PS1_POSTFIX
+Text to append to the command prompt when using `wh shell`
+
+### TESTFW_FORCECOLOR
+If set, enables ANSI color within tests (using the test framework) even if no console is available.
 
 ## Testframework
 `wh testdocker` and `wh testmodule` support some extra variables that are useful in CI environments

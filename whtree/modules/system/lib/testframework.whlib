@@ -2196,6 +2196,9 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , keepratelimits := FALSE
                               ], options);
 
+  IF (GetEnvironmentVariable("TESTFW_FORCECOLOR") != "")
+    SetAnsiCmdMode("enabled");
+
   IF(Length(options.testusers) > 0 OR Length(options.testroles) > 0)
     options.wrdauth := TRUE; //this requires wrdauth
 

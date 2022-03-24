@@ -233,3 +233,10 @@ PUBLIC CONSTANT STRING whconstant_xmlns_systemcommon := "http://www.webhare.net/
 PUBLIC CONSTANT STRING whconstant_xmlns_tolliumappinfo := "http://www.webhare.net/xmlns/tollium/appinfo";
 PUBLIC CONSTANT STRING whconstant_xmlns_tolliumcommon := "http://www.webhare.net/xmlns/tollium/common";
 PUBLIC CONSTANT STRING whconstant_xmlns_screens := "http://www.webhare.net/xmlns/tollium/screens";
+
+// Autoloaded libraries
+PUBLIC CONSTANT STRING ARRAY whconstant_harescript_autoloaded_libraries :=
+    [ "wh::system.whlib"
+    , "wh::internal/hsservices.whlib"
+    , "mod::system/lib/internal/harescript/preload.whlib"
+    ];

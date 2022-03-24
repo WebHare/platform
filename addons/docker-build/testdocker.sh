@@ -34,6 +34,7 @@ FATALERROR=
 ARTIFACTS=
 NOPULL=0
 TESTPOSTGRESQL=
+LOCALDEPS=
 
 while true; do
  if [ "$1" == "--cpuset-cpus" ]; then
@@ -117,6 +118,9 @@ while true; do
   elif [ "$1" == "--testscript" ] ; then
     shift
     TESTSCRIPT=$1
+    shift
+  elif [ "$1" == "--localdeps" ] ; then
+    LOCALDEPS=1
     shift
   elif [[ $1 =~ ^- ]]; then
     echo "Illegal option '$1'"
@@ -338,27 +342,6 @@ else
   fi
 fi
 
-if [ -n "$ADDMODULES" ]; then
-  mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
-  for MODULE in $ADDMODULES; do
-    if [ ! -d "$MODULE" ]; then
-      MODULE="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
-      if [ -z "$MODULE" ]; then
-        exit 1
-      fi
-    fi
-    MODULENAME="$(basename $MODULE)"
-    echo "Copying module $MODULENAME"
-
-    # Don't copy files that won't be committed due to default git ignore rules
-    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-    if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
-      echo "Failed to copy $MODULE"
-      exit 1
-    fi
-  done
-fi
-
 mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
 
 # Fetch dependencies
@@ -368,6 +351,11 @@ do
   MODULENAME=${EXPLAIN_DEPMODULE[$i]}
   MODULE=${EXPLAIN_DEPREPOSITORY[$i]}
   MODULEBRANCH=${EXPLAIN_DEPBRANCH[$i]}
+
+  if [ -n "$LOCALDEPS" ]; then
+    ADDMODULES="$ADDMODULES $MODULENAME"
+    continue
+  fi;
 
   if [[ $MODULE =~ ^https?://.*\.git$ ]]; then
     # Remote git URL
@@ -412,6 +400,26 @@ do
 
   ANYMODS=1
 done
+
+if [ -n "$ADDMODULES" ]; then
+  for MODULE in $ADDMODULES; do
+    if [ ! -d "$MODULE" ]; then
+      MODULE="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
+      if [ -z "$MODULE" ]; then
+        exit 1
+      fi
+    fi
+    MODULENAME="$(basename $MODULE)"
+    echo "Copying module $MODULENAME"
+
+    # Don't copy files that won't be committed due to default git ignore rules
+    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+    if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
+      echo "Failed to copy $MODULE"
+      exit 1
+    fi
+  done
+fi
 
 create_container()
 {

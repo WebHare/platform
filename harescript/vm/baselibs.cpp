@@ -37,6 +37,8 @@ namespace HareScript {
 
 namespace Baselibs {
 
+using namespace std::literals::string_view_literals;
+
 SystemContextData::SystemContextData()
 : archives("Archive")
 , logs("Log")
@@ -1203,7 +1205,7 @@ const char *DecodePacket_Field(VirtualMachine *vm, HSVM_VariableId store, Packet
             return NULL; //With a question mark or one of these types, you HAVE to have a store
         if (packet.repeat == PacketType::HaveQuestion && !strchr("x", packet.type))
             return NULL; //that type doesn't support question marks, or we don't have the required integer as the repeat count
-        if (packet.repeat == PacketType::HaveAsterisk && !strchr("xcCsSlLnNpPaArfFgGbBdDhij", packet.type))
+        if (packet.repeat == PacketType::HaveAsterisk && !strchr("xcCsSlLnNpPaArRfFgGbBdDhij", packet.type))
             return NULL; //that type doesn't support unlimited lengths
 
         if (packet.type == 'x')
@@ -1364,6 +1366,39 @@ const char *DecodePacket_Field(VirtualMachine *vm, HSVM_VariableId store, Packet
                 }
         }
 
+        if (packet.type=='R')
+        {
+                // We don't have string sets that accept all types of iterators, so use an intermediate buffer
+                Blex::SemiStaticPodVector< char, 4096 > buffer;
+                if (packet.repeat == PacketType::HaveAsterisk)
+                {
+                        //Eat remainder
+                        if(store)
+                        {
+                                buffer.resize(std::distance(datapos, end_data));
+                                std::copy(std::make_reverse_iterator(end_data), std::make_reverse_iterator(datapos), buffer.begin());
+                                vm->GetStackMachine().SetString(store, buffer.begin(), buffer.end());
+                        }
+                        return end_data;
+                }
+                else if (packet.repeat == PacketType::HaveCounter)
+                {
+                        if (static_cast<unsigned>(std::distance(datapos, end_data)) < packet.repeatcounter)
+                             return NULL; //Not enough data
+                        if(store)
+                        {
+                                buffer.resize(packet.repeatcounter);
+                                std::copy(std::make_reverse_iterator(datapos+packet.repeatcounter), std::make_reverse_iterator(datapos), buffer.begin());
+                                vm->GetStackMachine().SetString(store, buffer.begin(), buffer.end());
+                        }
+                        return datapos+packet.repeatcounter;
+                }
+                else
+                {
+                        return NULL;
+                }
+        }
+
         if (packet.type=='@' && packet.repeat == PacketType::HaveCounter) //jump to position
         {
                 return std::min(start_data + packet.repeatcounter, end_data);
@@ -1466,7 +1501,7 @@ void EncodePacket_Integer(std::vector<uint8_t> &retval, uint32_t value, unsigned
 
 bool EncodePacket_Field(VirtualMachine *vm, std::vector<uint8_t> &retval, HSVM_VariableId datavar, PacketType const &packet)
 {
-        if (packet.repeat == PacketType::HaveAsterisk && !strchr("cCsSlLnNbBdDaArfFgGhijpP", packet.type))
+        if (packet.repeat == PacketType::HaveAsterisk && !strchr("cCsSlLnNbBdDaArRfFgGhijpP", packet.type))
             return false; //that type doesn't support unlimited lengths
 
         if (packet.type == '@' && packet.repeat == PacketType::HaveCounter)
@@ -1669,6 +1704,22 @@ bool EncodePacket_Field(VirtualMachine *vm, std::vector<uint8_t> &retval, HSVM_V
                 else if (packet.repeat == PacketType::HaveAsterisk)
                 {
                         retval.insert(retval.end(), data.begin, data.end);
+                        return true;
+                }
+        }
+        if (packet.type=='R' && datatype == HSVM_VAR_String)//Raw, reversed
+        {
+                Blex::StringPair data;
+                HSVM_StringGet(*vm, datavar, &data.begin, &data.end);
+
+                if (packet.repeat == PacketType::HaveCounter)
+                {
+                        retval.insert(retval.end(), std::reverse_iterator< const char * >(data.begin + std::min<std::size_t>(data.size(), packet.repeatcounter)), std::reverse_iterator< const char * >(data.begin));
+                        return true;
+                }
+                else if (packet.repeat == PacketType::HaveAsterisk)
+                {
+                        retval.insert(retval.end(), std::reverse_iterator< const char * >(data.end), std::reverse_iterator< const char * >(data.begin));
                         return true;
                 }
         }
@@ -2939,7 +2990,16 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                 stackm.InitVariable(elt, VariableTypes::Record);
                 stackm.SetSTLString(stackm.RecordCellCreate(elt, vm->cn_cache.col_name), "Outputobject: " + std::string(type ? type : "unknown"));
                 stackm.SetInteger(stackm.RecordCellCreate(elt, vm->cn_cache.col_id), itr->GetId());
-                stackm.InitVariable(stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace), VariableTypes::RecordArray);
+
+                VarId var_stacktrace = stackm.RecordCellCreate(elt, vm->cn_cache.col_stacktrace);
+                if (itr->stacktrace.get())
+                {
+                        std::vector< StackTraceElement > elements;
+                        vm->BuildAsyncStackTrace(*itr->stacktrace, &elements);
+                        GetVMStackTraceFromElements(vm, var_stacktrace, elements, 0, false);
+                }
+                else
+                    stackm.InitVariable(var_stacktrace, VariableTypes::RecordArray);
         }
 
         for (auto &itr: vm->idmapstorages)
@@ -2958,6 +3018,23 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
 void ListHandles(VarId id_set, VirtualMachine *vm)
 {
         EncodeHandleList(vm, vm, id_set);
+}
+
+void SetDebuggingTags(VirtualMachine *vm)
+{
+
+        auto &stackm = vm->GetStackMachine();
+        bool tracehandlecreation = false;
+
+        unsigned tagcount = stackm.ArraySize(HSVM_Arg(0));
+        for (uint32_t idx = 0; idx < tagcount; ++idx)
+        {
+                auto str = stackm.GetString(stackm.ArrayElementGet(HSVM_Arg(0), idx)).stl_stringview();
+                if (str == "handles"sv)
+                    tracehandlecreation = true;
+        }
+
+        vm->SetTraceHandleCreation(tracehandlecreation);
 }
 
 
@@ -3098,6 +3175,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_REMOVEASYNCCONTEXT:::", PopAsyncContext));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_GETASYNCSTACKTRACE::RA:", GetAsyncStackTrace));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_LISTHANDLES::R:", ListHandles));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_SETDEBUGGINGTAGS:::SA", SetDebuggingTags));
 }
 
 void SetupConsole(VirtualMachine &vm)
