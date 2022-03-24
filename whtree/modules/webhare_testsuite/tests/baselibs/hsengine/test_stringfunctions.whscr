@@ -439,7 +439,7 @@ MACRO MiscTest()
   TestEq('12', LimitUTF8Bytes('12€!',4));
   TestEq('12..', LimitUTF8Bytes('12€!',4,".."));
   TestEq('1€', LimitUTF8Bytes('12€!',4,"€"));
-  TestThrows(PTR LimitUTF8Bytes('12€!',4,"€€"));
+  TestThrowsLike("The text we have to add if we have to truncate is itself longer than the number of bytes we are allowed to return", PTR LimitUTF8Bytes('12€!',4,"€€"));
 
   TestEqualString(30, 'Hello,\xC2\xA0World', TrimWhitespace('\r\t\n Hello,\xC2\xA0World\t\t \r \n '));
   TestEqual(31, DEFAULT STRING ARRAY, Tokenize("",""));
@@ -480,10 +480,10 @@ MACRO CharsetTest()
   TestEq(FALSE, IsValidUTF8("\x80"));
   TestEq(TRUE, IsValidUTF8("\uD801\uDC37"));
 
-  TestThrows(PTR DecodeCharset("Something about a red fox...\t\r\n", ""));
-  TestThrows(PTR DecodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
-  TestThrows(PTR EncodeCharset("Something about a red fox...\t\r\n", ""));
-  TestThrows(PTR EncodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
+  TestThrowsLike("Unknown charset ''", PTR DecodeCharset("Something about a red fox...\t\r\n", ""));
+  TestThrowsLike("Unknown charset 'UTF-8'", PTR DecodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
+  TestThrowsLike("Unknown charset ''", PTR EncodeCharset("Something about a red fox...\t\r\n", ""));
+  TestThrowsLike("Unknown charset 'UTF-8'", PTR EncodeCharset("Something about a red fox...\t\r\n", "UTF-8")); //UTF-8 is NOT a character set
 
   TestEqualString(14, "mlauts all over the place", EncodeCharset("Ümlauts all over the place", "US-ASCII"));
   TestEqualString(15, "uro", EncodeCharset("€uro", "US-ASCII"));
@@ -659,15 +659,15 @@ MACRO EncodePackettest()
   TestEq("\0\0\0\0", EncodePacket("numnull:x4", [ numnull := 0 ]));
   TestEq("\0\0", EncodePacket("numnull:x?", [ numnull := 2 ]));
   TestEq("\0", EncodePacket("numnull:x?", [ numnull := 1 ]));
-  TestThrows(PTR EncodePacket("numnull:x*", [ numnull := 1 ]));
+  TestThrowsLike("Invalid packet definition 'numnull:x*'", PTR EncodePacket("numnull:x*", [ numnull := 1 ]));
 
   TestEq("000102030405060708090A0B0C0D0E0F", EncodeBase16(EncodePacket(":x,sign8:c,sign16:n,sign32:p,sign64:d", [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ])));
   TestEq("00010302070605040F0E0D0C0B0A0908", EncodeBase16(EncodePacket(":x,sign8:c,sign16:s,sign32:l,sign64:b", [ sign8 := 1, sign16 := 0x203, sign32 := 0x4050607, sign64 := 0x08090A0B * (1i64 BITLSHIFT 32) + 0x0C0D0E0F ])));
 
   TestEq("01020304050607", EncodeBase16(EncodePacket("sign8:c*", [ sign8 := [ 1,2,3,4,5,6,7 ] ] )));
   TestEq("01020304050607", EncodeBase16(EncodePacket("sign8:c7", [ sign8 := [ 1,2,3,4,5,6,7 ] ] )));
-  TestThrows(PTR EncodePacket("sign8:c6", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
-  TestThrows(PTR EncodePacket("sign8:c8", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
+  TestThrowsLike("Invalid packet definition 'sign8:c6'", PTR EncodePacket("sign8:c6", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
+  TestThrowsLike("Invalid packet definition 'sign8:c8'", PTR EncodePacket("sign8:c8", [ sign8 := [ 1,2,3,4,5,6,7 ] ] ));
 
   TestEq("0001020304050607", EncodeBase16(EncodePacket("sign8:D", [ sign8 := ToInteger64("01020304050607",0,16) ] )));
   TestEq("0706050403020100", EncodeBase16(EncodePacket("sign8:b", [ sign8 := ToInteger64("01020304050607",0,16) ])));
@@ -809,7 +809,7 @@ MACRO HsonLegacyPlaceholderTest()
   TestHson_LegacyPlaceholder(9, '{}', CELL[]);
   TestHson_LegacyPlaceholder(11, 'null', DEFAULT RECORD);
 
-  TestHson_LegacyPlaceholder(17, '0.582346', FLOAT(0.5823461));
+  TestHson_LegacyPlaceholder(17, '0.5823461', FLOAT(0.5823461));
 
   TestEq([line:=0], DecodeJSON('{"line":0}'));
 
@@ -901,6 +901,7 @@ MACRO HsonTest(BOOLEAN viablob)
   TestHSONEnDeCode('hson:va[f 0,f 1,""]', VARIANT ARRAY([ 0f, 1f ]) CONCAT VARIANT ARRAY([ "" ]), viablob);
   TestHSONEnDeCode('hson:va[1,2,3]', VARIANT ARRAY([ 1,2,3 ]), viablob);
   TestHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [ 13f, 11111111111111f ], viablob);
+  TestHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [ 1e308, 1e-308, -1e308, -1e-308, 0.0001 ], viablob);
 
   // Large blob, len not dividable by 3
   STRING teststr := "1234567";
@@ -910,7 +911,7 @@ MACRO HsonTest(BOOLEAN viablob)
   TestHSONEnDeCode('hson:b"'||EncodeBase64(teststr)||'"', StringToBlob(teststr), viablob);
 
   //Explicit invalid syntax
-  TestThrows(PTR DecodeHSON("hson:[]"));
+  TestThrowsLike("HSON decoding error: At*: Expected HSON type before '[' token", PTR DecodeHSON("hson:[]"));
 
   TestHSONEnDeCode('hson:o *', DEFAULT OBJECT, viablob);
   TestHSONEnDeCode('hson:oa[]', DEFAULT OBJECT ARRAY, viablob);

@@ -1772,62 +1772,17 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                     } break;
                 case HSVM_VAR_Float:
                     {
-                            signed decimals = 6; // ADDME: what precision do whe want to use?
-
+                            double val = HSVM_FloatGet(vm, to_encode);
                             if (hson)
                             {
                                     const char *str_m = "f ";
                                     dest.insert(dest.end(), str_m, str_m + 2);
-                                    decimals = 20;
                             }
 
-                            double val = HSVM_FloatGet(vm, to_encode);
-                            bool neg = false;
-                            int pointpos = 1;
-                            if (val != 0)
-                            {
-                                    //check if it's negative
-                                    neg = val < 0;
-                                    if (neg)
-                                        val = -val;
-
-                                    //round up the number
-                                    val += (5 / Blex::FloatPow10(decimals+1.0));
-
-                                    //get position of the decimal point
-                                    double logval = std::log10(val);
-                                    pointpos = std::floor(logval) + 1;
-
-                            }
-
-                            if (neg)
-                                dest.push_back('-');
-
-                            if (pointpos < 15)
-                            {
-                                    uint64_t intval = std::floor(val);
-                                    val = (val - intval) * 10;
-
-                                    Blex::EncodeNumber(intval, 10, std::back_inserter(dest));
-                                    pointpos = 0;
-                            }
-                            else
-                                val = val / Blex::FloatPow10(pointpos - 1);
-
-                            for (int i = 0; i < decimals+pointpos; ++i)
-                            {
-                                    if (val == 0 && i >= pointpos)
-                                        break;
-
-                                    if (i == pointpos)
-                                        dest.push_back('.');
-                                    //get one digit (there is only one digit before the decimal point)
-                                    int decimal = std::floor(val);
-                                    //add digit to output
-                                    Blex::EncodeNumber(decimal, 10, std::back_inserter(dest));
-                                    //shift next digit before the decimal point
-                                    val = (val-decimal)*10;
-                            }
+                            Blex::DecimalFloat df;
+                            df.FromFloat(val);
+                            auto str = df.ToFloatString(-1);
+                            std::copy(str.begin(), str.end(), std::back_inserter(dest));
                     } break;
                 case HSVM_VAR_DateTime:
                     {

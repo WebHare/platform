@@ -34,8 +34,8 @@ MACRO FormatFloatTest()
   TestEqualString(10, '9.9', FormatFloat(9.87654321, 1));
   TestEqualString(11, '10', FormatFloat(9.87654321, 0));
 
-  TestEQ("99.99999999999998578914", formatfloat(99.99999999999998223643,99));
-  TestEQ("-99.99999999999998578914", formatfloat(-99.99999999999998223643,99));
+  TestEQ( "99.99999999999999000000", formatfloat(99.99999999999998223643,99));
+  TestEQ("-99.99999999999999000000", formatfloat(-99.99999999999998223643,99));
 
   errors := TestCompile('<?wh FormatFloat("0", "1"); ?>');
   MustContainError(12, errors, 62, 'STRING', 'FLOAT');

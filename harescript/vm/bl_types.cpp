@@ -208,64 +208,11 @@ void HS_FloatToString(VarId id_set, VirtualMachine *vm)
             throw VMRuntimeError(Error::DecimalsOutOfRange, "0", "20");
 
         double val = vm->GetStackMachine().GetFloat(HSVM_Arg(0));
-        bool neg = false;
-        int pointpos = 1;
-        if (val != 0)
-        {
-                //check if it's negative
-                neg = val < 0;
-                if (neg)
-                    val = -val;
 
-                //round up the number
-                val += (5 / Blex::FloatPow10(decimals+1.0));
-
-                //get position of the decimal point
-                double logval = std::log10(val);
-                pointpos = std::floor(logval) + 1;
-        }
-
-        std::string buffer;
-        if (neg)
-            buffer = "-";
-
-        if (pointpos < 15)
-        {
-                uint64_t intval = std::floor(val);
-                val = (val - intval) * 10;
-
-                Blex::EncodeNumber(intval, 10, std::back_inserter(buffer));
-                pointpos = 0;
-        }
-        else
-            val = val / Blex::FloatPow10(pointpos - 1);
-
-        for (int i = 0; i < decimals+pointpos; ++i)
-        {
-                if (i == pointpos)
-                    buffer += ".";
-                //get one digit (there is only one digit before the decimal point)
-                int decimal = std::floor(val);
-                //add digit to output
-                Blex::EncodeNumber(decimal, 10, std::back_inserter(buffer));
-                //shift next digit before the decimal point
-                val = (val-decimal)*10;
-        }
-
-        // pointpos can be too high due to rounding, check for that
-        if (pointpos > 1 && buffer[neg?1:0] == '0')
-            buffer.erase(neg?1:0, 1);
-
-        vm->GetStackMachine().SetSTLString(id_set,buffer);
-
-/* old implementation which somtimes caused access violations
-        char formatstr[10]={0}; //initialize to all zeroes
-                                //max length will be 6 (e.g. "%.20lf")
-        std::sprintf(formatstr, "%%.%lilf", decimals);
-
-        char buffer[100]={0}; //initialize to all zeroes
-        snprintf(buffer, 100, formatstr, val);
-*/
+        Blex::DecimalFloat df;
+        df.FromFloat(val);
+        auto str = df.ToFloatString(decimals);
+        vm->GetStackMachine().SetSTLString(id_set, str);
 }
 
 void HS_StringToFloat(VarId id_set, VirtualMachine *vm)
@@ -276,14 +223,16 @@ void HS_StringToFloat(VarId id_set, VirtualMachine *vm)
         HSVM_StringGet(*vm, HSVM_Arg(0), &val.begin, &val.end);
 
         bool negate = false;
-        if (val.begin != val.end && *val.begin == '-')
+        if (val.begin != val.end && (*val.begin == '-' || *val.begin == '+'))
         {
-                negate = true;
+                if (*val.begin == '-')
+                    negate = !negate;
                 ++val.begin;
         }
-        else if (val.begin != val.end && *val.begin == '+')
+        if (val.begin == val.end)
         {
-                ++val.begin;
+                HSVM_CopyFrom(*vm, id_set, HSVM_Arg(1));
+                return;
         }
 
         const char *finish = val.end;
