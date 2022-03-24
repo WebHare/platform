@@ -996,7 +996,6 @@
       </accesscheck>
     </virtualfs>
 
-    <webdesignplugin name="formintegration" namespace="http://www.webhare.net/xmlns/publisher" objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"  />
     <webdesignplugin name="formintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"  />
     <webdesignplugin name="captchaintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"  />
     <webdesignplugin name="forumplugin" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forum/forumplugin.whlib#forumplugin" hooksfeatures="objectprops" />

@@ -320,9 +320,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
   MACRO NEW(OBJECT webdesign)
   {
     this->webdesign := webdesign;
-    this->formintegrationplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration")
-                                   ??
-                                   webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher", "formintegration");
+    this->formintegrationplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration");
 
     IF(NOT ObjectExists(this->formintegrationplugin))
       THROW NEW Exception(`Rendering a form requires a configured <formintegration /> webdesign plugin`);
