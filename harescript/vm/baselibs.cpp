@@ -3030,7 +3030,7 @@ void SetDebuggingTags(VirtualMachine *vm)
         for (uint32_t idx = 0; idx < tagcount; ++idx)
         {
                 auto str = stackm.GetString(stackm.ArrayElementGet(HSVM_Arg(0), idx)).stl_stringview();
-                if (str == "hs:tracehandlecreation"sv)
+                if (str == "handles"sv)
                     tracehandlecreation = true;
         }
 
