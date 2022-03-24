@@ -26,8 +26,8 @@ PUBLIC INTEGER MaxTextLength := 90;
 PUBLIC INTEGER ARRAY FUNCTION SetObjectsCheckedLinks(RECORD ARRAY objects, BOOLEAN delete_obsolete)
 {
   RECORD ARRAY all_links;
-  INTEGER ARRAY system_fs_settings;
-  INTEGER ARRAY wrd_entity_settings;
+  INTEGER64 ARRAY system_fs_settings;
+  INTEGER64 ARRAY wrd_entity_settings;
 
   // Get the wrd settings and the whfs wettings from the list of objects
   // And group them together per URL
@@ -249,7 +249,7 @@ PUBLIC INTEGER ARRAY FUNCTION SetObjectsCheckedLinks(RECORD ARRAY objects, BOOLE
        WHERE used;
 }
 
-PUBLIC MACRO DeleteCheckedObjectLinks(INTEGER ARRAY wrd_entity_settings, INTEGER ARRAY system_fs_settings, FUNCTION PTR debuglog DEFAULTSTO DEFAULT FUNCTION PTR)
+PUBLIC MACRO DeleteCheckedObjectLinks(INTEGER64 ARRAY wrd_entity_settings, INTEGER64 ARRAY system_fs_settings)
 {
   DELETE FROM consilio.checked_objectlinks
    WHERE wrd_entity_setting IN wrd_entity_settings;
@@ -257,7 +257,7 @@ PUBLIC MACRO DeleteCheckedObjectLinks(INTEGER ARRAY wrd_entity_settings, INTEGER
    WHERE system_fs_setting IN system_fs_settings;
 }
 
-PUBLIC MACRO ProcessLinkCheckedSettings(INTEGER ARRAY all_lc_settings)
+PUBLIC MACRO ProcessLinkCheckedSettings(INTEGER64 ARRAY all_lc_settings)
 {
   RECORD ARRAY objs;
 

@@ -882,7 +882,7 @@ STRING embtemp_instance_packet := "file:L,instance:L,cc:L,md:L,ms:L";
 BOOLEAN use_dbg_instance_packet;
 INTEGER dbb_instance_packet_counter;
 
-STRING FUNCTION GenerateFileEmbeddedObjectRef(INTEGER fileid, INTEGER instanceid, DATETIME creationdate, DATETIME modificationdate)
+STRING FUNCTION GenerateFileEmbeddedObjectRef(INTEGER fileid, INTEGER64 instanceid, DATETIME creationdate, DATETIME modificationdate)
 {
   RECORD encodeddata :=
       [ file :=       fileid
@@ -906,7 +906,7 @@ STRING FUNCTION GenerateFileEmbeddedObjectRef(INTEGER fileid, INTEGER instanceid
   RETURN data;
 }
 
-STRING FUNCTION GenerateFileEmbeddedObjectRefFromSettingId(INTEGER settingid)
+STRING FUNCTION GenerateFileEmbeddedObjectRefFromSettingId(INTEGER64 settingid)
 {
   RECORD whfsrec :=
       SELECT fs_objects.id, fs_objects.creationdate, fs_objects.modificationdate

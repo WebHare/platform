@@ -41,7 +41,7 @@ RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJE
   RETURN newval;
 }
 
-RECORD ARRAY FUNCTION GetCurrentSettingsForInstance(INTEGER instanceid)
+RECORD ARRAY FUNCTION GetCurrentSettingsForInstance(INTEGER64 instanceid)
 {
   RETURN
       SELECT parent
@@ -53,10 +53,10 @@ RECORD ARRAY FUNCTION GetCurrentSettingsForInstance(INTEGER instanceid)
     ORDER BY parent, fs_member;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetCurrentSubSettingsForSetting(INTEGER setting)
+PUBLIC RECORD ARRAY FUNCTION GetCurrentSubSettingsForSetting(INTEGER64 setting)
 {
-  INTEGER instanceid :=
-      SELECT AS INTEGER fs_instance
+  INTEGER64 instanceid :=
+      SELECT AS INTEGER64 fs_instance
         FROM system.fs_settings
        WHERE id = VAR setting;
 
@@ -282,7 +282,7 @@ STATIC OBJECTTYPE WHFSType
   }
 
   // Returns the new element id if allocated, 0 if reused
-  PUBLIC INTEGER FUNCTION __WriteInstanceMember(RECORD newval, RECORD memberrec, BOOLEAN orphansvisible, RECORD ARRAY cursettings, OBJECT remapper, RECORD ARRAY current_member_settings, INTEGER instanceid, INTEGER cursetting, STRING settingdata, INTEGER useordering)
+  PUBLIC INTEGER64 FUNCTION __WriteInstanceMember(RECORD newval, RECORD memberrec, BOOLEAN orphansvisible, RECORD ARRAY cursettings, OBJECT remapper, RECORD ARRAY current_member_settings, INTEGER64 instanceid, INTEGER64 cursetting, STRING settingdata, INTEGER useordering)
   {
     IF (NOT CellExists(newval, "WHFSTYPE"))
       THROW NEW WHFSException("OTHER","Missing field 'WHFSTYPE' for instance field '" || memberrec.name || "'' in type " || this->namespace);
@@ -292,10 +292,10 @@ STATIC OBJECTTYPE WHFSType
       THROW NEW WHFSException("OTHER","Invalid whfstype for instance field '" || memberrec.name || "' in type " || this->namespace || ": type '" || newval.whfstype || "' does not exist");
 
     // make sure old record is thrown away recursively if the type changes
-    INTEGER elementid := Length(current_member_settings) > 0 AND current_member_settings[0].instancetype = instancetype->id ? current_member_settings[0].id : 0;
+    INTEGER64 elementid := Length(current_member_settings) > 0 AND current_member_settings[0].instancetype = instancetype->id ? current_member_settings[0].id : 0i64;
 
     instancetype->__LoadMembers();
-    INTEGER newelementid;
+    INTEGER64 newelementid;
     IF(elementid = 0) //create it in the database
     {
       // No matching DB element
@@ -326,7 +326,7 @@ STATIC OBJECTTYPE WHFSType
         Otherwise, the link is run through the MapWHFSRef function of the remapper (must return a STRING), and
         returned as strings (string arrays).
   */
-  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER cursetting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
+  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER64 cursetting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
   {
     RECORD retval := CELL[];
     RECORD ARRAY getmembers := SELECT *
@@ -560,7 +560,7 @@ STATIC OBJECTTYPE WHFSType
       @cell return.any_nondefault Returns whether any non-default value was written
       @cell return.linkchecked_settingids Link-checked settings that were added/updated
   */
-  PUBLIC RECORD FUNCTION __RecurseSetInstanceData(INTEGER instanceid, INTEGER curmember, INTEGER cursetting, RECORD newdata, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
+  PUBLIC RECORD FUNCTION __RecurseSetInstanceData(INTEGER64 instanceid, INTEGER curmember, INTEGER64 cursetting, RECORD newdata, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
   {
     BOOLEAN any_nondefault := FALSE;
 
@@ -591,7 +591,7 @@ STATIC OBJECTTYPE WHFSType
             THROW NEW WHFSException("INVALIDARG", "Trying to set a value for the non-existing cell '" || testcell.name || "' in content type '" || this->namespace || "'" || didyoumeancell);
         }
 
-    INTEGER ARRAY linkchecked_settingids;
+    INTEGER64 ARRAY linkchecked_settingids;
     RECORD ARRAY killsettings;
 
     FOREVERY(RECORD memberrec FROM (SELECT * FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE)))
@@ -815,12 +815,12 @@ STATIC OBJECTTYPE WHFSType
         CASE 12 //Array
         {
           // Get list of existing ids for the array in the DB
-          INTEGER ARRAY unmatched_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+          INTEGER64 ARRAY unmatched_ids := SELECT AS INTEGER64 ARRAY id FROM current_member_settings;
 
           FOREVERY (RECORD el FROM newval)
           {
             // Try to match the element ot a unmatched element in the DB
-            INTEGER elt_id := CellExists(el, "FS_SETTINGID") ? el.fs_settingid : 0;
+            INTEGER64 elt_id := CellExists(el, "FS_SETTINGID") ? el.fs_settingid : 0i64;
             IF (elt_id != 0)
             {
               INTEGER unmatched_ids_pos := SearchElement(unmatched_ids, elt_id);
@@ -864,9 +864,9 @@ STATIC OBJECTTYPE WHFSType
              embedded images are stored like blobs, but we prefix the setting field with the contentid */
 
           BOOLEAN isrtd := memberrec.type = 15;
-          INTEGER ARRAY all_existing_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+          INTEGER64 ARRAY all_existing_ids := SELECT AS INTEGER64 ARRAY id FROM current_member_settings;
 
-          INTEGER ARRAY ids_in_use;
+          INTEGER64 ARRAY ids_in_use;
 
           IF(TYPEID(newval) != TYPEID(RECORD))
             THROW NEW WHFSException("OTHER","Incorrect type for richdocument field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD, got " || GetTypeName(TYPEID(newval)));
@@ -892,7 +892,7 @@ STATIC OBJECTTYPE WHFSType
             BLOB storetext := isrtd ? newval.htmltext : newval.formtext;
             any_nondefault := TRUE;
 
-            INTEGER rootnodeid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=0;
+            INTEGER64 rootnodeid := SELECT AS INTEGER64 id FROM current_member_settings WHERE ordering=0;
             IF(rootnodeid != 0)
             {
               UPDATE system.fs_settings
@@ -929,7 +929,7 @@ STATIC OBJECTTYPE WHFSType
 
               RECORD settingdata := JoinBlobSetting(embed);
 
-              INTEGER settingid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=1 AND SplitBlobSetting(setting, DEFAULT BLOB, 0).filename = embed.contentid;;
+              INTEGER64 settingid := SELECT AS INTEGER64 id FROM current_member_settings WHERE ordering=1 AND SplitBlobSetting(setting, DEFAULT BLOB, 0).filename = embed.contentid;;
               IF(settingid != 0)
               {
                 UPDATE system.fs_settings
@@ -964,7 +964,7 @@ STATIC OBJECTTYPE WHFSType
             IF(CellExists(newval,'LINKS'))
               FOREVERY(RECORD link FROM newval.links)
               {
-                INTEGER settingid := SELECT AS INTEGER id FROM current_member_settings WHERE ordering=2 AND (setting=link.tag OR setting LIKE link.tag || "\t*");
+                INTEGER64 settingid := SELECT AS INTEGER64 id FROM current_member_settings WHERE ordering=2 AND (setting=link.tag OR setting LIKE link.tag || "\t*");
                 INTEGER linkref;
                 IF (ObjectExists(remapper))
                   linkref := remapper->UnmapWHFSRef(link.linkref);
@@ -1028,7 +1028,7 @@ STATIC OBJECTTYPE WHFSType
         CASE 18
         {
           // Get list of existing ids for the array in the DB
-          INTEGER ARRAY unmatched_ids := SELECT AS INTEGER ARRAY id FROM current_member_settings;
+          INTEGER64 ARRAY unmatched_ids := SELECT AS INTEGER64 ARRAY id FROM current_member_settings;
           IF (RecordExists(newval))
           {
             IF (this->__WriteInstanceMember(newval, memberrec, orphansvisible, cursettings, remapper, current_member_settings, instanceid, cursetting, "", 0) = 0)
@@ -1147,7 +1147,7 @@ STATIC OBJECTTYPE WHFSType
 
     IF(Length(killsettings) > 0)
     {
-      DELETE FROM system.fs_settings WHERE fs_settings.id IN (SELECT AS INTEGER ARRAY killsettings.id FROM killsettings);
+      DELETE FROM system.fs_settings WHERE fs_settings.id IN (SELECT AS INTEGER64 ARRAY killsettings.id FROM killsettings);
     }
 
     RETURN
@@ -1324,10 +1324,10 @@ STATIC OBJECTTYPE WHFSType
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
 
-    INTEGER instance := SELECT AS INTEGER id
-                          FROM system.fs_instances
-                         WHERE fs_type = this->typedef.id
-                               AND fs_object = objectid;
+    INTEGER64 instance := SELECT AS INTEGER64 id
+                            FROM system.fs_instances
+                           WHERE fs_type = this->typedef.id
+                                 AND fs_object = objectid;
 
     RECORD ARRAY allsettings := GetCurrentSettingsForInstance(instance);
 
@@ -1548,7 +1548,8 @@ STATIC OBJECTTYPE WHFSType
       @return Id of instance (0 if no instance was present)
       @see __ExportInstanceData, SetInstanceData
   */
-  PUBLIC INTEGER FUNCTION __ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
+
+  PUBLIC INTEGER64 FUNCTION __ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
   {
     //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
     options := ValidateOptions(
@@ -1558,10 +1559,10 @@ STATIC OBJECTTYPE WHFSType
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
 
-    INTEGER instance := SELECT AS INTEGER id
-                          FROM system.fs_instances
-                         WHERE fs_type = this->typedef.id
-                               AND fs_object = objectid;
+    INTEGER64 instance := SELECT AS INTEGER64 id
+                            FROM system.fs_instances
+                           WHERE fs_type = this->typedef.id
+                                 AND fs_object = objectid;
 
     BOOLEAN isnew := instance=0;
     RECORD ARRAY cursettings;
@@ -1626,7 +1627,7 @@ STATIC OBJECTTYPE WHFSType
       @cell options.orphans Allow to set orphaned cells
       @see GetInstanceData, __ImportInstanceData, FilterInstanceDataUpdates
   */
-  PUBLIC INTEGER FUNCTION SetInstanceData(INTEGER objectid, RECORD newinstancedata, RECORD options DEFAULTSTO CELL[])
+  PUBLIC INTEGER64 FUNCTION SetInstanceData(INTEGER objectid, RECORD newinstancedata, RECORD options DEFAULTSTO CELL[])
   {
     options := ValidateOptions(
         [ isvisibleedit := this->cloneoncopy
@@ -1711,7 +1712,7 @@ STATIC OBJECTTYPE WHFSType
   {
     // Settings directly set on fsobjects
     RECORD ARRAY rootinstances :=
-        SELECT settingid :=       0
+        SELECT settingid :=       0i64
              , fsobject :=        fs_instances.fs_object
              , directref :=       [ __token := [ type := "instanceref", _i := this->typedef.id, _o := fs_instances.fs_object, _s := 0 ] ]
           FROM system.fs_instances
@@ -1789,7 +1790,7 @@ STATIC OBJECTTYPE WHFSType
         INSERT CELL whfstype := this->namespace INTO data;
 
       RECORD ARRAY cursettings := GetCurrentSubSettingsForSetting(directref.__token._s);
-      INTEGER newid := this->__WriteInstanceMember(data, setting.__memberrec, FALSE, cursettings, DEFAULT OBJECT, [ setting ], setting.fs_instance, setting.parent, setting.setting, setting.ordering);
+      INTEGER64 newid := this->__WriteInstanceMember(data, setting.__memberrec, FALSE, cursettings, DEFAULT OBJECT, [ setting ], setting.fs_instance, setting.parent, setting.setting, setting.ordering);
       IF (newid != 0)
         DELETE FROM system.fs_settings WHERE id = directref.__token._s;
     }
@@ -1957,8 +1958,8 @@ BOOLEAN FUNCTION UpdateMember(INTEGER memberid, RECORD memberdata, RECORD oldver
     IF (oldversion.type = 19) // URL
     {
       // From URL to something else -> remove checked links
-      INTEGER ARRAY current_settings :=
-          SELECT AS INTEGER ARRAY id
+      INTEGER64 ARRAY current_settings :=
+          SELECT AS INTEGER64 ARRAY id
             FROM system.fs_settings
            WHERE fs_member = memberid;
 
@@ -1967,8 +1968,8 @@ BOOLEAN FUNCTION UpdateMember(INTEGER memberid, RECORD memberdata, RECORD oldver
     IF (memberdata.type = 19) // URL
     {
       // To URL: add all filled settings to link check
-      INTEGER ARRAY filled_settings :=
-          SELECT AS INTEGER ARRAY id
+      INTEGER64 ARRAY filled_settings :=
+          SELECT AS INTEGER64 ARRAY id
             FROM system.fs_settings
            WHERE fs_member = memberid
              AND setting != "";
@@ -2095,8 +2096,8 @@ PUBLIC MACRO RescanWHFSConsilioLinks()
         FROM system.fs_members
        WHERE type IN [ 15, 16, 19 ]; // RICHDOCUMENT, INTEXTLINK, URL
 
-  INTEGER ARRAY all_settings :=
-      SELECT AS INTEGER ARRAY fs_settings.id
+  INTEGER64 ARRAY all_settings :=
+      SELECT AS INTEGER64 ARRAY fs_settings.id
         FROM system.fs_settings
        WHERE fs_member IN members
          AND ordering = 0; // Needed for RICHDOCUMENT

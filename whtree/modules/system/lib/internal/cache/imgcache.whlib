@@ -35,7 +35,7 @@ BOOLEAN FUNCTION IsImageRefpointRelevant(RECORD resizemethod)
   RETURN resizemethod.method IN ["crop","cropcanvas","fill"];
 }
 
-RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER sourceid)
+RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER64 sourceid)
 {
   SWITCH(sourcetype)
   {
@@ -107,7 +107,7 @@ RECORD FUNCTION GetObjInfo(INTEGER sourcetype, INTEGER sourceid)
           2 = system:whfssettings
           3 = wrd:settings
           */
-PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTEGER sourcetype, INTEGER sourceid, RECORD options)
+PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTEGER sourcetype, INTEGER64 sourceid, RECORD options)
 {
   IF(sourceid = 0)
     RETURN "";

@@ -184,7 +184,7 @@ PUBLIC OBJECTTYPE WidgetBase
       THROW NEW Exception("No rtdtype setup for the current object");
 
     RECORD data := sharedblock.data;
-    INSERT CELL whfssettingid := 0
+    INSERT CELL whfssettingid := 0i64
               , whfsfileid := sharedblock.id
               , whfstype := sharedblock.type_ns
            INTO data;
@@ -395,7 +395,7 @@ PUBLIC MACRO RenderAdhocWidget(RECORD widgetinstance, OBJECT basefsobject, RECOR
     THROW NEW Exception("No such whfstype '" || whfstypename || "'");
   widgetinstance := MakeReplacedRecord(whfstype->defaultinstance, widgetinstance);
 
-  INSERT CELL whfssettingid := CellExists(origwidgetinstance, 'whfssettingid') ? origwidgetinstance.whfssettingid : 0
+  INSERT CELL whfssettingid := CellExists(origwidgetinstance, 'whfssettingid') ? origwidgetinstance.whfssettingid : 0i64
             , whfsfileid := CellExists(origwidgetinstance, 'whfsfileid') ? origwidgetinstance.whfsfileid : 0
             , whfstype := whfstypename
          INTO widgetinstance;

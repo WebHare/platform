@@ -15,7 +15,7 @@ RECORD AGGREGATE FUNCTION GetFirstSetting(RECORD ARRAY data)
   RETURN SELECT * FROM data ORDER BY ordering;
 }
 
-PUBLIC MACRO UpdateCheckedLinksForSettings(INTEGER ARRAY settingids)
+PUBLIC MACRO UpdateCheckedLinksForSettings(INTEGER64 ARRAY settingids)
 {
   // This function is called after each update of the settings. For an updated
   // attribute, a new setting is created, the old one is deleted (and the
@@ -85,13 +85,13 @@ PUBLIC MACRO UpdateCheckedLinksForAttribute(INTEGER attributeid)
     RETURN;
 
   // Retrieve all settings for this attribute and update checked links for all of them
-  INTEGER ARRAY settingids := SELECT AS INTEGER ARRAY id
-                                FROM wrd.entity_settings
-                               WHERE attribute = attributeid;
+  INTEGER64 ARRAY settingids := SELECT AS INTEGER64 ARRAY id
+                                  FROM wrd.entity_settings
+                                 WHERE attribute = attributeid;
 
   IF (NOT attr.checklinks)
   {
-    DeleteCheckedObjectLinks(settingids, DEFAULT INTEGER ARRAY);
+    DeleteCheckedObjectLinks(settingids, INTEGER64[]);
   }
   ELSE
   {

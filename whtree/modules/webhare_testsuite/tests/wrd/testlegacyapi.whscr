@@ -157,7 +157,7 @@ MACRO ImageCache()
                                                      ]
                                         ]);
   TestEq(TRUE, entity.imageid != 0);
-  INTEGER entityid1_imageid := entity.imageid;
+  INTEGER64 entityid1_imageid := entity.imageid;
   TestEq(0, Length(entity.arrayimages));
 
   entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID", test_array := "TEST_ARRAY" ]
@@ -168,7 +168,7 @@ MACRO ImageCache()
   TestEq(TRUE, entity.imageid = 0);
   TestEq(2, Length(entity.arrayimages));
   TestEq(TRUE, entity.arrayimages[0]!=0);
-  TestEq(0, entity.arrayimages[1]);
+  TestEq(0i64, entity.arrayimages[1]);
 
   testfw->CommitWork();
 

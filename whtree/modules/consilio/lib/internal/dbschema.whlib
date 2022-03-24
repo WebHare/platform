@@ -59,10 +59,10 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER "id" NULL := 0
     , INTEGER "link" NULL := 0
-    , INTEGER "system_fs_setting" NULL := 0
+    , INTEGER64 "system_fs_setting" NULL := 0
     , STRING "text"
     , STRING "url"
-    , INTEGER "wrd_entity_setting" NULL := 0
+    , INTEGER64 "wrd_entity_setting" NULL := 0
     ; KEY id
     > checked_objectlinks
   , TABLE

@@ -71,7 +71,7 @@ FOREVERY(RECORD contenttype FROM csp.contenttypes)
     IF(settings.showuse OR settings.republish)
     {
       Print("\n");
-      INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY DISTINCT instanceid FROM (settinginstances CONCAT directinstances);
+      INTEGER64 ARRAY instanceids := SELECT AS INTEGER64 ARRAY DISTINCT instanceid FROM (settinginstances CONCAT directinstances);
       RECORD ARRAY fsobjects := SELECT whfspath, indexurl, fs_objects.id, isfolder
                                   FROM system.fs_objects, system.fs_instances
                                  WHERE fs_instances.id IN instanceids

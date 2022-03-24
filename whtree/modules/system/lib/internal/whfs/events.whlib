@@ -37,8 +37,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   BOOLEAN checksitesettings;
   BOOLEAN scancompilables;
 
-  INTEGER ARRAY linkcheckedremovedsettings;
-  INTEGER ARRAY linkcheckedsettings;
+  INTEGER64 ARRAY linkcheckedremovedsettings;
+  INTEGER64 ARRAY linkcheckedsettings;
 
   RECORD ARRAY deferredindexpromises;
   INTEGER eventcallback;
@@ -115,7 +115,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     FOREVERY (INTEGER id FROM this->emptyupdates)
       PerformEmptyWHFSMetadataUpdate(id, [ republish := TRUE ]);
     IF (LENGTH(this->linkcheckedremovedsettings) != 0)
-      DeleteCheckedObjectLinks(INTEGER[], this->linkcheckedremovedsettings);
+      DeleteCheckedObjectLinks(INTEGER64[], this->linkcheckedremovedsettings);
     IF (LENGTH(this->linkcheckedsettings) != 0)
       ProcessLinkCheckedSettings(this->linkcheckedsettings);
 
@@ -408,12 +408,12 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     this->scancompilables := TRUE;
   }
 
-  PUBLIC MACRO RemoveLinkCheckedSettings(INTEGER ARRAY settingids)
+  PUBLIC MACRO RemoveLinkCheckedSettings(INTEGER64 ARRAY settingids)
   {
     this->linkcheckedremovedsettings := this->linkcheckedremovedsettings CONCAT settingids;
   }
 
-  PUBLIC MACRO AddLinkCheckedSettings(INTEGER ARRAY settingids)
+  PUBLIC MACRO AddLinkCheckedSettings(INTEGER64 ARRAY settingids)
   {
     this->linkcheckedsettings := this->linkcheckedsettings CONCAT settingids;
   }

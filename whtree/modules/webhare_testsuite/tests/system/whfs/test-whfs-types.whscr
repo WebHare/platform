@@ -359,7 +359,7 @@ MACRO InplaceUpdateTest()
   TestEq(got.arraytest[1].fs_settingid, got5.arraytest[1].fs_settingid);
 
   // got5.arraytest[2] must have unique settingid
-  TestEq(FALSE, got5.arraytest[2].fs_settingid IN [ INTEGER(got.arraytest[0].fs_settingid), got.arraytest[1].fs_settingid ]);
+  TestEq(FALSE, got5.arraytest[2].fs_settingid IN INTEGER64[ got.arraytest[0].fs_settingid, got.arraytest[1].fs_settingid ]);
 
   // Copy data to other file, may not alter original data
   testfile2->SetInstanceData("http://www.webhare.net/xmlns/beta/test", got5);

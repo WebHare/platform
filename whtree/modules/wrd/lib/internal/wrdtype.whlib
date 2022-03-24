@@ -90,9 +90,9 @@ STRING FUNCTION HandleInvalidUTF8(STRING attrname, STRING val, STRING decodeinva
 
 RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, RECORD ARRAY newsets, INTEGER ARRAY linkcheckattrs, INTEGER ARRAY whfslinkattrs, OBJECT whfsmapper)
 {
-  INTEGER ARRAY updatedsettings;
-  INTEGER ARRAY linkchecksettings;
-  INTEGER ARRAY deletedsettings;
+  INTEGER64 ARRAY updatedsettings;
+  INTEGER64 ARRAY linkchecksettings;
+  INTEGER64 ARRAY deletedsettings;
   INTEGER ARRAY updatedattrs;
 
   RECORD ARRAY settingupdates;
@@ -179,15 +179,15 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
   IF (LENGTH(deletedsettings) != 0)
     DELETE FROM wrd.entity_settings WHERE id IN deletedsettings;
 
-  INTEGER ARRAY linkchecks :=
-      SELECT AS INTEGER ARRAY id
+  INTEGER64 ARRAY linkchecks :=
+      SELECT AS INTEGER64 ARRAY id
         FROM current
        WHERE used
          AND (attribute IN whfslinkattrs
               OR rawdata = "WHFS"
               OR rawdata = "WHFS:*");
 
-  linkchecks := linkchecks CONCAT SELECT AS INTEGER ARRAY id FROM linksets;
+  linkchecks := linkchecks CONCAT SELECT AS INTEGER64 ARRAY id FROM linksets;
   IF (LENGTH(linkchecks) != 0)
   {
     RECORD ARRAY linkupdates;
@@ -244,15 +244,15 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
       }
     }
 
-    INTEGER ARRAY deletelinks :=
-        SELECT AS INTEGER ARRAY id
+    INTEGER64 ARRAY deletelinks :=
+        SELECT AS INTEGER64 ARRAY id
           FROM currlinks
          WHERE NOT used;
 
     IF (LENGTH(deletelinks) != 0)
     {
       // Need to get from current because we need the attribute of the corresponding setting
-      FOREVERY (INTEGER id FROM deletelinks)
+      FOREVERY (INTEGER64 id FROM deletelinks)
         INSERT current[RecordLowerBound(current, CELL[ id ], [ "ID" ]).position] INTO linkupdates AT END;
 
       DELETE FROM wrd.entity_settings_whfslink WHERE id IN deletelinks;
@@ -301,7 +301,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
     @cell(integer) return.newsets.setting Value for setting field
     @cell(integer) return.newsets.ordering Value for ordering field
 */
-RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD ARRAY allcurrent, RECORD ARRAY newsets, RECORD ARRAY subs, INTEGER parentsetting)
+RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD ARRAY allcurrent, RECORD ARRAY newsets, RECORD ARRAY subs, INTEGER64 parentsetting)
 {
   // Id of the attribute to update
   INTEGER setattribute := attr.id;
@@ -357,7 +357,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
 
     newsets :=
         SELECT *
-             , id :=                0
+             , id :=                0i64
              , entity :=            setentity
              , attribute :=         setattribute
              , parentsetting :=     parentsetting
@@ -379,7 +379,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
   }
 
   // Re-use unused settings
-  INTEGER ARRAY curids := SELECT AS INTEGER ARRAY id FROM current WHERE NOT used ORDER BY id;
+  INTEGER64 ARRAY curids := SELECT AS INTEGER64 ARRAY id FROM current WHERE NOT used ORDER BY id;
   FOREVERY (RECORD rec FROM newsets)
   {
     IF (rec.id = 0)
@@ -1879,7 +1879,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         FOREVERY(RECORD row FROM val)
         {
-          RECORD outputrow := [ settings := DEFAULT RECORD ARRAY, orgsettingid := 0 ];
+          RECORD outputrow := [ settings := DEFAULT RECORD ARRAY, orgsettingid := 0i64 ];
           FOREVERY(RECORD subval FROM UnpackRecord(row))
           {
             IF (subval.name = "WRD_SETTINGID")
@@ -2543,8 +2543,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       RECORD entityrecmods := change.modifications.entityrec;
       RECORD modentityrec := CELL[ ...oldentityrec, ...entityrecmods ];
 
-      INTEGER ARRAY expiredsettings :=
-          (SELECT AS INTEGER ARRAY id FROM change.modifications.settings) CONCAT
+      INTEGER64 ARRAY expiredsettings :=
+          (SELECT AS INTEGER64 ARRAY id FROM change.modifications.settings) CONCAT
           change.modifications.deletedsettings;
 
       // Reconstruct all the list of new settings (mods + old - deletes)
@@ -2660,8 +2660,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD result;
     FOREVERY (RECORD attr FROM attrs)
     {
-      INTEGER lpos := RecordLowerBound(settings, [ parentsetting := 0, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]).position;
-      INTEGER rpos := RecordUpperBound(settings, [ parentsetting := 0, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]);
+      INTEGER lpos := RecordLowerBound(settings, [ parentsetting := 0i64, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]).position;
+      INTEGER rpos := RecordUpperBound(settings, [ parentsetting := 0i64, attribute := attr.id ], [ "PARENTSETTING", "ATTRIBUTE" ]);
       result := CellInsert(result, attr.tag, attr.accessor->GetValue(settings, lpos, rpos, rowdata));
     }
     RETURN result;
@@ -2705,7 +2705,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RECORD result := [ entityid := entityid
                      ];
 
-    INTEGER ARRAY allsettingids, deletedsettingids;
+    INTEGER64 ARRAY allsettingids, deletedsettingids;
 
     BOOLEAN is_new := entityid=0;
     STRING setguid;
@@ -2926,7 +2926,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       anyerror := TRUE;
     }
 
-    INTEGER ARRAY checklinks_settingids;
+    INTEGER64 ARRAY checklinks_settingids;
 
     IF (NOT anyerror)
     {
@@ -3037,7 +3037,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF (this->typerec.keephistorydays > 0 OR historydebugging)
         {
           orgentityrec := SELECT * FROM wrd.entities WHERE id = result.entityid;
-          orgwhfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER ARRAY id FROM cursettings);
+          orgwhfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER64 ARRAY id FROM cursettings);
         }
 
         RECORD currentinfo := orgentityrec ?? RECORD(SELECT type FROM wrd.entities WHERE id = result.entityid);
@@ -3150,7 +3150,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             }
 
             changes.oldsettings.whfslinks := orgwhfslinks;
-            changes.modifications.whfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER ARRAY id FROM changes.modifications.settings);
+            changes.modifications.whfslinks := this->GetWHFSLinksForChanges(SELECT AS INTEGER64 ARRAY id FROM changes.modifications.settings);
 
             changes := this->MapChangesIdsToRefs(changes);
 
@@ -3380,7 +3380,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN changes;
   }
 
-  RECORD ARRAY FUNCTION GetWHFSLinksForChanges(INTEGER ARRAY ids)
+  RECORD ARRAY FUNCTION GetWHFSLinksForChanges(INTEGER64 ARRAY ids)
   {
     RECORD ARRAY links :=
         SELECT id
@@ -3729,7 +3729,7 @@ PUBLIC STATIC OBJECTTYPE WRDChangesLinkGetter
     this->_whfsmapper := NEW WHFSResourceNameMapper;
   }
 
-  VARIANT FUNCTION GetData(INTEGER id, INTEGER linktype, VARIANT fallback)
+  VARIANT FUNCTION GetData(INTEGER64 id, INTEGER linktype, VARIANT fallback)
   {
     RECORD pos := RecordLowerBound(this->links, CELL[ id ], [ "ID" ]);
     IF (NOT pos.found OR this->links[pos.position].linktype != linktype)
@@ -3738,7 +3738,7 @@ PUBLIC STATIC OBJECTTYPE WRDChangesLinkGetter
   }
 
 
-  PUBLIC RECORD FUNCTION GetRichDocument(INTEGER id, OBJECT whfsmapper)
+  PUBLIC RECORD FUNCTION GetRichDocument(INTEGER64 id, OBJECT whfsmapper)
   {
     RECORD data := this->GetData(id, 0, DEFAULT RECORD);
     IF (NOT RecordExists(data))
@@ -3748,7 +3748,7 @@ PUBLIC STATIC OBJECTTYPE WRDChangesLinkGetter
     RETURN RunInSeparatePrimary(PTR ImExportInstanceData(rtdtype, this->_whfsmapper, whfsmapper, CELL[ data ])).data;
   }
 
-  PUBLIC RECORD FUNCTION GetInstance(INTEGER id, OBJECT whfsmapper)
+  PUBLIC RECORD FUNCTION GetInstance(INTEGER64 id, OBJECT whfsmapper)
   {
     RECORD data := this->GetData(id, 1, DEFAULT RECORD);
     IF (NOT RecordExists(data))
@@ -3758,7 +3758,7 @@ PUBLIC STATIC OBJECTTYPE WRDChangesLinkGetter
     RETURN RunInSeparatePrimary(PTR ImExportInstanceData(instancetype, this->_whfsmapper, whfsmapper, [ instance := data ])).instance;
   }
 
-  PUBLIC INTEGER FUNCTION GetLink(INTEGER id)
+  PUBLIC INTEGER FUNCTION GetLink(INTEGER64 id)
   {
     STRING link := this->GetData(id, 2, "");
     RETURN link = "" ? 0 : this->_whfsmapper->UnmapWHFSRef(link);

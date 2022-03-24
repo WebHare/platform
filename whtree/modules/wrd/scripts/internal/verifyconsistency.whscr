@@ -101,7 +101,7 @@ FOREVERY (RECORD schemarec FROM (SELECT * FROM wrd.schemas))
     }
   }
 
-  INTEGER ARRAY legal_settings := SELECT AS INTEGER ARRAY id FROM wrd.entity_settings WHERE entity IN legal_entities;
+  INTEGER64 ARRAY legal_settings := SELECT AS INTEGER64 ARRAY id FROM wrd.entity_settings WHERE entity IN legal_entities;
 
   FOREVERY (RECORD setting FROM SELECT * FROM wrd.entity_settings WHERE entity IN legal_entities)
   {

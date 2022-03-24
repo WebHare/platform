@@ -126,7 +126,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
           , typeinfo.wittycomponent
           , typeinfo.previewcomponent
           , applytester
-          , whfssettingid := RecordExists(instancedata) ? instancedata.whfssettingid : 0
+          , whfssettingid := RecordExists(instancedata) ? instancedata.whfssettingid : 0i64
           , whfsfileid := RecordExists(instancedata) ? instancedata.whfsfileid : 0
           , context := widgetcontext
           , typeinfo.requiremergefieldscontext

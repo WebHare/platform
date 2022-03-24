@@ -151,8 +151,8 @@ STATIC OBJECTTYPE TableFile
       }
       CASE "integer"
       {
-        IF (TypeID(mycell) != TypeID(INTEGER))
-          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER, but has type "||GetTypeName(TypeId(mycell))||"!");
+        IF (TypeID(mycell) NOT IN [TypeID(INTEGER),TypeID(INTEGER64)])
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER or INTEGER 64, but has type "||GetTypeName(TypeId(mycell))||"!");
 
         RETURN ToString(mycell);
       }
@@ -416,7 +416,6 @@ STATIC OBJECTTYPE WRDTableFile EXTEND TableFile
           RECORD ARRAY data := GetCell(rec, attr.localtag);
           rec := CellDelete(rec, attr.localtag);
 
-          INTEGER ARRAY elements := SELECT AS INTEGER ARRAY wrd_settingid FROM data;
           STRING ARRAY vals;
 
           FOREVERY (RECORD elt FROM data)

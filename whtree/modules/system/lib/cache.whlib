@@ -40,7 +40,7 @@ PUBLIC STRING FUNCTION GetCachedFSFileURL(STRING baseurl, INTEGER fsobjectid)
     @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
     @param fsobject settingid of the image
     @param scalemethod Resizing method, if any */
-PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER fssettingid, RECORD scalemethod)
+PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER64 fssettingid, RECORD scalemethod)
 {
   RETURN GetUnifiedCacheURL(baseurl, 1, 2, fssettingid, scalemethod);
 }
@@ -51,7 +51,7 @@ PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER fssett
     @cell options.filename Filename to use in the URL
     @cell options.embed The returned URL should serve itself without a content-disposition: attachment
     @cell options.allowanyextension Do not fail if the wrong extension is used */
-PUBLIC STRING FUNCTION GetCachedFSSettingFileURL(STRING baseurl, INTEGER fssettingid, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC STRING FUNCTION GetCachedFSSettingFileURL(STRING baseurl, INTEGER64 fssettingid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RETURN GetUnifiedCacheURL(baseurl, 2, 2, fssettingid, options);
 }

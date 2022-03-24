@@ -45,8 +45,8 @@ PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
              AND checked_objectlinks.system_fs_setting = fs_settings.id
              AND checked_objectlinks.link = checked_links.id;
 
-  INTEGER ARRAY enrichablesettings := SELECT AS INTEGER ARRAY fssettingid FROM links WHERE text="" AND fssettingid != 0;
-  IF(LengtH(enrichablesettings)>0) //There may be room for enrichment
+  INTEGER64 ARRAY enrichablesettings := SELECT AS INTEGER64 ARRAY fssettingid FROM links WHERE text="" AND fssettingid != 0;
+  IF(Length(enrichablesettings)>0) //There may be room for enrichment
   {
     //We need the fs_settings.parent for each link, as that will match the arrayrow fs_settingid in gatheredlinks
     RECORD ARRAY parents := SELECT id, parent FROM system.fs_settings WHERE id IN enrichablesettings;
@@ -57,7 +57,7 @@ PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
     {
       RECORD linksinfo := gatheredlinks->GetInstanceData(link.groupid);
 
-      INTEGER arrayrowid := SELECT AS INTEGER parent FROM parents WHERE parents.id = link.fssettingid;
+      INTEGER64 arrayrowid := SELECT AS INTEGER64 parent FROM parents WHERE parents.id = link.fssettingid;
       IF(arrayrowid=0)
         CONTINUE;
 
@@ -222,7 +222,7 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
   RECORD ARRAY settings := direct_settings;
   IF(Length(wrd_fs_settings) > 0)
   {
-    INTEGER ARRAY fs_setting_ids := SELECT AS INTEGER ARRAY id FROM wrd_fs_settings;
+    INTEGER64 ARRAY fs_setting_ids := SELECT AS INTEGER64 ARRAY id FROM wrd_fs_settings;
     RECORD ARRAY fs_settings :=
         SELECT links.url
              , links.status

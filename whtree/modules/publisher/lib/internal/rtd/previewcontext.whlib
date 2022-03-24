@@ -177,7 +177,7 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
     }
 
     IF(NOT CellExists(widgetdata,'whfssettingid'))
-      INSERT CELL whfssettingid := 0 INTO widgetdata;
+      INSERT CELL whfssettingid := 0i64 INTO widgetdata;
     IF(NOT CellExists(widgetdata,'whfsfileid'))
       INSERT CELL whfsfileid := 0 INTO widgetdata;
 

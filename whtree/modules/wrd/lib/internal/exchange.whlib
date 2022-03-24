@@ -338,7 +338,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     RETURN this->newschemaid;
   }
 
-  RECORD FUNCTION FilterWHFSLinks(INTEGER ARRAY killthis, RECORD inrec)
+  RECORD FUNCTION FilterWHFSLinks(INTEGER64 ARRAY killthis, RECORD inrec)
   {
     IF(inrec.id IN killthis)
       RETURN DEFAULT RECORD;
@@ -371,10 +371,10 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
 
       IF(Length(whfslinkattrs) > 0 )
       {
-        INTEGER ARRAY skipwhfslinks := SELECT AS INTEGER ARRAY entity_settings_whfslink.id
-                                         FROM wrd.entity_settings_whfslink, wrd.entity_settings
-                                        WHERE entity_settings.attribute IN whfslinkattrs
-                                              AND entity_settings_whfslink.id = entity_settings.id;
+        INTEGER64 ARRAY skipwhfslinks := SELECT AS INTEGER64 ARRAY entity_settings_whfslink.id
+                                           FROM wrd.entity_settings_whfslink, wrd.entity_settings
+                                          WHERE entity_settings.attribute IN whfslinkattrs
+                                                AND entity_settings_whfslink.id = entity_settings.id;
 
         IF(Length(skipwhfslinks) > 0)
           this->AddExportRowFilter("wrd.entity_settings_whfslink", PTR this->FilterWHFSLinks(skipwhfslinks, #1));
