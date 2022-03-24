@@ -112,11 +112,15 @@ PUBLIC MACRO FillInForm()
                                 ]
                    ]
                  , [ role := "thankyou"
+                   , fields := [[ type := "richtext"
+                                , richtext := CELL[]
+                               ]]
                    ]
                  ]
                 ], rendertree, "*");
 
   TestEq(ToUppercase(emailfieldname), ToUppercase(rendertree.pages[0].fields[1].name), "verify email name case-insensitively");
+  TestEqLike("*<h1*Thank you!*embeddedobject*", BlobToString(rendertree.pages[1].fields[0].richtext.htmltext));
 
   RECORD submitrec := [ firstname := "Piëtje"
                       , upload := [ filename := "allstar.txt"

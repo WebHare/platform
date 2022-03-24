@@ -103,6 +103,7 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : ValuelessFormFieldBase(form, parent, field)
   {
+    this->hidetitle := TRUE;
     IF(CellExists(field, 'richvalue'))
       this->__richvalue := field.richvalue;
   }
@@ -111,12 +112,20 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
   {
     RETURN CELL[ ...this->GetBaseRenderData()
                , type := "richtext"
-               , hidetitle := TRUE
                  //ADDME: Maybe check if there are actually embedded components present which 'requiremergefieldscontext'
                , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND CellExists(this->field,'mayhavemergefields') AND this->field.mayhavemergefields
                , renderedmergefields := this->__renderedmergefields
                , this->richvalue
                ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD renderinfo := CELL[ ...FormFieldBase::GetRenderTree()
+                             , richtext := this->richvalue
+                             , type := "richtext"
+                             ]; //TODO support mergefields
+    RETURN renderinfo;
   }
 
   RECORD FUNCTION GetRichValue()
