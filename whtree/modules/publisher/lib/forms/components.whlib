@@ -564,13 +564,13 @@ PUBLIC OBJECTTYPE FormFieldBase
   PUBLIC MACRO RenderField()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderField(this->__GetRenderData());
+      this->form->formrenderer->RenderField(this->__GetRenderData());
   }
   /** Render the .wh-form__fieldline lines */
   PUBLIC MACRO RenderFieldLines()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderFieldInline(CELL[ ...this->__GetRenderData()
+      this->form->formrenderer->RenderFieldInline(CELL[ ...this->__GetRenderData()
                                                          , fieldcontent := PTR this->RenderFieldContent
                                                          ]);
   }
@@ -581,7 +581,7 @@ PUBLIC OBJECTTYPE FormFieldBase
   PUBLIC MACRO RenderIntoSubField()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderIntoSubField(this->__GetRenderData());
+      this->form->formrenderer->RenderIntoSubField(this->__GetRenderData());
   }
   PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
   {

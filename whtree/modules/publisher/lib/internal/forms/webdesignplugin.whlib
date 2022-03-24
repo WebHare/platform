@@ -6,6 +6,7 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
 PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
@@ -91,5 +92,10 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
     IF (this->didintegrate)
       THROW NEW Exception("Manual embed cannot be set after the page has been rendered");
     this->pvt_manualwebpackembed := manualwebpackembed;
+  }
+
+  PUBLIC OBJECT FUNCTION GetFormRenderer()
+  {
+    RETURN NEW FormRenderingBase(this->webcontext);
   }
 >;

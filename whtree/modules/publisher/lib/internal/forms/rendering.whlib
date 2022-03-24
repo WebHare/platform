@@ -322,7 +322,39 @@ STRING FUNCTION GetTimeProp(STRING propname, STRING setvalue, STRING precision)
   RETURN ` ${propname}="${(precision = "seconds" ? FormatTimestamp("%H:%M:%S", GetMSecondCount(dt)) : FormatTimestamp("%H:%M", GetMSecondCount(dt)))}"`;
 }
 
-PUBLIC STATIC OBJECTTYPE FormRenderingBase
+PUBLIC OBJECTTYPE FormRendererRenderingTranslatorBase
+<
+  //implements the new api expected by forms
+  PUBLIC OBJECT __form; //as a hack, we'll receive the original form to render. but normally we would ONLY get the rendertree!
+
+  PUBLIC MACRO PrintField(RECORD field)
+  {
+    RECORD fieldobj := SELECT * FROM this->__form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
+    IF(NOT RecordExists(fieldobj))
+      THROW NEW Exception(`Cannot find field '${field.name}' in the form`);
+
+    fieldobj.obj->RenderField();
+  }
+  PUBLIC MACRO PrintPages(RECORD rendertree)
+  {
+    FOREVERY(RECORD page FROM this->__form->__formpages)
+      page.obj->RenderPage(#page);
+  }
+  PUBLIC MACRO PrintForm(RECORD rendertree)
+  {
+    this->RenderForm(this->__form->GetWittyData()); //we receive a rendertree but that's not what we need
+  }
+  PUBLIC MACRO PrintNavigation(RECORD settings)
+  {
+    RECORD navdata := [ prevlabel :=   settings.labels.prev
+                      , nextlabel :=   settings.labels.next
+                      , submitlabel := settings.labels.submit
+                      ];
+    this->RenderFormNavigation(navdata); //FIXME we're sending this in for completeness, but it should only need to know whether there are multiple pages
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslatorBase
 <
   OBJECT webdesign;
   OBJECT rtdstructure;
@@ -339,6 +371,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
 
   PUBLIC MACRO RenderForm(RECORD form)
   {
+    form := this->__form->GetWittyData(); //we receive a rendertree but that's not what we need
     STRING ARRAY formclasses := form.formclasses;
 
     Print(`<form class="${EncodeValue(Detokenize(formclasses,' '))}" `);

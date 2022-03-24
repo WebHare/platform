@@ -136,7 +136,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   RECORD ARRAY __invokedwitties;
   RECORD _seosettings;
 
-  OBJECT defaultformrenderer;
   /// Extra resource dependencies (for automatic outputtools reload)
   STRING ARRAY resourcedeps;
   /// Already generated anchors
@@ -1559,12 +1558,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     embobj->RenderLive();
   }
 
-  ///@private Creating your own Form renderer may be removed - noone has succesfully managed it yet (or not without regretting it)
+  /** @short Get the current form renderer */
   PUBLIC OBJECT FUNCTION GetFormRenderer()
   {
-    IF(NOT ObjectExists(this->defaultformrenderer))
-      this->defaultformrenderer := NEW FormRenderingBase(this);
-    RETURN this->defaultformrenderer;
+    RETURN this->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration")->GetFormRenderer();
   }
 
   /** Add a list of resource dependencies (for automatic reload by outputtools if they have changed)
