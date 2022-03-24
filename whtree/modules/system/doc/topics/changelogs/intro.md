@@ -5,6 +5,7 @@ Some upgrades cannot be skipped. These are:
 - 4.08: 4.09 cleans up a lot yet again
 - 4.16: 4.17 cleans up a lot, and removes a lot of obsoleted code.
 - 4.26: 4.27 adds PostgreSQL support and a lot of cleanup scripts are WHDB/dbserver specific
+- 4.35: 4.35 is the last version to support WHDB/dbserver specific.
 
 So, to upgrade from 3.08 to 4.27, go through 3.10.xx, 4.03, 4.08, 4.16 and 4.26 first. You should also make sure 4.16 has finished
 any conversions (check the managed tasks) before continuing the update, as the wrd/fs settings upgrade done in 4.10 can take
