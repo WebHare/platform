@@ -432,6 +432,10 @@ class WebHareBridge extends Events.EventEmitter
   {
     return this.versiondata.moduleroots[module] || null;
   }
+  getModuleInstallationRoots()
+  {
+    return Object.entries(this.versiondata.moduleroots).map(([ name, path ]) => ({ name, path }));
+  }
   getBaseDataRoot()
   {
     if(!this.versiondata)

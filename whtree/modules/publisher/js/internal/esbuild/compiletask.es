@@ -1,6 +1,7 @@
 const esbuild = require('esbuild');
 const fs = require('fs');
 const whSassPlugin = require("./plugin-sass.es");
+const whSourceMapPathsPlugin = require("./plugin-sourcemappaths.es");
 const path = require('path');
 const bridge = require('@mod-system/js/wh/bridge');
 const compileutils = require('./compileutils.es');
@@ -138,6 +139,8 @@ async function runTask(taskcontext, data)
                   , ...bundle.bundleconfig.extrarequires.filter(node => !!node)
                   ];
 
+  let outdir = path.join(bundle.outputpath,"build");
+
   let esbuild_configuration =
       { entryPoints: [ "//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles)) ]
       , publicPath: '' //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
@@ -146,7 +149,7 @@ async function runTask(taskcontext, data)
       , bundle: true
       , minify: !bundle.isdev
       , sourcemap: true
-      , outdir: path.join(bundle.outputpath,"build")
+      , outdir
       , entryNames: "ap"
       , jsxFactory: 'dompack.jsxcreate'
       , jsxFragment: 'dompack.jsxfragment'
@@ -162,6 +165,7 @@ async function runTask(taskcontext, data)
                               // })
 
                  , whSassPlugin(captureplugin)
+                 , whSourceMapPathsPlugin(outdir)
                  ]
       , loader: { ".es": "jsx"
                 , ".woff": "file"
