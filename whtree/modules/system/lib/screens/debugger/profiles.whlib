@@ -82,32 +82,59 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
       DELETE FROM this->profileslist->columns WHERE name = "source";
 
+      ^session->visible := FALSE;
       this->RefreshProfileList();
       this->profileslist->value := LENGTH(this->pvt_profiles);
     }
-    ELSE IF (Detokenize(data.params, " ") != "" AND Detokenize(data.params, " ") NOT LIKE "profile-meta")
+    ELSE IF (Detokenize(data.params, " ") != "live")
     {
-      this->profiledir := data.params[0] LIKE "/*"
-          ? data.params[0]
-          : MergePath(MergePath(GetWebhareConfiguration().ephemeralroot, "profiles"), data.params[0]);
-      this->diskprofilelistener->masks := [ "system:storedprofile." || data.params[0] ];
-      this->UpdateProfilesFromDisk();
-      this->profileslist->value := 1;
+      STRING session := Detokenize(data.params, " ") ?? "default";
+      IF (session LIKE "/*")
+      {
+        this->ReloadSessions([ custom := session ]);
+        ^session->value := "custom";
+      }
+      ELSE
+      {
+        this->ReloadSessions();
+        ^session->value := `session:${session}`;
+      }
     }
     ELSE
     {
+      this->ReloadSessions();
+      ^session->value := "live";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotUnload()
+  {
+    IF (ObjectExists(this->whmanagerconn))
+    {
+      this->whmanagerconn->Close();
+      this->whmanagerconn := DEFAULT OBJECT;
+    }
+    IF (ObjectExists(this->port))
+    {
+      UnregisterCallback(this->port->userdata.reg);
+      this->port->Close();
+      this->port := DEFAULT OBJECT;
+    }
+    this->ReleaseExclusiveAccess();
+  }
+
+  MACRO GotSessionChange()
+  {
+    this->GotUnload();
+
+    IF (^session->value = "live")
+    {
       STRING portname := "system:profiles";
-      STRING reportportname := "system:profiles-meta";
-/*
-      FOREVERY (STRING param FROM data.params)
-        IF (param LIKE "meta*")
-        {
-          INTEGER metanr := ToInteger(SubString(param, 4), 1) + 1;
-          portname := portname || "-" || param;
-          reportportname := "system:profiles-meta" || metanr;
-        }
-*/
-      __SetProfilingPortname(reportportname);
 
       IF (NOT this->GetExclusiveAccess([ systemprofiles := portname ], [ onbeforesteal := PTR this->GotUnload ]))
         RETURN;
@@ -124,34 +151,34 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       }
 
       this->port->userdata := [ reg := RegisterHandleReadCallback(this->port->handle, PTR this->OnIncomingConnection()) ];
+      this->pvt_profiles := RECORD[];
+      this->RefreshProfileList();
+    }
+    ELSE IF (^session->value != "")
+    {
+      this->profiledir := RecordExists(^session->selection) ? ^session->selection.path : "";
+
+      this->diskprofilelistener->masks := [ "system:storedprofile." || ^session->selection.name ];
+      this->UpdateProfilesFromDisk();
+      this->profileslist->value := 1;
+    }
+    ELSE
+    {
+
     }
   }
-
-  MACRO GotUnload()
-  {
-    IF (ObjectExists(this->whmanagerconn))
-    {
-      this->whmanagerconn->Close();
-      this->whmanagerconn := DEFAULT OBJECT;
-    }
-    IF (ObjectExists(this->port))
-    {
-      UnregisterCallback(this->port->userdata.reg);
-      this->port->Close();
-      this->port := DEFAULT OBJECT;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
 
   MACRO OnIncomingConnection()
   {
     OBJECT link := this->port->Accept(DEFAULT DATETIME);
     IF (ObjectExists(link))
     {
+      IF (^session->value != "live")
+      {
+        link->Close();
+        RETURN;
+      }
+
       link->userdata := [ reg := RegisterHandleReadCallback(link->handle, PTR this->OnLinkSignalled(link)) ];
       INSERT link INTO this->links AT END;
     }
@@ -177,6 +204,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       }
       CASE "ok"
       {
+        IF (^session->value != "live")
+          RETURN;
+
         SWITCH (res.msg.task)
         {
           CASE "addprofile"
@@ -233,6 +263,55 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   //
   // List refreshes
   //
+
+  MACRO ReloadSessions(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ custom :=   ""
+        ], options);
+
+    RECORD ARRAY sessions :=
+        SELECT rowkey :=        `session:${name}`
+             , title :=         name
+             , name
+             , path
+          FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().ephemeralroot, "profiles"), "*")
+         WHERE type = 1
+      ORDER BY name;
+
+    RECORD defaultsession :=
+        [ rowkey :=     `session:default`
+        , title :=      "default"
+        , name :=       "default"
+        , path :=       MergePath(GetWebhareConfiguration().ephemeralroot, "profiles/default")
+        ];
+
+    RECORD pos := RecordLowerBound(sessions, defaultsession, [ "NAME" ]);
+    IF (NOT pos.found)
+      INSERT defaultsession INTO sessions AT pos.position;
+
+    ^session->options :=
+        [ ...(options.custom != ""
+                ? [ [ rowkey :=     "custom"
+                    , path :=       options.custom
+                    , name :=       "(custom)"
+                    , title :=      options.custom
+                    ]
+                  , [ rowkey :=     "(divider1)"
+                    , isdivider :=  TRUE
+                    ]
+                  ]
+                : RECORD[])
+        , ...sessions
+        , [ rowkey :=     "(divider2)"
+          , isdivider :=  TRUE
+          ]
+        , [ rowkey :=     "live"
+          , path :=       "live"
+          , title :=      this->GetTid(".live")
+          ]
+        ];
+  }
 
   MACRO UpdateProfilesFromDisk()
   {
