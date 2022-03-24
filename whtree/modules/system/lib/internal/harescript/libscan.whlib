@@ -1,11 +1,8 @@
 <?wh
 LOADLIB "wh::files.whlib";
 
-STRING ARRAY autoloaded :=
-[ "wh::system.whlib"
-, "mod::system/lib/internal/harescript/preload.whlib"
-, "wh::internal/hsservices.whlib"
-];
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 PUBLIC STRING ARRAY harescriptextensions := ["*.whlib","*.shtml","*.whscr","*.hslib","*.whsock","*.tpl"];
 
@@ -46,7 +43,7 @@ PUBLIC STRING ARRAY FUNCTION GetReferredLoadlibs(RECORD dump)
 
 PUBLIC STRING ARRAY FUNCTION GetUnneededLoadlibs(RECORD dump)
 {
-  STRING ARRAY directlibs := SELECT AS STRING ARRAY name FROM dump.loadlibs WHERE NOT indirect AND name NOT IN autoloaded;
+  STRING ARRAY directlibs := SELECT AS STRING ARRAY name FROM dump.loadlibs WHERE NOT indirect AND name NOT IN VAR whconstant_harescript_autoloaded_libraries;
 
   FOREVERY(STRING lib FROM GetReferredLoadlibs(dump))
   {
