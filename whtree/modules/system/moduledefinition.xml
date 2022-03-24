@@ -9,9 +9,6 @@
   </meta>
 
   <servicemanager>
-    <!-- early cleanups that may conflict with schema constraints -->
-    <runonce tag="earlycleanup_20191209" script="scripts/runonce/earlycleanup.whscr" when="afterschemacreation" />
-
     <!-- update the tag when new mimetypes arrive -->
     <runonce tag="init_mimetypes_20210323" script="scripts/runonce/initmimetypes.whscr" when="aftertablecreation" />
 
@@ -20,10 +17,6 @@
 
     <!-- late cleanups that shouldn't block startup -->
     <runonce tag="poststartcleanup_2022_02_24" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
-
-    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
-
-    <runonce tag="migratemailrules" script="scripts/runonce/migratemailrules.whscr" when="poststart" />
 
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />

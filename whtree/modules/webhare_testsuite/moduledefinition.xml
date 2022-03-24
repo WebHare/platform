@@ -18,7 +18,6 @@
   <servicemanager>
     <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
     <runonce       tag="setuppwasite" script="tests/publisher/pwa/setuppwasite.whscr" when="poststart" ifenvironset="WEBHARE_CI" />
-    <runonce       tag="fixdevserver_20200110" script="scripts/runonce/fixdevserver.whscr" when="poststart" />
     <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks">
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
