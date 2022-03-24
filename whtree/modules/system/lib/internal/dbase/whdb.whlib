@@ -985,7 +985,7 @@ PUBLIC RECORD FUNCTION GetWHDBDatabaseSchemaDef(STRING schemaname)
     Also reacts on pings from the database to prevent inactivity timeouts.
     @return Whether the connection to the database is still alive
 */
-PUBLIC BOOLEAN FUNCTION IsWHDBConnectionAlive() __ATTRIBUTES__ (EXTERNAL);
-PUBLIC MACRO ReconnectAllWHDBTransactions() __ATTRIBUTES__ (EXTERNAL);
+//PUBLIC BOOLEAN FUNCTION IsWHDBConnectionAlive() __ATTRIBUTES__ (EXTERNAL);
+//PUBLIC MACRO ReconnectAllWHDBTransactions() __ATTRIBUTES__ (EXTERNAL);
 
 

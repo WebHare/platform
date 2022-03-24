@@ -11,8 +11,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
 
-BOOLEAN FUNCTION WHDBColumnExistsInternal(TABLE atable, STRING tablename, STRING columnname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
 /** @short Accessing the WebHare database
     @long This library is provides access to data stored inside a WebHare database.
 */
@@ -348,14 +346,6 @@ PUBLIC SCHEMA
   > information_schema;
 
 
-MACRO __BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-RECORD ARRAY FUNCTION __CommitWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-MACRO __RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-MACRO __CloseWHDBAutoTransaction(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-INTEGER FUNCTION __StartWHDBTransaction(RECORD transinfo) __ATTRIBUTES__(EXTERNAL);
-MACRO __RollbackWHDBTransaction(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, EXECUTESHARESCRIPT);
-RECORD ARRAY FUNCTION __CommitWHDBTransaction(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
 INTEGER ARRAY seenids;
 
 STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
@@ -411,7 +401,7 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 
   UPDATE MACRO DoBeginWork()
   {
-    __BeginWHDBWork(this->id);
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
 
   PUBLIC MACRO SetAllowErrorDelay(BOOLEAN allow)
@@ -424,11 +414,11 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC MACRO DoRollbackWork()
   {
-    __RollbackWHDBWork(this->id);
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
   UPDATE RECORD ARRAY FUNCTION DoCommitWork()
   {
-    RETURN __CommitWHDBWork(this->id);
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
 
   UPDATE PUBLIC MACRO Rollback()
@@ -463,14 +453,7 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC MACRO Close()
   {
-    IF (this->IsWorkOpen())
-    {
-      this->pvt_numworks := 1;
-      this->RollbackWork();
-    }
-
-    __CloseWHDBAutoTransaction(this->id);
-    LockingTransactionBase::Close();
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
@@ -523,9 +506,7 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
-    //FIXME EFFICENT IMPLEMENTATION
-    TABLE < INTEGER id > test := BindTransactionToTable(this->id, schemaname || '.' || tablename);
-    RETURN MakeWHDBAutonumber(test, columnname);
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
@@ -537,9 +518,7 @@ STATIC OBJECTTYPE WHDBTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
   {
-    //FIXME EFFICENT IMPLEMENTATION
-    TABLE < INTEGER id > test := BindTransactionToTable(this->id, schemaname || '.' || tablename);
-    RETURN WHDBColumnExistsInternal(test, schemaname || '.' || tablename, columnname);
+    THROW NEW Exception("WebHare no longer supports the WHDB database");
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
@@ -825,37 +804,7 @@ PUBLIC STRING FUNCTION __whdb_GetHarescriptType(STRING dbase_type)
 
 PUBLIC INTEGER FUNCTION __avoiddepwarning_StartWHDBTransaction(RECORD transinfo)
 {
-  BOOLEAN become_auto := CellExists(transinfo,'AUTO') AND transinfo.auto;
-  IF (CellExists(transinfo, 'AUTO'))
-    transinfo.auto := TRUE;
-  ELSE
-    INSERT CELL auto := TRUE INTO transinfo;
-
-  IF(transinfo.user="")
-    transinfo.user:="~webhare";
-  ELSE IF(transinfo.user NOT IN ["~webhare","~recovery","~cluster"])
-    THROW NEW Exception("WebHare no longer supports user logins, you need to log in using '~webhare'");
-
-  INTEGER transid := __StartWHDBTransaction(transinfo);
-  IF(transid<=0)
-    RETURN transid;
-
-  OBJECT trans;
-
-  IF(CellExists(transinfo,"BINDTO")) //this is a replacing transaction...
-  {
-    trans := GetTransactionObjectById(transinfo.bindto);
-    IF(NOT ObjectExists(trans))
-      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " does not exist");
-    IF(trans->HasWorkSupport() != become_auto)
-      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " has different auto setting");
-    IF(trans->isWorkOpen())
-      THROW NEW Exception("Replaced transaction #" || transinfo.bindto || " still has work open");
-  }
-
-  IF(NOT ObjectExists(trans))
-    trans := __CreateWHDBTransactionObject(transid, become_auto, CellExists(transinfo,'isprimary') AND transinfo.isprimary);
-  RETURN trans->id;
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
 }
 
 
@@ -876,7 +825,10 @@ OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto, BOO
     @cell return.tablename Table effected by this error
     @cell return.columnname Column effected by this error
 */
-PUBLIC RECORD ARRAY FUNCTION GetWHDBTransactionErrors(INTEGER transid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - GetWHDBTransactionErrors will be removed");
+PUBLIC RECORD ARRAY FUNCTION GetWHDBTransactionErrors(INTEGER transid)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
 
 /** @short Commit a WebHare database transaction
     @long Attempts to make all database changes permanent, and closes the transaction.
@@ -938,8 +890,7 @@ PUBLIC BOOLEAN FUNCTION WHDBSchemaExists(STRING schemaname) __ATTRIBUTES__(DEPRE
 */
 PUBLIC BOOLEAN FUNCTION WHDBColumnExists(STRING tablename, STRING columnname) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - WHDBColumnExists can generally be replaced with GetPrimary()->ColumnExists")
 {
-  BOOLEAN fastresult := WHDBColumnExistsInternal(information_schema.columns, tablename, columnname);
-  RETURN fastresult;
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
 }
 
 /** @short Check if an index exists
@@ -969,30 +920,21 @@ PUBLIC BOOLEAN FUNCTION WHDBIndexExists(STRING tablename, STRING indexname) __AT
                                                                    AND ToUppercase(index_name)=ToUppercase(VAR indexname));
 }
 
-/** @short Get the next autonumber ID for a table
-    @long Reserves an autonumber ID in the WebHare database, and returns that ID. In WebHare tables,
-          all IDs are specfic for that column and table - autonumber ids are not guaranteed to be
-          unique across all tables.
-    @param gettable Table for which an autonumber value should be generated
-    @param columnname Name of the autonumber column for a value is requested
-    @return The next available autonumber value
-*/
-INTEGER FUNCTION MakeWHDBAutoNumber(TABLE gettable, STRING columnname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-PUBLIC RECORD ARRAY FUNCTION __SendWHDBCommand(INTEGER transid, STRING cmd) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short Send raw SQL commands to the WHDB
-    @long This function allows you to directly send SQL commands to the WebHare database
-    @param transid Transaction to send this command in
-    @param cmd The raw command to send
-    @return SQL command results
-*/
-PUBLIC RECORD ARRAY FUNCTION SendWHDBCommand(INTEGER transid, STRING cmd) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - directly accessing SendWHDBCommand will not be possible in the future")
+PUBLIC RECORD ARRAY FUNCTION __SendWHDBCommand(INTEGER transid, STRING cmd)
 {
-  RETURN __SendWHDBCommand(transid, cmd);
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
 }
 
-PUBLIC INTEGER FUNCTION __GetWHDBBlobInternalId(BLOB blb) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD ARRAY FUNCTION SendWHDBCommand(INTEGER transid, STRING cmd)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+
+PUBLIC INTEGER FUNCTION __GetWHDBBlobInternalId(BLOB blb)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
 
 /** @short Get the internal blob id from the database
     @long This function retrieves the id that the Webhare database uses for this blob. It can
@@ -1009,7 +951,10 @@ PUBLIC INTEGER FUNCTION GetWHDBBlobInternalId(BLOB blb) __ATTRIBUTES__(DEPRECATE
     @param tbl Table to get the id of
     @return Id of the table, or 0 if the table does not exist.
 */
-PUBLIC INTEGER FUNCTION GetWHDBTableId(TABLE tbl) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - GetWHDBTableId should not be used in portable code");
+PUBLIC INTEGER FUNCTION GetWHDBTableId(TABLE tbl)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
 
 
 PUBLIC OBJECT FUNCTION GetWHDBTransaction(INTEGER trans) __ATTRIBUTES__(DEPRECATED "All WHDB specific APIs are deprecated - transactions should be tracked by object, not ID!")
@@ -1057,16 +1002,40 @@ PUBLIC MACRO CloseWHDBAutoTransaction(INTEGER trans) __ATTRIBUTES__(DEPRECATED "
 /** @short Test whether work is currently open on an auto transaction
     @param trans ID of the auto transaction
     @return True if work has begun on the transaction */
-PUBLIC BOOLEAN FUNCTION IsWHDBWorkOpen(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - IsWHDBWorkOpen can usually be replaced with GetPrimary()->IsWorkOpen");
+PUBLIC BOOLEAN FUNCTION IsWHDBWorkOpen(INTEGER trans)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
 
 /* the __whdbdc api will be removed in future versions. for most functions, you can use the dnyamicquery api instead */
-PUBLIC INTEGER FUNCTION __WHDBDCOpen(INTEGER trans, STRING tablename, STRING ARRAY columns, BOOLEAN allcolumns, BOOLEAN for_updating) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC BOOLEAN FUNCTION __WHDBDCNextRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC RECORD FUNCTION __WHDBDCGetRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC MACRO __WHDBDCUpdate(INTEGER qid, RECORD rec) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC MACRO __WHDBDCDelete(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC MACRO __WHDBDCClose(INTEGER qid) __ATTRIBUTES__(EXTERNAL, DEPRECATED "All WHDB specific APIs are deprecated - raw WHDB cursor operations can be replaced with DynamicQuery");
-PUBLIC MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, DEPRECATED "All WHDB specific APIs are deprecated - __WHDBDCInsert can generally be replaced with INSERT RECORD xx INTO");
+PUBLIC INTEGER FUNCTION __WHDBDCOpen(INTEGER trans, STRING tablename, STRING ARRAY columns, BOOLEAN allcolumns, BOOLEAN for_updating)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC BOOLEAN FUNCTION __WHDBDCNextRow(INTEGER qid)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC RECORD FUNCTION __WHDBDCGetRow(INTEGER qid)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC MACRO __WHDBDCUpdate(INTEGER qid, RECORD rec)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC MACRO __WHDBDCDelete(INTEGER qid)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC MACRO __WHDBDCClose(INTEGER qid)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
+PUBLIC MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec)
+{
+  THROW NEW Exception("WebHare no longer supports the WHDB database");
+}
 
 /** @short Hash a password
     @long This hashes the password into the format preferred by the WebHare database, although the data can be stored anywhere 8-bit data is accepted.
