@@ -721,8 +721,6 @@ case $INSTR in
     echo ""
     echo "Data root:     $WEBHARE_DATAROOT"
     echo "Database data: $STORAGEPATH"
-    echo "Database recs: $RECORDSTORAGEPATH"
-    echo "Database idx:  $INDEXSTORAGEPATH"
     echo ""
     set|grep ^WEBHARE_
     ;;
