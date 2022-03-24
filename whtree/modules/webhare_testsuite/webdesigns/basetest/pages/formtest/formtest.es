@@ -179,9 +179,8 @@ function initForms()
   registerHandler('coretest', node => new CoreForm(node));
   registerHandler('globalform', node => new GlobalForm(node));
   registerHandler('multipageform', node => new MultiPageForm(node));
-  dompack.register('#dynamicform', node => new DynamicForm(node));
+  registerHandler('dynamicform', node => new DynamicForm(node));
   registerHandler("rtdform", node => new RTDForm(node));
-  dompack.register('#insertvideo__submit', node => node.addEventListener("click",onInsertVideoSubmit));
   registerHandler("arrayform", node => new ArrayForm(node));
   registerHandler('anyformhandler', node => new AnyFormHandler(node));
 

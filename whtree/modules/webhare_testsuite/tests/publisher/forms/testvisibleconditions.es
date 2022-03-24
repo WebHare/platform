@@ -8,6 +8,11 @@ test.registerTests(
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?visibleconditions=1');
 
+      let form = test.qS("form");
+      test.true(form.classList.contains("wh-form"));
+      test.true(form.classList.contains("wh-styledinput"));
+      test.true(form.classList.contains("mycustomformclass"));
+
       // second is only available if first is set
       test.false(test.canClick('input[name="second"][value="a_a"]'), "second.a_a not clickable");
       test.false(test.canClick('input[name="second"][value="a_b"]'), "second.a_b not clickable");

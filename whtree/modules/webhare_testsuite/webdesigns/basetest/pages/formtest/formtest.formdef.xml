@@ -104,15 +104,17 @@
     </page>
   </form>
 
-  <form name="dynamictest" objectname="formtest.whlib#DynamicTestForm">
-    <select name="day" rowkeytype="integer" title="Day" type="pulldown" required="true">
-      <option rowkey="1" title="Monday" />
-      <option rowkey="2" title="Tuesday" />
-    </select>
-    <select name="timeslot" rowkeytype="datetime" title="Timeslot" type="radio" required="true">
-      <option rowkey="2012-05-05T17:00:00" title="5 o'clock" />
-      <option rowkey="2012-05-05T21:00:00.005" title="9 o'clock and 5 ms" />
-    </select>
+  <form name="dynamictest" objectname="formtest.whlib#DynamicTestForm" jshandler="dynamicform">
+    <page>
+      <select name="day" rowkeytype="integer" title="Day" type="pulldown" required="true">
+        <option rowkey="1" title="Monday" />
+        <option rowkey="2" title="Tuesday" />
+      </select>
+      <select name="timeslot" rowkeytype="datetime" title="Timeslot" type="radio" required="true">
+        <option rowkey="2012-05-05T17:00:00" title="5 o'clock" />
+        <option rowkey="2012-05-05T21:00:00.005" title="9 o'clock and 5 ms" />
+      </select>
+    </page>
   </form>
 
   <form name="rtdtest" objectname="formtest.whlib#RTDForm" jshandler="rtdform">

@@ -595,6 +595,22 @@ MACRO TestContentLink()
   TestEq(FALSE, CellExists(directrows[END-1],"out1"), "Don't generate the fallback cells");
 }
 
+ASYNC MACRO SetFormStateThroughApp(OBJECT formfile, BOOLEAN open_it)
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
+  print("in edit\n");
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
+  print("in settings\n");
+  TestEq(NOT open_it, TT("available")->value, "Expect inverse 'openit' value");
+  TT("available")->value := open_it;
+  IF(NOT open_it)
+    TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>Temporarily closed</p>") ];
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestCloseForm()
 {
   //visit the form online - do this before closing it so we can check the RPC is blocking!
@@ -603,23 +619,15 @@ ASYNC MACRO TestCloseForm()
 
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
-  print("in edit\n");
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
-  print("in settings\n");
-  TestEq(TRUE, TT("available")->value);
-
-  TT("available")->value := FALSE;
-  TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>Temporarily closed</p>") ];
-
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT SetFormStateThroughApp(formfile, FALSE);
 
   TestThrowsLike("*currently unavailable*", PTR tester->SubmitForm(firstsubmitrec));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
   TestEqLike("*Temporarily closed*", testfw->browser->document->documentelement->textcontent);
+
+  //Reopen the form. not really to test, but because it's annoying to finish the test with a closed form when developing further
+  AWAIT SetFormStateThroughApp(formfile, TRUE);
 }
 
 RunTestframework([ PTR BuildForm
