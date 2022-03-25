@@ -205,7 +205,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                       , type := GetNamespaceForType(file.type, FALSE)
                       , wrapped := DecodeScanData(file.scandata)
                       ];
-
+    DELETE CELL __blobsource, source_fsobject FROM xmldata.wrapped; //__blobsource is internal and I doubt we actually use/store source_fsobject in wrapped filedata?
     encoder->EncodeRecordTo(xmldatastream, "file", xmldata);
   }
 

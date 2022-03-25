@@ -451,7 +451,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       {
         RECORD memberinfo := [ name := ToLowercase(node->GetAttribute('name'))
                              , type := GetFSMemberTypeID(node->localname = "member" ? node->GetAttribute('type') : node->localname)
-                             , publish := node->GetAttribute("publish") IN ["1","true"]
                              , children := DEFAULT RECORD ARRAY
                              ];
 
@@ -461,16 +460,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           this->AddError(node, `Duplicate member '${memberinfo.name}'`);
 
         INSERT memberinfo.name INTO seennames AT END;
-
-        IF(node->HasAttribute("publish") AND NOT memberinfo.publish)
-          this->AddError(node, `Member name '${memberinfo.name}' is using publish=false - should be removed`);
-        ELSE IF(memberinfo.publish)
-        {
-          IF(memberinfo.type IN [ 5,15 ])
-            this->AddWarning(node,`Member name '${memberinfo.name}' of type '${node->GetAttribute('type')}' is using publish=true, this will be removed in a future version`);
-          ELSE
-            this->AddError(node,`Member name '${memberinfo.name}' of type '${node->GetAttribute('type')}' is using publish=true, this was never supported for this type`);
-        }
 
         IF(ToUppercase(memberinfo.name) LIKE "WHFS*")
         {

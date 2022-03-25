@@ -9,8 +9,6 @@ LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
-LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
@@ -20,7 +18,7 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
-RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJECT cdatagetter, OBJECT remapper, BOOLEAN orphansvisible)
+RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
 {
   OBJECT instancetype := OpenWHFSTypeById(setting.instancetype);
   IF (NOT ObjectExists(instancetype))
@@ -32,11 +30,14 @@ RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJE
   instancetype->__LoadMembers();
 
   RECORD newval;
-  newval := instancetype->__RecurseGetInstanceData(0, setting.id, cursettings, cdatagetter, remapper, orphansvisible, DEFAULT INTEGER ARRAY, FALSE);
-  INSERT CELL whfstype := instancetype->namespace
-            , whfssettingid := setting.id
-            , whfsfileid := 0
-         INTO newval;
+  newval := instancetype->__RecurseGetInstanceData(0, setting.id, cursettings, remapper, orphansvisible, DEFAULT INTEGER ARRAY, FALSE);
+  INSERT CELL whfstype := instancetype->namespace INTO newval;
+  IF(NOT ObjectExists(remapper)) //exporting for internal use
+  {
+    INSERT CELL whfssettingid := setting.id
+              , whfsfileid := 0
+           INTO newval;
+  }
   RETURN newval;
 }
 
@@ -86,43 +87,6 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentSubSettingsForSetting(INTEGER setting)
         FROM result
     ORDER BY parent, fs_member;
 }
-
-PUBLIC OBJECTTYPE BaseUrlOnDemand
-<
-  INTEGER objectid;
-  BOOLEAN isinstanceid;
-  BOOLEAN goturl;
-  STRING cdata_baseurl;
-
-  MACRO NEW(INTEGER objectid, BOOLEAN isinstanceid)
-  {
-    this->objectid := objectid;
-    this->isinstanceid := isinstanceid;
-  }
-  PUBLIC STRING FUNCTION GetCdataBaseURL()
-  {
-    IF(NOT this->goturl)
-    {
-      this->goturl := TRUE;
-
-      INTEGER objectid;
-      IF(this->isinstanceid)
-        objectid := SELECT AS INTEGER fs_object FROM system.fs_instances WHERE id = this->objectid;
-      ELSE
-        objectid := this->objectid;
-
-      IF(this->objectid != 0)
-      {
-        this->cdata_baseurl := SELECT AS STRING cdnbaseurl ?? webroot
-                                 FROM system.sites
-                                    , system.fs_objects
-                                WHERE fs_objects.id = objectid
-                                      AND sites.id = fs_objects.highestparent;
-      }
-    }
-    RETURN this->cdata_baseurl;
-  }
->;
 
 PUBLIC RECORD ARRAY FUNCTION GatherReferredSharedBlocks(RECORD ARRAY blocks)
 {
@@ -183,7 +147,7 @@ STATIC OBJECTTYPE WHFSType
   ///True if pvt_members is currently valid
   BOOLEAN pvt_members_valid;
 
-  //Not documenting obsolete/internal use publish, emptyval and maxlength
+  //Not documenting obsolete/internal use emptyval and maxlength
   /** List of members of this type, sorted on (parent, name)
       @cell id Id of the member
       @cell name Name of the member (lowercased)
@@ -288,14 +252,14 @@ STATIC OBJECTTYPE WHFSType
   {
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
-    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, FALSE);
+    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, FALSE);
   }
 
   RECORD FUNCTION GetStructure()
   {
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
-    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, TRUE);
+    RETURN this->__RecurseGetInstanceData(0, 0, DEFAULT RECORD ARRAY, DEFAULT OBJECT, FALSE, DEFAULT INTEGER ARRAY, TRUE);
   }
 
   // ---------------------------------------------------------------------------
@@ -362,7 +326,7 @@ STATIC OBJECTTYPE WHFSType
         Otherwise, the link is run through the MapWHFSRef function of the remapper (must return a STRING), and
         returned as strings (string arrays).
   */
-  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER cursetting, RECORD ARRAY cursettings, OBJECT cdatagetter, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
+  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER cursetting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
   {
     RECORD retval := CELL[];
     RECORD ARRAY getmembers := SELECT *
@@ -435,14 +399,16 @@ STATIC OBJECTTYPE WHFSType
         {
           IF(isgetstructure)
           {
-            INSERT CELL[ ...this->__RecurseGetInstanceData(memberrec.id, 0, RECORD[], cdatagetter, remapper, orphansvisible, limit_to_members, isgetstructure)
-                       , fs_settingid := 0
-                       ] INTO newval AT END;
+            RECORD rec := this->__RecurseGetInstanceData(memberrec.id, 0, RECORD[], remapper, orphansvisible, limit_to_members, isgetstructure);
+            IF(NOT ObjectExists(remapper)) //internal-use export
+              INSERT CELL fs_settingid := 0 INTO rec;
+            INSERT rec INTO newval AT END;
           }
           ELSE FOREVERY(RECORD element FROM (SELECT * FROM curset ORDER BY ordering))
           {
-            RECORD rec := this->__RecurseGetInstanceData(memberrec.id, element.id, cursettings, cdatagetter, remapper, orphansvisible, limit_to_members, FALSE);
-            INSERT CELL fs_settingid := element.id INTO rec;
+            RECORD rec := this->__RecurseGetInstanceData(memberrec.id, element.id, cursettings, remapper, orphansvisible, limit_to_members, FALSE);
+            IF(NOT ObjectExists(remapper)) //internal-use export
+              INSERT CELL fs_settingid := element.id INTO rec;
             INSERT rec INTO newval AT END;
           }
         }
@@ -457,28 +423,20 @@ STATIC OBJECTTYPE WHFSType
             newval := SplitBlobSetting(curset[0].setting, curset[0].blobdata, curset[0].fs_object);
             IF(RecordExists(newval))
             {
-              newval := CELL[ ...newval
-                            , settingid := curset[0].id
-                            , __blobsource := "s" || curset[0].id
-                            ];
-
-              IF(GetDtapStage() = "development")
+              IF (ObjectExists(remapper)) //mapping for external use
               {
-                INSERT CELL link := [ linkisobsolete := FALSE ] INTO newval;
+                newval := CELL[ ...newval
+                              , source_fsobject := remapper->MapWHFSRef(newval.source_fsobject)
+                              , DELETE settingid
+                              , DELETE __blobsource
+                              ];
               }
-              ELSE
+              ELSE //internal use
               {
-                STRING link;
-                IF (memberrec.publish AND ObjectExists(cdatagetter) AND cdatagetter->GetCdataBaseURL() != "")
-                  link := GetCachedFSSettingFileURL(cdatagetter->GetCdataBaseURL(), curset[0].id, [ embed := TRUE, filename := newval.filename, allowanyextension := TRUE ]);
-                INSERT CELL link := link INTO newval;
-              }
-
-              IF (ObjectExists(remapper))
-              {
-                VARIANT remapped := remapper->MapWHFSRef(newval.source_fsobject);
-                DELETE CELL source_fsobject FROM newval;
-                INSERT CELL source_fsobject := remapped INTO newval;
+                newval := CELL[ ...newval
+                              , settingid := curset[0].id
+                              , __blobsource := "s" || curset[0].id
+                              ];
               }
             }
           }
@@ -513,27 +471,22 @@ STATIC OBJECTTYPE WHFSType
                   //Then add it!
                   split := CELL[ ...split
                                , contentid := split.filename
-                               , settingid := setting.id
-                               , __blobsource := "s" || setting.id
                                ];
-
-                  IF(GetDtapStage() = "development")
-                  {
-                    INSERT CELL link := [ linkisobsolete := FALSE ] INTO split;
-                  }
-                  ELSE
-                  {
-                    STRING link;
-                    IF (isrtd AND memberrec.publish AND ObjectExists(cdatagetter) AND cdatagetter->GetCdataBaseURL() != "")
-                      link := GetCachedFSSettingFileURL(cdatagetter->GetCdataBaseURL(), setting.id) || "/" || split.filename; //note that Unifiedcache never supported old ec~/fc~ links
-                    INSERT CELL link := link INTO split;
-                  }
 
                   IF (ObjectExists(remapper))
                   {
-                    VARIANT remapped := remapper->MapWHFSRef(split.source_fsobject);
-                    DELETE CELL source_fsobject FROM split;
-                    INSERT CELL source_fsobject := remapped INTO split;
+                    split := CELL[ ...split
+                                 , source_fsobject := remapper->MapWHFSRef(split.source_fsobject)
+                                 , DELETE settingid
+                                 , DELETE __blobsource
+                                 ];
+                  }
+                  ELSE
+                  {
+                    split := CELL[ ...split
+                                 , settingid := setting.id
+                                 , __blobsource := "s" || setting.id
+                                 ];
                   }
 
                   INSERT split INTO newval.embedded AT END;
@@ -550,7 +503,7 @@ STATIC OBJECTTYPE WHFSType
               ELSE IF(setting.ordering = 3)
               {
                 STRING ARRAY toks := Tokenize(setting.setting, '\t'); //makes it easier to add new fields in the future
-                RECORD data := GetInstanceMember(setting, cursettings, cdatagetter, remapper, orphansvisible);
+                RECORD data := GetInstanceMember(setting, cursettings, remapper, orphansvisible);
                 IF(RecordExists(data))
                   INSERT [ instanceid := toks[0]
                          , data := data
@@ -574,7 +527,7 @@ STATIC OBJECTTYPE WHFSType
         CASE 18 // instance
         {
           IF(Length(curset) > 0)
-            newval := GetInstanceMember(curset[0], cursettings, cdatagetter, remapper, orphansvisible);
+            newval := GetInstanceMember(curset[0], cursettings, remapper, orphansvisible);
         }
         CASE 21 // record
         {
@@ -1378,7 +1331,7 @@ STATIC OBJECTTYPE WHFSType
 
     RECORD ARRAY allsettings := GetCurrentSettingsForInstance(instance);
 
-    RETURN this->__RecurseGetInstanceData(0, 0, allsettings, NEW BaseUrlOnDemand(objectid, FALSE), remapper, export_orphans, DEFAULT INTEGER ARRAY, FALSE);
+    RETURN this->__RecurseGetInstanceData(0, 0, allsettings, remapper, export_orphans, DEFAULT INTEGER ARRAY, FALSE);
   }
 
 
@@ -1449,7 +1402,6 @@ STATIC OBJECTTYPE WHFSType
     INTEGER ARRAY expandarrays;
 
     BOOLEAN have_instances; // Whether any selected member can have instance data
-    BOOLEAN need_cdata_baseurl; // Whether any member is published
 
     // Lookup all directly selected fields
     FOREVERY (STRING field FROM fields)
@@ -1486,8 +1438,6 @@ STATIC OBJECTTYPE WHFSType
           INSERT memberrec.id INTO expandarrays AT END;
         ELSE IF (memberrec.type IN [ 15, 18, 20 ])
           have_instances := TRUE;
-        IF (memberrec.publish)
-          need_cdata_baseurl := TRUE;
       }
     }
 
@@ -1502,8 +1452,6 @@ STATIC OBJECTTYPE WHFSType
           INSERT memberrec.id INTO expandarrays AT END;
         ELSE IF (memberrec.type IN [ 15, 18, 20 ])
           have_instances := TRUE;
-        IF (memberrec.publish)
-          need_cdata_baseurl := TRUE;
       }
     }
 
@@ -1528,16 +1476,12 @@ STATIC OBJECTTYPE WHFSType
     RECORD ARRAY outrows;
     FOREVERY(INTEGER exportid FROM ids)
     {
-      OBJECT baseurlgetter;
-      IF(need_cdata_baseurl)
-        baseurlgetter := NEW BaseUrlOnDemand(exportid, FALSE);
-
       RECORD lbound := RecordLowerBound(basedata, [ fsid := exportid ], [ "FSID" ]);
       INTEGER ubound := RecordUpperBound(basedata, [ fsid := exportid ], [ "FSID" ]);
 
       RECORD ARRAY itemsettings := ArraySlice(basedata, lbound.position, ubound - lbound.position);
 
-      RECORD data := this->__RecurseGetInstanceData(0, 0, itemsettings, baseurlgetter, DEFAULT OBJECT, getorphanmembers, selectmembers, FALSE);
+      RECORD data := this->__RecurseGetInstanceData(0, 0, itemsettings, DEFAULT OBJECT, getorphanmembers, selectmembers, FALSE);
       IF(can_add_id)
         INSERT CELL id := exportid INTO data;
       ELSE IF(addjoinid)
@@ -1995,17 +1939,9 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
 
 BOOLEAN FUNCTION UpdateMember(INTEGER memberid, RECORD memberdata, RECORD oldversion)
 {
-  //ADDME move to compiled siteprofiles or just remove it
-  BOOLEAN newpublish;
-  IF(CellExists(memberdata,'publish'))
-  {
-    newpublish := (memberdata.type IN [5,15] AND CellExists(memberdata,"publish")) ? memberdata.publish : FALSE;
-  }
-
   IF(RecordExists(oldversion)
      AND oldversion.name=memberdata.name
-     AND oldversion.type=memberdata.type
-     AND oldversion.publish=newpublish)
+     AND oldversion.type=memberdata.type)
     RETURN FALSE; //nothing to update
 
   GetWHFSCommitHandler()->FSTypesChanged();
@@ -2013,7 +1949,6 @@ BOOLEAN FUNCTION UpdateMember(INTEGER memberid, RECORD memberdata, RECORD oldver
   UPDATE system.fs_members
          SET name := memberdata.name
            , type := memberdata.type //FIXME Avoid incompatible (nearly all) type changes on existing members.. reject those changes instead!
-           , publish := CellExists(memberdata,'publish') ? newpublish : fs_members.publish
          WHERE id = memberid;
 
   // Type change?
@@ -2056,8 +1991,7 @@ PUBLIC RECORD FUNCTION ApplyCTMembers(RECORD ARRAY inmembers, INTEGER curtype, B
 
 /** @cell(string) inmembers.name
     @cell(integer) inmembers.type
-    @cell(integer) inmembers.maxlength
-    @cell(boolean) inmembers.publish */
+    @cell(integer) inmembers.maxlength  */
 PUBLIC RECORD FUNCTION ApplyCTMembersRecurse(RECORD ARRAY inmembers, INTEGER curtype, INTEGER curparent, BOOLEAN orphans, RECORD ARRAY allcurmembers)
 {
   RECORD retval := [ updatedmembers := DEFAULT INTEGER ARRAY
@@ -2189,5 +2123,5 @@ PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER64 fssettingid, RECORD optio
     RETURN DEFAULT RECORD;
 
   RECORD ARRAY cursettings := GetCurrentSettingsForInstance(settingrec.fs_instance);
-  RETURN GetInstanceMember(settingrec, cursettings, NEW BaseUrlOnDemand(settingrec.fs_instance, TRUE), DEFAULT OBJECT, options.orphans);
+  RETURN GetInstanceMember(settingrec, cursettings, DEFAULT OBJECT, options.orphans);
 }

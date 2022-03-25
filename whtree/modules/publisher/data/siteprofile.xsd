@@ -688,15 +688,6 @@
     </xs:choice>
     <xs:attribute name="name" type="Name" use="required"/>
     <xs:attribute name="type" type="MemberTypes" use="required" />
-    <xs:attribute name="publish" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          Deprecated!
-          Use the image/file cache to expose the content's of a "file" member.
-          For "richdocument" members webdesign->MakeRTD will already use the image cache. (FIXME: what about GetRichDocumentFragment?)
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
   </xs:complexType>
 
   <xs:simpleType name="MemberTypes">

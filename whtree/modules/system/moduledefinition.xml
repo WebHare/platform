@@ -1256,13 +1256,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Since when is this field orphaned
         </d:documentation>
       </d:datetime>
-      <d:boolean name="publish">
-        <d:documentation>
-          Whether the content of this member can retrieved through the publisher.
-          (for making member's of type 'file' and image content in 'richdocument' members accessable)
-          This attribute is deprecated, you should now use use module::system/cache.wlib and GetCachedFileLink() to get an URL.
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="publish" />
       <d:integer name="type" nullable="0">
         <d:documentation>What type of content this member contains. See whconstant_whfstype_membertypes for posssible values</d:documentation>
       </d:integer>

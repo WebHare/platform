@@ -47,7 +47,7 @@ PUBLIC STRING FUNCTION GetCachedFSSettingImageURL(STRING baseurl, INTEGER fssett
 
 /** @short Get the URL to an instance data file setting download
     @param baseurl Base URL for the returned cache url (leave empty for a /.uc/ or https://cdn/.uc/ url)
-    @param fsobject settingid of the image (must have publish="true" in its contenttype definition)
+    @param fsobject settingid of the file
     @cell options.filename Filename to use in the URL
     @cell options.embed The returned URL should serve itself without a content-disposition: attachment
     @cell options.allowanyextension Do not fail if the wrong extension is used */

@@ -281,7 +281,6 @@ PUBLIC SCHEMA
     , STRING "name"
     , INTEGER "fs_type" NULL := 0
     , INTEGER "type"
-    , BOOLEAN "publish"
     , BOOLEAN "orphan"
     , INTEGER "parent" NULL := 0
     ; KEY id
