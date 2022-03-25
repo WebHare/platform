@@ -228,7 +228,7 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
 
   }
 
-  IF(RecordExists(SELECT FROM status.bundles WHERE haserrors))
+  IF(RecordExists(SELECT FROM status.bundles WHERE outputtag IN matches AND haserrors))
     SetConsoleExitCode(1);
 }
 
