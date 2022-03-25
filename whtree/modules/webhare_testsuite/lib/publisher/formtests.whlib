@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
+{
+  TestEq(FALSE, CellExists(rendertree,'config'), "top-level onfig was eliminated");
+  TestEqLike("?*", rendertree.formid);
+
+  FOREVERY(RECORD page FROM rendertree.pages)
+  {
+    TestEq(FALSE, CellExists(page,'config'), "page-level onfig was eliminated");
+    TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'title'), "Fields should have 'htmltitle' not 'title'");
+    TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'prefix'), "Fields should have 'htmlprefix' not 'prefix'");
+    TestEq(RECORD[], SELECT * FROM page.fields WHERE CellExists(fields,'suffix'), "Fields should have 'htmlsuffix' not 'suffix'");
+
+    FOREVERY(RECORD field FROM page.fields)
+    {
+      //Ensure that fields, if they exist, have the expected type
+      TestEq("STRING", GetTypeName(TYPEID(field.htmltitle)));
+      TestEq("RECORD", GetTypeName(TYPEID(field.groupdataset)));
+      TestEq("RECORD", GetTypeName(TYPEID(field.visiblecondition)));
+
+      TestEqLike("?*#?*", field.qname, "Must be a valid qname");
+      TestEq(TRUE, SearchSubstring(field.qname,'?') = -1, "Qname shouldn't contain a ?");
+    }
+  }
+
+}

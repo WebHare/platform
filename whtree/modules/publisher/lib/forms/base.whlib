@@ -54,14 +54,6 @@ CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsr
 
 OBJECT defaultrenderer;
 
-//return a renderer for eg widget previews containing forms
-OBJECT FUNCTION GetDefaultRenderer()
-{
-  IF(NOT ObjectExists(defaultrenderer))
-    defaultrenderer := NEW FormRenderingBase(DEFAULT OBJECT);
-  RETURN defaultrenderer;
-}
-
 OBJECTTYPE FormsFeedbackObject EXTEND FeedbackObjectBase
 <
   OBJECT form;
@@ -211,6 +203,29 @@ STATIC OBJECTTYPE FormPage
     Print(`</div>`);
   }
 
+  PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD ARRAY fields;
+    FOREVERY(RECORD field FROM this->page.fields)
+    {
+      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
+      IF(NOT fld.obj->IsFrontendVisible())
+        CONTINUE;
+
+      RECORD renderfld := fld.obj->GetRenderTree();
+      IF(RecordExists(renderfld))
+        INSERT renderfld INTO fields AT END;
+    }
+
+    RETURN CELL[ this->title
+               , this->page.name
+               , this->role
+               , redirect := this->role = "thankyou" ? this->page.redirect : ""
+               , visiblecondition := __ExplainConditions(this->form, OBJECT[ this ], "visiblecondition")
+               , fields
+               ];
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Getters & setters
@@ -251,6 +266,7 @@ PUBLIC OBJECTTYPE FormBase
   FUNCTION PTR ARRAY __formattributescallbacks;
 
   OBJECT __directhookobject;
+  OBJECT __formrenderer;
 
   // ---------------------------------------------------------------------------
   //
@@ -261,7 +277,7 @@ PUBLIC OBJECTTYPE FormBase
   PUBLIC PROPERTY formvalue(__GetFormValue, __SetFormValue);
 
   /// Rendering engine for this form
-  PUBLIC OBJECT formrenderer;
+  PUBLIC PROPERTY formrenderer(__GetFormRenderer, -);
 
   /// Webcontext for the form
   PUBLIC PROPERTY formcontext(this->__form.webcontext, -);
@@ -399,9 +415,9 @@ PUBLIC OBJECTTYPE FormBase
 
   MACRO __FormAllFields()
   {
-    FOREVERY(RECORD fld FROM this->__formfields)
-      IF(NOT ObjectExists(fld.obj->parent))
-        fld.obj->RenderField();
+    FOREVERY(RECORD page FROM this->GetRenderTree().pages)
+      FOREVERY(RECORD fieldgroup FROM page.fields)
+        this->formrenderer->PrintField(fieldgroup);
   }
 
   MACRO __InstantiatePages(RECORD ARRAY pages)
@@ -424,19 +440,19 @@ PUBLIC OBJECTTYPE FormBase
 
   MACRO __FormAllPages()
   {
-    FOREVERY(RECORD page FROM this->__formpages)
-      page.obj->RenderPage(#page);
+    this->formrenderer->PrintPages(this->GetRenderTree());
   }
 
-  PUBLIC OBJECT FUNCTION __GetRenderer()
+  OBJECT FUNCTION __GetFormRenderer()
   {
-    IF (Objectexists(this->formrenderer))
-      RETURN this->formrenderer;
+    IF(NOT ObjectExists(this->__formrenderer))
+    {
+      this->__formrenderer := this->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration")->GetFormRenderer();
+      IF(MemberExists(this->__formrenderer,"__form"))
+        this->__formrenderer->__form := PRIVATE this; //transitional, this code will GO AWAY!
+    }
 
-    IF (NOT ObjectExists(this->formcontext) OR NOT MemberExists(this->formcontext, "GetFormRenderer"))
-      RETURN GetDefaultRenderer();
-
-    RETURN this->formcontext->GetFormRenderer();
+    RETURN this->__formrenderer;
   }
 
   MACRO __SendFormMessage(STRING _field, STRING _prop, VARIANT data)
@@ -723,9 +739,24 @@ PUBLIC OBJECTTYPE FormBase
     RETURN wittydata;
   }
 
+  PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD ARRAY pages := SELECT AS RECORD ARRAY page.obj->GetRenderTree()
+                            FROM ToRecordArray(this->__formpages, "page")
+                           WHERE page.obj->visible; //eliminate permanently invisible pages
+
+    RETURN CELL[ classes := this->formclasses
+               , ...BuildFormConfig(this)
+               , variables := this->formvariables
+               , dataset := this->formdataset
+               , labels := GetFormLabels(this)
+               , pages
+               ];
+  }
+
   PUBLIC MACRO RenderForm()
   {
-    this->__GetRenderer()->RenderForm(this->GetWittyData());
+    this->formrenderer->PrintForm(this->GetRenderTree());
   }
   PUBLIC RECORD FUNCTION GetIndexableContent(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -771,39 +802,23 @@ PUBLIC OBJECTTYPE FormBase
   {
     Print(` method="post"`);
     Print(' action="javascript:console.error(\'No RPC handler installed\');"');
-    IF(this->__form.externalformname != "") //this is also the trigger for eg Upload fields to take over (as they can't work with POST submission)
-      Print(` data-wh-form-id="${EncodeValue(this->__form.externalformname)}"`);
-    IF(this->formref != "")
-      Print(` data-wh-form-ref="${EncodeValue(this->formref)}"`);
-    IF(this->formbacklink != "")
-      Print(` data-wh-form-backlink="${EncodeValue(this->formbacklink)}"`);
 
-    IF(this->formjshandler != "")
-      Print(` data-wh-form-handler="${EncodeValue(this->formjshandler)}"`);
-    IF(RecordExists(this->formvariables))
-      FOREVERY(RECORD field FROM UnpackRecord(this->formvariables))
-      {
-        STRING rowkeytype := ToLowercase(GetTypeName(TypeID(field.value)));
-        Print(` data-wh-form-var-${ToLowercase(GetSafeName(field.name))}="${EncodeValue(UnmapValueType(rowkeytype, field.value, "", FALSE))}"`);
-      }
+    Print(GetDatasetAsString(CELL[...this->formdataset
+                                 ,...GetFormVariablesAsDataset(this->formvariables)
+                                 ,...GetFormConfigAsDataset(BuildFormConfig(this))
+                                 ]));
 
-    Print(GetDatasetAsString(this->formdataset));
     FOREVERY(FUNCTION PTR callback FROM this->__formattributescallbacks)
     {
       STRING toadd := TrimWhitespace(callback());
       IF(toadd != "")
         Print(" " || toadd);
     }
-
   }
 
   MACRO __FormNavigation()
   {
-    RECORD navdata := [ prevlabel :=   this->formprevlabel
-                      , nextlabel :=   this->formnextlabel
-                      , submitlabel := this->formsubmitlabel
-                      ];
-    this->__GetRenderer()->RenderFormNavigation(navdata); //FIXME we're sending this in for completeness, but it should only need to know whether there are multiple pages
+    this->formrenderer->PrintNavigation([ labels := GetFormLabels(this) ]);
   }
 
   /** Get a field by name

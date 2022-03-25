@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/testfw/upload.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/formtests.whlib";
 
 PUBLIC MACRO TestTestsuiteForms()   //Run through the testsuite forms. this may alreay expose some issues
 {
@@ -20,10 +21,29 @@ PUBLIC MACRO TestTestsuiteForms()   //Run through the testsuite forms. this may 
     Print(testfile->indexurl || "\n");
 
   OBJECT webdesign := GetWebDesign(testfile->id);
+
   OBJECT coreform := webdesign->OpenForm("coretest", [ formref := "CORE-TEST-FORM"]);
+  ValidateFormRenderTree(coreform->GetRenderTree());
+
+  TestEqMembers([ groupclasses := ["radioboolean"]
+                ], coreform->^radioboolean->GetRenderTree(), '*');
+  TestEqMembers([ groupdataset := [ bunny := "rabbit" ]
+                ], coreform->^email->GetRenderTree(), '*');
+
+
   OBJECT dynamicform := webdesign->OpenForm("dynamictest");
+  ValidateFormRenderTree(dynamicform->GetRenderTree());
+  TestEqMembers([ dataset := [ bob := "beagle" ]], dynamicform->GetRenderTree(), "*");
+
   OBJECT rtdform := webdesign->OpenForm("rtdtest");
+  ValidateFormRenderTree(rtdform->GetRenderTree());
+
   OBJECT addressform := webdesign->OpenForm("addressform");
+  ValidateFormRenderTree(addressform->GetRenderTree());
+
+  OBJECT visibleconditionsform := webdesign->OpenForm("visibleconditionsform");
+  ValidateFormRenderTree(visibleconditionsform->GetRenderTree());
+  TestEqMembers([ classes := [ "mycustomformclass" ]], visibleconditionsform->GetRenderTree(), "*");
 }
 
 

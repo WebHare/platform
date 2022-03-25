@@ -6,6 +6,7 @@
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
 
 
 
@@ -526,17 +527,50 @@ PUBLIC OBJECTTYPE FormFieldBase
     RETURN FALSE;
   }
 
+  PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    //Tree version to render us into a fieldgroup
+
+    STRING ARRAY groupclasses;
+    OBJECT ARRAY relevantelts, relevantelts_required;
+    FOR(OBJECT formcomponent := this; ObjectExists(formcomponent); formcomponent := formcomponent->parent)
+    {
+      groupclasses := groupclasses CONCAT formcomponent->groupclasses;
+
+      INSERT formcomponent INTO relevantelts AT END;
+      INSERT formcomponent INTO relevantelts_required AT END;
+      // For required conditions, we don't have to chase formgroups, as required conditions cannot be defined on groups
+      IF(ObjectExists(formcomponent->formgroup))
+        INSERT formcomponent->formgroup INTO relevantelts AT END;
+    }
+
+    RETURN CELL[ this->hidetitle
+               , this->qname
+               , this->name
+               , this->htmltitle
+               , this->enabled
+               , this->required
+               , this->autocomplete
+               , this->groupdataset
+               , this->groupclasses
+
+               , requiredcondition := this->required ? DEFAULT RECORD : __ExplainConditions(this->form, relevantelts_required, "requiredcondition")
+               , enabledcondition := this->enabled ? __ExplainConditions(this->form, relevantelts, "enabledcondition") : DEFAULT RECORD
+               , visiblecondition := __ExplainConditions(this->form, relevantelts, "visiblecondition") //note - we wouldn't get called if invisible, so no need to hide the condition
+               ];
+  }
+
   /** Render the field into a group (RenderInGroup). Delegates individual rendering lines to RenderFieldLines */
   PUBLIC MACRO RenderField()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderField(this->__GetRenderData());
+      this->form->formrenderer->RenderField(this->__GetRenderData());
   }
   /** Render the .wh-form__fieldline lines */
   PUBLIC MACRO RenderFieldLines()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderFieldInline(CELL[ ...this->__GetRenderData()
+      this->form->formrenderer->RenderFieldInline(CELL[ ...this->__GetRenderData()
                                                          , fieldcontent := PTR this->RenderFieldContent
                                                          ]);
   }
@@ -547,7 +581,7 @@ PUBLIC OBJECTTYPE FormFieldBase
   PUBLIC MACRO RenderIntoSubField()
   {
     IF(this->IsFrontendVisible())
-      this->form->__GetRenderer()->RenderIntoSubField(this->__GetRenderData());
+      this->form->formrenderer->RenderIntoSubField(this->__GetRenderData());
   }
   PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
   {

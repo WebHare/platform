@@ -6,6 +6,7 @@
   <div id="testsubmitcontext" class="wh-form--submitcontext">
     <form class="wh-form wh-styledinput" id="coreform" [coreform.formattributes] autocomplete="off">
       [coreform.formallfields]
+      [coreform.rt_dynamic.render] [! not implicit in formallfields since 4.35 !]
 
       stray email field: <input name="strayfield" type="email" form="" /> [! this crashes because of validation calls if not properly disassociated from the form !]
 
@@ -38,6 +39,10 @@
   <h1>Core form</h1>
   <form class="wh-form wh-styledinput" id="dynamicform" [dynamicform.formattributes]>
     [dynamicform.formallfields]
+    [dynamicform.textfield.render]
+    [dynamicform.myradio.render]
+    [dynamicform.mycheckbox.render]
+    [dynamicform.myint.render]
     <button type="button" class="prefillbutton">Prefill</button>
     <button type="submit" id="submitbutton">Submit</button>
   </form>
