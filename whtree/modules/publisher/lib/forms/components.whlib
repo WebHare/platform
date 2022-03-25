@@ -62,6 +62,12 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
   }
 
+  /** @short Prepare for use with the frontend (rendering, rpc or validation)  (WebHare >= 4.34.1)
+  */
+  PUBLIC MACRO PrepareForFrontend()
+  {
+  }
+
   /** @short Prepare result data
       @long This function is invoked at the start of submit handling before field values are processed   (WebHare >= 4.28.3)
   */

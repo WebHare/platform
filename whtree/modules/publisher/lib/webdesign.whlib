@@ -638,6 +638,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       form->formidprefix := "formwidget_" || this->__pageformcount || "_";
     }
 
+    form->PrepareForFrontend();
+
     RETURN form;
   }
 
