@@ -164,13 +164,13 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   {
     IF(inrow.linktype=0)
     {
-      INSERT CELL data := EncodeHSON(this->rtdtype->ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).data) INTO inrow;
+      INSERT CELL data := EncodeHSON(this->rtdtype->__ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).data) INTO inrow;
       DELETE CELL fsobject FROM inrow;
       RETURN inrow;
     }
     IF(inrow.linktype=1)
     {
-      INSERT CELL data := EncodeHSON(this->instancetype->ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).instance) INTO inrow;
+      INSERT CELL data := EncodeHSON(this->instancetype->__ExportInstanceData(inrow.fsobject, this->exportmapper, FALSE).instance) INTO inrow;
       DELETE CELL fsobject FROM inrow;
       RETURN inrow;
     }

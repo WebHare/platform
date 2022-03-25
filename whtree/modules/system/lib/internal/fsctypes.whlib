@@ -19,7 +19,6 @@ PUBLIC BOOLEAN FUNCTION IsArrayVersionOf(INTEGER soloversion, INTEGER arrayversi
     @cell return.id Id of the member
     @cell return.name Name (lowercased)
     @cell return.type
-    @cell return.publish
     @cell return.maxlength
     @cell return.emptyval
     @cell return.allowed
@@ -89,9 +88,9 @@ RECORD FUNCTION GetCacheableMembers(INTEGER typedefid)
       }
     }
 
-    INSERT INTO memberlist(id, name, type, publish
+    INSERT INTO memberlist(id, name, type
                           ,emptyval, parent, orphan)
-           VALUES(memberrec.id, memberrec.name, memberrec.type, memberrec.publish
+           VALUES(memberrec.id, memberrec.name, memberrec.type
                  ,emptyval, memberrec.parent, memberrec.orphan)
            AT END;
   }

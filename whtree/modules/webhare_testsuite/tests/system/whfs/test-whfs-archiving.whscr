@@ -15,6 +15,8 @@ LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
 
 OBJECT typetestfolder;
 OBJECT testfile;
@@ -229,11 +231,21 @@ MACRO Archiving()
   BLOB thearchive := typetestfolder->ExportFolder( [initialname := "typetest.4" ]).files[0].data;
   TestEq("application/x-webhare-archive", ScanBlob(thearchive).mimetype);
 
+  RECORD ARRAY archivecontents := UnpackArchive(thearchive);
+  OBJECT metaxml := MakeXMLDocument(SELECT AS BLOB data FROM archivecontents WHERE path="typetest.4" AND name="^^webhare_folder_metadata.xml");
+
+  //Find <embedded>
+  OBJECT ARRAY embeddednodes := metaxml->ListElements("http://www.webhare.net/xmlns/publisher/archive", "embedded");
+  TestEq(2, Length(embeddednodes), "Verify it works at all");
+  TestEq(0, Length(metaxml->ListElements("*", "__blobsource")), "Should not contain internal ids (__blobsource) - info + 32/64bit leak!");
+  TestEq(0, Length(metaxml->ListElements("*", "fs_settingid")), "Should not contain internal ids (fs_settingid) - info + 32/64bit leak!");
+  TestEq(0, Length(metaxml->ListElements("*", "whfssettingid")), "Should not contain internal ids (whfssettingid) - info + 32/64bit leak!");
+  TestEq(0, Length(metaxml->ListElements("*", "whfsfileid")), "Should not contain internal ids (whfsfileid) - info + 32/64bit leak!");
+
   RECORD imp := ImportWHFSArchive(firstfolder, thearchive, [ overwrite := TRUE ]);
 
   VerifyTheCopy(firstfolder->OpenByName("typetest.4"), FALSE, "minimum", copyminimum, TRUE);
   TestEq(DEFAULT RECORD ARRAY, imp.notincluded);
-
 
   testfw->CommitWork();
 }

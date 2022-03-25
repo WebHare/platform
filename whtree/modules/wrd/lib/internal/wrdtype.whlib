@@ -3771,8 +3771,8 @@ RECORD FUNCTION ImExportInstanceData(OBJECT whfstype, OBJECT inmapper, OBJECT ou
   OBJECT file := OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile([ name := "wrd-instance-temp" ]);
   TRY
   {
-    whfstype->ImportInstanceData(file->id, data, inmapper, FALSE, [ isvisibleedit := FALSE ]);
-    data := whfstype->ExportInstanceData(file->id, outmapper, FALSE);
+    whfstype->__ImportInstanceData(file->id, data, inmapper, FALSE, [ isvisibleedit := FALSE ]);
+    data := whfstype->__ExportInstanceData(file->id, outmapper, FALSE);
   }
   CATCH
     data := DEFAULT RECORD;

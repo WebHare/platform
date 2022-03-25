@@ -193,7 +193,7 @@ OBJECTTYPE WHFSDraft
     RECORD ARRAY instances :=
         SELECT TEMPORARY type := OpenWHFSTypeById(fs_types.id)
              , type :=        type
-             , data :=        type->ExportInstanceData(fileid, DEFAULT OBJECT, TRUE)
+             , data :=        type->__ExportInstanceData(fileid, DEFAULT OBJECT, TRUE)
              , namespace :=   namespace
           FROM system.fs_instances
              , system.fs_types
@@ -255,7 +255,7 @@ OBJECTTYPE WHFSDraft
     final->UpdateMetadata(new_metadata.basefields);
     FOREVERY (RECORD instance FROM new_metadata.instances)
     {
-      instance.type->ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
+      instance.type->__ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
     }
 
     //delete copyable instance not present in the old list
@@ -302,7 +302,7 @@ OBJECTTYPE WHFSDraft
     final->UpdateMetadata(new_metadata.basefields);
 
     FOREVERY (RECORD instance FROM new_metadata.instances)
-      instance.type->ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
+      instance.type->__ImportInstanceData(final->id, instance.data, DEFAULT OBJECT, TRUE);
 
     FOREVERY (RECORD instance FROM old_metadata.instances)
       IF (NOT RecordLowerBound(new_metadata.instances, instance, [ "NAMESPACE" ]).found)

@@ -38,7 +38,7 @@ PUBLIC INTEGER FUNCTION StoreRTDInWHFS(INTEGER schemaid, RECORD rtd, OBJECT impo
                                               , type := rtdtype->id
                                               , id := newfileid
                                               ]);
-  rtdtype->ImportInstanceData(rtdfile->id, [ data := rtd ], importmapper, FALSE);
+  rtdtype->__ImportInstanceData(rtdfile->id, [ data := rtd ], importmapper, FALSE);
   RETURN rtdfile->id;
 }
 
@@ -69,7 +69,7 @@ PUBLIC INTEGER FUNCTION StoreInstanceInWHFS(INTEGER schemaid, RECORD instance, O
                                                    , type := instancetype->id
                                                    , id := newfileid
                                                    ]);
-  instancetype->ImportInstanceData(instancefile->id, [ instance := instance ], importmapper, FALSE);
+  instancetype->__ImportInstanceData(instancefile->id, [ instance := instance ], importmapper, FALSE);
   RETURN instancefile->id;
 }
 
@@ -95,7 +95,7 @@ PUBLIC RECORD FUNCTION RetrieveRTDInWHFS(INTEGER wrd_settingid, OBJECT whfsmappe
     THROW NEW Exception("Unable to retrieve the WHFS document associated with RTD setting #" || wrd_settingid);
 
   OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  RETURN rtdtype->ExportInstanceData(myfsobject, whfsmapper, FALSE).data;
+  RETURN rtdtype->__ExportInstanceData(myfsobject, whfsmapper, FALSE).data;
 }
 
 PUBLIC RECORD FUNCTION RetrieveInstanceInWHFS(INTEGER wrd_settingid, OBJECT whfsmapper)
@@ -105,7 +105,7 @@ PUBLIC RECORD FUNCTION RetrieveInstanceInWHFS(INTEGER wrd_settingid, OBJECT whfs
     THROW NEW Exception("Unable to retrieve the WHFS document associated with instance setting #" || wrd_settingid);
 
   OBJECT instancetype := OpenWHFSType("http://www.webhare.net/xmlns/wrd/instancefile");
-  RETURN instancetype->ExportInstanceData(myfsobject, whfsmapper, FALSE).instance;
+  RETURN instancetype->__ExportInstanceData(myfsobject, whfsmapper, FALSE).instance;
 }
 
 PUBLIC RECORD FUNCTION ReadWRDWHFSInstance(RECORD setting, OBJECT whfsmapper)

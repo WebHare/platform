@@ -130,7 +130,6 @@ PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
                                       , name
                                       , type
                                       , typename := GetFSMemberTypeName(type) ?? "#" || type
-                                      , publish
                                       , candelete := orphan
                                       , expanded := FALSE
                                       , orphansince
@@ -142,7 +141,6 @@ PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
     RETURN SELECT *
                 , expandable := type = 12
                 , listrowclasses:= candelete ? ["grayedout"] : STRING[]
-                , publishicon := type = 5 ? (publish ? 2 : 1) : 0
              FROM ctypemembers;
   }
 
