@@ -536,6 +536,15 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
+# Get version info   TODO have webhare give a command that gives this in a WEBHARE_VERSION= etc syntax?
+# this initializes the'version' variable
+eval $( $SUDO docker exec $TESTENV_CONTAINER1 cat /opt/wh/whtree/modules/system/whres/buildinfo )
+echo "WebHare version info:
+  committag=$committag
+  builddate=$builddate
+  buildtime=$buildtime
+  branch=$branch
+  version=$version"
 
 echo "`date` Wait for poststartdone container1"
 if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
@@ -554,9 +563,20 @@ fi
 if [ -n "$ISMODULETEST" ] && [ -z "$FATALERROR" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
-  echo "`date` Check assetpacks"
-  if ! $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
-    testfail "wait assetpacks failed (errorcode $?)"
+  echo "$(date) Check assetpacks"
+  $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"
+  RETVAL="$?"
+  if [ "$RETVAL" != "0" ]; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
+    if ! version_gte $version 4.35 ; then
+      echo "Workaround pre-4.35 race, retry assetpack compilation"
+      $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks recompile ":*"
+      RETVAL="$?"
+      if [ "$RETVAL" != "0" ]; then
+        testfail "wait assetpacks failed, even after retry (errorcode $?)"
+      fi
+    else
+      testfail "wait assetpacks failed (errorcode $?)"
+    fi
   fi
 
   if [ -z "$RUNEXPLICITTESTS" ]; then
