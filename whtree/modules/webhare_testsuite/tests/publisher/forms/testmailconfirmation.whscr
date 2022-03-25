@@ -18,14 +18,14 @@ STRING emailfieldname;
 
 PUBLIC MACRO BuildForm()
 {
-  BuildCustomWebtoolForm(
+  BuildCustomWebtoolForm2(
       [ mailconfirmation := TRUE
       ]);
 }
 
 PUBLIC ASYNC MACRO MailConfirmationHandler()
 {
-  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
   TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
   OBJECT webtoolform := OpenFormFileDefinition(customformfile);
   OBJECT webtoolresults := OpenFormFileResults(customformfile);
@@ -72,7 +72,7 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  // 'Click' the confirmation link to confirm the email address and
+  // 'Click' the confirmation link to confirm the email address
   TestEq(TRUE, testfw->browser->GotoWebPage(confirmlink->GetAttribute("href")));
 
   // Check if the feedback and result mails are sent now
