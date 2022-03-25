@@ -25,12 +25,12 @@ STRING emailfieldname;
 
 PUBLIC MACRO BuildForm()
 {
-  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE ]);
+  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, addpulldown := TRUE ]);
 }
 
 PUBLIC MACRO FillInForm()
 {
-  INTEGER numexportfields := 15;
+  INTEGER numexportfields := 17;
 
   //Ensure the form is up
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -106,6 +106,8 @@ PUBLIC MACRO FillInForm()
                                  , value := FALSE
                                  , orientation := "vertical"
                                  ]
+                                ,[ htmltitle := "Pulldown req" ]
+                                ,[ htmltitle := "Pulldown opt" ]
                                 ,[ htmltitle := "Address" ]
                                 ,[ htmltitle := "Time" ]
                                 ,[ htmltitle := "Imgedit" ]
@@ -148,10 +150,13 @@ PUBLIC MACRO FillInForm()
                    , "address.zip" := "7521 AM"
                    , "address.city" := "Enschede"
                    , "address.province" := "OV" // will be ignored for NL
+                   , "requiredpulldownfield" := "yes"
                    ];
 
   firstsubmitrec := submitrec;
   res := tester->SubmitForm(submitrec);
+  IF(NOT res.success)
+    dumpvalue(res,'tree');
   TestEq(TRUE, res.success);
 
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
@@ -239,6 +244,7 @@ PUBLIC MACRO FillInForm()
                    , "address.street" := "Bahnhofstraße"
                    , "address.zip" := "48599"
                    , "address.city" := "Gronau"
+                   , "requiredpulldownfield" := "yes"
                    ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
@@ -310,7 +316,7 @@ PUBLIC MACRO FillInForm()
   TestEq(2, Length(exportwithattachments.rows));
   TestEq("uploads/000002-I-allstar.txt", exportwithattachments.attachments[0].path);
   TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", exportwithattachments.attachments[0].file.hash);
-  TEsteq("uploads/000002-AA-goudvis.png", exportwithattachments.attachments[1].path);
+  TEsteq("uploads/000002-AC-goudvis.png", exportwithattachments.attachments[1].path);
   TEsteq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", exportwithattachments.attachments[1].file.hash);
 
   RECORD ARRAY ownermail := testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
@@ -360,6 +366,7 @@ PUBLIC MACRO FillInForm()
                    , "address.city" := "Antwerpen"
                    , "address.province" := "Antwerpen"
                    , textarea := RepeatText("x", 8192) // Test long strings being exported as blobs
+                   , "requiredpulldownfield" := "no"
                    ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
@@ -453,6 +460,7 @@ MACRO TestDirectFormSubmission()
                                    , city := "Antwerpen"
                                    , province := "Antwerpen"
                                    ]
+                      , "requiredpulldownfield" := "yes"
                       ];
 
   form->formvalue := submitrec;
@@ -548,6 +556,7 @@ ASYNC MACRO TestFormApp()
       , "address.street" := "Platz der Republik"
       , "address.zip" := "11011"
       , "address.city" := "Berlin"
+      , "requiredpulldownfield" := "yes"
       ];
   OBJECT emailfield := testfw->browser->document->GetElement('input[type="email"]');
   submitrec := CellInsert(submitrec, emailfield->GetAttribute("name"), "testfw+preview@beta.webhare.net");
@@ -622,9 +631,11 @@ MACRO TestContentLink()
       , "address.street" := "Platz der Republik"
       , "address.zip" := "11011"
       , "address.city" := "Berlin"
+      , "requiredpulldownfield" := "no"
       ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+contentlink@beta.webhare.net");
   RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
 
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT webtoolresults := OpenFormFileResults(formfile);
