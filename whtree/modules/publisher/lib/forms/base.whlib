@@ -208,8 +208,8 @@ STATIC OBJECTTYPE FormPage
     RECORD ARRAY fields;
     FOREVERY(RECORD field FROM this->page.fields)
     {
-      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
-      IF(NOT fld.obj->IsFrontendVisible())
+      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name) AND formgroup = "";
+      IF(NOT RecordExists(fld) OR NOT fld.obj->IsFrontendVisible())
         CONTINUE;
 
       RECORD renderfld := fld.obj->GetRenderTree();
@@ -417,7 +417,13 @@ PUBLIC STATIC OBJECTTYPE FormBase
   {
     FOREVERY(RECORD page FROM this->GetRenderTree().pages)
       FOREVERY(RECORD fieldgroup FROM page.fields)
+      {
+        //our standard rendering 'flattens' groups
         this->formrenderer->PrintField(fieldgroup);
+        IF(CellExists(fieldgroup,'type') AND fieldgroup.type = "group")
+          FOREVERY(RECORD field FROM fieldgroup.fields)
+            this->formrenderer->PrintField(field);
+      }
   }
 
   MACRO __InstantiatePages(RECORD ARRAY pages)

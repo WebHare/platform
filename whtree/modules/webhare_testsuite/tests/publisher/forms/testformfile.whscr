@@ -85,9 +85,14 @@ PUBLIC MACRO FillInForm()
                                  , required := TRUE
                                  , value := ""
                                  ]
-                                ,[ htmltitle := "Groups &#38; stuff" ]
-                                ,[ htmltitle := "Upload" ]
-                                ,[ htmltitle := "Date" ]
+                                ,[ htmltitle := "Groups &#38; stuff"
+                                 , type := "group"
+                                 , containertag := "" //we allow rendering to default it
+                                 , classname := ""
+                                 , fields := [[ htmltitle := "Upload" ]
+                                             ,[ htmltitle := "Date" ]
+                                             ]
+                                 ]
                                 ,[ htmltitle := "CustomSelect" ]
                                 ,[ htmltitle := "Textarea"
                                  , value := ""
