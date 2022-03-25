@@ -15,7 +15,7 @@ PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
   {
     INSERT CELL testsuitehandlerproof := "TSHANDLERPROOF-41" INTO this->form->formdataset;
   }
-  UPDATE PUBLIC MACRO PrepareRendering()
+  UPDATE PUBLIC MACRO PrepareForFrontend()
   {
     FOREVERY(RECORD field FROM this->form->ListFields())
       IF(field.obj->title="Email" AND field.obj->value="")

@@ -14,7 +14,7 @@ RECORD ARRAY wrdmapping :=
 
 PUBLIC STATIC OBJECTTYPE WRDAuthPrefillHandler EXTEND FormHandlerBase
 <
-  UPDATE PUBLIC MACRO PrepareRendering()
+  UPDATE PUBLIC MACRO PrepareForFrontend()
   {
     OBJECT wrdauthplugin := this->form->GetWRDAuthPlugin();
     IF (NOT (ObjectExists(wrdauthplugin) AND wrdauthplugin->IsLoggedIn()))

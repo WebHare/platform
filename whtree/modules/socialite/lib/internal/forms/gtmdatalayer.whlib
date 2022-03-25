@@ -4,7 +4,7 @@ LOADLIB "mod::publisher/lib/forms/editor.whlib";
 
 PUBLIC OBJECTTYPE GTMDataLayer EXTEND FormHandlerBase
 <
-  UPDATE PUBLIC MACRO PrepareRendering()
+  UPDATE PUBLIC MACRO PrepareForFrontend()
   {
     this->form->formdataset := CELL[...this->form->formdataset
                                    , "gtm-submit" := EncodeJSON([ form := this->settings.formname ])
