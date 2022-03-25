@@ -128,6 +128,18 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RETURN NOT RecordExists(this->unavailabletext);
   }
 
+  //Prepare form for use in the frontend (either rendering or for result data)
+  UPDATE PUBLIC MACRO PrepareForFrontend()
+  {
+    // All handlers get a chance to run so they can still do prefill/data corrections which may affect storage/activation
+    FOREVERY(RECORD handler FROM this->formhandlers)
+      handler.handlerobject->PrepareForFrontend();
+
+    OBJECT hookobject := this->GetHookobject();
+    IF (ObjectExists(hookobject) AND hookobject EXTENDSFROM WebtoolFormHooks) //not a 'newstyle page base'
+      hookobject->PrepareForFrontend();
+  }
+
   // Let form handlers prefill the form fields before returning the witty date to print
   UPDATE PUBLIC RECORD FUNCTION GetWittyData()
   {

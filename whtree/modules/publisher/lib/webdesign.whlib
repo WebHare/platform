@@ -648,6 +648,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       form->formidprefix := "formwidget_" || formobject->id || "_";
     }
 
+    form->PrepareForFrontend();
+
     RETURN form;
   }
 
