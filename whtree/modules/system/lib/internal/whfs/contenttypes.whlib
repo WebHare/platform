@@ -1364,9 +1364,9 @@ STATIC OBJECTTYPE WHFSType
       @param remapper Optional object to remap whfsref(array)s to string values
       @return A record with the instance data for this object. Publication links for blobs will only be
           filled in when no remapper is specified.
-      @see ImportInstanceData, SetInstanceData
+      @see __ImportInstanceData, SetInstanceData
   */
-  PUBLIC RECORD FUNCTION ExportInstanceData(INTEGER objectid, OBJECT remapper, BOOLEAN export_orphans)
+  PUBLIC RECORD FUNCTION __ExportInstanceData(INTEGER objectid, OBJECT remapper, BOOLEAN export_orphans)
   {
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
@@ -1387,7 +1387,7 @@ STATIC OBJECTTYPE WHFSType
       @param objectid Id of the object
       @cell(boolean) options.orphans Get orphan (unreferenced by siteprofile) members too
       @return Instance data
-      @see SetInstanceData, ExportInstanceData
+      @see SetInstanceData
   */
   PUBLIC RECORD FUNCTION GetInstanceData(INTEGER objectid, RECORD options DEFAULTSTO CELL[])
   {
@@ -1395,7 +1395,7 @@ STATIC OBJECTTYPE WHFSType
         [ orphans       := FALSE
         ], options);
 
-    RETURN this->ExportInstanceData(objectid, DEFAULT OBJECT, options.orphans);
+    RETURN this->__ExportInstanceData(objectid, DEFAULT OBJECT, options.orphans);
   }
 
   /** @short Merge objects of this type into another type
@@ -1602,9 +1602,9 @@ STATIC OBJECTTYPE WHFSType
       @param options Options
       @cell options.isvisibleedit Whether the modificationdate should be adjusted (defaults to the contenttype cloneoncopy value).
       @return Id of instance (0 if no instance was present)
-      @see ExportInstanceData, SetInstanceData
+      @see __ExportInstanceData, SetInstanceData
   */
-  PUBLIC INTEGER FUNCTION ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
+  PUBLIC INTEGER FUNCTION __ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
   {
     //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
     options := ValidateOptions(
@@ -1680,7 +1680,7 @@ STATIC OBJECTTYPE WHFSType
       @param options Options
       @cell options.isvisibleedit Whether the modificationdate should be adjusted (defaults to the contenttype cloneoncopy value).
       @cell options.orphans Allow to set orphaned cells
-      @see GetInstanceData, ImportInstanceData, FilterInstanceDataUpdates
+      @see GetInstanceData, __ImportInstanceData, FilterInstanceDataUpdates
   */
   PUBLIC INTEGER FUNCTION SetInstanceData(INTEGER objectid, RECORD newinstancedata, RECORD options DEFAULTSTO CELL[])
   {
@@ -1691,7 +1691,7 @@ STATIC OBJECTTYPE WHFSType
 
     BOOLEAN orphans := options.orphans;
     DELETE CELL orphans FROM options;
-    RETURN this->ImportInstanceData(objectid, newinstancedata, DEFAULT OBJECT, orphans, options);
+    RETURN this->__ImportInstanceData(objectid, newinstancedata, DEFAULT OBJECT, orphans, options);
   }
 
   /** Compare instance data and filters out instance members that won't be changed when new instance data is written */
@@ -1712,7 +1712,7 @@ STATIC OBJECTTYPE WHFSType
       in the database.
       @param newinstancedata
       @return Instancedata members that will be changed when writing this instance data
-      @see GetInstanceData, ImportInstanceData
+      @see GetInstanceData, __ImportInstanceData
   */
   PUBLIC RECORD FUNCTION FilterInstanceDataUpdates(INTEGER objectid, RECORD newinstancedata)
   {

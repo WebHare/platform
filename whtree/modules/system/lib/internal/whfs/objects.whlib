@@ -2368,7 +2368,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
       // Set type instances
       FOREVERY(RECORD inst FROM src.instances)
       {
-        INSERT inst.type->ImportInstanceData(copyrec.destid, inst.data, this->mapfilereferences ? this : DEFAULT OBJECT, TRUE)
+        INSERT inst.type->__ImportInstanceData(copyrec.destid, inst.data, this->mapfilereferences ? this : DEFAULT OBJECT, TRUE)
                INTO set_instantiations AT END;
       }
 
@@ -2629,7 +2629,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
                                        AND fs_types.id = fs_instances.fs_type;
 
       INSERT CELL instances := SELECT *
-                                    , data := type->ExportInstanceData(source.sourceid, this->bulksender, TRUE)
+                                    , data := type->__ExportInstanceData(source.sourceid, this->bulksender, TRUE)
                                  FROM instances
                                  INTO sourceinfo;
     }

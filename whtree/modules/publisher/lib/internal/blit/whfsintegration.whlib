@@ -744,7 +744,7 @@ STATIC OBJECTTYPE WHFSDescriptionTree EXTEND WHFSDescriptionTreeBase
 
       TRY
       {
-        RECORD rawdata := rec.type->ExportInstanceData(whfsroot, mapper, TRUE);
+        RECORD rawdata := rec.type->__ExportInstanceData(whfsroot, mapper, TRUE);
         instances[#rec].data := this->FilterSettingIds(rawdata);
       }
       CATCH (OBJECT< BlitWHFSRefMapperMapFailureException > e)
@@ -1972,7 +1972,7 @@ STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
 
         OBJECT whfstype := OpenWHFSType(instance.typens, [ openorphans := TRUE ]);
         IF (instance.status != "delete" AND RecordExists(instance.data))
-          whfstype->ImportInstanceData(fs_object->id, instance.data, mapper, TRUE);
+          whfstype->__ImportInstanceData(fs_object->id, instance.data, mapper, TRUE);
         ELSE
         {
           // Instance file was deleted, generate a default instance and use it to overwrite
@@ -1987,7 +1987,7 @@ STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
           }
           ELSE
             data := AddInstanceDataMissingMembers(DEFAULT RECORD, types[pos.position]);
-          whfstype->ImportInstanceData(fs_object->id, data, DEFAULT OBJECT, TRUE);
+          whfstype->__ImportInstanceData(fs_object->id, data, DEFAULT OBJECT, TRUE);
 
           must_republish := TRUE;
         }

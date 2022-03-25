@@ -57,7 +57,7 @@ RECORD ARRAY FUNCTION GetExportableInstances(INTEGER sourceid)
     IF(NOT type->cloneoncopy)
       CONTINUE;
     INSERT [ namespace := type->namespace
-           , instance := type->ExportInstanceData(sourceid, fpe, /*orhpans=*/TRUE)
+           , instance := type->__ExportInstanceData(sourceid, fpe, /*orhpans=*/TRUE)
            , type := type
            , instancetypes :=
                (SELECT AS INTEGER ARRAY DISTINCT instancetype

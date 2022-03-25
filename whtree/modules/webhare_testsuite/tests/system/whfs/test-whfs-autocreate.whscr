@@ -403,7 +403,7 @@ MACRO AutoCreateTypes()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  result := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/autocreatetest", [ openorphans := TRUE ])->ExportInstanceData(testfile->id, DEFAULT OBJECT, TRUE);
+  result := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/autocreatetest", [ openorphans := TRUE ])->__ExportInstanceData(testfile->id, DEFAULT OBJECT, TRUE);
 
   TestEq("String", result.str);
   TestEq(15, result.int);
