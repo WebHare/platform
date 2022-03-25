@@ -97,7 +97,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
       wh assetpacks recompile "$MODULENAME:*";
       RETVAL=$?
       if [ "$RETVAL" != "0" ]; then
-        echo "wh assetapcks recompile for module '$MODULEDIR' failed with errorcode $RETVAL"
+        echo "wh assetpacks recompile for module '$MODULENAME' failed with errorcode $RETVAL"
         FAILED=1
       fi
     fi
