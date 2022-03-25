@@ -43,8 +43,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
   MACRO NEW()
   {
-    // Redirect JSONRPC traffic to the current file
-    this->__form.externalformname := "-";
     this->formvariables := CELL[...this->formvariables, formsubmittype := "new" ];
 
     // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
@@ -85,9 +83,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
           IF(NOT (this->__directhookobject EXTENDSFROM WebtoolFormHooks))
             THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
-
-          //If WebtoolFormHooks are available then allow the RPCs to talk to these directly. It's a lot faster and avoids issues with routers not allowing us to access the form and breaking RPC calls
-          this->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [ target := this->__form.webtoolformid]);
         }
         FINALLY
         {
@@ -95,22 +90,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
         }
       }
     }
-  }
-
-  //get either explicit or page hook object
-  OBJECT FUNCTION GetHookobject()
-  {
-    IF(ObjectExists(this->__directhookobject))
-      RETURN this->__directhookobject;
-
-    //we can't set this in NEW(), because pageobject might be set yet there
-    IF(MemberExists(this->formcontext, "pageobject") AND MemberExists(this->formcontext->pageobject, "__is_newstyle_pagebase"))
-    {
-      IF(GetDtapStage() != "development" OR this->formcontext->targetobject->whfspath IN __webhare_ci_routingexceptions)
-        RETURN this->formcontext->pageobject;
-    }
-
-    RETURN DEFAULT OBJECT;
   }
 
   ///Returns true if the form is normally available
@@ -126,7 +105,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     FOREVERY(RECORD handler FROM this->formhandlers)
       handler.handlerobject->PrepareForFrontend();
 
-    OBJECT hookobject := this->GetHookobject();
+    OBJECT hookobject := this->__directhookobject;
     IF (ObjectExists(hookobject) AND hookobject EXTENDSFROM WebtoolFormHooks) //not a 'newstyle page base'
       hookobject->PrepareForFrontend();
   }
@@ -140,7 +119,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
         IF(ObjectExists(handler.handlerobject))
           handler.handlerobject->PrepareRendering();
 
-      OBJECT hookobject := this->GetHookobject();
+      OBJECT hookobject := this->__directhookobject;
       IF (ObjectExists(hookobject) AND hookobject EXTENDSFROM WebtoolFormHooks) //not a 'newstyle page base'
         hookobject->PrepareRendering();
 
@@ -176,7 +155,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     FOREVERY (RECORD handler FROM this->formhandlers)
       handler.handlerobject->ValidateForm(workobj);
 
-    OBJECT hookobject := this->GetHookobject();
+    OBJECT hookobject := this->__directhookobject;
     IF (ObjectExists(hookobject))
       hookobject->Validate(workobj);
 
@@ -351,7 +330,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RECORD result;
     IF (NOT work->HasFailed())
     {
-      OBJECT hookobject := this->GetHookobject();
+      OBJECT hookobject := this->__directhookobject;
       IF (ObjectExists(hookobject))
         result := hookobject->Submit(work, extradata);
     }

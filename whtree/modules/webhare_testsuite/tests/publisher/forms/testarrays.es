@@ -10,7 +10,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
         // Check the form handler
-        let formhandler = FormBase.getForNode(test.qS("form[data-wh-form-id=arrayform]"));
+        let formhandler = FormBase.getForNode(test.qS("form"));
         test.true(formhandler, "no formhandler available");
 
         // Check the empty value
@@ -115,7 +115,7 @@ test.registerTests(
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
         // Check the resulting result
-        let formhandler = FormBase.getForNode(test.qS("form[data-wh-form-id=arrayform]"));
+        let formhandler = FormBase.getForNode(test.qS("form"));
         result = await formhandler.getFormValue();
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
@@ -168,7 +168,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
-        let formhandler = FormBase.getForNode(test.qS("form[data-wh-form-id=arrayform]"));
+        let formhandler = FormBase.getForNode(test.qS("form"));
         let result = await formhandler.getFormValue();
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);

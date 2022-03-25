@@ -20,27 +20,35 @@ export default class RPCFormBase extends FormBase
     super(formnode);
     this.__formhandler = { errors: []
                          , warnings: []
-                         , formid: formnode.dataset.whFormId
-                         , formref: formnode.dataset.whFormRef
+                         , formid: formnode.dataset.whFormId //needed for 'old' __formwidget: stuff
                          , url: location.href.split('/').slice(3).join('/')
+                         , target: formnode.dataset.whFormTarget
                          };
     this.pendingrpcs = [];
 
-    if(!this.__formhandler.formid)
+    if(!this.__formhandler.target)
     {
-      if(!whintegration.config.islive)
-        console.error("Missing data-wh-form-id on form, did your witty apply '[form.formattributes]' to the <form> tag ?", formnode);
-      throw new Error("Form does not appear to be a WebHare form");
+      if(this.__formhandler.formid)
+      {
+        console.error("This page needs to be republished!");
+      }
+      else
+      {
+        if(!whintegration.config.islive)
+          console.error("Missing data-wh-form-target on form, did your witty apply '[form.formattributes]' to the <form> tag ?", formnode);
+        throw new Error("Form does not appear to be a WebHare form");
+      }
     }
 
-    this.formservice = new RPCClient(this.__formhandler.formid == "-" ? "" : "publisher:forms");
+    this.formservice = new RPCClient("publisher:forms"); //FIXME switch away from RPCClient
   }
 
   getServiceSubmitInfo() //submitinfo as required by some RPCs
   {
+    //formid is only used by already published pre-4.35 formwidgets. 4.35+ uses target, and everyone uses 'url' for GetFormRequestURL() and GetFormVariable()
     return { formid: this.__formhandler.formid
-           , formref: this.__formhandler.formref
            , url: this.__formhandler.url
+           , target: this.__formhandler.target || ''
            };
   }
 

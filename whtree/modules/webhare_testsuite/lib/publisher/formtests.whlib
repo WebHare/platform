@@ -6,7 +6,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
 {
   TestEq(FALSE, CellExists(rendertree,'config'), "top-level onfig was eliminated");
-  TestEqLike("?*", rendertree.formid);
+  TestEqLike("?*", rendertree.target);
 
   FOREVERY(RECORD page FROM rendertree.pages)
   {

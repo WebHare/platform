@@ -16,6 +16,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 /** @short Open a formdefinition WHFS file
     @param formfile File to open
@@ -80,10 +82,15 @@ PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAU
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef, CELL[ options.initcustomform ]);
 }
 
-PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, OBJECT webcontext, OBJECT applytester, BOOLEAN selfhosted, INTEGER targetid)
+PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, STRING formname, OBJECT webcontext, OBJECT applytester, INTEGER targetid, STRING formref)
 {
+  //FIXME switching by name is dangerous! keep better track of how the form was opened, but for now we're experimenting whether a simple 'formtarget' is even possible. and we may need a full republish everywhere to even complete the transition for formwidgets
+  IF(formname != "webtoolform")
+    RETURN OpenFormWithContext(webcontext, formname, CELL[formref]);
+
   OBJECT formdefs := OpenWHFSFormDefinitionsFile(formobject);
-  OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
+  OBJECT mainform := formdefs->OpenFormDefinition(formname);
+
   IF(NOT ObjectExists(mainform))
     RETURN DEFAULT OBJECT;
 
@@ -98,12 +105,7 @@ PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, OBJECT webcontext,
   IF(parseresult.objectname = "")
     parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
 
-  OBJECT form := OpenFormByDef(parseresult, CELL[ webcontext, applytester ]);
-//ABORT(targetid);
-  IF(NOT selfhosted OR (GetDtapStage() = "development" AND formobject->whfspath NOT IN __webhare_ci_routingexceptions)) // in the future we should ALWAYS take the __formwidget path
-    form->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [ target := targetid ]);
-
-  RETURN form;
+  RETURN OpenFormByDef(parseresult, CELL[ webcontext, applytester, targetid, incontext := webcontext->targetobject->id ]);
 }
 
 /** @short Open a webtool form directly
@@ -113,20 +115,43 @@ PUBLIC OBJECT FUNCTION OpenWebtoolForm(INTEGER formid, RECORD options DEFAULTSTO
 {
   options := ValidateOptions([ applytester := DEFAULT OBJECT
                              , webcontext := DEFAULT OBJECT
+                             , formref := ""
+                             , __formname := "webtoolform" //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolFOrm directly
+                             , __applycontext := FALSE //Used for the RPC path as some inits need to be done *just* before form opening
+                             , __incontext := 0 //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolFOrm directly
                              ], options);
 
   IF(NOT ObjectExists(options.applytester))
     IF(ObjectExists(options.webcontext))
       options.applytester := options.webcontext->applytester;
     ELSE
-      options.applytester := GetApplyTesterForObject(formid);
+      options.applytester := GetApplyTesterForObject(options.__incontext ?? formid);
 
   IF(options.webcontext = DEFAULT OBJECT)
-    options.webcontext := __GetWebContextForApplyTester(options.applytester, formid);
+    options.webcontext := __GetWebContextForApplyTester(options.applytester, options.__incontext ?? formid);
 
-  OBJECT form := __DoOpenWebtoolForm(OpenWHFSObject(formid), options.webcontext, options.applytester, TRUE, formid);
+  IF(options.__applycontext)
+  {
+    SetTidLanguage(options.webcontext->languagecode);
+  }
+
+  OBJECT form := __DoOpenWebtoolForm(OpenWHFSObject(formid), options.__formname, options.webcontext, options.applytester, formid, options.formref);
   IF(NOT ObjectExists(form))
     THROW NEW Exception(`Cannot open form for fsobject #${formid}`);
 
   RETURN form;
+}
+
+/** @short Open a webtool form by its formtarget (encrypted formid)
+    @param formtarget Formref as
+    @return Opened form */
+PUBLIC OBJECT FUNCTION OpenFormByTarget(STRING formtarget, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ applytester := DEFAULT OBJECT
+                             , webcontext := DEFAULT OBJECT
+                             , __applycontext := FALSE
+                             ], options);
+
+  RECORD targetinfo := DecryptForThisServer("publisher:formtarget", formtarget);
+  RETURN OpenWebtoolForm(targetinfo.fsobj, CELL[ ...options, __formname := targetinfo.name, targetinfo.formref, __incontext := targetinfo.incontext ]);
 }

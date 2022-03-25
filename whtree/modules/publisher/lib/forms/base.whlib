@@ -46,9 +46,6 @@ PUBLIC RECORD FUNCTION GetWittyDataForForm(STRING formdefinitionfile, STRING for
 }
 */
 
-//Exceptions for CI to support deprecated formrouting until we've fully removed support.
-PUBLIC CONSTANT STRING ARRAY __webhare_ci_routingexceptions := ["/webhare-tests/webhare_testsuite.testsite/webtools/customform","/webhare-tests/webhare_testsuite.testsite/webtools/customform-nl"];
-
 //we're not using this text yet, but prevent it from being deleted. can't mark individual tids as 'keep'
 CONSTANT STRING wildcard_is_required_text := /*tid*/"publisher:site.forms.starsrequired";
 
@@ -390,10 +387,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   STRING FUNCTION __GetFormURL()
   {
-    IF(ObjectExists(this->formcontext))
-      RETURN this->formcontext->baseurl;
-    ELSE
-      RETURN "";
+    RETURN (IsRequest() ? GetFormRequestURL() : "") ?? (ObjectExists(this->formcontext) ? this->formcontext->baseurl : "");
   }
 
   // ---------------------------------------------------------------------------
@@ -600,6 +594,21 @@ PUBLIC STATIC OBJECTTYPE FormBase
       // updated value might not have been processed yet), so we'll just update anything we're receiving and leave the
       // responsibility of using the updated values with the form handler
       field.obj->UpdateFromJS(GetCell(fields,field.name));
+    }
+  }
+
+  PUBLIC STRING FUNCTION __GetFormTarget()
+  {
+    STRING extformname := this->__form.externalformname;
+    INTEGER fsobj := this->formcontext->targetobject->id;
+    IF(extformname LIKE "webtoolform") //FIXME don't switch by name
+    {
+      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj := this->__form.targetid, name := "webtoolform", formref := this->formref, incontext := this->__form.incontext ]);
+    }
+    ELSE
+    {
+      //TODO isn't fsobj & targetid == context?
+      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj, name := extformname, formref := this->formref, incontext := this->__form.incontext ]);
     }
   }
 
@@ -1265,38 +1274,5 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
   PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
   {
     RETURN DEFAULT RECORD;
-  }
-
-  PUBLIC VARIANT FUNCTION WCS_CallFormService(STRING method, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
-  {
-    SWITCH (ToUppercase(method))
-    {
-      CASE "SUBMIT"
-      {
-        IF(GetDtapStage()="development" AND this->webdesign->targetobject->whfspath NOT IN __webhare_ci_routingexceptions)
-          THROW NEW Exception(`Routing form submissions through the WCS_ APIs is deprecated. Switch to webtoolformhooks`);
-
-        RECORD submitinfo := args[0];
-        this->form->formcheckratelimits := TRUE;
-        this->form->__FormSetData(submitinfo.fields);
-        RECORD extradata := CellExists(submitinfo,'extrasubmit') ? submitinfo.extrasubmit : DEFAULT RECORD;
-
-        RECORD submitres := this->form->FormExecuteSubmit(CELL[extradata]);
-        //duplicate with rpc.whlib Submit, but WCS_CallFormService will go away anyway
-        submitres.errors :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.errors;
-        submitres.warnings :=  SELECT name :=Objectexists(comp) ? comp->name : "", message, metadata FROM submitres.warnings;
-        RETURN submitres;
-      }
-      CASE "INVOKE"
-      {
-        IF(GetDtapStage()="development" AND this->webdesign->targetobject->whfspath NOT IN __webhare_ci_routingexceptions)
-          THROW NEW Exception(`Routing form submissions through the WCS_ APIs is deprecated. Switch to webtoolformhooks`);
-
-        RECORD submitinfo := args[0];
-        this->form->__FormSetData(submitinfo.fields);
-        RETURN this->form->__FormDoInvoke(submitinfo.methodname, submitinfo.args);
-      }
-    }
-    THROW NEW Exception(`Unknown form request method '${method}'`);
   }
 >;
