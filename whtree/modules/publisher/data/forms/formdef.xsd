@@ -230,6 +230,11 @@
     <xs:attribute name="nextlabeltid" type="sc:Tid" />
     <xs:attribute name="submitlabeltid" type="sc:Tid" />
     <xs:attribute name="ignorefields"/> <!-- deprecated since 4.17 -->
+    <xs:attribute name="classes">
+      <xs:annotation>
+        <xs:documentation>List of CSS classes to apply to the form (next to the usual wh-form and wh-styledinput in the default rendering)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:attributeGroup name="EmailHandlerAttributes">
