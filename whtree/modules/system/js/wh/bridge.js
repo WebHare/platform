@@ -497,10 +497,10 @@ class WebHareBridge extends Events.EventEmitter
     return this._sendMessage({ type: "invoke", lib: library, func: functionname, args: args });
   }
 
-  async openWebHareService(name, ...args)
+  async openWebHareService(name, options)
   {
     let link = await this.connectIPCPort("webhareservice:" + name, true);
-    let description = await link.doRequest({ __new: args });
+    let description = await link.doRequest({ __new: options?.arguments ?? [] });
     return new WebHareServiceWrapper(link, description);
   }
 

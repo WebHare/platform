@@ -57,7 +57,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
     this->queryloopactive := TRUE;
     TRY
     {
-      OBJECT taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
+      OBJECT taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", [ arguments := VARIANT[ -1 ] ]);
       TRY
       {
         WHILE (this->listener->enabled)

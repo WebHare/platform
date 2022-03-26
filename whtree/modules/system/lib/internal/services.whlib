@@ -283,20 +283,25 @@ PUBLIC OBJECT ASYNC FUNCTION CreateServiceStartWait(STRING service, INTEGER time
 
 /** Open a WebHare service
     @param servicename Name of the service (should follow the 'module:tag' pattern)
-    @param arguments Arguments for the service
+    @cell(variant array) options.arguments Arguments for the service
+    @cell(integer) options.timeout Connect timeout, defaults to 30 seconds
     @return A proxy offering ASYNC versions of the service API
     @topic modules/services
     @public
     @loadlib mod::system/lib/services.whlib
 */
-PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ arguments := VARIANT[]
+                             , timeout := 30000
+                             ], options);
+
   //FIXME don't assume servicename matches servicetag... we should be looking up the <internalservice tag=".... "
   OBJECT mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
   IF (NOT ObjectExists(mgrport))
   {
     // Start a listen to the start event (async function but listener registration is synchronous)
-    OBJECT startpromise := CreateServiceStartWait(servicename, 30000);
+    OBJECT startpromise := CreateServiceStartWait(servicename, options.timeout);
 
     // Check for the port to exist (it might have been created before the event listen started)
     mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
@@ -310,7 +315,7 @@ PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, VARIANT ARRA
   }
 
   mgrport->autothrow := TRUE;
-  RECORD response := AWAIT mgrport->AsyncDoRequest( [ __new := arguments ] );
+  RECORD response := AWAIT mgrport->AsyncDoRequest( [ __new := options.arguments ] );
   IF(response.status="gone")
     THROW NEW ServiceDisconnectException(servicename);
 
@@ -352,7 +357,6 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
 
   /** Calls a remote function synchronously
       @param tocall Function to call
-      @param args Arguments
       @return Return value of the called function
   */
   VARIANT FUNCTION __RemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
@@ -517,17 +521,22 @@ OBJECT FUNCTION CreateSyncServiceStartWait(STRING service, INTEGER timeout)
 
 /** Open a WebHare service
     @param servicename Name of the service (should follow the 'module:tag' pattern)
-    @param arguments Arguments for the service
+    @cell(variant array) options.arguments Arguments for the service
+    @cell(integer) options.timeout Connect timeout, defaults to 30 seconds
     @return A proxy offering synchronous versions of the service API
 */
-PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ arguments := VARIANT[]
+                             , timeout := 30000
+                             ], options);
+
   //FIXME don't assume servicename matches servicetag... we should be looking up the <internalservice tag=".... "
   OBJECT mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
   IF (NOT ObjectExists(mgrport))
   {
     // Start a listen to the start event (async function but listener registration is synchronous)
-    OBJECT startwaiter := CreateSyncServiceStartWait(servicename, 30000);
+    OBJECT startwaiter := CreateSyncServiceStartWait(servicename, options.timeout);
     TRY
     {
       // Check for the port to exist (it might have been created before the event listen started)
@@ -545,7 +554,7 @@ PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, VARIA
   }
 
   mgrport->autothrow := TRUE;
-  RECORD response := mgrport->DoRequest( [ __new := arguments ] );
+  RECORD response := mgrport->DoRequest( [ __new := options.arguments ] );
   IF(response.status="gone")
     THROW NEW ServiceDisconnectException(servicename);
 

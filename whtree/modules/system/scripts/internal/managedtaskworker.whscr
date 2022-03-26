@@ -115,6 +115,6 @@ IF(workerid = 0)
 IF(debug)
   Print("HS worker #" || workerid || " starting\n");
 
-managedqueuemgr := WaitForPromise(OpenWebHareService("system:managedqueuemgr", workerid));
+managedqueuemgr := WaitForPromise(OpenWebHareService("system:managedqueuemgr", [ arguments := VARIANT[ workerid ] ]));
 AddInterruptCallback(PTR interruptpromise.resolve(DEFAULT RECORD));
 Mainloop();
