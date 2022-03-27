@@ -637,7 +637,11 @@ if [ "$TESTFAIL" == "1" -a "$ENTERSHELL" == "1" ]; then
   $SUDO docker exec -ti $TESTENV_CONTAINER1 /bin/bash
 fi
 
-echo "`date` Done with tests"
+echo "$(date) Done with tests - stopping containers"
+
+# Stop the containers nicely so we have full logs
+$SUDO docker exec "$TESTENV_CONTAINER1" sv stop webhare
+[ -n "$TESTENV_CONTAINER2" ] && $SUDO docker exec "$TESTENV_CONTAINER2" sv stop webhare
 
 if [ -z "$ARTIFACTS" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
