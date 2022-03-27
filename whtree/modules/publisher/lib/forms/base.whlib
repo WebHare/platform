@@ -219,7 +219,7 @@ STATIC OBJECTTYPE FormPage
 
 /** @short Form base object
 */
-PUBLIC STATIC OBJECTTYPE FormBase
+PUBLIC OBJECTTYPE FormBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
