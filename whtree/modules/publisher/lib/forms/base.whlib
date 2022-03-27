@@ -321,11 +321,10 @@ PUBLIC OBJECTTYPE FormBase
 
     this->formsubmittype := "new";
     this->__form := __passthrough;
-    this->formclasses := __passthrough.classes;
     this->formref := __passthrough.formref;
+    this->formclasses := ["wh-form","wh-styledinput"] CONCAT __passthrough.classes;
     __passthrough := DEFAULT RECORD;
     this->formjshandler := this->__form.jshandler;
-    this->formclasses := ["wh-form","wh-styledinput"];
     this->formidprefix := this->__form.idprefix;
     this->__formbuttons := this->__form.buttons;
     this->__formlanguagecode := this->__form.languagecode ?? ObjectExists(this->formcontext) ? this->formcontext->languagecode : "en";
