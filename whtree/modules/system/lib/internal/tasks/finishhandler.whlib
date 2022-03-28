@@ -10,7 +10,7 @@ PUBLIC ASYNC MACRO AsyncExecuteEphemeralTasks(RECORD ARRAY tohandle)
 {
   OBJECT taskservice;
   TRY
-    taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
+    taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", [ arguments := VARIANT[ -1 ] ]);
   CATCH (OBJECT e)
   {
     FOREVERY(RECORD task FROM tohandle)

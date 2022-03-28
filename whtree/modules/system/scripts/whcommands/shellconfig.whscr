@@ -1,8 +1,10 @@
 ﻿<?wh
 
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 
@@ -30,6 +32,7 @@ FOREVERY (RECORD rec FROM UnpackRecord(config))
 STRING ARRAY modules := __SYSTEM_GetInstalledModuleNames();
 
 PRINT(prefix || "WEBHARE_CFG_MODULES=\"" || Detokenize(modules, " ") || "\"\n");
+PRINT(prefix || "WEBHARE_CFG_INSTALLEDMODULES=\"" || Detokenize(ArrayDelete(modules, whconstant_builtinmodules), " ") || "\"\n");
 
 FOREVERY (STRING module FROM modules)
 {

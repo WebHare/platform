@@ -1724,7 +1724,7 @@ IF(args.profile OR debug)
   SetupFunctionProfiling("assetpackcontrol","");
 
 // Ensure the managed queue manager is started before we start running
-OBJECT mqm := WaitForPromise(OpenWebHareService("system:managedqueuemgr", -1));
+OBJECT mqm := WaitForPromise(OpenWebHareService("system:managedqueuemgr", [ arguments := VARIANT[ -1 ]] ));
 IF (ObjectExists(mqm))
   mqm->CloseService();
 

@@ -57,7 +57,7 @@ async function main()
   bridge.on("close", () => process.exit(13));
   await bridge.connect({ debug: debug});
 
-  let managedqueuemgr = await bridge.openWebHareService("system:managedqueuemgr", workerid);
+  let managedqueuemgr = await bridge.openWebHareService("system:managedqueuemgr", { arguments: [ workerid ]});
 
   if(debug)
     console.log("JS worker got queuemgr connection");

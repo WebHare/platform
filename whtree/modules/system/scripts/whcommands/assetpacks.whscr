@@ -14,6 +14,7 @@ OBJECT assetpackcontrol;
 
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "color", type := "switch" ]
+                              , [ name := "quiet", type := "switch" ]
                               , [ name := "command", type := "param", required := TRUE ]
                               , [ name := "params", type := "paramlist" ]
                               ]);
@@ -22,7 +23,8 @@ MACRO Syntax(STRING errormsg DEFAULTSTO "")
 {
   IF (errormsg != "")
     PRINT(errormsg || "\n");
-  Print("Syntax: wh assetpacks <instruction>\n");
+  Print("Syntax: wh assetpacks [--quiet] <instruction>\n");
+  Print("  --quiet                Don't report anything that's not an error\n");
   Print("  list                   List all asset packs\n");
   Print("  check [assetpack]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");
   Print("  recompile <assetpack>  Recompile an asset pack. Use '*' to compile all\n");
@@ -127,6 +129,9 @@ MACRO ListBundles(RECORD status, STRING ARRAY masks, BOOLEAN withwatchcounts)
   FOREVERY (RECORD bundle FROM status.bundles)
   {
     BOOLEAN any_match;
+    IF(args.quiet AND NOT bundle.haserrors)
+      CONTINUE;
+
     FOREVERY (STRING mask FROM masks)
       IF (bundle.outputtag LIKE mask)
         any_match := TRUE;
@@ -153,11 +158,14 @@ MACRO SetSignalledUponEvent(OBJECT cv, STRING event, RECORD data)
   cv->signalled := TRUE;
 }
 
-MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
+MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild, BOOLEAN onlyfailed)
 {
   RECORD status := WaitForPromise(assetpackcontrol->GetStatus());
 
-  STRING ARRAY matches := MatchUUIDs(status.bundles, mask);
+  STRING ARRAY matches := SELECT AS STRING ARRAY outputtag
+                            FROM status.bundles
+                           WHERE ToUppercase(outputtag) LIKE ToUppercase(mask)
+                                 AND (onlyfailed ? haserrors : TRUE);
 
   OBJECT condition := NEW ManualCondition;
   RegisterEventCallback("publisher:assetpackcontrol.change.*", PTR SetSignalledUponEvent(condition, #1, #2));
@@ -168,7 +176,8 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
     WaitForPromise(assetpackcontrol->RecompileBundle(match, rebuild));
   }
 
-  PrintTo(output, (rebuild?"Rebuild":"Recompile") || " scheduled, waiting to finish\n");
+  IF(NOT args.quiet)
+    PrintTo(output, (rebuild?"Rebuild":"Recompile") || " scheduled, waiting to finish\n");
 
   STRING ARRAY compiling;
   STRING ARRAY done;
@@ -217,7 +226,8 @@ MACRO DoRecompile(INTEGER output, STRING mask, BOOLEAN rebuild)
     condition->signalled := FALSE;
   }
 
-  PrintTo(output, "\nStatus of recompiled bundles:\n");
+  IF(NOT args.quiet)
+    PrintTo(output, "\nStatus of recompiled bundles:\n");
   ListBundles(status, matches, FALSE);
 
   IF (LENGTH(matches) = 1)
@@ -271,22 +281,24 @@ SWITCH (args.command)
   CASE "recompile"
   {
     RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  [ [ name := "onlyfailed", type := "switch" ]
+                                  , [ name := "mask", type := "param", required := TRUE ]
                                   ]);
     IF (NOT RecordExists(subargs))
       Syntax();
 
-    DoRecompile(0, subargs.mask, FALSE);
+    DoRecompile(0, subargs.mask, FALSE, subargs.onlyfailed);
   }
   CASE "rebuild"
   {
     RECORD subargs := ParseArguments(args.params,
-                                  [ [ name := "mask", type := "param", required := TRUE ]
+                                  [ [ name := "onlyfailed", type := "switch" ]
+                                  , [ name := "mask", type := "param", required := TRUE ]
                                   ]);
     IF (NOT RecordExists(subargs))
       Syntax();
 
-    DoRecompile(0, subargs.mask, TRUE);
+    DoRecompile(0, subargs.mask, TRUE, subargs.onlyfailed);
   }
   CASE "info"
   {
@@ -352,7 +364,7 @@ SWITCH (args.command)
         IF (data.statsjson = "")
         {
           WaitForPromise(assetpackcontrol->SetBundleJSONStats(bundle.outputtag, TRUE));
-          DoRecompile(1, bundle.outputtag, FALSE);
+          DoRecompile(1, bundle.outputtag, FALSE, FALSE);
           data := WaitForPromise(assetpackcontrol->GetBundleStatus(bundle.outputtag));
           WaitForPromise(assetpackcontrol->SetBundleJSONStats(bundle.outputtag, FALSE));
         }

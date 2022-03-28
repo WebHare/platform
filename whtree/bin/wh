@@ -822,6 +822,11 @@ case $INSTR in
     echo $WEBHARE_CFG_MODULES
     ;;
 
+  "getinstalledmodulelist")
+    loadshellconfig
+    echo $WEBHARE_CFG_INSTALLEDMODULES
+    ;;
+
   "compile")
     exec_whcompile "$@"
     ;;

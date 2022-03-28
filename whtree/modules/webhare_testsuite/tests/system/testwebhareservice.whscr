@@ -10,13 +10,13 @@ LOADLIB "mod::system/lib/internal/services.whlib";
 
 ASYNC MACRO WebHareServiceTest()
 {
-  OBJECT exc := TestThrowsLike("*Service*nosuchservice*unavailable*", PTR WaitForPromise(OpenWebHareService("webhare_testsuite:nosuchservice","x")));
+  OBJECT exc := TestThrowsLike("*Service*nosuchservice*unavailable*", PTR WaitForPromise(OpenWebHareService("webhare_testsuite:nosuchservice", [ arguments := VARIANT[ "x" ], timeout := 300 ])));
   TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
 
   TestThrowsLike("*Invalid parameters*",PTR WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest")));
-  TestThrowsLike("abort",PTR WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest", "abort")));
+  TestThrowsLike("abort",PTR WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest", [ arguments := VARIANT[ "abort" ]])));
 
-  OBJECT serverinstance := WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest","x"));
+  OBJECT serverinstance := WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest", [ arguments := VARIANT[ "x" ]]));
   TestEq(42,WaitForPromise(serverinstance->GetLUE()));
 
   OBJECT promise := serverinstance->GetAsyncLUE();
@@ -38,13 +38,13 @@ ASYNC MACRO WebHareServiceTest()
 
 ASYNC MACRO SyncWebHareServiceTest()
 {
-  OBJECT exc:=TestThrowsLike("*Service*nosuchservice*unavailable*", PTR __OpenSynchronousWebHareService("webhare_testsuite:nosuchservice","x"));
+  OBJECT exc:=TestThrowsLike("*Service*nosuchservice*unavailable*", PTR __OpenSynchronousWebHareService("webhare_testsuite:nosuchservice", [ arguments := VARIANT[ "x" ], timeout := 300 ]));
   TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
 
   TestThrowsLike("*Invalid parameters*",PTR __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest"));
-  TestThrowsLike("abort",PTR __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest", "abort"));
+  TestThrowsLike("abort",PTR __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest", [ arguments := VARIANT[ "abort" ]]));
 
-  OBJECT serverinstance := __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest","x");
+  OBJECT serverinstance := __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest",[ arguments := VARIANT[ "x" ]]);
   TestEq(42, serverinstance->GetLUE());
 
   TestEq(42, serverinstance->GetLUE());

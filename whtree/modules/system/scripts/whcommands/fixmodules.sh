@@ -11,12 +11,23 @@ containsElement()
   return 1
 }
 
+INCLUDEWEBHARE=1
 ONLYMODULES=
 ONLYBROKEN=
+LISTBROKENOPTS=""
 NOCOMPILE=
+ONLYINSTALLEDMODULES=
+
 while [[ $1 =~ -.* ]]; do
   if [ "$1" == "--onlymodules" ]; then
     ONLYMODULES=1
+    INCLUDEWEBHARE=
+    LISTBROKENOPTS="$LISTBROKENOPTS --onlymodules"
+    shift
+  elif [ "$1" == "--onlyinstalledmodules" ]; then
+    ONLYINSTALLEDMODULES=1
+    INCLUDEWEBHARE=
+    LISTBROKENOPTS="$LISTBROKENOPTS --onlyinstalledmodules"
     shift
   elif [ "$1" == "--onlybroken" ]; then
     ONLYBROKEN=1
@@ -39,10 +50,14 @@ NOEXEC=1 # make sure noderun is not terminal
 FAILED=0
 
 if [ -n "$ONLYBROKEN" ]; then
-  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr))
+  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr $LISTBROKENOPTS))
 elif [ "$#" == 0 ]; then
-  MODULESLIST=($(wh getmodulelist))
-  if [ "$ONLYMODULES" != "1" ]; then
+  if [ -n "$ONLYINSTALLEDMODULES" ]; then
+    MODULESLIST=($(wh getinstalledmodulelist))
+  else
+    MODULESLIST=($(wh getmodulelist))
+  fi
+  if [ "$INCLUDEWEBHARE" == "1" ]; then
     #prepend webhare to the list
     MODULESLIST=(webhare "${MODULESLIST[@]}")
   fi
@@ -54,7 +69,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
     cd "$WEBHARE_DIR"
-    npm install --no-save --ignore-scripts
+    npm install --no-update-notifier --silent --no-save --ignore-scripts
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $RETVAL
@@ -64,16 +79,16 @@ for MODULENAME in ${MODULESLIST[@]}; do
     getmoduledir MODULEDIR $MODULENAME
     cd "$MODULEDIR"
     if [ -f package.json ]; then
-      echo "Installing NPM modules for module '$MODULENAME'"
-      npm install --ignore-scripts --no-save
+      echo "Installing npm modules for module '$MODULENAME'"
+      npm install --no-update-notifier --silent --ignore-scripts --no-save
     fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
       if cd $Q 2>/dev/null ; then
-        echo "Installing NPM modules for webdesign '$MODULENAME:$(basename \"$Q\")'"
+        echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
         if [ -f package.json ]; then
-          npm install --ignore-scripts --no-save
+          npm install --no-update-notifier --silent --ignore-scripts --no-save
           RETVAL=$?
           if [ "$RETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $RETVAL
@@ -93,16 +108,29 @@ for MODULENAME in ${MODULESLIST[@]}; do
       fi
     fi
 
-    if [ -z "$NOCOMPILE" ]; then
-      wh assetpacks recompile "$MODULENAME:*";
+  fi # ends MODULENAME != webhare
+done
+
+# Now recompile all modules that we updated
+if [ -z "$NOCOMPILE" ]; then
+  for MODULENAME in ${MODULESLIST[@]}; do
+    if [ "$MODULENAME" != "webhare" ]; then
+      wh assetpacks --quiet recompile "$MODULENAME:*"
       RETVAL=$?
       if [ "$RETVAL" != "0" ]; then
         echo "wh assetpacks recompile for module '$MODULENAME' failed with errorcode $RETVAL"
         FAILED=1
       fi
     fi
+  done
 
-  fi # ends MODULENAME != webhare
-done
+  # And now, just in case a module wasn't broken modulewise but still had broken packages, recompile any broken modules
+  wh assetpacks --quiet recompile --onlyfailed "*"
+  RETVAL=$?
+  if [ "$RETVAL" != "0" ]; then
+    echo "wh assetpacks recompile --onlyfailed failed with errorcode $RETVAL"
+    FAILED=1
+  fi
+fi
 
 exit $FAILED
