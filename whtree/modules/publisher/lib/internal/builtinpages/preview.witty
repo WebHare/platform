@@ -1,9 +1,13 @@
 [component previewexpired]
-  This preview is no longer available
+  <p class="normal">
+    This preview is no longer available
+  </p>
 [/component]
 
 [component previewpassword]
-  This preview requires a password <br/>
+  <p class="normal">
+    This preview requires a password
+  </p>
   <form action="[feedbackurl]" method="post">
     [if incorrectpassword]Incorrect password![/if]<br/>
     Password: <input name="password" type="password" required /><br/>

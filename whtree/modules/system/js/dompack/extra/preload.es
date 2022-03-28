@@ -32,7 +32,40 @@ export function promiseScript(scriptsrc)
     scripttag.onerror = reject;
     scripttag.src = scriptsrc;
 
-    let appendto = document.querySelector('head') || document.querySelector('body');
-    appendto.appendChild(scripttag);
+    document.querySelector('head,body').appendChild(scripttag);
   });
+}
+
+export function promiseCSS(src)
+{
+  return new Promise((resolve, reject) =>
+  {
+    let element = document.createElement('link');
+    let r = false;
+    element.onload = element.onreadystatechange = function()
+    {
+      if (!r && (!this.readyState || this.readyState == 'complete')) {
+        r = true;
+        resolve();
+      }
+    };
+    element.onerror = function(err) {
+      reject(err, element);
+    };
+
+    element.type = 'text/css';
+    element.rel = 'stylesheet';
+    element.href = src;
+
+    document.querySelector('head,body').appendChild(element);
+  });
+}
+
+export function promiseAssetPack(apname)
+{
+  let basepath = `/.ap/${apname.replace(':','.')}/ap.`;
+  if(document.querySelector(`script[src$="${CSS.escape(basepath+'js')}"`))
+    return; //we have it already
+
+  return Promise.all([promiseScript(basepath+'js'), promiseCSS(basepath+'css')]);
 }

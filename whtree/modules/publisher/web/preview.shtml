@@ -38,9 +38,10 @@ PUBLIC OBJECTTYPE PreviewPage EXTEND DynamicPageBase
                   ];
   }
 
-  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
   {
-    EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/preview.witty:" || this->data.component, this->data);
+    webdesign->isstandardcontentpage := TRUE;
+    RETURN PTR EmbedWittyComponent("mod::publisher/lib/internal/builtinpages/preview.witty:" || this->data.component, this->data);
   }
 >;
 
