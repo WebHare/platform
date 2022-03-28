@@ -21,8 +21,8 @@ PUBLIC MACRO BuildForm()
   BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
   BuildWebtoolForm([filename := "custompaymentfield", addpaymentmethod := TRUE, addpaymenthandler := TRUE, addtslinecomp := TRUE]);
 
-  BuildCustomWebtoolForm([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE]);
-  BuildCustomWebtoolForm([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE, filename := "paymenthandlerform"]);
+  BuildCustomWebtoolForm2([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE]);
+  BuildCustomWebtoolForm2([ addpaymentmethod := TRUE, addpaymentmethodnoise := TRUE, filename := "paymenthandlerform"]);
 
   pm2 := testfw->wrdschema->^payprov->GetEntity(testfw->wrdschema->^payprov->Search("wrd_title", "TestMethod"));
 }
@@ -111,26 +111,26 @@ PUBLIC MACRO FillInForm()
 
 MACRO CustomForm()
 {
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
   IF(testfw->debug)
     Print('Form URL: ' || formfile->url||'\n');
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
-  OBJECT ARRAY labels := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm.paymentmethod"]');
+  OBJECT ARRAY labels := testfw->browser->document->GetElements('label.wh-form__optionlabel[for*="pm.paymentmethod"]');
   TestEq(2, Length(labels), "should be two labels");
   TestEq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
 
-  OBJECT ARRAY labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  OBJECT ARRAY labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for*="pm_noschema.paymentmethod"]');
   TestEq(0,Length(labels_pm_noschema));
 
   formfile := OpenTestsuiteSite()->OpenByPath("webtools/paymenthandlerform");
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
-  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for*="pm_noschema.paymentmethod"]');
   TestEq(0,Length(labels_pm_noschema));
 
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url || "?in_pm_noschema=NOISSUER"));
-  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for^="webtoolform-pm_noschema.paymentmethod"]');
+  labels_pm_noschema := testfw->browser->document->GetElements('label.wh-form__optionlabel[for*="pm_noschema.paymentmethod"]');
   TestEq(1, Length(labels_pm_noschema), "should be one labels");
   TestEq("TestNoIssuer (test mode)", labels_pm_noschema[0]->innerhtml);
 

@@ -8,7 +8,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 PUBLIC MACRO FormApitest()
 {
-  RECORD res := BuildCustomWebtoolForm( [ addgtmdatalayer := "muhdata", addtslinecomp := TRUE, addtslinecompascustom := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE,checkboxes := TRUE, checkboxfieldconditions := FALSE, setmailresultsfields := TRUE, checkboxsubs := TRUE, addconditions := TRUE]);
+  RECORD res := BuildCustomWebtoolForm2( [ addgtmdatalayer := "muhdata", addtslinecomp := TRUE, addtslinecompascustom := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE,checkboxes := TRUE, checkboxfieldconditions := FALSE, setmailresultsfields := TRUE, checkboxsubs := TRUE, addconditions := TRUE]);
 
   OBJECT formdefs := OpenWHFSFormDefinitionsFile(res.formfile);
   OBJECT formdef := formdefs->OpenFormDefinition("webtoolform");

@@ -138,7 +138,7 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                                         ]
                               ]
                              ,[ instanceid := "embedobj_custom"
-                              , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget2"
                                         , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
                                         ]
                               ]
@@ -678,7 +678,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   OBJECT reversedfield;
   IF (options.custommergefields)
   {
-    reversedfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield");
+    reversedfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield2");
     reversedfield->SetAttribute("name","reversed");
     reversedfield->SetAttribute("title","Reversed");
 
@@ -1162,62 +1162,31 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
          ];
 }
 
-PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
+PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
 {
   options := ValidateOptions( testformfileoptions, options);
   options := CELL[...options, iscustom := TRUE ];
 
   GetPrimary()->PushWork();
 
-  STRING filename := options.filename ?? "customform";
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
-  OBJECT customformfile := webtoolsfolder->OpenByName(filename);
-  IF(ObjectExists(customformfile))
-    customformfile->RecycleSelf();
-
-  OBJECT customformtype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/customform");
-  TestEq(TRUE, ObjectExists(customformtype), "My customtype http://www.webhare.net/xmlns/webhare_testsuite/customform is not registered");
-  customformfile := webtoolsfolder->CreateFile( [ name := filename, type := customformtype->id, publish := options.publish ]);
-
-  FillTestFormFile(customformfile, options);
-
-  GetPrimary()->PopWork();
-  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
-    testfw->WaitForPublishCompletion(webtoolsfolder->id);
-
-  RETURN [ url := customformfile->indexurl
-         , id := customformfile->id
-         , formfile := customformfile
-         ];
-}
-
-PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
-{
-  options := ValidateOptions( testformfileoptions, options);
-  options := CELL[...options, iscustom := TRUE ];
-
-  testfw->BeginWork();
-
-  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
-  OBJECT customformfile := webtoolsfolder->OpenByName("customform"); //clean old version to prevent V2 test hitting V1 custom form
-  IF(ObjectExists(customformfile))
-    customformfile->RecycleSelf();
-
-  OBJECT customformfile2 := webtoolsfolder->OpenByName("customform2"); //clean old version to prevent V2 test hitting V1 custom form
+  STRING filename := options.filename ?? "customform2";
+  OBJECT customformfile2 := webtoolsfolder->OpenByName(filename); //clean old version to prevent V2 test hitting V1 custom form
   IF(ObjectExists(customformfile2))
     customformfile2->RecycleSelf();
 
   OBJECT customformtype2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/customform2");
   TestEq(TRUE, ObjectExists(customformtype2), "My customtype http://www.webhare.net/xmlns/webhare_testsuite/customform2 is not registered");
-  customformfile2 := webtoolsfolder->CreateFile( [ name := "customform2", type := customformtype2->id, publish := options.publish ]);
+  customformfile2 := webtoolsfolder->CreateFile( [ name := filename, type := customformtype2->id, publish := options.publish ]);
 
   FillTestFormFile(customformfile2, options);
 
-  testfw->CommitWork();
-  IF(options.publish)
+  GetPrimary()->PopWork();
+  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
   RETURN [ url := customformfile2->indexurl
+         , id := customformfile2->id
          , formfile := customformfile2
          ];
 }
@@ -1232,8 +1201,7 @@ PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEF
     CreateWRDTestSchema(CELL[options.withpayment]);
 
   RECORD formoptions := CELL[...options, DELETE which];
-  RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions)
-      : options.which = "custom2" ? BuildCustomWebtoolForm2(formoptions)
+  RECORD result := options.which = "custom2" ? BuildCustomWebtoolForm2(formoptions)
       : BuildWebtoolForm(formoptions);
 
   RETURN CELL[...result, DELETE formfile ];
@@ -1244,7 +1212,7 @@ PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD optio
 
   OpenPrimary();
   STRING lookup := options.which = "wrdauth" ? "testpages/wrdauthtest-form"
-                 : options.which = "custom" ? "webtools/customform"
+                 : options.which = "custom2" ? "webtools/customform2"
                  : options.which = "captcha" ? "webtools/formcaptcha"
                  : options.which = "captcha2" ? "webtools/formcaptcha2"
                  : "webtools/form";

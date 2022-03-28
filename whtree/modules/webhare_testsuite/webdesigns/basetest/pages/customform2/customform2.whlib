@@ -10,6 +10,8 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -22,15 +24,15 @@ PUBLIC OBJECTTYPE Props EXTEND FormSettingsExtensionBase
 <
   MACRO NEW()
   {
-    INSERT "http://www.webhare.net/xmlns/webhare_testsuite/customform" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+    INSERT "http://www.webhare.net/xmlns/webhare_testsuite/customform2" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
   }
   UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
   {
-    this->somedata->value := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata;
+    this->somedata->value := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform2").somedata;
   }
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
   {
-    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform", [ somedata := this->somedata->value ]);
+    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform2", [ somedata := this->somedata->value ]);
   }
 >;
 
@@ -41,37 +43,15 @@ PUBLIC OBJECT FUNCTION CustomFormRouter2(OBJECT webdesign)
   RETURN NEW CustomFormPage2;
 }
 
-PUBLIC STATIC OBJECTTYPE CustomFormPage2 EXTEND WebPageBase
+PUBLIC STATIC OBJECTTYPE CustomFormPage2 EXTEND WebtoolFormPage
 <
-  OBJECT form;
-
   MACRO NEW()
   {
-    this->form := this->webdesign->OpenWebtoolForm(this->webdesign->contentobject);
-    this->form->pagedata := [ ihavegot := "something"
-                            , electric := 6
-                            ];
-
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
-    TestEq("", emailfield.obj->value); //not prefilled yet
-
-    STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
-    IF(editguid != "")
+    IF (NOT RecordExists(emailfield))
     {
-      //test availability of api - this broke because of complex file openings in the code, and some users will try to open a result directly without using the load API
-      RECORD existingresult := this->webdesign->webtoolform->formresults->GetSingleResult(editguid);
-      IF(RecordExists(existingresult))
-        TestEq(TRUE, CellExists(existingresult, "submittype"));
-    }
-    IF (editguid != "" AND this->form->EditExistingResult(editguid))
-      emailfield.obj->enabled := FALSE;
-
-    IF(MemberExists(this->form,"^PM"))
-    {
-      this->form->^pm->filters := [[ field := "WRD_CREATIONDATE", matchtype := ">=", value := MakeDate(2010,1,1) ]]; //filters shouldn't crash things....
-
-      UPDATE this->form->^pm->options SET htmltitle := Substitute(htmltitle, "TestWithIssuer","Test<b>WITH</b>Issuer") WHERE htmltitle LIKE "TestWithIssuer*";
-      TestEq(DEFAULT RECORD, this->form->^pm->selection);
+      // We're previewing this form from testformfile-formeditapp, check for the draft custom form data
+      TestEq("Here, have some other data!", this->webdesign->contentobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform2").somedata);
     }
   }
 
@@ -83,12 +63,7 @@ PUBLIC STATIC OBJECTTYPE CustomFormPage2 EXTEND WebPageBase
       this->form->CancelExistingResult(this->form->editingguid);
       GetPrimary()->CommitWork();
     }
-    RETURN this->form->GetFormBody();
-  }
-
-  UPDATE PUBLIC MACRO Validate(OBJECT work)
-  {
-    //work->addwarning("yeay?");
+    RETURN WebtoolFormPage::GetPageBody();
   }
 >;
 
@@ -156,24 +131,59 @@ PUBLIC OBJECTTYPE CustomFormWidget2 EXTEND WidgetBase
   }
 >;
 
-PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
+PUBLIC STATIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
+  OBJECT prize;
+
   MACRO NEW()
   {
+    this->form->pagedata := [ ihavegot := "something"
+                            , electric := 6
+                            ];
+
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
-    INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
-
-    TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
-
-    OBJECT prize := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "prize", [ ishidden := TRUE ]);
-    prize->title := "You won a";
-    IF(IsRequest()) //running in frontend
+    IF (RecordExists(emailfield))
     {
-      prize->value := GetFormWebVariable("prize");
+      TestEq("", emailfield.obj->value); //not prefilled yet
+      INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
+      TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
+    }
+
+    this->prize := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "prize", [ ishidden := TRUE ]);
+    this->prize->title := "You won a";
+
+    IF(MemberExists(this->form,"^PM"))
+    {
+      this->form->^pm->filters := [[ field := "WRD_CREATIONDATE", matchtype := ">=", value := MakeDate(2010,1,1) ]]; //filters shouldn't crash things....
+
+      UPDATE this->form->^pm->options SET htmltitle := Substitute(htmltitle, "TestWithIssuer","Test<b>WITH</b>Issuer") WHERE htmltitle LIKE "TestWithIssuer*";
+      TestEq(DEFAULT RECORD, this->form->^pm->selection);
     }
   }
+
+  UPDATE PUBLIC MACRO PrepareForFrontend()
+  {
+    this->prize->value := GetFormWebVariable("prize");
+
+    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
+    STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
+    IF(editguid != "")
+    {
+      //test availability of api - this broke because of complex file openings in the code, and some users will try to open a result directly without using the load API
+      RECORD existingresult := this->form->formresults->GetSingleResult(editguid);
+      IF(RecordExists(existingresult))
+        TestEq(TRUE, CellExists(existingresult, "submittype"));
+    }
+
+    IF (editguid != "" AND this->form->EditExistingResult(editguid))
+      emailfield.obj->enabled := FALSE;
+  }
+
   UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
   {
+    IF(GetFormRequestURL() LIKE "*/customform2-nl/*" AND GetTidLanguage()!="nl")
+      ABORT("Routing issue! Submission got here but lang is still 'en'!");
+
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
     // When testing duplicate submission, we don't want to overwrite existing results
     BOOLEAN overwriteexisting := GetFormWebVariable("testduplicate") != "1";

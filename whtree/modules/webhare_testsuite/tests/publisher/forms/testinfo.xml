@@ -6,7 +6,6 @@
   <test script="testformfile-aswidget.whscr" />
   <test script="testformfile-pagetitles-infotexts.whscr"/>
   <test script="testformapi.whscr" />
-  <test script="testformcustomfile.whscr"/>
   <test script="testformcustomfile2.whscr"/>
   <test script="testformcustomformdeffile.whscr"/>
   <test script="testformfile-mailoptions.whscr"/>
