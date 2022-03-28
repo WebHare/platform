@@ -240,7 +240,7 @@ STATIC OBJECTTYPE FormPage
 
 /** @short Form base object
 */
-PUBLIC OBJECTTYPE FormBase
+PUBLIC STATIC OBJECTTYPE FormBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -601,6 +601,11 @@ PUBLIC OBJECTTYPE FormBase
       // responsibility of using the updated values with the form handler
       field.obj->UpdateFromJS(GetCell(fields,field.name));
     }
+  }
+
+  //Prepare form for use in the frontend (either rendering or for result data)
+  PUBLIC MACRO PrepareForFrontend()
+  {
   }
 
   PUBLIC MACRO CheckRateLimits()
@@ -1180,6 +1185,12 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
   /** @short Invoked before rendering the form
   */
   PUBLIC MACRO PrepareRendering()
+  {
+  }
+
+  /** @short Prepare for use with the frontend (rendering, rpc or validation)  (WebHare >= 4.34.1)
+  */
+  PUBLIC MACRO PrepareForFrontend()
   {
   }
 
