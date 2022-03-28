@@ -22,7 +22,7 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
       TestEq("RECORD", GetTypeName(TYPEID(field.groupdataset)));
       TestEq("RECORD", GetTypeName(TYPEID(field.visiblecondition)));
 
-      IF(CellExists(field,'orientation')) //TODO or should ALL fields have types?
+      IF(CellExists(field,'orientation')) //TODO or should ALL fields have orientations?
         TestEq(TRUE, field.orientation IN ['horizontal','vertical']);
 
       IF(CellExists(field,'type')) //TODO or should ALL fields have types?
