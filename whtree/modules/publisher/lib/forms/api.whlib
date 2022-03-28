@@ -116,9 +116,9 @@ PUBLIC OBJECT FUNCTION OpenWebtoolForm(INTEGER formid, RECORD options DEFAULTSTO
   options := ValidateOptions([ applytester := DEFAULT OBJECT
                              , webcontext := DEFAULT OBJECT
                              , formref := ""
-                             , __formname := "webtoolform" //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolFOrm directly
+                             , __formname := "webtoolform" //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolForm directly
                              , __applycontext := FALSE //Used for the RPC path as some inits need to be done *just* before form opening
-                             , __incontext := 0 //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolFOrm directly
+                             , __incontext := 0 //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolForm directly
                              ], options);
 
   IF(NOT ObjectExists(options.applytester))
