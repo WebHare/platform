@@ -1,6 +1,6 @@
 #ifndef blex_branding
 #define blex_branding
 
-#define BLEX_BRANDING_PRODUCT_VERSION_NUMBER    43401
+#define BLEX_BRANDING_PRODUCT_VERSION_NUMBER    43402
 
 #endif
