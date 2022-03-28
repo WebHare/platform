@@ -60,14 +60,17 @@ PUBLIC OBJECT FUNCTION GetFormObjectForIdAndName(INTEGER objid, STRING formid, S
     IF(parseresult.objectname = "")
       parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
 
-    RETURN OpenFormByDef(parseresult, [ webcontext := webcontext
-                                      , applytester := applytester
-                                      ]);
+    OBJECT form := OpenFormByDef(parseresult, [ webcontext := webcontext
+                                              , applytester := applytester
+                                              ]);
 
+    form->PrepareForFrontend();
+    RETURN form;
   }
   ELSE
   {
     OBJECT targetform := webcontext->OpenForm(formid, [ formref := formref ]);
+    targetform->PrepareForFrontend();
     RETURN targetform;
   }
 }

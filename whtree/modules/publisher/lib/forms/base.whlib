@@ -322,9 +322,9 @@ PUBLIC OBJECTTYPE FormBase
     this->formsubmittype := "new";
     this->__form := __passthrough;
     this->formref := __passthrough.formref;
+    this->formclasses := ["wh-form","wh-styledinput"] CONCAT __passthrough.classes;
     __passthrough := DEFAULT RECORD;
     this->formjshandler := this->__form.jshandler;
-    this->formclasses := ["wh-form","wh-styledinput"];
     this->formidprefix := this->__form.idprefix;
     this->__formbuttons := this->__form.buttons;
     this->__formlanguagecode := this->__form.languagecode ?? ObjectExists(this->formcontext) ? this->formcontext->languagecode : "en";
@@ -566,6 +566,11 @@ PUBLIC OBJECTTYPE FormBase
       // responsibility of using the updated values with the form handler
       field.obj->UpdateFromJS(GetCell(fields,field.name));
     }
+  }
+
+  //Prepare form for use in the frontend (either rendering or for result data)
+  PUBLIC MACRO PrepareForFrontend()
+  {
   }
 
   PUBLIC MACRO CheckRateLimits()
@@ -1109,6 +1114,18 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
   MACRO NEW()
   {
     this->__form := __passthrough.form;
+  }
+
+  /** @short Invoked before rendering the form
+  */
+  PUBLIC MACRO PrepareRendering()
+  {
+  }
+
+  /** @short Prepare for use with the frontend (rendering, rpc or validation)  (WebHare >= 4.34.1)
+  */
+  PUBLIC MACRO PrepareForFrontend()
+  {
   }
 
   /** @short Do additional form validation

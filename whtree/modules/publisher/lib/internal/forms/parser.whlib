@@ -269,6 +269,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
                     , submitlabel := ParseXMLTidPtr(resourcename, gid, formnode, "submitlabel")
                     , warnings := RECORD[]
                     , errors := RECORD[]
+                    , classes := ParseXSList(formnode->GetAttribute("classes"))
                     ];
 
   STRING objectname := formnode->GetAttribute("objectname");
