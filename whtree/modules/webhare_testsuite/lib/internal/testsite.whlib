@@ -390,13 +390,13 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     radiofield_opt1->SetAttribute("title","Õption");
     radiofield->AppendChild(radiofield_opt1);
 
+    OBJECT radiofield_opt2 := radiofield->ownerdocument->CreateElementNS(radiofield->namespaceuri, "option");
+    radiofield_opt2->SetAttribute("rowkey","opt2");
+    radiofield_opt2->SetAttribute("title","Option 2");
+    radiofield->AppendChild(radiofield_opt2);
+
     IF(options.addconditions)
     {
-      OBJECT radiofield_opt2 := radiofield->ownerdocument->CreateElementNS(radiofield->namespaceuri, "option");
-      radiofield_opt2->SetAttribute("rowkey","opt2");
-      radiofield_opt2->SetAttribute("title","Option 2");
-      radiofield->AppendChild(radiofield_opt2);
-
       formdefs->SetConditionAttribute(uploadfield, "requiredconditionid",
                 [ field := radiofield->GetAttribute("guid")
                 , matchtype := "IN"

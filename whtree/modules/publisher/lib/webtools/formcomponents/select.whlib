@@ -1140,6 +1140,42 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
     RETURN base;
   }
 
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD ARRAY options := SELECT htmltitle
+                                 , value := isoptgroup ? "" : UnmapValueType(this->rowkeytype, rowkey, "", FALSE)
+                              FROM this->pvt_options;
+
+    RECORD rendering := CELL[ ...FormFieldBase::GetRenderTree()
+                            , options
+                            ];
+
+    IF(this->type = "pulldown")
+    {
+      rendering := CELL[ ...rendering
+                       , type := "select"
+                       , placeholder := this->placeholder
+                       , placeholderisset := this->placeholderisset
+                       ];
+    }
+    ELSE IF(this->type = "radio")
+    {
+      rendering := CELL[ ...rendering
+                       , type := "radio"
+                       , orientation := this->orientation
+                       ];
+    }
+    ELSE IF(this->type = "checkbox")
+    {
+      rendering := CELL[ ...rendering
+                       , type := "checkbox"
+                       , orientation := this->orientation
+                       ];
+    }
+
+    RETURN rendering;
+  }
+
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
     VARIANT setrowkey := MapValueTypeArray(this->rowkeytype, IsTYPEIDArray(TYPEID(jsdata)) ? STRING ARRAY(jsdata) : STRING[jsdata]);

@@ -74,6 +74,28 @@ PUBLIC OBJECTTYPE FormGroupField EXTEND FormFieldBase
                ];
   }
 
+  UPDATE PUBLIC RECORD FUNCTION GetRenderTree()
+  {
+    RECORD ARRAY fields := SELECT AS RECORD ARRAY obj->GetRenderTree()
+                             FROM this->form->__formfields
+                            WHERE ToUppercase(COLUMN formgroup) = ToUppercase(this->name)
+                                  AND obj->IsFrontendVisible();
+
+    //Convert "h2" to ["h2",""], convert "p.normal" to ["p","normal"]
+    STRING ARRAY parts;
+    IF (this->field.blockstyle LIKE "*.*")
+      parts := Tokenize(this->field.blockstyle, ".");
+    IF (Length(parts) != 2)
+      parts := [ Tokenize(this->field.blockstyle, ".")[0], "" ];
+
+    RETURN CELL[ ...FormFieldBase::GetRenderTree()
+               , type := "group"
+               , fields
+               , containertag := parts[0]
+               , classname := parts[1]
+               ];
+  }
+
   UPDATE PUBLIC MACRO RenderField()
   {
     // Groups only have to be rendered if there is a title to render

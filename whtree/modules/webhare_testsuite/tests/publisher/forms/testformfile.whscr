@@ -25,12 +25,12 @@ STRING emailfieldname;
 
 PUBLIC MACRO BuildForm()
 {
-  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE ]);
+  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, addpulldown := TRUE ]);
 }
 
 PUBLIC MACRO FillInForm()
 {
-  INTEGER numexportfields := 15;
+  INTEGER numexportfields := 17;
 
   //Ensure the form is up
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -85,33 +85,75 @@ PUBLIC MACRO FillInForm()
                                  , required := TRUE
                                  , value := ""
                                  ]
-                                ,[ htmltitle := "Groups &#38; stuff" ]
-                                ,[ htmltitle := "Upload" ]
-                                ,[ htmltitle := "Date" ]
+                                ,[ htmltitle := "Groups &#38; stuff"
+                                 , type := "group"
+                                 , containertag := "" //we allow rendering to default it
+                                 , classname := ""
+                                 , fields := [[ htmltitle := "Upload" ]
+                                             ,[ htmltitle := "Date" ]
+                                             ]
+                                 ]
                                 ,[ htmltitle := "CustomSelect" ]
                                 ,[ htmltitle := "Textarea"
                                  , value := ""
+                                 , type := "textarea"
                                  ]
-                                ,[ htmltitle := "Checkboxes" ]
-                                ,[ htmltitle := "Radio" ]
+                                ,[ htmltitle := "Checkboxes"
+                                 , options := [[ value := "copt1", htmltitle := "CheckboxOpt1" ]
+                                              ,[ value := "copt2", htmltitle := "CheckboxOpt2" ]
+                                              ,[ value := "copt3", htmltitle := "CheckboxOpt3" ]
+                                              ]
+                                 ]
+                                ,[ htmltitle := "Radio"
+                                 , options := [[ value := "opt", htmltitle := "&#213;ption" ]
+                                              ,[ value := "opt2", htmltitle := "Option 2" ]
+                                              ]
+                                 ]
                                 ,[ htmltitle := "Number"
                                  , type := "number"
                                  , min := -2147483648
                                  , max := 2147483647
                                  , value := 0
                                  ]
-                                ,[ htmltitle := "Checkbox" ]
+                                ,[ htmltitle := "Checkbox"
+                                 , type := "checkbox"
+                                 , options := [[ value := "yes", htmltitle := "" ]
+                                              ]
+                                 , orientation := "vertical"
+                                 ]
+                                ,[ type := "select"
+                                 , htmltitle := "Pulldown req"
+                                 , required := TRUE
+                                 , placeholder := "Make your choice"
+                                 , placeholderisset := TRUE
+                                 , options := [[ value := "yes", htmltitle := "Yes !!!!" ]
+                                              ,[ value := "no", htmltitle := "No ?" ]
+                                              ]
+                                 ]
+                                ,[ type := "select"
+                                 , htmltitle := "Pulldown opt"
+                                 , required := FALSE
+                                 , placeholder := "Make your choice"
+                                 , placeholderisset := TRUE
+                                 , options := [[ value := "yes", htmltitle := "Yes !!!!" ]
+                                              ,[ value := "no", htmltitle := "No ?" ]
+                                              ]
+                                 ]
                                 ,[ htmltitle := "Address" ]
                                 ,[ htmltitle := "Time" ]
                                 ,[ htmltitle := "Imgedit" ]
                                 ]
                    ]
                  , [ role := "thankyou"
+                   , fields := [[ type := "richtext"
+                                , richtext := CELL[]
+                               ]]
                    ]
                  ]
                 ], rendertree, "*");
 
   TestEq(ToUppercase(emailfieldname), ToUppercase(rendertree.pages[0].fields[1].name), "verify email name case-insensitively");
+  TestEqLike("*<h1*Thank you!*embeddedobject*", BlobToString(rendertree.pages[1].fields[0].richtext.htmltext));
 
   RECORD rendertree2 := OpenFormByTarget(rendertree.target)->GetRenderTree();
   DELETE CELL formid, target FROM rendertree;
@@ -144,10 +186,13 @@ PUBLIC MACRO FillInForm()
                    , "address.zip" := "7521 AM"
                    , "address.city" := "Enschede"
                    , "address.province" := "OV" // will be ignored for NL
+                   , "requiredpulldownfield" := "yes"
                    ];
 
   firstsubmitrec := submitrec;
   res := tester->SubmitForm(submitrec);
+  IF(NOT res.success)
+    dumpvalue(res,'tree');
   TestEq(TRUE, res.success);
 
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
@@ -235,6 +280,7 @@ PUBLIC MACRO FillInForm()
                    , "address.street" := "Bahnhofstraße"
                    , "address.zip" := "48599"
                    , "address.city" := "Gronau"
+                   , "requiredpulldownfield" := "yes"
                    ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
@@ -306,7 +352,7 @@ PUBLIC MACRO FillInForm()
   TestEq(2, Length(exportwithattachments.rows));
   TestEq("uploads/000002-I-allstar.txt", exportwithattachments.attachments[0].path);
   TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", exportwithattachments.attachments[0].file.hash);
-  TEsteq("uploads/000002-AA-goudvis.png", exportwithattachments.attachments[1].path);
+  TEsteq("uploads/000002-AC-goudvis.png", exportwithattachments.attachments[1].path);
   TEsteq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", exportwithattachments.attachments[1].file.hash);
 
   RECORD ARRAY ownermail := testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
@@ -356,6 +402,7 @@ PUBLIC MACRO FillInForm()
                    , "address.city" := "Antwerpen"
                    , "address.province" := "Antwerpen"
                    , textarea := RepeatText("x", 8192) // Test long strings being exported as blobs
+                   , "requiredpulldownfield" := "no"
                    ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
@@ -449,6 +496,7 @@ MACRO TestDirectFormSubmission()
                                    , city := "Antwerpen"
                                    , province := "Antwerpen"
                                    ]
+                      , "requiredpulldownfield" := "yes"
                       ];
 
   form->formvalue := submitrec;
@@ -544,6 +592,7 @@ ASYNC MACRO TestFormApp()
       , "address.street" := "Platz der Republik"
       , "address.zip" := "11011"
       , "address.city" := "Berlin"
+      , "requiredpulldownfield" := "yes"
       ];
   OBJECT emailfield := testfw->browser->document->GetElement('input[type="email"]');
   submitrec := CellInsert(submitrec, emailfield->GetAttribute("name"), "testfw+preview@beta.webhare.net");
@@ -618,9 +667,11 @@ MACRO TestContentLink()
       , "address.street" := "Platz der Republik"
       , "address.zip" := "11011"
       , "address.city" := "Berlin"
+      , "requiredpulldownfield" := "no"
       ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+contentlink@beta.webhare.net");
   RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
 
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT webtoolresults := OpenFormFileResults(formfile);
