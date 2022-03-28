@@ -24,39 +24,36 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
-//TODO perhaps we shouldn't do lookuppublisherurl at all and simply encode Content + Target ids into the form url
-INTEGER FUNCTION GetAssociatedFSObject(RECORD submitinfo)
+OBJECT FUNCTION GetFormObject(RECORD submitinfo)
 {
+  OBJECT form;
   STRING url := GetWebOriginURL(submitinfo.url);
-  RECORD lookupres := LookupPublisherURL(url);
+  originalformrequesturl := url; //Allows GetFormVariable to work in RPCs
 
-  IF(lookupres.ispreview)
-    lookupres.file := SELECT AS INTEGER filelink FROM system.fs_objects WHERE id = lookupres.file;
-
-  IF(lookupres.folder=0)
-    THROW NEW Exception(`Unable to determine the source of the request (${url})`);
-
-  RETURN lookupres.file ?? lookupres.folder;
-}
-
-PUBLIC OBJECT FUNCTION GetFormObjectForIdAndName(INTEGER objid, STRING formid, STRING formref, STRING url)
-{
-  OBJECT applytester := GetApplyTesterForObject(objid);
-
-  OBJECT webcontext := __GetWebContextForApplyTester(applytester, objid);
-  IF(url != "")
+  IF(CellExists(submitinfo, 'formid') AND submitinfo.formid LIKE "__formwidget:*")
   {
-    webcontext->baseurl := url;
-    originalformrequesturl := url;
-  }
+    /* This path ONLY exists for legacy formwidgets that actually need a republish to get their new 'target'
+       So it's basically a merge of the old code, discarding non-webtool-form stuff, and only manually tested
 
-  SetTidLanguage(webcontext->languagecode);
+       It can go awawy post 4.35 once we're sure the relevant sites using formwidgets have seen a republish */
+    INTEGER target := DecryptForThisServer("publisher:formwidget", Substring(submitinfo.formid,13)).target;
+    RECORD lookupres := LookupPublisherURL(url);
+    LogDebug("publisher:rpc","Legacy formwidget RPC call!", target, submitinfo, lookupres);
+    IF(lookupres.folder=0)
+      THROW NEW Exception(`Unable to determine the source of the request (${url})`);
 
-  IF(formid LIKE "__formwidget:*" OR formid = "-")
-  {
-    INTEGER target := formid = "-" ? objid : DecryptForThisServer("publisher:formwidget", Substring(formid,13)).target;
+    INTEGER objid := lookupres.file ?? lookupres.folder;
+    OBJECT applytester := GetApplyTesterForObject(objid);
+    OBJECT webcontext := __GetWebContextForApplyTester(applytester, objid);
 
-    ////FIXME duplicated from WebdesignBase::OpenWebtoolForm
+    IF(url != "")
+    {
+      webcontext->baseurl := url;
+      originalformrequesturl := url;
+    }
+
+    SetTidLanguage(webcontext->languagecode);
+
     OBJECT formdefs := OpenWHFSFormDefinitionsFile(OpenWHFSObject(target));
 
     OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
@@ -65,27 +62,16 @@ PUBLIC OBJECT FUNCTION GetFormObjectForIdAndName(INTEGER objid, STRING formid, S
     IF(parseresult.objectname = "")
       parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
 
-    OBJECT form := OpenFormByDef(parseresult, [ webcontext := webcontext
+    form := OpenFormByDef(parseresult, [ webcontext := webcontext
                                               , applytester := applytester
                                               ]);
-
-    form->PrepareForFrontend();
-    RETURN form;
   }
   ELSE
   {
-    OBJECT targetform := webcontext->OpenForm(formid, [ formref := formref ]);
-    targetform->PrepareForFrontend();
-    RETURN targetform;
+    form := OpenFormByTarget(submitinfo.target, [ __applycontext := TRUE ]);
   }
-}
-
-OBJECT FUNCTION GetFormObject(RECORD submitinfo)
-{
-  STRING url := GetWebOriginURL(submitinfo.url);
-  INTEGER objid := GetAssociatedFSObject(submitinfo);
-  STRING formref := CellExists(submitinfo,'formref') ? submitinfo.formref : "";
-  RETURN GetFormObjectForIdAndName(objid, submitinfo.formid, formref, url);
+  form->PrepareForFrontend();
+  RETURN form;
 }
 
 RECORD FUNCTION Submit(RECORD submitinfo)
@@ -172,7 +158,8 @@ PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
 PUBLIC RECORD FUNCTION RPC_RequestBuiltinForm(RECORD submitinfo, STRING filename, STRING formname)
 {
   OpenPrimary();
-  INTEGER objid := GetAssociatedFSObject(submitinfo);
+  RECORD targetinfo := DecryptForThisServer("publisher:formtarget", submitinfo.target);
+  INTEGER objid := targetinfo.incontext ?? targetinfo.fsobj;
   OBJECT form := GetWebdesign(objid)->OpenForm("__builtin:" || filename || ":" || formname);
   RETURN [ html := BlobToString(GetPrintedAsBlob(PTR form->RenderForm))
          ];

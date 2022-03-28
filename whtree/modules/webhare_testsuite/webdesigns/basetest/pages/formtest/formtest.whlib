@@ -118,7 +118,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
       TestEq('nl', this->formcontext->languagecode);
     }
 
-    TestEq('nl', GetTidLanguage());
+    IF(GetTidLanguage() != "nl")
+      ABORT("Expected GetTidLanguage() to be 'nl' during form initialization");
     TestEq('Uploaden', ^upload->title); //ensure NL version was picked up. we need something that translates differently in EN..
     TEstEq(TRUE, ^text->enabled);
     TEstEq(FALSE, ^email->enabled);
@@ -438,8 +439,8 @@ PUBLIC STATIC OBJECTTYPE DynamicTestForm EXTEND FormBase
   {
     this->formdataset := [ bob := "beagle" ];
 
-    IF(IsRequest())
-      TestEqLike("*dynamic=1*", this->formurl);
+    IF(IsRequest() AND this->formurl NOT LIKE "*dynamic=1*")
+      ABORT(`Missing dynamic=1 on formurl: ${this->formurl}`);
 
     BOOLEAN disablestuff := GetVariableFromURL(this->formurl,'disable') = '1';
     RECORD ARRAY saveoptions := ^timeslot->options;

@@ -2,6 +2,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
+LOADLIB "mod::system/lib/services.whlib";
+
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 
 PUBLIC BOOLEAN FUNCTION HasSubfields(RECORD groupdescription)
@@ -936,23 +938,19 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
 
 PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 {
-  RETURN [ formid := form->__form.externalformname
-         , formref := form->formref
-         , backlink := form->formbacklink
+  RETURN [ backlink := form->formbacklink
          , handler := form->formjshandler
+         , target := form->__GetFormTarget()
          ];
 }
 PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)
 {
   RECORD dataset;
-  IF(rendertree.formid != "")
-    INSERT CELL "wh-form-id" := rendertree.formid INTO dataset;
-  IF(rendertree.formref != "") //TODO encode into wh-form-id
-    INSERT CELL "wh-form-ref" := rendertree.formref INTO dataset;
   IF(rendertree.backlink != "")
     INSERT CELL "wh-form-backlink" := rendertree.backlink INTO dataset;
   IF(rendertree.handler != "")
     INSERT CELL "wh-form-handler" := rendertree.handler INTO dataset;
+  INSERT CELL "wh-form-target" := rendertree.target INTO dataset;
   RETURN dataset;
 }
 

@@ -2,6 +2,7 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -9,13 +10,15 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC MACRO TestAddressField()
 {
-  OBJECT addressform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "addressform");
+  OBJECT testfile := OpenTestsuiteSite()->OpenBypath("testpages/formtest");
+  OBJECT webdesign := GetWebDesign(testfile->id);
+  OBJECT addressform := webdesign->OpenForm("addressform");
   INSERT CELL city := "Residence" INTO addressform->^address->fieldtitles;
 
   RECORD ARRAY addressfields := addressform->^address->GetResultColumns(DEFAULT RECORD);
-  TestEQ("Street", SELECT AS STRING title FROM addressfields WHERE name = "street"); // From worldinfo.xml
+  TestEQ("Straat", SELECT AS STRING title FROM addressfields WHERE name = "street"); // From worldinfo.xml
   TestEQ("Number and Addition", SELECT AS STRING title FROM addressfields WHERE name = "nr_detail"); // XML title overwrite
-  TestEQ("Postal Code", SELECT AS STRING title FROM addressfields WHERE name = "zip"); // XML tid overwrite
+  TestEQ("ZIP-code", SELECT AS STRING title FROM addressfields WHERE name = "zip"); // XML tid overwrite
   TestEQ("Residence", SELECT AS STRING title FROM addressfields WHERE name = "city"); // Dynamic title override
 
   // All address subfields should be exposed through ^<tagname>
@@ -36,7 +39,7 @@ PUBLIC MACRO TestAddressField()
   RECORD formdata := [ extrasubmit :=     DEFAULT RECORD
                      , fields :=          DEFAULT RECORD
                      //can formapi give us this data?
-                     , formid :=          "addressform"
+                     , target :=          addressform->__GetFormTarget()
                      , url :=             "testoutput/webhare_testsuite.testsite/testpages/formtest/?address=1"
                      ];
 

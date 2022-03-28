@@ -40,6 +40,8 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
                              , nocustomformbase := FALSE
                              , languagecode := ""
                              , formref := ""
+                             , incontext := 0
+                             , targetid := 0
                              ], options);
 
   RECORD parsed := CELL[ ...formdef
@@ -48,6 +50,8 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
                        , options.languagecode
                        , options.formref
                        , options.nocustomformbase
+                       , options.incontext
+                       , options.targetid
                        ];
 
   RECORD savesettings := __passthrough;

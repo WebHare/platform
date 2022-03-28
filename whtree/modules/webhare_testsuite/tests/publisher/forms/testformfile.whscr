@@ -113,6 +113,11 @@ PUBLIC MACRO FillInForm()
 
   TestEq(ToUppercase(emailfieldname), ToUppercase(rendertree.pages[0].fields[1].name), "verify email name case-insensitively");
 
+  RECORD rendertree2 := OpenFormByTarget(rendertree.target)->GetRenderTree();
+  DELETE CELL formid, target FROM rendertree;
+  DELETE CELL formid, target FROM rendertree2;
+  TestEq(rendertree, rendertree2);
+
   RECORD submitrec := [ firstname := "Piëtje"
                       , upload := [ filename := "allstar.txt"
                                   , link := "data:text/plain,someBODY"

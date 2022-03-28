@@ -398,14 +398,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   {
     IF(NOT ObjectExists(this->pvt_webtoolform))
     {
-      /* plain types need not be hosted by ourselves, just send them straight to their RPC...
-         however, this currently breaks merge fields, directly because __mergefields is missing but indirectly because MergeThankYouPageRTDFields needs CallwithScope
-         and the short-circuit path doesn't open the webdesign
-      BOOLEAN selfhosted := this->contentobject->typens NOT IN [ "http://www.webhare.net/xmlns/publisher/formwebtool", "http://www.webhare.net/xmlns/publisher/formwidget"];
-      */
-
       //Content links store their content with the central form, but autosave/drafts etc use the targetobject
-      this->pvt_webtoolform := this->DoOpenWebtoolForm(this->contentobject, TRUE /*selfhosted*/, this->targetobject->type = whconstant_whfstype_contentlink ? this->contentobject->id : this->targetobject->id);
+      this->pvt_webtoolform := this->DoOpenWebtoolForm(this->contentobject, TRUE /*isprimaryform*/, this->targetobject->type = whconstant_whfstype_contentlink ? this->contentobject->id : this->targetobject->id);
     }
 
     RETURN this->pvt_webtoolform;
@@ -625,13 +619,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   }
 
    //formtargetid is where the answers are routed to and extensions come form. may differ from formobject when previewing/contentobjecting (targetobject will point to final location, but contentobject/formobject to draft)
-  OBJECT FUNCTION DoOpenWebtoolForm(OBJECT formobject, BOOLEAN selfhosted, INTEGER formtargetid)
+  OBJECT FUNCTION DoOpenWebtoolForm(OBJECT formobject, BOOLEAN isprimaryform, INTEGER formtargetid)
   {
-    OBJECT form := __DoOpenWebtoolForm(formobject, this, this->targetapplytester, selfhosted, formtargetid);
+    OBJECT form := __DoOpenWebtoolForm(formobject, "webtoolform", this, this->targetapplytester, formtargetid, "");
     IF(NOT ObjectExists(form))
       RETURN form;
 
-    IF(NOT selfhosted)
+    IF(NOT isprimaryform)
     {
       //ensure relatively stable but unique IDs for all forms on the page:
       this->__pageformcount := this->__pageformcount + 1;

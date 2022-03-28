@@ -3,10 +3,10 @@
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
-LOADLIB "mod::publisher/lib/internal/forms/rpc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -19,7 +19,7 @@ PUBLIC OBJECTTYPE ProcessPaymentStatus EXTEND WRDPaymentHandlerBase
 <
   UPDATE PUBLIC MACRO OnPaymentFinalized(RECORD payment)
   {
-    OBJECT targetform := GetFormObjectForIdAndName(payment.userdata.fsobj, payment.userdata.extformname, "", "");
+    OBJECT targetform := OpenFormByTarget(payment.userdata.formtarget);
     targetform->RunServerSideConfirmation(payment.userdata.result, payment.status = "failed" ? "cancel" : "confirm");
   }
 >;
@@ -189,8 +189,8 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
                                                                                  , returnurl
                                                                                  , paymenthandler := Resolve("#ProcessPaymentStatus")
                                                                                  , orderid := this->settings.orderid
-                                                                                 , userdata := [ extformname := this->form->__form.externalformname
-                                                                                               , fsobj := this->form->formcontext->targetobject->id
+                                                                                 , userdata := [ //TODO can we replace this with formtarget?
+                                                                                                 formtarget := this->form->__GetFormTarget()
                                                                                                , result := this->form->resultguid
                                                                                                , handler := this->__handlerinfo.handler.guid
                                                                                                ]

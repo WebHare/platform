@@ -8,8 +8,6 @@ STATIC OBJECTTYPE FormsapiFormTester
 <
   STRING baseurl;
   OBJECT node;
-  STRING formid;
-  STRING formref;
   RECORD formdata;
   OBJECT browser;
 
@@ -18,9 +16,6 @@ STATIC OBJECTTYPE FormsapiFormTester
     this->browser := browser;
     this->baseurl := baseurl;
     this->node := node;
-
-    this->formid := node->GetAttribute("data-wh-form-id");
-    this->formref := node->GetAttribute("data-wh-form-ref");
   }
 
   /** Submit the form
@@ -32,10 +27,9 @@ STATIC OBJECTTYPE FormsapiFormTester
     options := ValidateOptions([ extrasubmit := DEFAULT RECORD
                                ], options);
 
-    STRING formservice := this->formid="-" ? this->baseurl : ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
+    STRING formservice := ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
     RECORD formdata := [ fields := fields
-                       , formid := this->formid
-                       , formref := this->formref
+                       , target := this->node->GetAttribute("data-wh-form-target")
                        , url := UnpackURL(this->baseurl).urlpath
                        ];
 
@@ -53,7 +47,7 @@ STATIC OBJECTTYPE FormsapiFormTester
 */
 PUBLIC OBJECT FUNCTION OpenFormsapiFormTester(OBJECT browser, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ selector := "form[data-wh-form-id]" ], options);
+  options := ValidateOptions([ selector := "form[data-wh-form-target]" ], options);
 
   OBJECT ARRAY candidates := browser->document->GetElements(options.selector);
   IF(Length(candidates)=0)
