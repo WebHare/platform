@@ -188,6 +188,7 @@ async function runTask(taskcontext, data)
                    , path.join(bridge.getInstallationRoot(), "modules/system/js/") //TODO workaround for dompack resolution. we should probably move dompack to nodejs/node_modules and avoid further special dompack hacks
                    ]
       , resolveExtensions: [".js",".es",".ts"]
+      , logLevel: 'silent'
       };
 
   if(bundle.bundleconfig.environment == 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
@@ -201,13 +202,10 @@ async function runTask(taskcontext, data)
   }
   catch(e)
   {
-    console.log("%o",e);
     buildresult = { warnings: e.warnings
                   , errors: e.errors
                   };
-    console.log(e);
   }
-  // console.log("BUILDRESULT", buildresult);
 
   let info = { dependencies: { start: start
                              , fileDependencies:     Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")) //exclude //:entrypoint.js or we'll recompile endlessly
