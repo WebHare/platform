@@ -516,16 +516,34 @@ HERE
     die "Container start failed"
   fi
 
+  if [ "$NR" == "1" ]; then
+    # Get version info from first container
+    # this initializes the'version' variable
+    eval $( $SUDO docker exec $TESTENV_CONTAINER1 cat /opt/wh/whtree/modules/system/whres/buildinfo )
+    echo "WebHare version info:
+      committag=$committag
+      builddate=$builddate
+      buildtime=$buildtime
+      branch=$branch
+      version=$version"
+  fi
+
   if [ -n "$ISMODULETEST" ]; then
     echo "`date` fixup/chown modules (npm etc)"
     if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
       die "chown modules failed"
     fi
-    if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlybroken --onlyinstalledmodules ; then
-      testfail "wh fixmodules failed"
+
+    if version_gte $version 4.35 ; then
+      if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlybroken --onlyinstalledmodules ; then
+        testfail "wh fixmodules failed"
+      fi
+    else
+      if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlybroken --onlymodules ; then
+        testfail "wh fixmodules failed"
+      fi
     fi
   fi
-
 }
 
 create_container 1
@@ -535,16 +553,6 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   create_container 2
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
-
-# Get version info   TODO have webhare give a command that gives this in a WEBHARE_VERSION= etc syntax?
-# this initializes the'version' variable
-eval $( $SUDO docker exec $TESTENV_CONTAINER1 cat /opt/wh/whtree/modules/system/whres/buildinfo )
-echo "WebHare version info:
-  committag=$committag
-  builddate=$builddate
-  buildtime=$buildtime
-  branch=$branch
-  version=$version"
 
 echo "`date` Wait for poststartdone container1"
 if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
