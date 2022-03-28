@@ -98,8 +98,17 @@ PUBLIC MACRO FillInForm()
                                  , value := ""
                                  , type := "textarea"
                                  ]
-                                ,[ htmltitle := "Checkboxes" ]
-                                ,[ htmltitle := "Radio" ]
+                                ,[ htmltitle := "Checkboxes"
+                                 , options := [[ value := "copt1", htmltitle := "CheckboxOpt1" ]
+                                              ,[ value := "copt2", htmltitle := "CheckboxOpt2" ]
+                                              ,[ value := "copt3", htmltitle := "CheckboxOpt3" ]
+                                              ]
+                                 ]
+                                ,[ htmltitle := "Radio"
+                                 , options := [[ value := "opt", htmltitle := "&#213;ption" ]
+                                              ,[ value := "opt2", htmltitle := "Option 2" ]
+                                              ]
+                                 ]
                                 ,[ htmltitle := "Number"
                                  , type := "number"
                                  , min := -2147483648
@@ -108,11 +117,28 @@ PUBLIC MACRO FillInForm()
                                  ]
                                 ,[ htmltitle := "Checkbox"
                                  , type := "checkbox"
-                                 , value := FALSE
+                                 , options := [[ value := "yes", htmltitle := "" ]
+                                              ]
                                  , orientation := "vertical"
                                  ]
-                                ,[ htmltitle := "Pulldown req" ]
-                                ,[ htmltitle := "Pulldown opt" ]
+                                ,[ type := "select"
+                                 , htmltitle := "Pulldown req"
+                                 , required := TRUE
+                                 , placeholder := "Make your choice"
+                                 , placeholderisset := TRUE
+                                 , options := [[ value := "yes", htmltitle := "Yes !!!!" ]
+                                              ,[ value := "no", htmltitle := "No ?" ]
+                                              ]
+                                 ]
+                                ,[ type := "select"
+                                 , htmltitle := "Pulldown opt"
+                                 , required := FALSE
+                                 , placeholder := "Make your choice"
+                                 , placeholderisset := TRUE
+                                 , options := [[ value := "yes", htmltitle := "Yes !!!!" ]
+                                              ,[ value := "no", htmltitle := "No ?" ]
+                                              ]
+                                 ]
                                 ,[ htmltitle := "Address" ]
                                 ,[ htmltitle := "Time" ]
                                 ,[ htmltitle := "Imgedit" ]

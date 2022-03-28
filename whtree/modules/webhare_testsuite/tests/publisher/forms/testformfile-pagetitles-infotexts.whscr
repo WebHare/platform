@@ -146,10 +146,11 @@ MACRO TestTitleInfotextRendered()
   TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(textareagroupline->GetAttribute("class")));
 
   OBJECT ARRAY optionlines := testfw->browser->document->GetElements('div[data-wh-form-group-for="radio"] .wh-form__fieldline');
-  TestEq(3, Length(optionlines));
+  TestEq(4, Length(optionlines));
   TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[0]->GetAttribute("class")));
-  TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[1]->GetAttribute("class")));
-  TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[2]->GetAttribute("class")));
+  TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[1]->GetAttribute("class")));
+  TestEq(TRUE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[2]->GetAttribute("class")));
+  TestEq(FALSE, "wh-form__fieldline--hasinfotext" IN ParseXSList(optionlines[3]->GetAttribute("class")));
 }
 
 RunTestframework([ PTR BuildForm

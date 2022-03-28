@@ -107,8 +107,7 @@ PUBLIC OBJECTTYPE CheckBoxField EXTEND FormFieldBase
   {
     RETURN CELL[ ...FormFieldBase::GetRenderTree()
                , type := "checkbox"
-               , htmllabel := this->pvt_htmllabel
-               , this->value
+               , options := [[ value := "yes", htmltitle := this->pvt_htmllabel ]]
                , orientation := "vertical"
                ];
   }

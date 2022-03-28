@@ -2,7 +2,6 @@
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-
 PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
 {
   TestEq(FALSE, CellExists(rendertree,'config'), "top-level onfig was eliminated");
@@ -30,8 +29,12 @@ PUBLIC MACRO ValidateFormRenderTree(RECORD rendertree)
       {
         IF(field.type = "checkbox")
         {
-          TestEq("BOOLEAN", GetTypeName(TYPEID(field.value)));
-          TestEq(FALSE, CellExists(field,'selected'), 'The tree should encode value true/false unline __GetRenderData()');
+          //A checkbox is in the forms either a <select type=checkbox> (group of checkboxes) or <checkbox> but when rendering, equalize those!
+          TestEq(FALSE, CellExists(field,'value'), "No 'value' in a checkbox");
+          TestEq(FALSE, CellExists(field,'label'), "No 'label' in a checkbox");
+          TestEq(FALSE, CellExists(field,'htmllabel'), "No 'htmllabel' in a checkbox");
+          TestEq("RECORD ARRAY", GetTypeName(TYPEID(field.options)));
+          TestEq(TRUE, field.orientation IN ["horziontal","vertical"]);
         }
       }
 

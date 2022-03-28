@@ -446,8 +446,8 @@ ASYNC MACRO EditCustomForm()
   TestEq(TRUE, testfw->browser->GotoWebPage(submitted.pagedata.editlink)); //shouldn't crash
 
   OBJECT ARRAY radiobuttons := testfw->browser->document->GetElements(`input[name="radio"]`);
-  TestEq(1, Length(radiobuttons));
-  TestEq("New option", radiobuttons[0]->parentnode->textcontent);
+  TestEq(2, Length(radiobuttons));
+  TestEq("New option", radiobuttons[1]->parentnode->textcontent);
 }
 
 ASYNC MACRO ProcessExpiredResults()
