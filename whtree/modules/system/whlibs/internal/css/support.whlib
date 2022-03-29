@@ -1273,7 +1273,8 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
           : (node->localname ?? node->nodename) != selector.tagname))
     RETURN FALSE;
 
-  STRING ARRAY classes := Tokenize(ToLowercase(node->GetAttribute("class")), " ");
+  BOOLEAN haveclasses;
+  STRING ARRAY classes;
 
   FOREVERY (RECORD sc FROM selector.subclasses)
   {
@@ -1282,12 +1283,17 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
       CASE "#"
       {
         // ID matches case-sensitively
-        IF (node->GetAttribute("id") != sc.value)
+        IF (node->GetAttributeNS("", "id") != sc.value)
           RETURN FALSE;
       }
       CASE "."
       {
         // class matches case-insensitive, classes list is lowercased in this function and value already during parsing
+        IF (NOT haveclasses)
+        {
+          classes := Tokenize(ToLowercase(node->GetAttributeNS("", "class")), " ");
+          haveclasses := TRUE;
+        }
         IF (sc.value NOT IN classes)
           RETURN FALSE;
       }
