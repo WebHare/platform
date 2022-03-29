@@ -1273,7 +1273,8 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
           : (node->localname ?? node->nodename) != selector.tagname))
     RETURN FALSE;
 
-  STRING ARRAY classes := Tokenize(ToLowercase(node->GetAttribute("class")), " ");
+  BOOLEAN haveclasses;
+  STRING ARRAY classes;
 
   FOREVERY (RECORD sc FROM selector.subclasses)
   {
@@ -1282,12 +1283,17 @@ PUBLIC BOOLEAN FUNCTION TestCompoundSelector(RECORD selector, OBJECT node, BOOLE
       CASE "#"
       {
         // ID matches case-sensitively
-        IF (node->GetAttribute("id") != sc.value)
+        IF (node->GetAttributeNS("", "id") != sc.value)
           RETURN FALSE;
       }
       CASE "."
       {
         // class matches case-insensitive, classes list is lowercased in this function and value already during parsing
+        IF (NOT haveclasses)
+        {
+          classes := Tokenize(ToLowercase(node->GetAttributeNS("", "class")), " ");
+          haveclasses := TRUE;
+        }
         IF (sc.value NOT IN classes)
           RETURN FALSE;
       }
@@ -1505,18 +1511,16 @@ RECORD FUNCTION GetNodePathList(OBJECT node)
   RETURN CELL[ path, pathlen := LENGTH(path) ];
 }
 
-/** Evaluate CSS selectors
-    @param doc Document
-    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
-    @param selectors CSS selectors
-    @param mode @includecelldef #EvaluateSelectorRecursive.mode
-    @return List of matching nodes
+/** Parses a selector list
+    @param config Current root and scope node
+    @cell config.root Root node
+    @cell config.scope Scope node
+    @param selectors Selectors
+    @return Parsed complex selector list @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
 */
-PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING selectors, STRING mode)
+RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(RECORD config, STRING selectors)
 {
-  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
-    THROW NEW Exception(`Illegal engine mode ${mode}`);
-
+  // ADDME: try to cache these (need to hack in the root and scope nodes afterwards then)
   OBJECT t := NEW CSSTokenizer(selectors);
 
   // Get all tokens, ignoring comments
@@ -1531,6 +1535,24 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       INSERT token INTO tokens AT END;
   }
 
+  OBJECT p := NEW CSSSelectorParser(tokens, config);
+  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+
+  RETURN parsed;
+}
+
+/** Evaluate CSS selectors
+    @param doc Document
+    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
+    @param selectors CSS selectors
+    @param mode @includecelldef #EvaluateSelectorRecursive.mode
+    @return List of matching nodes
+*/
+PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING selectors, STRING mode)
+{
+  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
+    THROW NEW Exception(`Illegal engine mode ${mode}`);
+
   // If the scope is set, use the first element in the scope path as root
   // because we might be searching in a detached tree.
   RECORD scopepath := GetNodePathList(scope);
@@ -1544,8 +1566,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       , scope :=      scope ?? root
       ];
 
-  OBJECT p := NEW CSSSelectorParser(tokens, config);
-  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+  RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selectors);
 
   /* Concatenate the selector parts into a big selector array
     A single selector ends at combinator "" (match). Keep the indices
@@ -1557,11 +1578,78 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   {
     INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
     FOREVERY (RECORD part FROM rec.parts)
-      INSERT part INTO selectorparts AT END;
+    {
+      INSERT CELL[ ...part, selector := DEFAULT RECORD ] INTO selectorparts AT END;
+    }
   }
 
+  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+}
 
-  RETURN EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+/** Evaluate CSS selectors
+    @param doc Document
+    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
+    @param selectors CSS selectors
+    @cell selector.selector CSS selector text
+    @param mode @includecelldef #EvaluateSelectorRecursive.mode
+    @return List of matching nodes and their matching selectors
+    @cell(record array) return.matches
+    @cell(object) return.matches.node
+    @cell(record array) return.matches.selectors Matching selectors (not in original order!)
+    @cell(record array) return.errors
+    @cell(record) return.errors.selector
+    @cell(object) return.errors.error
+*/
+PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECORD ARRAY selectors, STRING mode)
+{
+  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
+    THROW NEW Exception(`Illegal engine mode ${mode}`);
+
+  RECORD retval :=
+      [ errors :=     RECORD[]
+      , matches :=    RECORD[]
+      ];
+
+  // If the scope is set, use the first element in the scope path as root
+  // because we might be searching in a detached tree.
+  RECORD scopepath := GetNodePathList(scope);
+  OBJECT root := IsValueSet(scope) ? scopepath.path[0] : doc->documentelement;
+
+  IF (NOT ObjectExists(root))
+    RETURN retval;
+
+  RECORD config :=
+      [ root :=       root
+      , scope :=      scope ?? root
+      ];
+
+  /* Concatenate the selector parts into a big selector array
+    A single selector ends at combinator "" (match). Keep the indices
+    of the first part of the rules.
+  */
+  INTEGER ARRAY alwaysactive;
+  RECORD ARRAY selectorparts;
+  FOREVERY (RECORD selector FROM selectors)
+  {
+    TRY
+    {
+      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selector.selector);
+
+      FOREVERY (RECORD rec FROM parsed)
+      {
+        INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
+        FOREVERY (RECORD part FROM rec.parts)
+          INSERT CELL[ ...part, selector ] INTO selectorparts AT END;
+      }
+    }
+    CATCH (OBJECT error)
+    {
+      INSERT CELL[ selector, error ] INTO retval.errors AT END;
+    }
+  }
+
+  retval.matches := EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+  RETURN retval;
 }
 
 /** Iterate depth-first through the DOM, keeping lists of which compound selector parts of selectors are active
@@ -1573,14 +1661,14 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
     @param mode Selection mode
       - 'qS': querySelector mode, return the first match (within the scope subtree, if passed)
-      - 'qSA': querySelector mode, return the first match (within the scope subtree, if passed)
+      - 'qSA': querySelector mode, return all matches (within the scope subtree, if passed)
       - 'match': match mode, return the scope node if it matches
       - 'closest': closest mode, return the closest node that matches
     @return List of matching nodes
 */
-OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
+RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
 {
-  OBJECT ARRAY retval;
+  RECORD ARRAY retval;
 
   // Current depth in nodes, :root is depth 0
   INTEGER depth := 0;
@@ -1632,6 +1720,7 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
 
     // Is this node a match?
     BOOLEAN ismatch;
+    RECORD ARRAY selectors;
 
     // List of rules active at the next node, filled by "+" combinators
     INTEGER ARRAY newnodeactive;
@@ -1705,13 +1794,14 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         {
           // last part of a selector, it's a match
           ismatch := TRUE;
+          INSERT rec.selector INTO selectors AT END;
         }
       }
     }
 
     IF (ismatch)
     {
-      INSERT testnode INTO retval AT END;
+      INSERT CELL[ node := testnode, selectors ] INTO retval AT END;
 
       // mode 'qS' needs to return only 1 match
       IF (mode = "qS")
