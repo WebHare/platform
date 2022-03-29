@@ -877,23 +877,17 @@ STATIC OBJECTTYPE ContentSource
                ];
   }
 
-  /** Rescan this content source
-      @long Checks if the content source is update, reindex if needed. The check takes place in the background*/
-  PUBLIC MACRO RescanContentSource()
+  /** Reindex this entire content source
+      @long Reindex all groups. The reindexing takes place in the background
+      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
+  */
+  PUBLIC MACRO ReindexContentSource(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    STRING command := "UPDATEINDEX " || this->catalog->id || " " || this->id;
-    IF(IsDebugTagEnabled("consilio:queues"))
-      LogDebug("consilio", "ContentSource::RescanContentSource", this->GetBaseDebugInfo());
-    SendQueueManagerData(GetQueueDataFromCommand(command));
-  }
+    options := ValidateOptions([ rebuild := FALSE ], options);
 
-  /** Rebuild this content source
-      @long Force reindexing of everything in this content source. The check takes place in the background */
-  PUBLIC MACRO RebuildContentSource()
-  {
-    STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
+    STRING command := (options.rebuild ? "CHECKINDEX " : "UPDATEINDEX ") || this->catalog->id || " " || this->id;
     IF(IsDebugTagEnabled("consilio:queues"))
-      LogDebug("consilio", "ContentSource::RebuildContentSource", this->GetBaseDebugInfo());
+      LogDebug("consilio", "ContentSource::ReindexContentSource", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 
@@ -1230,7 +1224,7 @@ STATIC OBJECTTYPE ManagedCatalog EXTEND Catalog
 
     //TODO CheckFolderInIndex ?
     OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->RebuildContentSource() INTO GetConsilioFinishHandler()->execoncommit AT END;
+    INSERT PTR contentsource->ReindexContentSource([ rebuild := TRUE ]) INTO GetConsilioFinishHandler()->execoncommit AT END;
 
     UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
