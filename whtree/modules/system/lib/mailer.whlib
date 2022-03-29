@@ -1213,7 +1213,7 @@ STATIC OBJECTTYPE WittyMailComposer
     }
 
     //Now let's check if the assetcache already recorded this
-    IF(ObjectExists(this->assetcache)) //an earlier StoreAsset may have recordded it
+    IF(ObjectExists(this->assetcache)) //an earlier StoreAsset may have recorded it
     {
       STRING lookupresult := this->assetcache->LookupAsset(url);
       IF(lookupresult != "")
