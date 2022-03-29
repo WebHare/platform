@@ -51,7 +51,8 @@ if [ "$MAXIMUMMEMORY" == "0" ]; then
   MAXIMUMMEMORY=2000
 fi
 
-export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
+#Workaround JDK 18 requiring this option for opensearch right now..
+export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -Djava.security.manager=allow"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
