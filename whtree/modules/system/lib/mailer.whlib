@@ -1544,7 +1544,6 @@ STATIC OBJECTTYPE WittyMailComposer
       //look up by its hash, 'cid' might not be unique
       STRING embeddedurl := "x-embedded-rtd:" || match.hash;
       STRING result := this->assetcache->LookupAsset(embeddedurl);
-      dumpvalue(result);
       IF(result = "")
         result := this->assetcache->StoreAsset(embeddedurl, match.data, "");
       IF(result != "")
