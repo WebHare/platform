@@ -17,6 +17,30 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 RECORD onqueuedmail_lastoptions;
+
+RECORD rtdtext := [ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
+                                 || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="https://webhare.nl/">[fourtytwo]</a> <i>paragraaf</i><br/>met\neen  \n    soft-break en [haakjes] een afbeelding: <img src="cid:imagecid-rtdtext-81400" width="160" height="120" alt="I&amp;G" /> en <a href="x-witty:[link]">link</a></p>'
+                                 || '<div class="wh-rtd-embeddedobject" data-instanceid="B1ra7ve1TrCwfdusGy9kOxg"></div>'
+                                 || '<div class="wh-rtd-embeddedobject" data-instanceid="xxya7ve1TrCwfdusGy9kOxg"></div>'
+                                 || '</body></html>')
+                  , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                      , contentid := "imagecid-rtdtext-81400"
+                                      ]
+                                ]
+                 , instances := [[ instanceid := "B1ra7ve1TrCwfdusGy9kOxg"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                           , html := "I love [fourtytwo] <b>HTML</b> tags!"
+                                           ]
+                                 ]
+                                ,[ instanceid := "xxya7ve1TrCwfdusGy9kOxg"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+                                           , html := "HTMLBLOK-zonder-html" //this failed earlier
+                                           ]
+                                 ]
+                                ]
+                  ];
+
 MACRO OnQueuedMail(OBJECT work, RECORD options)
 {
   onqueuedmail_lastoptions := options;
@@ -205,6 +229,50 @@ MACRO EmbedTest_PrepareMail()
   //composer->SetRichBody(emlversion,"message/rfc822");
   //resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
   //TestResultMessage2(resultmessage);
+}
+
+
+STATIC OBJECTTYPE Mycache EXTEND MailAssetCacheBase
+<
+  PUBLIC RECORD ARRAY cached;
+
+  UPDATE PUBLIC STRING FUNCTION LookupAsset(STRING url)
+  {
+    RETURN SELECT AS STRING finallink FROM this->cached WHERE cached.url = VAR url;
+  }
+  UPDATE PUBLIC STRING FUNCTION StoreAsset(STRING url, BLOB data, STRING filename)
+  {
+    STRING finallink := "x-mycache:" || (Length(this->cached)+1);
+    INSERT CELL[ finallink, data, filename, url ] INTO this->cached AT END;
+    RETURN finallink;
+  }
+>;
+
+MACRO EmbedTest_TestCache()
+{
+  OBJECT assetcache := NEW MyCache;
+  OBJECT img := OpenTestsuiteSite()->OpenByPath("testpages/rangetestfile.jpeg");
+  OBJECT composer := PrepareMailWitty(`inline::
+    <img src="mod::webhare_testsuite/data/test/system/mailer/webhare_ap-1.png" class="img1">
+    <img src="${GetCachedImageLink(img->GetWrapped(),[ method := "fit", setheight:=50, setwidth:=50 ])}" class="kikkertje">
+    <div>[extra]</div>`, CELL[ assetcache ]);
+  composer->mergerecord := [ extra := composer->GetRTDBody(rtdtext) ];
+
+  BLOB emlversion := composer->ExportAsEML();
+  STRING resulthtml := BlobToString(DecodeMIMEMessage(emlversion).data.subparts[1].data);
+  TestEqLike("*<img*x-mycache:2*img*x-mycache:3*x-mycache:1*", resulthtml);
+
+  //swap 'm'
+  composer := PrepareMailWitty(`inline::
+    <img src="${GetCachedImageLink(img->GetWrapped(),[ method := "fit", setheight:=50, setwidth:=50 ])}" class="kikkertje">
+    <img src="mod::webhare_testsuite/data/test/system/mailer/webhare_ap-1.png" class="img1">
+    <div>[extra]</div>`, CELL[ assetcache ]);
+  composer->mergerecord := [ extra := composer->GetRTDBody(rtdtext) ];
+
+  emlversion := composer->ExportAsEML();
+  resulthtml := BlobToString(DecodeMIMEMessage(emlversion).data.subparts[1].data);
+  TestEqLike("*<img*x-mycache:3*img*x-mycache:2*x-mycache:1*", resulthtml);
+  TestEq(3, Length(assetcache->cached));
 }
 
 
@@ -548,29 +616,6 @@ ASYNC MACRO TestMailWitty()
   Testeq(0,Length(testfw->extractallmailfor("mailtemplate-cc@beta.webhare.net", [ count := 0 ])));
   testfw->RollbackWork();
 
-  RECORD rtdtext := [ htmltext := StringToBlob('<html><head></head><body>'
-                                   || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
-                                   || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="https://webhare.nl/">[fourtytwo]</a> <i>paragraaf</i><br/>met\neen  \n    soft-break en [haakjes] een afbeelding: <img src="cid:imagecid-rtdtext-81400" width="160" height="120" alt="I&amp;G" /> en <a href="x-witty:[link]">link</a></p>'
-                                   || '<div class="wh-rtd-embeddedobject" data-instanceid="B1ra7ve1TrCwfdusGy9kOxg"></div>'
-                                   || '<div class="wh-rtd-embeddedobject" data-instanceid="xxya7ve1TrCwfdusGy9kOxg"></div>'
-                                   || '</body></html>')
-                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
-                                        , contentid := "imagecid-rtdtext-81400"
-                                        ]
-                                  ]
-                   , instances := [[ instanceid := "B1ra7ve1TrCwfdusGy9kOxg"
-                                   , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
-                                             , html := "I love [fourtytwo] <b>HTML</b> tags!"
-                                             ]
-                                   ]
-                                  ,[ instanceid := "xxya7ve1TrCwfdusGy9kOxg"
-                                   , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
-                                             , html := "HTMLBLOK-zonder-html" //this failed earlier
-                                             ]
-                                   ]
-                                  ]
-                    ];
-
   outmail->mergerecord := [ ...outmail->mergerecord
                           , extra := outmail->GetRTDBody(rtdtext, [ wittyhyperlinks := TRUE ])
                           , link := "https://www.webhare.nl/linkvar"
@@ -755,6 +800,7 @@ MACRO TestPluginPrepareMailFeature()
 
 RunTestframework([ PTR EmbedTest
                  , PTR EmbedTest_PrepareMail
+                 , PTR EmbedTest_TestCache
                  , PTR MetaAttributesTest
                  , PTR MetaAttributesTest_PrepareMail
                  , PTR TestRestructure

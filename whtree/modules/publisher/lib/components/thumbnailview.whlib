@@ -655,16 +655,6 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
         }
       }
 
-/*// This code was a bit of an experiment with data-urls; nice as a proof of concept, sucks for production.
-      IF(this->sendimagesencoded AND cacheurl != "")
-      {
-        /// FIXME: Leverage adhoccache for data-url
-        RECORD image := GetCachedDataFromURL(cacheurl);
-        STRING src := "data:" || image.mimetype || ";base64," || EncodeBase64(BlobToString(image.data));
-        newcomps[#rec].image->SetSrc(src, 128, 128);
-      }
-*/
-
       newcomps[#rec].image->hint := rec.name;
       newcomps[#rec].text->value := UCTruncate(rec.name, 16);
       newcomps[#rec].text->hint := rec.name;
@@ -673,16 +663,11 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
       tablecell->selectable := rec.enabled;
       tablecell->enabled := rec.enabled;
       tablecell->interactionenabled := rec.enabled;
-      //IF(NOT rec.enabled)
-       // tablecell->backgroundcolor := "rgba(153, 153, 153, 0.4)";
       tablecell->flags :=
           [ ptc_readaccess      := rec.ptc_readaccess
           , ptc_writeaccess     := rec.ptc_writeaccess
           , validcell           := TRUE
           ];
-
-      //IF (this->pvt_orderable) //drag/drop is broken
-      //  tablecell->draginfo := [ type := this->overlaydragtype, data := [ id := rec.id ] ];
 
       tablecell->panel->InsertLinesAfter(
         [ [ items := [ OBJECT(newcomps[#rec].panel) ]

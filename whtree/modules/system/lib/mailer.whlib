@@ -1091,12 +1091,27 @@ PUBLIC OBJECT FUNCTION MakeEmailComposer()
   RETURN NEW LegacyEmailComposer;
 }
 
+PUBLIC STATIC OBJECTTYPE MailAssetCacheBase
+<
+  /** @return Link to an earlier stored version, or an empty string if not found */
+  PUBLIC STRING FUNCTION LookupAsset(STRING url)
+  {
+    RETURN "";
+  }
+  /** @return Link to an earlier stored version, or an empty string if not found */
+  PUBLIC STRING FUNCTION StoreAsset(STRING url, BLOB asset, STRING filename)
+  {
+    RETURN "";
+  }
+>;
+
 /** @short Email composer returned by %PrepareMailWitty
     @public */
 STATIC OBJECTTYPE WittyMailComposer
 <
   ///Mail subject. If not set it will be extraced from the `<title>` of the mail message
   PUBLIC STRING subject;
+  OBJECT assetcache;
   STRING mailwittyresource;
   STRING mailwittycomponent;
   STRING mailtemplateresource;
@@ -1141,12 +1156,13 @@ STATIC OBJECTTYPE WittyMailComposer
   ///Witty encoding to use for reading the mail template. Defaults to "HTML"
   PUBLIC STRING wittyencoding;
 
-  MACRO NEW(STRING mailwitty, OBJECT webcontext, STRING mailtemplate)
+  MACRO NEW(STRING mailwitty, OBJECT webcontext, STRING mailtemplate, OBJECT assetcache)
   {
     this->wittyencoding := "HTML";
     this->restructure := TRUE;
     this->__webcontext := webcontext;
     this->__mailtemplatepath := mailwitty;
+    this->assetcache := assetcache;
 
     IF(NOT IsAbsoluteResourcePath(mailwitty))
       THROW NEW Exception(`The witty path '${mailwitty}' is not an absolute resource`);
@@ -1170,16 +1186,7 @@ STATIC OBJECTTYPE WittyMailComposer
 
   STRING FUNCTION RewriteLink(STRING respath, STRING url)
   {
-    IF(NOT IsAbsoluteResourcePath(url) AND IsAbsoluteURL(url, FALSE))
-      RETURN url;
-
-    BLOB asset;
-    STRING filename;
-
-    RECORD cached := GetCachedDataFromURL(url);
-    IF(RecordExists(cached))
-      RETURN this->AddEmbeddedObject(cached.data, CELL[ cached.filename ]);
-
+    //Rewrite common 'short' URLs such as /.publisher/ to their 'long' versions
     IF(url LIKE "/.publisher/sd/*/*/*")
     {
       url := CollapsePath(url);
@@ -1190,15 +1197,64 @@ STATIC OBJECTTYPE WittyMailComposer
       url := `mod::${toks[3]}/webdesigns/${toks[4]}/web/${Detokenize(ArraySlice(toks,5),"/")}`;
     }
 
-    url := MakeAbsoluteResourcePath(respath,url);
-    INSERT url INTO this->seenfiles AT END;
+    //Rewrite module URLs to their absolute version
+    IF(NOT IsAbsoluteResourcePath(url) AND NOT IsAbsoluteURL(url, FALSE) AND url NOT LIKE "/.uc/*")
+    {
+      url := MakeAbsoluteResourcePath(respath,url);
+      INSERT url INTO this->seenfiles AT END;
+    }
 
-    IF(GetExtensionFromPath(url) NOT IN allowed_embed_extensions)
-      THROW NEW Exception(`Cannot embed resource '${url}' - only extensions ${Detokenize(allowed_embed_extensions,", ")} are allowed`);
-    IF(url NOT LIKE "mod::*" AND url NOT LIKE "site::*")
-      THROW NEW Exception(`Cannot embed resource '${url}' - unacceptable namespace`);
+    IF(IsAbsoluteResourcePath(url))
+    {
+      IF(GetExtensionFromPath(url) NOT IN allowed_embed_extensions)
+        THROW NEW Exception(`Cannot embed resource '${url}' - only extensions ${Detokenize(allowed_embed_extensions,", ")} are allowed`);
+      IF(url NOT LIKE "mod::*" AND url NOT LIKE "site::*")
+        THROW NEW Exception(`Cannot embed resource '${url}' - unacceptable namespace`);
+    }
 
-    RETURN this->AddEmbeddedObject(GetWebhareResource(url), CELL[ filename := GetNameFromPath(url) ]);
+    //Now let's check if the assetcache already recorded this
+    IF(ObjectExists(this->assetcache)) //an earlier StoreAsset may have recorded it
+    {
+      STRING lookupresult := this->assetcache->LookupAsset(url);
+      IF(lookupresult != "")
+        RETURN lookupresult; //the assetink was provided externally
+    }
+
+    //If the URL is still external, we'll let it be
+    IF(NOT IsAbsoluteResourcePath(url) AND IsAbsoluteURL(url, FALSE))
+      RETURN url;
+
+    BLOB asset;
+    STRING filename;
+
+    //Find the content of the asset
+    IF(IsAbsoluteResourcePath(url))
+    {
+      asset := GetWebhareResource(url);
+      filename := GetNameFromPath(url);
+    }
+    ELSE
+    {
+      RECORD cached := GetCachedDataFromURL(url);
+      IF(RecordExists(cached)) //we may have receive a resized image!
+      {
+        asset := cached.data;
+        filename := cached.filename;
+      }
+      ELSE
+      {
+        THROW NEW Exception(`Unable to resolve asset '${url}'`);
+      }
+    }
+
+    IF(ObjectExists(this->assetcache))  //allow the cache to take responsibility
+    {
+      STRING storeresult := this->assetcache->StoreAsset(url, asset, filename);
+      IF(storeresult != "")
+        RETURN storeresult;
+    }
+
+    RETURN this->AddEmbeddedObject(asset, CELL[ filename ]);
   }
 
   PUBLIC STRING ARRAY FUNCTION GetEventMasks()
@@ -1474,16 +1530,27 @@ STATIC OBJECTTYPE WittyMailComposer
 
   STRING FUNCTION RewriteRTDEmbeddedLink(RECORD rtd, STRING url)
   {
-    IF(url LIKE "cid:*") //we should be able to resolve this one to the RTD images
-    {
-      RECORD match;
-      IF(CellExists(rtd,"embedded"))
-        match := SELECT * FROM rtd.embedded WHERE "cid:" || contentid = url;
+    IF(url NOT LIKE "cid:*") //we should be able to resolve this one to the RTD images
+      RETURN url;
 
-      IF(RecordExists(match))
-        RETURN this->AddEmbeddedObject(match.data);
+    RECORD match;
+    IF(CellExists(rtd,"embedded"))
+      match := SELECT * FROM rtd.embedded WHERE "cid:" || contentid = url;
+    IF(NOT RecordExists(match))
+      RETURN url;
+
+    IF(ObjectExists(this->assetcache))
+    {
+      //look up by its hash, 'cid' might not be unique
+      STRING embeddedurl := "x-embedded-rtd:" || match.hash;
+      STRING result := this->assetcache->LookupAsset(embeddedurl);
+      IF(result = "")
+        result := this->assetcache->StoreAsset(embeddedurl, match.data, "");
+      IF(result != "")
+        RETURN result;
     }
-    RETURN url;
+
+    RETURN this->AddEmbeddedObject(match.data);
   }
 
   STRING FUNCTION RewriteRTDLink(RECORD rtd, STRING url)
@@ -1707,8 +1774,11 @@ STATIC OBJECTTYPE WittyMailComposer
     @return(object #WittyMailComposer) A composable mail */
 PUBLIC OBJECT FUNCTION PrepareMailWitty(STRING mailwitty, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ mailtemplate := "", webcontext := DEFAULT OBJECT ], options);
+  options := ValidateOptions([ mailtemplate := ""
+                             , webcontext := DEFAULT OBJECT
+                             , assetcache := DEFAULT OBJECT
+                             ], options);
 
-  OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate);
+  OBJECT composer := NEW WittyMailComposer(mailwitty, options.webcontext, options.mailtemplate, options.assetcache);
   RETURN composer;
 }
