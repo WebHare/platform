@@ -407,6 +407,8 @@ MACRO TestDOM()
   TestEq("urn::a", xmldoc->documentelement->attributes->item(0)->nodevalue);
   TestEq("xmlns:a", xmldoc->documentelement->attributes->item(0)->nodename);
   TestEq("urn::a", xmldoc->documentelement->GetAttributeNS("http://www.w3.org/2000/xmlns/", "a"));
+  TestEq("test2",xmldoc->documentelement->firstelementchild->nodename);
+  TestEq("test3",xmldoc->documentelement->lastelementchild->localname);
 
   TestEq("attr", xmldoc->documentelement->firstchild->getattributenode("attr")->name);
   TestEq("a:attr", xmldoc->documentelement->firstchild->getattributenodens("urn::a", "attr")->name);
@@ -541,6 +543,14 @@ MACRO TestDOM()
   TestEq(5, Length(xmldoc->documentelement->ListElements("*", "*")));
   TestEq(3, Length(xmldoc->documentelement->ListChildren("*", "*")));
   TestEq(4, Length(xmldoc->documentelement->GetAllChildNodes()));
+
+  //test element APIs
+  xmlblob := StringToBlob('<test xmlns:a="urn::a">  <test2 attr="1" a:attr="2" xmlns=""/>   <test3 xmlns="urn::test" /> </test>');
+  xmldoc := MakeXMLDocument(xmlblob,"",FALSE);
+  TestEq("test2",xmldoc->documentelement->firstelementchild->nodename);
+  TestEq("test3",xmldoc->documentelement->lastelementchild->localname);
+  TestEq("test3",xmldoc->documentelement->firstelementchild->nextelementsibling->localname);
+  TestEq("test2",xmldoc->documentelement->lastelementchild->previouselementsibling->nodename);
 
   CloseTest("TestDOM");
 }
