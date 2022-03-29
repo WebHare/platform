@@ -1578,11 +1578,78 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
   {
     INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
     FOREVERY (RECORD part FROM rec.parts)
-      INSERT part INTO selectorparts AT END;
+    {
+      INSERT CELL[ ...part, selector := DEFAULT RECORD ] INTO selectorparts AT END;
+    }
   }
 
+  RETURN SELECT AS OBJECT ARRAY node FROM EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+}
 
-  RETURN EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+/** Evaluate CSS selectors
+    @param doc Document
+    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
+    @param selectors CSS selectors
+    @cell selector.selector CSS selector text
+    @param mode @includecelldef #EvaluateSelectorRecursive.mode
+    @return List of matching nodes and indices of matching rules
+    @cell(record array) return.matches
+    @cell(object) return.matches.node
+    @cell(record array) return.matches.selectors Matching selectors (not in original order!)
+    @cell(record array) return.errors
+    @cell(record) return.errors.selector
+    @cell(object) return.errors.error
+*/
+PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECORD ARRAY selectors, STRING mode)
+{
+  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
+    THROW NEW Exception(`Illegal engine mode ${mode}`);
+
+  RECORD retval :=
+      [ errors :=     RECORD[]
+      , matches :=    RECORD[]
+      ];
+
+  // If the scope is set, use the first element in the scope path as root
+  // because we might be searching in a detached tree.
+  RECORD scopepath := GetNodePathList(scope);
+  OBJECT root := IsValueSet(scope) ? scopepath.path[0] : doc->documentelement;
+
+  IF (NOT ObjectExists(root))
+    RETURN retval;
+
+  RECORD config :=
+      [ root :=       root
+      , scope :=      scope ?? root
+      ];
+
+  /* Concatenate the selector parts into a big selector array
+    A single selector ends at combinator "" (match). Keep the indices
+    of the first part of the rules.
+  */
+  INTEGER ARRAY alwaysactive;
+  RECORD ARRAY selectorparts;
+  FOREVERY (RECORD selector FROM selectors)
+  {
+    TRY
+    {
+      RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selector.selector);
+
+      FOREVERY (RECORD rec FROM parsed)
+      {
+        INSERT LENGTH(selectorparts) INTO alwaysactive AT END;
+        FOREVERY (RECORD part FROM rec.parts)
+          INSERT CELL[ ...part, selector ] INTO selectorparts AT END;
+      }
+    }
+    CATCH (OBJECT error)
+    {
+      INSERT CELL[ selector, error ] INTO retval.errors AT END;
+    }
+  }
+
+  retval.matches := EvaluateSelectorRecursive(root, selectorparts, alwaysactive, scopepath, mode);
+  RETURN retval;
 }
 
 /** Iterate depth-first through the DOM, keeping lists of which compound selector parts of selectors are active
@@ -1594,14 +1661,14 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     @param scopepath Path to explicit scope (empty path if the scope was set to :root implicitly)
     @param mode Selection mode
       - 'qS': querySelector mode, return the first match (within the scope subtree, if passed)
-      - 'qSA': querySelector mode, return the first match (within the scope subtree, if passed)
+      - 'qSA': querySelector mode, return all matches (within the scope subtree, if passed)
       - 'match': match mode, return the scope node if it matches
       - 'closest': closest mode, return the closest node that matches
     @return List of matching nodes
 */
-OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
+RECORD ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY selectorparts, INTEGER ARRAY startrules, RECORD scopepath, STRING mode)
 {
-  OBJECT ARRAY retval;
+  RECORD ARRAY retval;
 
   // Current depth in nodes, :root is depth 0
   INTEGER depth := 0;
@@ -1653,6 +1720,7 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
 
     // Is this node a match?
     BOOLEAN ismatch;
+    RECORD ARRAY selectors;
 
     // List of rules active at the next node, filled by "+" combinators
     INTEGER ARRAY newnodeactive;
@@ -1726,13 +1794,14 @@ OBJECT ARRAY FUNCTION EvaluateSelectorRecursive(OBJECT rootnode, RECORD ARRAY se
         {
           // last part of a selector, it's a match
           ismatch := TRUE;
+          INSERT rec.selector INTO selectors AT END;
         }
       }
     }
 
     IF (ismatch)
     {
-      INSERT testnode INTO retval AT END;
+      INSERT CELL[ node := testnode, selectors ] INTO retval AT END;
 
       // mode 'qS' needs to return only 1 match
       IF (mode = "qS")
