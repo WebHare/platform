@@ -1511,18 +1511,16 @@ RECORD FUNCTION GetNodePathList(OBJECT node)
   RETURN CELL[ path, pathlen := LENGTH(path) ];
 }
 
-/** Evaluate CSS selectors
-    @param doc Document
-    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
-    @param selectors CSS selectors
-    @param mode @includecelldef #EvaluateSelectorRecursive.mode
-    @return List of matching nodes
+/** Parses a selector list
+    @param config Current root and scope node
+    @cell config.root Root node
+    @cell config.scope Scope node
+    @param selectors Selectors
+    @return Parsed complex selector list @includecelldef #CSSSelectorParser::ParseComplexSelectorList.return
 */
-PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING selectors, STRING mode)
+RECORD ARRAY FUNCTION ParseCSSRuleForEvaluation(RECORD config, STRING selectors)
 {
-  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
-    THROW NEW Exception(`Illegal engine mode ${mode}`);
-
+  // ADDME: try to cache these (need to hack in the root and scope nodes afterwards then)
   OBJECT t := NEW CSSTokenizer(selectors);
 
   // Get all tokens, ignoring comments
@@ -1537,6 +1535,24 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       INSERT token INTO tokens AT END;
   }
 
+  OBJECT p := NEW CSSSelectorParser(tokens, config);
+  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+
+  RETURN parsed;
+}
+
+/** Evaluate CSS selectors
+    @param doc Document
+    @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
+    @param selectors CSS selectors
+    @param mode @includecelldef #EvaluateSelectorRecursive.mode
+    @return List of matching nodes
+*/
+PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING selectors, STRING mode)
+{
+  IF (mode NOT IN [ "qS", "qSA", "closest", "match" ])
+    THROW NEW Exception(`Illegal engine mode ${mode}`);
+
   // If the scope is set, use the first element in the scope path as root
   // because we might be searching in a detached tree.
   RECORD scopepath := GetNodePathList(scope);
@@ -1550,8 +1566,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
       , scope :=      scope ?? root
       ];
 
-  OBJECT p := NEW CSSSelectorParser(tokens, config);
-  RECORD ARRAY parsed := p->ParseComplexSelectorList();
+  RECORD ARRAY parsed := ParseCSSRuleForEvaluation(config, selectors);
 
   /* Concatenate the selector parts into a big selector array
     A single selector ends at combinator "" (match). Keep the indices
