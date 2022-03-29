@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
@@ -33,6 +34,8 @@ MACRO TestConsilioAPI()
          , [ name := "SIZE" ]
          , [ name := "TITLE" ]
          ], SELECT name FROM consilio.contentsourcefields WHERE contentsourceid = newsource->id AND name NOT LIKE "_*" ORDER BY name);
+
+  TestEq(TRUE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));
 
   OBJECT newsource2 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id);
   OBJECT newsource3 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("portal1")->id);
@@ -65,7 +68,7 @@ MACRO TestForegroundIndexing()
   testfw->CommitWork(); //TODO if we can get rid of the subjobs we may should be able to do this without Commitwork
 
   OBJECT dbindex := OpenConsilioCatalog("webhare_testsuite:testsitecatalog")->OpenContentSource("webhare_testsuite:dbindex");
-  dbindex->RebuildGroup(testgroup, [ foreground := TRUE ]);
+  dbindex->ReindexGroup(testgroup, [ foreground := TRUE ]);
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("text__" || testgroup));
   TestEq(TRUE, Length(result.results) > 0);
   TestEq(testgroup,result.results[0].groupid);

@@ -753,7 +753,7 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioSuggestions(STRING indextag, STRING sear
 STATIC OBJECTTYPE ContentSource
 <
   RECORD contentsource;
-  OBJECT catalog;
+  OBJECT __catalog;
 
   /// @type(integer) Id of this contentsource
   PUBLIC PROPERTY id(this->contentsource.id, -);
@@ -764,12 +764,15 @@ STATIC OBJECTTYPE ContentSource
   /// @type(string) Contentprovidertype (generally publisher:webhare or consilio:custom)
   PUBLIC PROPERTY contentprovider(this->contentsource.contentprovider, -);
 
- /// @type(integer) Base object for this content source
+  /// @type(integer) Base object for this content source
   PUBLIC PROPERTY fsobject(this->contentsource.fsobject, -);
+
+  /// @type(object) Parent catalog
+  PUBLIC PROPERTY catalog(this->__catalog, -);
 
   MACRO NEW(OBJECT catalog, RECORD contentsource)
   {
-    this->catalog := catalog;
+    this->__catalog := catalog;
     this->contentsource := contentsource;
   }
 
@@ -890,18 +893,22 @@ STATIC OBJECTTYPE ContentSource
       LogDebug("consilio", "ContentSource::ReindexContentSource", CELL[...this->GetBaseDebugInfo(), options.rebuild]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
-
-  /** Rebuild a single group in this content source (forceably reindex)
-      @param groupid Group id
-      @long Force reindexing of everything in this content source. The reindex takes place in the background */
-  PUBLIC MACRO RebuildGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  /** Reindex a group
+      @long Reindex a specific group
+      @param groupid Group to reindex
+      @cell(boolean) options.rebuild Force a rebuild, even if it doesn't look necessary
+      @cell(boolean) options.foreground Reindex in the foreground
+  */
+  PUBLIC MACRO ReindexGroup(STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ foreground := FALSE ], options);
+    options := ValidateOptions( [ foreground := FALSE
+                                , rebuild := FALSE
+                                ], options);
 
     IF(options.foreground)
     {
       RECORD data :=
-          CELL[ action := "CHECKGROUP"
+          CELL[ action := options.rebuild ? "CHECKGROUP" : "UPDATEGROUP"
               , commanddate := GetCurrentDateTime()
               , contentsourceid := this->id
               , groupid
@@ -917,12 +924,13 @@ STATIC OBJECTTYPE ContentSource
     }
     ELSE
     {
-      STRING command := "FASTCHECKGROUP " || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
+      STRING command := (options.rebuild ? "FASTCHECKGROUP " : "UPDATEGROUP ") || this->catalog->id || " " || this->id || " " || EncodeJSON(groupid);
       IF(IsDebugTagEnabled("consilio:queues"))
-        LogDebug("consilio", "ContentSource::RebuildGroup", CELL[ ...this->GetBaseDebugInfo(), groupid ]);
+        LogDebug("consilio", "ContentSource::ReindexGroup", CELL[ ...this->GetBaseDebugInfo(), options.rebuild, groupid ]);
       SendQueueManagerData(GetQueueDataFromCommand(command));
     }
   }
+
 
   /// Delete this content source
   PUBLIC MACRO DeleteSelf()

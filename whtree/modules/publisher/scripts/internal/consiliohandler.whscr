@@ -3,6 +3,7 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
@@ -154,13 +155,38 @@ MACRO HandleFolderDeleted(INTEGER folderid)
   }
 }
 
+RECORD contentsourcecache;
+
 MACRO HandleFileRepublished(INTEGER fileid)
 {
   PrintDebug("File " || fileid || " republished");
 
-  // This will re-index the group
-  PrintDebug("  Checking group '" || fileid || "'");
-  CheckConsilioGroup(0, ToString(fileid));
+  RECORD ARRAY matches := ListPublisherContentSourcesFor(fileid);
+  FOREVERY(RECORD match FROM matches) //TODO expire/cleanup obsolete contentsources ? we run forevery, contentsources may go (but usually get new numbers) - or perhaps implement caching in consilio/api.whlib?
+  {
+    OBJECT csource;
+
+    //Get contentsource, reuse existing object
+    STRING ckey := match.catalog || "_" || match.contentsource;
+    IF(NOT CellExists(contentsourcecache, ckey))
+    {
+      OBJECT catalog := OpenConsilioCatalogById(match.catalog);
+      IF(ObjectExists(catalog))
+        csource := catalog->OpenContentSourceById(match.contentsource);
+      IF(ObjectExists(csource))
+        contentsourcecache := CellInsert(contentsourcecache, ckey, csource);
+      ELSE
+        CONTINUE;
+    }
+    ELSE
+    {
+      csource := GetCell(contentsourcecache, ckey);
+    }
+
+    // This will re-index the group
+    PrintDebug(`  Reindexing group '${csource->catalog->tag}:${csource->tag}': ${fileid}`);
+    csource->ReindexGroup(ToString(fileid), [ rebuild := TRUE ]);
+  }
 }
 
 MACRO HandleFileMoved(INTEGER fileid, INTEGER oldparentid, INTEGER newparentid)

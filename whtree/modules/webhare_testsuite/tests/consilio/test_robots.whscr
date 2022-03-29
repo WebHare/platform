@@ -92,8 +92,7 @@ MACRO TestHTMLIndexing()
   // First page now has robots "noindex, follow" -> only second page should be indexed
   testfw->CommitWork();
 
-  newsource->RebuildGroup(ToString(testfile->id));
-  newsource->WaitForIndexingDone([ verbose := TRUE ]);
+  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]); //run in foreground, we're not testing queues
 
   res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEq(1, res.totalcount);
@@ -106,8 +105,7 @@ MACRO TestHTMLIndexing()
   // First page has robots "index, nofollow" -> only first page should be indexed
   testfw->CommitWork();
 
-  newsource->RebuildGroup(ToString(testfile->id));
-  newsource->WaitForIndexingDone([ verbose := TRUE ]);
+  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
 
   res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(1, res.totalcount);
@@ -120,8 +118,7 @@ MACRO TestHTMLIndexing()
   testfile->UpdateData(GetTestPage(testfile->id, TRUE, TRUE));
   testfw->CommitWork();
 
-  newsource->RebuildGroup(ToString(testfile->id));
-  newsource->WaitForIndexingDone([ verbose := TRUE ]);
+  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
 
   res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(0, res.totalcount);
