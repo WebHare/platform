@@ -1592,7 +1592,7 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     @param selectors CSS selectors
     @cell selector.selector CSS selector text
     @param mode @includecelldef #EvaluateSelectorRecursive.mode
-    @return List of matching nodes and indices of matching rules
+    @return List of matching nodes and their matching selectors
     @cell(record array) return.matches
     @cell(object) return.matches.node
     @cell(record array) return.matches.selectors Matching selectors (not in original order!)
