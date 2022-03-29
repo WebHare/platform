@@ -1524,6 +1524,27 @@ void XMLNode_GetFirstChild(HSVM *hsvm, HSVM_VariableId id_set)
         newnode->node = xmlnode->node->children;
 }
 
+void XMLNode_GetFirstElementChild(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        XMLNodeContext::Ref xmlnode(hsvm, HSVM_Arg(0));
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Object);
+        if(!xmlnode->node || !xmlnode->node->children)
+            return;
+
+        for(xmlNodePtr node = xmlnode->node->children; node; node=node->next)
+        {
+                 if(node->type == XML_ELEMENT_NODE)
+                 {
+                        if (!XML_CreateObject(hsvm, (ObjectType)node->type, id_set, xmlnode->realdoc))
+                            return;
+
+                        XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
+                        newnode->node = node;
+                        return;
+                 }
+        }
+}
+
 void XMLNode_GetLastChild(HSVM *hsvm, HSVM_VariableId id_set)
 {
         XMLNodeContext::Ref xmlnode(hsvm, HSVM_Arg(0));
@@ -1535,6 +1556,27 @@ void XMLNode_GetLastChild(HSVM *hsvm, HSVM_VariableId id_set)
             return;
         XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
         newnode->node = xmlnode->node->last;
+}
+
+void XMLNode_GetLastElementChild(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        XMLNodeContext::Ref xmlnode(hsvm, HSVM_Arg(0));
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Object);
+        if(!xmlnode->node || !xmlnode->node->children)
+            return;
+
+        for(xmlNodePtr node = xmlnode->node->last; node; node=node->prev)
+        {
+                 if(node->type == XML_ELEMENT_NODE)
+                 {
+                        if (!XML_CreateObject(hsvm, (ObjectType)node->type, id_set, xmlnode->realdoc))
+                            return;
+
+                        XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
+                        newnode->node = node;
+                        return;
+                 }
+        }
 }
 
 void XMLNode_GetLocalName(HSVM *hsvm, HSVM_VariableId id_set)
@@ -1567,6 +1609,28 @@ void XMLNode_GetNextSibling(HSVM *hsvm, HSVM_VariableId id_set)
             return;
         XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
         newnode->node = xmlnode->node->next;
+}
+
+void XMLNode_GetNextElementSibling(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        XMLNodeContext::Ref xmlnode(hsvm, HSVM_Arg(0));
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Object);
+
+        if(!xmlnode->node)
+            return;
+
+        for(xmlNodePtr node = xmlnode->node->next; node; node=node->next)
+        {
+                 if(node->type == XML_ELEMENT_NODE)
+                 {
+                        if (!XML_CreateObject(hsvm, (ObjectType)node->type, id_set, xmlnode->realdoc))
+                            return;
+
+                        XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
+                        newnode->node = node;
+                        return;
+                 }
+        }
 }
 
 void XMLNode_GetNodeName(HSVM *hsvm, HSVM_VariableId id_set)
@@ -1724,6 +1788,28 @@ void XMLNode_GetPreviousSibling(HSVM *hsvm, HSVM_VariableId id_set)
             return;
         XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
         newnode->node = xmlnode->node->prev;
+}
+
+void XMLNode_GetPreviousElementSibling(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        XMLNodeContext::Ref xmlnode(hsvm, HSVM_Arg(0));
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Object);
+
+        if(!xmlnode->node)
+            return;
+
+        for(xmlNodePtr node = xmlnode->node->prev; node; node=node->prev)
+        {
+                 if(node->type == XML_ELEMENT_NODE)
+                 {
+                        if (!XML_CreateObject(hsvm, (ObjectType)node->type, id_set, xmlnode->realdoc))
+                            return;
+
+                        XMLNodeContext::AutoCreateRef newnode(hsvm, id_set);
+                        newnode->node = node;
+                        return;
+                 }
+        }
 }
 
 //ADDME: wat gebeurt er als je dit soort functies op attributes e.d. aanroept ?
@@ -2407,10 +2493,13 @@ int RegisterDomObjectFunctions(HSVM_RegData *regdata)
         HSVM_RegisterFunction(regdata, "XMLNODE#__GETCHILDREN:WH_XML:OA:OB", HareScript::Xml::XMLNode___GetChildren);
         HSVM_RegisterFunction(regdata, "XMLNODE#LISTATTRIBUTES:WH_XML:RA:O", HareScript::Xml::XMLNode_ListAttributes);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetFirstChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTELEMENTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetFirstElementChild);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetLastChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTELEMENTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetLastElementChild);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETLOCALNAME:WH_XML:S:O", HareScript::Xml::XMLNode_GetLocalName);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETNAMESPACEURI:WH_XML:S:O", HareScript::Xml::XMLNode_GetNamespaceURI);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetNextSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTELEMENTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetNextElementSibling);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETNODENAME:WH_XML:S:O", HareScript::Xml::XMLNode_GetNodeName);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETNODETYPE:WH_XML:I:O", HareScript::Xml::XMLNode_GetNodeType);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETNODEVALUE:WH_XML:S:O", HareScript::Xml::XMLNode_GetNodeValue);
@@ -2420,6 +2509,7 @@ int RegisterDomObjectFunctions(HSVM_RegData *regdata)
         HSVM_RegisterFunction(regdata, "XMLNODE#GETPREFIX:WH_XML:S:O", HareScript::Xml::XMLNode_GetPrefix);
         HSVM_RegisterMacro   (regdata, "XMLNODE#SETPREFIX:WH_XML::OS", HareScript::Xml::XMLNode_SetPrefix);
         HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetPreviousSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSELEMENTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetPreviousElementSibling);
         HSVM_RegisterFunction(regdata, "XMLNODE#APPENDCHILD:WH_XML:O:OO", HareScript::Xml::XMLNode_AppendChild);
         // HSVM_RegisterFunction(regdata, "XMLNODE#CLONENODE:WH_XML:O:OB", HareScript::Xml::XMLNode_CloneNode); //disabling broken function
         HSVM_RegisterFunction(regdata, "XMLNODE#HASATTRIBUTES:WH_XML:B:O", HareScript::Xml::XMLNode_HasAttributes);

@@ -300,9 +300,12 @@ PUBLIC STATIC OBJECTTYPE XmlNode
   OBJECT ARRAY FUNCTION __GetChildren(BOOLEAN onlyelements) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
 
   PRIVATE OBJECT FUNCTION GetFirstChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetFirstElementChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE OBJECT FUNCTION GetLastChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetLastElementChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE STRING FUNCTION GetLocalName() __ATTRIBUTES__(EXTERNAL "wh_xml");
   PRIVATE STRING FUNCTION GetNamespaceURI() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE OBJECT FUNCTION GetNextElementSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE OBJECT FUNCTION GetNextSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE STRING FUNCTION GetNodeName() __ATTRIBUTES__(EXTERNAL "wh_xml");
   PRIVATE INTEGER FUNCTION GetNodeType() __ATTRIBUTES__(EXTERNAL "wh_xml");
@@ -312,6 +315,7 @@ PUBLIC STATIC OBJECTTYPE XmlNode
   PRIVATE OBJECT FUNCTION GetParentNode() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE STRING FUNCTION GetPrefix() __ATTRIBUTES__(EXTERNAL "wh_xml");
   PRIVATE MACRO SetPrefix(STRING prefix) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE OBJECT FUNCTION GetPreviousElementSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE OBJECT FUNCTION GetPreviousSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE INTEGER64 FUNCTION GetNodeId() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
   PRIVATE STRING FUNCTION GetInnerXML()
@@ -483,50 +487,6 @@ PUBLIC STATIC OBJECTTYPE XmlNode
         elementnodes := elementnodes + 1;
 
     RETURN elementnodes;
-  }
-
-  PRIVATE OBJECT FUNCTION GetFirstElementChild()
-  {
-    OBJECT node := this->GetFirstChild();
-    WHILE(ObjectExists(node) AND node->nodeType != 1)
-    {
-      // Keep traversing
-      node := node->nextsibling;
-    }
-    RETURN node;
-  }
-
-  PRIVATE OBJECT FUNCTION GetLastElementChild()
-  {
-    OBJECT node := this->GetLastChild();
-    WHILE(ObjectExists(node) AND node->nodeType != 1)
-    {
-      // Keep traversing
-      node := node->previoussibling;
-    }
-    RETURN node;
-  }
-
-  PRIVATE OBJECT FUNCTION GetPreviousElementSibling()
-  {
-    OBJECT node := this->previoussibling;
-    WHILE(ObjectExists(node) AND node->nodeType != 1)
-    {
-      // Keep traversing
-      node := node->previoussibling;
-    }
-    RETURN node;
-  }
-
-  PRIVATE OBJECT FUNCTION GetNextElementSibling()
-  {
-    OBJECT node := this->nextsibling;
-    WHILE(ObjectExists(node) AND node->nodeType != 1)
-    {
-      // Keep traversing
-      node := node->nextsibling;
-    }
-    RETURN node;
   }
 
 
