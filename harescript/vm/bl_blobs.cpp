@@ -987,12 +987,10 @@ void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
 
         SystemContextData::DecompressingStreamPtr newblob(new SystemContextData::DecompressingStream);
 
-        int blobhandle = HSVM_BlobOpen (*vm, HSVM_Arg(0));
-        if(blobhandle == 0)
-            return; //VM/Blob failure?
-
         newblob->vm=*vm;
         newblob->inputdata.reset(new Interface::InputStream(*vm, HSVM_Arg(0)));
+        if (HSVM_TestMustAbort(*vm))
+            return; // VM
 
         std::string format = HSVM_StringGetSTD(*vm, HSVM_Arg(1));
         if (format=="ZLIB")
