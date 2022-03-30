@@ -62,50 +62,9 @@ PUBLIC BLOB FUNCTION GetEMLFromMaiLTask(RECORD mailtask)
 
 PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
 <
-  MACRO CreateErrorMessage(STRING error_to, STRING receiver, STRING error, RECORD ARRAY errormsg_headers, RECORD errormsg_toppart, BOOLEAN rawheaders)
-  {
-    INTEGER newblobid := CreateStream();
-    PrintTo(newblobid, "The following errors occurred:\r\n\r\n");
-    PrintTo(newblobid, "To: " || receiver || "\r\n" || error ||"\r\n");
-
-    BLOB errortext := MakeBlobFromStream(newblobid);
-
-    //ADDME: Extend DSN and make it standard compliant (RFC1891-4)
-    INTEGER dsnstream := CreateStream();
-    PrintTo(dsnstream, "Reporting-MTA: foreign; WebHare\r\n\r\n");
-
-    PrintTo(dsnstream, "Final-Recipient: rfc822;" || receiver || "\r\n");
-    PrintTo(dsnstream, "Action-Field: failed\r\n");
-    PrintTo(dsnstream, "Status: 5.0.0 (unknown permanent failure)\r\n");
-    PrintTo(dsnstream, "Diagnostic-Code: " || error || "\r\n");
-    PrintTo(dsnstream, "\r\n");
-
-    BLOB dsntext := MakeBlobFromStream(dsnstream);
-    BLOB original := EncodeMIMEMessage(errormsg_headers, errormsg_toppart, [ rawheaders := rawheaders ]);
-
-    RECORD ARRAY headers := GetSMTPEmailHeader("", "Returned mail: see transcript for details", "");
-    INSERT INTO headers(field, value) VALUES("To", error_to) AT END;
-
-    RECORD toppart := [ ID := 0
-                      , mimetype := "multipart/report; report-type=delivery-status"
-                      , description := "Returned mail"
-                      , contentid := ""
-                      , data := DEFAULT BLOB
-                      , subparts := [ [ id := 1, mimetype := "text/plain",     description := "Error message",    contentid := "", data := errortext, subparts := DEFAULT RECORD ARRAY ]
-                                    , [ id := 2, mimetype := "message/delivery-status", description := "",        contentid := "", data := dsntext, subparts := DEFAULT RECORD ARRAY ]
-                                    , [ id := 3, mimetype := "message/rfc822", description := "Original message", contentid := "", data := original, subparts := DEFAULT RECORD ARRAY ]
-                                    ]
-                      ];
-
-    QueueMailInWork("WebHare email queue manager", [ error_to ], "", headers, toppart);
-  }
-
   UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
   {
     RECORD data := CreateMailFromTask(taskdata);
-    BOOLEAN allowbounce := TRUE; //We might want to make this configurable by-route or by-email someday ?
-    IF(taskdata.sender = "" OR GetMIMEHeaderParameter(data.toppart.mimetype, "") = "multipart/report")
-      allowbounce := FALSE;
 
     IF(NOT ObjectExists(smtpmgr))
       smtpmgr := NEW WebHareSMTPManager;
@@ -232,8 +191,6 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
       STRING message := error.code || " " || errortext;
       IF(isfatal)
       {
-        IF(allowbounce)
-          this->CreateErrorMessage(taskdata.sender, taskdata.receiver, message, data.mimeheaders, data.toppart, rawheaders);
         this->ResolveByFailure( [ serverip := sendresult.smtpserverip
                                 , route := reporturl
                                 , response := message
