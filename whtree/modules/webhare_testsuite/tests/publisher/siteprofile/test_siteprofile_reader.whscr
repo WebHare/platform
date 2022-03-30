@@ -197,7 +197,7 @@ MACRO TestMailTemplates()
 {
   RECORD ARRAY nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
   TestEq(1, Length(nowtemplates));
-  TestEq(":mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty", nowtemplates[0].title); //defaulted title
+  TestEq(":mod::webhare_testsuite/tests/system/email/data/template.html.witty", nowtemplates[0].title); //defaulted title
 
   testfw->BeginWork();
   OBJECT templatefolder := GetTestsuiteTempFolder()->CreateFolder([name:="templates"]);
@@ -211,7 +211,7 @@ MACRO TestMailTemplates()
 
   nowtemplates := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)->GetMailTemplates();
   //plaintexttxt should not exist, 1untitled templates should not be shown (easy hiding)
-  TestEq([ "mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty"
+  TestEq([ "mod::webhare_testsuite/tests/system/email/data/template.html.witty"
          , "site::webhare_testsuite.testsite/tmp/templates/plaintext.html"
          , "site::webhare_testsuite.testsite/tmp/templates2/template.html.witty"
          , "site::webhare_testsuite.testsite/tmp/templates/template.html"

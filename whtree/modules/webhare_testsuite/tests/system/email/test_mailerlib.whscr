@@ -573,9 +573,9 @@ MACRO TestRestructure()
 ASYNC MACRO TestMailWitty()
 {
   STRING mailtemplate := GetApplyTesterForObject(OpenTestsuiteSite()->id)->GetDefaultMailTemplate();
-  TestEQ("mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty",mailtemplate);
+  TestEQ("mod::webhare_testsuite/tests/system/email/data/template.html.witty",mailtemplate);
 
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"), [ mailtemplate := mailtemplate ]);
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty"), [ mailtemplate := mailtemplate ]);
   outmail->mergerecord := [ firstname := "Pietje"
                           , thelink := "http://example.net/"
                           , extra := ""
@@ -741,7 +741,7 @@ MACRO TestMailWitty_EmbedSafety()
 
 MACRO TestMailWitty_EmbeddedTemplate()
 {
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/applytemplate.html.witty"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/applytemplate.html.witty"));
   outmail->mergerecord := [ firstname := "Yo!"
                           , hookedpreparemail := "Filler Because We Want To Test PrepareMailWitty Without A Webcontext"
                           ];
@@ -765,7 +765,7 @@ MACRO TestMailWitty_EmbeddedTemplate()
 
 MACRO TestMailWitty_Component()
 {
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty:mailcomponent"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty:mailcomponent"));
   outmail->mergerecord := [ firstname := "Lisa" ];
 
   BLOB eml := outmail->ExportAsEML();

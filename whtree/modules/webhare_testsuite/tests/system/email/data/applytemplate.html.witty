@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>Mail subject</title>
-    <meta name="wh-mailcomposer-applytemplate" value="../mailtemplate/template.html.witty" />
+    <meta name="wh-mailcomposer-applytemplate" value="../data/template.html.witty" />
   </head>
   <body>
     <div id="test">Hi [firstname]!</div>

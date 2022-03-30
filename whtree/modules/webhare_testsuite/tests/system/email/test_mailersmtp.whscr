@@ -190,7 +190,7 @@ MACRO MailNewComposerSendTest()
 {
   mailserverobject->DeleteAllMessages();
 
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty"));
   outmail->mergerecord := [ firstname := "Pietje"
                           , thelink := "http://example.net/"
                           , extra := ""
