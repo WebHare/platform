@@ -700,8 +700,6 @@ class S3Blob : public BlobBase
                 std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
         };
 
-        unsigned RegisterBlob(BlobRefPtr blobref);
-
         std::string region;
         std::string endpointoverride;
         std::string accesskey;
