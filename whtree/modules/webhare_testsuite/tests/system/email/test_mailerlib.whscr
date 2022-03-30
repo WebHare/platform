@@ -543,33 +543,6 @@ MACRO RTEIntegrationTest()
   TestEq(Length(contentids), Length(imagesrcs));
 }
 
-STRING torestructure :=
-'<style>a { color:#dddddd; } </style>'
-|| '<div id="testlink"><a href="http://nu.nl/" style="font:12px Arial; text-decoration:none">De link</a></div>'
-|| '<div id="inlineanchortest"><a href="#inlineanchor" style="font:12px Arial; text-decoration:none">De link</a></div>'
-|| '<div id="oldinlineanchortest"><a name="#oldanchor" style="font:12px Arial; text-decoration:none">Old style anchor</a></div>';
-
-MACRO TestRestructure()
-{
-  OBJECT dom := MakeXMLDocumentFromHTML(StringToBlob(torestructure));
-  RestructureEmailForCompatibility(dom);
-
-  OBJECT node;
-
-  node := dom->GetElement("#testlink > a");
-  TestEQ("_blank", node->GetAttribute("target"), "Target should have been set to _blank");
-
-  node := dom->GetElement("#testlink > a > span");
-  TestEQ(TRUE, ObjectExists(node), "SPAN should have been inserted inside A");
-  TestEQ("color:#dddddd;text-decoration:none;", node->Getattribute("style"));
-
-  node := dom->GetElement("#inlineanchortest > a");
-  TestEQ("", node->GetAttribute("target"), "Inline anchor must not get an target");
-
-  node := dom->GetElement("#oldinlineanchortest > a");
-  TestEQ("", node->GetAttribute("target"), "<a name> must not get an target");
-}
-
 ASYNC MACRO TestMailWitty()
 {
   STRING mailtemplate := GetApplyTesterForObject(OpenTestsuiteSite()->id)->GetDefaultMailTemplate();
@@ -803,7 +776,6 @@ RunTestframework([ PTR EmbedTest
                  , PTR EmbedTest_TestCache
                  , PTR MetaAttributesTest
                  , PTR MetaAttributesTest_PrepareMail
-                 , PTR TestRestructure
                  , PTR LinkingTest
                  , PTR ICSTEst
                  , PTR ICSTEst_PrepareWitty

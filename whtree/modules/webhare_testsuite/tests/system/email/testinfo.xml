@@ -2,4 +2,5 @@
   <test script="test_mailerlib.whscr" />
   <test script="test_mailersmtp.whscr" />
   <test script="test_mailerrules.whscr" />
+  <test script="test_mailer_restructure.whscr" />
 </group>
