@@ -1812,30 +1812,22 @@ PUBLIC STATIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
     ELSE
       splitapplyrules := SELECT * FROM splitapplyrules ORDER BY selector.specificity;
 
-    FOREVERY(RECORD rule FROM splitapplyrules)
-    {
-      OBJECT ARRAY nodelist;
-      TRY
-      {
-        nodelist := dom->GetElements(SerializeTokenOrValue(rule.selector.prelude, FALSE));
-      }
-      CATCH(OBJECT e)
-      {
-        //THROW NEW Exception(`Failed to execute selector '${SerializeTokenOrValue(rule.selector.prelude, FALSE)}' translated to '${xpath}': ${e->what}`);\
-        CONTINUE; //ignore rules we can't parse
-      }
-      INTEGER highest;
+    // construct rule text and store the index (needed because EvaluateMultipleSelectors reorders)
+    splitapplyrules :=
+        SELECT selector :=  SerializeTokenOrValue(selector.prelude, FALSE)
+             , rule
+             , idx :=       #splitapplyrules
+          FROM splitapplyrules;
 
-      FOREVERY (OBJECT node FROM nodelist)
+    RECORD evalres := EvaluateMultipleSelectors(dom->ownerdocument ?? dom, dom->nodetype = 1 ? dom : DEFAULT OBJECT, splitapplyrules, "qSA");
+    FOREVERY (RECORD match FROM evalres.matches)
+    {
+      FOREVERY (RECORD selector FROM SELECT * FROM match.selectors ORDER BY idx)
       {
         IF(onrewrite != DEFAULT MACRO PTR)
-          onrewrite(rule.rule, node);
+          onrewrite(selector.rule, match.node);
         ELSE
-          RewriteAsStyleAttribute(rule.rule, node);
-
-        //PRINT(nodelist->item(0)->getAttribute('style') || "\n");
-        IF(#rule NOT IN removeafter)
-          INSERT #rule INTO removeafter AT END;
+          RewriteAsStyleAttribute(selector.rule, match.node);
       }
     }
 
