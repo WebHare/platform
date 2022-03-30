@@ -700,8 +700,6 @@ class S3Blob : public BlobBase
                 std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
         };
 
-        unsigned RegisterBlob(BlobRefPtr blobref);
-
         std::string region;
         std::string endpointoverride;
         std::string accesskey;
@@ -987,12 +985,10 @@ void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
 
         SystemContextData::DecompressingStreamPtr newblob(new SystemContextData::DecompressingStream);
 
-        int blobhandle = HSVM_BlobOpen (*vm, HSVM_Arg(0));
-        if(blobhandle == 0)
-            return; //VM/Blob failure?
-
         newblob->vm=*vm;
         newblob->inputdata.reset(new Interface::InputStream(*vm, HSVM_Arg(0)));
+        if (HSVM_TestMustAbort(*vm))
+            return; // VM
 
         std::string format = HSVM_StringGetSTD(*vm, HSVM_Arg(1));
         if (format=="ZLIB")

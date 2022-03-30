@@ -903,7 +903,7 @@ void ZipArchiveWriter::AddDir(std::string const &dirname, DateTime modtime)
 
         ZipHeader header;
         Blex::PutLsb< uint32_t >(header.signature, 0x04034B50);
-        Blex::PutLsb< uint16_t >(header.needversion, 0x0A); //Need MS-DOS, ZIP spec v1.0
+        Blex::PutLsb< uint16_t >(header.needversion, 0x14); //Need MS-DOS, ZIP spec v1.0
         Blex::PutLsb< uint16_t >(header.bitflags, 0);
         Blex::PutLsb< uint16_t >(header.compmethod, 0);
         Blex::PutLsb< uint16_t >(header.mod_date, entry.datetime.first);
