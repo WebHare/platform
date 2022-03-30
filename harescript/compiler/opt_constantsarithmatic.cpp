@@ -279,6 +279,22 @@ Optimizable Opt_ConstantsArithmatic::V_BinaryOperator (BinaryOperator *obj, Empt
                         is_ok = BinaryOp(obj->position, &StackMachine::Stack_Concat);
                         break;
 
+                case BinaryOperatorType::OpBitAnd:
+                        is_ok = BinaryOp(obj->position, &StackMachine::Stack_Bit_And);
+                        break;
+                case BinaryOperatorType::OpBitOr:
+                        is_ok = BinaryOp(obj->position, &StackMachine::Stack_Bit_Or);
+                        break;
+                case BinaryOperatorType::OpBitXor:
+                        is_ok = BinaryOp(obj->position, &StackMachine::Stack_Bit_Xor);
+                        break;
+                case BinaryOperatorType::OpBitLShift:
+                        is_ok = BinaryOp(obj->position, &StackMachine::Stack_Bit_ShiftLeft);
+                        break;
+                case BinaryOperatorType::OpBitRShift:
+                        is_ok = BinaryOp(obj->position, &StackMachine::Stack_Bit_ShiftRight);
+                        break;
+
                 default:
                         is_ok = false;
                         stackm.PopVariablesN(2);
@@ -1056,6 +1072,8 @@ Optimizable Opt_ConstantsArithmatic::V_UnaryOperator (UnaryOperator *obj, Empty)
                         is_ok = UnaryOp(obj->position, &StackMachine::Stack_Arith_Neg); break;
                 case UnaryOperatorType::OpPlus:
                         break;
+                case UnaryOperatorType::OpBitNeg:
+                        is_ok = UnaryOp(obj->position, &StackMachine::Stack_Bit_Neg); break;
                 default: ;
                     is_ok = false;
                     Pop();
