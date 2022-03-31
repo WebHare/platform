@@ -343,6 +343,9 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
   {
     FOREVERY (RECORD outfile FROM this->generatedfiles)
     {
+      IF(outfile.path LIKE "*.shtml")
+        CONTINUE; //pointless to compress
+
       // Get the type of file to detect the filetype, to see if this file must be compressed
       BLOB original_file := GetDiskResource(outfile.temppath);
       RECORD detect := WrapBlob(original_file, outfile.path);
@@ -364,6 +367,22 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     }
   }
 
+  MACRO ForceReplaced(STRING src, STRING target)
+  {
+    RECORD targetinfo := GetDiskFileProperties(target);
+    //Eliminate target if not a file, or if we're not going to place a file there anyway
+    IF(RecordExists(targetinfo) AND (targetinfo.type != 0 OR src = ""))
+    {
+      IF(targetinfo.type = 1)
+        DeleteLocalFSDirectory("Remove target directory that shouldn't be there", target);
+      ELSE
+        DeleteLocalFSFile("Remove target file, we don't need it", target);
+    }
+
+    IF(src != "")
+      MoveLocalFSDiskPath("Replace target with newly published version", src, target);
+  }
+
   //  , MACRO WriteData(STRING data)
   PUBLIC MACRO Finish()
   {
@@ -377,6 +396,26 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       FOREVERY (INTEGER handle FROM this->outfiles)
         CloseDiskFile(handle);
       this->outfiles := DEFAULT INTEGER ARRAY;
+    }
+    //ABORT(this->generatedfiles);
+
+    // Do some preflight checks before we figure out what we want to move around
+    STRING destination_dir, destination_file, destination_filegz;
+    RECORD outputnames := this->GetOutputNames();
+    destination_file := outputnames.file;
+    destination_dir := outputnames.dir;
+    destination_filegz := (destination_file ?? destination_dir) || ".gz";
+
+    IF (destination_file = destination_dir) //Internal check
+    {
+      this->ErrorNotify(1001,"Publication is set up to create both a file and a directory named " || destination_file);
+      RETURN;
+    }
+
+    IF (this->newversion_file = "") //no first file ?!
+    {
+      this->ErrorNotify(106,"");
+      RETURN;
     }
 
     this->GenerateCompressedFiles();
@@ -405,160 +444,58 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       DeleteLocalFSFile("Remove useindex", MergePath(this->outputroot, "^^useindex")); //delete any ^^useindex if we're the index file but didn't want it...  FIXME outputanalyzer should also clear this up
     }
 
-    /* Move the new version in place of the old version. We basically do.
-
-       - move destination old_version
-       - move new_version destination
-       - delete old_version
-
-       in a very careful way. It is unfortunate that we can't do an
-       atomic swap of both files and directories (or can we? it might
-       be possible to do some trick with symlinks overwriting? perhaps
-       we can cooperate with the webserver to decrease the chance of
-       lock errors, and decrease the chance of a file miss?)
-
-       ADDME: Try a direct move first (should work on squite some occasions)
-              and fall back to atomic moves only if necessary */
-
-
-    STRING oldversion_dir,oldversion_file,oldversion_filegz,destination_dir,destination_file,destination_filegz;
-
-    oldversion_dir  := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bd" || this->outputname || "$"));
-    oldversion_file := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bf" || this->outputname || "$"));
-    oldversion_filegz := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot, "$$$bg" || this->outputname || "$"));
-
-    RECORD outputnames := this->GetOutputNames();
-    destination_file := outputnames.file;
-    destination_dir := outputnames.dir;
-    destination_filegz := (destination_file ?? destination_dir) || ".gz";
-
-    IF (destination_file = destination_dir) //Internal check
+    /* Move the new version in place of the old version. We don't care too much more about the corner case "I/O error"
+       because things getting locked etc was a Win32 thing. And besides, halfway recovery is usually impossible too
+    */
+    IF(this->publish_as_index OR NOT this->publish_as_subdir) //should the first file exist outside our subdir?
     {
-      this->ErrorNotify(1001,"Publication is set up to create both a file and a directory named " || destination_file);
-      RETURN;
+      // Move our files over the destination, or if they don't exist, get rid of the destination
+      this->ForceReplaced(this->newversion_filegz, destination_filegz);
+      this->ForceReplaced(this->newversion_file, destination_file);
     }
 
-    //in other cases, the destination file is _inside_ the destion_dir, so
-    //nothing needs to be done for it
-
-    IF (this->newversion_file = "") //no first file ?!
-    {
-      this->ErrorNotify(106,"");
-      RETURN;
-    }
-
-    //move destination old_version
-    BOOLEAN moved_oldversion_dir := false;
-    BOOLEAN moved_oldversion_file := false;
-    BOOLEAN moved_oldversion_filegz;
-
-    BOOLEAN all_ok := TRUE;
-
-    // First, move the original compressed file out of the way
-    IF (destination_filegz != "" AND RecordExists(GetDiskFileProperties(destination_filegz)))
-    {
-      IF (MoveLocalFSDiskPath("Move original compresed filed out of the way", destination_filegz, oldversion_filegz))
-        moved_oldversion_filegz := TRUE;
-      ELSE
-      {
-        this->ErrorNotify(1001,"Cannot move original compressed file " || destination_filegz || " out of the way" || " (" || GetLastOSError() || ")");
-        all_ok := FALSE;
-      }
-    }
-
-  //        try //if anything goes wrong, restore the original versions
-  //        {
-    IF (all_ok AND destination_dir != "" AND RecordExists(GetDiskFileProperties(destination_dir)))
-    {
-      IF (MoveLocalFSDiskPath("Restore original directory", destination_dir, oldversion_dir))
-        moved_oldversion_dir := TRUE;
-      ELSE
-      {
-        this->ErrorNotify(1001,"Cannot move original directory " || destination_dir || " out of the way" || " (" || GetLastOSError() || ")");
-        all_ok := FALSE;
-      }
-    }
-
-    IF (all_ok AND destination_file != "")
-    {
-      IF (RecordExists(GetDiskFileProperties(destination_file)))
-      {
-        IF (MoveLocalFSDiskPath("Restore original file", destination_file, oldversion_file))
-        {
-          moved_oldversion_file := TRUE;
-        }
-        ELSE
-        {
-          this->ErrorNotify(1001,"Cannot move original file " || destination_file || " out of the way" || " (" || GetLastOSError() || ")");
-          all_ok := FALSE;
-        }
-      }
-      //We finished the first step: move destination old_version
-
-      //Now: move new_version destination
-      IF (all_ok AND NOT MoveLocalFSDiskPath("Move new version file into place", this->newversion_file, destination_file))
-      {
-        this->ErrorNotify(1001,"Cannot publish replacement file for " || destination_file || " (" || GetLastOSError() || ")");
-        all_ok := FALSE;
-      }
-
-      //Now: move new_version_gz destination
-      IF (all_ok AND this->newversion_filegz != "" AND NOT MoveLocalFSDiskPath("Move new compressed file into place", this->newversion_filegz, destination_filegz))
-      {
-        this->ErrorNotify(1001,"Cannot publish replacement compressed file for " || destination_filegz || " (" || GetLastOSError() || ")");
-        all_ok := FALSE;
-      }
-    }
-
-    if (all_ok AND this->createddir)
+    //Move subfiles into place, ie  newversion_dir => destination_dir, and then clear out destination_dir
+    IF(this->createddir) //if set, we need a Destination Directory
     {
       //ADDME we shouldn't have to ReadDiskDirectory but should know if the dir is empty (maybe not create it in the first place)
-      IF(Length(ReadDiskDirectory(this->newversion_dir,"*"))=0)
+      RECORD ARRAY tomove := ReadDiskDirectory(this->newversion_dir,"*");
+      RECORD target := GetDiskFileProperties(destination_dir);
+      RECORD ARRAY tocleanup;
+      IF(RecordExists(target) AND target.type = 1) //it's not a directory now...
       {
-        //don't care if this fails, next publication will clean out the temp dir
-        DeleteLocalFSDirectory("Remove newversion dir", this->newversion_dir);
+        tocleanup := ReadDiskDirectory(destination_dir,"*");
       }
-      ELSE IF(NOT MoveLocalFSDiskPath("Publish replacement directory", this->newversion_dir, destination_dir))
+      ELSE
       {
-        this->ErrorNotify(1001,"Cannot publish replacement directory for " || destination_dir || " (" || GetLastOSError() || ")");
-        all_ok := FALSE;
+        IF(RecordExists(target))
+          DeleteLocalFSFile("Remove whatever's blocking our target directory", destination_dir);
+        IF(Length(tomove) > 0)
+          CreateLocalFSDirectory("Create target directory", destination_dir);
       }
+
+      FOREVERY(RECORD move FROM tomove) //Move the files into place
+      {
+        RECORD cleanup_casemismatch := SELECT * FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name) AND name != move.name;
+        IF(RecordExists(cleanup_casemismatch)) //case mismatches are dangerous, will moving the new file in place remove them or not? depends on target fs. just kill it beforehand
+          DeleteLocalFSFile("Delete case mismatch", cleanup_casemismatch.path);
+
+        DELETE FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name); //delete it frmo our list either way
+        IF(NOT MoveLocalFSDiskPath("Move new file into place", move.path, MergePath(destination_dir, move.name)))
+        {
+          this->ErrorNotify(1001,"Publication failure replaceing output file");
+          RETURN;
+        }
+      }
+
+      //Remove obsolete files/folders/ in the target
+      FOREVERY(RECORD cleanup FROM tocleanup)
+        IF(cleanup.type = 1)
+          DeleteLocalFSDirectory("Delete obsolete folder in target directory", cleanup.path);
+        ELSE
+          DeleteLocalFSFile("Delete obsolete file in target directory", cleanup.path);
+
+      DeleteLocalFSDirectory("Remove original 'tomove' source", this->newversion_dir);
     }
-
-  //        catch(std::exception &e)
-  //        {
-    IF (NOT all_ok)
-    {
-      //Try to restore the original file and directory
-      if (moved_oldversion_dir AND NOT MoveLocalFSDiskPath("Restore original dir", oldversion_dir, destination_dir))
-      {
-        if (moved_oldversion_file) //try to fix this as well
-          MoveLocalFSDiskPath("Restore original file", oldversion_file,destination_file);
-
-        this->ErrorNotify(1001,"Publication failure, but could not restore original directory " || destination_dir || " (" || GetLastOSError() || ")");
-        RETURN;
-      }
-
-      IF (moved_oldversion_file AND NOT MoveLocalFSDiskPath("Restore original file", oldversion_file, destination_file))
-      {
-        this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
-        RETURN;
-      }
-
-      IF (moved_oldversion_filegz AND NOT MoveLocalFSDiskPath("Restore original GZ file", oldversion_filegz, destination_filegz))
-      {
-        this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
-        RETURN;
-      }
-
-      //Well, we restored the old crap, continue error handling
-      RETURN;
-    }
-  //        }
-
-    DeleteLocalFSDirectory("Delete oldversion_dir", oldversion_dir);
-    DeleteLocalFSDirectory("Delete oldversion_file", oldversion_file);
-    DeleteLocalFSDirectory("Delete oldversion_filegz", oldversion_filegz);
 
     IF(outputnames.destroydir != "")
       DeleteLocalFSDirectory("Delete 'destroydir'", outputnames.destroydir);
