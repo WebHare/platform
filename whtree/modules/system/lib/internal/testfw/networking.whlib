@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "wh::internet/tcpip.whlib";
+
+PUBLIC INTEGER FUNCTION GetAvailableServerPort()
+{
+  // Test if this socket can be listened on
+  INTEGER socket := CreateTCPSocket();
+  IF(NOT BindSocket(socket, "127.0.0.1", 0))
+    THROW NEW Exception(`BindSocket failed, no ports available?`);
+  INTEGER port := GetLocalSocketPort(socket);
+  CloseSocket(socket);
+  RETURN port;
+}
+

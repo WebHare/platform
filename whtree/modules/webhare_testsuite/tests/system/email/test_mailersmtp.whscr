@@ -8,7 +8,7 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/testfw/networking.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testfw/emails.whlib";
@@ -18,25 +18,11 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
-
 OBJECT mailserverobject;
 
 MACRO Prepare()
 {
-  INTEGER mailserverport := testfw->GetServerPort();
-  STRING testmailserver := "smtp://127.0.0.1:" || mailserverport;
-  mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES"]);
-
-  testfw->BeginWork();
-  INSERT [ tag         := "webhare_testsuite:testmailersmtp"
-         , mask        := "*@smtp.beta.webhare.net"
-         , serverurl   := testmailserver
-         , sendermask  := "*@bounce.beta.webhare.net *@sender.beta.webhare.net"
-         , ordering    := -99999
-         , description := "Created by test_mailsersmtp"
-         ] INTO system.mailqueue_route;
-
-  testfw->CommitWork();
+  mailserverobject := SetupTestSMTPReceiver("to@smtp.beta.webhare.net", [ directbouncemasks := ["bounce.*"]]);
 }
 
 MACRO MailSendTest()
@@ -255,7 +241,7 @@ MACRO SMTPManagerTest()
      sudo ifconfig lo0 alias 127.0.0.3 */
 
   // Open receiver on a fresh port
-  INTEGER mgr_mailserverport := testfw->GetServerPort();
+  INTEGER mgr_mailserverport := GetAvailableServerPort();
   OBJECT mgr_mailserverobject := GetSMTPReceiver("0.0.0.0", mgr_mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES" ]);
 
   OBJECT mgr := NEW WebHareSMTPManager();
@@ -263,7 +249,7 @@ MACRO SMTPManagerTest()
   mgr->maxconnectionidle := 500; // keep for .5 sec
 
   // See if no connections are opened for all 127.0.0.X addresses that localhosts.beta.webhare.net returns
-  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
+  dumpvalue(mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`));
   TestEQ(1, mgr_mailserverobject->connectioncount);
 
   mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);

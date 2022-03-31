@@ -38,6 +38,7 @@ LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modules/support.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+LOADLIB "mod::system/lib/internal/testfw/networking.whlib";
 LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -515,7 +516,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     SetTidLanguage("en");
     this->relativeoutputfolders := options.relativeoutputfolders;
-    this->testport := options.requireport ?? GetWebHareConfiguration().baseport + 9;
     this->pvt_wrdauth := options.wrdauth;
     this->mailwhitelists := options.mailwhitelists;
     this->useseparateoutputport := options.requireport != 0;
@@ -682,38 +682,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN this->testport;
   }
 
-  PUBLIC INTEGER FUNCTION GetServerPort()
-  {
-    INTEGER port;
-    IF(Length(this->server_ports)=0)
-    {
-      port := this->GetTestPort()+1;
-      INSERT port INTO this->server_ports AT END;
-      RETURN port;
-    }
-    WHILE (TRUE)
-    {
-      // Don't use any of the ephemeral ports on windows/linux (windows uses 1024-5000 or 49152+, linux usually 32768-61000),
-      // so we won't bind agains a port that is already in use. See http://en.wikipedia.org/wiki/Ephemeral_port
-      port := Random(10000, 32700);
-
-      IF (port IN this->server_ports)
-        CONTINUE;
-
-      // Test if this socket can be listened on
-      INTEGER socket := CreateTCPSocket();
-      BOOLEAN listenable := BindSocket(socket, "127.0.0.1", port);
-      CloseSocket(socket);
-      IF (listenable)
-        BREAK;
-
-      PRINT("Tested socket " || port || ", in use\n");
-    }
-
-    INSERT port INTO this->server_ports AT END;
-    RETURN port;
-  }
-
   /** @short Get the test unit */
   PUBLIC OBJECT FUNCTION GetUnit()
   {
@@ -746,7 +714,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   {
     // Don't use any of the ephemeral ports on windows/linux (windows uses 1024-5000 or 49152+, linux usually 32768-61000),
     // so we won't bind agains a port that is already in use. See http://en.wikipedia.org/wiki/Ephemeral_port
-    options := ValidateOptions([ port := this->GetServerPort()
+    options := ValidateOptions([ port := GetAvailableServerPort()
                                , virtualhosts := STRING[]
                                , aliases := STRING[]
                                , redirectingaliases := STRING[]
