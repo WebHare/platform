@@ -1428,7 +1428,7 @@ STATIC OBJECTTYPE WittyMailComposer
                ];
   }
 
-  RECORD FUNCTION CreateMailing()
+  PUBLIC RECORD FUNCTION CreateMailing()
   {
     RECORD prep := this->__PrepareContent();
     RECORD ARRAY headers :=

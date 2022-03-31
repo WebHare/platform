@@ -60,156 +60,137 @@ PUBLIC BLOB FUNCTION GetEMLFromMaiLTask(RECORD mailtask)
   RETURN EncodeMIMEMessage(data.mimeheaders, data.toppart, [ rawheaders := CellExists(mailtask,"rawheaders") AND mailtask.rawheaders ]);
 }
 
+//Send a mail using Webhare's routing rules
+PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ ignorerecipientwhitelist := FALSE
+                              , origin := ""
+                              , messageid := ""
+                              , rawheaders := TRUE
+                              ], options, [ required := ["messageid"] ]);
+
+  RECORD baseretval := CELL[ serverip := ""
+                           , route := ""
+                           , response := ""
+                           , success := FALSE
+                           , sender := mail.sender
+                           , finalreceiver := mail.receiver
+                           ];
+
+  IF(NOT ObjectExists(smtpmgr))
+    smtpmgr := NEW WebHareSMTPManager;
+
+  IF(NOT smtpmgr->HasMailroutes())
+    RETURN CELL[ ...baseretval, nextaction := "retry", response := "No mailroutes configured" ];
+
+  STRING senderemail := SplitEmailName(mail.sender).email;
+  INTEGER sendstatus := IsAllowedEmailSender(senderemail);
+  IF(sendstatus = 2) //usemailfromfornonwhitelisted
+  {
+    STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
+    IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is not whitelisted, we're not allowed to send
+      RETURN CELL[ ...baseretval, nextaction := "retry", response := `Fallback sender '${mailfrom}' is not whitelisted` ];
+
+    RECORD split_mailfrom := SplitEmailName(mailfrom);
+    RECORD split_origsender := SplitEmailName(senderemail);
+    STRING use_name := (split_origsender.name != "" ? split_origsender.name || " " : "")
+                       || Substitute(split_origsender.name, '@', " at ");
+    senderemail := split_mailfrom.email;
+    mail.sender := MakeEmailAddress(use_name, split_mailfrom.email, FALSE);
+
+    UPDATE mail.mimeheaders SET value := mail.sender WHERE ToUppercase(field) = "FROM";
+    UPDATE mail.mimeheaders SET value := "<" || senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
+  }
+  ELSE IF(sendstatus = 0)
+  {
+    RETURN CELL[ ...baseretval, nextaction := "retry", response := `Sender '${senderemail}' is not whitelisted` ];
+  }
+
+  IF(NOT options.ignorerecipientwhitelist AND NOT IsAllowedEmailReceiver(mail.receiver))
+    RETURN CELL[ ...baseretval, nextaction := "retry", response := `Receiver '${mail.receiver}' is not whitelisted` ];
+
+  RECORD route := smtpmgr->GetMailroute(senderemail, mail.receiver, options.origin);
+  IF(NOT RecordExists(route)) //this used to be 'Cancel' but tempfail makes more sense.. just add a final explicit null-route if you wanted this
+    RETURN CELL[ ...baseretval, nextaction := "retry", response := `No mailroute available` ];
+
+  IF(route.serverurl = "infinitedelay") //test destination, simply delay, it will be cancelled at some point - these tasks are meant to be picked up and cancelled by the tests
+    RETURN CELL[ ...baseretval, nextaction := "hold" ];
+
+  IF(route.serverurl = "null") //explicit blackhole
+    RETURN CELL[ ...baseretval, nextaction := "cancel", success := TRUE, response := `This mailroute is blackholed` ];
+
+  RECORD serverurlunpacked := UnpackURL(route.serverurl);
+  IF(serverurlunpacked.password != "")
+    serverurlunpacked.password := "xxxxx";
+  baseretval.route := RepackURL(serverurlunpacked);
+
+  STRING receiver := smtpmgr->RewriteEmailTo(route, mail.receiver);
+  baseretval.finalreceiver := receiver;
+
+  RECORD smtpconn := smtpmgr->GetSMTPConnection(route.serverurl);
+  IF(NOT ObjectExists(smtpconn.conn))
+    THROW NEW Exception(smtpconn.errors != "" ? smtpconn.errors : "Unable to connect with any mailserver");
+
+  DELETE FROM mail.mimeheaders WHERE TOUppercase(field)="MESSAGE-ID";
+  INSERT [ field := "Message-ID", value := options.messageid ] INTO mail.mimeheaders AT END;
+
+  RECORD sendresult := smtpconn.conn->SendMessage([receiver], mail.sender, mail.mimeheaders, mail.toppart, [ rawheaders := options.rawheaders ]);
+  baseretval.serverip := sendresult.smtpserverip;
+
+  IF(NOT sendresult.success OR Length(sendresult.failures)>0) //all recipients were successful
+  {
+    RECORD error := Length(sendresult.failures) > 0 ? sendresult.failures[0] : smtpconn.conn->lasterror;
+    STRING errortext := Length(sendresult.failures) > 0 ? sendresult.failures[0].text : smtpconn.conn->lasterror.message;
+
+    BOOLEAN isfatal := (error.code / 100) = 5;
+    STRING message := error.code || " " || errortext;
+    RETURN CELL[ ...baseretval, nextaction := isfatal ? "bounce" : "retry", response := message ];
+  }
+  RETURN CELL[ ...baseretval, nextaction := "sent", success := TRUE, response := sendresult.message ];
+}
+
 PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
   {
     RECORD data := CreateMailFromTask(taskdata);
 
-    IF(NOT ObjectExists(smtpmgr))
-      smtpmgr := NEW WebHareSMTPManager;
-
     taskdata := EnforceStructure([ ignorerecipientwhitelist := FALSE //pre 4.28 tasks won't have this flag
+                                 , rawheaders := FALSE //and something prior to 4.35 apparently missed this too ?
                                  ], taskdata);
 
-    IF(NOT smtpmgr->HasMailroutes())
+    RECORD sendresult := SendWebHareMail(data, CELL[ taskdata.ignorerecipientwhitelist
+                                                   , taskdata.origin
+                                                   , messageid := GenerateTaskMessageId(this->GetTaskMetadata().taskid)
+                                                   , taskdata.rawheaders
+                                                   ]);
+    SWITCH(sendresult.nextaction)
     {
-      this->ResolveByTemporaryFailure( [ serverip := ""
-                                       , route := ""
-                                       , response := "No mailroutes configured"
-                                       , success := FALSE
-                                       , sender := taskdata.sender
-                                       , finalreceiver := taskdata.receiver
-                                       ], `No mailroutes configured`);
-      RETURN;
-    }
-
-    INTEGER sendstatus := IsAllowedEmailSender(taskdata.senderemail);
-    IF(sendstatus = 2) //usemailfromfornonwhitelisted
-    {
-      STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
-      IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is not whitelisted, we're not allowed to send
+      CASE "retry"
       {
-        this->ResolveByTemporaryFailure( [ serverip := ""
-                                         , route := ""
-                                         , response := "Fallback sender is not whitelisted"
-                                         , success := FALSE
-                                         , sender := taskdata.sender
-                                         , finalreceiver := taskdata.receiver
-                                         ], `Fallback sender '${mailfrom}' is not whitelisted`);
-        RETURN;
+        this->ResolveByTemporaryFailure(sendresult, sendresult.response);
       }
-
-      RECORD split_mailfrom := SplitEmailName(mailfrom);
-      RECORD split_origsender := SplitEmailName(taskdata.senderemail);
-      STRING use_name := (split_origsender.name != "" ? split_origsender.name || " " : "")
-                         || Substitute(split_origsender.name, '@', " at ");
-      taskdata.senderemail := split_mailfrom.email;
-      data.sender := MakeEmailAddress(use_name, split_mailfrom.email, FALSE);
-
-      UPDATE data.mimeheaders SET value := data.sender WHERE ToUppercase(field) = "FROM";
-      UPDATE data.mimeheaders SET value := "<" || taskdata.senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
-    }
-    ELSE IF(sendstatus = 0)
-    {
-      this->ResolveByTemporaryFailure( [ serverip := ""
-                                       , route := ""
-                                       , response := "Sender is not whitelisted"
-                                       , success := FALSE
-                                       , sender := taskdata.sender
-                                       , finalreceiver := taskdata.receiver
-                                       ], `Sender '${taskdata.senderemail}' is not whitelisted`);
-      RETURN;
-    }
-
-    IF(NOT taskdata.ignorerecipientwhitelist AND NOT IsAllowedEmailReceiver(taskdata.receiver))
-    {
-      this->ResolveByTemporaryFailure( [ serverip := ""
-                                       , route := ""
-                                       , response := "Receiver is not whitelisted"
-                                       , success := FALSE
-                                       , sender := taskdata.sender
-                                       , finalreceiver := taskdata.receiver
-                                       ], `Receiver '${taskdata.receiver}' is not whitelisted`);
-      RETURN;
-    }
-
-    RECORD route := smtpmgr->GetMailroute(taskdata.senderemail, taskdata.receiver, taskdata.origin);
-    IF(NOT RecordExists(route))
-    {
-      this->ResolveByCancellation( [ serverip := ""
-                                   , route := ""
-                                   , response := "No mailroute available"
-                                   , success := FALSE
-                                   , sender := taskdata.sender
-                                   , finalreceiver := taskdata.receiver
-                                   ], "No mailroute available");
-      RETURN;
-    }
-
-    RECORD serverurlunpacked := UnpackURL(route.serverurl);
-    IF(serverurlunpacked.password != "")
-      serverurlunpacked.password := "xxxxx";
-    STRING reporturl := RepackURL(serverurlunpacked);
-
-    STRING receiver := smtpmgr->RewriteEmailTo(route, taskdata.receiver);
-    IF(route.serverurl = "infinitedelay") //test destination, simply delay, it will be cancelled at some point
-    {
-      this->ResolveByRestart(AddDaysToDate(1,GetCurrentDatetime()));
-      RETURN;
-    }
-
-    IF(route.serverurl = "null") //explicit blackhole
-    {
-      this->ResolveByCancellation([ serverip := ""
-                                  , route := "This mailroute is blackholed"
-                                  , response := ""
-                                  , success := TRUE
-                                  , sender := taskdata.sender
-                                  , finalreceiver := receiver
-                                  ], "This mailroute is blackholed");
-      RETURN;
-    }
-
-    RECORD smtpconn := smtpmgr->GetSMTPConnection(route.serverurl);
-    IF(NOT ObjectExists(smtpconn.conn))
-      THROW NEW Exception(smtpconn.errors != "" ? smtpconn.errors : "Unable to connect with any mailserver");
-
-    DELETE FROM data.mimeheaders WHERE TOUppercase(field)="MESSAGE-ID";
-    INSERT [ field := "Message-ID", value := GenerateTaskMessageId(this->GetTaskMetadata().taskid)
-           ] INTO data.mimeheaders AT END;
-
-    BOOLEAN rawheaders := CellExists(taskdata,"rawheaders") AND taskdata.rawheaders;
-    RECORD sendresult := smtpconn.conn->SendMessage([receiver], data.sender, data.mimeheaders, data.toppart, [ rawheaders := rawheaders ]);
-
-    IF(NOT sendresult.success OR Length(sendresult.failures)>0) //all recipients were successful
-    {
-      RECORD error := Length(sendresult.failures) > 0 ? sendresult.failures[0] : smtpconn.conn->lasterror;
-      STRING errortext := Length(sendresult.failures) > 0 ? sendresult.failures[0].text : smtpconn.conn->lasterror.message;
-
-      BOOLEAN isfatal := (error.code / 100) = 5;
-      STRING message := error.code || " " || errortext;
-      IF(isfatal)
+      CASE "hold" //test(framework() mail. hold forever, should be manually cleared (or automatically on RunTestframework startup)
       {
-        this->ResolveByFailure( [ serverip := sendresult.smtpserverip
-                                , route := reporturl
-                                , response := message
-                                , success := FALSE
-                                , sender := taskdata.sender
-                                , finalreceiver := receiver
-                                ], message);
-        RETURN;
+        this->ResolveByRestart(AddDaysToDate(1,GetCurrentDatetime()));
       }
-      THROW NEW Exception(message);
+      CASE "cancel"
+      {
+        this->ResolveByCancellation(sendresult, sendresult.response);
+      }
+      CASE "bounce"
+      {
+        this->ResolveByFailure(sendresult, sendresult.response);
+      }
+      CASE "sent"
+      {
+        this->ResolveByCompletion(sendresult);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unrecognized nextacton '${sendresult.nextaction}'`);
+      }
     }
-
-    this->ResolveByCompletion([ serverip := sendresult.smtpserverip
-                              , route := reporturl
-                              , response := sendresult.message
-                              , success := TRUE
-                              , sender := taskdata.sender
-                              , finalreceiver := receiver
-                              ]);
   }
 >;
 
