@@ -4,7 +4,7 @@ List of environment variables understood by WebHare and/or the `wh` command
 
 ## Essential environment variables
 
-## WEBHARE_DIR
+### WEBHARE_DIR
 WebHare installation directory. `$WEBHARE_DIR/bin/wh` must be the `wh` command. In docker, this is usually `/opt/wh/whtree`
 
 ### WEBHARE_DATAROOT
@@ -23,6 +23,9 @@ Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'devel
 
 ### WEBHARE_SERVERNAME
 Override the server name
+
+### WEBHARE_POSTSTARTSCRIPT
+Path to a shell script to execute near the end of the post-start script.
 
 ### WEBHARE_ISRESTORED
 If set, this WebHare is configured a 'restored' installation which may not run tasks with external effects. It can be set
