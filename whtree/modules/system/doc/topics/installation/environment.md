@@ -95,7 +95,10 @@ Set debug flags:
 - `apr`: All new started scripts make a function CPU profile
 - `cov`: All new started scripts make a coverage profile
 - `que`: Log task/queue actions
+- `consilio:queues`: Consilio queue management
 - `consilio:searches`: Consilio searches
+- `consilio:traffic`: Consilio RPC traffic
+- `publisher:localfs`: Filesystem actions on the webserver output
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
 - `handles`: Record stack traces when handles are created (currently only outputobjects)
