@@ -710,10 +710,6 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
 IF (NOT RecordExists(parsedargs))
   SyntaxError("Parameter syntax error");
 
-OpenPrimary();
-
-testrunner := NEW RunTests;
-
 STRING testgroup := "all";
 STRING testname := "all";
 testtypes := parsedargs.testtype;
@@ -721,7 +717,6 @@ IF ("all" IN testtypes OR Length(testtypes)=0)
   testtypes := [ ...testtypes, "frontend", "backend" ];
 print_output := parsedargs.o;
 print_errors := parsedargs.e;
-testrunner->print_debug := parsedargs.d;
 quiet_mode := parsedargs.q;
 use_jobs := NOT parsedargs.p;
 breakonerror := parsedargs.breakonerror;
@@ -777,6 +772,9 @@ IF(NOT RecordExists(PollWHServiceState("poststartdone")))
     Sleep(100);
 }
 
+OpenPrimary();
+testrunner := NEW RunTests;
+testrunner->print_debug := parsedargs.d;
 
 RECORD ARRAY alltests;
 RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
