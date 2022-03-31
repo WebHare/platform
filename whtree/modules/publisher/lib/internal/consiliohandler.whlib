@@ -139,5 +139,6 @@ PUBLIC RECORD ARRAY FUNCTION ListPublisherContentSourcesFor(INTEGER fsobjid)
            FROM consilio.contentsources
           WHERE fsobject IN tree
                 AND contentprovider = "publisher:webhare"
+                AND status >= 0 //not disabled
                 AND tag NOT LIKE "$consilio$deleted$*";
 }

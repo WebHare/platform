@@ -1126,7 +1126,7 @@ RECORD FUNCTION GetContentSource(INTEGER contentsourceid)
               , consilio.indices
           WHERE contentsources.id = contentsourceid
                 AND contentsources.indexid = indices.id
-                AND contentsources.status >= 0
+                //AND contentsources.status >= 0 //if a specific ID is selected, this is an explicit CheckGroup and we should ignore the stauts field
                 AND indices.name NOT LIKE "$consilio$deleted$*"
                 AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 }

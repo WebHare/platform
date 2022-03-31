@@ -25,7 +25,7 @@ MACRO TestConsilioAPI()
   //having indexnames makes log analysis easier
   Print(`consilio:testfw_apitest1 => ${testcatalog1->indexname}, consilio:testfw_apitest2 => ${testcatalog2->indexname}\n`);
 
-  OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id);
+  OBJECT newsource := testcatalog1->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ enabled := FALSE ] );
 
   //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
   //FIXME we're ignoring _score and _summary but those shouldn't exist in the database at all
@@ -35,12 +35,20 @@ MACRO TestConsilioAPI()
          , [ name := "TITLE" ]
          ], SELECT name FROM consilio.contentsourcefields WHERE contentsourceid = newsource->id AND name NOT LIKE "_*" ORDER BY name);
 
+  TestEq(FALSE, newsource->enabled);
+  TestEq(FALSE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));
+  newsource->UpdateContentSource([ enabled := TRUE ]);
+  TestEq(TRUE, newsource->enabled);
   TestEq(TRUE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));
 
   OBJECT newsource2 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id);
   OBJECT newsource3 := testcatalog2->AddPublisherContentSource(OpenTestsuiteSite()->OpenByPath("portal1")->id);
   TestEq("consilio:testfw_apitest2", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id)); //most specific
   TestEq("consilio:testfw_apitest1", GetConsilioPublisherCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id)); //less sources in catalog
+
+  TestEq(TRUE, newsource3->enabled);
+  newsource3->UpdateContentSource([ enabled := FALSE ]);
+  TestEq(FALSE, newsource3->enabled);
 
   testfw->CommitWork();
 

@@ -21,7 +21,7 @@ MACRO TestHTMLIndexing()
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots");
   OBJECT siteroot := GetTestsuiteTempFolder();
-  OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id);
+  OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id, [ enabled := FALSE ]); //disable it so we can manually control the frontend (and can avoid WaitIndexDone etc) without risking conflicting/duplicate index actions
   Print(`consilio:testfw-robots => ${catalog->indexname}\n`);
 
   OBJECT testfile := siteroot->CreateFile([ name := "robottest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", publish := TRUE]);
