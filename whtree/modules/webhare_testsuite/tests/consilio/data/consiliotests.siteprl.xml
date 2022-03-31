@@ -1,0 +1,12 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <!-- Consilio robot test -->
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest" kind="virtualfile">
+    <members>
+      <boolean name="noindex" />
+      <boolean name="nofollow" />
+    </members>
+    <dynamicexecution webpageobjectname="robottest.whlib#robottestpage" />
+  </filetype>
+</siteprofile>
+

@@ -8,48 +8,9 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-
 BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
 {
   RETURN event.groupid = ToString(expectfile);
-}
-
-BLOB FUNCTION GetTestPage(INTEGER fileid, BOOLEAN noindex, BOOLEAN nofollow)
-{
-  RETURN StringToBlob(`
-      <?wh
-      LOADLIB "mod::publisher/lib/webdesign.whlib";
-      LOADLIB "mod::system/lib/webserver.whlib";
-
-      PUBLIC MACRO RunDynamicPage()
-      {
-        NEW TestPage()->RunPageForWHFSId(${fileid});
-      }
-
-      OBJECTTYPE TestPage EXTEND DynamicPageBase
-      <
-        INTEGER pagenum;
-
-        UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
-        {
-          this->pagenum := ToInteger(GetWebVariable("page"), 0);
-
-          IF (this->pagenum = 0)
-          {
-            OBJECT robotsplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/consilio", "robots");
-            robotsplugin->noindex := ${noindex ? "TRUE" : "FALSE"};
-            robotsplugin->nofollow := ${nofollow ? "TRUE" : "FALSE"};
-          }
-        }
-
-        UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
-        {
-          Print('<p>page ' || this->pagenum || '\\n');
-          IF (this->pagenum = 0)
-            Print('<a href="' || GetRequestUrl() || '?page=1">next</a>');
-          Print('</p>');
-        }
-      >;`);
 }
 
 MACRO TestHTMLIndexing()
@@ -61,15 +22,9 @@ MACRO TestHTMLIndexing()
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots");
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT newsource := catalog->AddPublisherContentSource(siteroot->id);
+  Print(`consilio:testfw-robots => ${catalog->indexname}\n`);
 
-  OBJECT testfile := siteroot->CreateFile(
-      [ name := "robottest.shtml"
-      , title := "testlinks"
-      , publish := TRUE
-      ]);
-  testfile->UpdateData(GetTestPage(testfile->id, FALSE, FALSE));
-
-  OBJECT fileevent := OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(testfile->id, #1)));
+  OBJECT testfile := siteroot->CreateFile([ name := "robottest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", publish := TRUE]);
 
   testfw->CommitWork();
 
@@ -77,8 +32,7 @@ MACRO TestHTMLIndexing()
     Print(testfile->url || "\n");
 
   testfw->WaitForPublishCompletion(siteroot->id);
-  WaitForPromise(fileevent);
-  newsource->WaitForIndexingDone([ verbose := TRUE ]);
+  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]); //run in foreground, we're not testing queues
 
   RECORD res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(2, res.totalcount);
@@ -86,22 +40,20 @@ MACRO TestHTMLIndexing()
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
 
 
-  Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(testfile->id, TRUE, FALSE));
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := TRUE ]);
   // First page now has robots "noindex, follow" -> only second page should be indexed
   testfw->CommitWork();
 
-  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]); //run in foreground, we're not testing queues
+  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
 
   res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEq(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
 
 
-  Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(testfile->id, FALSE, TRUE));
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := FALSE, nofollow := TRUE ]);
   // First page has robots "index, nofollow" -> only first page should be indexed
   testfw->CommitWork();
 
@@ -113,9 +65,8 @@ MACRO TestHTMLIndexing()
 
 
   // First page has robots "noindex, nofollow" -> both pages should not be indexed
-  Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(testfile->id, TRUE, TRUE));
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := TRUE, nofollow := TRUE ]);
   testfw->CommitWork();
 
   newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
