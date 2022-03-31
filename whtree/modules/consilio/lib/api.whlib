@@ -1427,7 +1427,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.priority
              , options.definedby
              , indexmanager
-             , indexname := "c_" || tolowercase(encodebase16(decodebase64(generateufs128bitid())))
+             , indexname := "c_" || tolowercase(encodebase16(decodeufs(generateufs128bitid())))
              , type := options.managed ? whconstant_consilio_catalogtype_siteprofindex
                                        : whconstant_consilio_catalogtype_moduleindex
              ] INTO consilio.indices;
