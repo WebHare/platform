@@ -161,8 +161,7 @@ MACRO ExportXMLMetadata()
   wrdschema := CreateWRDSchema(wrdschema->tag);
   TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).errors);
 
-  RECORD res := ApplyWRDSchemaDefinitionFile(wrdschema, structuredoc);
-  TestEq(TRUE, res.success);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc ]);
   testfw->CommitWork();
 
   TestEq(TRUE, RecordExists(wrdschema->^wrd_relation->GetAttribute("KARMA")));
@@ -230,7 +229,7 @@ MACRO ApplyDomMetadata(RECORD ARRAY vals)
   BLOB data := witty->RunToBlob([ vals := vals ]);
 
   OBJECT wrdschema := testfw->GetWRDSchema();
-  ApplyWRDSchemaDefinitionFile(wrdschema, data);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := data ]);
   TestEq("RECORD", wrdschema->^domain->GetAttribute("MYRECORD").attributetypename);
 }
 
@@ -244,14 +243,12 @@ STRING attrwitty :=
     '  </domain>\n' ||
     '</schemadefinition>\n';
 
-BOOLEAN FUNCTION ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
+MACRO ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
 {
   OBJECT witty := NEW WittyTemplate("XML");
   witty->LoadCodeDirect(attrwitty);
   BLOB data := witty->RunToBlob([ type := type ]);
-  RETURN ApplyWRDSchemaDefinitionFile(wrdschema, data).success;
-  //OBJECT doc := MakeXMLDocument(data);
-  //RETURN wrdschema->ApplyXMLMetadata(doc).success;
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := data ]);
 }
 
 RECORD ARRAY FUNCTION GetDomVals()
@@ -446,8 +443,7 @@ MACRO TestMetaTypeChange()
 
   testfw->BeginWork();
 
-  RECORD res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(v1schema));
-  TestEq(TRUE, res.success);
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ __schemadefinition := StringToBlob(v1schema) ]);
   TestEq(TRUE, ObjectExists(testfw->GetWRDSchema()->GetType("WEBSHOP_REVIEW")));
   TestEQ(TRUE, testfw->GetWRDSchema()->^webshop_review->isattachment);
 
@@ -459,8 +455,7 @@ MACRO TestMetaTypeChange()
   </object>
 </schemadefinition>`;
 
-  res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(v2schema));
-  TestEq(TRUE, res.success);
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ __schemadefinition := StringToBlob(v2schema) ]);
   TestEq(TRUE, ObjectExists(testfw->GetWRDSchema()->GetType("WEBSHOP_REVIEW")));
   // FIXME - TestEQ(TRUE, testfw->GetWRDSchema()->^webshop_review->isobject); - requires the other WRD fixes
   TestEQ(TRUE, OpenwRDSchemaByID(testfw->GetWRDSchema()->id)->^webshop_review->isobject);
@@ -513,7 +508,7 @@ MACRO TestAttributePromotion()
   FOREVERY (RECORD rec FROM tests)
   {
     // Create original attr
-    TestEQ(TRUE, ApplyTestAttrMetadata(wrdschema, rec.org));
+    ApplyTestAttrMetadata(wrdschema, rec.org);
 
     // Make sure it contains stuff
     entity->UpdateEntity([ testattr := rec.orgvalue ]);
@@ -550,7 +545,7 @@ MACRO TestParent()
   testfw->BeginWork();
 
   OBJECT wrdschema := testfw->GetWRDSchema();
-  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithparent));
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithparent) ]);
 
   TestEq(wrdschema->^webshop_productmixin->id, wrdschema->^webshop_product->parent);
 
@@ -594,14 +589,14 @@ MACRO TestAccountSettings()
 
   OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
 
-  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithaccounttype));
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithaccounttype) ]);
   TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
   TestEQ("LOGIN", wrdschema->accountlogintag);
   TestEQ("WRD_CONTACT_EMAIL", wrdschema->accountemailtag);
   TestEQ("PASSWORD", wrdschema->accountpasswordtag);
   TestEQ(FALSE, wrdschema->accountpasswordisauthsettings);
 
-  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(schemawithauthsettingspassword));
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithauthsettingspassword) ]);
   TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
   TestEQ("AUTHSETTINGS", wrdschema->accountpasswordtag);
   TestEQ(TRUE, wrdschema->accountpasswordisauthsettings);
@@ -622,7 +617,7 @@ MACRO TestMerge()
   testfw->BeginWork();
 
   OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
-  ApplyWRDSchemaDefinitionFile(wrdschema, StringToBlob(mergeschema));
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(mergeschema) ]);
   TestEq(TRUE, ObjectExists(wrdschema->GetType("WRD_AUTHDOMAIN")));
 
   testfw->RollbackWork();

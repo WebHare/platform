@@ -39,12 +39,12 @@ STRING attrwitty :=
     '  </domain>\n' ||
     '</schemadefinition>\n';
 
-BOOLEAN FUNCTION ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
+MACRO ApplyTestAttrMetadata(OBJECT wrdschema, STRING type)
 {
   OBJECT witty := NEW WittyTemplate("XML");
   witty->LoadCodeDirect(attrwitty);
   BLOB data := witty->RunToBlob([ type := type ]);
-  RETURN ApplyWRDSchemaDefinitionFile(wrdschema, data).success;
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := data]);
 }
 
 MACRO CreateMyTestSchema()

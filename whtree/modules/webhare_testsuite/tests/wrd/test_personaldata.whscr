@@ -49,7 +49,7 @@ MACRO HasPersonalDataProperty()
   //----------------------------------------------------------------------------
   // Test 'haspersonaldata' property when initialized through an XML schema
 
-  ApplyWRDSchemaDefinitionFile(schemaobj, StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  schemaobj->ApplySchemaDefinition([ __schemadefinition := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
   <!-- WRD_PERSON has personal data, unless explicitly set to false -->
   <object tag="WRD_PERSON" haspersonaldata="false">
@@ -75,7 +75,7 @@ MACRO HasPersonalDataProperty()
   </link>
   <link tag="TESTLINKTOPERSON" linkfrom="TEST_DOMAIN_1" linkto="TESTOTHERTYPE">
   </link>
-</schemadefinition>`));
+</schemadefinition>`)]);
 
   TestEq(FALSE, schemaobj->^wrd_person->haspersonaldata);
   TestEq(FALSE, schemaobj->^personattachment->haspersonaldata);
