@@ -198,7 +198,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->autoreconnect->pressed)
       this->DoRuleConnect(TRUE);
     ELSE
-      this->RunMessageBox(".disconnectedfromjob");
+      this->RunSimpleScreen("info", this->GetTid(".disconnectedfromjob"));
   }
 
   /// Handle status change of connected job
@@ -982,7 +982,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       job->Close();
       this->GotStatusChange();
-      this->RunMessageBox(".connectfailed", e->what);
+      this->RunSimpleScreen("error", GetTid("system:tolliumapps.debugger.messages.connectfailed", e->what));
     }
     RETURN DEFAULT RECORD;
   }
@@ -1056,7 +1056,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
             OBJECT job := AWAIT process->ConnectToJob(groupid)->promise;
             IF (NOT ObjectExists(job))
             {
-              this->RunMessageBox(".connectfailed", "ConnectPromise failed to resolve");
+              this->RunSimpleScreen("error", GetTid("system:tolliumapps.debugger.messages.connectfailed", "ConnectPromise failed to resolve"));
               RETURN DEFAULT RECORD;
             }
 
@@ -1069,7 +1069,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       processlistener->Close();
     }
-    this->RunMessageBox(".jobnotfound");
+    this->RunSimpleScreen("error", this->GetTid(".jobnotfound"));
     RETURN DEFAULT RECORD;
   }
 
@@ -1172,7 +1172,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoExit()
   {
-    IF (NOT ObjectExists(this->job) OR this->RunMessageBox(".sureclosewhiledebugging") = "yes")
+    IF (NOT ObjectExists(this->job) OR this->RunSimpleScreen("confirm", this->GetTid(".sureclosewhiledebugging")) != "no")
       this->tolliumresult := "cancel";
   }
 
@@ -1766,7 +1766,7 @@ PUBLIC OBJECTTYPE SelectJob EXTEND TolliumScreenBase
 
   MACRO GotConnectFailure(STRING reason)
   {
-    this->RunMessageBox(".connectfailed", reason);
+    this->RunSimpleScreen("error",GetTid("system:tolliumapps.debugger.messages.connectfailed", reason));
     this->connector := DEFAULT OBJECT;
   }
 

@@ -139,7 +139,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   }
   MACRO DoReschedule()
   {
-    IF(this->RunMessageBox("system:monitor/managedtasks.confirmrescheduletasks") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmrescheduletasks")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();
@@ -159,7 +159,7 @@ PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   }
   MACRO DoDelete()
   {
-    IF(this->RunMessageBox("system:monitor/managedtasks.confirmdeletetasks") != "yes")
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletetasks")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();

@@ -36,7 +36,7 @@ PUBLIC OBJECTTYPE EditReg EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deletekey", this->registry->value) != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletekey", this->registry->value)) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();

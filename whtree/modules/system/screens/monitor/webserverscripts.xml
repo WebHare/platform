@@ -2,10 +2,6 @@
          lib="screens/monitor/webserverscripts.whlib"
          gid="monitor.webserverscripts">
 
-  <messageboxes gid=".dialogs">
-    <messagebox name="resourcemanagererror"           icon="error" buttons="ok" />
-  </messageboxes>
-
   <screen name="webserverscripts" title=""
           tid=".title"
           gid=".manager"

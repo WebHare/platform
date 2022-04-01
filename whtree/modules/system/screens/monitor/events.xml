@@ -2,9 +2,6 @@
          lib="screens/monitor/events.whlib"
          gid="monitor">
 
-  <messageboxes>
-  </messageboxes>
-
   <screen name="events" gid=".events" title="">
     <actions>
       <action name="openwrdschema" onexecute="doopenwrdschema" />

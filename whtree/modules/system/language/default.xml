@@ -44,12 +44,12 @@
     <text tid="breakpoint-filename">Breakpoint filename</text>
     <text tid="changeautoreconnect">Toggle autoreconnect</text>
     <text tid="closefile">Close file</text>
-    <text tid="connectfailed">Could not connect to job.</text>
     <text tid="continuejob">Continue</text>
     <text tid="control">Execute</text>
     <text tid="couldnotfindcompiledlibrary">Could not find the right compiled library</text>
     <text tid="debugconfig">Config</text>
     <text tid="detachjob">Detach</text>
+    <text tid="disconnectedfromjob">You have been disconnected from this job (the host process has terminated or another user has disconnected you).</text>
     <text tid="errorgettingframevariables">Error getting frame variables</text>
     <text tid="erroroutput">Error text</text>
     <text tid="exit">Exit</text>
@@ -103,6 +103,7 @@
     <text tid="stoppedwitherror">The script has stopped with an error.</text>
     <text tid="stopprofiling">Stop profiling</text>
     <text tid="stringlength"><param p="1"/> bytes, <param p="2"/> chars</text>
+    <text tid="sureclosewhiledebugging">Are you sure you want to exit while still debugging an application?</text>
     <text tid="symbolsearch">Symbol search</text>
     <text tid="textarea">File contents</text>
     <text tid="value">Value</text>
@@ -110,12 +111,6 @@
     <text tid="viewframevariable">View frame variable</text>
     <text tid="zombietimeout">Zombie timeout</text>
     <text tid="zombietimeoutinfo">(in seconds, 0 disables zombies)</text>
-    <textgroup gid="messages">   <!-- debugger.messages -->
-      <text tid="connectfailed">Could not connect to job (<param p="1"/>).</text>
-      <text tid="debuggergone">Debugger manager has disappeared.</text>
-      <text tid="disconnectedfromjob">You have been disconnected from this job (the host process has terminated or another user has disconnected you).</text>
-      <text tid="jobnotfound">Could not find job.</text>
-    </textgroup>
     <textgroup gid="profiles">   <!-- debugger.profiles -->
       <text tid="allcachescleared">All caches have been cleared</text>
       <text tid="apptitle">Profiles</text>
@@ -863,14 +858,12 @@
   </textgroup>
   <textgroup gid="scheduler">   <!-- scheduler -->
     <textgroup gid="main">   <!-- scheduler.main -->
+      <text tid="confirm_delete">Are you sure you want to delete the selected task?</text>
       <text tid="description">Description</text>
       <text tid="main">Scheduler</text>
       <text tid="nexttime">Next time</text>
       <text tid="parameters">Parameters</text>
       <text tid="scriptname">Script name</text>
-    </textgroup>
-    <textgroup gid="messages">   <!-- scheduler.messages -->
-      <text tid="confirm_delete">Are you sure you want to delete the selected task?</text>
     </textgroup>
     <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
       <text tid="enabled">Enable this task</text>
@@ -886,8 +879,6 @@
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
-        <text tid="confirmdeletetasks">Are you sure you want to delete the tasks?</text>
-        <text tid="confirmrescheduletasks">Are you sure you want to reschedule the tasks?</text>
         <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
           <text tid="creationdate">Queued at</text>
           <text tid="datatab">Task data</text>
@@ -905,6 +896,8 @@
           <text tid="timeout">Time limit</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->
+          <text tid="confirmdeletetasks">Are you sure you want to delete the tasks?</text>
+          <text tid="confirmrescheduletasks">Are you sure you want to reschedule the tasks?</text>
           <text tid="creationdate">Queued at</text>
           <text tid="flush">Retry all now</text>
           <text tid="nextattempt">Next attempt</text>
@@ -959,6 +952,7 @@
     </textgroup>
     <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
       <text tid="appmenu">Registry</text>
+      <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
       <text tid="name">Name</text>
       <text tid="title">WebHare Registry</text>
       <text tid="value">Value</text>
@@ -1005,7 +999,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="messages">   <!-- sysmgmt.messages -->
-      <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
       <text tid="deletenode">Are you sure you want to delete node '<param p="1"/>' and its subnodes?</text>
     </textgroup>
     <textgroup gid="modules">   <!-- sysmgmt.modules -->
@@ -1683,6 +1676,11 @@
       </textgroup>
       <textgroup gid="webharedb">   <!-- tolliumapps.dba.webharedb -->
         <text tid="database">WebHare database</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="debugger" limitlanguages="en">   <!-- tolliumapps.debugger -->
+      <textgroup gid="messages">   <!-- tolliumapps.debugger.messages -->
+        <text tid="connectfailed">Could not connect to job. (<param p="1"/>)</text>
       </textgroup>
     </textgroup>
     <textgroup gid="login">   <!-- tolliumapps.login -->

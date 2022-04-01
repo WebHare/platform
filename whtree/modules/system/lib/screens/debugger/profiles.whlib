@@ -9,6 +9,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/debugger/commonactions.whlib";
 LOADLIB "mod::system/lib/internal/debugger/profilingsupport.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
@@ -674,8 +675,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoClearAllCaches()
   {
-    BroadcastEvent("system:clearcaches", DEFAULT RECORD);
-    this->RunMessageBox(".allcachescleared");
+    RunClearCaches(this);
   }
 
 >;

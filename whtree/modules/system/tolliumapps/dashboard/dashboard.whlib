@@ -9,6 +9,8 @@ LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/debugger/commonactions.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -19,9 +21,6 @@ LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 /* FIXME/ADDME
   - consider how rights fit into this. <accessright> support on monitor panels,
     or autoregistration in database and delegate to sysop?
-  - should softreset be some sort of monitor panel, making it possible to give
-    non-sysops access to it ?
-  - cache flushing should perhaps be available to non-sysop on development servers? or 'not our problem' ?
 */
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
@@ -157,8 +156,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoClearCaches()
   {
-    BroadcastEvent("system:clearcaches", DEFAULT RECORD);
-    this->RunSimpleScreen("info", this->GetTid(".cachescleared"), [ dontshowkey := "system.clearcaches" ]);
+    RunClearCaches(this);
   }
 
   MACRO DoSoftReset()
