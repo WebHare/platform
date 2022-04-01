@@ -54,50 +54,44 @@ PUBLIC OBJECTTYPE AddGrantOnObject EXTEND TolliumScreenBase
   //
 
   /** @param data One of @a rightname, @a rightsgroup, @a objecttypename must be present
-      @cell data.grantee Id of initially selected grantee (optional)
-      @cell data.rightname Right to determine which group to add (optional)
       @cell data.rightsgroup Name of rightsgroup (show global rights of that group only, optional)
       @cell data.objecttypename Name of objecttype (show rights of that objecttype only, optional)
       @cell data.objectid
   */
   MACRO Init(RECORD data)
   {
+    data := ValidateOptions( [ objectid := 0         //now used by MakeAddGrantOnObjectDialog
+                             , objecttypename := ""  //now used by MakeAddGrantOnObjectDialog
+                             , rightsgroup := ""     //now used by MakeAddGrantOnRightsGroupDialog
+                             ], data);
+
     // Get right info
     this->rightsinfo := GetRightsInfoObject(this->tolliumuser);
     this->pvt_objectid := data.objectid;
 
-    STRING rightname := CellExists(data, "RIGHTNAME") ? data.rightname : "";
-    IF (rightname = "")
+    /* We find 'a' right we can grant, and if that works, we use that as the anhor for figuring out related rights
+      (same group and global/objectspecific). */
+    STRING rightname;
+    IF (data.rightsgroup != "")
     {
-      IF (CellExists(data, "RIGHTSGROUP") AND data.rightsgroup != "")
-      {
-        rightname :=
-            SELECT AS STRING name
-              FROM this->rightsinfo->rights
-             WHERE rightsgroup = data.rightsgroup
-               AND isglobal;
+      rightname :=
+          SELECT AS STRING name
+            FROM this->rightsinfo->rights
+           WHERE rightsgroup = data.rightsgroup
+             AND isglobal;
 
-        IF (rightname = "")
-        {
-          this->RunMessageBox("system:userrights.commondialogs.norightsonobject", "1", data.rightsgroup);
-          this->tolliumresult := "cancel";
-          RETURN;
-        }
-      }
-      ELSE
-      {
-        rightname :=
-            SELECT AS STRING name
-              FROM this->rightsinfo->rights
-             WHERE objecttypename = data.objecttypename;
+      IF (rightname = "")
+        THROW NEW Exception(`No global rights in group '${data.rightsgroup}'`); //dialog should not have been invoked!
+    }
+    ELSE
+    {
+      rightname :=
+          SELECT AS STRING name
+            FROM this->rightsinfo->rights
+           WHERE objecttypename = data.objecttypename;
 
-        IF (rightname = "")
-        {
-          this->RunMessageBox("system:userrights.commondialogs.norightsonobject", "2", data.objecttypename);
-          this->tolliumresult := "cancel";
-          RETURN;
-        }
-      }
+      IF (rightname = "")
+        THROW NEW Exception(`No rights for objecttype '${data.objecttypename}'`); //dialog should not have been invoked!
     }
 
     this->selectright->Init(
@@ -111,10 +105,6 @@ PUBLIC OBJECTTYPE AddGrantOnObject EXTEND TolliumScreenBase
     this->selectuserrole->InitForCommonDialog();
     this->selectuserrole->selectmode := "multiple";
     this->selectuserrole->onopen := PTR this->UserRoleClicked;
-
-    OBJECT ARRAY grantees := CellExists(data, "GRANTEES") ? data.grantees : DEFAULT OBJECT ARRAY;
-    IF (LENGTH(grantees) != 0)
-      this->selectuserrole->value := grantees;
 
     RECORD rightdata := this->rightsinfo->GetRightByName(rightname);
     IF (rightdata.isglobal)
@@ -175,10 +165,11 @@ PUBLIC OBJECTTYPE AddGrantOnObject EXTEND TolliumScreenBase
 
       IF (RecordExists(existing_grants))
       {
+        //Make it an error. It used to be a warning BUT it's weird to see a "user already has this right!" and then the dailog still closes..
         IF (grantee_is_user)
-          work->AddWarning(GetTid("system:userrights.errors.useralreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+          work->AddError(GetTid("system:userrights.errors.useralreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
         ELSE
-          work->AddWarning(GetTid("system:userrights.errors.rolealreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
+          work->AddError(GetTid("system:userrights.errors.rolealreadyhasgrantforright", grantee->GetUserRightsName(), this->rightsinfo->GetRightTitle(right_name)));
       }
       ELSE
         INSERT grantee INTO valid_grantees AT END;
