@@ -6,10 +6,12 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 INTEGER publisher_index, publisher_source;
 
@@ -127,4 +129,16 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
 
   RETURN results;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ListPublisherContentSourcesFor(INTEGER fsobjid)
+{
+  INTEGER ARRAY tree := GetWHFSTree(fsobjid, 0);
+  RETURN SELECT catalog := indexid
+              , contentsource := id
+           FROM consilio.contentsources
+          WHERE fsobject IN tree
+                AND contentprovider = "publisher:webhare"
+                AND status >= 0 //not disabled
+                AND tag NOT LIKE "$consilio$deleted$*";
 }

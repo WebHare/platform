@@ -11,14 +11,10 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 
-INTEGER indexid;
-INTEGER contentsource;
-
 OBJECT search_obj;
 
 MACRO TestThesaurus()
 {
-  search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
 
   // Prefix for object/group ids, just to stress the itf
   STRING idprefix := "\n\r\t()[]{}^$+-%!\"";//" \n\r\t()[]{}^$+-%!\"";
@@ -28,18 +24,20 @@ MACRO TestThesaurus()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
-  contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
-      , maxgroupobjects :=      1000
+  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
+  Print(`consilio:testfw_thesaurus => ${testcatalog->indexname}\n`); //having indexnames makes log analysis easier
+
+  OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "module::webhare_testsuite/consilio/dbindex.whlib#DBContent",
+      [ maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]);
 
   testfw->CommitWork();
+  search_obj := OpenSearchObject("en", "consilio:testfw_thesaurus");
 
   // Clear the index
-  CheckConsilioIndex(indexid);
-  testfw->WaitQueueEmpty();
+  contentsource->ReindexContentSource([rebuild := TRUE]);
+  contentsource->WaitForIndexingDone();
 
   testfw->BeginWork();
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
@@ -47,17 +45,17 @@ MACRO TestThesaurus()
   testfw->CommitWork();
 
   // Rebuild the index
-  CheckConsilioIndex(indexid);
-  testfw->WaitQueueEmpty();
+  contentsource->ReindexContentSource([rebuild := TRUE]);
+  contentsource->WaitForIndexingDone();
 
   // Search
-  RECORD res := search_obj->Search("+contentsource:"||contentsource||" +a", 0, 1000);
+  RECORD res := search_obj->Search("+contentsource:"||contentsource->id||" +a", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +b", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +b", 0, 1000);
   TestEq(0, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:a", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:a", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:b", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:b", 0, 1000);
   TestEq(0, Length(res.results));
 
 
@@ -65,30 +63,30 @@ MACRO TestThesaurus()
   testfw->BeginWork();
   INTEGER wordgroupid := (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
   INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
-       VALUES(indexid, wordgroupid, "a");
+       VALUES(testcatalog->id, wordgroupid, "a");
   INSERT INTO consilio.thesaurus(indexid, wordgroup, word)
-       VALUES(indexid, wordgroupid, "b");
+       VALUES(testcatalog->id, wordgroupid, "b");
   testfw->CommitWork();
 
   // Search again
-  res := search_obj->Search("+contentsource:"||contentsource||" +a", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +a", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +b", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +b", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:a", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:a", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:b", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:b", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:\"a\"", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:\"a\"", 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->Search("+contentsource:"||contentsource||" +body:\"b\"", 0, 1000);
+  res := search_obj->Search("+contentsource:"||contentsource->id||" +body:\"b\"", 0, 1000);
   TestEq(0, Length(res.results)); // Phrase queries are treated as exact match queries
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("a") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
   TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("b") ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(0, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource), CQParseUserQuery("b", [ thesaurusid := indexid ]) ]), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("contentsource", "=", contentsource->id), CQParseUserQuery("b", [ thesaurusid := testcatalog->id ]) ]), 0, 1000);
   TestEq(1, Length(res.results));
 
   //Ensure toplevel CQParseUserQuery doesn't crash
@@ -98,15 +96,14 @@ MACRO TestThesaurus()
   DELETE FROM webhare_testsuite.consilio_index;
   testfw->CommitWork();
 
-  UpdateConsilioIndex(indexid);
-  testfw->WaitQueueEmpty();
+  contentsource->ReindexContentSource();
+  contentsource->WaitForIndexingDone();
 }
 
 
 RunTestframework(
     [ PTR TestThesaurus ],
-    [ consilio := TRUE
-    , testusers :=
+    [ testusers :=
         [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
         ]
     ]);

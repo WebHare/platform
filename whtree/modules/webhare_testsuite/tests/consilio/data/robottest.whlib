@@ -1,0 +1,22 @@
+<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC STATIC OBJECTTYPE RobotTestPage EXTEND WebPageBase
+<
+  INTEGER pagenum;
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    this->pagenum := ToInteger(GetWebVariable("page"), 0);
+
+    IF (this->pagenum = 0)
+    {
+      RECORD settings := this->webdesign->targetobject->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest");
+      this->webdesign->robotstag.noindex := settings.noindex;
+      this->webdesign->robotstag.nofollow := settings.nofollow;
+    }
+
+    RETURN PTR Print(`<p>page ${this->pagenum}${this->pagenum = 0 ? `<a href="${EncodeValue(GetRequestUrl())}?page=1">next</a>` : ''}</p>`);
+  }
+>;

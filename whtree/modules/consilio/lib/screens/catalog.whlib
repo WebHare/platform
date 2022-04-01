@@ -332,24 +332,23 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmupdatecatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
       RETURN;
-
-    OBJECT catalog := OpenConsilioCatalogById(^catalogs->selection.catalogid);
-    IF (^catalogs->selection.contentsource)
-      catalog->OpenContentSourceById(^catalogs->selection.id)->RescanContentSource();
-    ELSE FOREVERY(RECORD csource FROM catalog->ListContentSources())
-      catalog->OpenContentSourceById(csource.id)->RescanContentSource();
+    this->ReindexSelection(FALSE);
   }
 
   MACRO DoRebuildCatalog()
   {
     IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmrebuildcatalog", ^catalogs->selection.title ?? ^catalogs->selection.tag)) != "yes")
       RETURN;
+    this->ReindexSelection(TRUE);
+  }
 
+  MACRO ReindexSelection(BOOLEAN rebuild)
+  {
     OBJECT catalog := OpenConsilioCatalogById(^catalogs->selection.catalogid);
     IF (^catalogs->selection.contentsource)
-      catalog->OpenContentSourceById(^catalogs->selection.id)->RebuildContentSource();
+      catalog->OpenContentSourceById(^catalogs->selection.id)->ReindexContentSource(CELL[rebuild]);
     ELSE FOREVERY(RECORD csource FROM catalog->ListContentSources())
-      catalog->OpenContentSourceById(csource.id)->RebuildContentSource();
+      catalog->OpenContentSourceById(csource.id)->ReindexContentSource(CELL[rebuild]);
   }
 
   MACRO DoCatalogThesaurus()

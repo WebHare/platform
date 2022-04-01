@@ -518,7 +518,7 @@ MACRO TestUpdateCheckIndex()
   //moved these tests to the end as they can be slow on a large database
   // Update the index, both objects should still be present
   OBJECT fsobjectssource := OpenConsilioCatalog(whconstant_consilio_catalog_whfs)->OpenContentSource("publisher:fsobjects");
-  fsobjectssource->RescanContentSource();
+  fsobjectssource->ReindexContentSource();
   fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
 
   INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
@@ -526,7 +526,7 @@ MACRO TestUpdateCheckIndex()
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 
   // Check the index, both objects should still be present
-  fsobjectssource->RebuildContentSource();
+  fsobjectssource->ReindexContentSource([ rebuild := TRUE ]);
   fsobjectssource->WaitForIndexingDone([ verbose := TRUE ]);
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));

@@ -68,7 +68,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
 
     IF(NOT settings.dryrun)
     {
-      OpenConsilioCatalogById(contentsource.catalogid)->OpenContentSourceById(contentsource.id)->RescanContentSource();
+      OpenConsilioCatalogById(contentsource.catalogid)->OpenContentSourceById(contentsource.id)->ReindexContentSource();
     }
 
     // Update the lastcontentscheck data field
@@ -164,7 +164,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
           CONTINUE;
       }
 
-      csource->RebuildGroup(ToString(page));
+      csource->ReindexGroup(ToString(page), [ rebuild := TRUE ]);
     }
   }
 
