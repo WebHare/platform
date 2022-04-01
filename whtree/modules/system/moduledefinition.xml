@@ -142,7 +142,7 @@
     <dashboardpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
     <dashboardpanel group="ap" name="clusterservices" tid="monitor.clusterservices.title" screen="tolliumapps/dashboard/clusterservices.xml#clusterservices" />
     <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
-    <dashboardpanel group="ap" name="apprunner" tid="monitor.apprunner.title" screen="monitor/apprunner.apprunner" />
+    <dashboardpanel group="ap" name="servicemanager" tid="tolliumapps.dashboard.servicemanager.servicemanager" screen="tolliumapps/dashboard/servicemanager.xml" />
     <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
 
     <dashboardpanel group="database" name="postgresqlsettings" tid="monitor.postgresql.settings" screen="monitor/postgresql.postgresqlsettings" ifenvironset="WEBHARE_DBASENAME"  />

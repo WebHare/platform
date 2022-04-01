@@ -256,9 +256,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="apprunner">   <!-- monitor.apprunner -->
-      <text tid="title">Service manager</text>
-    </textgroup>
     <textgroup gid="apps">   <!-- monitor.apps -->
       <text tid="box_appusers">Users of application <param p="1"/></text>
       <text tid="box_runningapps">Application in use</text>
@@ -960,39 +957,6 @@
       <text tid="title">Ad hoc cache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
-    <textgroup gid="apprunner">   <!-- sysmgmt.apprunner -->
-      <text tid="addappdata">Add a service</text>
-      <text tid="appmenu">Services</text>
-      <text tid="duplicatename">A service with this name already exists.<br/><br/>Please choose another name for the service.</text>
-      <text tid="editappdata">Edit service properties</text>
-      <text tid="illegalname">The name of the service contains illegal characters. <br/><br/>Please only use letters, digits, underscores and hyphens.</text>
-      <text tid="inactive">Inactive</text>
-      <text tid="lasterror">Last message</text>
-      <text tid="name">Name</text>
-      <text tid="notrunning">Not running</text>
-      <text tid="ondemand">On demand</text>
-      <text tid="persistent">Persistent</text>
-      <text tid="running">Running</text>
-      <text tid="since">Since</text>
-      <text tid="title">Service manager</text>
-      <text tid="type">Type</text>
-      <text tid="unknown">Unknown</text>
-      <textgroup gid="actions">   <!-- sysmgmt.apprunner.actions -->
-        <text tid="refresh">Refresh</text>
-        <text tid="reload">Reload</text>
-        <text tid="restart">Restart</text>
-      </textgroup>
-      <textgroup gid="editappdata">   <!-- sysmgmt.apprunner.editappdata -->
-        <text tid="cmdline">Command line</text>
-        <text tid="editappdata">Edit service '<param p="1"/>'</text>
-        <text tid="name">Name</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
-        <text tid="apprunnergone">The service manager proces cannot be contacted.</text>
-        <text tid="deleteapp">Are you sure you want to delete service '<param p="1"/>'?</text>
-        <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
       <text tid="appmenu">Registry</text>
       <text tid="name">Name</text>
@@ -1205,11 +1169,6 @@
         <text tid="webdav_folder">Manage WebDav data folder</text>
         <text tid="webdavdata">WebDAV folder properties</text>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="system">   <!-- system -->
-    <textgroup gid="apprunner">   <!-- system.apprunner -->
-      <text tid="apprunnerdown">The service manager is unavaialble</text>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
@@ -1627,6 +1586,21 @@
           <text tid="sender">Sender</text>
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
+        <text tid="apprunnerdown">The service manager is unavaialble</text>
+        <text tid="inactive">Inactive</text>
+        <text tid="lasterror">Last message</text>
+        <text tid="name">Name</text>
+        <text tid="notrunning">Not running</text>
+        <text tid="ondemand">On demand</text>
+        <text tid="persistent">Persistent</text>
+        <text tid="restart">Restart</text>
+        <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
+        <text tid="running">Running</text>
+        <text tid="servicemanager">Service manager</text>
+        <text tid="since">Since</text>
+        <text tid="type">Type</text>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
         <text tid="allunits">This message will be displayed to all users.<br/> Add units to only show the message to those units.</text>

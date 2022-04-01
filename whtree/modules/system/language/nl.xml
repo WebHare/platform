@@ -71,9 +71,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="apprunner">   <!-- monitor.apprunner -->
-      <text tid="title">Service beheer</text>
-    </textgroup>
     <textgroup gid="apps">   <!-- monitor.apps -->
       <text tid="box_appusers">Gebruikers van applicatie <param p="1"/></text>
       <text tid="box_runningapps">Applicaties die in gebruik zijn</text>
@@ -765,39 +762,6 @@
       <text tid="title">Ad-hoccache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
-    <textgroup gid="apprunner">   <!-- sysmgmt.apprunner -->
-      <text tid="addappdata">Voeg een service toe</text>
-      <text tid="appmenu">Services</text>
-      <text tid="duplicatename">Er bestaat al een service met deze naam.<br/><br/>Kies a.u.b. een andere naam voor de service.</text>
-      <text tid="editappdata">Bewerk service-eigenschappen</text>
-      <text tid="illegalname">De naam van de service bevat ongeldige karakters. <br/><br/>Gebruik a.u.b. alleen letters, cijfers, liggende streepjes (onderstrepingstekens) en afbreekstreepjes.</text>
-      <text tid="inactive">Inactief</text>
-      <text tid="lasterror">Laatste bericht</text>
-      <text tid="name">Naam</text>
-      <text tid="notrunning">Draait niet</text>
-      <text tid="ondemand">Op aanvraag</text>
-      <text tid="persistent">Permanent</text>
-      <text tid="running">Draait</text>
-      <text tid="since">Sinds</text>
-      <text tid="title">Servicebeheer</text>
-      <text tid="type">Type</text>
-      <text tid="unknown">Onbekend</text>
-      <textgroup gid="actions">   <!-- sysmgmt.apprunner.actions -->
-        <text tid="refresh">Verversen</text>
-        <text tid="reload">Herladen</text>
-        <text tid="restart">Herstarten</text>
-      </textgroup>
-      <textgroup gid="editappdata">   <!-- sysmgmt.apprunner.editappdata -->
-        <text tid="cmdline">Opdrachtregel</text>
-        <text tid="editappdata">Bewerk service '<param p="1"/>'</text>
-        <text tid="name">Naam</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
-        <text tid="apprunnergone">Het servicebeheerproces kan niet worden bereikt.</text>
-        <text tid="deleteapp">Weet je zeker dat je service '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="restartfailed">Herstart van de service is mislukt. <br/><br/>Controleer a.u.b. of de opdrachtregel correct is.</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
       <text tid="appmenu">Register</text>
       <text tid="name">Naam</text>
@@ -1010,11 +974,6 @@
         <text tid="webdav_folder">WebDav-gegevensmap beheren</text>
         <text tid="webdavdata">WebDAV-map eigenschappen</text>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="system">   <!-- system -->
-    <textgroup gid="apprunner">   <!-- system.apprunner -->
-      <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
@@ -1432,6 +1391,21 @@
           <text tid="sender">Verstuurder</text>
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
+        <text tid="apprunnerdown">De servicebeheerder is niet beschikbaar</text>
+        <text tid="inactive">Inactief</text>
+        <text tid="lasterror">Laatste bericht</text>
+        <text tid="name">Naam</text>
+        <text tid="notrunning">Draait niet</text>
+        <text tid="ondemand">Op aanvraag</text>
+        <text tid="persistent">Permanent</text>
+        <text tid="restart">Herstarten</text>
+        <text tid="restartfailed">Herstart van de service is mislukt. <br/><br/>Controleer a.u.b. of de opdrachtregel correct is.</text>
+        <text tid="running">Draait</text>
+        <text tid="servicemanager">Servicebeheer</text>
+        <text tid="since">Sinds</text>
+        <text tid="type">Type</text>
       </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
         <text tid="allunits">Dit bericht wordt standaard aan alle gebruikers getoond.<br/> Voeg eenheden toe om de weergave tot die eenheden te beperken.</text>
