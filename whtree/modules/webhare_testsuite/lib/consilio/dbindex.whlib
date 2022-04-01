@@ -17,9 +17,11 @@ PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
     RECORD ARRAY mapping := this->defaultmapping CONCAT
-        [ [ name := "_body",         suggested := TRUE ]
+        [ [ name := "_body",         tokenized := TRUE, suggested := TRUE ]
         , [ name := "initialfilter", value := "", tokenized := FALSE ]
         , [ name := "date_adate",    value := DEFAULT DATETIME ]
+        , [ name := "datafrom",      value := "", tokenized := FALSE ]
+        , [ name := "indexed_by",    value := "", tokenized := FALSE ]
         ];
     RETURN mapping;
   }

@@ -547,7 +547,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   RECORD ARRAY FUNCTION GetDefaultMapping(RECORD mapping DEFAULTSTO DEFAULT RECORD)
   {
     RETURN
-        SELECT name := name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name
+        SELECT name := ToLowercase(name IN [ "SCORE", "SUMMARY" ] ? "_" || name : name)
              , value
              , tokenized := CellExists(mapping, "tokenized") ? tokenized : TRUE
              , suggested := CellExists(mapping, "suggested") ? suggested : FALSE
@@ -636,7 +636,7 @@ PUBLIC BOOLEAN FUNCTION UpdateContentSourceFields(OBJECT contentprovider)
         SELECT *
              , idx := #existingfields
           FROM existingfields
-         WHERE name = field.name;
+         WHERE ToUppercase(name) = ToUppercase(field.name);
     IF (NOT RecordExists(existing))
     {
       anychanges := TRUE;
@@ -644,17 +644,26 @@ PUBLIC BOOLEAN FUNCTION UpdateContentSourceFields(OBJECT contentprovider)
       INSERT INTO consilio.contentsourcefields(contentsourceid, name, defaultvalue, tokenized, suggested)
              VALUES(contentprovider->contentsourceid, field.name, field_value, field_tokenized, field_suggested);
     }
-    ELSE IF (existing.defaultvalue != field_value
-        OR existing.tokenized != field_tokenized
-        OR existing.suggested != field_suggested)
+    ELSE
     {
-      anychanges := TRUE;
-      // Update the existing field
-      UPDATE consilio.contentsourcefields
-         SET defaultvalue := field_value
-           , tokenized := field_tokenized
-           , suggested := field_suggested
-       WHERE id = existing.id;
+      IF (existing.defaultvalue != field_value
+          OR existing.tokenized != field_tokenized
+          OR existing.suggested != field_suggested)
+      {
+        anychanges := TRUE;
+        // Update the existing field
+        UPDATE consilio.contentsourcefields
+           SET defaultvalue := field_value
+             , tokenized := field_tokenized
+             , suggested := field_suggested
+         WHERE id = existing.id;
+      }
+      // Case changed from upper to lower (we used to store UnpackRecord's field names, but we now default to lowercase for
+      // better compatibility with OpenSearch)
+      IF (existing.name != field.name)
+        UPDATE consilio.contentsourcefields
+           SET name := field.name
+         WHERE id = existing.id;
     }
     // Remove the existing field from the list, so it isn't deleted afterwards
     IF (RecordExists(existing))

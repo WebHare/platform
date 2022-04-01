@@ -26,9 +26,13 @@ PUBLIC CONSTANT INTEGER session_timeout := 15;
 
 /// Some default field mapping for Elasticsearch content sources
 PUBLIC CONSTANT RECORD defaultmappingfields :=
-    [ indexid :=       [ type := "keyword" ]
-    , groupid :=       [ type := "keyword" ]
-    , objectid :=      [ type := "keyword" ]
-    , initialfilter := [ type := "keyword" ]
-    , body :=          [ type := "text" ]
+    [ indexid :=         [ type := "keyword" ]
+    , groupid :=         [ type := "keyword" ]
+    , objectid :=        [ type := "keyword" ]
+    , initialfilter :=   [ type := "keyword" ]
+    , date_indexdate :=  [ type := "date" ]
+    , date_indexed :=    [ type := "date" ]
+    , contentprovider := [ type := "keyword" ]
+    , contentsource :=   [ type := "keyword" ]
+    , body :=            [ type := "text" ]
     ];
