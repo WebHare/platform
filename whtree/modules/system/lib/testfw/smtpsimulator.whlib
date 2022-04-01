@@ -134,6 +134,7 @@ STATIC OBJECTTYPE SMTPReceiver
       RECORD email := DecodeMIMEMessage(inemail.data);
       email := CELL[ ...email
                    , receiver := email.tos
+                   , sender := `<${inemail.sender.mailbox_local}@${inemail.sender.mailbox_domain}>`
                    ];
       INSERT ProcessExtractedMail(email) INTO outmails AT END;
     }

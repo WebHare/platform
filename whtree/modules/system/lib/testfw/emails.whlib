@@ -21,6 +21,7 @@ PUBLIC RECORD FUNCTION ProcessExtractedMail(RECORD email)
                         , plaintext := ""
                         , subject := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="SUBJECT")
                         , messageid := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="MESSAGE-ID")
+                        , mailfrom := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="FROM")
                         , toppart := email.data
                         , email.receiver
                         ];

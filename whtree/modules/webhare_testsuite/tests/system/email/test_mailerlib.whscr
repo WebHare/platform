@@ -218,17 +218,21 @@ MACRO EmbedTest_PrepareMail()
   resultmessage := DecodeMIMEMessage(emlversion);
   TestEq("Hello <info@example.net>", resultmessage.sender);
 
-  composer->mailsendername := "Info";
+  composer->mailsendername := "Your Info";
   emlversion := composer->ExportAsEML();
   resultmessage := DecodeMIMEMessage(emlversion);
-  TestEq("Info <info@example.net>", resultmessage.sender);
+  TestEq("Your Info <info@example.net>", resultmessage.sender);
 
+  testfw->BeginWork();
+  composer->mailcc := STRING[];
+  composer->mailto := "testenvelope@beta.webhare.net";
+  composer->QueueMailInWork();
+  testfw->CommitWork();
 
-  //ADDME not sure if we want to support recoding EML in the new composer
-  //composer := MakeEmailComposer();
-  //composer->SetRichBody(emlversion,"message/rfc822");
-  //resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
-  //TestResultMessage2(resultmessage);
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("testenvelope@beta.webhare.net", [ count := 1 ]);
+  dumpvalue(mails[0],'tree');
+  TestEq('Your Info <info@example.net>', mails[0].mailfrom);
+  TestEq("<info@example.net>", mails[0].envelope_sender);
 }
 
 
