@@ -1,12 +1,20 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internet/mime.whlib";
 
-OBJECTTYPE SMTPReceiver
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testfw/emails.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/testfw/networking.whlib";
+
+
+STATIC OBJECTTYPE SMTPReceiver
 < OBJECT pvt_job;
   INTEGER pvt_callback;
 
   RECORD ARRAY pvt_messages;
+  INTEGER seqnr;
 
   INTEGER pvt_connectioncount;
 
@@ -35,7 +43,9 @@ OBJECTTYPE SMTPReceiver
   RECORD ARRAY FUNCTION GetMessages()
   {
     WHILE (this->pvt_job->ipclink->IsSignalled())
-      this->ReceiveMessage();
+      IF (NOT this->ReceiveMessage()) //abort loop if the job is in error
+        BREAK;
+
     RETURN this->pvt_messages;
   }
 
@@ -54,12 +64,18 @@ OBJECTTYPE SMTPReceiver
         UnregisterCallback(this->pvt_callback);
       this->pvt_callback := 0;
       IF (LENGTH(this->pvt_job->GetErrors()) != 0)
-        PRINT("Job errors:\n" || AnyToString(this->pvt_job->GetErrors(), "tree"));
+      {
+        PrintTo(2,"Job errors\n");
+        DumpValue(this->pvt_job->GetErrors(), "boxed");
+      }
     }
     ELSE IF (rec.status = "ok")
     {
       IF (rec.msg.type = "message")
-        INSERT rec.msg.msg INTO this->pvt_messages AT END;
+      {
+        this->seqnr := this->seqnr + 1;
+        INSERT CELL[id := this->seqnr, ...rec.msg.msg] INTO this->pvt_messages AT END;
+      }
       IF (rec.msg.type = "newconnection")
         this->pvt_connectioncount := this->pvt_connectioncount + 1;
       RETURN TRUE;
@@ -100,6 +116,65 @@ OBJECTTYPE SMTPReceiver
     this->pvt_job->Close();
     this->pvt_job := DEFAULT OBJECT;
   }
+
+  RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonly, INTEGER limitmails)
+  {
+    RECORD ARRAY emails := SELECT *
+                                //, maildata := DescribeManagedTask(id)
+                             FROM this->messages
+                            WHERE (emailaddress = "*" OR (Length(recipients) = 1 AND recipients[0].mailbox_local || "@" || recipients[0].mailbox_domain LIKE emailaddress))
+                            LIMIT limitmails;
+
+    IF(NOT peekonly)
+      DELETE FROM this->pvt_messages WHERE id IN (SELECT AS INTEGER ARRAY id FROM emails);
+
+    RECORD ARRAY outmails;
+    FOREVERY(RECORD inemail FROM emails)
+    {
+      RECORD email := DecodeMIMEMessage(inemail.data);
+      email := CELL[ ...email
+                   , receiver := email.tos
+                   , sender := `<${inemail.sender.mailbox_local}@${inemail.sender.mailbox_domain}>`
+                   ];
+      INSERT ProcessExtractedMail(email) INTO outmails AT END;
+    }
+
+    RETURN outmails;
+  }
+  RECORD ARRAY FUNCTION DoRetrieveEmails(STRING emailaddress, INTEGER timeout, INTEGER count, BOOLEAN peekonly, BOOLEAN returnallmail)
+  {
+    IF(timeout < 0 OR timeout > 60000)
+      THROW NEW Exception("Illegal timeout");
+    DATETIME waituntil := AddTimeToDate(timeout, GetCurrentDatetime());
+
+    RECORD ARRAY outmails;
+    WHILE(TRUE)
+    {
+      outmails := outmails CONCAT this->__TryGetEmails(emailaddress, peekonly, returnallmail ? 99999999 : count - Length(outmails));
+      IF(Length(outmails) >= count)
+        RETURN outmails;
+
+      IF(waituntil <= GetCurrentDatetime())
+      {
+        IF(count > 0)
+          THROW NEW Exception(`Timeout retrieving emails - expected ${returnallmail?"at least ":""}${count} emails, got ${Length(outmails)}`);
+
+        RETURN RECORD[];
+      }
+
+      Sleep(100);
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ peekonly := FALSE
+                               , timeout := 0
+                               , count := 1
+                               , returnallmail := FALSE
+                               ], options);
+    RETURN this->DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.returnallmail);
+  }
 >;
 
 MACRO OnCrash(OBJECT job)
@@ -135,3 +210,21 @@ PUBLIC OBJECT FUNCTION GetSMTPReceiver(STRING host, INTEGER port, RECORD options
 
   RETURN NEW SMTPReceiver(jobrec.job);
 }
+
+PUBLIC OBJECT FUNCTION SetupTestSMTPReceiver(STRING receivermask, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ bouncehandling := "SES"
+                             , directbouncemasks := STRING[]
+                             , connectdelay := 0
+                             ], options);
+  INTEGER mailserverport := GetAvailableServerPort();
+  OBJECT mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, options);
+
+  GetPrimary()->BeginWork();
+  INSERT INTO system_internal.mailqueue_route(tag, sendermask, serverurl, mask, ordering, description)
+         VALUES("webhare_testsuite:testsmtpreceiver", "*", "smtp://127.0.0.1:" || mailserverport, receivermask,-9999, "Created by SetupTestSMTPReceiver");
+  GetPrimary()->CommitWork();
+
+  RETURN mailserverobject;
+}
+

@@ -1,0 +1,40 @@
+<?wh
+
+/* wh webhare_testsuite:restructure-for-email ....
+   WEBHARE_DEBUG=apr,session=restructuring wh webhare_testsuite:restructure-for-email --loop 10 $(wh getmoduledir webhare_testsuite)/tests/system/email/data/restructure-1.in.html $(wh getmoduledir webhare_testsuite)/tests/system/email/data/restructure-1.out.html
+*/
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/mailer.whlib";
+
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "loop", type := "stringopt" ]
+                          , [ name := "input", type := "param", required := TRUE ]
+                          , [ name := "output", type := "param", required := TRUE ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+  IF(NOT RecordExists(cmdargs))
+    TerminateScriptWithError("Invalid syntax");
+
+  INTEGER loop := 1;
+  IF(cmdargs.loop != "")
+  {
+    loop := ToInteger(cmdargs.loop,-1);
+    IF(loop < 1)
+      TerminateScriptWithError("Invalid loop count");
+  }
+
+  FOR(INTEGER i := 0; i < loop; i := i + 1)
+  {
+    OBJECT input := MakeXMLDocumentFromHTML(GetDiskResource(cmdargs.input));
+    RestructureEmailForCompatibility(input);
+    StoreDiskFile(cmdargs.output, StringToBlob(input->outerhtml), [ overwrite := TRUE ]);
+  }
+}
+
+Main();

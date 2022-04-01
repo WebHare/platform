@@ -218,17 +218,21 @@ MACRO EmbedTest_PrepareMail()
   resultmessage := DecodeMIMEMessage(emlversion);
   TestEq("Hello <info@example.net>", resultmessage.sender);
 
-  composer->mailsendername := "Info";
+  composer->mailsendername := "Your Info";
   emlversion := composer->ExportAsEML();
   resultmessage := DecodeMIMEMessage(emlversion);
-  TestEq("Info <info@example.net>", resultmessage.sender);
+  TestEq("Your Info <info@example.net>", resultmessage.sender);
 
+  testfw->BeginWork();
+  composer->mailcc := STRING[];
+  composer->mailto := "testenvelope@beta.webhare.net";
+  composer->QueueMailInWork();
+  testfw->CommitWork();
 
-  //ADDME not sure if we want to support recoding EML in the new composer
-  //composer := MakeEmailComposer();
-  //composer->SetRichBody(emlversion,"message/rfc822");
-  //resultmessage := DecodeMIMEMessage(composer->ExportAsEML());
-  //TestResultMessage2(resultmessage);
+  RECORD ARRAY mails := testfw->ExtractAllMailFor("testenvelope@beta.webhare.net", [ count := 1 ]);
+  dumpvalue(mails[0],'tree');
+  TestEq('Your Info <info@example.net>', mails[0].mailfrom);
+  TestEq("<info@example.net>", mails[0].envelope_sender);
 }
 
 
@@ -543,39 +547,12 @@ MACRO RTEIntegrationTest()
   TestEq(Length(contentids), Length(imagesrcs));
 }
 
-STRING torestructure :=
-'<style>a { color:#dddddd; } </style>'
-|| '<div id="testlink"><a href="http://nu.nl/" style="font:12px Arial; text-decoration:none">De link</a></div>'
-|| '<div id="inlineanchortest"><a href="#inlineanchor" style="font:12px Arial; text-decoration:none">De link</a></div>'
-|| '<div id="oldinlineanchortest"><a name="#oldanchor" style="font:12px Arial; text-decoration:none">Old style anchor</a></div>';
-
-MACRO TestRestructure()
-{
-  OBJECT dom := MakeXMLDocumentFromHTML(StringToBlob(torestructure));
-  RestructureEmailForCompatibility(dom);
-
-  OBJECT node;
-
-  node := dom->GetElement("#testlink > a");
-  TestEQ("_blank", node->GetAttribute("target"), "Target should have been set to _blank");
-
-  node := dom->GetElement("#testlink > a > span");
-  TestEQ(TRUE, ObjectExists(node), "SPAN should have been inserted inside A");
-  TestEQ("color:#dddddd;text-decoration:none;", node->Getattribute("style"));
-
-  node := dom->GetElement("#inlineanchortest > a");
-  TestEQ("", node->GetAttribute("target"), "Inline anchor must not get an target");
-
-  node := dom->GetElement("#oldinlineanchortest > a");
-  TestEQ("", node->GetAttribute("target"), "<a name> must not get an target");
-}
-
 ASYNC MACRO TestMailWitty()
 {
   STRING mailtemplate := GetApplyTesterForObject(OpenTestsuiteSite()->id)->GetDefaultMailTemplate();
-  TestEQ("mod::webhare_testsuite/tests/system/testdata/mailtemplate/template.html.witty",mailtemplate);
+  TestEQ("mod::webhare_testsuite/tests/system/email/data/template.html.witty",mailtemplate);
 
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"), [ mailtemplate := mailtemplate ]);
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty"), [ mailtemplate := mailtemplate ]);
   outmail->mergerecord := [ firstname := "Pietje"
                           , thelink := "http://example.net/"
                           , extra := ""
@@ -741,7 +718,7 @@ MACRO TestMailWitty_EmbedSafety()
 
 MACRO TestMailWitty_EmbeddedTemplate()
 {
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/applytemplate.html.witty"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/applytemplate.html.witty"));
   outmail->mergerecord := [ firstname := "Yo!"
                           , hookedpreparemail := "Filler Because We Want To Test PrepareMailWitty Without A Webcontext"
                           ];
@@ -765,7 +742,7 @@ MACRO TestMailWitty_EmbeddedTemplate()
 
 MACRO TestMailWitty_Component()
 {
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty:mailcomponent"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty:mailcomponent"));
   outmail->mergerecord := [ firstname := "Lisa" ];
 
   BLOB eml := outmail->ExportAsEML();
@@ -803,7 +780,6 @@ RunTestframework([ PTR EmbedTest
                  , PTR EmbedTest_TestCache
                  , PTR MetaAttributesTest
                  , PTR MetaAttributesTest_PrepareMail
-                 , PTR TestRestructure
                  , PTR LinkingTest
                  , PTR ICSTEst
                  , PTR ICSTEst_PrepareWitty

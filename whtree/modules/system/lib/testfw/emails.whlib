@@ -11,6 +11,52 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
 
+PUBLIC RECORD FUNCTION ProcessExtractedMail(RECORD email)
+{
+  RECORD outmail := CELL[ envelope_sender := email.sender
+                        , email.headers
+                        , html := ""
+                        , links := DEFAULT RECORD ARRAY
+                        , linkbyid := DEFAULT RECORD
+                        , plaintext := ""
+                        , subject := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="SUBJECT")
+                        , messageid := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="MESSAGE-ID")
+                        , mailfrom := (SELECT AS STRING value FROM email.headers WHERE ToUppercase(field)="FROM")
+                        , toppart := email.data
+                        , email.receiver
+                        ];
+
+  RECORD htmlpart := GetEmailPrimaryMIMEPart(email.data, "text/html");
+  RECORD plaintextpart := GetEmailPrimaryMIMEPart(email.data, "text/plain");
+
+  IF(RecordExists(htmlpart))
+  {
+    OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlpart.data);
+    outmail.html := BlobToString(htmlpart.data,-1);
+
+    FOREVERY(OBJECT link FROM htmldoc->GetElementsByTagName("a")->GetCurrentElements())
+    {
+      RECORD l := [ tagname := link->tagname
+                  , id := link->GetAttribute("id")
+                  , classname := link->GetAttribute("class")
+                  , href := link->GetAttribute("href")
+                  , textcontent := link->textcontent
+                  ];
+      IF(l.id != "" AND NOT CellExists(outmail.linkbyid, l.id))
+        outmail.linkbyid := CellInsert(outmail.linkbyid, l.id, l);
+
+      INSERT l INTO outmail.links AT END;
+    }
+  }
+
+  IF(RecordExists(plaintextpart))
+  {
+    outmail.plaintext := BlobToString(plaintextpart.data,-1);
+  }
+
+  RETURN outmail;
+}
+
 PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonly, DATETIME scanaheaduntil, INTEGER limitmails)
 {
   IF(emailaddress NOT LIKE "*@beta.webhare.net" AND emailaddress NOT LIKE "*@*.beta.webhare.net")
@@ -41,48 +87,10 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
     INSERT [ field := "Message-ID", value := GenerateTaskMessageId(email.taskid)
            ] INTO email.mimeheaders AT END;
 
-    RECORD outmail := [ envelope_sender := email.sender
-                      , headers := email.mimeheaders
-                      , html := ""
-                      , links := DEFAULT RECORD ARRAY
-                      , linkbyid := DEFAULT RECORD
-                      , plaintext := ""
-                      , origin := email.origin
-                      , subject := (SELECT AS STRING value FROM email.mimeheaders WHERE ToUppercase(field)="SUBJECT")
-                      , messageid := (SELECT AS STRING value FROM email.mimeheaders WHERE ToUppercase(field)="MESSAGE-ID")
-                      , taskid := email.taskid
-                      , toppart := email.toppart
-                      , receiver := email.receiver
-                      ];
-
-    RECORD htmlpart := GetEmailPrimaryMIMEPart(email.toppart, "text/html");
-    RECORD plaintextpart := GetEmailPrimaryMIMEPart(email.toppart, "text/plain");
-
-    IF(RecordExists(htmlpart))
-    {
-      OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlpart.data);
-      outmail.html := BlobToString(htmlpart.data,-1);
-
-      FOREVERY(OBJECT link FROM htmldoc->GetElementsByTagName("a")->GetCurrentElements())
-      {
-        RECORD l := [ tagname := link->tagname
-                    , id := link->GetAttribute("id")
-                    , classname := link->GetAttribute("class")
-                    , href := link->GetAttribute("href")
-                    , textcontent := link->textcontent
-                    ];
-        IF(l.id != "" AND NOT CellExists(outmail.linkbyid, l.id))
-          outmail.linkbyid := CellInsert(outmail.linkbyid, l.id, l);
-
-        INSERT l INTO outmail.links AT END;
-      }
-    }
-
-    IF(RecordExists(plaintextpart))
-    {
-      outmail.plaintext := BlobToString(plaintextpart.data,-1);
-    }
-
+    RECORD outmail := CELL[ ...ProcessExtractedMail(CELL[ ...email, headers := email.mimeheaders, data := email.toppart ])
+                          , email.origin
+                          , email.taskid
+                          ];
     INSERT outmail INTO outmails AT END;
   }
 

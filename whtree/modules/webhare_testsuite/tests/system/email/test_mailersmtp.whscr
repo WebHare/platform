@@ -2,13 +2,15 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/testfw/networking.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testfw/emails.whlib";
@@ -18,25 +20,11 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
-
 OBJECT mailserverobject;
 
 MACRO Prepare()
 {
-  INTEGER mailserverport := testfw->GetServerPort();
-  STRING testmailserver := "smtp://127.0.0.1:" || mailserverport;
-  mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES"]);
-
-  testfw->BeginWork();
-  INSERT [ tag         := "webhare_testsuite:testmailersmtp"
-         , mask        := "*@smtp.beta.webhare.net"
-         , serverurl   := testmailserver
-         , sendermask  := "*@bounce.beta.webhare.net *@sender.beta.webhare.net"
-         , ordering    := -99999
-         , description := "Created by test_mailsersmtp"
-         ] INTO system.mailqueue_route;
-
-  testfw->CommitWork();
+  mailserverobject := SetupTestSMTPReceiver("to@smtp.beta.webhare.net", [ directbouncemasks := ["bounce.*"]]);
 }
 
 MACRO MailSendTest()
@@ -102,15 +90,12 @@ MACRO MailSendTest()
 
 MACRO MailSendInWorkTest()
 {
-  TestEq(0, Length(mailserverobject->messages), 'mailqueue should be empty at start of test');
-
-  OBJECT composer := MakeEmailComposer();
-  composer->mailfrom := "info@sender.beta.webhare.net";
+  OBJECT composer := PrepareMailWitty("inline::<p>This is the test.. &euro; € ümlaut ßß</p>");
+  composer->mailfrom := "A user <info@sender.beta.webhare.net>";
   composer->mailto := "to@smtp.beta.webhare.net";
   composer->subject := "A test of the mail€r service™";
-  composer->SetRichBody(StringToBlob("This is the test: &euro; € ümlaut ßß"), "text/plain");
 
-  TestThrows(PTR composer->QueueMailInWork());
+  TestThrowsLike('*requires open work',PTR composer->QueueMailInWork());
 
   testfw->BeginWork();
   composer->QueueMailInWork();
@@ -125,16 +110,14 @@ MACRO MailSendInWorkTest()
   testfw->CommitWork();
 
   RetrieveManagedTaskResult(mailid,MAX_DATETIME);
-  mails := mailserverobject->messages;
 
-//  mails := testfw->ExtractAllMailFor("to@beta.webhare.net", [ peekonly := TRUE ]);
+  mails := mailserverobject->ExtractAllMailFor("to@smtp.beta.webhare.net", [ count := 1, returnallmail := TRUE ]);
   TestEq(1, Length(mails));
 
-  RECORD mimemessage := DecodeMIMEMessage(mails[0].data);
-  //dumpvalue(mimemessage);
-
-  STRING messageid := SELECT AS STRING value FROM mimemessage.headers WHERE ToUppercase(field)="MESSAGE-ID";
-  TestEq(TRUE, messageid != "", 'Message should have a messageid');
+  STRING messageid := mails[0].messageid;
+  TestEqLike("?*", messageid, 'Message should have a messageid');
+  TestEq("A user <info@sender.beta.webhare.net>", mails[0].mailfrom);
+  TestEq("<info@sender.beta.webhare.net>", mails[0].envelope_sender);
   DATETIME maxwait := AddTimeToDate(60*1000, GetCurrentDatetime()); //timeout after one minute
   SendBounceToSNSEndpoint(messageid, "Delivery", "to@smtp.beta.webhare.net");
 
@@ -190,7 +173,7 @@ MACRO MailNewComposerSendTest()
 {
   mailserverobject->DeleteAllMessages();
 
-  OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/simplemail.html.witty"));
+  OBJECT outmail := PrepareMailWitty(Resolve("data/simplemail.html.witty"));
   outmail->mergerecord := [ firstname := "Pietje"
                           , thelink := "http://example.net/"
                           , extra := ""
@@ -252,10 +235,13 @@ MACRO SMTPManagerTest()
 {
   /* On macOS this test requires:
      sudo ifconfig lo0 alias 127.0.0.2
-     sudo ifconfig lo0 alias 127.0.0.3 */
+     sudo ifconfig lo0 alias 127.0.0.3
+     */
+
+  TestEq(["127.0.0.1","127.0.0.2","127.0.0.3"], GetSortedSet(ResolveHostnameAllIPs("localhosts.beta.webhare.net")),"localhosts.beta.webhare.net isn't resolving properly. You may need to fix DNS Rebind Protection on your router");
 
   // Open receiver on a fresh port
-  INTEGER mgr_mailserverport := testfw->GetServerPort();
+  INTEGER mgr_mailserverport := GetAvailableServerPort();
   OBJECT mgr_mailserverobject := GetSMTPReceiver("0.0.0.0", mgr_mailserverport, [ directbouncemasks := ["bounce.*"], bouncehandling := "SES" ]);
 
   OBJECT mgr := NEW WebHareSMTPManager();
@@ -263,8 +249,7 @@ MACRO SMTPManagerTest()
   mgr->maxconnectionidle := 500; // keep for .5 sec
 
   // See if no connections are opened for all 127.0.0.X addresses that localhosts.beta.webhare.net returns
-  mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
-  TestEQ(1, mgr_mailserverobject->connectioncount);
+  TestEQ(0, mgr_mailserverobject->connectioncount);
 
   mgr->GetSMTPConnection(`smtp://localhosts.beta.webhare.net:${mgr_mailserverport}`);
   TestEQ(1, mgr_mailserverobject->connectioncount);

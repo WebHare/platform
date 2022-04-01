@@ -3,6 +3,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
@@ -29,6 +31,8 @@ RECORD FUNCTION ExecuteTask(OBJECT taskrunner, RECORD taskinfo)
 {
   IF(taskrunner->debug)
     Print("Handling task of type " || taskinfo.tasktype || "\n");
+
+  SetTidLanguage("en"); //reset the current language, mail tasks might change it
 
   IF(NOT RecordExists(taskrunner->pvt_resolution))
     taskrunner->RunTask(taskinfo.data);
