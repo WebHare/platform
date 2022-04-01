@@ -1,6 +1,6 @@
 <?wh
 
-//export files stuff so our users can exclude LOADLIB wh::files.whlib and see which calls aren't intercetped
+//export files stuff so our users can exclude LOADLIB wh::files.whlib and see which calls aren't intercepted
 LOADLIB "wh::files.whlib" EXPORT IsPathAbsolute, ReadDiskDirectory, MergePath, GetLasTOSError
                                , GetDiskFileProperties, GenerateTemporaryPathnameFromBasepath
                                , GetFilelength, CloseDiskfile, WrapBlob, GetDiskResource
