@@ -1,0 +1,84 @@
+<?wh
+// command: users [subcommand]
+// short: Manage users
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/smtp.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+MACRO AddUser(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "sysop", type := "switch"  ]
+      , [ name := "password", type := "stringopt"  ]
+      , [ name := "username", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh users adduser [--password pwd] [--sysop] <username>\n");
+    TerminateScriptWithError("");
+  }
+
+  GetPrimary()->BeginWork();
+
+  OBJECT userapi := GetPrimaryWebhareUserApi();
+  IF(RecordExists(userapi->LookupUserByLogin(subargs.username)))
+    TerminateScriptWithError(`A user with login '${subargs.username}' already exists`);
+
+  INTEGER usersunit := userapi->wrdschema->^whuser_unit->Search("WRD_TITLE","Users", [ matchcase := FALSE ]);
+  IF(usersunit = 0)
+    usersunit := userapi->wrdschema->^whuser_unit->CreateEntity([wrd_title := "Users"])->id;
+
+  RECORD newuser := [ whuser_unit := usersunit ];
+  newuser := CellInsert(newuser, userapi->wrdschema->accountlogintag, subargs.username);
+  IF(subargs.password != "")
+    newuser := CellInsert(newuser, userapi->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash(subargs.password)));
+  IF(IsValidEmailAddress(subargs.username) AND userapi->wrdschema->accountlogintag != userapi->wrdschema->accountemailtag)
+    newuser := CellInsert(newuser, userapi->wrdschema->accountemailtag, subargs.username);
+
+  INTEGER newuserid := userapi->CreateUser(newuser);
+  IF(subargs.sysop)
+  {
+    OBJECT sysopobj := userapi->GetUser(newuserid);
+    sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted through wh adduser");
+  }
+
+  //TODO now that we have both adduser and override tokens, should we even risk running a 'needsysop' screen?
+  WriteRegistryKey("system.backend.security.needsysop", FALSE);
+  GetPrimary()->CommitWork();
+}
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
+                          , [ name := "params", type := "paramlist" ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+
+
+  SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
+  {
+    CASE "adduser"
+    {
+      AddUser(cmdargs.params);
+    }
+    DEFAULT
+    {
+      Print("Syntax: wh users <command>\n");
+      Print("  adduser: Add a user\n");
+      TerminateScriptWithError("");
+    }
+  }
+}
+
+OpenPrimary();
+Main();

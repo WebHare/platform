@@ -36,6 +36,7 @@ RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
               , filelink := file.filelink
               , url := file.url
               , folderurl := folder.url
+              , file.whfspath
            FROM system.fs_objects AS file
               , system.fs_objects AS folder
               , system.sites   AS site
@@ -346,6 +347,10 @@ STATIC OBJECTTYPE PublicationRun
   //    warnings := context->warnings;
   //    totalsize := context->totalsize;
     this->outputmedia->Finish();
+
+    IF(IsDebugTagEnabled("publisher:localfs"))
+      LogDebug("publisher:localfs", "OutputMedia finished", CELL[ this->outputmedia->current_error ]);
+
     IF (this->outputmedia->AnyError())
     {
       this->errorcode := this->outputmedia->current_error.code;
@@ -538,6 +543,9 @@ STATIC OBJECTTYPE PublicationRun
     BOOLEAN capturesubpaths := ObjectExists(this->contentfiletype) AND this->contentfiletype->capturesubpaths;
     IF (NOT this->CheckCaptureSubUrls(capturesubpaths))
       RETURN FALSE;
+
+    IF(IsDebugTagEnabled("publisher:localfs"))
+      LogDebug("publisher:localfs", "OpenOutput", CELL[ this->filedata.fileid, this->filedata.whfspath, this->publish_as_subdir, this->publish_as_index, capturesubpaths, this->outputsettings ]);
 
     this->outputmedia := this->outputdriver->CreatePublicationOutput(
             this->ToFSCase(this->filedata.filename),

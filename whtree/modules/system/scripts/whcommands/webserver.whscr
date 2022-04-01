@@ -196,8 +196,8 @@ MACRO ListPorts(STRING ARRAY params)
                 , *
                 , keyname := RecordExists(matchkey) ? matchkey.name : ""
              FROM ports;
-  //*, keypair :=
-  dumpvalue(ports,'boxed');
+
+  dumpvalue(ports, [ format := 'boxed', name := "" ]);
 }
 
 MACRO Reset(STRING ARRAY params)

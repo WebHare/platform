@@ -143,6 +143,37 @@ IF (IsDatabaseWritable())
   LogDebug("system:poststart", "Start RunPostStartRunOnceScripts");
   RunPostStartRunOnceScripts();
 
+  IF(GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT") != "")
+  {
+    LogDebug("system:poststart", "Start post-startscript: " || GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT"));
+    OBJECT proc := CreateProcess(GetEnvironmentVariable("WEBHARE_POSTSTARTSCRIPT"), STRING[],
+      [ take_input := FALSE
+      , take_output := FALSE
+      , take_errors := FALSE
+      ]);
+
+    proc->share_stdout := TRUE;
+    proc->share_stderr := TRUE;
+    proc->Start();
+
+    OBJECT itr := MakeProcessAsyncIterator(proc);
+    INTEGER exitcode;
+    WHILE (TRUE)
+    {
+      RECORD rec := WaitForPromise(itr->Next());
+      IF (rec.done)
+        BREAK;
+      IF (rec.value.type = "close")
+        exitcode := rec.value.exitcode;
+    }
+    proc->Close();
+    IF(exitcode != 0)
+    {
+      PrintTo(2, "Startup script failed with exitcode #" || exitcode || "\n");
+      SetConsoleExitCode(1);
+    }
+  }
+
   LogDebug("system:poststart", "All post start tasks completed");
   Print("All post start tasks completed\n");
 }

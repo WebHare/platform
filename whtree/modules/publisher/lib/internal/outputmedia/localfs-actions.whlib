@@ -1,0 +1,95 @@
+<?wh
+
+//export files stuff so our users can exclude LOADLIB wh::files.whlib and see which calls aren't intercepted
+LOADLIB "wh::files.whlib" EXPORT IsPathAbsolute, ReadDiskDirectory, MergePath, GetLasTOSError
+                               , GetDiskFileProperties, GenerateTemporaryPathnameFromBasepath
+                               , GetFilelength, CloseDiskfile, WrapBlob, GetDiskResource
+                               , GetBasenameFromPath, GetNameFromPath, GetDirectoryFromPath;
+
+PUBLIC BOOLEAN FUNCTION CreateLocalFSDirectory(STRING why, STRING path)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "CreateLocalFSDirectory", why, path);
+
+  IF (CreateDiskDirectoryRecursive(path, TRUE))
+    RETURN TRUE;
+
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "CreateLocalFSDirectory FAILED", why, path, GetLastOSError());
+
+  RETURN FALSE;
+}
+
+PUBLIC BOOLEAN FUNCTION DeleteLocalFSFile(STRING why, STRING path)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "DeleteLocalFSFile", why, path);
+
+  IF (DeleteDiskFile(path))
+    RETURN TRUE;
+
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "DeleteLocalFSFile FAILED", why, path, GetLastOSError());
+
+  RETURN FALSE;
+}
+
+PUBLIC BOOLEAN FUNCTION DeleteLocalFSDirectory(STRING why, STRING path)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "DeleteLocalFSDirectory", why, path);
+
+  IF (DeleteDiskDirectoryRecursive(path))
+    RETURN TRUE;
+
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "DeleteLocalFSDirectory FAILED", why, path, GetLastOSError());
+
+  RETURN FALSE;
+}
+
+PUBLIC INTEGER FUNCTION CreateLocalFSDiskFile(STRING why, STRING path, BOOLEAN failifexists, BOOLEAN publicfile)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "CreateLocalFSDiskFile", why, path, CELL[ failifexists, publicfile ]);
+
+  INTEGER retval := CreateDiskFile(path, failifexists, publicfile);
+  IF(retval > 0)
+    RETURN retval;
+
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "CreateLocalFSDiskFile FAILED", why, path, GetLastOSError());
+
+  RETURN 0;
+}
+
+PUBLIC MACRO StoreLocalFSDiskFile(STRING why, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "StoreLocalFSDiskFile", why, path, options);
+
+  TRY
+  {
+    StoreDiskFile(path, data, options);
+  }
+  CATCH(OBJECT e)
+  {
+    IF(IsDebugTagEnabled("publisher:localfs"))
+      LogDebug("publisher:localfs", "StoreLocalFSDiskFile FAILED", why, path, e->what);
+     THROW;
+  }
+}
+
+PUBLIC BOOLEAN FUNCTION MoveLocalFSDiskPath(STRING why, STRING from_path, STRING to_path)
+{
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "MoveLocalFSDiskPath", why, from_path, to_path);
+
+  IF(MoveDiskPath(from_path, to_path))
+    RETURN TRUE;
+
+  IF(IsDebugTagEnabled("publisher:localfs"))
+    LogDebug("publisher:localfs", "MoveLocalFSDiskPath FAILED", why, from_path, to_path, GetLastOSError());
+
+  RETURN FALSE;
+}

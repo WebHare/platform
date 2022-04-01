@@ -33,56 +33,6 @@ PUBLIC RECORD ARRAY FUNCTION MakeWRDIdToGuidMapping(INTEGER ARRAY inids)
   RETURN SELECT inval := id, outval := EncodeWRDGuid(guid) FROM wrd.entities WHERE entities.id IN inids;
 }
 
-/** Applies XML metadata to this schema. Creates types and dom values.
-    @param metadata Node with xml metadata (or document with xml metadata in documentelement)
-    @return Result
-    @cell(boolean) return.success True if no errors occurred during the update (updates may be half-applied)
-    @cell(record array) return.errors Errors that occurred
-    @cell(string) return.errors.message Readable error message
-    @cell(record array) return.updates Updates that occurred
-    @cell(string) return.updates.message Readable update info
-*/
-PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinition(OBJECT wrdschema, OBJECT metadata) __ATTRIBUTES__(DEPRECATED "ApplyWRDSchemaDefinition should no longer be used - use wrdschema->ApplySchemaDefinition at 4.19, and for now, switch to ApplyWRDSchemaDefinitionForFile")
-{
-  IF(metadata->nodetype!=1)
-    THROW NEW Exception("Expected a XML node");
-  IF(NOT ObjectExists(metadata))
-    THROW NEW Exception("Invalid schema document");
-
-  RECORD schemadef := ReadSchemaDefFromXML(metadata, "mod::wrd/dummyresource.xml", metadata->ownerdocument->GetDocumentBlob(), DEFAULT DATETIME);
-
-  UpdateSchema(wrdschema, schemadef);
-  RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
-}
-
-/** @private
-    @cell options.fromexternal Set to true if the source is an external server
-    @cell options.applysettings Apply schema settings (defaults to TRUE)
-    @cell options.skipmigrations Skip any migrations (note that we never run migrations if fromexternal is set)
-*/
-PUBLIC RECORD FUNCTION ApplyWRDSchemaDefinitionFile(OBJECT wrdschema, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD) //FIXME DEPRECATE IN 4.20 __ATTRIBUTES__(DEPRECATED "ApplyWRDSchemaDefinition should no longer be used - use wrdschema->ApplySchemaDefinition")
-{
-  options := ValidateOptions(
-      [ fromexternal :=   FALSE
-      , applysettings :=  TRUE
-      , skipmigrations := FALSE
-      ], options);
-
-  OBJECT doc := MakeXMLDocument(data);
-  IF(Length(doc->GetParseErrors())>0)
-  {
-    RECORD err := PickFirst(doc->GetParseErrors());
-    THROW NEW Exception(`The data is not valid XML: at line ${err.line}: ${err.message}`);
-  }
-  RECORD schemadef := ReadSchemaDefFromXML(doc->documentelement, "mod::wrd/dummyresource.xml", data, DEFAULT DATETIME);
-
-  IF (NOT options.applysettings)
-    schemadef.keyvaluestore := RECORD[];
-
-  UpdateSchema(wrdschema, schemadef, CELL[ options.fromexternal, options.skipmigrations ]);
-  RETURN [ success := TRUE, errors := RECORD[], updates := RECORD[], warnings := RECORD[] ];
-}
-
 /** Get a XML export of this schema */
 PUBLIC OBJECT FUNCTION ExportWRDSchemaDefinition(OBJECT wrdschema, OBJECT doc)
 {

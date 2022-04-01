@@ -1,12 +1,13 @@
 <?wh
 /** @short Sites published to the local filesystem
 */
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/archiving.whlib";
 
+//LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
 
 LOADLIB "mod::publisher/lib/internal/outputmedia/base.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/localfs-actions.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -99,15 +100,16 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     }
 
     /* Find any existing Temp directories - don't consider removal failure to be fatal to work around NT locking bugs.. */
-    BOOLEAN was_ok := TRUE;
     FOREVERY (RECORD entry FROM ReadDiskDirectory(this->outputroot, "$$$??" || this->outputname || "$*"))
     {
-      BOOLEAN all_ok := TRUE;
-      IF (entry.type=0)
-        all_ok := DeleteDiskFile(MergePath(this->outputroot, entry.name));
-      ELSE IF (entry.type = 1)
-        all_ok := DeleteDiskDirectoryRecursive(MergePath(this->outputroot, entry.name));
-      IF (NOT all_ok)
+      STRING todelete := MergePath(this->outputroot, entry.name);
+      BOOLEAN success;
+      IF(entry.type = 1)
+        success := DeleteLocalFSDirectory("Delete already existing temporaries", todelete);
+      ELSE
+        success := DeleteLocalFSFile("Delete already existing temporaries", todelete);
+
+      IF(NOT success)
         DEBUGPRINT("Cannot remove existing temp file/directory - duplicate publishing process? (" || GetLastOSError() || ")");
     }
 
@@ -116,7 +118,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     IF (NOT RecordExists(dirprops) OR dirprops.type != 1) //then
     {
       STRING createerror;
-      IF(NOT CreateDiskDirectoryRecursive(this->outputroot,true))
+      IF(NOT CreateLocalFSDirectory("Creating output root", this->outputroot))
       {
         STRING error := "Cannot create site output root directory " || this->outputroot || " (" || GetLastOSError() || ")";
         //Check if we really failed, the error might be a race caused by another publishing engine
@@ -200,7 +202,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     {
       //Well, either everything goes into a dir, or we're now working
       //on the second file
-      IF (NOT CreateDiskDirectoryRecursive(this->newversion_dir,true))
+      IF (NOT CreateLocalFSDirectory("Creating new version directory", this->newversion_dir))
       {
         this->ErrorNotify(1001,"Cannot create output directory '" || this->newversion_dir || "' (" || GetLastOSError() || ")");
         RETURN "";
@@ -225,10 +227,13 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       ELSE
       {
         this->newversion_file := GenerateTemporaryPathnameFromBasepath(MergePath(this->outputroot,"$$$pf" || this->outputname || "$"));
-        IF (RecordExists(GetDiskFileProperties(this->newversion_file)) AND NOT DeleteDiskFile(this->newversion_file))
+        IF (RecordExists(GetDiskFileProperties(this->newversion_file)))
         {
-          this->ErrorNotify(1001,"Cannot remove file " || this->newversion_file || " (" || GetLastOSError() || ")");
-          RETURN "";
+          IF(NOT DeleteLocalFSFile("Deleting existing newversion", this->newversion_file))
+          {
+            this->ErrorNotify(1001,"Cannot remove file " || this->newversion_file || " (" || GetLastOSError() || ")");
+            RETURN "";
+          }
         }
         INSERT [ path := this->final_firstfilename
                , firstfile := firstfile
@@ -307,7 +312,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     IF (this->AnyError() OR path = "")
       RETURN 0; //illegal or dupe filename. FIXME: Check valid filename
 
-    INTEGER handle := CreateDiskFile(path, FALSE, TRUE);
+    INTEGER handle := CreateLocalFSDiskFile("Create output file " || filename, path, FALSE, TRUE);
     IF (handle = 0)
     {
       this->ErrorNotify(1001,"Cannot create output file " || path || " (" || GetLastOSError() || ")");
@@ -350,15 +355,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
         IF (LENGTH64(compressed) < LENGTH64(detect.data))
         {
           STRING path := outfile.temppath || ".gz";
-          TRY
-          {
-            StoreDiskFile(path, compressed, [overwrite := TRUE]);
-          }
-          CATCH(OBJECT e)
-          {
-            this->ErrorNotify(1001, `Cannot create output file ${path}: ${e->what}`);
-            RETURN;
-          }
+          StoreLocalFSDiskFile("Store compressed versin", path, compressed, [overwrite := TRUE]);
 
           IF (outfile.firstfile)
             this->newversion_filegz := path;
@@ -389,14 +386,14 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     {
       IF(this->publish_as_index) //if we're the index, create ^^useindex to claim all subroots too
       {
-        StoreDiskFile(MergePath(this->outputroot,"^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
+        StoreLocalFSDiskFile("Add capturesubpaths file to parent", MergePath(this->outputroot,"^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
       }
       ELSE IF(this->publish_as_subdir) //we're just a subdir.. put the useindex there
       {
         IF(this->newversion_dir = "")
           THROW NEW Exception("newversion_dir should already exist");
         ELSE
-          StoreDiskFile(MergePath(this->newversion_dir, "^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
+          StoreLocalFSDiskFile("Add capturesubpaths file to newversion", MergePath(this->newversion_dir, "^^useindex"), DEFAULT BLOB, [ overwrite := TRUE ]);
       }
       ELSE
       {
@@ -405,7 +402,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     }
     ELSE IF(this->publish_as_index)
     {
-      DeleteDiskFile(MergePath(this->outputroot, "^^useindex")); //delete any ^^useindex if we're the index file but didn't want it...  FIXME outputanalyzer should also clear this up
+      DeleteLocalFSFile("Remove useindex", MergePath(this->outputroot, "^^useindex")); //delete any ^^useindex if we're the index file but didn't want it...  FIXME outputanalyzer should also clear this up
     }
 
     /* Move the new version in place of the old version. We basically do.
@@ -460,7 +457,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     // First, move the original compressed file out of the way
     IF (destination_filegz != "" AND RecordExists(GetDiskFileProperties(destination_filegz)))
     {
-      IF (MoveDiskPath(destination_filegz, oldversion_filegz))
+      IF (MoveLocalFSDiskPath("Move original compresed filed out of the way", destination_filegz, oldversion_filegz))
         moved_oldversion_filegz := TRUE;
       ELSE
       {
@@ -473,7 +470,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
   //        {
     IF (all_ok AND destination_dir != "" AND RecordExists(GetDiskFileProperties(destination_dir)))
     {
-      IF (MoveDiskPath(destination_dir, oldversion_dir))
+      IF (MoveLocalFSDiskPath("Restore original directory", destination_dir, oldversion_dir))
         moved_oldversion_dir := TRUE;
       ELSE
       {
@@ -486,7 +483,7 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     {
       IF (RecordExists(GetDiskFileProperties(destination_file)))
       {
-        IF (MoveDiskPath(destination_file, oldversion_file))
+        IF (MoveLocalFSDiskPath("Restore original file", destination_file, oldversion_file))
         {
           moved_oldversion_file := TRUE;
         }
@@ -499,14 +496,14 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       //We finished the first step: move destination old_version
 
       //Now: move new_version destination
-      IF (all_ok AND NOT MoveDiskPath(this->newversion_file, destination_file))
+      IF (all_ok AND NOT MoveLocalFSDiskPath("Move new version file into place", this->newversion_file, destination_file))
       {
         this->ErrorNotify(1001,"Cannot publish replacement file for " || destination_file || " (" || GetLastOSError() || ")");
         all_ok := FALSE;
       }
 
       //Now: move new_version_gz destination
-      IF (all_ok AND this->newversion_filegz != "" AND NOT MoveDiskPath(this->newversion_filegz, destination_filegz))
+      IF (all_ok AND this->newversion_filegz != "" AND NOT MoveLocalFSDiskPath("Move new compressed file into place", this->newversion_filegz, destination_filegz))
       {
         this->ErrorNotify(1001,"Cannot publish replacement compressed file for " || destination_filegz || " (" || GetLastOSError() || ")");
         all_ok := FALSE;
@@ -519,9 +516,9 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
       IF(Length(ReadDiskDirectory(this->newversion_dir,"*"))=0)
       {
         //don't care if this fails, next publication will clean out the temp dir
-        DeleteDiskDirectoryRecursive(this->newversion_dir);
+        DeleteLocalFSDirectory("Remove newversion dir", this->newversion_dir);
       }
-      ELSE IF(NOT MoveDiskPath(this->newversion_dir, destination_dir))
+      ELSE IF(NOT MoveLocalFSDiskPath("Publish replacement directory", this->newversion_dir, destination_dir))
       {
         this->ErrorNotify(1001,"Cannot publish replacement directory for " || destination_dir || " (" || GetLastOSError() || ")");
         all_ok := FALSE;
@@ -533,22 +530,22 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     IF (NOT all_ok)
     {
       //Try to restore the original file and directory
-      if (moved_oldversion_dir AND NOT MoveDiskPath(oldversion_dir, destination_dir))
+      if (moved_oldversion_dir AND NOT MoveLocalFSDiskPath("Restore original dir", oldversion_dir, destination_dir))
       {
         if (moved_oldversion_file) //try to fix this as well
-          MoveDiskPath(oldversion_file,destination_file);
+          MoveLocalFSDiskPath("Restore original file", oldversion_file,destination_file);
 
         this->ErrorNotify(1001,"Publication failure, but could not restore original directory " || destination_dir || " (" || GetLastOSError() || ")");
         RETURN;
       }
 
-      IF (moved_oldversion_file AND NOT MoveDiskPath(oldversion_file, destination_file))
+      IF (moved_oldversion_file AND NOT MoveLocalFSDiskPath("Restore original file", oldversion_file, destination_file))
       {
         this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
         RETURN;
       }
 
-      IF (moved_oldversion_filegz AND NOT MoveDiskPath(oldversion_filegz, destination_filegz))
+      IF (moved_oldversion_filegz AND NOT MoveLocalFSDiskPath("Restore original GZ file", oldversion_filegz, destination_filegz))
       {
         this->ErrorNotify(1001,"Publication failure, but could not restore original file " || destination_dir || " (" || GetLastOSError() || ")");
         RETURN;
@@ -559,19 +556,19 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     }
   //        }
 
-    DeleteDiskDirectoryRecursive(oldversion_dir);
-    DeleteDiskDirectoryRecursive(oldversion_file);
-    DeleteDiskDirectoryRecursive(oldversion_filegz);
+    DeleteLocalFSDirectory("Delete oldversion_dir", oldversion_dir);
+    DeleteLocalFSDirectory("Delete oldversion_file", oldversion_file);
+    DeleteLocalFSDirectory("Delete oldversion_filegz", oldversion_filegz);
 
     IF(outputnames.destroydir != "")
-      DeleteDiskDirectoryRecursive(outputnames.destroydir);
+      DeleteLocalFSDirectory("Delete 'destroydir'", outputnames.destroydir);
 
     //Remove any other existing default pages, if this was an index
     IF (this->publish_as_index)
     {
       FOREVERY (STRING page FROM whconstant_webserver_indexpages)
         IF (ToUppercase(page) != ToUppercase(this->final_firstfilename))
-          DeleteDiskFile(MergePath(this->outputroot, page));
+          DeleteLocalFSFile("Delete index page", MergePath(this->outputroot, page));
     }
   }
 
@@ -587,9 +584,9 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
     this->outfiles := DEFAULT INTEGER ARRAY;
 
     IF (this->newversion_dir != "")
-      DeleteDiskDirectoryRecursive(this->newversion_dir);
+      DeleteLocalFSDirectory("Cancel, clean newversion_dir", this->newversion_dir);
     IF (this->newversion_file != "")
-      DeleteDiskDirectoryRecursive(this->newversion_file);
+      DeleteLocalFSDirectory("Cancel, clean newversion_file", this->newversion_file);
   }
 >;
 

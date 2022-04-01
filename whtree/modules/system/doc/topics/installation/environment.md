@@ -4,7 +4,7 @@ List of environment variables understood by WebHare and/or the `wh` command
 
 ## Essential environment variables
 
-## WEBHARE_DIR
+### WEBHARE_DIR
 WebHare installation directory. `$WEBHARE_DIR/bin/wh` must be the `wh` command. In docker, this is usually `/opt/wh/whtree`
 
 ### WEBHARE_DATAROOT
@@ -23,6 +23,9 @@ Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'devel
 
 ### WEBHARE_SERVERNAME
 Override the server name
+
+### WEBHARE_POSTSTARTSCRIPT
+Path to a shell script to execute near the end of the post-start script.
 
 ### WEBHARE_ISRESTORED
 If set, this WebHare is configured a 'restored' installation which may not run tasks with external effects. It can be set
@@ -92,7 +95,10 @@ Set debug flags:
 - `apr`: All new started scripts make a function CPU profile
 - `cov`: All new started scripts make a coverage profile
 - `que`: Log task/queue actions
+- `consilio:queues`: Consilio queue management
 - `consilio:searches`: Consilio searches
+- `consilio:traffic`: Consilio RPC traffic
+- `publisher:localfs`: Filesystem actions on the webserver output
 - `system-cov`: Make a coverage profile for all running scripts while enabled
 - `wrd:forcehistory`: Keep WRD history for all types for at least 1 day and record stack traces
 - `handles`: Record stack traces when handles are created (currently only outputobjects)

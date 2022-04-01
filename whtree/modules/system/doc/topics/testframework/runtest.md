@@ -115,3 +115,52 @@ wh runtest --chromeurl http://localhost:9222 TESTNAME
 
 You can add `--keepsessions` to runtest to prevent browser windows from closing
 after completing or failing a test
+
+## Setting up a discardable test environment
+You may want to setup a separate WebHare installtion for running tests on a clean
+system. A way to do this is to setup a shell script to control this separate
+installation. Create an executable (chmod a+x) `wh-test` containing:
+
+```bash
+#!/bin/bash
+export WEBHARE_NOINSTALLATIONINFO=1
+export WEBHARE_DTAPSTAGE=development
+export WEBHARE_DATAROOT=$HOME/projects/whdata/test
+export WEBHARE_BASEPORT=13300
+exec wh "$@"
+```
+
+(this assumes a working `wh`, update the WEBHARE_DATAROOT as needed)
+
+Run `wh-test dirs` to verify the configuration. You can now start this
+separate installation with `wh-test console` and invoke tests using `wh-test runtest ...`
+
+If you often reset this installation you can use `wh-test freshdbconsole`
+to remove the database and start a console version. You will need to create
+an empty file named `$WEBHARE_DATAROOT/etc/allow-fresh-db` once to verify you
+really want to be able to run `freshdbconsole` on this installation.
+
+You may want to preconfigure your development WebHare automatically, especially
+if you often use `freshdbconsole`. Add the following line to your configuration file,
+above the `exec wh` command:
+
+```bash
+export WEBHARE_POSTSTARTSCRIPT=${BASH_SOURCE%/*}/wh-test-startup.sh
+```
+
+And add the following content to an executable `wh-test-startup.sh` file to
+always set up an interface on port 8888:
+
+```bash
+#!/bin/bash
+if ! wh-test webserver addport 8888 2>/dev/null ; then
+  echo "Looks like startup script has already run"
+  exit 0
+fi
+
+echo "Setting up for tests"
+wh-test webserver addbackend --primary http://localhost:8888/
+wh-test webhare_testsuite:reset
+wh-test users adduser --sysop --password secret sysop@example.net
+exit 0
+```

@@ -1,8 +1,9 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
+//LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/localfs-actions.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -113,7 +114,7 @@ BOOLEAN FUNCTION RenameDiskPath(STRING oldpath, STRING newpath)
 {
   onanalyzerissue("LOG", "Upper/lowercase differs: " || oldpath || " => " || newpath);
   //Our file: output follows input
-  IF (NOT MoveDiskPath(oldpath, newpath))
+  IF (NOT MoveLocalFSDiskPath("Fix upper/lowercase", oldpath, newpath))
   {
     onanalyzerissue("LOG", "Unable to fix upper/lowercase for " || oldpath);
     RETURN FALSE;
@@ -124,7 +125,7 @@ BOOLEAN FUNCTION RenameDiskPath(STRING oldpath, STRING newpath)
     {
       onanalyzerissue("LOG", "File system prevents upper/lowercase fixing, working around for " || newpath);
       //The file was not actually renamed (e.g. upper/lower case on Samba connection), so force rename
-      IF (NOT (MoveDiskPath(oldpath, oldpath||'$') AND MoveDiskPath(oldpath||'$', newpath)))
+      IF (NOT (MoveLocalFSDiskPath("Fix upper/lowercase FS workaround #1", oldpath, oldpath||'$') AND MoveLocalFSDiskPath("Fix upper/lowercase FS workaround #2", oldpath||'$', newpath)))
       {
         onanalyzerissue("LOG", "Unable to fix upper/lowercase for " || oldpath);
         RETURN FALSE;
@@ -134,21 +135,21 @@ BOOLEAN FUNCTION RenameDiskPath(STRING oldpath, STRING newpath)
   RETURN TRUE;
 }
 
-MACRO RemoveDiskItem(STRING itemurl, STRING itempath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
+MACRO RemoveDiskItem(STRING why, STRING itemurl, STRING itempath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
 {
   RECORD props := GetDiskFileProperties(itempath);
   IF (NOT RecordExists(props))
     RETURN;
   ELSE IF (props.type = 0) // File
-    RemoveDiskFile(itemurl, itempath, pushevents, IsIndexname(GetNameFromPath(itemurl), indexdocnames));
+    RemoveDiskFile(why, itemurl, itempath, pushevents, IsIndexname(GetNameFromPath(itemurl), indexdocnames));
   ELSE IF (props.type = 1) // Folder
-    RemoveDiskDirectory(itemurl || "/", itempath, pushevents, indexdocnames);
+    RemoveDiskDirectory(why, itemurl || "/", itempath, pushevents, indexdocnames);
 }
 
-MACRO RemoveDiskFile(STRING fileurl, STRING filepath, BOOLEAN pushevents, BOOLEAN isindex)
+MACRO RemoveDiskFile(STRING why, STRING fileurl, STRING filepath, BOOLEAN pushevents, BOOLEAN isindex)
 {
   //onanalyzerissue("LOG", "RemoveDiskFile '"||filepath);
-  DeleteDiskFile(filepath);
+  DeleteLocalFSFile(why, filepath);
   IF (pushevents)
   {
     IF (isindex)
@@ -158,7 +159,7 @@ MACRO RemoveDiskFile(STRING fileurl, STRING filepath, BOOLEAN pushevents, BOOLEA
   }
 }
 
-MACRO RemoveDiskDirectory(STRING folderurl, STRING folderpath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
+MACRO RemoveDiskDirectory(STRING why, STRING folderurl, STRING folderpath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
 {
   //onanalyzerissue("LOG", "RemoveDiskDirectory '"||folderpath);
   FOREVERY (RECORD entry FROM ReadDiskDirectory(folderpath, "*"))
@@ -166,21 +167,21 @@ MACRO RemoveDiskDirectory(STRING folderurl, STRING folderpath, BOOLEAN pushevent
     IF (entry.type = 0) // File
     {
       // Remove the file
-      RemoveDiskFile(folderurl || entry.name, folderpath || "/" || entry.name, pushevents, IsIndexName(entry.name, indexdocnames));
+      RemoveDiskFile(why, folderurl || entry.name, folderpath || "/" || entry.name, pushevents, IsIndexName(entry.name, indexdocnames));
     }
     ELSE IF (entry.type = 1) // Folder
     {
       // Recursively remove subdirectory
-      RemoveDiskDirectory(folderurl || entry.name || "/", folderpath || "/" || entry.name, pushevents, indexdocnames);
+      RemoveDiskDirectory(why, folderurl || entry.name || "/", folderpath || "/" || entry.name, pushevents, indexdocnames);
     }
     ELSE IF (entry.type = 2) // Link
     {
       // Remove the link directly
-      DeleteDiskFile(folderpath || "/" || entry.name);
+      DeleteLocalFSFile(why, folderpath || "/" || entry.name);
     }
   }
   // The directory should be empty by now, remove it
-  DeleteDiskDirectoryRecursive(folderpath);
+  DeleteLocalFSDirectory(why, folderpath);
 }
 
 MACRO ValidateFolder(RECORD site, RECORD folder)
@@ -281,7 +282,7 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
       IF (outputitem.modified < AddTimeToDate(-(1000*60*60), GetcurrentDatetime()))
       {
         onanalyzerissue("LOG", "Deleting stale temp file " || thispath);
-        RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
+        RemoveDiskItem("Deleting stale temp file", folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
       }
       CONTINUE;
     }
@@ -317,7 +318,7 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
           IF(RecordExists(SELECT FROM outputfiles WHERE name = proper_outputname))
           {
             onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry with mis-cased name " || thispath || " because the properly named version also exists");
-            RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
+            RemoveDiskItem("Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry with mis-cased name " || thispath || " because the properly named version also exists", folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
             CONTINUE;
           }
           ELSE
@@ -368,13 +369,15 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
         {
           // No index file found. Missing index file will trigger republish, so don't have anything to do here
           onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting compressed file for missing index file");
-          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
+          RemoveDiskItem("Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting compressed file for missing index file",
+                         folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
         }
         ELSE IF (outputitem.name != proper_outputname)
         {
           // Improperly named compressed file, just delete
           onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting improperly named compressed file (got " || EncodeJava(outputitem.name) || ", wanted " || EncodeJava(proper_outputname));
-          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
+          RemoveDiskItem("Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting improperly named compressed file (got " || EncodeJava(outputitem.name) || ", wanted " || EncodeJava(proper_outputname)
+                         ,folder.url || outputitem.name, thispath, pushevents, whconstant_webserver_indexpages);
         }
         CONTINUE; //This is a recognized compressed file version, leave it alone
       }
@@ -443,7 +446,8 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
       //ADDME: Start logging this as a NOTE whenever webhare learns to immediately delete removed and unscheduled files
       //       or perhaps a move/delete in a file or folder should just trigger a fast-rescan of that folder?
       onanalyzerissue("DEBUG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry not (any longer?) in site " || thispath);
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
+      RemoveDiskItem("Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry not (any longer?) in site " || thispath
+                    ,folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -480,7 +484,7 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
     IF (outputitem.type NOT IN [0,1]) //not a file, not a dir, not protected by Foreign
     {
       onanalyzerissue("LOG", "Deleting odd directory entry " || thispath);
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
+      RemoveDiskItem("Deleting odd directory entry " || thispath, folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -491,11 +495,11 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
       IF (RecordExists(SELECT FROM outputfiles WHERE name = matching_subitem.ondiskname))
       {
         onanalyzerissue("LOG", "Removing name with duplicate name but different case: " || thispath);
-        RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
+        RemoveDiskItem("Removing name with duplicate name but different case: " || thispath, folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
         CONTINUE;
       }
-      ELSE
-        onanalyzerissue("LOG", `Renaming file with different case: ${thispath} (proper name: '${proper_outputname}'), and queue for republish`);
+
+      onanalyzerissue("LOG", `Renaming file with different case: ${thispath} (proper name: '${proper_outputname}'), and queue for republish`);
 
       STRING correctpath := outputpath || "/" || proper_outputname;
       RenameDiskPath(thispath, correctpath);
@@ -506,12 +510,11 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
                               OR (matching_subitem.contenttype IN valid_subdir_types AND NOT is_index);
     IF (outputitem.type != (must_be_folder ? 1 : 0))
     {
-      IF (must_be_folder)
-        onanalyzerissue("LOG", "Deleting file " || thispath || " which should have been a folder");
-      ELSE
-        onanalyzerissue("LOG", "Deleting folder " || thispath || " which should have been a file");
+      STRING why := must_be_folder ? "Deleting file " || thispath || " which should have been a folder"
+                                   : "Deleting folder " || thispath || " which should have been a file";
 
-      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
+      onanalyzerissue("LOG", why);
+      RemoveDiskItem(why, folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, whconstant_webserver_indexpages);
       CONTINUE;
     }
 
@@ -543,7 +546,7 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
     //Is it a folder that doesn't exist on the output side?
     IF (item.onoutput = FALSE)
     {
-      IF(CreateDiskDirectoryRecursive(outputpath || "/" || item.ondiskname, TRUE))
+      IF(CreateLocalFSDirectory("Create missing folder", outputpath || "/" || item.ondiskname))
         onanalyzerissue("DEBUG", "Folder #" || folder.id || " (" || folder.whfspath || "): Created missing folder '" || item.ondiskname || "'");
       ELSE
         onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): Unable to create missing folder '" || item.ondiskname || "'");
@@ -589,14 +592,10 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
     //Does the file exist while it shouldn't be?
     IF (item.onoutput AND NOT IsPublish(item.published))
     {
-      /*
-      DEBUGPRINT("Deleting unpublished but still existing file "
-                 << Blex::MergePath(analyzestate.fullpath, itr->first));
-      */
-      RemoveDiskItem(folder.url || item.ondiskname, outputpath || "/" || item.ondiskname, pushevents, whconstant_webserver_indexpages);
+      RemoveDiskItem("Deleting unpublished but still existing file", folder.url || item.ondiskname, outputpath || "/" || item.ondiskname, pushevents, whconstant_webserver_indexpages);
       // If this is the index document, delete the index file as well
       IF (item.isindex)
-        RemoveDiskFile(folder.url, outputpath || "/" || folder_indexname, pushevents, TRUE);
+        RemoveDiskFile("Deleting unpublished but still existing file's index", folder.url, outputpath || "/" || folder_indexname, pushevents, TRUE);
       CONTINUE;
     }
 
