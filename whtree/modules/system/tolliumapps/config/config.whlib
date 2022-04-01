@@ -209,11 +209,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->LoadScreen("scheduler.main")->RunModal();
   }
 
-  MACRO DoAppRunner()
-  {
-    this->LoadScreen("sysmgmt/apprunner.apprunner")->RunModal();
-  }
-
   MACRO DoConfigModule()
   {
     OBJECT scr := this->LoadScreen(^modules->selection.configscreen);

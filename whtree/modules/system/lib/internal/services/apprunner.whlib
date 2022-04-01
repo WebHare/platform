@@ -50,37 +50,6 @@ STRING ARRAY FUNCTION ParseCmdLine(STRING cmdline)
   RETURN args;
 }
 
-
-RECORD ARRAY FUNCTION GetAppsFromRegistry()
-{
-  RECORD ARRAY apps;
-  FOREVERY (RECORD regkey FROM ReadRegistryNode("system.services.apps"))
-  {
-    STRING cmdline := regkey.data;
-
-    // FIXME: this is a hack, but doing it right requires restructuring registry storage
-    IF (cmdline LIKE "!*")
-      CONTINUE;
-
-    STRING ARRAY args := ParseCmdLine(cmdline);
-    IF (LENGTH(args) = 0)
-    {
-      PRINT(`Service ${regkey.subkey} has an wrongly formatted command line`);
-    }
-    ELSE
-    {
-      INSERT [ app := args[0]
-             , args := ArraySlice(args,1)
-             , name := regkey.subkey
-             , runatsoftreset := FALSE
-             , module := ""
-             ] INTO apps AT END;
-    }
-  }
-
-  RETURN apps;
-}
-
 RECORD ARRAY FUNCTION GetModuleApps()
 {
   RECORD ARRAY apps;
@@ -146,7 +115,7 @@ RECORD ARRAY FUNCTION GetModuleApps()
 
 PUBLIC RECORD ARRAY FUNCTION ListExpectedApps()
 {
-  RECORD ARRAY apps := RunInSeparatePrimary(PTR GetAppsFromRegistry()) CONCAT GetModuleApps();
+  RECORD ARRAY apps := GetModuleApps();
   UPDATE apps SET app := GetInstallationRoot() || "bin/" || app WHERE SearchSubString(app, "/") = -1;
   RETURN apps;
 }
