@@ -4,10 +4,6 @@
          lib="screens/userrights/dialogs.whlib"
          gid="userrights.dialog">
 
-  <messageboxes gid=".messages">
-    <messagebox name="suredelete" icon="question" buttons="yes no" />
-  </messageboxes>
-
   <screen name="selectunit"
           gid=".selectunit"
           allowresize="true"

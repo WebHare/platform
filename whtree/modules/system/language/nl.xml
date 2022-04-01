@@ -1841,14 +1841,17 @@
     </textgroup>
   </textgroup>
   <textgroup gid="userrights">   <!-- userrights -->
+    <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wil je alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
     <text tid="error">Er is een fout opgetreden bij het bepalen van het objectpad. Neem A.U.B. contact op met een beheerder.</text>
     <text tid="new">Toevoegen</text>
     <text tid="norightstodeleteall">U heeft niet voldoende rechten om alle toekenningen te verwijderen.</text>
+    <text tid="nounit">Gebruiker '<param p="1"/>' is niet gekoppeld aan een bekende eenheid. Wil je nu een eenheid koppelen?</text>
     <text tid="searchbox">Zoeken</text>
     <text tid="selectusertocopyallpermissionsto">Kies de gebruiker of rol waarnaar u de rol-/rechtentoekenningen wilt kopiëren.</text>
     <text tid="syncedauthobjects">De gebruikersdatabase is gesynchroniseerd.</text>
     <text tid="togglesearchbarbutton">Zoeken</text>
     <text tid="unitroot">Eenheden</text>
+    <text tid="userapinotset">Door configuratieproblemen kan de gebruikers API niet worden ingeladen. Neem a.u.b contact op met de systembeheerder.</text>
     <textgroup gid="actions">   <!-- userrights.actions -->
       <text tid="about">Over Gebruikersbeheer</text>
       <text tid="addrighttousers">Recht toekennen</text>
@@ -2035,6 +2038,7 @@
         <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
       </textgroup>
       <textgroup gid="search">   <!-- userrights.commondialogs.search -->
+        <text tid="emptysearchvalue">Geef alstublieft een zoekterm op.</text>
         <text tid="goto">Tonen</text>
       </textgroup>
       <textgroup gid="select">   <!-- userrights.commondialogs.select -->
@@ -2046,11 +2050,6 @@
         <text tid="selectusersorroles">Selecteer één of meerdere gebruikers en/of rollen</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="dialog">   <!-- userrights.dialog -->
-      <textgroup gid="messages">   <!-- userrights.dialog.messages -->
-        <text tid="suredelete">Weet je zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="dialogues">   <!-- userrights.dialogues -->
       <text tid="actionfailed">De actie is mislukt: <br/><param p="1"/></text>
       <text tid="cannotgetobjecttreeforobjecttype">Het is niet gelukt om een lijst van objecten voor <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/> te krijgen.</text>
@@ -2058,17 +2057,13 @@
       <text tid="cannotresetunmanageduser">Kan geen wachtwoord reset link sturen voor dit account, WebHare beheert het wachtwoord niet</text>
       <text tid="cantdeletetoplevelunit">Eenheden van het hoogste niveau kunnen niet worden verwijderd. Alleen een systeembeheerder of beheerder van een bovenliggende eenheid kan dit doen.</text>
       <text tid="confirmdeletemenuitem">Weet je zeker dat je de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="confirmdeletenotification">Weet je zeker dat je de melding '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wil je alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
       <text tid="dangerousrightsrevoke">Als je deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul je rechten verliezen die niet op een andere manier zijn toegekend. Wil je hier mee doorgaan?</text>
       <text tid="deletefailedbecause"><param p="1"/> <param p="2"/> kon niet worden verwijderd: <param p="3"/></text>
       <text tid="deletemultipleitemswarning">Weet je zeker dat je de geselecteerde elementen wilt verwijderen?</text>
-      <text tid="deletenonemptyunit">Deze eenheid kan niet verwijderd worden, omdat deze nog gebruikers of rollen bevat.</text>
       <text tid="deleterolewarning">Weet je zeker dat je rol '<param p="1"/>' wilt verwijderen?</text>
       <text tid="deleteunitwarning">Weet je zeker dat je eenheid '<param p="1"/>' wilt verwijderen?</text>
       <text tid="deleteuserwarning">Weet je zeker dat je gebruiker '<param p="1"/>' wilt verwijderen?</text>
       <text tid="dragdroperror">Er is een fout opgetreden bij het verplaatsen van dit object: '<param p="1"/>'</text>
-      <text tid="emptysearchvalue">Geef alstublieft een zoekterm op.</text>
       <text tid="guidalreadyused">Deze GUID wordt al gebruikt.</text>
       <text tid="invalidguid">Ongeldige GUID.</text>
       <text tid="languagechanged">De interfacetaal is nu ingesteld op Nederlands. Applicaties die vanaf dit moment worden gestart, worden in deze taal weergegeven. Applicaties die al gestart zijn gebruiken de oude taal totdat zij opnieuw worden gestart.</text>
@@ -2078,14 +2073,11 @@
       <text tid="movewarning">Weet je zeker dat je <ifparam p="1" value="1">gebruiker '<param p="2"/>'<else/><ifparam p="1" value="3">rol '<param p="2"/>'<else/>de geselecteerde elementen naar</ifparam></ifparam> naar eenheid '<param p="3"/>' wilt verplaatsen?</text>
       <text tid="mustselectunit">Er moet een eenheid geselecteerd zijn.</text>
       <text tid="needselectright">Selecteer a.u.b. een recht om toe te kennen voor dit object</text>
-      <text tid="nodroponroot">Het toewijzen van gebruikers of rollen aan de hoofdeenheid wordt niet ondersteund.</text>
-      <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker in recovery modus te bewerken.</text>
       <text tid="norightspresent"><ifparam p="1" value="1">Rechtengroup<else/>Objecttype</ifparam> '<param p="2"/>' heeft geen toegankelijke rechten.</text>
       <text tid="notunitmanager">Alleen een beheerder van deze eenheid kan deze actie uitvoeren</text>
       <text tid="notunitmanagerforrole">Je hebt geen beheersrechten voor de eenheid waartoe rol '<param p="1"/>' behoort</text>
       <text tid="notunitmanagerforuser">Je hebt geen beheersrechten voor gebruiker '<param p="1"/>'.</text>
       <text tid="notunitmanageronparent">Je moet beheersrechten op de bovenliggende eenheid hebben om deze actie te kunnen utivoeren.</text>
-      <text tid="nounit">Gebruiker '<param p="1"/>' is niet gekoppeld aan een bekende eenheid. Wil je nu een eenheid koppelen?</text>
       <text tid="objecthasnorights">Het geselecteerde object heeft geen rechten die gegeven kunnen worden.</text>
       <text tid="objectnolongerexists">Dit object bestaat niet meer.</text>
       <text tid="passwordchange">Je hebt je wachtwoord gewijzigd. De volgende keer dat je inlogt wordt om dit nieuwe wachtwoord gevraagd.</text>
@@ -2103,9 +2095,9 @@
       <text tid="revokerolesfromuser">Weet je zeker dat je de toekenning van deze rollen aan gebruiker '<param p="2"/>' wilt intrekken?</text>
       <text tid="rolenametoolong">De naam van de rol is te lang; deze mag maximaal 256 karakters bevatten.</text>
       <text tid="selectusertoassignfiles">De gebruiker die je verwijdert is eigenaar van één of meer bestanden. Selecteer een andere gebruiker om deze taak over te nemen.</text>
+      <text tid="suredelete">Weet je zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
       <text tid="toomanyusers">Je kunt geen nieuwe gebruikers aanmaken, omdat het maximum aantal gebruikers is bereikt.</text>
       <text tid="unitnametoolong">De naam van de eenheid is te lang; deze mag maximaal 256 karakters bevatten.</text>
-      <text tid="userapinotset">Door configuratieproblemen kan de gebruikers API niet worden ingeladen. Neem a.u.b contact op met de systembeheerder.</text>
     </textgroup>
     <textgroup gid="editnotification">   <!-- userrights.editnotification -->
       <text tid="high">Hoog</text>
@@ -2152,6 +2144,7 @@
       <text tid="lastip">Laatste IP-adres</text>
       <text tid="lastlogin">Laatste aanmelddatum</text>
       <text tid="none">Geen</text>
+      <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker in recovery modus te bewerken.</text>
       <text tid="notificationsandwarnings">Meldingen</text>
       <text tid="password">Wachtwoord</text>
       <text tid="passwordabouttoexpire">Je wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>
@@ -2289,6 +2282,7 @@
       <text tid="viewsearchbar">Zoeken</text>
     </textgroup>
     <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
+      <text tid="confirmdeletenotification">Weet je zeker dat je de melding '<param p="1"/>' wilt verwijderen?</text>
       <text tid="deniedexplain">U heeft meldingen op het bureaublad in uw browser geblokkeerd.</text>
       <text tid="displaybrowserexplain">Berichten worden in de browser getoond</text>
       <text tid="displaydesktopexplain">Berichten worden weergegeven op het bureaublad</text>
@@ -2389,6 +2383,8 @@
       <text tid="users">Gebruikers</text>
     </textgroup>
     <textgroup gid="unittree">   <!-- userrights.unittree -->
+      <text tid="deletenonemptyunit">Deze eenheid kan niet verwijderd worden, omdat deze nog gebruikers of rollen bevat.</text>
+      <text tid="nodroponroot">Het toewijzen van gebruikers of rollen aan de hoofdeenheid wordt niet ondersteund.</text>
       <text tid="searchfor">Zoeken</text>
       <text tid="searchresults">Zoekresultaten</text>
       <text tid="units">Eenheden</text>

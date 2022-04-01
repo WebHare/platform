@@ -69,7 +69,7 @@ STATIC OBJECTTYPE RevokeDialog
     // user is sure he wants to do this?
     IF (LENGTH(this->pvt_grants) != 0 AND LENGTH(this->pvt_rolegrants) != 0)
     {
-      IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+      IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.revokegrants")) != "yes")
         RETURN "";
     }
     ELSE IF (LENGTH(this->pvt_grants) != 0)
@@ -94,18 +94,22 @@ STATIC OBJECTTYPE RevokeDialog
 
           IF (one_grant)
           {
-            IF (this->screen->RunMessageBox(grantee->type = 1 ? "system:userrights/userrights.revokegrantfromuser" : "system:userrights/userrights.revokegrantfromrole", rightsinfo->GetRightTitle(this->pvt_grants[0].rightname), name) != "yes")
+            STRING question := grantee->type = 1 ? GetTid("system:userrights.dialogues.revokegrantfromuser", rightsinfo->GetRightTitle(this->pvt_grants[0].rightname), name)
+                                                 : GetTid("system:userrights.dialogues.revokegrantfromrole",  rightsinfo->GetRightTitle(this->pvt_grants[0].rightname), name);
+            IF (this->screen->RunSimpleScreen("confirm", question) != "yes")
               RETURN "";
           }
           ELSE
           {
-            IF (this->screen->RunMessageBox(grantee->type = 1 ? "system:userrights/userrights.revokegrantsfromuser" : "system:userrights/userrights.revokegrantsfromrole", name) != "yes")
+            STRING question := grantee->type = 1 ? GetTid("system:userrights.dialogues.revokegrantsfromuser", name)
+                                                 : GetTid("system:userrights.dialogues.revokegrantsfromrole", name);
+            IF (this->screen->RunSimpleScreen("confirm", question) != "yes")
               RETURN "";
           }
         }
       DEFAULT
         {
-          IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+          IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.revokegrants")) != "yes")
             RETURN "";
         }
       }
@@ -134,18 +138,18 @@ STATIC OBJECTTYPE RevokeDialog
 
           IF (one_grant)
           {
-            IF (this->screen->RunMessageBox("system:userrights/userrights.revokerolefromuser", this->pvt_rolegrants[0].roleobj->GetUserRightsName(), grantee->GetUserRightsName()) != "yes")
+            IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.revokerolefromuser", this->pvt_rolegrants[0].roleobj->GetUserRightsName(), grantee->GetUserRightsName())) != "yes")
               RETURN "";
           }
           ELSE
           {
-            IF (this->screen->RunMessageBox("system:userrights/userrights.revokerolesfromuser", grantee->GetUserRightsName()) != "yes")
+            IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.revokerolesfromuser", grantee->GetUserRightsName())) != "yes")
               RETURN "";
           }
         }
       DEFAULT
         {
-          IF (this->screen->RunMessageBox("system:userrights/userrights.revokegrants") != "yes")
+          IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.revokegrants")) != "yes")
             RETURN "";
         }
       }
@@ -245,7 +249,7 @@ OBJECTTYPE DeleteDialog
 
   PUBLIC STRING FUNCTION RunModal()
   {
-    IF (this->screen->RunMessageBox("system:userrights/dialogs.suredelete", ToString(LENGTH(this->todelete))) != "yes")
+    IF (this->screen->RunSimpleScreen("confirm", GetTid("system:userrights.dialogues.suredelete", ToString(LENGTH(this->todelete)))) != "yes")
       RETURN "cancel";
 
     // Recalc within work
