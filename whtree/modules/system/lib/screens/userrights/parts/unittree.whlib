@@ -290,6 +290,9 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
       RETURN;
     }
 
+    IF(this->owner->RunSimpleScreen("confirm", GetTid("system:tolliumapps.userrights.messages.confirmmoveunit", droptarget.title)) != "yes")
+      RETURN;
+
     OBJECT work := this->owner->BeginWork();
     RECORD ARRAY moveactions := SELECT ids := GroupedValues(type="system:unit" ? data.wrd_id : data.id)
                                      , type

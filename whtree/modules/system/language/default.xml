@@ -1704,6 +1704,9 @@
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Revoke right grant</text>
       </textgroup>
+      <textgroup gid="messages">   <!-- tolliumapps.userrights.messages -->
+        <text tid="confirmmoveunit">Are you sure you want to move the selection to unit '<param p="1"/>' ?</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="webservers">   <!-- tolliumapps.webservers -->
       <textgroup gid="accessrules">   <!-- tolliumapps.webservers.accessrules -->
