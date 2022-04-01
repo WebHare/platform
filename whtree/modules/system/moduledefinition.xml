@@ -86,7 +86,6 @@
 
     <application group="setup" name="userrights" tid="portal.apps.userrights" screen="userrights/userrights.main" icon="tollium:users/users" shortcut="ctrl+shift+u">
       <accesscheck combine="or">
-        <requireanygrantableright />
         <requireright right="system:browseunits" />
       </accesscheck>
     </application>

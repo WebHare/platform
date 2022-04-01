@@ -375,7 +375,7 @@ PUBLIC RECORD FUNCTION ParseChecks(STRING modulename, OBJECT node, BOOLEAN alway
   FOREVERY(OBJECT subsubchild FROM node->childnodes->GetCurrentElements())
     SWITCH(subsubchild->localname)
     {
-      CASE "accesscheck", "requireright", "requireanygrantableright"
+      CASE "accesscheck", "requireright"
       {
         app.accesscheck := ParseAccessCheck(modulename, subsubchild);
         IF (app.accesscheck.type = "err")
@@ -463,12 +463,6 @@ PUBLIC RECORD FUNCTION ParseAccessCheck(STRING module_name, OBJECT node)
       RETURN
           [ type  := "right"
           , value := rightname
-          ];
-    }
-  CASE "requireanygrantableright"
-    {
-      RETURN
-          [ type  := "anygrantableright"
           ];
     }
 
@@ -1647,7 +1641,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     FOREVERY(OBJECT subchild FROM node->childnodes->GetCurrentElements())
       SWITCH(subchild->localname)
       {
-        CASE "accesscheck", "requireright", "requireanygrantableright"
+        CASE "accesscheck", "requireright"
         {
           accesscheck := ParseAccessCheck(this->moduledef.name, subchild);
           IF (accesscheck.type = "err")
