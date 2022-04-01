@@ -26,6 +26,51 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+
+CONSTANT RECORD elasticsearch_index_settings :=
+      // As long as we don't have replicating OpenSearch instances, set the number of replicas to 0 to make sure all indices have a 'green' health
+    [ "index.number_of_replicas" := 0
+    , analysis :=
+      [ analyzer :=
+          // Defines general and language-specific custom analyzers that are compatible with our tokenstream implementation
+        [ consilio :=
+          [ tokenizer := "tokenstream"
+          , filter := [ "lowercase", "asciifolding" ]
+          ]
+        , consilio_de :=
+          [ tokenizer := "tokenstream"
+          , filter := [ "lowercase", "german_stop", "german_normalization", "asciifolding", "german_stemmer" ]
+          ]
+        , consilio_en :=
+          [ tokenizer := "tokenstream"
+          , filter := [ "english_possessive_stemmer", "lowercase", "english_stop", "asciifolding", "english_stemmer" ]
+          ]
+        , consilio_nl :=
+          [ tokenizer := "tokenstream"
+          , filter := [ "lowercase", "dutch_stop", "asciifolding", "dutch_stemmer" ]
+          ]
+        ]
+      , tokenizer :=
+        [ tokenstream :=
+          [ type := "simple_pattern"
+            // This pattern is the regex implementation of Utf8Reader::IsAlNum()
+          , pattern := "[0-9A-Za-z\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u0370-\u1cff\u1e00-\u1fff\u2c00-\u2dff\u2e80-\u2fff\u3040-\u31ff\u3400-\u4dbf\u4e00-\ua6ff\ua720-\ud7ff\uf900-\ufdff\ufe30-\ufefe\uff00\uff10-\uff19\uff21-\uff3a\uff41-\uff5a\uff65-\uffdf_]+"
+          ]
+        ]
+      , filter :=
+          // These are based on the information at https://www.elastic.co/guide/en/elasticsearch/reference/7.17/analysis-lang-analyzer.html
+        [ dutch_stop := [ type := "stop", stopwords := "_dutch_" ]
+        , dutch_stemmer := [ type := "stemmer", language := "dutch" ]
+        , english_stop := [ type := "stop", stopwords := "_english_" ]
+        , english_stemmer := [ type := "stemmer", language := "english" ]
+        , english_possessive_stemmer := [ type := "stemmer", language := "possessive_english" ]
+        , german_stop := [ type := "stop", stopwords := "_german_" ]
+        , german_stemmer := [ type := "stemmer", language := "light_german" ]
+        ]
+      ]
+    ];
+
+
 // -----------------------------------------------------------------------------
 //
 // Public API
@@ -315,10 +360,14 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
         IF(indexmanager.indexname = "")
           THROW NEW Exception(`Index #${indexid} has no name`);
 
-        RECORD settings := [ "index.number_of_replicas" := 0 ];
         TRY
         {
-          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "") || "?wait_for_active_shards=1", "", CELL[settings], "PUT", CELL[options.throwonfailure]);
+          RECORD response := SendToElasticsearch(indexmanager.id,
+                                                 indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "") || "?wait_for_active_shards=1",
+                                                 "",
+                                                 [ settings := elasticsearch_index_settings ],
+                                                 "PUT",
+                                                 CELL[ options.throwonfailure ]);
           IF (response.status = SearchHTTPError
               AND RecordExists(response.result)
               AND response.result.status = 400
@@ -368,8 +417,12 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
                 ]
             ];
 */
-        RECORD config;
-        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", config, "PUT", [ throwonfailure := TRUE ]);
+        RECORD response := SendToElasticsearch(indexmanager.id,
+                                               indexmanager.indexname,
+                                               "",
+                                               [ settings := elasticsearch_index_settings ],
+                                               "PUT",
+                                               [ throwonfailure := TRUE ]);
         IF (response.status = SearchHTTPError
             AND RecordExists(response.result)
             AND response.result.status = 400
@@ -378,8 +431,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options D
           result := SearchOk; // It's ok, the index aleady exists
         ELSE
           result := response.status;
-
-     }
+      }
     }
   }
 
@@ -435,6 +487,10 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
             settings.properties := CellInsert(settings.properties, field.name, fielddef);
           }
         }
+        // Use our consilio analyzer for all text-based fields
+        FOREVERY (RECORD prop FROM UnpackRecord(settings.properties))
+          IF (prop.value.type = "text")
+            settings.properties := CellUpdate(settings.properties, prop.name, CELL[ analyzer := "consilio", ...prop.value ]);
 
         // If there are any suggested fields, add a '_suggested' field with 'completion' type
         IF (have_suggested)

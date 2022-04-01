@@ -59,10 +59,13 @@ MACRO TestConsilioAPI()
   RECORD result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("OneOfTheSimpleFiles"));
   TestEq(TRUE, Length(result.results) > 0);
 
-  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest.rtd"));
+  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
 
-  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest"));
+  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("rtd"));
+  TestEq(TRUE, Length(result.results) > 0);
+
+  result := RunConsilioSearch("consilio:testfw_apitest1", CQParseUserQuery("simpletest.rtd"));
   TestEq(TRUE, Length(result.results) > 0);
 }
 
