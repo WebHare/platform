@@ -2,7 +2,6 @@
 /** @short Sites published to the local filesystem
 */
 
-//LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 
 LOADLIB "mod::publisher/lib/internal/outputmedia/base.whlib";
@@ -386,10 +385,6 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
   //  , MACRO WriteData(STRING data)
   PUBLIC MACRO Finish()
   {
-    //ADDME: Moving away of files and directory could be delayed if we know
-    //       that some things won't be replaced (eg createdfile or createdir is false)
-    /*ADDME: Clean up the back-out code using exceptions? */
-
     // Close outfiles if still open. Forget failing, it hasn't been checked for ages, so there will be templates out there which fail on this...
     IF (LENGTH(this->outfiles) != 0)
     {
@@ -397,7 +392,6 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
         CloseDiskFile(handle);
       this->outfiles := DEFAULT INTEGER ARRAY;
     }
-    //ABORT(this->generatedfiles);
 
     // Do some preflight checks before we figure out what we want to move around
     STRING destination_dir, destination_file, destination_filegz;
@@ -475,14 +469,17 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
 
       FOREVERY(RECORD move FROM tomove) //Move the files into place
       {
-        RECORD cleanup_casemismatch := SELECT * FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name) AND name != move.name;
-        IF(RecordExists(cleanup_casemismatch)) //case mismatches are dangerous, will moving the new file in place remove them or not? depends on target fs. just kill it beforehand
-          DeleteLocalFSFile("Delete case mismatch", cleanup_casemismatch.path);
+        RECORD ARRAY cleanup_casemismatches := SELECT * FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name) AND name != move.name;
+        FOREVERY(RECORD mismatch FROM cleanup_casemismatches) //case mismatches are dangerous, will moving the new file in place remove them or not? depends on target fs. just kill it beforehand
+          IF(mismatch.type = 1)
+            DeleteLocalFSDirectory("Delete case mismatch", mismatch.path);
+          ELSE
+            DeleteLocalFSFile("Delete case mismatch", mismatch.path);
 
-        DELETE FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name); //delete it frmo our list either way
+        DELETE FROM tocleanup WHERE ToUppercase(name) = ToUppercase(move.name); //delete it from our list either way
         IF(NOT MoveLocalFSDiskPath("Move new file into place", move.path, MergePath(destination_dir, move.name)))
         {
-          this->ErrorNotify(1001,"Publication failure replaceing output file");
+          this->ErrorNotify(1001,"Publication failure replacing output file");
           RETURN;
         }
       }
