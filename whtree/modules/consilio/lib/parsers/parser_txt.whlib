@@ -19,7 +19,7 @@ INTEGER max_title_length := 80;
     @cell return.description Description for the page (left empty for plain text)
     @cell return.links The links found in this page (left empty in plain text)
     @cell return.text The contents of the page */
-PUBLIC RECORD FUNCTION ParsePlainTextDoc(BLOB data)
+PUBLIC RECORD FUNCTION ParsePlainTextDoc(BLOB data, BOOLEAN contentlinksonly)
 {
   // Default parsed page
   RECORD parsed_page := CreateParsedPage();

@@ -20,7 +20,7 @@ MACRO TestParserHtml()
           <title>nope</title>
         </svg>
       </body>
-    </html>`));
+    </html>`),TRUE);
   TestEq("test", parsed.title);
 
   // Treat <li> as a block element
@@ -31,7 +31,7 @@ MACRO TestParserHtml()
           <li>aap</li><li>noot</li><li>mies</li>
         </ul>
       </body>
-    </html>`));
+    </html>`),TRUE);
   TestEq("aap noot mies", parsed.text);
 }
 

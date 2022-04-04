@@ -1,36 +1,17 @@
 <?wh
 /** @private Parser list. (may be replaced with tika at some point) */
-
+LOADLIB "wh::internal/any.whlib";
 //ADDME moduledefinition registration? perhaps an object to base upon is a nicer api than functions though
 
-PUBLIC RECORD ARRAY consilio_parsers :=
+RECORD ARRAY consilio_parsers :=
 [ [ mimetypes := [ "text/plain" ]
-  , lib := "mod::consilio/lib/parsers/parser_txt.whlib"
-  , func := "ParsePlainTextDoc"
+  , func := "mod::consilio/lib/parsers/parser_txt.whlib#ParsePlainTextDoc"
   ]
 , [ mimetypes := [ "text/html" ]
-  , lib := "mod::consilio/lib/parsers/parser_html.whlib"
-  , func := "ParseHTMLPage"
+  , func := "mod::consilio/lib/parsers/parser_html.whlib#ParseHTMLPage"
   ]
-, [ mimetypes := [ "application/pdf" ]
-  , lib := "mod::consilio/lib/parsers/parser_pdf.whlib"
-  , func := "ParsePDFDoc"
-  ]
-, [ mimetypes := [ "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ]
-  , lib := "mod::consilio/lib/parsers/parser_msword.whlib"
-  , func := "ParseMSWordDoc"
-  ]
-, [ mimetypes := [ "application/vnd.ms-excel", "application/excel" ]
-  , lib := "mod::consilio/lib/parsers/parser_excel.whlib"
-  , func := "ParseExcelFile"
-  ]
-, [ mimetypes := [ "application/vnd.ms-powerpoint" ]
-  , lib := "mod::consilio/lib/parsers/parser_powerpoint.whlib"
-  , func := "ParsePowerPointFile"
-  ]
-, [ mimetypes := [ "application/vnd.openxmlformats-officedocument.presentationml.presentation" ]
-  , lib := "mod::consilio/lib/parsers/parser_pptx.whlib"
-  , func := "ParsePPTX"
+, [ mimetypes := [ "*" ]
+  , func := "mod::consilio/lib/parsers/tika.whlib#ParseTikaPage"
   ]
 ];
 
@@ -41,25 +22,9 @@ PUBLIC RECORD FUNCTION ParsePage(BLOB data, STRING mimetype, RECORD options DEFA
       ], options);
 
   mimetype := ToLowercase(mimetype);
-  RECORD parser := SELECT * FROM consilio_parsers WHERE mimetype IN mimetypes;
+  RECORD parser := SELECT * FROM consilio_parsers WHERE __MatchesAnyMask(mimetype,mimetypes);
   IF (NOT RecordExists(parser))
     RETURN DEFAULT RECORD;
 
-  RECORD parsed_page;
-  TRY
-  {
-    parsed_page := MakeFunctionPtr(parser.lib || "#" || parser.func, TypeID(RECORD), [TypeID(BLOB), TypeID(BOOLEAN)])(data, options.contentlinksonly);
-  }
-  CATCH (OBJECT e) {}
-  IF (NOT RecordExists(parsed_page))
-  {
-    TRY
-    {
-      parsed_page := MakeFunctionPtr(parser.lib || "#" || parser.func, TypeID(RECORD), [TypeID(BLOB)])(data);
-    }
-    CATCH (OBJECT e) {}
-  }
-  IF (NOT RecordExists(parsed_page))
-    THROW NEW Exception(`${parser.lib}#${parser.func}`);
-  RETURN parsed_page;
+  RETURN MakeFunctionPtr(parser.func, TypeID(RECORD), [TypeID(BLOB), TypeID(BOOLEAN)] )(data, options.contentlinksonly);
 }

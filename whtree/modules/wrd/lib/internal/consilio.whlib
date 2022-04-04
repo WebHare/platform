@@ -39,7 +39,7 @@ PUBLIC MACRO UpdateCheckedLinksForSettings(INTEGER ARRAY settingids)
     IF (Length(setting.blobdata) > 0)
     {
       // Parse the HTML blob
-      RECORD parsed := ParseHTMLPage(setting.blobdata);
+      RECORD parsed := ParseHTMLPage(setting.blobdata, TRUE);
       // Keep only http and https links
       links := SELECT *
                     , url := Tokenize(link, "#")[0]

@@ -8,12 +8,19 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 MACRO TestTika()
 {
+  /* to test this yourself:
+     /usr/local/Cellar/openjdk/18/bin/java -jar $(wh getmoduledir system)/data/engines/tika-app.jar --config=$(wh getmoduledir system)/data/engines/tika-default-config.xml --html $(wh getmoduledir webhare_testsuite)/tests/baselibs/hsengine/data/testole_plaindoc.doc | less
+  */
   OBJECT doc := ParseUsingTIKA(GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc"));
 
   //verify metadata prop extraction
   TestEq("tag 1", doc->QuerySelector(`meta[name="custom:Mijn eigen tag"]`)->GetAttribute("content"));
   //verify text extraction
   TestEq("Handleiding WebHare Professional", TrimWhitespace(doc->QuerySelector("h1")->textcontent));
+
+  RECORD docrec := ParseTikaPage(GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc"), TRUE);
+  TestEq("Handleiding WebHare Professional", docrec.title);
+  TestEqLike("*In deze handleiding wordt u stap voor stap door de interface van WebHare Professional geleid.*", docrec.text);
 }
 
 RunTestframework([ PTR TestTika

@@ -6,6 +6,8 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
 
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+
 
 PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -26,4 +28,15 @@ PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAU
   {
     DeleteDiskFile(inputtemp);
   }
+}
+
+PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN contentlinksonly)
+{
+  OBJECT doc := ParseUsingTIKA(file);
+  RECORD parsed_page := ParseHTMLPage(StringToBlob(doc->body->outerhtml), contentlinksonly);
+  OBJECT meta_titlenode := doc->QuerySelector(`meta[name="dc:title"]`);
+  IF(ObjectExists(meta_titlenode))
+    parsed_page.title := meta_titlenode->GetAttribute("content");
+
+  RETURN parsed_page;
 }
