@@ -163,24 +163,6 @@ setup_node()
   export WEBHARE_LOOPBACKPORT
 }
 
-noderun()
-{
-  PACKAGE=$1
-  shift
-  for P in "$WEBHARE_DATAROOT/nodejs/node_modules/.bin" "$WEBHARE_DIR/node_modules/.bin" ]; do
-    if [ -f "$P/$PACKAGE" ]; then
-      if [ "$NOEXEC" == "1" ]; then
-        node "$P/$PACKAGE" "$@"
-        return $?
-      else
-        exec node "$P/$PACKAGE" "$@"
-      fi
-    fi
-  done
-  echo "Package '$PACKAGE' not found"
-  exit 1
-}
-
 getlog()
 {
   local XLOGFILE LOGFILEPATH
