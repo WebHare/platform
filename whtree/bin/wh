@@ -107,6 +107,10 @@ if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
     WEBHARE_BUILDDIR="`cd $WEBHARE_CHECKEDOUT_TO; DIRNAME="${PWD##*/}" ; cd ..; echo $PWD/whbuild/${WHBUILD_DIPREFIX}${DIRNAME}`"
   fi
   WEBHARE_BUILDHOLDERS="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
+
+  if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
+    WHBUILD_DOWNLOADCACHE="$WEBHARE_BUILDDIR/downloadcache"
+  fi
 fi
 
 export WEBHARE_CHECKEDOUT_TO
@@ -114,6 +118,7 @@ export WEBHARE_BUILDDIR
 export WEBHARE_DIR
 export WEBHARE_BASEPORT
 export WEBHARE_DATAROOT
+export WHBUILD_DOWNLOADCACHE
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
 # Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8
@@ -306,21 +311,9 @@ setup_buildsystem()
     export GCC_COLORS=1
 
     # We also want pdf-box. Homebrew/Fedora don't ship it so we'll just manually download it
-    PDFBOX_BASEDIR="$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines/"
-    PDFBOX_VERSION="2.0.21"
-    PDFBOX_DOWNLOADPATH="$PDFBOX_BASEDIR/pdfbox-app-$PDFBOX_VERSION.jar"
-    PDFBOX_FINALPATH="$PDFBOX_BASEDIR/pdfbox-app.jar"
-
-    if [ ! -f "$PDFBOX_DOWNLOADPATH" -o ! -f "$PDFBOX_FINALPATH" ]; then
-      mkdir -p "$PDFBOX_BASEDIR"
-      if ! curl https://build.webhare.dev/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
-        die PDFBOX download failed
-      fi
-      mv "$PDFBOX_DOWNLOADPATH.tmp" "$PDFBOX_DOWNLOADPATH"
+    if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh ; then
+      echo "setup-pdfbox failed"
     fi
-
-    # Make sure pdf-box points to our desired vesrion
-    ln -f "$PDFBOX_DOWNLOADPATH" "$PDFBOX_FINALPATH"
   fi
 }
 

@@ -1,13 +1,28 @@
-# We can't mark this script as executable as it shouldn't be run on a build host
+#!/bin/bash
+set -e
 
-GETFILE=pdfbox-app-2.0.21.jar
-DLPATH=/tmp/downloads/$GETFILE
+# Download here: https://pdfbox.apache.org/download.cgi
+# Upload here: https://cms.webhare.dev/?app=publisher(/webhare.dev/build.webhare.dev/whbuild/)
 
-if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
-  rm -f $DLPATH
+if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
+  echo WHBUILD_DOWNLOADCACHE not set
+  exit 1
+fi
+
+GETFILE=pdfbox-app-2.0.25.jar
+mkdir -p "$WHBUILD_DOWNLOADCACHE"
+DLPATH="$WHBUILD_DOWNLOADCACHE/$GETFILE"
+
+if ! curl -fsS -o "$DLPATH" -z "$DLPATH" https://build.webhare.dev/whbuild/$GETFILE ; then
+  rm -f "$DLPATH"
   echo "Download failed"
   exit 1
 fi
 
-mkdir -p /opt/wh/whtree/modules/system/data/engines/
-cp $DLPATH /opt/wh/whtree/modules/system/data/engines/pdfbox-app.jar
+# Delete old versions in data/engines - this only happens on source installs and can go after april 11, 2022
+
+mkdir -p "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/
+find "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/ -name 'pdfbox-app-*.jar' -exec rm {} \;
+cp "$DLPATH" "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/pdfbox-app.jar
+
+exit 0
