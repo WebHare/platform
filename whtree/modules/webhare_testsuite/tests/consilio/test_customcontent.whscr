@@ -11,6 +11,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
@@ -57,6 +58,12 @@ MACRO TestCompleteSyncAfterCommand()
 
 MACRO TestCustomContent()
 {
+  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  BOOLEAN is_opensearch := catalog->indexmanager.type = whconstant_consilio_indexmanager_opensearch;
+
+  //having indexnames makes log analysis easier
+  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+
   search_obj := OpenSearchObject("en", testfw->GetCatalogName_1());
   RECORD res;
 
@@ -169,6 +176,8 @@ MACRO TestCustomContent()
       , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
       , summary := ""
+      , indexed_by := ToString(contentsource)
+      , datafrom := "fetch"
       ], res.results[0]);
 
   search_obj->summary_length := 0; // Don't return "summary"
@@ -178,6 +187,8 @@ MACRO TestCustomContent()
       , objectid := idprefix||"a1"
       , initialfilter := "obj://" || idprefix||"a" || "/" || idprefix||"a1"
       , date_adate := MakeDate(2010, 1, 1)
+      , indexed_by := ToString(contentsource)
+      , datafrom := "fetch"
       ], res.results[0]);
 
   search_obj->empty_result_record :=
@@ -195,8 +206,8 @@ MACRO TestCustomContent()
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , _score := 1f
-      ], res.results[0]);
+      ], CELL[ ...res.results[0], DELETE _score ]);
+  TestEq(TRUE, res.results[0]._score > 0);
 
   search_obj->empty_result_record :=
       [ score := 0f // If "score" is requested and "_score" is not, the "_score" field is returned as "score"
@@ -205,8 +216,8 @@ MACRO TestCustomContent()
   TestEq(
       [ groupid := idprefix||"a"
       , objectid := idprefix||"a1"
-      , score := 1f
-      ], res.results[0]);
+      ], CELL[ ...res.results[0], DELETE score ]);
+  TestEq(TRUE, res.results[0].score > 0);
 
   search_obj->empty_result_record :=
       [ date_adate := DEFAULT DATETIME // Return custom field "date_adate"
@@ -496,12 +507,20 @@ MACRO TestCustomContent()
 
   // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which are always
   // applied after searching, so "+(body:* date_adate:*)" is effectively interpreted as "+body:* +date_adate:*"
-  //TODO: When switching to Elasticsearch, which does have an exists query, this should return a1, b1 and c1
-  res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
-  TestEQ(1, res.totalcount);
-  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
-  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+  IF (is_opensearch)
+  {
+    res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
+    TestEQ(3, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+  }
+  ELSE
+  {
+    res := search_obj->Search("+contentsource:"||contentsource||" +(body:* date_adate:*)", 0, 1000);
+    TestEQ(1, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+  }
 
   res := search_obj->Search("+contentsource:"||contentsource||" +body:* +date_adate:*", 0, 1000);
   TestEQ(1, res.totalcount);
@@ -509,13 +528,20 @@ MACRO TestCustomContent()
 
   // Because there is no dedicated exists query in Consilio, these are being rewritten to range filters, which cannot be
   // negated and are always applied after searching, so "-body:*" is effectively interpreted as "+body:*"
-  //TODO: When switching to Elasticsearch, which does have an exists query, this should return a1 and d1
-  res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
-  TestEQ(2, res.totalcount);
-  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
-  //TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
+  IF (is_opensearch)
+  {
+    res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
+    TestEQ(2, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"d1"));
+  }
+  ELSE
+  {
+    res := search_obj->Search("+contentsource:"||contentsource||" -body:*", 0, 1000);
+    TestEQ(2, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"b1"));
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"c1"));
+  }
 
   res := RunConsilioSearch(testfw->GetCatalogName_1(), CQAnd([ CQMatch("contentsource", "=", contentsource), CQHas("date_adate") ]));
   TestEQ(2, res.totalcount);
@@ -532,7 +558,6 @@ MACRO TestCustomContent()
   UpdateConsilioIndex(indexid);
   testfw->WaitQueueEmpty();
 
-__indexmanager_debugall := true;
   res := search_obj->Search("+body:a1", 0, 1000);
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
@@ -561,9 +586,17 @@ __indexmanager_debugall := true;
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
 
+  // OpenSearch searches for the term 'å1"\r\n€', which isn't indexed, Consilio tokenizes the term and will find the 'å1' result
   res := search_obj->SearchQuery(CQMatch("body", "=", "å1\"\r\n€"), 0, 1000);
-  TestEQ(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  IF (is_opensearch)
+  {
+    TestEQ(0, res.totalcount);
+  }
+  ELSE
+  {
+    TestEQ(1, res.totalcount);
+    TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = idprefix||"a1"));
+  }
 
 /* Not working (yet?)
   res := search_obj->SearchQuery(CQMatch("body", "=", "🍻"), 0, 1000);

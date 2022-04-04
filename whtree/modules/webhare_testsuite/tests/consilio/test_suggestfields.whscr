@@ -34,6 +34,10 @@ MACRO TestSuggestFields()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
+  OBJECT catalog := OpenConsilioCatalog(testfw->GetCatalogName_1());
+  //having indexnames makes log analysis easier
+  Print(`${testfw->GetCatalogName_1()} => ${catalog->indexname}\n`);
+
   indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
   contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
       [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
