@@ -1014,7 +1014,7 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
       }
     }
     // If we got here, we have to insert the default field value
-    singleresult := CellInsert(singleresult, field.name, field.value);
+    singleresult := CellInsert(singleresult, field.name, GetTypeDefaultValue(TypeID(field.value)));
   }
   RETURN singleresult;
 }
