@@ -737,11 +737,6 @@ case $INSTR in
     set|grep ^WEBHARE_
     ;;
 
-  "noderun")
-    setup_node
-    noderun $@
-    ;;
-
   "mocharun")
     setup_node
     EXTRA_WATCH=

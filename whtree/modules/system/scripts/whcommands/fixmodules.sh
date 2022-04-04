@@ -45,7 +45,6 @@ done
 
 loadshellconfig
 setup_node
-NOEXEC=1 # make sure noderun is not terminal
 
 FAILED=0
 
