@@ -496,6 +496,7 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
         IF (have_suggested)
           INSERT CELL _suggested :=
               [ type := "completion"
+              , analyzer := "consilio"
               ] INTO settings.properties;
 
         RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/", settings, "PUT", [ throwonfailure := TRUE ]);
@@ -1216,11 +1217,13 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
         OBJECT tokenizer := NEW TokenStream(query);
         RECORD token := tokenizer->GetNextToken();
         STRING userquery, userword, querystring;
+        STRING ARRAY otherwords;
         WHILE (RecordExists(token))
         {
           IF (token.type = TokenTypeWord)
           {
             querystring := token.normalizedtext;
+            INSERT querystring INTO otherwords AT END;
             userword := token.text;
             userquery := Left(query, token.startoffset);
           }
@@ -1244,6 +1247,16 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
                       ]
                   ]
               ];
+          // If the and_search option is set, query documents containing the other query words
+          IF (options.and_search AND options.doccount = "search" AND Length(otherwords) > 1)
+          {
+            DELETE FROM otherwords AT END-1; // Remove the suggestions query word
+            INSERT CELL query :=
+                [ bool :=
+                    [ must := (SELECT match := [ _suggested := word ] FROM ToRecordArray(otherwords, "word"))
+                    ]
+                ] INTO suggestquery;
+          }
           IF (indexid != -1 AND options.restrict_to != "")
             INSERT "initialfilter" INTO suggestquery._source AT END;
 
@@ -1255,11 +1268,16 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
             // manually go through all suggested terms (the original input) and see which terms match with the query. This has
             // the added benefit of having a method to count the number of matching documents
             IF (Length(response.result.suggest.suggested.options) > 0)
+            {
+              // These are the documents containing the other query words
+              STRING ARRAY otherdocs := Length(response.result.hits.hits) > 0 ? SELECT AS STRING ARRAY _id FROM response.result.hits.hits : STRING[];
               FOREVERY (RECORD suggest FROM response.result.suggest.suggested.options)
               {
                 IF (indexid != -1
                     AND options.restrict_to != ""
                     AND suggest._source.initialfilter NOT LIKE options.restrict_to || "*")
+                  CONTINUE;
+                IF (options.and_search AND options.doccount = "search" AND Length(otherwords) > 0 AND suggest._id NOT IN otherdocs)
                   CONTINUE;
                 FOREVERY (STRING text FROM suggest._source._suggested.input)
                   IF (text LIKE querystring || "*")
@@ -1278,6 +1296,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
                       result.suggestions[cur].count := result.suggestions[cur].count + 1;
                   }
               }
+            }
 
             INTEGER max := options.count != defaultoptions.count AND options.count >= 0 ? options.count : defaultoptions.count;
             IF (max > 0)
@@ -1341,8 +1360,8 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
 
 // @cell objects.objectid
 // @cell objects.documentfields
-// @cell objects.suggestfields
-// @cell objects.suggestprefixes
+// @cell objects.suggestfields (only used by legacy consilio, opensearch uses the mapping's suggested property)
+// @cell objects.suggestprefixes (only used by legacy consilio)
 PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                                               RECORD contentsource,
                                               STRING groupid,
@@ -1450,8 +1469,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
         }
         ELSE
         {
-          RECORD ARRAY mapping := GetContentSourceMapping(contentsource.id);
-          mapping := SELECT * FROM mapping WHERE suggested;
+          STRING ARRAY suggestfields := SELECT AS STRING ARRAY name FROM GetContentSourceMapping(contentsource.id) WHERE suggested;
 
           RECORD ARRAY bulkrequests;
           FOREVERY (RECORD obj FROM objects)
@@ -1472,15 +1490,16 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
                 document := CellInsert(CellDelete(document, field.name), field.name, FormatISO8601DateTime(field.value, "day", "milliseconds"));
             }
 
-            IF (RecordExists(mapping))
+            IF (Length(suggestfields) > 0)
             {
               STRING ARRAY suggested;
               OBJECT tokenizer := NEW TokenStream("");
-              FOREVERY (RECORD field FROM mapping)
+              FOREVERY (STRING field FROM suggestfields)
               {
-                STRING fieldname := field.name LIKE "_*" ? Substring(field.name, 1) : field.name;
-                IF (CellExists(document, fieldname))
-                  tokenizer->AddText(GetCell(document, fieldname));
+                IF (field LIKE "_*")
+                  field := Substring(field, 1);
+                IF (field IN obj.suggestfields AND CellExists(document, field))
+                  tokenizer->AddText(" " || GetCell(document, field));
               }
               RECORD token := tokenizer->GetNextToken();
               WHILE (RecordExists(token))

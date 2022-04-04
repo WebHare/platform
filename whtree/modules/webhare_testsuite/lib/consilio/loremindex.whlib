@@ -49,14 +49,17 @@ STRING ARRAY allusers := [ "sysop", "kris", "filemgr" ];
 
 PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
 <
-  UPDATE PUBLIC RECORD FUNCTION GetEmptySearchRecord()
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
   {
-    RECORD emptyrec := this->defaultemptysearchrecord;
-    INSERT CELL date_test := DEFAULT DATETIME INTO emptyrec;
-    INSERT CELL testdate := "" INTO emptyrec;
-    INSERT CELL validuser := "" INTO emptyrec;
-    INSERT CELL url := "" INTO emptyrec;
-    RETURN emptyrec;
+    RECORD ARRAY mapping := this->defaultmapping CONCAT
+        [ [ name := "date_test", value := DEFAULT DATETIME ]
+        , [ name := "testdate",  value := "", tokenized := FALSE ]
+        , [ name := "validuser", value := "", tokenized := FALSE ]
+        , [ name := "url",       value := "", tokenized := FALSE ]
+        , [ name := "title",     value := "", tokenized := TRUE ]
+        , [ name := "_body",     tokenized := TRUE, suggested := TRUE ]
+        ];
+    RETURN mapping;
   }
 
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
@@ -86,7 +89,7 @@ PUBLIC OBJECTTYPE IndexLibrary EXTEND CustomContentBase
                                 , date_test := testdate
                                 , testdate := DateTimeToString(testdate)
                                 , validuser := allusers[Random(0, Length(allusers) - 1)]
-                                , suggestfields := "body"
+                                , suggestfields := "body" // for legacy consilio
                                 , url := "file://lorem%20" || id || ".txt"
                                 ]
            , document_body := lorem[id]

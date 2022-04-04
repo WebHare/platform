@@ -1085,7 +1085,7 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
                                 , chunksize := 128
                                 , synchronous := FALSE
                                 ], options);
-    //are these still relevant?
+    //are these still relevant? only used by legacy consilio
     // @cell objects.suggestfields
     // @cell objects.suggestprefixes
 
