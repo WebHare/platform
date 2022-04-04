@@ -2,13 +2,13 @@
 /** @topic witty/api */
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/pdfapi.whlib";
+LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
 
 
 /** Get a screenshot of a page
@@ -271,39 +271,7 @@ PUBLIC RECORD FUNCTION GeneratePDFFromFile(RECORD wrappedfile, RECORD options DE
 // https://pdfbox.apache.org/2.0/commandline.html
 RECORD FUNCTION RunPDFBox(STRING ARRAY instructions)
 {
-  STRING app;
-  FOREVERY(STRING javapath FROM ["/usr/local/opt/openjdk/bin/java", "/usr/local/bin/java", "/usr/bin/java"])
-    IF(RecordExists(GetDiskFileProperties(javapath)))
-    {
-      app := javapath;
-      BREAK;
-    }
-
-  STRING ARRAY args := ["-jar", GetWebHareResourceDiskPath("mod::system/data/engines/pdfbox-app.jar"), ...instructions ];
-
-  OBJECT proc := CreateProcess(app, args, FALSE, TRUE, FALSE, FALSE);
-
-  INTEGER str := CreateStream();
-  STRING output;
-  proc->Start();
-  WHILE(proc->IsRunning())  //FIXME need nicer way to wait..
-    output := output || ReadFrom(proc->output_handle,16384);
-
-  WHILE(TRUE)
-  {
-    STRING data := ReadFrom(proc->output_handle,16384);
-    IF(data="")
-      BREAK;
-    output := output || data;
-  }
-
-  INTEGER exitcode := proc->exitcode;
-  proc->Close();
-
-  RETURN [ cmdline := Detokenize(args,' ')
-         , output := output
-         , exitcode := exitcode
-         ];
+  RETURN RunJavaServiceApp([GetWebHareResourceDiskPath("mod::system/data/engines/pdfbox-app.jar"), ...instructions]);
 }
 
 /** Export each page of the PDF to an image

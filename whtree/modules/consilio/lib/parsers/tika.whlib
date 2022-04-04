@@ -1,0 +1,29 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
+
+
+PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  STRING inputtemp := GenerateTemporaryPathname();
+  StoreDiskFile(inputtemp, file, [ exclusive := TRUE ]);
+
+  TRY
+  {
+    RECORD result := RunJavaServiceApp([ GetWebHareResourceDiskPath("mod::system/data/engines/tika-app.jar")
+                                       , "--config=" || GetWebHareResourceDiskPath("mod::system/data/engines/tika-default-config.xml") //disables OCR
+                                       ,  "--html"
+                                       , inputtemp ]);
+    RETURN MakeXMLDocumentFromHTML(StringToBlob(result.output));
+  }
+  FINALLY
+  {
+    DeleteDiskFile(inputtemp);
+  }
+}

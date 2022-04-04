@@ -6,6 +6,7 @@
   <!-- TODO except for testindexmanager, all tests should eventually drop their unlessenvironset="TESTFW_SETUP_ELASTICSEARCH" and xfail version-->
 
   <test script="test_queryparser.whscr" />
+  <test script="test_tika.whscr" />
 
   <!-- test ES parsers (and other internal stuff later?) - does not actually require an ES to communicate with, so we can always run this test -->
   <test script="test_elasticsearch_internal.whscr" />

@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+
+// https://pdfbox.apache.org/2.0/commandline.html
+PUBLIC RECORD FUNCTION RunJavaServiceApp(STRING ARRAY jar_and_args)
+{
+  STRING app;
+  FOREVERY(STRING javapath FROM ["/usr/local/opt/openjdk/bin/java", "/usr/local/bin/java", "/usr/bin/java"])
+    IF(RecordExists(GetDiskFileProperties(javapath)))
+    {
+      app := javapath;
+      BREAK;
+    }
+
+  STRING ARRAY args := ["-jar",  ...jar_and_args ];
+
+  OBJECT proc := CreateProcess(app, args, FALSE, TRUE, FALSE, FALSE);
+
+  INTEGER str := CreateStream();
+  STRING output;
+  proc->Start();
+  WHILE(proc->IsRunning())  //FIXME need nicer way to wait..
+    output := output || ReadFrom(proc->output_handle,16384);
+
+  WHILE(TRUE)
+  {
+    STRING data := ReadFrom(proc->output_handle,16384);
+    IF(data="")
+      BREAK;
+    output := output || data;
+  }
+
+  INTEGER exitcode := proc->exitcode;
+  proc->Close();
+
+  RETURN [ cmdline := Detokenize(args,' ')
+         , output := output
+         , exitcode := exitcode
+         ];
+}
+

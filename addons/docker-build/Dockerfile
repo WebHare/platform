@@ -39,6 +39,11 @@ RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
     /bin/bash /setup-pdfbox.sh
 
+# Install TIKA
+RUN --mount=type=bind,source=/setup-tika.sh,target=/setup-tika.sh \
+    --mount=type=cache,id=pdfbox,target=/tmp/downloads \
+    /bin/bash /setup-tika.sh
+
 # Install opensearch (was elasticsearch)
 RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \

@@ -1,0 +1,20 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/parsers/tika.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+MACRO TestTika()
+{
+  OBJECT doc := ParseUsingTIKA(GetWebhareResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/testole_plaindoc.doc"));
+
+  //verify metadata prop extraction
+  TestEq("tag 1", doc->QuerySelector(`meta[name="custom:Mijn eigen tag"]`)->GetAttribute("content"));
+  //verify text extraction
+  TestEq("Handleiding WebHare Professional", TrimWhitespace(doc->QuerySelector("h1")->textcontent));
+}
+
+RunTestframework([ PTR TestTika
+                 ]);
