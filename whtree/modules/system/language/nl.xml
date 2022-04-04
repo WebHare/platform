@@ -727,12 +727,6 @@
         </textgroup>
       </textgroup>
     </textgroup>
-    <textgroup gid="sysmgmt">   <!-- screens.sysmgmt -->
-      <textgroup gid="needsysop">   <!-- screens.sysmgmt.needsysop -->
-        <textgroup gid="main">   <!-- screens.sysmgmt.needsysop.main -->
-        </textgroup>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
     <text tid="settings">Standaardinstellingen</text>

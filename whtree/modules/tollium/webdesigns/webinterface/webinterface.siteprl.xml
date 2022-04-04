@@ -32,13 +32,12 @@
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
     <robots xmlns="http://www.webhare.net/xmlns/consilio" nofollow="true" noindex="true" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowwebhareinstall="true" />
   </apply>
 
   <!-- on dev servers, open up a /testportal -->
   <apply maxservertype="development">
     <to type="file" pathmask="/testportal" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" allowwebhareinstall="false" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-testportal"

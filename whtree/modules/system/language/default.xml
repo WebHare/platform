@@ -909,22 +909,6 @@
         </textgroup>
       </textgroup>
     </textgroup>
-    <textgroup gid="sysmgmt">   <!-- screens.sysmgmt -->
-      <textgroup gid="needsysop" limitlanguages="en">   <!-- screens.sysmgmt.needsysop -->
-        <textgroup gid="main">   <!-- screens.sysmgmt.needsysop.main -->
-          <text tid="explainneedsysop">A WebHare installation needs a sysop to complete configuration.<br/><br/><br/><br/>As this server has been newly installed, you can create a sysop now.</text>
-          <text tid="finished">Installation wizard finished</text>
-          <text tid="login">Login name</text>
-          <text tid="login-placeholder">(eg. sysop@example.org)</text>
-          <text tid="password">Password</text>
-          <text tid="passwordrepeat">Repeat password</text>
-          <text tid="serversettings">Global server settings</text>
-          <text tid="sysopcredentials">Sysop credentials</text>
-          <text tid="title">Installation wizard</text>
-          <text tid="welcome">Welcome to WebHare</text>
-        </textgroup>
-      </textgroup>
-    </textgroup>
   </textgroup>
   <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
     <text tid="settings">Default settings</text>

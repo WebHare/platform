@@ -40,7 +40,6 @@ IF(beta_sysop = 0)
 
   OBJECT sysopobj := userapi->GetUser(sysop->id);
   sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted by WebHare during initial setup");
-  WriteRegistryKey("system.backend.security.needsysop", FALSE);
 }
 
 OpenSiteByName("WebHare backend")->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:insecure_interface"] ]);

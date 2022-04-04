@@ -376,8 +376,6 @@ class IndyShell
     {
       if(this.invitetype)  //reload without invite vars
         location.href = location.href.split('?')[0];
-      else if(this.settings.reloadonexit)
-        location.reload();
       else
         window.close();
     }

@@ -237,11 +237,6 @@ IF(ReadRegistryKey("system.global.installationid") = "")
 IF(ReadRegistryKey("system.global.servertype") = "")
   WriteRegistryKey("system.global.servertype", IsModuleInstalled("webhare_testsuite") ? "development" : "test");
 
-IF(isfreshwebhare)
-{
-  WriteRegistryKey("system.backend.security.needsysop", TRUE);
-}
-
 IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
   WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
 IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")

@@ -178,12 +178,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   MACRO SetupPortal(OBJECT webdesign)
   {
     //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
-    BOOLEAN allowwebhareinstall;
     FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", webdesign->targetobject->id))
     {
       STRING resourcename := setting.siteprofile->name;
-      IF(setting.node->HasAttribute("allowwebhareinstall"))
-        allowwebhareinstall := ParseXSBoolean(setting.node->GetAttribute("allowwebhareinstall"));
       IF(setting.node->HasAttribute("allowinframe"))
         this->allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
       IF(setting.node->HasAttribute("dashboard"))
@@ -336,8 +333,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       }
     }
 
-    this->runwebhareinstall := allowwebhareinstall AND ReadRegistryKey("system.backend.security.needsysop") AND NOT this->isoverriding;
-
     this->launchuserinfo := CELL
         [ loggedin
         , loggedin_name
@@ -355,38 +350,32 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   RECORD ARRAY FUNCTION CalculateInitialInstructions(OBJECT webcontext)
   {
     RECORD ARRAY initialinstructions;
-    IF(this->runwebhareinstall)
-    {
-      initialinstructions := [ GetRawAppLaunchInstruction("system:needsysop") ];
-    }
-    ELSE
-    {
-      RECORD ARRAY appinstructions;
 
-      FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
+    RECORD ARRAY appinstructions;
+
+    FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
+    {
+      FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
+      TRY
       {
-        FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
-        TRY
-        {
-          STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
-          FOREVERY (STRING app FROM forceapps)
-            INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-        }
-        CATCH (OBJECT e)
-          LogHarescriptException(e);
+        STRING ARRAY forceapps := fptr([ user := this->currentuser ]);
+        FOREVERY (STRING app FROM forceapps)
+          INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
       }
-
-
-      FOREVERY(STRING app FROM this->apps)
-        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-
-      FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
-        INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
-
-      appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
-
-      initialinstructions := initialinstructions CONCAT appinstructions;
+      CATCH (OBJECT e)
+        LogHarescriptException(e);
     }
+
+
+    FOREVERY(STRING app FROM this->apps)
+      INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+    FOREVERY(STRING app FROM SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) IN [ "APP", "MANUAL" ])
+      INSERT GetRawAppLaunchInstruction(app) INTO appinstructions AT END;
+
+    appinstructions := SELECT *, inbackground := #instr != Length(appinstructions)-1 FROM appinstructions AS instr;
+
+    initialinstructions := initialinstructions CONCAT appinstructions;
 
     RETURN initialinstructions;
   }
@@ -743,7 +732,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , apps := this->GetAppMenu(webcontext)
             , newsitems := this->GetNewsItems(webcontext)
 
-            , dashboard := this->dashboard AND NOT this->runwebhareinstall
+            , dashboard := this->dashboard
             , dashboardbg := this->GetDashboardBackground()
             , loginbg := this->GetLoginBackground()
             , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")
@@ -756,7 +745,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , openinfo := ""
             , checkinterval := issupervisor ? ToInteger(GetWebVariable("checkinterval"), 5 * 60) * 1000 : 0
             , issysop := issysop
-            , reloadonexit := this->runwebhareinstall
             , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none"
                                        : GetWebVariable("notifications") = "browser" ? "browser"
                                        : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
@@ -829,16 +817,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       }
 */
 
-      IF(NOT this->runwebhareinstall)
-      {
-        RETURN [ isloggedin := FALSE
-               , settings := this->GetCurrentShellSettings(webcontext)
-               , loginconfig := [ methods   := methods
-                                , infotext  := ReadRegistryKey("system.backend.layout.infotext")
-                                , infotitle := ReadRegistryKey("system.backend.layout.infotitle")
-                                ]
-               ];
-      }
+      RETURN [ isloggedin := FALSE
+             , settings := this->GetCurrentShellSettings(webcontext)
+             , loginconfig := [ methods   := methods
+                              , infotext  := ReadRegistryKey("system.backend.layout.infotext")
+                              , infotitle := ReadRegistryKey("system.backend.layout.infotitle")
+                              ]
+             ];
     }
 
     RETURN [ isloggedin := TRUE
@@ -873,8 +858,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
     IF(ObjectExists(this->wrdauthplugin)
        AND NOT ObjectExists(this->currentuser)
-       AND appname NOT IN loginapps
-       AND (appname != "system:needsysop" OR NOT this->runwebhareinstall))
+       AND appname NOT IN loginapps)
     {
       RETURN [ error := "notloggedin" ];
     }
