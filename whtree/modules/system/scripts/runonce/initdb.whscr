@@ -240,7 +240,6 @@ IF(ReadRegistryKey("system.global.servertype") = "")
 IF(isfreshwebhare)
 {
   WriteRegistryKey("system.backend.security.needsysop", TRUE);
-  WriteRegistryKey("system.backend.security.allowpasswordreset", TRUE); //new servers will enable this
 }
 
 IF(ReadRegistryKey("system.webserver.security.cachesecret")="")

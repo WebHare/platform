@@ -2237,7 +2237,7 @@ The full base URL on which this site will be published, calculated by combining 
             <string name="token" description="The override token to use" />
             <integer name="duration" description="Duration of normal override tokens" initialval="1800000" /><!-- 30 minutes -->
           </node>
-          <boolean name="allowpasswordreset" description="Allow users to reset their password" />
+          <boolean name="allowpasswordreset" description="Allow users to reset their password" initialval="true" />
         </node>
         <node name="exclusiveaccess">
           <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />
