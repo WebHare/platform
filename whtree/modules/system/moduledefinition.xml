@@ -80,10 +80,6 @@
       <accesscheck />
     </application>
 
-    <application name="needsysop" screen="sysmgmt/needsysop.main" supportedlanguages="en">
-      <accesscheck />
-    </application>
-
     <application group="setup" name="userrights" tid="portal.apps.userrights" screen="userrights/userrights.main" icon="tollium:users/users" shortcut="ctrl+shift+u">
       <accesscheck combine="or">
         <requireright right="system:browseunits" />
@@ -2231,13 +2227,13 @@ The full base URL on which this site will be published, calculated by combining 
           <obsoletekey name="defaultuserschema" />
         </node>
         <node name="security">
-          <boolean name="needsysop" description="The next user to login will become a sysop" />
+          <obsoletekey name="needsysop" />
           <node name="override">
             <datetime name="validuntil" description="Time until which this override key is valid" />
             <string name="token" description="The override token to use" />
             <integer name="duration" description="Duration of normal override tokens" initialval="1800000" /><!-- 30 minutes -->
           </node>
-          <boolean name="allowpasswordreset" description="Allow users to reset their password" />
+          <boolean name="allowpasswordreset" description="Allow users to reset their password" initialval="true" />
         </node>
         <node name="exclusiveaccess">
           <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />

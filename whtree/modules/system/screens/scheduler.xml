@@ -3,10 +3,6 @@
        gid="scheduler"
        lib="screens/scheduler.whlib">
 
-  <messageboxes gid=".messages">
-    <messagebox name="confirm_delete" icon="question" buttons="yes no" />
-  </messageboxes>
-
   <screen name="main" gid=".main" allowresize="true" savestate="size" width="120x" height="30x">
 
     <actions gid=".actions">

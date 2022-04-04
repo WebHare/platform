@@ -2,10 +2,6 @@
          lib="screens/monitor/processlist.whlib"
          gid="monitor.processlist">
 
-  <messageboxes>
-    <messagebox name="processgone"        icon="information"  buttons="ok" />
-  </messageboxes>
-
   <fragment name="processdetails">
     <actions>
       <action name="opentracerow" >

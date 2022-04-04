@@ -3,10 +3,6 @@
          xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
          gid="debugger.profiles">
 
-  <messageboxes>
-    <messagebox name="allcachescleared" icon="information" buttons="ok" />
-  </messageboxes>
-
   <screen name="main"
           allowresize="true"
           menubar="menubar"

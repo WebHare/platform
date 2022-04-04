@@ -2,9 +2,6 @@
          lib="screens/sysmgmt/remoting.whlib"
          gid="sysmgmt.remoting">
 
-  <messageboxes>
-  </messageboxes>
-
   <screen name="main"
           tid=".title"
           gid=".main"

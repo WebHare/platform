@@ -3,13 +3,6 @@
          xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
          gid="debugger">
 
-  <messageboxes gid=".messages">
-    <messagebox name="debuggergone" icon="error" buttons="ok" />
-    <messagebox name="connectfailed" icon="error" buttons="ok" />
-    <messagebox name="disconnectedfromjob" icon="error" buttons="ok" />
-    <messagebox name="jobnotfound" icon="error" buttons="ok" />
-  </messageboxes>
-
   <!-- main debugger screen: current connected job
   -->
   <screen name="main"

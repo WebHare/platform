@@ -2,10 +2,6 @@
          lib="screens/sysmgmt/registry.whlib"
          gid="sysmgmt">
 
-  <messageboxes gid=".messages">
-    <messagebox name="deletekey" icon="question" buttons="yes no" />
-  </messageboxes>
-
   <screen name="editreg" gid=".editreg" tid=".title" width="130x" height="40x" allowresize="true" savestate="position size">
     <actions gid=".actions">
       <action name="editkey" onexecute="doeditkey">

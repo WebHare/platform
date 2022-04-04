@@ -39,7 +39,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".confirm_delete") != "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirm_delete")) != "yes")
       RETURN;
 
     OBJECT work := this->beginWork();

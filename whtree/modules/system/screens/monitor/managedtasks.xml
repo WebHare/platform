@@ -2,11 +2,6 @@
          lib="screens/monitor/managedtasks.whlib"
          gid="screens.monitor.managedtasks">
 
-  <messageboxes>
-    <messagebox name="confirmrescheduletasks" buttons="yes no" />
-    <messagebox name="confirmdeletetasks" buttons="yes no" />
-  </messageboxes>
-
   <screen name="panel" gid=".panel" title="">
     <actions>
       <action name="flush" onexecute="doflush" />

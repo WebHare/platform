@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC MACRO RunClearCaches(OBJECT parentscreen)
+{
+  BroadcastEvent("system:clearcaches", DEFAULT RECORD);
+  parentscreen->RunSimpleScreen("info", GetTid("system:tolliumapps.dashboard.dashboard.cachescleared"), [ dontshowkey := "system.clearcaches" ]);
+}
+

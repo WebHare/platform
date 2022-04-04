@@ -39,8 +39,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="debugger">   <!-- debugger -->
-    <textgroup gid="messages">   <!-- debugger.messages -->
-    </textgroup>
     <textgroup gid="profiles">   <!-- debugger.profiles -->
     </textgroup>
     <textgroup gid="profilestatus">   <!-- debugger.profilestatus -->
@@ -678,14 +676,12 @@
   </textgroup>
   <textgroup gid="scheduler">   <!-- scheduler -->
     <textgroup gid="main">   <!-- scheduler.main -->
+      <text tid="confirm_delete">Weet je zeker dat je de geselecteerde taak wilt verwijderen?</text>
       <text tid="description">Omschrijving</text>
       <text tid="main">Geplande taken</text>
       <text tid="nexttime">Volgende keer</text>
       <text tid="parameters">Argumenten</text>
       <text tid="scriptname">Scriptnaam</text>
-    </textgroup>
-    <textgroup gid="messages">   <!-- scheduler.messages -->
-      <text tid="confirm_delete">Weet je zeker dat je de geselecteerde taak wilt verwijderen?</text>
     </textgroup>
     <textgroup gid="taskscreen">   <!-- scheduler.taskscreen -->
       <text tid="enabled">Schakel deze taak in</text>
@@ -701,8 +697,6 @@
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="monitor">   <!-- screens.monitor -->
       <textgroup gid="managedtasks">   <!-- screens.monitor.managedtasks -->
-        <text tid="confirmdeletetasks">Weet je zeker dat je de taken wil verwijderen?</text>
-        <text tid="confirmrescheduletasks">Weet je zeker dat je de taken opnieuw wil inplannen?</text>
         <textgroup gid="managedtask">   <!-- screens.monitor.managedtasks.managedtask -->
           <text tid="creationdate">Ingepland op</text>
           <text tid="datatab">Taak data</text>
@@ -720,6 +714,8 @@
           <text tid="timeout">Tijdslimiet</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->
+          <text tid="confirmdeletetasks">Weet je zeker dat je de taken wil verwijderen?</text>
+          <text tid="confirmrescheduletasks">Weet je zeker dat je de taken opnieuw wil inplannen?</text>
           <text tid="creationdate">Ingepland op</text>
           <text tid="flush">Alles nu opnieuw proberen</text>
           <text tid="nextattempt">Volgende poging</text>
@@ -728,12 +724,6 @@
           <text tid="showscheduledtasks">Toon ingeplande taken</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Taaktype</text>
-        </textgroup>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="sysmgmt">   <!-- screens.sysmgmt -->
-      <textgroup gid="needsysop">   <!-- screens.sysmgmt.needsysop -->
-        <textgroup gid="main">   <!-- screens.sysmgmt.needsysop.main -->
         </textgroup>
       </textgroup>
     </textgroup>
@@ -764,6 +754,7 @@
     </textgroup>
     <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
       <text tid="appmenu">Register</text>
+      <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
       <text tid="name">Naam</text>
       <text tid="title">Register</text>
       <text tid="value">Waarde</text>
@@ -810,7 +801,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="messages">   <!-- sysmgmt.messages -->
-      <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
       <text tid="deletenode">Weet je zeker dat je registersleutel '<param p="1"/>' en eventuele onderliggende registersleutels wilt verwijderen?</text>
     </textgroup>
     <textgroup gid="modules">   <!-- sysmgmt.modules -->
@@ -1488,6 +1478,10 @@
       </textgroup>
       <textgroup gid="webharedb">   <!-- tolliumapps.dba.webharedb -->
         <text tid="database">WebHare database</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="debugger">   <!-- tolliumapps.debugger -->
+      <textgroup gid="messages">   <!-- tolliumapps.debugger.messages -->
       </textgroup>
     </textgroup>
     <textgroup gid="login">   <!-- tolliumapps.login -->
