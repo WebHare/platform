@@ -1588,7 +1588,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
-        <text tid="apprunnerdown">The service manager is unavaialble</text>
+        <text tid="apprunnerdown">The service manager is unavailable</text>
         <text tid="inactive">Inactive</text>
         <text tid="lasterror">Last message</text>
         <text tid="name">Name</text>
