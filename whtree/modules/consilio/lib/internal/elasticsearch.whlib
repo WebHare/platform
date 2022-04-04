@@ -630,7 +630,15 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "literal"
     {
-      result := [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ];
+      // Search through both the query field (ascii-folded, stemmed, etc) and the original field (only tokenized)
+      result :=
+          [ bool :=
+              [ should :=
+                  [ [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ]
+                  , [ term := CellInsert(DEFAULT RECORD, query.field || ".org", query.term) ]
+                  ]
+              ]
+          ];
     }
     CASE "phrase"
     {
