@@ -613,8 +613,6 @@ success.parsers: build.parsers
 
 parsers_HsMod_parser_office_msword_AddDeps = $(PARSERS_escherlib)
 parsers_HsMod_parser_office_msword_AddLibs = blex_parser_office_escher
-parsers_HsMod_parser_office_powerpoint_AddDeps = $(PARSERS_escherlib)
-parsers_HsMod_parser_office_powerpoint_AddLibs = blex_parser_office_escher
 
 parsers_baselib_CPPFILES = $(call GetSrcFiles,parsers/base/*.cpp)
 parsers_baselib_OBJFILES = $(call Src2ObjFiles, $(parsers_baselib_CPPFILES))
@@ -830,19 +828,17 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = consilio webserver dbserver dumprawtable webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_office_powerpoint hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
 
 showtargets:
 	@echo $(BIN_ALIASES)
 	@echo $(MOD_ALIASES)
-	@echo wordconv pptconv oci
+	@echo wordconv oci
 	@echo "Above targets can be combined with -overwrite and -uninstall"
 
 #Convenience overwrite targets
 wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite
 wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall
-pptconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_powerpoint-overwrite
-pptconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_powerpoint-uninstall
 oci-overwrite: hsm_wh_oci-overwrite
 
 define GenerateBinAlias
