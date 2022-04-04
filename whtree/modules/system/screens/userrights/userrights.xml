@@ -3,27 +3,6 @@
          xmlns:system="http://www.webhare.net/xmlns/system/components"
          lib="screens/userrights/userrights.whlib">
 
-  <messageboxes gid="userrights.dialogues">
-    <messagebox name="userapinotset"               icon="error"        buttons="ok" />
-    <messagebox name="revokegrants"                icon="question"     buttons="yes no" />
-    <messagebox name="revokegrantfromuser"         icon="question"     buttons="yes no" />
-    <messagebox name="revokegrantsfromuser"        icon="question"     buttons="yes no" />
-    <messagebox name="revokegrantfromrole"         icon="question"     buttons="yes no" />
-    <messagebox name="revokegrantsfromrole"        icon="question"     buttons="yes no" />
-    <messagebox name="revokerolefromuser"          icon="question"     buttons="yes no" />
-    <messagebox name="revokerolesfromuser"         icon="question"     buttons="yes no" />
-    <messagebox name="dangerousrightsrevoke"       icon="warning"      buttons="yes no" />
-    <messagebox name="norightspresent"             icon="error"        buttons="close" />
-    <messagebox name="selectusertoassignfiles"     icon="question"     buttons="ok cancel" />
-    <messagebox name="emptysearchvalue"            icon="error"        buttons="close" />
-    <messagebox name="nodroponroot"                icon="error"        buttons="ok" />
-    <messagebox name="deletenonemptyunit"          icon="error"        buttons="ok" />
-    <messagebox name="dragdroperror"               icon="error"        buttons="ok" />
-    <messagebox name="notunitmanagerforuser"       icon="error"        buttons="ok" />
-    <messagebox name="nounit"                      icon="question"     buttons="yes no" />
-    <messagebox name="copyonlyrightstorole"        icon="question"     buttons="yes no" />
-
-  </messageboxes>
   <screen name="main"
           allowresize="true"
           menubar="menubar"

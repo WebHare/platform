@@ -729,7 +729,6 @@
             <xs:attribute name="right" type="RightName" use="required" />
           </xs:complexType>
         </xs:element>
-        <xs:element name="requireanygrantableright" />
         <xs:element name="accesscheck" type="AccessCheck" />
       </xs:choice>
     </xs:sequence>

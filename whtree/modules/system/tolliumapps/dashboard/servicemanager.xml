@@ -1,23 +1,16 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/monitor/apprunner.whlib"
-         gid="sysmgmt.apprunner">
+         library="servicemanager.whlib"
+         gid="tolliumapps.dashboard.servicemanager">
 
-  <messageboxes gid=".messages" >
-    <messagebox name="apprunnergone" icon="error" buttons="ok" />
-    <messagebox name="restartfailed" icon="error" buttons="ok" />
-    <messagebox name="deleteapp" icon="question" buttons="yes no" />
-  </messageboxes>
-
-  <!-- apprunner (servicemanager) -->
-  <screen name="apprunner" title="">
-    <actions gid=".actions">
+  <screen name="servicemanager">
+    <actions>
       <action name="restart" onexecute="dorestart">
         <enableon source="applist" min="1" />
       </action>
-      <action name="enable" onexecute="doenable" tid="tollium:common.actions.enable">
+      <action name="enable" onexecute="doenable" tid="~enable">
         <enableon source="applist" min="1" checkflags="!enabled" />
       </action>
-      <action name="disable" onexecute="dodisable" tid="tollium:common.actions.disable">
+      <action name="disable" onexecute="dodisable" tid="~disable">
         <enableon source="applist" min="1" checkflags="enabled" />
       </action>
     </actions>

@@ -5,13 +5,6 @@
          lib="screens/userrights/dialogs/userpreferences.whlib"
          gid="userrights">
 
-  <messageboxes gid=".dialogues">
-    <messagebox name="passwordchange" buttons="ok" icon="information" />
-    <messagebox name="confirmdeletenotification" dontshowagain="yes" buttons="yes no" icon="warning" />
-    <messagebox name="confirmdeletemenuitem" buttons="yes no" icon="warning" />
-    <messagebox name="noprefsforoverride" buttons="ok" icon="error" />
-  </messageboxes>
-
   <screen name="userpreferences" gid=".edituser" interval="2000" oninterval="gotinterval" icon="tollium:users/user">
     <actions>
       <action name="resetwarnings" onexecute="doresetwarnings" />

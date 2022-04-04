@@ -42,7 +42,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     // If the user api could not be loaded, exit early to prevent crashes.
     IF (NOT ObjectExists(this->contexts->userapi))
     {
-      this->RunMessageBox(".userapinotset");
+      this->RunSimpleScreen("error", this->GetTid(".userapinotset"));
       this->tolliumresult := "cancel";
       RETURN;
     }
@@ -250,12 +250,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     /// Is there still a unit associated with this user?
     IF(NOT ObjectExists(selunit) OR NOT ObjectExists(selunit->entity) OR NOT selunit->entity->IsLive())
     {
-      IF(this->RunMessageBox(".nounit", toselect.name) = "no")
+      IF(this->RunSimpleScreen("question", this->GetTid(".nounit", toselect.name)) != "yes")
         RETURN;
 
       IF(NOT this->tolliumuser->HasRightOn("system:manageunit", toselect.authobjectparentid))
       {
-        this->RunMessageBox("system:userrights/userrights.notunitmanagerforuser", toselect.name);
+        this->RunSimpleScreen("error", GetTid("system:userrights.dialogues.notunitmanagerforuser", toselect.name));
         RETURN;
       }
 
@@ -377,7 +377,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     IF (copy_to->type = 3 AND LENGTH(add_roles) != 0)
     {
-      IF (this->RunMessageBox(".copyonlyrightstorole") != "yes")
+      IF (this->RunSimpleScreen("confirm", this->GetTid(".copyonlyrightstorole")) != "yes")
         RETURN;
     }
 

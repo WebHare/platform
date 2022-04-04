@@ -286,9 +286,12 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
   {
     IF(NOT RecordExists(droptarget) OR (droptarget.wrd_id = 0 AND Length(SELECT * FROM dragdata.items WHERE type != "system:unit") != 0))
     {
-      this->owner->RunMessageBox(".nodroponroot");
+      this->owner->RunSimpleScreen("error", this->GetTid(".nodroponroot"));
       RETURN;
     }
+
+    IF(this->owner->RunSimpleScreen("confirm", GetTid("system:tolliumapps.userrights.messages.confirmmoveunit", droptarget.title)) != "yes")
+      RETURN;
 
     OBJECT work := this->owner->BeginWork();
     RECORD ARRAY moveactions := SELECT ids := GroupedValues(type="system:unit" ? data.wrd_id : data.id)
@@ -336,7 +339,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
     IF(Length(usersbyunit CONCAT rolesbyunit) > 0)
     {
       // Disallow deletion of non-empty unit:
-      this->owner->RunMessageBox(".deletenonemptyunit");
+      this->owner->RunSimpleScreen("error", this->GetTid(".deletenonemptyunit"));
       RETURN;
     }
 

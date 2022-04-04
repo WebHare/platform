@@ -256,9 +256,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="apprunner">   <!-- monitor.apprunner -->
-      <text tid="title">Service manager</text>
-    </textgroup>
     <textgroup gid="apps">   <!-- monitor.apps -->
       <text tid="box_appusers">Users of application <param p="1"/></text>
       <text tid="box_runningapps">Application in use</text>
@@ -960,39 +957,6 @@
       <text tid="title">Ad hoc cache</text>
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
-    <textgroup gid="apprunner">   <!-- sysmgmt.apprunner -->
-      <text tid="addappdata">Add a service</text>
-      <text tid="appmenu">Services</text>
-      <text tid="duplicatename">A service with this name already exists.<br/><br/>Please choose another name for the service.</text>
-      <text tid="editappdata">Edit service properties</text>
-      <text tid="illegalname">The name of the service contains illegal characters. <br/><br/>Please only use letters, digits, underscores and hyphens.</text>
-      <text tid="inactive">Inactive</text>
-      <text tid="lasterror">Last message</text>
-      <text tid="name">Name</text>
-      <text tid="notrunning">Not running</text>
-      <text tid="ondemand">On demand</text>
-      <text tid="persistent">Persistent</text>
-      <text tid="running">Running</text>
-      <text tid="since">Since</text>
-      <text tid="title">Service manager</text>
-      <text tid="type">Type</text>
-      <text tid="unknown">Unknown</text>
-      <textgroup gid="actions">   <!-- sysmgmt.apprunner.actions -->
-        <text tid="refresh">Refresh</text>
-        <text tid="reload">Reload</text>
-        <text tid="restart">Restart</text>
-      </textgroup>
-      <textgroup gid="editappdata">   <!-- sysmgmt.apprunner.editappdata -->
-        <text tid="cmdline">Command line</text>
-        <text tid="editappdata">Edit service '<param p="1"/>'</text>
-        <text tid="name">Name</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- sysmgmt.apprunner.messages -->
-        <text tid="apprunnergone">The service manager proces cannot be contacted.</text>
-        <text tid="deleteapp">Are you sure you want to delete service '<param p="1"/>'?</text>
-        <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="editreg">   <!-- sysmgmt.editreg -->
       <text tid="appmenu">Registry</text>
       <text tid="name">Name</text>
@@ -1205,11 +1169,6 @@
         <text tid="webdav_folder">Manage WebDav data folder</text>
         <text tid="webdavdata">WebDAV folder properties</text>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="system">   <!-- system -->
-    <textgroup gid="apprunner">   <!-- system.apprunner -->
-      <text tid="apprunnerdown">The service manager is unavaialble</text>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
@@ -1628,6 +1587,21 @@
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
+        <text tid="apprunnerdown">The service manager is unavailable</text>
+        <text tid="inactive">Inactive</text>
+        <text tid="lasterror">Last message</text>
+        <text tid="name">Name</text>
+        <text tid="notrunning">Not running</text>
+        <text tid="ondemand">On demand</text>
+        <text tid="persistent">Persistent</text>
+        <text tid="restart">Restart</text>
+        <text tid="restartfailed">The service could not be restarted.<br/><br/>Please make sure the command line is correct.</text>
+        <text tid="running">Running</text>
+        <text tid="servicemanager">Service manager</text>
+        <text tid="since">Since</text>
+        <text tid="type">Type</text>
+      </textgroup>
       <textgroup gid="systemnews">   <!-- tolliumapps.dashboard.systemnews -->
         <text tid="allunits">This message will be displayed to all users.<br/> Add units to only show the message to those units.</text>
         <text tid="audience">Audience (units)</text>
@@ -1729,6 +1703,9 @@
     <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Revoke right grant</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- tolliumapps.userrights.messages -->
+        <text tid="confirmmoveunit">Are you sure you want to move the selection to unit '<param p="1"/>' ?</text>
       </textgroup>
     </textgroup>
     <textgroup gid="webservers">   <!-- tolliumapps.webservers -->
@@ -2062,14 +2039,17 @@
     </textgroup>
   </textgroup>
   <textgroup gid="userrights">   <!-- userrights -->
+    <text tid="copyonlyrightstorole">Role grants cannot be copied to another role. Do you want to copy only the right grants to the selected role?</text>
     <text tid="error">An error occurred while trying to determine the object path. Please notify an administrator of this error.</text>
     <text tid="new">Add</text>
     <text tid="norightstodeleteall">You do not have enough rights to delete all grants.</text>
+    <text tid="nounit">User '<param p="1"/>' is not associated to any known unit. Would you like to assign a unit now?</text>
     <text tid="searchbox">Search</text>
     <text tid="selectusertocopyallpermissionsto">Choose the user or role you want to copy the role and/or right grants to.</text>
     <text tid="syncedauthobjects">The user database is synchronized</text>
     <text tid="togglesearchbarbutton">Search</text>
     <text tid="unitroot">Units</text>
+    <text tid="userapinotset">Because of configuration problems the user API could not be loaded. Please contact the system administrator.</text>
     <textgroup gid="actions">   <!-- userrights.actions -->
       <text tid="about">About User Management</text>
       <text tid="addrighttousers">Grant right</text>
@@ -2256,6 +2236,7 @@
         <text tid="withgrantoption">This user or role may grant this right to others.</text>
       </textgroup>
       <textgroup gid="search">   <!-- userrights.commondialogs.search -->
+        <text tid="emptysearchvalue">Please enter a search term.</text>
         <text tid="goto">Show</text>
       </textgroup>
       <textgroup gid="select">   <!-- userrights.commondialogs.select -->
@@ -2267,11 +2248,6 @@
         <text tid="selectusersorroles">Select one or more users or roles</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="dialog">   <!-- userrights.dialog -->
-      <textgroup gid="messages">   <!-- userrights.dialog.messages -->
-        <text tid="suredelete">Are you sure you want to delete <ifparam p="1" value="1">this item<else/>these items</ifparam>?</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="dialogues">   <!-- userrights.dialogues -->
       <text tid="actionfailed">Action failed <param p="1"/></text>
       <text tid="cannotgetobjecttreeforobjecttype">Failed to get a list of objects for <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/></text>
@@ -2279,17 +2255,13 @@
       <text tid="cannotresetunmanageduser">Cannot send a password link for this account, WebHare doesn't manage its password</text>
       <text tid="cantdeletetoplevelunit">You can't delete your top level units. Only a sysop or manager of a parent unit can do this.</text>
       <text tid="confirmdeletemenuitem">Are you sure you want to delete the shortcut '<param p="1"/>'?</text>
-      <text tid="confirmdeletenotification">Are you sure you want to delete notification '<param p="1"/>'?</text>
-      <text tid="copyonlyrightstorole">Role grants cannot be copied to another role. Do you want to copy only the right grants to the selected role?</text>
       <text tid="dangerousrightsrevoke">Revoking <ifparam p="1" value="1">this grant<else/>these grants</ifparam> will cause you to lose some rights that have not been granted to you in any other way. Do you want to proceed?</text>
       <text tid="deletefailedbecause">Failed to delete <param p="1"/> <param p="2"/> because <param p="3"/></text>
       <text tid="deletemultipleitemswarning">Are you sure you want to delete the selected items?</text>
-      <text tid="deletenonemptyunit">You cannot delete this unit, as it still contains users or roles.</text>
       <text tid="deleterolewarning">Are you sure you want to delete role '<param p="1"/>'?</text>
       <text tid="deleteunitwarning">Are you sure you want to delete unit '<param p="1"/>'?</text>
       <text tid="deleteuserwarning">Are you sure you want to delete user '<param p="1"/>'?</text>
       <text tid="dragdroperror">An error occurred while attempting to move this object: '<param p="1"/>'</text>
-      <text tid="emptysearchvalue">Please enter a search term.</text>
       <text tid="guidalreadyused">This GUID is already in use.</text>
       <text tid="invalidguid">Invalid GUID.</text>
       <text tid="languagechanged">Your interface language is set to English. Every application started from now on will use this language. Running applications will use the old language until they are restarted.</text>
@@ -2299,14 +2271,11 @@
       <text tid="movewarning">Are you sure you want to move <ifparam p="1" value="1">user '<param p="2"/>'<else/><ifparam p="1" value="3">role '<param p="2"/>'<else/>the selected items</ifparam></ifparam> to unit '<param p="3"/>'?</text>
       <text tid="mustselectunit">Please select a unit.</text>
       <text tid="needselectright">Please select a right to grant on this object</text>
-      <text tid="nodroponroot">Assigning users or roles to the root unit is not supported.</text>
-      <text tid="noprefsforoverride">You cannot manage the preferences for the override user in recovery mode.</text>
       <text tid="norightspresent"><ifparam p="1" value="1">Right group<else/>Objecttype</ifparam> '<param p="2"/>' do not have any accessible rights.</text>
       <text tid="notunitmanager">You need unitmanager rights to do this.</text>
       <text tid="notunitmanagerforrole">You do not have unitmanager rights for the unit role '<param p="1"/>' belongs to.</text>
       <text tid="notunitmanagerforuser">You do not have unitmanager rights for user '<param p="1"/>'.</text>
       <text tid="notunitmanageronparent">You need unitmanager rights on the parent unit to do this.</text>
-      <text tid="nounit">User '<param p="1"/>' is not associated to any known unit. Would you like to assign a unit now?</text>
       <text tid="objecthasnorights">The selected object has no rights which can be granted.</text>
       <text tid="objectnolongerexists">This object no longer exists.</text>
       <text tid="passwordchange">You have changed your password. The next time you log in, you will be asked for this new password.</text>
@@ -2324,9 +2293,9 @@
       <text tid="revokerolesfromuser">Are you sure you want to revoke these roles from user '<param p="1"/>'?</text>
       <text tid="rolenametoolong">The name of the role is too long; it can contain a maximum of 256 chareacters.</text>
       <text tid="selectusertoassignfiles">The user you are deleting is owner of one more files. Please select another user to transfer ownership of these files.</text>
+      <text tid="suredelete">Are you sure you want to delete <ifparam p="1" value="1">this item<else/>these items</ifparam>?</text>
       <text tid="toomanyusers">You cannot create new users, because you have reached the maximum number of users.</text>
       <text tid="unitnametoolong">The name of the unit is too long, it can contain a maximum of 256 characters.</text>
-      <text tid="userapinotset">Because of configuration problems the user API could not be loaded. Please contact the system administrator.</text>
     </textgroup>
     <textgroup gid="editnotification">   <!-- userrights.editnotification -->
       <text tid="high">High</text>
@@ -2373,6 +2342,7 @@
       <text tid="lastip">Last IP-address</text>
       <text tid="lastlogin">Last login</text>
       <text tid="none">None</text>
+      <text tid="noprefsforoverride">You cannot manage the preferences for the override user in recovery mode.</text>
       <text tid="notificationsandwarnings">Notifications</text>
       <text tid="password">Password</text>
       <text tid="passwordabouttoexpire">Your password will expire <ifparam p="1" value="0">today<else/><ifparam p="1" value="1">in 1 day<else/>in <param p="1"/> days</ifparam></ifparam>, please change it.</text>
@@ -2510,6 +2480,7 @@
       <text tid="viewsearchbar">Search</text>
     </textgroup>
     <textgroup gid="notificationsettings">   <!-- userrights.notificationsettings -->
+      <text tid="confirmdeletenotification">Are you sure you want to delete notification '<param p="1"/>'?</text>
       <text tid="deniedexplain">You have blocked desktop notifications in your browser.</text>
       <text tid="displaybrowserexplain">Notifications are displayed in your browser</text>
       <text tid="displaydesktopexplain">Notifications are displayed on your desktop</text>
@@ -2610,6 +2581,8 @@
       <text tid="users">Users</text>
     </textgroup>
     <textgroup gid="unittree">   <!-- userrights.unittree -->
+      <text tid="deletenonemptyunit">You cannot delete this unit, as it still contains users or roles.</text>
+      <text tid="nodroponroot">Assigning users or roles to the root unit is not supported.</text>
       <text tid="searchfor">Search</text>
       <text tid="searchresults">Search results</text>
       <text tid="units">Units</text>

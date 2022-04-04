@@ -102,7 +102,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     IF(NOT ObjectExists(this->userobj->wrdentity))
     {
       // This means we're logged in as an override user in recovery mode; let's tell the user and exit:
-      this->RunMessageBox(".noprefsforoverride");
+      this->RunSimpleScreen("info", this->GetTid(".noprefsforoverride"));
       this->TolliumCloseScreen();
       this->TolliumExecuteCancel();
       RETURN;
@@ -581,7 +581,7 @@ PUBLIC OBJECTTYPE NotificationSettings EXTEND TolliumScreenBase
   MACRO DoDeleteNotification()
   {
     RECORD notification := this->notifications->selection;
-    IF (this->RunMessageBox(".confirmdeletenotification", notification.title) = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletenotification", notification.title)) = "yes")
     {
       OBJECT work := this->BeginWork();
       this->towlservice->SetNotificationPriority(this->userobj, notification.name, -4);

@@ -4,14 +4,11 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/services/apprunner.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
-
-
 /////////////////////////////////////////////////////////////////////
 //
-// AppRunner controller
+// Service Manager (AppRunner controller)
 //
-PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
+PUBLIC STATIC OBJECTTYPE ServiceManager EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
@@ -20,12 +17,12 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
   /** @short This monitor has been activated, start refreshing */
   UPDATE PUBLIC MACRO EnableRefresh()
   {
-    this->listener->enabled := TRUE;
+    ^listener->enabled := TRUE;
   }
   /** @short This monitor has been deactivated, stop refreshing */
   UPDATE PUBLIC MACRO DisableRefresh()
   {
-    this->listener->enabled := FALSE;
+    ^listener->enabled := FALSE;
   }
 
   MACRO OnAppRunnerRefreshEvent(RECORD ARRAY events)
@@ -37,7 +34,7 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
   {
     TRY
     {
-      this->applist->rows :=
+      ^applist->rows :=
             SELECT rowkey := name
                  , icon :=      NOT enabled
                                     ? 3 // not enabled
@@ -51,13 +48,13 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
                                                       : 2
                                                 : 2 // terminated
                  , type :=      runatsoftreset
-                                    ? GetTid("system:sysmgmt.apprunner.ondemand")
-                                    : GetTid("system:sysmgmt.apprunner.persistent")
+                                    ? this->GetTid(".ondemand")
+                                    : this->GetTid(".persistent")
                  , status :=    running
-                                    ? GetTid("system:sysmgmt.apprunner.running")
+                                    ? this->GetTid(".running")
                                     : lasterror IN [ "", "Terminated" ] AND runatsoftreset
-                                          ? GetTid("system:sysmgmt.apprunner.inactive")
-                                          : GetTid("system:sysmgmt.apprunner.notrunning")
+                                          ? this->GetTid(".inactive")
+                                          : this->GetTid(".notrunning")
                  , since
                  , lasterror    := lasterror = "Terminated" AND runatsoftreset ? "" : lasterror
                  , regkey
@@ -66,18 +63,18 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
               FROM ListRunningServices()
           ORDER BY name;
 
-      this->applist->empty := ""; //this is currently not happening in practice, so no need to provide a "there are no processes configured" text
+      ^applist->empty := ""; //this is currently not happening in practice, so no need to provide a "there are no processes configured" text
     }
     CATCH(OBJECT e)
     {
-      this->applist->empty := GetTid("system:system.apprunner.apprunnerdown");
-      this->applist->rows := DEFAULT RECORD ARRAY;
+      ^applist->empty := this->GetTid(".apprunnerdown");
+      ^applist->rows := DEFAULT RECORD ARRAY;
     }
   }
 
   MACRO DoRestart()
   {
-    STRING appname := this->applist->value;
+    STRING appname := ^applist->value;
     TRY
     {
       OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
@@ -86,7 +83,7 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
     }
     CATCH(OBJECT e)
     {
-      this->RunMessageBox(".restartfailed", appname);
+      this->RunSimpleScreen("error", this->GetTid(".restartfailed", appname));
     }
   }
   MACRO SetEnabled(STRING appname, BOOLEAN doenable)
@@ -104,11 +101,11 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
 
   MACRO DoEnable()
   {
-    this->SetEnabled(this->applist->value, TRUE);
+    this->SetEnabled(^applist->value, TRUE);
   }
 
   MACRO DoDisable()
   {
-    this->SetEnabled(this->applist->value, FALSE);
+    this->SetEnabled(^applist->value, FALSE);
   }
 >;

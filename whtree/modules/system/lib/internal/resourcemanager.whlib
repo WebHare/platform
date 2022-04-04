@@ -285,10 +285,6 @@ PUBLIC BOOLEAN FUNCTION DoAccessCheckFor(RECORD accesscheck, OBJECT user)
           RETURN user->HasRight(accesscheck.value);
         }
       }
-    CASE "anygrantableright"
-      {
-        RETURN user->HasAnyGrantableRight();
-      }
     CASE "combine"
       {
         SWITCH (accesscheck.combine)

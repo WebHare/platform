@@ -19,7 +19,7 @@ PUBLIC OBJECTTYPE UserRoleSearch EXTEND TolliumFragmentBase
     STRING term := this->searchfor->value;
     IF(this->searchfor->value = "")
     {
-      this->owner->RunMessageBox(".emptysearchvalue");
+      this->owner->RunSimpleScreen("error", this->GetTid(".emptysearchvalue"));
       RETURN;
     }
 

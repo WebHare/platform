@@ -115,8 +115,6 @@ STRING FUNCTION DescribeAccessCheck(RECORD accesscheck)
     RETURN "";
   IF (accesscheck.type = "right")
     RETURN accesscheck.value;
-  IF (accesscheck.type = "anygrantableright")
-    RETURN "(anygrantableright)";
 
   STRING ARRAY subchecks :=
       SELECT AS STRING ARRAY DescribeAccessCheck(checks)
