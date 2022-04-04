@@ -12,6 +12,7 @@ fi
 GETFILE=pdfbox-app-2.0.25.jar
 mkdir -p "$WHBUILD_DOWNLOADCACHE"
 DLPATH="$WHBUILD_DOWNLOADCACHE/$GETFILE"
+DESTPATH="$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/pdfbox-app.jar
 
 if ! curl -fsS -o "$DLPATH" -z "$DLPATH" https://build.webhare.dev/whbuild/$GETFILE ; then
   rm -f "$DLPATH"
@@ -19,10 +20,11 @@ if ! curl -fsS -o "$DLPATH" -z "$DLPATH" https://build.webhare.dev/whbuild/$GETF
   exit 1
 fi
 
-# Delete old versions in data/engines - this only happens on source installs and can go after april 11, 2022
 
 mkdir -p "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/
-find "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/ -name 'pdfbox-app-*.jar' -exec rm {} \;
-cp "$DLPATH" "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/pdfbox-app.jar
 
+# Delete old versions in data/engines - this only happens on source installs and can go after april 11, 2022
+find "$WEBHARE_CHECKEDOUT_TO"/whtree/modules/system/data/engines/ -name 'pdfbox-app-*.jar' -exec rm {} \;
+
+[ "$DLPATH" -nt "$DESTPATH" ] && cp -v "$DLPATH" "$DESTPATH"
 exit 0
