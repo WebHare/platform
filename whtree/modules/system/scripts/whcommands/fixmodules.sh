@@ -13,10 +13,11 @@ containsElement()
 
 INCLUDEWEBHARE=1
 ONLYMODULES=
-ONLYBROKEN=
 LISTBROKENOPTS=""
 NOCOMPILE=
 ONLYINSTALLEDMODULES=
+NPMCOMMAND=install
+DRYRUNPREFIX=""
 
 while [[ $1 =~ -.* ]]; do
   if [ "$1" == "--onlymodules" ]; then
@@ -29,11 +30,17 @@ while [[ $1 =~ -.* ]]; do
     INCLUDEWEBHARE=
     LISTBROKENOPTS="$LISTBROKENOPTS --onlyinstalledmodules"
     shift
-  elif [ "$1" == "--onlybroken" ]; then
-    ONLYBROKEN=1
+  elif [ "$1" == "--cleaninstall" ] || [ "$1" == "--ci" ]; then
+    NPMCOMMAND=clean-install
     shift
+  elif [ "$1" == "--onlybroken" ]; then
+    echo "--onlybroken is now the default. use '*' to process all modules"
+    exit 1
   elif [ "$1" == "--nocompile" ]; then
     NOCOMPILE=1
+    shift
+  elif [ "$1" == "--dryrun" ]; then
+    DRYRUNPREFIX="echo"
     shift
   elif [ "$1" == "--" ]; then
     shift
@@ -48,9 +55,7 @@ setup_node
 
 FAILED=0
 
-if [ -n "$ONLYBROKEN" ]; then
-  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr $LISTBROKENOPTS))
-elif [ "$#" == 0 ]; then
+if [ "$#" == 1 ] && [ "$1" == "*" ]; then
   if [ -n "$ONLYINSTALLEDMODULES" ]; then
     MODULESLIST=($(wh getinstalledmodulelist))
   else
@@ -60,15 +65,17 @@ elif [ "$#" == 0 ]; then
     #prepend webhare to the list
     MODULESLIST=(webhare "${MODULESLIST[@]}")
   fi
-else
+elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
+else
+  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr $LISTBROKENOPTS))
 fi
 
 for MODULENAME in ${MODULESLIST[@]}; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
-    cd "$WEBHARE_DIR"
-    npm install --no-update-notifier --silent --no-save --ignore-scripts
+    cd "$WEBHARE_DIR" || exit 1
+    $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --no-save --ignore-scripts
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $RETVAL
@@ -76,10 +83,10 @@ for MODULENAME in ${MODULESLIST[@]}; do
     fi
   else # MODULENAME != webhare
     getmoduledir MODULEDIR $MODULENAME
-    cd "$MODULEDIR"
+    cd "$MODULEDIR" || exit 1
     if [ -f package.json ]; then
       echo "Installing npm modules for module '$MODULENAME'"
-      npm install --no-update-notifier --silent --ignore-scripts --no-save
+      $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --ignore-scripts --no-save
     fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
@@ -87,7 +94,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
         echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
         if [ -f package.json ]; then
-          npm install --no-update-notifier --silent --ignore-scripts --no-save
+          $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --ignore-scripts --no-save
           RETVAL=$?
           if [ "$RETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $RETVAL
@@ -98,8 +105,8 @@ for MODULENAME in ${MODULESLIST[@]}; do
     done
 
     if [ -x $MODULEDIR/scripts/fixmodules-plugin.sh ]; then
-      cd $MODULEDIR
-      $MODULEDIR/scripts/fixmodules-plugin.sh
+      cd "$MODULEDIR" || exit 1
+      $DRYRUNPREFIX $MODULEDIR/scripts/fixmodules-plugin.sh
       RETVAL=$?
       if [ "$RETVAL" != "0" ]; then
         echo "Module plugin for module '$MODULEDIR' failed with errorcode $RETVAL"
@@ -114,7 +121,7 @@ done
 if [ -z "$NOCOMPILE" ]; then
   for MODULENAME in ${MODULESLIST[@]}; do
     if [ "$MODULENAME" != "webhare" ]; then
-      wh assetpacks --quiet recompile "$MODULENAME:*"
+      $DRYRUNPREFIX wh assetpacks --quiet recompile "$MODULENAME:*"
       RETVAL=$?
       if [ "$RETVAL" != "0" ]; then
         echo "wh assetpacks recompile for module '$MODULENAME' failed with errorcode $RETVAL"
@@ -124,7 +131,7 @@ if [ -z "$NOCOMPILE" ]; then
   done
 
   # And now, just in case a module wasn't broken modulewise but still had broken packages, recompile any broken modules
-  wh assetpacks --quiet recompile --onlyfailed "*"
+  $DRYRUNPREFIX wh assetpacks --quiet recompile --onlyfailed "*"
   RETVAL=$?
   if [ "$RETVAL" != "0" ]; then
     echo "wh assetpacks recompile --onlyfailed failed with errorcode $RETVAL"
