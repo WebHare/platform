@@ -1,4 +1,4 @@
-﻿<?wh (* ISSYSTEMLIBRARY *)
+<?wh (* ISSYSTEMLIBRARY *)
 LOADLIB "wh::internal/interface.whlib";
 
 BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -26,6 +26,7 @@ FUNCTION PTR FUNCTION MakeFunctionPtr(STRING libname, STRING functionname, INTEG
 STRING FUNCTION GetObjectTypeName(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
 STRING FUNCTION GetTypeName(INTEGER type) __ATTRIBUTES__(EXTERNAL);
 RECORD FUNCTION GetBindingFromTable(TABLE bound_table) __ATTRIBUTES__(EXTERNAL);
+STRING FUNCTION RepeatText(STRING text, INTEGER count) __ATTRIBUTES__(EXTERNAL);
 
 RECORD  FUNCTION __HS_SQL_MergeRecords(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 RECORD  FUNCTION __HS_SQL_OverwriteRecord(Record A, Record B) __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -892,8 +893,7 @@ MACRO PrintTree2(INTEGER outputdevice, RECORD ARRAY items, INTEGER depth, BOOLEA
     }
     ELSE
     {
-      Spaces(outputdevice,depth);
-      PrintTo(outputdevice,"+" || (show_name ? (name || ": ") : "") ||item.text || "\n");
+      PrintTo(outputdevice, RepeatText(" ", depth) || "+" || (show_name ? (name || ": ") : "") ||item.text || "\n");
     }
     IF (LENGTH(item.subnodes) > 0)
       PrintTree2(outputdevice, item.subnodes, depth + 1, item.subnames, properhtml);
@@ -924,8 +924,7 @@ MACRO TreeRecArray(INTEGER outputdevice,RECORD ARRAY list, INTEGER depth, BOOLEA
     }
     ELSE
     {
-      Spaces(outputdevice,depth+1);
-      PrintTo(outputdevice,"+");
+      PrintTo(outputdevice,RepeatText(" ", depth + 1) || "+");
     }
     TreeRec(outputdevice,list[idx], depth + 1,properhtml);
     IF(properhtml)
@@ -958,8 +957,7 @@ MACRO TreeRec(INTEGER outputdevice,RECORD rec, INTEGER depth, BOOLEAN properhtml
     }
     ELSE
     {
-      Spaces(outputdevice,depth+1);
-      PrintTo(outputdevice,"+" || r.name || ": ");
+      PrintTo(outputdevice,RepeatText(" ", depth + 1) || "+" || r.name || ": ");
     }
     SWITCH (TYPEID(r.value))
     {
@@ -1012,12 +1010,6 @@ MACRO TreeOther(INTEGER outputdevice,RECORD rec, STRING cellname, INTEGER depth,
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Helper functions
-
-MACRO Spaces(INTEGER outputdevice,INTEGER space)
-{
-  FOR (INTEGER idx := 0; idx < space; idx := idx + 1)
-    PrintTo(outputdevice," ");
-}
 
 INTEGER FUNCTION myMAX(INTEGER a, INTEGER b)
 {
