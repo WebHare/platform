@@ -1,7 +1,13 @@
 <?wh
 /** @private Parser list. (may be replaced with tika at some point) */
 LOADLIB "wh::internal/any.whlib";
-//ADDME moduledefinition registration? perhaps an object to base upon is a nicer api than functions though
+
+/* Improvements to consider when desired/needed:
+   - moduledefinition parser registration? (but we'd need a proper baseobject for parsers too then)
+   - filesize limit per type? (for HTML 250MB is massive, for PDF/PPT with media, meh)
+   - managing existing registration in system:config, to reduce or extend the list sent to Tika (it supports more than we let through)
+   - enabling OCR in tika
+   - caching parse results in instancedata until the source is actually modified */
 
 RECORD ARRAY consilio_parsers :=
 [ [ mimetypes := [ "text/plain" ]
@@ -10,7 +16,11 @@ RECORD ARRAY consilio_parsers :=
 , [ mimetypes := [ "text/html" ]
   , func := "mod::consilio/lib/parsers/parser_html.whlib#ParseHTMLPage"
   ]
-, [ mimetypes := [ "*" ]
+, [ mimetypes := [ "application/pdf"
+                 , "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                 , "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                 , "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                 ]
   , func := "mod::consilio/lib/parsers/tika.whlib#ParseTikaPage"
   ]
 ];
@@ -24,6 +34,9 @@ PUBLIC RECORD FUNCTION ParsePage(BLOB data, STRING mimetype, RECORD options DEFA
   mimetype := ToLowercase(mimetype);
   RECORD parser := SELECT * FROM consilio_parsers WHERE __MatchesAnyMask(mimetype,mimetypes);
   IF (NOT RecordExists(parser))
+    RETURN DEFAULT RECORD;
+
+  IF(Length(data) > 250 * 1024 * 1024)
     RETURN DEFAULT RECORD;
 
   RETURN MakeFunctionPtr(parser.func, TypeID(RECORD), [TypeID(BLOB), TypeID(BOOLEAN)] )(data, options.contentlinksonly);
