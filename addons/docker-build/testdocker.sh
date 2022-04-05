@@ -245,7 +245,7 @@ TESTENV_CONTAINER1=
 
 function cleanup()
 {
-  if [ -n "$NOCLEANUPONERROR" -a "$TESTFAIL" != "0" ]; then
+  if [ -n "$NOCLEANUPONERROR" ] && [ "$TESTFAIL" != "0" ]; then
     NOCLEANUP=1
   fi
 
@@ -647,9 +647,14 @@ fi
 
 echo "$(date) Done with tests - stopping containers"
 
-# Stop the containers nicely so we have full logs
-$SUDO docker exec "$TESTENV_CONTAINER1" sv stop webhare
-[ -n "$TESTENV_CONTAINER2" ] && $SUDO docker exec "$TESTENV_CONTAINER2" sv stop webhare
+# Stop the containers nicely so we have full logs, unless --nocleanup is set (as that means the caller wants to control the container when we're done)
+if [ -n "$NOCLEANUPONERROR" ] && [ "$TESTFAIL" != "0" ]; then
+  NOCLEANUP=1
+fi
+if [ -z "$NOCLEANUP" ]; then
+  $SUDO docker exec "$TESTENV_CONTAINER1" sv stop webhare
+  [ -n "$TESTENV_CONTAINER2" ] && $SUDO docker exec "$TESTENV_CONTAINER2" sv stop webhare
+fi
 
 if [ -z "$ARTIFACTS" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
