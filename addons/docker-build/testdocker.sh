@@ -535,7 +535,7 @@ HERE
     fi
 
     if version_gte $version 4.35 ; then
-      if ! $SUDO docker exec $CONTAINERID wh fixmodules --cleaninstall --onlyinstalledmodules ; then
+      if ! $SUDO docker exec $CONTAINERID wh fixmodules --onlyinstalledmodules ; then
         testfail "wh fixmodules failed"
       fi
     else

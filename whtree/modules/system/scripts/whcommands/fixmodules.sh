@@ -16,7 +16,6 @@ ONLYMODULES=
 LISTBROKENOPTS=""
 NOCOMPILE=
 ONLYINSTALLEDMODULES=
-NPMCOMMAND=install
 DRYRUNPREFIX=""
 
 while [[ $1 =~ -.* ]]; do
@@ -29,9 +28,6 @@ while [[ $1 =~ -.* ]]; do
     ONLYINSTALLEDMODULES=1
     INCLUDEWEBHARE=
     LISTBROKENOPTS="$LISTBROKENOPTS --onlyinstalledmodules"
-    shift
-  elif [ "$1" == "--cleaninstall" ] || [ "$1" == "--ci" ]; then
-    NPMCOMMAND=clean-install
     shift
   elif [ "$1" == "--onlybroken" ]; then
     echo "--onlybroken is now the default. use '*' to process all modules"
@@ -75,7 +71,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
     cd "$WEBHARE_DIR" || exit 1
-    $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --no-save --ignore-scripts
+    $DRYRUNPREFIX npm install --no-update-notifier --silent --no-save --ignore-scripts
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $RETVAL
@@ -86,7 +82,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
     cd "$MODULEDIR" || exit 1
     if [ -f package.json ]; then
       echo "Installing npm modules for module '$MODULENAME'"
-      $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --ignore-scripts --no-save
+      $DRYRUNPREFIX npm install --no-update-notifier --silent --ignore-scripts --no-save
     fi
 
     for Q in $MODULEDIR/webdesigns/?* ; do
@@ -94,7 +90,7 @@ for MODULENAME in ${MODULESLIST[@]}; do
         echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
         if [ -f package.json ]; then
-          $DRYRUNPREFIX npm "$NPMCOMMAND" --no-update-notifier --silent --ignore-scripts --no-save
+          $DRYRUNPREFIX npm install --no-update-notifier --silent --ignore-scripts --no-save
           RETVAL=$?
           if [ "$RETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $RETVAL
