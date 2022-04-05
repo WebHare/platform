@@ -22,6 +22,8 @@ PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAU
                                        , "--config=" || GetWebHareResourceDiskPath("mod::system/data/engines/tika-default-config.xml") //disables OCR
                                        ,  "--html"
                                        , inputtemp ]);
+    IF(result.exitcode != 0)
+      THROW NEW Exception(`TIKA parse failed, errorcode ${result.exitcode}`);
     RETURN MakeXMLDocumentFromHTML(StringToBlob(result.output));
   }
   FINALLY
