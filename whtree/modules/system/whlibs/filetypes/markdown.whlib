@@ -599,7 +599,7 @@ STATIC OBJECTTYPE MarkdownParser
   }
 
   /** Replaces all the items with type 'linkdelimiter' with their text representation
-      @param List of MDItems
+      @param children List of MDItems
       @return Modified list
   */
   OBJECT ARRAY FUNCTION ReplaceLinkDelimiters(OBJECT ARRAY children)
@@ -797,6 +797,7 @@ STATIC OBJECTTYPE MarkdownParser
   }
 
   /** Processes a link ending, converts links
+      @param(object #MDItem) document Document MDItem
       @param block Block with the inline links to convert
       @param parser StirngParsre
       @return Whether the link ending was processed successfully
@@ -944,7 +945,7 @@ STATIC OBJECTTYPE MarkdownParser
   }
 
   /** Replaces all the items with type 'linkdelimiter' with their text representation (minus used delimiters)
-      @param List of MDItems
+      @param children List of MDItems
       @return Modified list
   */
   OBJECT ARRAY FUNCTION ReplaceEmphasisDelimiters(OBJECT ARRAY children)
@@ -963,7 +964,7 @@ STATIC OBJECTTYPE MarkdownParser
   }
 
   /** Processes emphasis in a list of items
-)      @param List of MDItems
+      @param children List of MDItems
       @return Modified list
   */
   OBJECT ARRAY FUNCTION ProcessEmphasis(OBJECT ARRAY children)
@@ -1080,6 +1081,7 @@ STATIC OBJECTTYPE MarkdownParser
   }
 
   /** Parses the inline text from a block with inline text (paragraph, setextheading or atxheading)
+      @param(object #MDItem) document Document MDItem
       @param block Block to process
       @param parser StringParser with processed text
   */
@@ -1134,6 +1136,7 @@ STATIC OBJECTTYPE MarkdownParser
       RECORD nextstart := parser->SaveState();
 
       // Special character. Flush the current text
+      STRING savedcurrent := current;
       IF (current != "")
         INSERT NEW MDItem("normaltext", [ text := current, rawtext := current ]) INTO block->children AT END;
       current := "";
@@ -1167,11 +1170,15 @@ STATIC OBJECTTYPE MarkdownParser
         INSERT parseditem INTO block->children AT END;
       ELSE
       {
+        // Undo pushing the last normaltext
+        IF (savedcurrent != "")
+          DELETE FROM block->children AT END-1;
+
         // No match, if parserun is true consume until the character changes
         IF (parserun)
-          current := current || parser->ParseWhileInSet(parser->current);
+          current := savedcurrent || parser->ParseWhileInSet(parser->current);
         ELSE
-          current := current || parser->ParseN(1);
+          current := savedcurrent || parser->ParseN(1);
       }
     }
 
@@ -2741,8 +2748,7 @@ STRING FUNCTION MDEncodeValue(STRING text, RECORD renderoptions)
 
 /** Parses a MarkDown document, returns the parsed document tree
     @param text MarkDown document
-    @param options
-    @cell options.tabwith
+    @cell options.tabwidth Tab width
     @cell options.flavor Flavor to parse. Allowed: 'commonmark' (default), 'webhare'.
     @return See `markdownitemdatacells` for which extra data cells are passed per type
     @cell return.type 'document'
@@ -2767,7 +2773,6 @@ PUBLIC RECORD FUNCTION ParseMarkDown(STRING text, RECORD options DEFAULTSTO DEFA
 
 /** Renders a parsed MarkDown document tree to HTML
     @param tree Parsed markdown tree
-    @param options
     @cell(string) options.encoding Either 'default' (follow WebHare html/URL encoding) or 'spec' (use CommonMark reference HTML encoding)
     @cell(function ptr) options.rewritelink Link rewriter. Signature: STRING FUNCTION RewriteLink(STRING link)
     @return Rendered HTML
@@ -2790,7 +2795,7 @@ PUBLIC STRING FUNCTION RenderMarkdownToHTML(RECORD tree, RECORD options DEFAULTS
 
 /** Renders a parsed MarkDown document tree to text
     @param tree Parsed markdown tree
-    @param options
+    @param options Options
     @return Rendered text
 */
 PUBLIC STRING FUNCTION RenderMarkdownToText(RECORD tree, RECORD options DEFAULTSTO DEFAULT RECORD)
