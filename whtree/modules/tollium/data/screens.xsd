@@ -39,7 +39,7 @@ To change a <xs:attribute /> for adding descriptions
   <!-- The screens file root node -->
   <xs:element name="screens" type="Screens">
     <xs:unique name="screenfragnames">
-      <xs:selector xpath="./s:screen|./s:messageboxes/s:messagebox|./s:fragment|./s:imgsizepreset|./s:tabsextension" />
+      <xs:selector xpath="./s:screen|./s:messageboxes/s:messagebox|./s:fragment|./s:tabsextension" />
       <xs:field xpath="@name" />
     </xs:unique>
   </xs:element>
@@ -604,7 +604,6 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:sequence>
       <xs:element name="messageboxes" type="Messageboxes" minOccurs="0" maxOccurs="1"/>
-      <xs:element ref="imgsizepreset" minOccurs="0" maxOccurs="1" />
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="screen" />
         <xs:element ref="fragment" />
@@ -1479,7 +1478,6 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attributeGroup ref="OnUploadGroup" />
       <xs:attributeGroup ref="UploadTypes" />
       <xs:attributeGroup ref="sc:ImageEditSettings" />
-      <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
     </xs:complexType>
   </xs:element>
 
@@ -2591,19 +2589,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="sc:ImageEditSettings" /> <!-- TODO only webshop needs this, so this can probably go away 4.22+ ? -->
   </xs:attributeGroup>
 
-  <xs:element name="imgsizepreset">
-    <xs:complexType>
-      <xs:attribute name="name" type="Name">
-        <xs:annotation>
-          <xs:documentation>
-            <html:p>The (unique) name of this preset.</html:p>
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attributeGroup ref="ImgSizeSpec" />
-    </xs:complexType>
-  </xs:element>
-
   <xs:complexType name="ImgEdit">
     <xs:annotation>
       <xs:appinfo>
@@ -2620,7 +2605,6 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attributeGroup ref="Required" />
         <xs:attributeGroup ref="sc:Errorlabel" />
         <xs:attributeGroup ref="ImgSizeSpec" />
-        <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
         <xs:attribute name="upload" type="xs:boolean" default="true">
           <xs:annotation>
             <xs:documentation>Set to false to disable uploading local image files (browser upload)</xs:documentation>
@@ -4052,7 +4036,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
     <xs:attributeGroup ref="sc:ImageEditSettings" />
-    <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
   </xs:complexType>
 
   <xs:complexType name="Grid">

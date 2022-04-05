@@ -2025,18 +2025,6 @@ RECORD FUNCTION ParseImgSize(OBJECT node)
 
   RECORD imgsize;
 
-  // Update default imgsize settings with preset
-  STRING usepreset := node->GetAttribute("useimgsizepreset");
-  IF (usepreset != "")
-  {
-    STRING presetref := MakeAbsoluteScreenReference(curpageparser->resourcename, usepreset);
-    OBJECT preset := curpageparser->LookupElement("imgsizepreset", presetref);
-    IF(NOT ObjectExists(preset))
-      THROW NEW Exception("Cannot find imgeditpreset '" || usepreset || "'");
-
-    imgsize := ParseImageEditSettings(preset, imgsize);
-  }
-
   // Update preset imgsize settings with attributes
   RETURN ParseImageEditSettings(node, imgsize);
 }
