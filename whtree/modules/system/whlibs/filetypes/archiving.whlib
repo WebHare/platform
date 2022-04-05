@@ -8,6 +8,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/libz.whlib" EXPORT
+    CreateZlibCompressor,
+    CloseZlibCompressor,
+    OpenBlobAsDecompressingStream,
+    CloseZlibDecompressor,
+    MakeZlibCompressedFile,
+    MakeZlibDecompressedFile;
 
 // Helper funcs
 INTEGER FUNCTION __HS_CreateZIPArchiveInternal() __ATTRIBUTES__(EXTERNAL);
@@ -874,44 +881,6 @@ PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data, STRING extension DEFAULTST
   }
   RETURN results;
 }
-
-PUBLIC INTEGER FUNCTION CreateZlibCompressor(INTEGER outstream, STRING format, INTEGER compressionlevel) __ATTRIBUTES__(EXTERNAL);
-
-PUBLIC BLOB FUNCTION MakeZlibCompressedFile(BLOB infile, STRING format, INTEGER compressionlevel)
-{
-  INTEGER outfile := CreateStream();
-  INTEGER compressor := CreateZlibCompressor(outfile, format, compressionlevel);
-  SendBlobTo(compressor, infile);
-  CloseZlibCompressor(compressor);
-  RETURN MakeBlobFromStream(outfile);
-}
-
-PUBLIC RECORD FUNCTION CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
-PUBLIC MACRO CloseZlibDecompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
-
-/** @short Open and decompress a blob
-    @param indata Blob to read
-    @param fileformat File format to read (either 'GZIP', 'ZLIB' or 'ZLIBRAW:filelength')
-    @return The stream handle, usable by ReadFrom and ReadLineFrom*/
-PUBLIC INTEGER FUNCTION OpenBlobAsDecompressingStream(BLOB indata, STRING fileformat) __ATTRIBUTES__(EXTERNAL);
-
-PUBLIC BLOB FUNCTION MakeZlibDecompressedFile(BLOB infile, STRING format)
-{
-  INTEGER outfile := CreateStream();
-  INTEGER decompressor := OpenBlobAsDecompressingStream(infile, format);
-  WHILE(TRUE)
-  {
-    STRING block := ReadFrom(decompressor,16384);
-    IF(block="")
-      BREAK;
-    PrintTo(outfile,block);
-  }
-  CloseZlibDecompressor(decompressor);
-  RETURN MakeBlobFromStream(outfile);
-}
-
-//FIXME need a (generic) closer
-
 
 /** Create an archive object
     @param archive Archive data
