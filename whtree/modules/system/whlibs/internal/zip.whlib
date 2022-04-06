@@ -249,9 +249,10 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
   {
     this->options := ValidateOptions(
         [ compressionlevel :=  6
+        , usezip64 := FALSE
         ], options);
 
-    this->require_zip64 := TRUE;
+    this->require_zip64 := options.usezip64;
     this->dest := CreateStream();
   }
 
