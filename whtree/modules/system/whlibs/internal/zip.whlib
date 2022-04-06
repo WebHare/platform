@@ -133,7 +133,7 @@ RECORD FUNCTION ConvertUint32FieldToInteger64(RECORD data, STRING cellname)
 }
 
 /** Return the length of a En-/decode packet field (only for fields used by ZIP packets)
-    @param field Field (in format 'name:format'
+    @param field Field (in format 'name:format')
     @return Length in bytes (0 for variable-length fields)
 */
 INTEGER FUNCTION GetPacketFieldLength(STRING field)
@@ -192,7 +192,7 @@ STRING FUNCTION ReadExactFrom(INTEGER file, INTEGER num)
     @return Encoded name
     @cell return.cp437name CP437-encoded name
     @cell return.need_utf8_version Whether an extra-field with the UTF-8 name
-      should be added (true if non-ascii ascii-characters or a 0-byte are found)
+      should be added (true if non-ascii characters or a 0-byte are found)
 */
 RECORD FUNCTION ConvertFileName(STRING name)
 {
@@ -215,7 +215,7 @@ RECORD FUNCTION ConvertFileName(STRING name)
   // We'll store an UTF-8 version when the CP437 name differs from the UTF-8 name, in case
   // a utility doesn't use CP437 to decode the name.
   RETURN CELL
-      [ need_utf8_version :=        cp437name != name//DecodeCharSet(cp437name, "CP437") != name
+      [ need_utf8_version :=        cp437name != name
       , cp437name
       ];
 }
