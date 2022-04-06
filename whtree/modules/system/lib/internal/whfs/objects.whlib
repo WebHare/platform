@@ -9,6 +9,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
@@ -184,9 +185,17 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
 
   IF(NOT CellExists(newmetadata,'title') AND NOT RecordExists(oldversion)) //autodetect title? (we do it here because we needed the scandata for this)
   {
-    RECORD meta := GetDocumentMetadata(CELL[...setwrapped, data]);
-    IF(IsValidUTF8(meta.title)) //PDF titles are not always UTF-8
-      INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
+    TRY
+    {
+      RECORD meta := GetDocumentMetadata(CELL[...setwrapped, data]);
+      IF(IsValidUTF8(meta.title)) //PDF titles are not always UTF-8
+        INSERT CELL title := LimitUTF8Bytes(TrimWhitespace(meta.title),256) INTO newmetadata;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      //and ignore, we can do without the title.
+    }
   }
 
   //figure out the type

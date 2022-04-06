@@ -182,31 +182,34 @@ RECORD FUNCTION MakeJPEGFile(STRING header, INTEGER filehandle, INTEGER filelen)
 RECORD FUNCTION DetectZipFile(BLOB indata, STRING ext)
 {
   RECORD filetype := MakeFile("application/zip");
-
-  INTEGER zip := OpenZipFile(indata);
-  IF(zip<=0)
-    RETURN DEFAULT RECORD;
-
-  RECORD ARRAY dir := GetZipFileDirectory(zip);
-  IF(RecordExists(SELECT FROM dir WHERE path='' AND name='[Content_Types].xml')
-     AND RecordExists(SELECT FROM dir WHERE path='_rels' AND name='.rels')
-    )
+  OBJECT zip;
+  TRY
   {
-    //This looks like a OOXML Package
-    //I can't find any proper rules for autodetecting ooxml, so we'll just assume a word/document.xml will have to exist
-    IF(RecordExists(SELECT FROM dir WHERE path='word' AND name='document.xml'))
-      filetype := MakeFile("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    ELSE IF(RecordExists(SELECT FROM dir WHERE path='ppt' AND name='presentation.xml'))
-      filetype := MakeFile("application/vnd.openxmlformats-officedocument.presentationml.presentation");
-    ELSE IF(RecordExists(SELECT FROM dir WHERE path='xl' AND name='workbook.xml'))
-      filetype := MakeFile("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    //TOOD break this recursive dependency, but it requires even getting crypto.whlib to stop loading files.whlib
+    //     (but you shouldn't be hotfixing wh:: files anyway, which is what might trigger out-of-dates with MakeFunctionPtr)
+    zip := MakeFunctionPtr("wh::filetypes/archiving.whlib#__OpenExistingZipArchive")(indata);
+    IF(RecordExists(SELECT FROM zip->entries WHERE path='' AND name='[Content_Types].xml')
+       AND RecordExists(SELECT FROM zip->entries WHERE path='_rels' AND name='.rels')
+      )
+    {
+      //This looks like a OOXML Package
+      //I can't find any proper rules for autodetecting ooxml, so we'll just assume a word/document.xml will have to exist
+      IF(RecordExists(SELECT FROM zip->entries WHERE path='word' AND name='document.xml'))
+        filetype := MakeFile("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      ELSE IF(RecordExists(SELECT FROM zip->entries WHERE path='ppt' AND name='presentation.xml'))
+        filetype := MakeFile("application/vnd.openxmlformats-officedocument.presentationml.presentation");
+      ELSE IF(RecordExists(SELECT FROM zip->entries WHERE path='xl' AND name='workbook.xml'))
+        filetype := MakeFile("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+    ELSE IF(RecordExists(SELECT FROM zip->entries WHERE name='^^webhare_folder_metadata.xml'))
+    {
+      filetype := MakeFile("application/x-webhare-archive");
+    }
   }
-  ELSE IF(RecordExists(SELECT FROM dir WHERE name='^^webhare_folder_metadata.xml'))
+  FINALLY
   {
-    filetype := MakeFile("application/x-webhare-archive");
+    zip->Close();
   }
-
-  CloseZipFile(zip);
 
   // Detect some special zip files by extension
   SWITCH (ext)
