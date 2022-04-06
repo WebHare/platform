@@ -1038,6 +1038,9 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
         , allowmissing := FALSE
         ], options);
 
+    IF (fullpath LIKE "/*")
+      fullpath := Substring(fullpath, 1);
+
     RECORD pos := RecordLowerBound(this->_rawentries, [ name := fullpath ], [ "NAME" ]);
     IF (NOT pos.found)
     {
