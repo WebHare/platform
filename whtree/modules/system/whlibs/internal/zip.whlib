@@ -252,7 +252,7 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
         , usezip64 := FALSE
         ], options);
 
-    this->require_zip64 := options.usezip64;
+    this->require_zip64 := this->options.usezip64;
     this->dest := CreateStream();
   }
 
