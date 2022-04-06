@@ -62,7 +62,7 @@ STRING ARRAY skip_tags := [
     @cell return.links.type The link type, see mod::consilio/lib/parsers/parser_support.whlib for a list of values
     @cell return.isdynamic This is a dynamic page (i.e. not cached)
     @cell return.text The plain text contents of the page */
-PUBLIC RECORD FUNCTION ParseHTMLPage(BLOB htmlpage, BOOLEAN contentlinksonly DEFAULTSTO FALSE)
+PUBLIC RECORD FUNCTION ParseHTMLPage(BLOB htmlpage, BOOLEAN contentlinksonly)
 {
   // Default values
   consilio_comments := FALSE;

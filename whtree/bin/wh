@@ -310,9 +310,12 @@ setup_buildsystem()
     # Colors are nice
     export GCC_COLORS=1
 
-    # We also want pdf-box. Homebrew/Fedora don't ship it so we'll just manually download it
+    # Additional dependencies
     if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh ; then
       echo "setup-pdfbox failed"
+    fi
+    if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh ; then
+      echo "setup-tika failed"
     fi
   fi
 }

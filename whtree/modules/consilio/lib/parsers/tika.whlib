@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
+
+LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
+
+
+PUBLIC OBJECT FUNCTION ParseUsingTIKA(BLOB file, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  STRING inputtemp := GenerateTemporaryPathname();
+  StoreDiskFile(inputtemp, file, [ exclusive := TRUE ]);
+
+  TRY
+  {
+    RECORD result := RunJavaServiceApp([ GetWebHareResourceDiskPath("mod::system/data/engines/tika-app.jar")
+                                       , "--config=" || GetWebHareResourceDiskPath("mod::system/data/engines/tika-default-config.xml") //disables OCR
+                                       ,  "--html"
+                                       , inputtemp ]);
+    IF(result.exitcode != 0)
+      THROW NEW Exception(`TIKA parse failed, errorcode ${result.exitcode}`);
+    RETURN MakeXMLDocumentFromHTML(StringToBlob(result.output));
+  }
+  FINALLY
+  {
+    DeleteDiskFile(inputtemp);
+  }
+}
+
+PUBLIC RECORD FUNCTION ParseTikaPage(BLOB file, BOOLEAN contentlinksonly)
+{
+  OBJECT doc := ParseUsingTIKA(file);
+  RECORD parsed_page := ParseHTMLPage(StringToBlob(doc->body->outerhtml), contentlinksonly);
+  OBJECT meta_titlenode := doc->QuerySelector(`meta[name="dc:title"]`);
+  IF(ObjectExists(meta_titlenode))
+    parsed_page.title := meta_titlenode->GetAttribute("content");
+
+  RETURN parsed_page;
+}

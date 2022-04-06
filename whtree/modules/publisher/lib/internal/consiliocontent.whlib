@@ -559,7 +559,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         }
         CASE 15 // RICHDCOCUMENT
         {
-          fieldvalue := ParseHTMLPage(membervalue.htmltext).text;
+          fieldvalue := ParseHTMLPage(membervalue.htmltext, TRUE).text;
         }
         DEFAULT
         {
