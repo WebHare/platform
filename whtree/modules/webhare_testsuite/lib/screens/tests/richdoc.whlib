@@ -3,7 +3,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
-LOADLIB "wh::filetypes/detect.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -140,7 +139,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     zip->AddFile("index.html", value.htmltext, now);
     FOREVERY (RECORD embedded FROM value.embedded)
     {
-      RECORD type := GetWrappedBlobRecord(embedded.data, "");
+      RECORD type := WrapBlob(embedded.data, "");
       zip->AddFile("attachment " || (#embedded + 1) || "." || type.extension, embedded.data, now);
     }
 

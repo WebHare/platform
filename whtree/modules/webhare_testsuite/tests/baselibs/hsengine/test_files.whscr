@@ -5,7 +5,6 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/detect.whlib";
 LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 
@@ -294,7 +293,7 @@ MACRO UnpackOleTest()
   IF(length(testblob)=0)
     ABORT("Cannot open file " ||testfile);
 
-  RECORD props := DetectFileType(testblob, testfile);
+  RECORD props := ScanBlob(testblob, testfile);
 
   //Ensure opening went succesful
   TestEqualBoolean(1, FALSE, Length(testblob)=0);
@@ -319,8 +318,8 @@ MACRO UnpackOleTest()
   TestEqualDatetime(12, MakeDatetime(2000,9,27,15,02,00), (SELECT * FROM sumprops WHERE id=13).data);
 
   testblob := OpenTestFile("olepropscrash.doc");
-  props := DetectFileType(testblob, "");
-  TestEq("application/msword", props.contenttype);
+  props := ScanBlob(testblob, "");
+  TestEq("application/msword", props.mimetype);
 
   CloseTest("TestFiles: UnpackOleTest");
 }
@@ -348,7 +347,7 @@ MACRO MiscTest()
   BLOB testblob := MakeBlobFromDiskfile(testfile);
 //  BLOB testblob := OpenTestFile("does-not-exist.txt");
   TestEqualInteger(13, 0, Length(testblob));
-  TestThrows(PTR GetDiskResource(testfile));
+  TestThrowsLike("No such*file*",PTR GetDiskResource(testfile));
   TestEq(DEFAULT BLOB, GetDiskResource(testfile,[allowmissing := TRUE]));
 
   TestEqualBoolean(14, FALSE, GenerateTemporaryPathname() = GenerateTemporaryPathname());
@@ -726,8 +725,8 @@ MACRO FSTest()
   StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 2"), [ inplace := TRUE ]);
   TestEq("test 2", UncachedReadFile(MergePath(tempdir, "2.txt")));
 
-  TestThrows(PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := FALSE ]));
-  TestThrows(PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := TRUE ]));
+  TestThrowsLike("*it already exists*", PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := FALSE ]));
+  TestThrowsLike("*it already exists*", PTR StoreDiskFile(MergePath(tempdir, "2.txt"), StringToBlob("test 3"), [ inplace := TRUE ]));
   TestEq("test 2", UncachedReadFile(MergePath(tempdir, "2.txt")));
 
   StoreDiskFile(MergePath(tempdir, "1.txt"), StringToBlob("test 4"), [ overwrite := TRUE, inplace := FALSE ]);
@@ -747,12 +746,10 @@ MACRO FSTest()
   CloseTest("TestFIles: FSTest");
 }
 
-MACRO DetectFiletypeTest()
+MACRO ScanBlobTest()
 {
-  OpenTest("TestFiles: DetectFiletypeTest");
-
-  RECORD detect := DetectFIletype(StringToBlob("GIF89a"),"xxx.gif"); //used to cause a record-does-not-exist
-  TestEq("application/octet-stream", detect.contenttype);
+  RECORD detect := ScanBlob(StringToBlob("GIF89a"),"xxx.gif"); //used to cause a record-does-not-exist
+  TestEq("application/octet-stream", detect.mimetype);
 
   TestEq("application/octet-stream", ScanBlob(DEFAULT BLOB, "test.txt").mimetype);
   TestEq("text/html", ScanBlob(STringToBLob(' <!doctype html> ')).mimetype);
@@ -777,9 +774,9 @@ MACRO DetectFiletypeTest()
   TestEq(".gif", detect.extension);
   TestEq("bladiebla.png", detect.filename);
 
-  detect := DetectFiletype(dummygif,"bladiebla.png");
-  TestEq("image/gif", detect.contenttype);
-  TestEq("gif", detect.extension);
+  detect := ScanBlob(dummygif,"bladiebla.png");
+  TestEq("image/gif", detect.mimetype);
+  TestEq(".gif", detect.extension);
 
   detect := WrapBlob(dummygif,"bladiebla.*");
   TestEq("image/gif", detect.mimetype);
@@ -804,9 +801,6 @@ MACRO DetectFiletypeTest()
   imgl1 := ScanBlob(OpenTestFile("exif/landscape_1.jpg"),"",[mimetype := "text/html"]);
   TestEq(0, imgl1.width);
   TestEq("text/html", imgl1.mimetype);
-
-
-  CloseTest("TestFiles: DetectFiletypeTest");
 }
 
 MACRO TestRelativePath()
@@ -822,8 +816,6 @@ MACRO TestRelativePath()
 
 MACRO TestModTimes()
 {
-  OpenTest("TestFiles: DetectFiletypeTest");
-
   STRING tempdir := GenerateTemporaryPathname();
   CreateDiskDirectoryRecursive(tempdir, TRUE);
 
@@ -858,8 +850,6 @@ MACRO TestModTimes()
 
   DeleteDiskFile(testfilepath);
   DeleteDiskDirectory(tempdir);
-
-  CloseTest("TestFiles: DetectFiletypeTest");
 }
 
 MACRO TestBlobStream()
@@ -897,7 +887,7 @@ RedirectTest();
 BufferFilepointertest();
 ZlibTest();
 ArchiveEncodingTest();
-DetectFiletypeTest();
+ScanBlobTest();
 TestRelativePath();
 TestModTimes();
 TestBlobStream();

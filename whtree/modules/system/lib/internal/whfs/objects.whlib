@@ -2,8 +2,8 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/detect.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internal/getdocmetadata.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 

@@ -1,0 +1,29 @@
+<?wh
+
+/* wh webhare_testsuite:scanfile <path>
+*/
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/getdocmetadata.whlib";
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "paths", type := "paramlist", required := TRUE ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+  IF(NOT RecordExists(cmdargs))
+    TerminateScriptWithError("Invalid syntax");
+
+  FOREVERY(STRING path FROM cmdargs.paths)
+  {
+    Print(`${path}\n`);
+    RECORD result := WrapBlob(GetDiskresource(path), GetNamefrompath(path), [ extractdominantcolor := TRUE
+                                                                            , generatehash := TRUE
+                                                                            ]);
+    result := CELL[ ...result, ...GetDocumentMetadata(result) ];
+    dumpvalue(result, [ name := "", format := 'tree' ]);
+  }
+}
+
+Main();
