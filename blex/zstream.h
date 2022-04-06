@@ -119,6 +119,7 @@ class BLEXLIB_PUBLIC ZlibCompressStream : public Stream
         std::size_t Read(void *buf,std::size_t maxbufsize);
         std::size_t Write(const void *buf, std::size_t bufsize);
 
+        inline FileType GetFileType() { return filetype; }
         inline uint32_t GetCRC32() { return input_crc.GetValue(); }
 
         private:

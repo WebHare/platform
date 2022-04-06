@@ -42,6 +42,39 @@ MACRO SwitchTest()
 
   TestEQ(9, DefFunc());
   TestEQ(9, (PTR DefFunc)());
+
+
+  CONSTANT RECORD test := [ a := 1 ];
+  CONSTANT INTEGER v2 := 2;
+  FOR (INTEGER i := 1; i <= 2; i := i + 1)
+  {
+    INTEGER c;
+    SWITCH (i) { CASE test.a { c := 1; } CASE v2 { c := 2; } }
+    TestEQ(i, c);
+  }
+
+  TestAnnotatedCompile(`
+<?wh
+CONSTANT RECORD test := [ a := 1 ];
+SWITCH (1)
+{
+  CASE test.a.a { PRINT("fail"); }
+//         ^ E:62 INTEGER RECORD
+}
+`);
+
+  TestAnnotatedCompile(`
+<?wh
+CONSTANT RECORD test := [ a := 1 ];
+CONSTANT INTEGER v2 := 2;
+SWITCH (1)
+{
+  CASE test.b { PRINT("fail"); }
+//         ^ E:92 B
+}
+`);
+
+
 }
 
 PRINT("\n === Running TestConstants\n");

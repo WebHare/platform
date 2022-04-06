@@ -947,6 +947,10 @@ void CreateZlibCompressor(VarId id_set, VirtualMachine *vm)
         {
                 filetype = Blex::ZlibCompressStream::Raw;
         }
+        else if(format=="ZIP")
+        {
+                filetype = Blex::ZlibCompressStream::Zip;
+        }
         else
         {
                 HSVM_ReportCustomError(*vm, "Unrecognized compression format");
@@ -965,8 +969,10 @@ void CreateZlibCompressor(VarId id_set, VirtualMachine *vm)
         context->compressingstreams[outputid] = newblob;
         HSVM_IntegerSet(*vm, id_set, outputid);
 }
-void CloseZlibCompressor(VirtualMachine *vm)
+void CloseZlibCompressor(VarId id_set, VirtualMachine *vm)
 {
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
+
         SystemContext context(vm->GetContextKeeper());
         int32_t id = HSVM_IntegerGet(*vm, HSVM_Arg(0));
 
@@ -977,6 +983,13 @@ void CloseZlibCompressor(VirtualMachine *vm)
         }
 
         HSVM_UnregisterIOObject(*vm, id);
+
+        if (context->compressingstreams[id]->inputdata->GetFileType() != Blex::ZlibCompressStream::Raw)
+        {
+                char hash[Blex::CRC32HashLen];
+                Blex::putu32msb(hash, context->compressingstreams[id]->inputdata->GetCRC32());
+                HSVM_StringSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "CRC32")), hash, hash + Blex::CRC32HashLen);
+        }
         context->compressingstreams[id].reset();
 }
 void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
@@ -1171,7 +1184,7 @@ void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SENDBLOBTO::B:IX",SendBlobTo));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEZLIBCOMPRESSOR::I:ISI",CreateZlibCompressor));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBCOMPRESSOR:::I",CloseZlibCompressor));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBCOMPRESSOR::R:I",CloseZlibCompressor));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("OPENBLOBASDECOMPRESSINGSTREAM::I:XS",OpenBlobAsDecompressingStream));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBDECOMPRESSOR:::I",CloseZlibDecompressor));
 

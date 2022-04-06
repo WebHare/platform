@@ -20,7 +20,7 @@ PUBLIC STRING           FUNCTION GETBLOBDESCRIPTION(BLOB file) __ATTRIBUTES__(EX
     @public
     @loadlib wh::datetime.whlib
     @topic harescript-core/datetime
-    @see AddTimeToDate
+    @see wh::datetime.whlib#AddTimeToDate
     @example
 // returns a timestamp of the current date and time
 DATETIME serverTime := GetCurrentDateTime();
@@ -432,3 +432,49 @@ PUBLIC DATETIME FUNCTION MakeDateFromText(STRING datestring) __ATTRIBUTES__(EXTE
     @param accept_slashes Whether to accept forward slashes
     @return True if the filename was accepted */
 PUBLIC BOOLEAN FUNCTION IsSafeFilePath(STRING path, BOOLEAN accept_slashes) __ATTRIBUTES__ (CONSTANT, EXTERNAL);
+
+/** @short Open and decompress a blob
+    @param indata Blob to read
+    @param fileformat File format to read (either 'GZIP', 'ZLIB', 'ZLIBRAW' or 'ZLIBRAW:filelength')
+    @return The stream handle, usable by ReadFrom and ReadLineFrom
+    @see #CloseZlibDecompressor
+    @topic file-formats/archives
+    @loadlib wh::filetypes/archiving.whlib
+    @public
+*/
+PUBLIC INTEGER FUNCTION OpenBlobAsDecompressingStream(BLOB indata, STRING fileformat) __ATTRIBUTES__(EXTERNAL);
+
+/** Close a decompressing stream
+    @param compressor Decompressing stream
+    @see #OpenBlobAsDecompressingStream
+    @topic file-formats/archives
+    @public
+    @loadlib wh::filetypes/archiving.whlib
+*/
+PUBLIC MACRO CloseZlibDecompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
+
+/** Create a zlib compressor (using deflate)
+    @param outstream Stream to write to
+    @param format Format of compressed data
+       - "GZIP": Add GZIP headers and calculate CRC32
+       - "RAW": Output raw data
+       - "ZIP": Output raw data and calculate CRC32
+    @param compressionlevel Compression level (1-9)
+    @return Id of the stream the uncompressed data can be printed to
+    @see #CloseZlibCompressor
+    @topic file-formats/archives
+    @public
+    @loadlib wh::filetypes/archiving.whlib
+*/
+PUBLIC INTEGER FUNCTION CreateZlibCompressor(INTEGER outstream, STRING format, INTEGER compressionlevel) __ATTRIBUTES__(EXTERNAL);
+
+/** Close a zlib compressor
+    @param compressor Compressor stream id
+    @return Compression result
+    @cell(string) return.crc32 CRC32 hash of the uncompressed data (only when format is "GZIP" or "ZIP")
+    @see #CreateZlibCompressor
+    @topic file-formats/archives
+    @public
+    @loadlib wh::filetypes/archiving.whlib
+*/
+PUBLIC RECORD FUNCTION CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);

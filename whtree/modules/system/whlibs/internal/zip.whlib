@@ -1,0 +1,1108 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/libz.whlib";
+
+
+CONSTANT INTEGER max_uint16_t := 65535;
+CONSTANT INTEGER64 max_uint32_t := 4294967295i64;
+
+
+CONSTANT INTEGER zip_generalpurposeflags_languageencoding := 1 BITLSHIFT 11; // If set, name and comment are encoded in UTF-8
+
+/** Use ZIP64 size extensions when the uncompressed size is equal or larger than this value, so we're
+    sure the compressed size < 4GB. Smaller than 4GB because the compressed size can be bigger than
+    the uncompressed size (for uncompressable files)
+*/
+CONSTANT INTEGER64 zip64_record_uncomp_bound := 4000000000i64;
+
+/// Minimum ZIP version needed to decode ZIP64 extensions
+CONSTANT INTEGER zip64_minversion := 45; // 4.5 had first ZIP64 extensions
+
+/// Compression method 'store'
+CONSTANT INTEGER zip_compressionmethod_store := 0;
+
+/// Compression method 'deflate'
+CONSTANT INTEGER zip_compressionmethod_deflate := 8;
+
+/** ZIP structure definitions and signatures
+*/
+CONSTANT RECORD zip_structs :=
+    [ localfileheader :=
+          [ packet :=     "signature:r4,needversion:S,bitflags:S,compmethod:S,mod_time:S,mod_date:S,crc32:R4,compsize:L,uncompsize:L,filenamelen:S,extralen:S"
+          , len :=        30
+          , signature :=  "\x50\x4b\x03\x04"
+          , converti64 := [ "compsize", "uncompsize" ]
+          ]
+    , centraldirectoryheader :=
+          [ packet :=     "signature:r4,madeversion:S,needversion:S,bitflags:S,compmethod:S,mod_time:S,mod_date:S,crc32:R4,compsize:L,uncompsize:L,filenamelen:S,extralen:S,commentln:S,startdisk:S,infileattr:S,exfileattr:L,reloffset:L"
+          , len :=        46
+          , signature :=  "\x50\x4b\x01\x02"
+          , converti64 := [ "compsize", "uncompsize", "reloffset" ]
+          ]
+    , endofcentraldirectoryrecord :=
+          [ packet :=     "signature:r4,disknumber:S,dirdisk:S,diskentries:S,direntries:S,dirsize:L,reloffset:L,commentlen:S"
+          , len :=        22
+          , signature :=  "\x50\x4b\x05\x06"
+          ]
+    , zip64_endofcentraldirectorylocator :=
+          [ packet :=     "signature:r4,dirdisk:L,reloffset:B,totaldisks:L"
+          , len :=        20
+          , signature :=  "\x50\x4b\x06\x07"
+          ]
+    , zip64_endofcentraldirectoryrecordv1 :=
+          [ packet :=     "signature:r4,size:B,madeversion:S,needversion:S,disknumber:L,dirdisk:L,diskentries:B,direntries:B,dirsize:B,reloffset:B"
+          , len :=        56
+          , signature :=  "\x50\x4b\x06\x06"
+          ]
+    , zip64_endofcentraldirectoryrecordv2 :=
+          [ packet :=     "signature:r4,size:B,madeversion:S,needversion:S,disknumber:L,dirdisk:L,diskentries:B,direntries:B,dirsize:B,reloffset:B,"
+                            || "compmethod:S,compsize:B,uncompsize:B,algid:S,bitlen:S,flags:S,hashid:S,hashlen:S"
+          , len :=        56+28
+          , signature :=  "\x50\x4b\x06\x06"
+          ]
+    , zip64_extrafields_header :=
+          [ packet :=     "fieldtype:S,size:S"
+          , len :=        4
+          ]
+    , zip64_extrafields_infozip_extendedtimestamps :=
+          [ packet :=     "flags:C,modtime:L,accesstime:L,creationtime:L" // not actually used, the L fields are all optional and difference between handling in central/local headers
+          , len :=        13
+          , fieldtype :=  0x5455
+          ]
+    , zip64_extrafields_infozip_unicodepath :=
+          [ packet :=     "version:C,crc32:R4,name:r*"
+          , len :=        5 // + length of name
+          , fieldtype :=  0x7075
+          ]
+    , zip64_extrafields_zip64_extendedinformation :=
+          [ packet :=     "uncompsize:B,compsize:B,reloffset:B,startdisk:L" // not actually used, these fields are all optional
+          , len :=        28
+          , fieldtype :=  1
+          ]
+    ];
+
+/** Convert a datetime into DOS encoding date and time
+    @param dt Datetime to encode
+    @return Encoded datetime
+    @cell(integer) return.first Date
+    @cell(integer) return.second Time
+*/
+RECORD FUNCTION MakeDosDateTime(DATETIME dt)
+{
+  RECORD up := UnpackDateTime(dt);
+  RETURN
+      [ first :=    (up.year-1980) * 512 + up.month * 32 + up.dayofmonth
+      , second :=   up.hour * 2048 + up.minute * 32 + up.second / 2
+      ];
+}
+
+/** Decode a DOS encoded datetime to a datetime
+    @param dosdatetime Datetime to decode
+    @cell(integer) dosdatetime.first Date
+    @cell(integer) dosdatetime.second Time
+    @return Decoded datetime
+*/
+
+DATETIME FUNCTION ReadDosDateTime(RECORD dosdatetime)
+{
+  RETURN MakeDateTime(
+        dosdatetime.first / 512 + 1980,
+        (dosdatetime.first / 32) BITAND 15,
+        dosdatetime.first BITAND 31,
+        dosdatetime.second / 2048,
+        (dosdatetime.second / 32) BITAND 63,
+        (dosdatetime.second BITAND 31) * 2);
+}
+
+/** Converts a field decoded from an uint32_t to a INTEGER64
+    @param data Packet decoded data
+    @param cellname Name of cell to convert
+    @return Converted packet decoded data
+*/
+RECORD FUNCTION ConvertUint32FieldToInteger64(RECORD data, STRING cellname)
+{
+  INTEGER val := GetCell(data, cellname);
+  RETURN CELL
+      [ ...data
+      , ...CellInsert(CELL[], cellname, val < 0 ? val + max_uint32_t + 1 : INTEGER64(val))
+      ];
+}
+
+/** Return the length of a En-/decode packet field (only for fields used by ZIP packets)
+    @param field Field (in format 'name:format')
+    @return Length in bytes (0 for variable-length fields)
+*/
+INTEGER FUNCTION GetPacketFieldLength(STRING field)
+{
+  STRING type := Tokenize(field, ":")[1];
+  SWITCH (type)
+  {
+    CASE "C"          { RETURN + 1; }
+    CASE "S"          { RETURN + 2; }
+    CASE "L"          { RETURN + 4; }
+    CASE "B"          { RETURN + 8; }
+    CASE "r4", "R4"   { RETURN + 4; }
+    CASE "r*"         { RETURN + 0; }
+    DEFAULT     { THROW NEW Exception(`Unhandled packet field type ${EncodeJSON(type)}`); }
+  }
+}
+
+/// Check the lengths in the zip structure definitions
+PUBLIC MACRO __CheckZIPStructureLengths()
+{
+  FOREVERY (RECORD rec FROM UnpackRecord(zip_structs))
+  {
+    IF (NOT CellExists(rec.value, "PACKET"))
+      CONTINUE;
+
+    INTEGER len;
+    FOREVERY (STRING field FROM Tokenize(rec.value.packet, ","))
+      len := len + GetPacketFieldLength(field);
+
+    IF (len != rec.value.len)
+      THROW NEW Exception(`Wrong length for struct ${rec.name}: expected ${rec.value.len} but got ${len}`);
+  }
+}
+
+/** Reads an exact number of bytes from a file
+    @param file File stream
+    @param num Number of bytes to read
+    @return Read bytes
+*/
+STRING FUNCTION ReadExactFrom(INTEGER file, INTEGER num)
+{
+  STRING buf;
+  WHILE (num > 0)
+  {
+    STRING chunk := ReadFrom(file, num);
+    IF (IsDefaultValue(chunk))
+      THROW NEW Exception(`I/O error reading from ZIP file`);
+    buf := buf || chunk;
+    num := num - LENGTH(chunk);
+  }
+  RETURN buf;
+}
+
+/** Converts a filename to CP437 encoding, changing non-encodable characters to _
+    @param name Name to encode
+    @return Encoded name
+    @cell return.cp437name CP437-encoded name
+    @cell return.need_utf8_version Whether an extra-field with the UTF-8 name
+      should be added (true if non-ascii characters or a 0-byte are found)
+*/
+RECORD FUNCTION ConvertFileName(STRING name)
+{
+  STRING todecode := name;
+  todecode := Substitute(todecode, "\x00", "_");
+
+  // our zip code replaces unencodable by _ instead of leaving it out (which EncodeCharSet does)
+  STRING encoded := EncodeCharSet(name, "CP437");
+  STRING decoded := DecodeCharSet(encoded, "CP437");
+
+  STRING cp437name;
+  IF (decoded = todecode)
+    cp437name := encoded;
+  ELSE
+  {
+    FOR (INTEGER i := 0, e := UCLength(todecode); i < e; i := i + 1)
+      cp437name := cp437name || (EncodeCharSet(UCSubString(todecode, i, 1), "CP437") ?? "_");
+  }
+
+  // We'll store an UTF-8 version when the CP437 name differs from the UTF-8 name, in case
+  // a utility doesn't use CP437 to decode the name.
+  RETURN CELL
+      [ need_utf8_version :=        cp437name != name
+      , cp437name
+      ];
+}
+
+/** Writes a ZIP file
+*/
+PUBLIC STATIC OBJECTTYPE ZIPArchiveWriter
+< /// Destination file stream
+  INTEGER dest;
+
+  /** File entries
+  */
+  RECORD ARRAY entries;
+
+  /** Archive comment
+  */
+  STRING comment;
+
+  /** Whether it is needed to write a ZIP64 end-of-directory record
+  */
+  BOOLEAN require_zip64;
+
+  /** @includecelldef #NEW.options
+  */
+  RECORD options;
+
+  /** Construct a new ZIPArchiveWriter
+      @cell(integer) options.compressionlevel Default compression level
+  */
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->options := ValidateOptions(
+        [ compressionlevel :=  6
+        , usezip64 := FALSE
+        ], options);
+
+    this->require_zip64 := this->options.usezip64;
+    this->dest := CreateStream();
+  }
+
+  /** Construct the extra fields for an entry
+      @param entry Entry data
+      @param incentraldirectory Whether the entry is for the central directory
+      @return Extra fields data
+      @cell(string) return.fields Extra fields data
+      @cell(integer) return.minversion Minimum ZIP version for reading this entry
+      @cell(record) return.entryoverrides Changes to make to the entry before writing it to disk
+  */
+  RECORD FUNCTION GetExtraFields(RECORD entry, BOOLEAN incentraldirectory)
+  {
+    STRING fields;
+    INTEGER minversion;
+    RECORD entryoverrides;
+
+    IF (entry.store_utf8name)
+    {
+      fields := fields || EncodePacket(`${zip_structs.zip64_extrafields_header.packet},${zip_structs.zip64_extrafields_infozip_unicodepath.packet}`, CELL
+          [ fieldtype :=      zip_structs.zip64_extrafields_infozip_unicodepath.fieldtype
+          , size :=           zip_structs.zip64_extrafields_infozip_unicodepath.len + LENGTH(entry.utf8name)
+          , version :=        1
+          , crc32 :=          GetHashForString(entry.cp437name, "CRC32")
+          , name :=           entry.utf8name
+          ]);
+    }
+
+    IF (entry.uncompressed_size > zip64_record_uncomp_bound OR (incentraldirectory AND entry.headerpos > max_uint32_t))
+    {
+      INTEGER size;
+      STRING packet;
+      IF (NOT incentraldirectory)
+      {
+        // In a local file header
+        IF (entry.uncompressed_size > zip64_record_uncomp_bound)
+        {
+          packet := packet || ",uncompsize:B,compsize:B";
+          entryoverrides := CELL
+              [ ...entryoverrides
+              , uncompressed_size := max_uint32_t
+              , compressed_size := max_uint32_t
+              ];
+          size := 16;
+        }
+      }
+      ELSE
+      {
+        IF (entry.uncompressed_size > max_uint32_t)
+        {
+          packet := packet || ",uncompsize:B";
+          entryoverrides := CELL[ ...entryoverrides, uncompressed_size := max_uint32_t ];
+          size := size + 8;
+        }
+        IF (entry.compressed_size > max_uint32_t)
+        {
+          packet := packet || ",compsize:B";
+          entryoverrides := CELL[ ...entryoverrides, compressed_size := max_uint32_t ];
+          size := size + 8;
+        }
+        IF (entry.headerpos > max_uint32_t)
+        {
+          packet := packet || ",reloffset:B";
+          entryoverrides := CELL[ ...entryoverrides, headerpos := max_uint32_t ];
+          size := size + 8;
+        }
+      }
+
+      IF (packet != "")
+      {
+        this->require_zip64 := TRUE;
+        fields := fields || EncodePacket(zip_structs.zip64_extrafields_header.packet || packet, CELL
+            [ fieldtype :=      zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype
+            , size
+            , uncompsize :=     entry.uncompressed_size
+            , compsize :=       entry.compressed_size
+            , reloffset :=      entry.headerpos
+            , startdisk :=      0
+            ]);
+
+        entryoverrides := CELL[ ...entryoverrides, minversion := zip64_minversion ]; // MS-DOS 6.2, central directory encryption and zip64 end of directory v2
+      }
+    }
+    ELSE IF (entry.compressed_size > max_uint32_t)
+      THROW NEW Exception(`Compressed size >4GB but did not use ZIP64 record`);
+
+    // zip64_extrafields_infozip_extendedtimestamps
+    // central directory always has modtime, local field header honors flags
+    fields := fields || EncodePacket(`${zip_structs.zip64_extrafields_header.packet},flags:C,modtime:L`,
+          [ fieldtype :=  zip_structs.zip64_extrafields_infozip_extendedtimestamps.fieldtype
+          , size :=       5 // 1 byte flags, 4 bytes modtime
+          , flags :=      1
+          , modtime :=    GetUnixTimestamp(entry.modtime)
+          ]);
+
+    RETURN CELL
+        [ fields
+        , minversion
+        , entryoverrides
+        ];
+  }
+
+  /** Calculate the local file header length for an entry
+      @param entry Entry, all fields except for 'compressed_size', 'compressed' and 'crc32' should be filled
+      @return Length of the local file header
+  */
+  INTEGER FUNCTION GetLocalFileHeaderLength(RECORD entry)
+  {
+    RETURN zip_structs.localfileheader.len + LENGTH(entry.cp437name) + LENGTH(this->GetExtraFields(entry, FALSE).fields);
+  }
+
+  /** Writes the local file header to the destination archive
+      @param entry File entry
+      @param predictedlen Length of header as calculated by [GetLocalFileHeaderLength](#GetLocalFileHeaderLength)
+  */
+  MACRO WriteLocalFileHeader(RECORD entry, INTEGER predictedlen)
+  {
+    RECORD extrafields := this->GetExtraFields(entry, FALSE);
+
+    RECORD writedata := CELL[ ...entry, ...extrafields.entryoverrides ];
+
+    /* don't use zip_generalpurposeflags_languageencoding, Windows explorer doesn't honor it, uses the name
+       decoded with the default codepage.
+       MacOS command lib unzip and default unpacker expect UTF-8, though.
+       So, we're encoding in CP437, and adding the Info-ZIP UTF-8 extra field with the UTF-8 name
+    */
+    RECORD headerdata :=
+        [ signature :=        zip_structs.localfileheader.signature
+        , needversion :=      writedata.minversion
+        , bitflags :=         0
+        , compmethod :=       writedata.is_directory OR NOT writedata.compressed ? zip_compressionmethod_store : zip_compressionmethod_deflate
+        , mod_time :=         writedata."datetime".second
+        , mod_date :=         writedata."datetime".first
+        , compsize :=         writedata.compressed_size
+        , uncompsize :=       writedata.uncompressed_size
+        , crc32 :=            writedata.crc32
+        , filenamelen :=      LENGTH(writedata.cp437name)
+        , extralen :=         LENGTH(extrafields.fields)
+        ];
+
+    STRING header := EncodePacket(zip_structs.localfileheader.packet, headerdata);
+
+    STRING fileheader := header || entry.cp437name || extrafields.fields;
+    PrintTo(this->dest, fileheader);
+
+    IF (LENGTH(fileheader) != predictedlen)
+      THROW NEW Exception(`Actual local file header length didn't match predicted length (actual ${LENGTH(fileheader)} vs predirected ${predictedlen})`);
+
+    IF (LENGTH(entry.cp437name) >= 65535 OR LENGTH(entry.utf8name) >= 65535)
+      THROW NEW Exception(`Path name too long`);
+
+    INSERT entry INTO this->entries AT END;
+  }
+
+  /// Write end of archive records
+  MACRO Finalize()
+  {
+    INTEGER64 dirstart := GetStreamPointer(this->dest);
+    IF (LENGTH(this->entries) > 65535)
+      this->require_zip64 := TRUE;
+
+    FOREVERY (RECORD entry FROM this->entries)
+    {
+      RECORD extrafields := this->GetExtraFields(entry, TRUE);
+
+      RECORD writedata := CELL[ ...entry, ...extrafields.entryoverrides ];
+
+      STRING cdentry := EncodePacket(zip_structs.centraldirectoryheader.packet,
+          [ signature :=       zip_structs.centraldirectoryheader.signature
+          , madeversion :=     this->require_zip64 ? zip64_minversion : 20 // Made by MS-DOS, ZIP spec v2.0 or v6.2 when using ZIP64
+          , needversion :=     writedata.minversion
+          , bitflags :=        0
+          , compmethod :=      writedata.is_directory OR NOT writedata.compressed ? 0 : 8
+          , mod_time :=        writedata."datetime".second
+          , mod_date :=        writedata."datetime".first
+          , crc32 :=           writedata.crc32
+          , compsize :=        writedata.compressed_size
+          , uncompsize :=      writedata.uncompressed_size
+          , filenamelen :=     LENGTH(writedata.cp437name)
+          , extralen :=        LENGTH(extrafields.fields)
+          , commentln :=       0
+          , startdisk :=       0
+          , infileattr :=      0
+          , exfileattr :=      writedata.is_directory ? 0x10 : 0
+          , reloffset :=       writedata.headerpos
+          ]);
+
+      PrintTo(this->dest, cdentry);
+      PrintTo(this->dest, entry.cp437name);
+      PrintTo(this->dest, extrafields.fields);
+    }
+
+    INTEGER64 dirsize := GetStreamPointer(this->dest) - dirstart;
+
+    IF (this->require_zip64)
+    {
+      // Write ZIP64 end of directory record
+      INTEGER64 zip64_eod_record_position := GetStreamPointer(this->dest);
+      // We're writing a v1 record, no need for all v2 fields
+      PrintTo(this->dest, EncodePacket(zip_structs.zip64_endofcentraldirectoryrecordv1.packet, CELL
+          [ zip_structs.zip64_endofcentraldirectoryrecordv1.signature
+          , size :=           zip_structs.zip64_endofcentraldirectoryrecordv1.len - 12 /* signature(4) + size(8) */
+          , madeversion :=    zip64_minversion
+          , needversion :=    zip64_minversion
+          , disknumber :=     0
+          , dirdisk :=        0
+          , diskentries :=    LENGTH(this->entries)
+          , direntries :=     LENGTH(this->entries)
+          , dirsize
+          , reloffset :=      dirstart
+          ]));
+
+      // Write ZIP64 end of directory locator
+      PrintTo(this->dest, EncodePacket(zip_structs.zip64_endofcentraldirectorylocator.packet, CELL
+          [ zip_structs.zip64_endofcentraldirectorylocator.signature
+          , dirdisk :=      0
+          , reloffset :=    zip64_eod_record_position
+          , totaldisks :=   1
+          ]));
+    }
+
+    STRING dirend := EncodePacket(zip_structs.endofcentraldirectoryrecord.packet,
+        [ signature :=    zip_structs.endofcentraldirectoryrecord.signature
+        , disknumber :=   0
+        , dirdisk :=      0
+        , diskentries :=  LENGTH(this->entries) > max_uint16_t ? max_uint16_t : LENGTH(this->entries)
+        , direntries :=   LENGTH(this->entries) > max_uint16_t ? max_uint16_t : LENGTH(this->entries)
+        , dirsize :=      dirsize > max_uint32_t ? max_uint32_t : dirsize
+        , reloffset :=    dirstart > max_uint32_t ? max_uint32_t : dirstart
+        , commentlen :=   LENGTH(this->comment)
+        ]);
+
+    PrintTo(this->dest, dirend);
+    PrintTo(this->dest, this->comment);
+  }
+
+  /** Add a folder to the ZIP file
+      @param dirname Name/path of the folder
+      @param modtime Modification time
+  */
+  PUBLIC MACRO AddFolder(STRING dirname, DATETIME modtime)
+  {
+    IF (dirname != "" AND dirname NOT LIKE "*/")
+      dirname := dirname || "/";
+
+    RECORD convertres := ConvertFileName(dirname);
+
+    RECORD entry := CELL
+        [ store_utf8name :=     convertres.need_utf8_version
+        , convertres.cp437name
+        , utf8name :=           dirname
+        , is_directory :=       TRUE
+        , minversion :=         20 // MS-DOS, version 2.0
+        , modtime
+        , headerpos :=          GetStreamPointer(this->dest)
+        , "datetime" :=         MakeDosDateTime(modtime)
+        , crc32 :=              RepeatText("\0", 4)
+        , uncompressed_size :=  0i64
+        , compressed_size :=    0i64
+        ];
+
+    INTEGER len := this->GetLocalFileHeaderLength(entry);
+    this->WriteLocalFileHeader(entry, len);
+  }
+
+  /** Add a file to the ZIP file
+      @param name Name/path of the file
+      @param modtime Modification time
+      @param data Data
+      @cell(integer) options.compressionlevel Compression level, 0 for no compression, 1-9 for zlib compression levels.
+  */
+  PUBLIC MACRO AddFile(STRING name, BLOB data, DATETIME modtime, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ compressionlevel :=   6
+        ], CELL
+        [ this->options.compressionlevel
+        , ...options
+        ]);
+
+    RECORD convertres := ConvertFileName(name);
+
+    INTEGER64 headeroffset := GetStreamPointer(this->dest);
+    RECORD entry := CELL
+        [ store_utf8name :=     convertres.need_utf8_version
+        , convertres.cp437name
+        , utf8name :=           name
+        , minversion :=         20 // MS-DOS, version 2.0 (needed for Deflate)
+        , is_directory :=       FALSE
+        , modtime
+        , headerpos :=          headeroffset
+        , "datetime" :=         MakeDosDateTime(modtime)
+        , crc32 :=              RepeatText("\0", 4)
+        , uncompressed_size :=  LENGTH64(data)
+        , compressed_size :=    0i64
+        , compressed :=         FALSE
+        ];
+
+    INTEGER headerlen := this->GetLocalFileHeaderLength(entry);
+
+    INTEGER64 dataoffset := headeroffset + headerlen;
+    SetStreamPointer(this->dest, dataoffset);
+
+    STRING crc32;
+    IF (options.compressionlevel > 0)
+    {
+      INTEGER compressor := CreateZlibCompressor(this->dest, "ZIP", this->options.compressionlevel);
+      SendBlobTo(compressor, data);
+      crc32 := CloseZlibCompressor(compressor).crc32;
+    }
+    ELSE
+    {
+      SendBlobTo(this->dest, data);
+      crc32 := GetHashForBlob(data, "CRC32");
+    }
+
+    INTEGER64 afterdataoffset := GetStreamPointer(this->dest);
+
+    entry.compressed_size := afterdataoffset - dataoffset;
+    entry.compressed := options.compressionlevel > 0;
+    entry.crc32 := crc32;
+
+    SetStreamPointer(this->dest, headeroffset);
+    this->WriteLocalFileHeader(entry, headerlen);
+    SetStreamPointer(this->dest, afterdataoffset);
+  }
+
+  /** Set the library comment, will be written out in central directory
+      @param comment Library comment
+  */
+  PUBLIC MACRO SetComment(STRING comment)
+  {
+    this->comment := comment;
+  }
+
+  /** Finalize the archive
+      @return Archive blob
+  */
+  PUBLIC BLOB FUNCTION MakeBlob()
+  {
+    IF (this->dest = 0)
+      THROW NEW Exception(`A blob has already been created`);
+
+    this->Finalize();
+
+    BLOB retval := MakeBlobFromStream(this->dest);
+    this->dest := 0;
+
+    RETURN retval;
+  }
+
+  /// Close the archive, discarding the written data
+  PUBLIC MACRO Close()
+  {
+    IF (this->dest != 0)
+      MakeBlobFromStream(this->dest);
+    this->dest := 0;
+  }
+>;
+
+
+/** Read a structure
+    @param file File to read from
+    @param struct Structure to read
+    @cell(boolean) options.optional Don't give an error when the signature doesn't match
+    @cell(string) options.name Name of structure
+    @return Parsed structure (DEFAULT RECORD if optional and the signature didn't match)
+*/
+RECORD FUNCTION ReadStruct(INTEGER file, RECORD struct, RECORD options)
+{
+  options := CELL[ optional := FALSE, name := "", ...options ];
+
+  INTEGER64 ofs := GetFilePointer(file);
+
+  STRING buffer := ReadExactFrom(file, struct.len);
+  RECORD data := DecodePacket(struct.packet, buffer);
+  IF (data.signature != struct.signature)
+  {
+    IF (options.optional)
+      RETURN DEFAULT RECORD;
+
+    THROW NEW Exception(`Wrong signature reading ${options.name}, expected ${EncodeBase16(struct.signature)}, got ${EncodeBase16(data.signature)}`);
+  }
+
+  // Convert the unsigned 32-but fields (stored as INTEGER) to INTEGER64
+  IF (CellExists(struct, "converti64"))
+  {
+    FOREVERY (STRING cellname FROM struct.converti64)
+      data := ConvertUint32FieldToInteger64(data, cellname);
+  }
+  RETURN data;
+}
+
+/** Read an end-of-directory record
+    @param file File to read from
+    @param ofs Offset within the file
+    @return End of directory record data
+*/
+RECORD FUNCTION ReadEndOfDirectory(INTEGER file, INTEGER64 ofs)
+{
+  SetFilePointer(file, ofs);
+  RECORD data := ReadStruct(file, zip_structs.endofcentraldirectoryrecord, [ name := "end of central directory record" ]);
+  STRING comment := ReadExactFrom(file, data.commentlen);
+  INSERT CELL comment := comment INTO data;
+
+  RETURN data;
+}
+
+/** Read an zip64 end-of-directory locator
+    @param file File to read from
+    @param ofs Offset within the file
+    @return End of directory record data
+*/
+RECORD FUNCTION ReadZip64EndOfDirectoryLocator(INTEGER file, INTEGER64 ofs)
+{
+  SetFilePointer(file, ofs);
+  RECORD data := ReadStruct(file, zip_structs.zip64_endofcentraldirectorylocator, [ name := "ZIP64 end of directory locator", optional := TRUE ]);
+  RETURN data;
+}
+
+/** Read an zip64 end-of-directory record
+    @param file File to read from
+    @param ofs Offset within the file
+    @return End of directory record data
+*/
+RECORD FUNCTION ReadZip64EndOfDirectoryRecord(INTEGER file, INTEGER64 ofs)
+{
+  SetFilePointer(file, ofs);
+  RECORD data := ReadStruct(file, zip_structs.zip64_endofcentraldirectoryrecordv1, [ name := "ZIP64 end of directory record" ]);
+  IF (data.size < 44)
+    THROW NEW Exception(`Size of ZIP64 end of directory record is too small`);
+  RETURN data;
+}
+
+/** Read the extra fields after a local file record/directory entry
+    @param file File to read from
+    @param entry Read local file record data/directory entry data
+    @param extrafieldslen Length of extra fields
+    @param incentraldirectory If the entry is from the central directory
+    @return Extra fields data
+    @cell return.fieldtype Field type (eg zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype)
+    @cell(integer64) return.uncompsize Uncompressed size (for ZIP64 extended information)
+    @cell(integer64) return.compsize Uncompressed size (for ZIP64 extended information)
+    @cell(integer64) return.reloffset Local file record offset (for ZIP64 extended information)
+    @cell(integer) return.startdisk Start disk (for ZIP64 extended information)
+    @cell(integer) return.version Field version (for INFO-ZIP unicode name)
+    @cell(string) return.crc32 CRC32 of directory entry name (for INFO-ZIP unicode name)
+    @cell(string) return.name Unicode name (for INFO-ZIP unicode name)
+    @cell(datetime) return.modtime Modification time (for INFO0ZIP extended timestamps)
+    @cell(datetime) return.accesstime Access time (for INFO0ZIP extended timestamps)
+    @cell(datetime) return.creationtime Creation time (for INFO0ZIP extended timestamps)
+    @cell(boolean) return.parsed FALSE when not parsed (other fields)
+    @cell(boolean) return.data Base16 encoded data when not parsed (other fields)
+*/
+RECORD ARRAY FUNCTION ReadExtraFields(INTEGER file, RECORD entry, INTEGER extrafieldslen, BOOLEAN incentraldirectory)
+{
+  IF (extrafieldslen = 0)
+    RETURN RECORD[];
+
+  INTEGER64 ofs := GetFilePointer(file);
+
+  STRING buffer := ReadExactFrom(file, extrafieldslen);
+  INTEGER pos := 0;
+
+  RECORD ARRAY extrafields;
+  WHILE (pos + zip_structs.zip64_extrafields_header.len <= extrafieldslen)
+  {
+    STRING header_data := SubString(buffer, pos, zip_structs.zip64_extrafields_header.len);
+    RECORD header := DecodePacket(zip_structs.zip64_extrafields_header.packet, header_data);
+
+    INTEGER newpos := pos + zip_structs.zip64_extrafields_header.len + header.size;
+    IF (newpos > extrafieldslen)
+      BREAK;
+
+    STRING data := SubString(buffer, pos + zip_structs.zip64_extrafields_header.len, header.size);
+    SWITCH (header.fieldtype)
+    {
+      CASE zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype
+      {
+        STRING ARRAY fields;
+        IF (entry.uncompsize = max_uint32_t)
+          INSERT "uncompsize:B" INTO fields AT END;
+        IF (entry.compsize = max_uint32_t)
+          INSERT "compsize:B" INTO fields AT END;
+        IF (CellExists(entry, "RELOFFSET") AND entry.reloffset = max_uint32_t)
+          INSERT "reloffset:B" INTO fields AT END;
+        IF (CellExists(entry, "STARTDISK") AND entry.startdisk = max_uint16_t)
+          INSERT "startdisk:L" INTO fields AT END;
+
+        IF (IsDefaultValue(fields))
+          THROW NEW Exception(`Found an zip64 extended information extra fields without enabled fields`);
+
+        RECORD decoded := DecodePacket(Detokenize(fields, ","), data);
+        INSERT CELL[ header.fieldtype, ...decoded ] INTO extrafields AT END;
+      }
+      CASE zip_structs.zip64_extrafields_infozip_unicodepath.fieldtype
+      {
+        RECORD decoded := DecodePacket(zip_structs.zip64_extrafields_infozip_unicodepath.packet, data);
+
+        INSERT CELL
+            [ header.fieldtype
+            , ...decoded
+            ] INTO extrafields AT END;
+      }
+      CASE zip_structs.zip64_extrafields_infozip_extendedtimestamps.fieldtype
+      {
+        INTEGER flags := DecodePacket("flags:C", data).flags;
+
+        STRING ARRAY fields := [ "flags:C" ];
+        IF ((flags BITAND 1) != 0 AND LENGTH(data) >= 5)
+          INSERT "modtime:L" INTO fields AT END;
+        IF ((flags BITAND 2) != 0 AND NOT incentraldirectory)
+          INSERT "accesstime:L" INTO fields AT END;
+        IF ((flags BITAND 4) != 0 AND NOT incentraldirectory)
+          INSERT "creationtime:L" INTO fields AT END;
+
+        RECORD decoded := DecodePacket(Detokenize(fields, ","), data);
+        IF (CellExists(decoded, "modtime"))
+          decoded := CELL[ ...decoded, modtime := MakeDatetimeFromUnixTimestamp(decoded.modtime) ];
+        IF (CellExists(decoded, "accesstime"))
+          decoded := CELL[ ...decoded, accesstime := MakeDatetimeFromUnixTimestamp(decoded.accesstime) ];
+        IF (CellExists(decoded, "creationtime"))
+          decoded := CELL[ ...decoded, creationtime := MakeDatetimeFromUnixTimestamp(decoded.creationtime) ];
+
+        INSERT CELL
+            [ header.fieldtype
+            , ...decoded
+            ] INTO extrafields AT END;
+      }
+      DEFAULT
+      {
+        INSERT CELL
+            [ header.fieldtype
+            , parsed :=         FALSE
+            , data :=           EncodeBase16(data)
+            ] INTO extrafields AT END;
+      }
+    }
+
+    pos := pos + zip_structs.zip64_extrafields_header.len + header.size;
+  }
+
+  RETURN extrafields;
+}
+
+/** Reads a central directory header
+    @param file File to read from (at the current position)
+    @return Entry data (from zip_structs.centraldirectoryheader)
+    @cell return.extrafields @includecelldef #ReadExtraFields.return
+    @cell(string) return.name File (CP437) name
+    @cell(string) return.comment File comment
+*/
+RECORD FUNCTION ReadCentralDirectoryHeader(INTEGER file)
+{
+  RECORD data := ReadStruct(file, zip_structs.centraldirectoryheader, [ name := "central directory header" ]);
+  STRING name := ReadExactFrom(file, data.filenamelen);
+  RECORD ARRAY extrafields := ReadExtraFields(file, data, data.extralen, TRUE);
+  STRING comment := ReadExactFrom(file, data.commentln);
+
+  RETURN CELL
+      [ ...data
+      , extrafields
+      , name
+      , comment
+      ];
+}
+
+/** Reads a local file header
+    @param file File to read from
+    @param ofs Offset within file
+    @return Entry data (from zip_structs.centraldirectoryheader)
+    @cell return.extrafields @includecelldef #ReadExtraFields.return
+    @cell(string) return.name File (CP437) name
+*/
+RECORD FUNCTION ReadLocalFileHeader(INTEGER file, INTEGER64 ofs)
+{
+  SetFilePointer(file, ofs);
+  RECORD data := ReadStruct(file, zip_structs.localfileheader, [ name := "local file header" ]);
+  STRING name := ReadExactFrom(file, data.filenamelen);
+  RECORD ARRAY extrafields := ReadExtraFields(file, data, data.extralen, FALSE);
+
+  RETURN CELL
+      [ ...data
+      , extrafields
+      , name
+      ];
+}
+
+/** Locates the ZIP end of directory record within an archive
+    @param file File to read from
+    @return End of directory record offset, -1 if not found
+*/
+INTEGER64 FUNCTION FindEndOfDirectoryRecord(INTEGER file)
+{
+  INTEGER64 curofs := GetFileLength(file);
+  CONSTANT INTEGER searchbufsize := 4096;
+  STRING restbuf;
+
+  WHILE (curofs != 0)
+  {
+    INTEGER64 readofs := MAX[]([ 0i64, curofs - searchbufsize ]);
+    INTEGER toread := INTEGER(curofs - readofs);
+    curofs := readofs;
+
+    SetFilePointer(file, readofs);
+    STRING buf := ReadExactFrom(file, toread) || restbuf;
+
+    INTEGER pos := SearchSubString(buf, zip_structs.endofcentraldirectoryrecord.signature);
+    IF (pos != -1)
+      RETURN curofs + pos;
+
+    restbuf := Left(buf, 4);
+  }
+  RETURN -1;
+}
+
+/** ZIP file archive reader
+*/
+PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
+< /// Archive
+  BLOB archive;
+
+  /// File handle, from archive opened as file
+  INTEGER file;
+
+  /** List of entries, sorted on name
+      @cell(datetime) modtime Modification date
+      @cell(integer) type Type (0=directory, 1=file)
+      @cell(integer64) size File size
+      @cell(string) name Full path
+      @cell(integer64) reloffset Offset of the local file header
+  */
+  RECORD ARRAY _rawentries;
+
+  /// @includecelldef #entries
+  RECORD ARRAY _entries;
+
+  /// Zip file comment
+  STRING _comment;
+
+  /** List of entries in the ZIP file, in order read from ZIP central directory
+      @cell(string) fullpath Full path
+      @cell(string) Directory of the entry (without the name)
+      @cell(string) File/directory name
+      @cell(string) type File type (0=directory, 1=file)
+      @cell(datetime) modtime Modification date
+      @cell(integer64) size File size
+  */
+  PUBLIC PROPERTY entries(_entries, -);
+
+  /// ZIP file comment
+  PUBLIC PROPERTY comment(_comment, -);
+
+  /** Construct a new ZIP file archive reader
+      @param data ZIP file data
+  */
+  MACRO NEW(BLOB data)
+  {
+    this->archive := data;
+    this->file := OpenBlobAsFile(this->archive);
+
+    TRY
+    {
+      INTEGER64 pos_eodr := FindEndOfDirectoryRecord(this->file);
+      IF (pos_eodr = -1)
+        THROW NEW Exception(`The file passed to the ZIP archive reader is not a valid ZIP file`);
+
+      RECORD eodr := ReadEndOfDirectory(this->file, pos_eodr);
+      RECORD zip64eodr;
+
+      IF (eodr.disknumber != 0 OR eodr.dirdisk != 0)
+        THROW NEW Exception(`Multi-disk ZIP archives are not supported`);
+
+      IF (pos_eodr > 20)
+      {
+        RECORD zip64eodl := ReadZip64EndOfDirectoryLocator(this->file, pos_eodr - 20);
+        IF (RecordExists(zip64eodl))
+        {
+          IF (zip64eodl.dirdisk != 0 OR zip64eodl.totaldisks != 1)
+            THROW NEW Exception(`Multi-disk ZIP archives are not supported`);
+
+          zip64eodr := ReadZip64EndOfDirectoryRecord(this->file, zip64eodl.reloffset);
+          IF (zip64eodr.dirdisk != 0 OR zip64eodr.disknumber != 0)
+            THROW NEW Exception(`Multi-disk ZIP archives are not supported`);
+        }
+      }
+
+      this->_comment := eodr.comment;
+
+      RECORD locinfo := CELL[ ...eodr, ...zip64eodr ];
+      SetFilePointer(this->file, locinfo.reloffset);
+
+      FOR (INTEGER64 i := 0; i < locinfo.direntries; i := i + 1)
+      {
+        RECORD header := ReadCentralDirectoryHeader(this->file);
+
+        RECORD rawentry := CELL
+            [ modtime :=          ReadDosDateTime([ first := header.mod_date, second := header.mod_time ])
+            , type :=             0 // file
+            , size :=             header.uncompsize
+            , header.name
+            , header.reloffset
+            ];
+
+        IF ((header.bitflags BITAND zip_generalpurposeflags_languageencoding) = 0 OR NOT IsValidUTF8(header.name))
+          rawentry.name := DecodeCharset(header.name, "CP437");
+
+        FOREVERY (RECORD field FROM header.extrafields)
+        {
+          SWITCH (field.fieldtype)
+          {
+            CASE zip_structs.zip64_extrafields_infozip_unicodepath.fieldtype
+            {
+              //The CRC seems to be used to verify that the original name wasn't updated (probably by a non-unicode zip app)
+              STRING org_filename_crc := GetHashForString(header.name, "CRC32");
+              IF (org_filename_crc = field.crc32)
+                rawentry.name := field.name;
+            }
+            CASE zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype
+            {
+              IF (CelLExists(field, "uncompsize"))
+                rawentry.size := field.uncompsize;
+              IF (CelLExists(field, "reloffset"))
+                rawentry.reloffset := field.reloffset;
+            }
+            CASE zip_structs.zip64_extrafields_infozip_extendedtimestamps.fieldtype
+            {
+              IF (CelLExists(field, "modtime"))
+                rawentry.modtime := field.modtime;
+            }
+          }
+        }
+
+        //safely handle backslashes, if any
+        rawentry.name := Substitute(rawentry.name, "\\", "/");
+
+        // if the filename ends in '/' then it's a directory...
+        IF (rawentry.name LIKE "*/")
+          rawentry.type := 1;
+
+        // remove dangerous components from the name
+        rawentry.name := CollapsePath(rawentry.name);
+
+        // convert absolute names to relative ones
+        WHILE (rawentry.name LIKE "/*")
+          rawentry.name := SubString(rawentry.name, 1);
+
+        INTEGER spos := rawentry.type = 1
+            ? LENGTH(rawentry.name)
+            : SearchLastSubString(rawentry.name, "/");
+
+        INSERT
+            [ fullpath :=     rawentry.name
+            , path :=         Left(rawentry.name, spos)
+            , name :=         SuBString(rawentry.name, spos + 1)
+            , type :=         rawentry.type
+            , modtime :=      rawentry.modtime
+            , size :=         rawentry.size
+            ] INTO this->_entries AT END;
+
+        INSERT rawentry INTO this->_rawentries AT RecordUpperBound(this->_rawentries, rawentry, [ "NAME" ]);
+      }
+    }
+    CATCH
+    {
+      CloseBlobFile(this->file);
+      this->file := 0;
+      THROW;
+    }
+  }
+
+  /** Read the contents of a file
+      @param fullpath Fullpath of the file
+      @cell options.checkcrc Check the CRC of the decompressed file
+      @return File contents
+  */
+  PUBLIC BLOB FUNCTION ReadFile(STRING fullpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (this->file = 0)
+      THROW NEW Exception(`Archive has already been closed`);
+
+    options := ValidateOptions(
+        [ checkcrc :=     TRUE
+        , allowmissing := FALSE
+        ], options);
+
+    IF (fullpath LIKE "/*")
+      fullpath := Substring(fullpath, 1);
+
+    RECORD pos := RecordLowerBound(this->_rawentries, [ name := fullpath ], [ "NAME" ]);
+    IF (NOT pos.found)
+    {
+      IF (options.allowmissing)
+        RETURN DEFAULT BLOB;
+      THROW NEW Exception(`No such file ${EncodeJSON(fullpath)} in this archive`);
+    }
+
+    // We're using the local file header for the size/compmethod info
+    RECORD localheader := ReadLocalFileHeader(this->file, this->_rawentries[pos.position].reloffset);
+    FOREVERY (RECORD field FROM localheader.extrafields)
+    {
+      SWITCH (field.fieldtype)
+      {
+        CASE zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype
+        {
+          IF (CellExists(field, "uncompsize"))
+            localheader.uncompsize := field.uncompsize;
+          IF (CellExists(field, "compsize"))
+            localheader.compsize := field.compsize;
+        }
+      }
+    }
+
+    BLOB compresseddata := MakeSlicedBlob(this->archive, GetFilePointer(this->file), localheader.compsize);
+
+    BLOB retval;
+    SWITCH (localheader.compmethod)
+    {
+      CASE zip_compressionmethod_store
+      {
+        retval := compresseddata;
+      }
+      CASE zip_compressionmethod_deflate
+      {
+        retval := MakeZlibDecompressedFile(compresseddata, "ZLIBRAW");
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unzipported ZIP compression method ${localheader.compmethod}`);
+      }
+    }
+
+    IF (LENGTH64(retval) != localheader.uncompsize)
+      THROW NEW Exception(`Error decompressing data`);
+
+    IF (options.checkcrc AND localheader.uncompsize != 0)
+    {
+      STRING crc32 := GetHashForBlob(retval, "CRC32");
+      IF (localheader.crc32 != crc32)
+        THROW NEW Exception(`CRC32 mismatch when decompressing file from ZIP archive`);
+    }
+
+    RETURN retval;
+  }
+
+  /// Close the decompressor, release opened handles
+  PUBLIC MACRO Close()
+  {
+    IF (this->file != 0)
+      CloseBlobFile(this->file);
+    this->file := 0;
+  }
+>;

@@ -464,12 +464,12 @@ MACRO ArchiveTest()
       ORDER BY fullpath;
 
     TestEqual(20,
-        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), size := 12, data := "dit is file1" ]
-        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  data := "" ]
-        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), size := 12, data := "dit is file2" ]
-        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), size := 12, data := "dit is file3" ]
+        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 26), size := 12, size64 := 12i64, data := "dit is file1" ]
+        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 40), size := 12, size64 := 12i64, data := "dit is file2" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 46), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 14, 58, 34), size := 12, size64 := 12i64, data := "dit is file3" ]
         ], zipentries);
 
     TestEqual(21, "", ziparchive->archivecomment);
@@ -495,11 +495,11 @@ MACRO ArchiveTest()
       ORDER BY fullpath;
 
     TestEqual(22,
-        [ [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  data := "" ]
-        , [ fullpath := "folder1/file4.txt",          path := "folder1",            name := "file4.txt",    type := 0, modtime := MakeDateTime(2009, 3, 1,  10,  0,  2), size := 12, data := "dit is file4" ]
-        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder5",            path := "folder2/folder5",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 2,  10,  0,  4), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder5/file6.txt",  path := "folder2/folder5",    name := "file6.txt",    type := 0, modtime := MakeDateTime(2009, 3, 3,  10,  0,  6), size := 12, data := "dit is file6" ]
+        [ [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 42), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder1/file4.txt",          path := "folder1",            name := "file4.txt",    type := 0, modtime := MakeDateTime(2009, 3, 1,  10,  0,  2), size := 12, size64 := 12i64, data := "dit is file4" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 58, 30), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder5",            path := "folder2/folder5",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 2,  10,  0,  4), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder5/file6.txt",  path := "folder2/folder5",    name := "file6.txt",    type := 0, modtime := MakeDateTime(2009, 3, 3,  10,  0,  6), size := 12, size64 := 12i64, data := "dit is file6" ]
         ], zipentries);
 
 //    TestEqual(23, "testcommentaar", ziparchive->archivecomment);
@@ -517,12 +517,12 @@ MACRO ArchiveTest()
       ORDER BY fullpath;
 
     TestEqual(30,
-        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 26), size := 12, data := "dit is file1" ]
-        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
-        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 40), size := 12, data := "dit is file2" ]
-        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  data := "" ]
-        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 34), size := 12, data := "dit is file3" ]
+        [ [ fullpath := "file1.txt",                  path := "",                   name := "file1.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 26), size := 12, size64 := 12i64, data := "dit is file1" ]
+        , [ fullpath := "folder1",                    path := "folder1",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder1/file2.txt",          path := "folder1",            name := "file2.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 40), size := 12, size64 := 12i64, data := "dit is file2" ]
+        , [ fullpath := "folder2",                    path := "folder2",            name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder3",            path := "folder2/folder3",    name := "",             type := 1, modtime := MakeDateTime(2009, 3, 12, 14, 23, 21), size := 0,  size64 := 0i64,  data := "" ]
+        , [ fullpath := "folder2/folder3/file3.txt",  path := "folder2/folder3",    name := "file3.txt",    type := 0, modtime := MakeDateTime(2009, 3, 12, 13, 58, 34), size := 12, size64 := 12i64, data := "dit is file3" ]
         ], targzentries);
 
     targzarchive->Close();
@@ -599,6 +599,12 @@ MACRO ZlibTest()
   BLOB encoded_zlibraw := MakeZlibCompressedFile(ziparchiveblob,"ZLIBRAW",5);
   BLOB encoded_zlibraw_withjunk := StringToBlob(BlobToString(encoded_zlibraw,-1) || "GARBAGE");
   TestEq(ziparchiveblob, MakeZlibDecompressedFile(encoded_zlibraw_withjunk,"ZLIBRAW:"||Length(encoded_zlibraw)));
+
+  INTEGER out := CreateStream();
+  INTEGER compressor := CreateZlibCompressor(out, "ZIP", 9);
+  PrintTo(compressor, "abc");
+  TestEQ("352441C2", EncodeBase16(CloseZlibCompressor(compressor).crc32));
+  MakeBlobFromStream(out);
 
   CloseTest("TestFiles: ArchiveEncodingTest");
 }
