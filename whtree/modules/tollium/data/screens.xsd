@@ -5245,6 +5245,16 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="IsComposableListener" />
     <xs:attributeGroup ref="RowKeyType" />
 
+    <xs:attribute name="selectmode" type="SelectMode" default="single">
+      <xs:annotation>
+        <xs:documentation>
+          If selectmode is "single", only one row can be selected and the list-&gt;selection will return a RECORD.
+
+          If selectmode is "multiple", multiple rows can be selected and the list-&gt;selection will return a RECORD ARRAY.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="onrowdelete" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>

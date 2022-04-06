@@ -620,7 +620,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
   /// Selection of the list edit
   PUBLIC PROPERTY selection(this->list->selection, this->list->selection);
   /// Select mode of the list edit
-  PUBLIC PROPERTY selectmode(this->list->selectmode, this->list->selectmode);
+  PUBLIC PROPERTY selectmode(this->list->selectmode, this->list->selectmode); //TODO prevent or support setting 'none' ?
 
   FUNCTION PTR ongetchildren;
   FUNCTION PTR ongetrows;
@@ -635,7 +635,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
     //this->pvt_composition_forwardto := this->list; //FIXME can we remove forward completely again? not sure if we needed it at all?
     ArrayListEditBase::StaticInit(description);
 
-    this->list->selectmode := "single";
+    this->list->selectmode := description.selectmode;
     this->list->rowkeytype := ParseRowKeyType(description.rowkeytype);
     this->eventmasks := description.eventmasks;
 
