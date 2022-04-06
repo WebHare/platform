@@ -19,7 +19,6 @@ PUBLIC RECORD FUNCTION RunJavaServiceApp(STRING ARRAY jar_and_args)
 
   OBJECT proc := CreateProcess(app, args, FALSE, TRUE, FALSE, FALSE);
 
-  INTEGER str := CreateStream();
   STRING output;
   proc->Start();
   WHILE(proc->IsRunning())  //FIXME need nicer way to wait..
