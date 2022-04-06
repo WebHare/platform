@@ -40,8 +40,7 @@ namespace Baselibs {
 using namespace std::literals::string_view_literals;
 
 SystemContextData::SystemContextData()
-: archives("Archive")
-, logs("Log")
+: logs("Log")
 , inited_cols(false)
 , var_intcallbacks(0)
 {
@@ -64,7 +63,6 @@ void SystemContextData::InitColumnMappings(VirtualMachine *vm)
 void SystemContextData::CloseHandles()
 {
         decoders.clear();
-        archives.Clear();
 
         os.CloseHandles();
         tcpip.CloseHandles();

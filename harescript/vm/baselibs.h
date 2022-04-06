@@ -279,17 +279,6 @@ struct OSContext
                 bool eof;
         };
 
-        class ZipFile : public HareScript::OutputObject // To work with handle system
-        {
-            public:
-                ZipFile(HSVM *vm) : OutputObject(vm, "ZIP file") { }
-
-                std::unique_ptr< Interface::InputStream > inputstream;
-                std::unique_ptr< Blex::ZipArchiveReader > archive;
-        };
-
-        typedef std::shared_ptr<ZipFile> ZipFilePtr;
-
         /** Setup console support */
         void SetupConsole();
 
@@ -344,16 +333,12 @@ struct OSContext
         int MovePipeToOtherVM(HSVM *receiver, int pipeid);
         void CloseHandles();
 
-        ZipFile* GetZipFile(int fileid);
-
 //        static bool PipeMarshaller(struct HSVM *receiver, HSVM_VariableId received_var, struct HSVM *caller, HSVM_VariableId sent_var);
         static int PipeMarshaller(struct HSVM *vm, HSVM_VariableId var, void **resultdata, HSVM_ObjectRestorePtr *restoreptr, HSVM_ObjectClonePtr *cloneptr);
 
         typedef std::shared_ptr<FileInfo> FileInfoPtr;
 
         std::map<int, FileInfoPtr> filelist;
-
-        std::map< int, ZipFilePtr > zipfiles;
 
         ///arguments passed to the console
         std::vector<std::string> console_args;
@@ -560,16 +545,7 @@ struct SystemContextData
                 std::unique_ptr<Blex::ZlibDecompressStream> outputdata;
         };
 
-        struct GeneratedArchive
-        {
-                std::unique_ptr< Blex::ZipArchiveWriter > zipfile;
-                int32_t streamid;
-        };
-
         struct Log;
-
-        typedef RegisteredIdMapStorage<std::shared_ptr<GeneratedArchive> > Archives;
-        Archives archives;
 
         typedef RegisteredIdMapStorage<std::shared_ptr<Log> > Logs;
         Logs logs;

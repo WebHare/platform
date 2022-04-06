@@ -249,59 +249,6 @@ class BLEXLIB_PUBLIC ZipArchiveReader : public ArchiveReaderBase
         ZipArchiveReader& operator=(ZipArchiveReader const &) = delete;
 };
 
-class BLEXLIB_PUBLIC ZipArchiveWriter
-{
-    public:
-        /** Create a zip archive */
-        explicit ZipArchiveWriter(RandomStream &dest);
-
-        /** Clean up */
-        ~ZipArchiveWriter();
-
-        void AddDir(std::string const &name, DateTime modtime);
-        void AddFile(std::string const &name, DateTime modtime, Stream &stream);
-        void SetComment(std::string const &comment);
-//        void AddCompressedFile(std::string const &name, DateTime modtime, uint16_t compression, Stream &stream);
-
-        void Finalize();
-
-    private:
-        bool StoreFilename(std::string *store, std::string const &inname);
-        void WriteExtraFields(bool need_utf8, std::string const &utf8name, std::string const &storedname);
-        unsigned GetExtraFieldLen(bool need_utf8, std::string const &inname);
-
-        /** List of entries, for the central directory
-        */
-        struct Entry
-        {
-                std::string cp437name;
-                std::string utf8name;
-                bool store_utf8name;
-                bool is_directory;
-
-                std::pair< uint16_t, uint16_t > datetime;
-
-                Blex::DateTime modtime;
-
-                Blex::FileOffset headerpos;
-
-                Blex::FileOffset uncompressed_size;
-                Blex::FileOffset compressed_size;
-                uint32_t crc32;
-
-                bool compressed;
-        };
-
-        std::vector< Entry > entries;
-
-        std::string comment;
-
-        RandomStream &dest;
-
-        ZipArchiveWriter(ZipArchiveWriter const &) = delete;
-        ZipArchiveWriter& operator=(ZipArchiveWriter const &) = delete;
-};
-
 } //end namespace Blex
 
 #endif //Sentry
