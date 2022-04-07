@@ -1,3 +1,6 @@
+@import "~@mod-tollium/web/ui/css/settings.scss";
+@import "~@mod-tollium/web/ui/skins/default/mixins.scss";
+
 //Prefix and suffix
 $prefix_suffix_margin: 5px;  //Sync with textedit.es
 
@@ -26,6 +29,45 @@ t-textedit t-button
   height: 100%;
   padding: 4px;
   border-left: 1px solid transparent;
+}
+
+t-textedit > input
+{
+  min-width: 20px;
+  min-height: 23px;
+  height: $control-height;
+  position: relative;
+  vertical-align: top;
+  -webkit-appearance:none;
+
+  border: 1px solid #b3b3b3;
+  border-radius: 2px;
+  padding: 0 5px;
+  color: #000000;
+  font-size: 12px;
+  line-height: 16px;
+  /*font-family: 'Roboto', sans-serif, Arial;*/
+  background: $control-background-color;
+
+  &:focus
+  {
+    @include tollium-input-focused;
+  }
+
+  &[required]
+  {
+    @include tollium-input-required;
+  }
+
+  &[readonly]
+  {
+    @include tollium-input-disabled;
+  }
+
+  &[readonly]:not(:focus)
+  {
+    text-overflow: ellipsis;
+  }
 }
 
 t-textedit > input ~ t-button.icon

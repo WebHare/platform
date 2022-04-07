@@ -192,6 +192,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     {
       this.required = value;
       this.node.classList.toggle("required", this.required);
+      this.inputnode.required = this.required;
       if (this.counter)
         this.counter.update({ required: this.required });
     }
