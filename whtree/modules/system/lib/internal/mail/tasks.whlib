@@ -106,9 +106,6 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
     RETURN CELL[ ...baseretval, nextaction := "retry", response := `Sender '${senderemail}' is not whitelisted` ];
   }
 
-  IF(NOT options.ignorerecipientwhitelist AND NOT IsAllowedEmailReceiver(mail.receiver))
-    RETURN CELL[ ...baseretval, nextaction := "retry", response := `Receiver '${mail.receiver}' is not whitelisted` ];
-
   RECORD route := smtpmgr->GetMailroute(senderemail, mail.receiver, options.origin);
   IF(NOT RecordExists(route)) //this used to be 'Cancel' but tempfail makes more sense.. just add a final explicit null-route if you wanted this
     RETURN CELL[ ...baseretval, nextaction := "retry", response := `No mailroute available` ];
@@ -126,6 +123,9 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
 
   STRING receiver := smtpmgr->RewriteEmailTo(route, mail.receiver);
   baseretval.finalreceiver := receiver;
+
+  IF(NOT options.ignorerecipientwhitelist AND NOT IsAllowedEmailReceiver(baseretval.finalreceiver))
+    RETURN CELL[ ...baseretval, nextaction := "retry", response := `Receiver '${baseretval.finalreceiver}' is not whitelisted` ];
 
   RECORD smtpconn := smtpmgr->GetSMTPConnection(route.serverurl);
   IF(NOT ObjectExists(smtpconn.conn))
