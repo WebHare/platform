@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -239,6 +240,11 @@ MACRO SMTPManagerTest()
      */
 
   TestEq(["127.0.0.1","127.0.0.2","127.0.0.3"], GetSortedSet(ResolveHostnameAllIPs("localhosts.beta.webhare.net")),"localhosts.beta.webhare.net isn't resolving properly. You may need to fix DNS Rebind Protection on your router");
+  IF(GetSystemOsName() LIKE "Darwin*")
+  {
+    TestEq(TRUE, "127.0.0.2" IN GetLocalIPs(), "On macOS you need 127.0.0.2 assigned to localhost for this test to work - sudo ifconfig lo0 alias 127.0.0.2");
+    TestEq(TRUE, "127.0.0.3" IN GetLocalIPs(), "On macOS you need 127.0.0.3 assigned to localhost for this test to work - sudo ifconfig lo0 alias 127.0.0.3");
+  }
 
   // Open receiver on a fresh port
   INTEGER mgr_mailserverport := GetAvailableServerPort();

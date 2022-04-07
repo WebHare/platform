@@ -1135,14 +1135,14 @@
         <text tid="outgoingredirect-false">Stuur naar de geadresseerde (To:)</text>
         <text tid="outgoingredirect-true">Stuur de e-mail naar</text>
         <text tid="port">Poort</text>
-        <text tid="receiversempty">Alle ontvangers zijn toegestaan</text>
+        <text tid="receiversempty">Alle ontvangers zijn geblokkeerd</text>
         <text tid="receiverstab">Ontvangers</text>
         <text tid="redirect">E-mails versturen</text>
         <text tid="rewriteto">Herschrijf naar</text>
         <text tid="routesempty">Alle mail wordt via de standaard mailserver verstuurd.</text>
         <text tid="routestab">Routes</text>
         <text tid="sendermask">Afzender (Van:)</text>
-        <text tid="sendersempty">Alle afzenders zijn toegestaan</text>
+        <text tid="sendersempty">Alle afzenders zijn geblokkeerd</text>
         <text tid="senderstab">Afzenders</text>
         <text tid="serverurl">SMTP Server</text>
         <text tid="smtp_test_error">Bij het testen van de mailserver is de volgende fout opgetreden:<br/><param p="1"/></text>

@@ -160,19 +160,19 @@ ASYNC MACRO TestMailRouteDialog()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:config"));
   AWAIT ExpectScreenChange(+1, PTR TTClick("mailroutes"));
-  TestEq("Blocked", SELECT AS STRING target FROM TT("emailcorrections")->rows WHERE mask="*@blocked.beta.webhare.net");
+  TestEq("Blocked", SELECT AS STRING target FROM TT("emailcorrections")->rows WHERE masks LIKE "*@blocked.beta.webhare.net");
 
   //Add a correction
   AWAIT ExpectScreenChange(+1, PTR TTClick("emailcorrections->add"));
   AWAIT ExpectScreenChange(+1, PTR TTClick("masks->add"));
   TT("mask")->value := "*@testje.beta.webhare.net";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
-  TT("correctiontype")->value := "block";
+  TT("correctiontype")->value := TRUE;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq("Blocked", TT("emailcorrections")->selection.target);
   AWAIT ExpectScreenChange(+1, PTR TTClick("emailcorrections->edit"));
-  TT("correctiontype")->value := "rewrite";
+  TT("correctiontype")->value := FALSE;
   TT("rewriteto")->value := "*@test2.beta.webhare.net";
   TT("suggestionfuzz")->value := 1;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

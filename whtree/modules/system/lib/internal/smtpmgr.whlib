@@ -210,12 +210,12 @@ PUBLIC STATIC OBJECTTYPE WebHareSMTPManager
   */
   PUBLIC STRING FUNCTION RewriteEmailTo(RECORD route, STRING inaddr)
   {
-    IF(NOT RecordExists(route) OR route.outgoingmailaddress = "")
+    IF(NOT RecordExists(route) OR route.rewritemailaddress = "")
       RETURN inaddr;
-    IF(NOT route.outgoingaddressrewrite)
-      RETURN route.outgoingmailaddress;
+    IF(NOT route.includeoriginaladdress)
+      RETURN route.rewritemailaddress;
 
-    STRING ARRAY toks := Tokenize(route.outgoingmailaddress,'@');
+    STRING ARRAY toks := Tokenize(route.rewritemailaddress,'@');
     IF(Length(toks)!=2)
       RETURN inaddr;
     RETURN toks[0] || '+' || Substitute(inaddr,'@','_at_') || '@' || toks[1];

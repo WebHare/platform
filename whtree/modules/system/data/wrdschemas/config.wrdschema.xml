@@ -42,4 +42,49 @@
     </attributes>
   </object>
 
+  <object tag="MAILROUTE" keephistorydays="2600"> <!-- list URLs to which we report our status -->
+    <attributes>
+      <free tag="wrd_title" />
+      <integer tag="wrd_ordering" />
+      <free tag="originmask" />
+      <array tag="sendermasks">
+        <free tag="mask" />
+      </array>
+      <array tag="recipientmasks">
+        <free tag="mask" />
+      </array>
+      <free tag="serverurl" />
+      <free tag="rewritemailaddress"/>
+      <boolean tag="includeoriginaladdress"/>
+    </attributes>
+  </object>
+
+  <object tag="MAILSENDER" keephistorydays="2600"> <!-- sender whitelist -->
+    <attributes>
+      <free tag="wrd_title" />
+      <free tag="mask" />
+    </attributes>
+  </object>
+
+  <object tag="MAILRECIPIENT" keephistorydays="2600"> <!-- recipients (receivers) whitelist -->
+    <attributes>
+      <free tag="wrd_title" />
+      <free tag="mask" />
+    </attributes>
+  </object>
+
+  <object tag="MAILCORRECTION">
+    <attributes>
+      <free tag="wrd_title" />
+      <integer tag="wrd_ordering" />
+
+      <array tag="masks">
+        <free tag="mask" />
+      </array>
+      <boolean tag="block" />
+      <free tag="rewriteto" />
+      <integer tag="suggestionfuzz" />
+    </attributes>
+  </object>
+
 </schemadefinition>

@@ -1,6 +1,10 @@
 <?wh
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -12,8 +16,8 @@ STRING FUNCTION HideSMTPPassword(STRING url)
     RETURN "";
   RECORD smtpurl := UnpackURL(url);
   if (smtpurl.password != "")
-    smtpurl.password := "******";
-  RETURN RepackURL(smtpurl);
+    smtpurl.password := "*";
+  RETURN Substitute(RepackURL(smtpurl), ":%2A@", ":******@"); //undo the encoding, it's just presentation anyway
 }
 
 PUBLIC RECORD FUNCTION TestSMTP(STRING url)
@@ -65,6 +69,11 @@ PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase
 
   STRING smtpserverurl;
 
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
+
   MACRO Init()
   {
     this->RefreshSMTPServer();
@@ -83,139 +92,23 @@ PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase
     this->RefreshSMTPServer();
   }
 
-  RECORD ARRAY FUNCTION OnGetRoutes()
+  RECORD ARRAY FUNCTION OnMapRoutes(RECORD ARRAY routes)
   {
-    INTEGER tag_icon := ^routes->embeddedlist->GetIcon("tollium:files/application_x-webhare-tag");
-    RETURN
-        SELECT rowkey := id // needed to keep selection when setting new rows
-             , id
-             , description
-             , sendermask
-             , sendermaskcomma := Detokenize(tokenize(sendermask," "),", ")
-             , sendermaskhint := Detokenize(tokenize(sendermask," "),"\n")
-             , mask
-             , maskcomma := Detokenize(tokenize(mask," "),", ")
-             , maskhint := Detokenize(tokenize(mask," "),"\n")
-             , outgoingmailaddress
-             , outgoingaddressrewrite
-
-             , serverurl
-
-             , tag
-
-             , altserver :=     serverurl != ""
-                                    ? serverurl  != "null"
-                                          ? HideSMTPPassword(serverurl)
-                                          : this->GetTid('.ignore')
-                                    : this->GetTid('.defaultsmtp')
-             , hastag := tag != "" ? tag_icon : 0
-
-             , ordering
-          FROM system.mailqueue_route
-         WHERE ruletype = 0
-      ORDER BY ordering;
+    RETURN SELECT *
+                , sendermasks :=    Detokenize((SELECT AS STRING ARRAY mask FROM sendermasks),"\n")
+                , recipientmasks := Detokenize((SELECT AS STRING ARRAY mask FROM recipientmasks),"\n")
+                , serverurl :=      serverurl = "" ? this->GetTid('.defaultsmtp')
+                                    : serverurl = "null" ? this->GetTid('.ignore')
+                                    : HideSMTPPassword(serverurl)
+          FROM routes;
   }
 
-  RECORD ARRAY FUNCTION OnGetSenders()
+  RECORD ARRAY FUNCTION OnMapCorrections(RECORD ARRAY corrections)
   {
-    RETURN SELECT rowkey := id
-                , mask
-                , description
-             FROM system.mailqueue_route
-            WHERE ruletype = 1;
-  }
-
-  RECORD ARRAY FUNCTION OnGetReceivers()
-  {
-    RETURN SELECT rowkey := id
-                , mask
-                , description
-             FROM system.mailqueue_route
-            WHERE ruletype = 2;
-  }
-
-  RECORD ARRAY FUNCTION OnGetCorrections()
-  {
-    RETURN SELECT rowkey := id
-                , mask
-                , maskcomma := Detokenize(tokenize(mask," "),", ")
-                , maskhint := Detokenize(tokenize(mask," "),"\n")
-                , target := ruletype = 4 ? this->GetTid(".blocked") : outgoingmailaddress
-                , description
-             FROM system.mailqueue_route
-            WHERE ruletype IN [3,4]
-         ORDER BY ordering;
-  }
-
-  MACRO OnEditMailroute(RECORD row)
-  {
-    this->LoadScreen(".editmailroute", [ id := RecordExists(row) ? row.id : 0 ])->RunModal();
-  }
-  MACRO OnEditSender(RECORD row)
-  {
-    INTEGER dbid := this->RunScreen("#editmask", [ id := RecordExists(row) ? row.rowkey : 0, type := "sender" ]);
-    IF(dbid != 0)
-      ^senders->SetValueIfValid(dbid);
-  }
-  MACRO OnEditReceiver(RECORD row)
-  {
-    INTEGER dbid := this->RunScreen("#editmask", [ id := RecordExists(row) ? row.rowkey : 0, type := "receiver" ]);
-    IF(dbid != 0)
-      ^receivers->SetValueIfValid(dbid);
-  }
-  MACRO OnEditCorrection(RECORD row)
-  {
-    INTEGER dbid := this->RunScreen("#editcorrection", [ id := RecordExists(row) ? row.rowkey : 0 ]);
-    IF(dbid != 0)
-      ^emailcorrections->SetValueIfValid(dbid);
-  }
-
-  MACRO DeleteRoute(INTEGER routeid)
-  {
-    OBJECT work := this->BeginUnvalidatedWork();
-    DELETE FROM system.mailqueue_route WHERE id = VAR routeid;
-    GetPrimary()->BroadCastOnCommit("system:internal/mailroutechange", DEFAULT RECORD);
-    work->Finish();
-  }
-
-  BOOLEAN FUNCTION OnDeleteMailroute(RECORD row)
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirm_delete_mailroute")) = "yes")
-      this->DeleteRoute(row.id);
-
-    RETURN FALSE; // the event broadcast will trigger a refresh
-  }
-
-  BOOLEAN FUNCTION OnDeleteReceiver(RECORD row)
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletereceiver", row.mask)) = "yes")
-      this->DeleteRoute(row.rowkey);
-
-    RETURN FALSE; // the event broadcast will trigger a refresh
-  }
-
-  BOOLEAN FUNCTION OnDeleteSender(RECORD row)
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletesender", row.mask)) = "yes")
-      this->DeleteRoute(row.rowkey);
-
-    RETURN FALSE; // the event broadcast will trigger a refresh
-  }
-
-  BOOLEAN FUNCTION OnDeleteCorrection(RECORD row)
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmdeletecorrection", row.mask)) = "yes")
-      this->DeleteRoute(row.rowkey);
-
-    RETURN FALSE; // the event broadcast will trigger a refresh
-  }
-
-  MACRO OnChangeOrder(INTEGER ARRAY neworder)
-  {
-    OBJECT work := this->BeginUnvalidatedWork();
-    UPDATE system.mailqueue_route SET ordering := SearchElement(neworder, COLUMN id) WHERE id IN neworder;
-    GetPrimary()->BroadCastOnCommit("system:internal/mailroutechange", DEFAULT RECORD);
-    work->Finish();
+    RETURN SELECT *
+                , masks := Detokenize((SELECT AS STRING ARRAY mask FROM masks),"\n")
+                , target := block ? this->GetTid(".blocked") : rewriteto
+             FROM corrections;
   }
 >;
 
@@ -307,45 +200,52 @@ PUBLIC STATIC OBJECTTYPE EditSMTPServer EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND WRDEntityEditScreenBase
 <
-  INTEGER routeid;
   STRING smtpserverurl;
   STRING org_usealternativesmtpserver;
 
-  MACRO Init(RECORD params)
+  UPDATE MACRO Init(RECORD params)
   {
-    this->routeid := params.id;
-
-    // Is this a new route?
-    IF (params.id = 0)
+    WRDEntityEditScreenBase::Init(params);
+    IF(^entity->entityid = 0)  // Is this a new route?
     {
       ^usealternativesmtpserver->value := "default";
-      ^masks_from->value := [ [ mask := "*" ]];
-      ^masks_to->Value := [ [ mask := "*" ]];
-      RETURN;
+      ^entity->^sendermasks->value := [[ mask := "*" ]];
+      ^entity->^recipientmasks->value := [[ mask := "*" ]];
     }
+    this->org_usealternativesmtpserver := ^usealternativesmtpserver->value;
+  }
 
-    RECORD route := SELECT * FROM system.mailqueue_route WHERE id = params.id;
-    IF (NOT RecordExists(route))
-      this->tolliumresult := "cancel";
+  STRING FUNCTION GetRewriteMailAddress()
+  {
+    RETURN ^outgoingredirect->value ? ^outgoingmailaddress->value : "";
+  }
 
-    ^tag->value := route.tag;
-    ^description->value := route.description;
-    ^originmask->value := route.originmask;
-    ^outgoingmailaddress->value := route.outgoingmailaddress;
-    ^outgoingredirect->value := route.outgoingmailaddress != "";
-    ^outgoingaddressrewrite->value := route.outgoingaddressrewrite;
-    ^masks_from->value := ToRecordArray(Tokenize(route.sendermask, " "), "mask");
-    ^masks_to->value := ToRecordArray(Tokenize(route.mask, " "), "mask");
-    this->smtpserverurl := route.serverurl;
-    ^usealternativesmtpserver->value := route.serverurl = ""
+  MACRO SetRewriteMailAddress(STRING address)
+  {
+    ^outgoingmailaddress->value := address;
+    ^outgoingredirect->value := address != "";
+  }
+
+  STRING FUNCTION GetServerURL()
+  {
+    RETURN ^usealternativesmtpserver->value = "alternative"
+            ? this->smtpserverurl
+            : ^usealternativesmtpserver->value = "dontsend"
+              ? "null"
+              : "";
+  }
+
+  MACRO SetServerURL(STRING serverurl)
+  {
+    this->smtpserverurl := serverurl;
+    ^usealternativesmtpserver->value := serverurl = ""
         ? "default"
-        : route.serverurl = "null"
+        : serverurl = "null"
               ? "dontsend"
               : "alternative";
 
-    this->org_usealternativesmtpserver := ^usealternativesmtpserver->value;
     this->GotSMTPServerChange();
     this->RefreshSMTPServer();
   }
@@ -403,11 +303,10 @@ PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND TolliumScreenBase
     ^serverurl->value := HideSMTPPassword(this->smtpserverurl);
   }
 
-  BOOLEAN FUNCTION Submit()
+  UPDATE BOOLEAN FUNCTION Submit()
   {
-    OBJECT feedback := this->BeginFeedback();
-    IF (feedback->HasFailed())
-      RETURN feedback->Finish();
+    IF(NOT this->BeginFeedback()->Finish())
+      RETURN FALSE;
 
     IF (this->org_usealternativesmtpserver != "dontsend" AND ^usealternativesmtpserver->value = "dontsend")
     {
@@ -415,36 +314,7 @@ PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND TolliumScreenBase
         RETURN FALSE;
     }
 
-    OBJECT work := this->BeginWork();
-
-    INTEGER routeid := this->routeid;
-
-    RECORD updatefields :=
-        [ tag        := ^tag->value
-        , description := ^description->value
-        , originmask := ^originmask->value
-        , mask := DeTokenize((SELECT AS STRING ARRAY mask FROM ^masks_to->value), " ")
-        , sendermask := DeTokenize((SELECT AS STRING ARRAY mask FROM ^masks_from->value), " ")
-        , serverurl  := ^usealternativesmtpserver->value = "alternative"
-                              ? this->smtpserverurl
-                              : ^usealternativesmtpserver->value = "dontsend"
-                                    ? "null"
-                                    : ""
-        , outgoingmailaddress :=    ^outgoingredirect->value ? ^outgoingmailaddress->value : ""
-        , outgoingaddressrewrite := ^outgoingaddressrewrite->value
-        ];
-
-    IF (routeid = 0)
-    {
-      routeid := MakeAutoNumber(system.mailqueue_route, "id");
-      INTEGER newitem_ordering := SELECT AS INTEGER MAX(ordering) + 1 FROM system.mailqueue_route;
-      INSERT INTO system.mailqueue_route (id, ordering, mask) VALUES (routeid, newitem_ordering, " ");
-    }
-    UPDATE system.mailqueue_route SET RECORD(updatefields) WHERE id = routeid;
-
-    GetPrimary()->BroadCastOnCommit("system:internal/mailroutechange", DEFAULT RECORD);
-
-    RETURN work->Finish();
+    RETURN WRDEntityEditScreenBase::Submit();
   }
 >;
 
@@ -470,81 +340,11 @@ PUBLIC STATIC OBJECTTYPE EditMailRouteRule EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE EditMask EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE EditCorrection EXTEND WRDEntityEditScreenBase
 <
-  STRING type;
-  INTEGER id;
-
-  MACRO Init(RECORD data)
+  UPDATE MACRO Validator(OBJECT work, RECORD updatevalue)
   {
-    this->type := data.type;
-    this->id := data.id;
-
-    IF(data.id != 0)
-      ^row->value := SELECT mask, description FROM system.mailqueue_route WHERE id = data.id;
-  }
-  INTEGER FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    INTEGER dbid := this->id;
-    IF(dbid != 0)
-    {
-      UPDATE system.mailqueue_route SET RECORD ^row->value WHERE id = this->id;
-    }
-    ELSE
-    {
-      dbid := MakeAutoNumber(system.mailqueue_route,"id");
-      INSERT CELL[...^row->value, ruletype := (this->type = "sender" ? 1 : 2), id := dbid ] INTO system.mailqueue_route;
-    }
-
-    GetPrimary()->BroadCastOnCommit("system:internal/mailroutechange", DEFAULT RECORD);
-    RETURN work->Finish() ? dbid : 0;
-  }
->;
-
-PUBLIC STATIC OBJECTTYPE EditCorrection EXTEND TolliumScreenBase
-<
-  INTEGER id;
-
-  MACRO Init(RECORD data)
-  {
-    this->id := data.id;
-
-    IF(data.id != 0)
-    {
-      RECORD rule := SELECT * FROM system.mailqueue_route WHERE id = data.id;
-      ^masks->value := rule.mask != "" ? ToRecordArray(Tokenize(rule.mask,' '),'mask') : RECORD[];
-      ^description->value := rule.description;
-      ^correctiontype->value := rule.ruletype = 4 ? "block" : "rewrite";
-      ^rewriteto->value := rule.ruletype = 3 ? rule.outgoingmailaddress : "";
-      ^suggestionfuzz->value := rule.ruletype = 3 ? rule.suggestionfuzz : 0;
-    }
-  }
-  INTEGER FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    INTEGER dbid := this->id;
-    IF(^correctiontype->value = "rewrite" AND Left(^rewriteto->value,2) != "*@")
-      work->AddErrorFor(^rewriteto, this->GetTid(".invalidredirectto"));
-
-    RECORD upd := [ mask := DeTokenize((SELECT AS STRING ARRAY mask FROM ^masks->value), " ")
-                  , description := ^description->value
-                  , ruletype := ^correctiontype->value = "block" ? 4 : 3
-                  , outgoingmailaddress := ^correctiontype->value = "block" ? "" : ^rewriteto->value
-                  , suggestionfuzz := ^correctiontype->value = "block" ? 0 : ^suggestionfuzz->value
-                  ];
-
-    IF(dbid != 0)
-    {
-      UPDATE system.mailqueue_route SET RECORD upd WHERE id = dbid;
-    }
-    ELSE
-    {
-      dbid := MakeAutoNumber(system.mailqueue_route,"id");
-      INSERT CELL[ ...upd, id := dbid ] INTO system.mailqueue_route;
-    }
-
-    GetPrimary()->BroadCastOnCommit("system:internal/mailroutechange", DEFAULT RECORD);
-    RETURN work->Finish() ? dbid : 0;
+    IF(NOT ^entity->^block->value AND Left(^entity->^rewriteto->value,2) != "*@")
+      work->AddErrorFor(^entity->^rewriteto, this->GetTid(".invalidredirectto"));
   }
 >;
