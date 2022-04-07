@@ -207,6 +207,21 @@ ASYNC MACRO TestEntitiesEdit()
   TestEq(TRUE, TT("entities")->selectmultiple);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Verify entitiesedit properly setting selectmultiple
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <wrd:entitiesedit name="entities" wrdtype="test_domain_1" selectmultiple="true">
+        <column name="wrd_title" type="text" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>`)));
+
+  TestEq(TRUE, TT("entities")->selectmultiple);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
 }
 
 RunTestFramework([ PTR CreateWRDTestSchema
