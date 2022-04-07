@@ -208,7 +208,8 @@ RECORD FUNCTION DetectZipFile(BLOB indata, STRING ext)
   }
   FINALLY
   {
-    zip->Close();
+    IF (ObjectExists(zip))
+      zip->Close();
   }
 
   // Detect some special zip files by extension
