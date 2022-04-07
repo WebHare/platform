@@ -2,24 +2,6 @@
 @import "~@mod-tollium/web/ui/css/settings.scss";
 @import "./mixins.scss";
 
-/*
-h1, h2, h3, h4, h5, h6
-{
-  font-family: 'Roboto', sans-serif, Arial;
-  font-weight: 400;
-}
-
-input, textarea, .wh-spinner, .wh-menu, .wh-datepicker, .wh-tagedit
-{
-  font-family: 'Roboto', sans-serif, Arial;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-Why was this done ? Loading a theme shouldn't have to reset font styling??
-Esp overwriting input,textarea, let just the site arrange for that (or if you have to, font:inherit)
-*/
-
 /* General menu styling */
 .wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu
 {
