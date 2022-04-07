@@ -180,8 +180,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetNeedsTemplateTypes()
 
 /** @short Look up the WebHare Publisher file ID for a mimetype
     @param mimetype Mimetype to lookup
-    @return WebHare type id, or 1 if the mimetype was not recognized
-    @see wh::filetypes/detect.whlib#DetectFiletype */
+    @return WebHare type id, or 1 if the mimetype was not recognized  */
 PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
 {
   SWITCH(mimetype)

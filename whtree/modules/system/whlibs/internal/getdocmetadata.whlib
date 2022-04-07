@@ -5,12 +5,13 @@
 */
 
 LOADLIB "wh::parser/pdf.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
-RECORD FUNCTION GetOOXMLProps(INTEGER zip)
+RECORD FUNCTION GetOOXMLProps(OBJECT zip)
 {
-  OBJECT xmldoc := MakeXMLDocument(UnpackFileFromZipFile(zip, "docProps/core.xml"));
+  OBJECT xmldoc := MakeXMLDocument(zip->GetFile("docProps/core.xml"));
   RECORD retval := [ title := "", description := "", keywords := "" ];
 
   IF(ObjectExists(xmldoc))
@@ -76,9 +77,10 @@ PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
   }
   IF(wrappedblob.mimetype LIKE "application/vnd.openxmlformats-officedocument.*")
   {
-    INTEGER zip := OpenZipFile(wrappedblob.data);
-    IF(zip>=0)
+    OBJECT zip;
+    TRY
     {
+      zip := OpenExistingArchive(wrappedblob.data);
       RECORD meta := GetOOXMLProps(zip);
       IF(RecordExists(meta))
       {
@@ -86,7 +88,11 @@ PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
         metadata.description := meta.description;
         metadata.keywords := meta.keywords;
       }
-      CloseZipFile(zip);
+    }
+    FINALLY
+    {
+      IF (ObjectExists(zip))
+        zip->Close();
     }
   }
   IF(wrappedblob.mimetype = "text/html")

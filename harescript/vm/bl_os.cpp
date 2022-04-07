@@ -788,7 +788,6 @@ void OSContext::CloseHandles()
         processes.clear();
         pipes.clear();
         filelist.clear();
-        zipfiles.clear();;
 }
 
 

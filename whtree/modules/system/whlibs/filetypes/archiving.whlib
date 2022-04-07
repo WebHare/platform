@@ -930,6 +930,11 @@ PUBLIC OBJECT FUNCTION OpenExistingArchive(BLOB archive)
   RETURN NEW Archive(archive, "", -1);
 }
 
+PUBLIC OBJECT FUNCTION __OpenExistingZipArchive(BLOB archive) //need an entrypoint that skips ScanBlob
+{
+  RETURN NEW Archive(archive, "application/zip", -1);
+}
+
 PUBLIC RECORD ARRAY FUNCTION FilterMacOSForksFromArchive(RECORD ARRAY infiles)
 {
   // Strip all resource forks if a file matches. If the stored file is f1/f2/f3.txt, its fork is __macosx/f1/f2/._f3.txt
