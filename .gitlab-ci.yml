@@ -299,6 +299,19 @@ testtwohares:
     expire_in: 1 week
   interruptible: true
 
+testbackuprestore:
+  stage: test
+  except:
+    - /^docs\/.*$/
+  script:
+    - whtree/bin/wh testdocker --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
+  artifacts:
+    paths:
+      - artifacts/
+    when: always
+    expire_in: 1 week
+  interruptible: true
+
 calculatecoverage:
   stage: test
   when: manual
