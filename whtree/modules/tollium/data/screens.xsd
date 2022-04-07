@@ -1902,6 +1902,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:element ref="callbacklistener" />
         <xs:element ref="dirtylistener" />
         <xs:element ref="proxy" />
+        <xs:element ref="virtualcell"  />
         <xs:any namespace="##other" processContents="strict" />
       </xs:choice>
     </xs:sequence>
@@ -3893,6 +3894,34 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
+
+  <xs:element name="virtualcell">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent placement="composition" objecttype="/lib/components/virtualcell.whlib#TolliumVirtualCell" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:CompositionBase" />
+      <xs:attributeGroup ref="tc:IsComposable" />
+      <xs:attribute name="onget" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <tai:callbacksignature returntype="variant" />
+          </xs:appinfo>
+          <xs:documentation>Getter for this virtual cell</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onset" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <tai:callbacksignature arguments="variant" />
+          </xs:appinfo>
+          <xs:documentation>Setter for this virtual cell</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
 
   <xs:element name="hr">
     <xs:complexType>

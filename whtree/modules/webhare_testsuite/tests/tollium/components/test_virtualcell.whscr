@@ -1,0 +1,38 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+ASYNC MACRO TestVirtualCell()
+{
+  // test loadscreen rejecting these - must see a load error
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" implementation="none">
+      <compositions>
+        <record name="toprecord" />
+        <virtualcell composition="toprecord" cellname="virtualcell" onget="${Resolve("screens/helpers.whlib#GetVirtualCellValue")}" onset="${Resolve("screens/helpers.whlib#SetVirtualCellValue")}"/>
+      </compositions>
+      <body>
+        <textedit name="textedit1" />
+      </body>
+    </screen>`,"#test")));
+
+  TT("textedit1")->value := "Hi everybody";
+  TestEq("** Hi everybody **", TT("virtualcell")->value);
+  TestEq([ virtualcell := "** Hi everybody **" ], TT("toprecord")->value);
+
+  TT("virtualcell")->value := "123456789";
+  TestEq("456", TT("textedit1")->value);
+  TestEq("** 456 **", TT("virtualcell")->value);
+
+  TT("toprecord")->value := [ virtualcell := "987654321" ];
+  TestEq("654", TT("textedit1")->value);
+  TestEq("** 654 **", TT("virtualcell")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestVirtualCell
+                 ]);
