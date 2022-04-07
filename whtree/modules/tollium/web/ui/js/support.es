@@ -83,22 +83,10 @@ $todd.resourcebase = "";
 $todd.customactions = {};
 
 $todd.intolerant = window.location.href.indexOf('intolerant=1') != -1;
-$todd.fastunload= window.location.href.indexOf('fastunload=1') != -1;
 
 $todd.getActiveApplication = function()
 {
   return $todd.applicationstack.at(-1);
-};
-
-/****************************************************************************************************************************
- * Text functions
- */
-
-
-// Replaces "{param_[n]}" with p[n] in str for n in [1, 4]
-$todd.FormatString = function(str, p1, p2, p3, p4)
-{
-  return str.substitute({ param_1: p1, param_2: p2, param_3: p3, param_4: p4 });
 };
 
 
@@ -379,17 +367,6 @@ $todd.ReadXMLHeights = function(xmlnode, inline)
  * Events
  */
 
-$todd.highpriority = false;
-$todd.mousedragthreshold = 3; // Amount of pixels to move before drag kicks in
-$todd.globalevents = {}; // Global event handlers
-
-// Fallback settings for user preferences
-$todd.fallback =
-  { lang: "en"
-  , dateformat: "%d-%m-%Y"
-  , timeformat: "%H:%M"
-  };
-
 // Desktop properties, will be calculated after initialization (and on resizing/zooming)
 $todd.desktop =
   { node: null
@@ -406,41 +383,6 @@ $todd.desktop =
   , x_width: 7              // The width of an 'x' character
   , x_height: 16             // The (line) height of an 'x' character
   };
-
-$todd.uploadmethod = '';
-$todd.downloadmethod = '';
-$todd.tolliumservice = '';
-
-
-/****************************************************************************************************************************
- * Window events
- */
-
-$todd.mouse = { clickstatus: null
-              , hoverstatus: { tooltipshowtimeout: null
-                             , tooltiphidetimeout: null
-                             , curcomp: null
-                             , dragcomp: null
-                             }
-              , dragstatus: null
-              };
-
-
-$todd.globalevents.OnDragFiles = function(event)
-{
-  // We want to handle this ourselves
-  event.preventDefault();
-};
-
-/****************************************************************************************************************************
- * Globally unique id's
- */
-
-$todd.globalidcounter = 0;
-$todd.getGlobalId = function()
-{
-  return (++$todd.globalidcounter).toString(16); //FIXME deprecate
-};
 
 
 /****************************************************************************************************************************

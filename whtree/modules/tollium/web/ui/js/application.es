@@ -706,14 +706,8 @@ export class BackendApplication extends ApplicationBase
     this.whsid = node.whsid;
     this.commhost = node.commhost;
     this.lang = node.lang;
-    if (this.lang)
-      $todd.fallback.lang = this.lang;
     this.dateformat = node.dateformat;
-    if (this.dateformat)
-      $todd.fallback.dateformat = this.dateformat;
     this.timeformat = node.timeformat;
-    if (this.timeformat)
-      $todd.fallback.timeformat = this.timeformat;
 
     // Remove event callbacks and queued events, won't be activated again
     this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
@@ -1097,17 +1091,14 @@ export class BackendApplication extends ApplicationBase
         if (node.lang)
         {
           this.lang = node.lang;
-          $todd.fallback.lang = this.lang;
         }
         if (node.dateformat)
         {
           this.dateformat = node.dateformat;
-          $todd.fallback.dateformat = this.dateformat;
         }
         if (node.timeformat)
         {
           this.timeformat = node.timeformat;
-          $todd.fallback.timeformat = this.timeformat;
         }
         return;
 
