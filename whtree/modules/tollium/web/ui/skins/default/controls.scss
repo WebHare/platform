@@ -185,18 +185,6 @@ select[disabled],
   @include tollium-input-disabled;
 }
 
-.error > input[type='text'],
-.error > input[type='email'],
-.error > input[type='tel'],
-.error > input[type='password'],
-.error > textarea,
-.error > .wh-spinner,
-.error > .wh-datepicker,
-.error > .wh-tagedit
-{
-  @include tollium-input-error;
-}
-
 input[type='text'][readonly]:not(:focus),
 input[type='email'][readonly]:not(:focus),
 input[type='tel'][readonly]:not(:focus),
@@ -275,10 +263,6 @@ input.withcounter
 .wh-radiobutton:required + .wh-radiobutton-label
 {
   background-color: #fcf7c9;
-}
-.error > label > .wh-radiobutton + .wh-radiobutton-label
-{
-  border-color: #e77d7d;
 }
 
 

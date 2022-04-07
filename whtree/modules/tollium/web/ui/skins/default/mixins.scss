@@ -72,14 +72,3 @@
     border-color: #b3b3b3;
   }
 }
-
-@mixin tollium-input-error
-{
-  background: #fff2f2; /* Old browsers */
-  border-color: #e77d7d;
-
-  &:focus
-  {
-    border-color: #b3b3b3;
-  }
-}
