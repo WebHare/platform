@@ -1139,7 +1139,7 @@
         <text tid="receiverstab">Ontvangers</text>
         <text tid="redirect">E-mails versturen</text>
         <text tid="rewriteto">Herschrijf naar</text>
-        <text tid="routesempty">Let op: tenminste één mailroute dient te worden toegevoegd om e-mail te verzenden vanaf deze server.</text>
+        <text tid="routesempty">Alle mail wordt via de standaard mailserver verstuurd.</text>
         <text tid="routestab">Routes</text>
         <text tid="sendermask">Afzender (Van:)</text>
         <text tid="sendersempty">Alle afzenders zijn toegestaan</text>
