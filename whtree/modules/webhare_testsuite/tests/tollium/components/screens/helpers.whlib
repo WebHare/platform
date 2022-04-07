@@ -2,6 +2,14 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+PUBLIC STRING FUNCTION GetVirtualCellValue(OBJECT contexts)
+{
+  RETURN `** ${contexts->screen->^textedit1->value} **`;
+}
+PUBLIC MACRO SetVirtualCellValue(OBJECT contexts, STRING newvalue)
+{
+  contexts->screen->^textedit1->value := Substring(newvalue, 3, Length(newvalue)-6);
+}
 
 PUBLIC STATIC OBJECTTYPE SubmittingScreen EXTEND TolliumScreenBase
 <

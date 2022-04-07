@@ -5,6 +5,7 @@
   <test script="panel.whscr" />
   <test script="test_tabextensions.whscr" />
   <test script="test_movetoselect.whscr" />
+  <test script="test_virtualcell.whscr" />
   <jstest file="testarrayedit.es" />
   <jstest file="testbody.es" />
   <jstest file="testbutton.es" />

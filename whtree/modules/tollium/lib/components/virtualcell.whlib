@@ -1,0 +1,41 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumVirtualCell EXTEND TolliumComponentBase
+<
+  PUBLIC MACRO PTR onset;
+  PUBLIC FUNCTION PTR onget;
+
+  PUBLIC PROPERTY value(getvalue, setvalue);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->onget := def.onget;
+    this->onset := def.onset;
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    IF(this->onget != DEFAULT FUNCTION PTR)
+      RETURN this->onget();
+
+    THROW NEW TolliumException(this, `No onget handler defined`);
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    IF(this->onset != DEFAULT FUNCTION PTR)
+    {
+      this->onset(newvalue);
+      RETURN;
+    }
+
+    THROW NEW TolliumException(this, `No onset handler defined`);
+  }
+>;
