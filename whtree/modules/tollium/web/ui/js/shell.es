@@ -256,10 +256,6 @@ class IndyShell
   {
     this.tolliumservice = new JSONRPC(); //the shell will always talk back to the applicationportal that started it
 
-    $todd.dummyimage = <img src="data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" />;
-    if(browser.getName() == 'ie' && browser.getVersion()<=11)
-      document.documentElement.classList.add('browser-ie11');
-
     // Initialize global event handlers
     window.addEventListener("unload", evt => this.onUnload());
 

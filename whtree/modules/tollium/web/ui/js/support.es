@@ -81,7 +81,6 @@ $todd.applications = [];
 $todd.applicationstack = [];
 $todd.resourcebase = "";
 $todd.customactions = {};
-$todd.dummyimage = null;
 
 $todd.intolerant = window.location.href.indexOf('intolerant=1') != -1;
 $todd.fastunload= window.location.href.indexOf('fastunload=1') != -1;

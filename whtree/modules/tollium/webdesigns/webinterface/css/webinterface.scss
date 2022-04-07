@@ -7,8 +7,6 @@ datalist, template { display:none; }
 
 *
 {
-  -webkit-box-sizing: border-box; /* Android 2.3 still requires this */
-  -moz-box-sizing: border-box; /* For people still running firefox 24ESR */
   box-sizing: border-box;
 }
 
@@ -64,7 +62,6 @@ html.wh-tollium--manual body
 body
 {
   -webkit-text-size-adjust: none;
-  -ms-text-size-adjust: none;
   -moz-text-size-adjust: none;
   text-size-adjust: none;
 }

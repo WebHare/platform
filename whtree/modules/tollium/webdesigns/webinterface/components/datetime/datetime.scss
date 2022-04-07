@@ -69,29 +69,6 @@ input[type="tel"].tollium__datetime__time
   padding:0 5px 0 3px;
 }
 
-html.browser-ie11
-{
-  //ie11 completely messes up ch calculation so we'll hardcode the widths
-  //it also messes up roboto mono rendering if we make the inputs too small, they numbers move up&down
-  .tollium__datetime__part
-  {
-    width: 24px;
-    line-height: 16px;
-  }
-  .tollium__datetime__msec
-  {
-    width: 32px;
-  }
-  .tollium__datetime__year
-  {
-    width: 40px;
-  }
-  .tollium__datetime__time
-  {
-    padding:0 5px 0 3px;
-  }
-}
-
 .tollium__datetime__togglepicker:after
 {
   @include tollium-skinicon-datepicker;

@@ -327,11 +327,7 @@ t-countbadge {
   background-image: -webkit-gradient(radial, center -10, 10, center -10, 20, from(rgba(255, 255, 255, 0.8)), color-stop(50%, rgba(255, 255, 255, 0.3)), color-stop(50%, rgba(255, 255, 255, 0)), to(rgba(255, 255, 255, 0)));
   background-image: -webkit-radial-gradient(50% -10px, circle, rgba(255, 255, 255, 0.8) 10px, rgba(255, 255, 255, 0.3) 65%, rgba(255, 255, 255, 0) 65%, rgba(255, 255, 255, 0) 20px);
   border: 2px solid #ffffff;
-  -moz-border-radius: 1em;
-  -webkit-border-radius: 1em;
   border-radius: 1em;
-  -moz-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
-  -webkit-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   color: #ffffff;
   display: block;

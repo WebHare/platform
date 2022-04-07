@@ -48,7 +48,6 @@
 .appcanvas.isbusyindicator .appcanvas__appmodalitylayer
 {
   background-color: rgba(0, 0, 0, 0.1);
-  -webkit-transition: background-color 200ms;
   transition: background-color 200ms;
 }
 
@@ -65,7 +64,6 @@
 
 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
 {
-  -webkit-animation: spin 1s linear infinite;
   animation: spin 1s linear infinite;
   border: 5px solid transparent;
   border-left-color: #4c95f0;
@@ -78,15 +76,9 @@
   top: 50%;
   width: 64px;
 }
-/* //the outer ring refuses to spin on IE11. */
-html.browser-ie11 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
-{
-  border-width: 0;
-}
 
 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader:before
 {
-  -webkit-animation: spin 3s linear infinite;
   animation: spin 3s linear infinite;
   border: 5px solid transparent;
   border-top-color: #f3ba1e;
@@ -100,7 +92,6 @@ html.browser-ie11 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
 }
 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader:after
 {
-  -webkit-animation: spin 1.5s linear infinite;
   animation: spin 1.5s linear infinite;
   border: 5px solid transparent;
   border-right-color: #db2727;
@@ -113,30 +104,15 @@ html.browser-ie11 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
   top: 15px;
 }
 
-@-webkit-keyframes spin
-{
-  0%
-  {
-    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
-  }
-  100%
-  {
-    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
-  }
-}
 @keyframes spin
 {
   0%
   {
-    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
+    transform: rotate(0deg);
   }
   100%
   {
-    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
+    transform: rotate(360deg);
   }
 }
 
