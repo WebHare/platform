@@ -1321,7 +1321,7 @@
         <text tid="receiverstab">Receivers</text>
         <text tid="redirect">Send emails</text>
         <text tid="rewriteto">Rewrite to</text>
-        <text tid="routesempty">Please note: at least one mail route must be added to send email from this server.</text>
+        <text tid="routesempty">All mail will be sent using the default mail server.</text>
         <text tid="routestab">Routes</text>
         <text tid="sendermask">Sender (From:)</text>
         <text tid="sendersempty">All sender addresses are permitted</text>

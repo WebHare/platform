@@ -221,14 +221,6 @@ PUBLIC STATIC OBJECTTYPE WebHareSMTPManager
     RETURN toks[0] || '+' || Substitute(inaddr,'@','_at_') || '@' || toks[1];
   }
 
-  /** Returns whether mailroutes have been configured
-      @return TRUE when mailroutes have been configured
-  */
-  PUBLIC BOOLEAN FUNCTION HasMailroutes()
-  {
-    RETURN HasMailRoutes();
-  }
-
   /** Returns the mail route for a specific sender, receiver and origin
       @param sender @includecelldef mail/routemgr.whlib#GetMailroute.sender
       @param receiver @includecelldef mail/routemgr.whlib#GetMailroute.receiver

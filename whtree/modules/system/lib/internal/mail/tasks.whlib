@@ -80,9 +80,6 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
   IF(NOT ObjectExists(smtpmgr))
     smtpmgr := NEW WebHareSMTPManager;
 
-  IF(NOT smtpmgr->HasMailroutes())
-    RETURN CELL[ ...baseretval, nextaction := "retry", response := "No mailroutes configured" ];
-
   STRING senderemail := SplitEmailName(mail.sender).email;
   INTEGER sendstatus := IsAllowedEmailSender(senderemail);
   IF(sendstatus = 2) //usemailfromfornonwhitelisted
