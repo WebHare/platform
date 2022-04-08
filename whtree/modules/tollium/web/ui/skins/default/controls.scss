@@ -70,9 +70,8 @@ ul.wh-menulist li.divider:after /*using an after rule so our divider doesn't cov
   height: 1px;
 }
 
-/* basic input, textarea, select */
+/* basic input, select */
 select,
-textarea,
 .wh-spinner,
 .wh-datepicker,
 .wh-tagedit
@@ -94,7 +93,6 @@ textarea,
   background: $control-background-color;
 }
 
-textarea,
 select,
 .wh-spinner,
 .wh-datepicker
@@ -103,7 +101,6 @@ select,
 }
 
 select:focus,
-textarea:focus,
 .wh-datepicker:focus,
 .wh-tagedit:focus
 {
@@ -111,20 +108,16 @@ textarea:focus,
 }
 
 select[required],
-textarea[required],
 .wh-spinner.required,
 .wh-datepicker.required,
-.required > textarea,
 .required > .wh-tagedit
 {
   @include tollium-input-required;
 }
 
-textarea[readonly],
 select[disabled],
 .wh-spinner.disabled,
 .wh-datepicker.disabled,
-.disabled > textarea,
 .disabled > .wh-tagedit
 {
   @include tollium-input-disabled;
