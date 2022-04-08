@@ -198,7 +198,6 @@ t-text a
  */
 .t-screen
 {
-  -webkit-transition: opacity 0.1s;
   transition: opacity 0.1s;
   background: #ffffff;
 }
@@ -473,10 +472,6 @@ t-tabs.stacked > div.tabsheet
 t-tabs.stacked > div.tabsheet.transition
 {
   transition: width 75ms ease-out, height 75ms ease-out;
-  -moz-transition: width 75ms ease-out, height 75ms ease-out;
-  -ms-transition: width 75ms ease-out, height 75ms ease-out;
-  -webkit-transition: width 75ms ease-out, height 75ms ease-out;
-  -webkit-transform: translateZ(0);
 }
 /* line 840, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
 t-tabs.server > div {
@@ -685,14 +680,8 @@ progress[value]::-webkit-progress-value
                                rgba(0, 0, 0, .15));
   background-color: #0098ee;
   background-size: 35px 20px, 100% 100%, 100% 100%;
-  -webkit-animation: animate-stripes 5s linear infinite;
   animation: animate-stripes 5s linear infinite;
-  -webkit-transition: 0.2s ease-out;
-}
-
-@-webkit-keyframes animate-stripes
-{
-  100% { background-position: -100% 0px; }
+  transition: 0.2s ease-out;
 }
 
 @keyframes animate-stripes
@@ -743,16 +732,6 @@ progress[value]
   right: 0;
   top: 0;
   z-index: 5;
-}
-
-/* Workaround for IE11- not correctly supported position: relative; on <td>'s */
-html.browser-ie11 td.droptarget--hover:after
-{
-  display: none;
-}
-html.browser-ie11  .todd-table > .todd-table__rowgroup > table > tr > td.droptarget--hover
-{
-  background-color: rgba(40, 146, 36, .5) !important; /* Override any selection and background colors set on table cells and overlays */
 }
 
 
