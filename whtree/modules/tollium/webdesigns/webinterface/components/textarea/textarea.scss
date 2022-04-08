@@ -39,3 +39,8 @@ textarea
     text-overflow: ellipsis;
   }
 }
+
+t-textarea:not(.textarea--hiderequiredifdisabled) textarea[readonly]
+{
+  @include tollium-input-required-and-disabled;
+}

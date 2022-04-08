@@ -101,4 +101,20 @@ test.registerTests(
       test.eq("0/6", counter.textContent);
     }
 
+
+  , "Required/HideRequiredIfDisabled"
+  , async function()
+    {
+      test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+
+      //required + disabled REMOVES the background color
+      test.fill(test.compByTitle("Enabled").querySelector("input"), false);
+      await test.wait("ui");
+      test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+
+      //Disabling HideRequiredIfDisabled re-enables the yellow background
+      test.fill(test.compByTitle("HideRequiredIfDisabled").querySelector("input"), false);
+      await test.wait("ui");
+      test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+    }
   ]);

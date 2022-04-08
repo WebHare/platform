@@ -154,6 +154,16 @@
     </xs:attribute>
   </xs:attributeGroup>
 
+  <xs:attributeGroup name="HideRequiredIfDisabled">
+    <xs:attribute name="hiderequiredifdisabled" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          If set to false, the required styling will not be removed if the field is disabled
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
   <xs:attributeGroup name="Placeholder">
     <xs:attribute name="placeholder" type="xs:string" />
     <xs:attribute name="placeholdertid"  type="Tid" />

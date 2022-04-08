@@ -153,6 +153,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
   /// Whether this is a password field
   BOOLEAN pvt_password;
 
+  BOOLEAN __hiderequiredifdisabled;
 
   /// List of input validation checks
   STRING ARRAY pvt_validationchecks;
@@ -271,6 +272,9 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
   /// Whether this textedit contains a password
   PUBLIC PROPERTY password(pvt_password, SetPassword);
 
+  /// Whether this textedit should appear to be required, even if disabled, and even if not actually required
+  PUBLIC PROPERTY hiderequiredifdisabled(__hiderequiredifdisabled, SetHideRequiredIfDisabled);
+
   ///// The options (enables autocomplete)
   PUBLIC PROPERTY options(pvt_options, SetOptions);
 
@@ -361,6 +365,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     this->pvt_decimals := 0;
     this->formfieldtype := "string";
     this->pvt_implicitplaceholder := TRUE;
+    this->__hiderequiredifdisabled := TRUE;
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
@@ -494,6 +499,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
       RECORD compinfo := [ comptype := "textedit"
                          , password := this->password
+                         , hiderequiredifdisabled := this->__hiderequiredifdisabled
                          , required := this->required
                          , minlength := this->minlength
                          , maxlength := this->maxlength
@@ -701,6 +707,14 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     this->ExtUpdatedComponent();
   }
 
+  MACRO SetHideRequiredIfDisabled(BOOLEAN new_hiderequiredifdisabled)
+  {
+    IF (this->__hiderequiredifdisabled = new_hiderequiredifdisabled)
+      RETURN;
+
+    this->__hiderequiredifdisabled := new_hiderequiredifdisabled;
+    this->ExtUpdatedComponent();
+  }
 
   MACRO SetEmptyValueIsSet(BOOLEAN new_emptyvalueisset)
   {
@@ -1201,6 +1215,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     this->autocomplete := def.autocomplete;
     this->prefix := def.prefix;
     this->suffix := def.suffix;
+    this->hiderequiredifdisabled := def.hiderequiredifdisabled;
 
     this->pvt_optionsources := def.optionsources;
     this->UpdateOptionsFromSources();

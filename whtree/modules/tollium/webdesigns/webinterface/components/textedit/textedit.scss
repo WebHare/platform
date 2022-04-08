@@ -70,6 +70,11 @@ t-textedit > input
   }
 }
 
+t-textedit:not(.textedit--hiderequiredifdisabled) input[readonly]
+{
+  @include tollium-input-required-and-disabled;
+}
+
 t-textedit > input ~ t-button.icon
 {
   position: absolute;
@@ -95,4 +100,3 @@ t-textedit > input ~ t-button.icon .button__img
   left: 0;
   margin: 0;
 }
-

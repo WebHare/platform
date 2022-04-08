@@ -2124,7 +2124,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="tc:IsDirtyable" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attributeGroup ref="Required" />
+    <xs:attributeGroup ref="sc:Required" />
+    <xs:attributeGroup ref="sc:HideRequiredIfDisabled" />
     <xs:attributeGroup ref="sc:Errorlabel" />
     <xs:attributeGroup ref="Onchange" />
 
@@ -2795,7 +2796,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="tc:IsDirtyable" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attributeGroup ref="sc:Errorlabel" />
-    <xs:attributeGroup ref="Required" />
+    <xs:attributeGroup ref="sc:Required" />
+    <xs:attributeGroup ref="sc:HideRequiredIfDisabled" />
     <xs:attributeGroup ref="Placeholder" />
     <xs:attribute name="trimwhitespace" type="xs:boolean" default="true" />
 

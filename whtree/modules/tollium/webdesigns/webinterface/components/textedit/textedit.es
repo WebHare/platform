@@ -92,6 +92,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     this.minlength = data.minlength; // but minlength is relevant as password requirement
 
     this.type = data.password ? 'password' : 'text';
+    this.hiderequiredifdisabled = !(data.hiderequiredifdisabled === false); //JS creators may not specify it
 
     this.buttons = [];
     if (data.buttons)
@@ -237,6 +238,9 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
       this.inputnode.name = "username";
     else if (this.autocomplete.includes("current-password"))
       this.inputnode.name = "password";
+
+    if(this.hiderequiredifdisabled)
+      this.node.classList.add("textedit--hiderequiredifdisabled");
 
     this.node.appendChild(this.inputnode);
 

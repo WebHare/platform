@@ -9,6 +9,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
   INTEGER pvt_maxlength;
   STRING pvt_lengthmeasure;
   BOOLEAN pvt_showcounter;
+  BOOLEAN __hiderequiredifdisabled;
 
   PUBLIC BOOLEAN trimwhitespace;
 
@@ -36,6 +37,8 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
   STRING pvt_placeholder;
   PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
 
+  /// Whether this textarea should appear to be required, even if disabled, and even if not actually required
+  PUBLIC PROPERTY hiderequiredifdisabled(__hiderequiredifdisabled, SetHideRequiredIfDisabled);
 
   MACRO NEW()
   {
@@ -50,6 +53,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     this->minlength := -1;
     this->maxlength := -1;
     this->lengthmeasure := "characters";
+    this->__hiderequiredifdisabled := TRUE;
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -65,6 +69,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     this->pvt_validationchecks := def.validationchecks;
     this->placeholder := def.placeholder;
     this->wordwrap := def.wordwrap;
+    this->hiderequiredifdisabled := def.hiderequiredifdisabled;
   }
 
 
@@ -136,6 +141,15 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
       this->pvt_placeholder := placeholder;
       this->ExtUpdatedPlaceholder();
     }
+  }
+
+  MACRO SetHideRequiredIfDisabled(BOOLEAN new_hiderequiredifdisabled)
+  {
+    IF (this->__hiderequiredifdisabled = new_hiderequiredifdisabled)
+      RETURN;
+
+    this->__hiderequiredifdisabled := new_hiderequiredifdisabled;
+    this->ExtUpdatedComponent();
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
@@ -229,6 +243,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
 
       RECORD compinfo := [ /*areatype := this->type
                          , */required := this->required
+                         , hiderequiredifdisabled := this->__hiderequiredifdisabled
                          , value := this->pvt_contents
                          , hint := this->hint
                          , minlength := this->minlength

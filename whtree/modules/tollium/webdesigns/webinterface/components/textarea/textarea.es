@@ -33,6 +33,7 @@ export default class ObjTextArea extends ComponentBase
     if (data.maxlength >= 0 && !data.password) //Never accept a maxlength on passwords, as it's not obvious you typed too much characters
       this.maxlength = data.maxlength;
     this.minlength = data.minlength; // minlength is relevant for password requirements
+    this.hiderequiredifdisabled = !(data.hiderequiredifdisabled === false); //JS creators may not specify it (Eg exception dialog)
 
     // Build our DOM
     this.buildNode();
@@ -122,6 +123,9 @@ export default class ObjTextArea extends ComponentBase
     this.inputnode.selectionStart=0;
     this.inputnode.selectionEnd=0;
     this.node.appendChild(this.inputnode);
+
+    if(this.hiderequiredifdisabled)
+      this.node.classList.add("textarea--hiderequiredifdisabled");
 
     if(this.showcounter)
     {

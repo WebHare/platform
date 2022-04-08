@@ -72,3 +72,15 @@
     border-color: #b3b3b3;
   }
 }
+
+@mixin tollium-input-required-and-disabled
+{
+  background: $required-background-color url("~@mod-tollium/web/ui/skins/default/bgreadonly-disabled.svg") 0 0/48px 48px;
+  border-color: #b3b3b3;
+  color: rgba(0,0,0,.5);
+
+  &:focus
+  {
+    border-color: $focused-border-color;
+  }
+}
