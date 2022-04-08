@@ -1126,6 +1126,7 @@ void SemanticChecker::V_ConstantArray (AST::ConstantArray *obj, bool)
                 VerifyTypeWithCast(std::get<1>(*it), std::get<2>(*it) ? type : elttype);
         }
 
+        obj->type = type;
         typestorage[obj] = type;
 }
 

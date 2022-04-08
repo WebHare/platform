@@ -222,7 +222,7 @@ void AstCodePrinter::V_BuiltinInstruction(BuiltinInstruction *obj, Empty)
 void AstCodePrinter::V_Cast(Cast *obj, Empty)
 {
         NODENAMEPRINT("Cast");
-        stream->WriteString("((" + GetTypeName(obj->to_type) + ")");
+        stream->WriteString(GetTypeName(obj->to_type) + "(");
         Visit(obj->expr);
         stream->WriteString(")");
 }
@@ -254,12 +254,12 @@ void AstCodePrinter::V_ConditionalStatement(ConditionalStatement *obj, Empty)
 void AstCodePrinter::V_Constant(Constant *constant, Empty)
 {
         NODENAMEPRINT("Constant");
-        stream->WriteString(EncodeVariable(context, constant->var, true));
+        stream->WriteString("/*c*/" + EncodeVariable(context, constant->var, true));
 }
 void AstCodePrinter::V_ConstantRecord(AST::ConstantRecord *constantrecord, Empty)
 {
         NODENAMEPRINT("ConstantRecord");
-        stream->WriteString("CR:[");
+        stream->WriteString("/*cr*/CELL[");
         for (unsigned idx = 0; idx < constantrecord->columns.size(); ++idx)
         {
                 if (idx != 0) stream->WriteString(", ");
@@ -278,7 +278,7 @@ void AstCodePrinter::V_ConstantRecord(AST::ConstantRecord *constantrecord, Empty
 void AstCodePrinter::V_ConstantArray(AST::ConstantArray *constantarray, Empty)
 {
         NODENAMEPRINT("ConstantRecord");
-        stream->WriteString("CA:[");
+        stream->WriteString("/*ca*/" + GetTypeName(ToNonArray(constantarray->type)) + "[");
         for (auto it = constantarray->values.begin(); it != constantarray->values.end(); ++it)
         {
                 if (it != constantarray->values.begin())
@@ -800,11 +800,10 @@ void AstCodePrinter::V_UnaryOperator(UnaryOperator *unaryoperator, Empty)
 void AstCodePrinter::V_Variable(Variable *variable, Empty)
 {
         NODENAMEPRINT("Variable");
-        stream->WriteString("((*");
+        stream->WriteString("/*var:");
         stream->WriteString(GetTypeName(variable->symbol->variabledef->type));
-        stream->WriteString("*)");
+        stream->WriteString("*/");
         stream->WriteString(variable->symbol->name);
-        stream->WriteString(")");
 }
 
 void AstCodePrinter::V_Yield(Yield *obj, Empty)
