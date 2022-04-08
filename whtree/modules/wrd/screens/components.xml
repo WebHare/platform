@@ -69,7 +69,7 @@
       <inlineblock height="3gr" name="block" tid=".addressfield">
         <grid height="1pr">
           <cell width="1pr">
-            <textarea minwidth="30x" width="1pr" height="1pr" name="addressfield" defaultbutton="changebutton" enabled="false" title="" />
+            <textarea minwidth="30x" width="1pr" height="1pr" name="addressfield" defaultbutton="changebutton" enabled="false" title="" hiderequiredifdisabled="false" />
           </cell>
           <cell>
             <button name="changebutton" tid="tollium:common.actions.edit" action="changeaction" />

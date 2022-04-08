@@ -158,7 +158,7 @@
     </compositions>
     <body>
       <line>
-        <textedit composition="rec" cellname="peer" name="peer" enabled="false" />
+        <textedit composition="rec" cellname="peer" name="peer" enabled="false" hiderequiredifdisabled="false" />
         <button action="selectpeer" />
       </line>
       <line>
