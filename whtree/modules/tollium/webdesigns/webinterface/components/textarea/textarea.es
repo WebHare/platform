@@ -76,6 +76,9 @@ export default class ObjTextArea extends ComponentBase
     {
       this.required = value;
       this.node.classList.toggle("required", this.required);
+      this.inputnode.required = this.required;
+      if (this.counter)
+        this.counter.update({ required: this.required });
     }
   }
 
@@ -121,7 +124,9 @@ export default class ObjTextArea extends ComponentBase
     this.node.appendChild(this.inputnode);
 
     if(this.showcounter)
-      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
+    {
+      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure, required: this.required });
+    }
   }
 
 /****************************************************************************************************************************
