@@ -131,6 +131,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     this->updateoptions->enabled := MemberExists(this->comp, "OPTIONS");
     this->enableontarget1_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
     this->enableontarget2_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
+    ^hiderequiredifdisabled->enabled := MemberExists(^comp, "hiderequiredifdisabled");
 
     //Component specific stuff
     SWITCH(component)
@@ -344,6 +345,11 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
   MACRO OnReadonlyChange()
   {
     ^comp->readonly := ^readonly->value;
+  }
+  MACRO OnHideRequiredIfDisabledChange()
+  {
+    IF(MemberExists(^comp, "hiderequiredifdisabled"))
+      ^comp->hiderequiredifdisabled := ^hiderequiredifdisabled->value;
   }
   MACRO OnIndeterminateChange()
   {

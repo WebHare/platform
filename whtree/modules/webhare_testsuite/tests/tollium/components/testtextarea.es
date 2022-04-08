@@ -31,16 +31,11 @@ test.registerTests(
       test.true(alternatedefault.classList.contains("default"));
     }
 
-  , "Test min/max-length, counter"
+  , "Test min/max-length, counter" //TODO combine with testtextedit?  almost the same...
   , async function()
     {
-      await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative']} ));
-      await test.wait("ui");
-
       let textedit_comp = test.compByName("componentpanel");
-      let textedit = textedit_comp.querySelector("input");
-
-      console.log(test.compByTitle("minlength"));
+      let textedit = textedit_comp.querySelector("textarea");
 
       test.fill(test.compByTitle("minlength").querySelector("input"), "4");
       test.click(test.compByTitle("showcounter").querySelector("label"));
@@ -48,7 +43,7 @@ test.registerTests(
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
-      textedit = textedit_comp.querySelector("input");
+      textedit = textedit_comp.querySelector("textarea");
       let counter = textedit_comp.querySelector(".wh-counter");
 
       test.fill(textedit,"1");
@@ -72,7 +67,7 @@ test.registerTests(
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
-      textedit = textedit_comp.querySelector("input");
+      textedit = textedit_comp.querySelector("textarea");
       counter = textedit_comp.querySelector(".wh-counter");
 
       test.true(counter.classList.contains("wh-counter--underflow"));
@@ -86,7 +81,7 @@ test.registerTests(
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
-      textedit = textedit_comp.querySelector("input");
+      textedit = textedit_comp.querySelector("textarea");
       counter = textedit_comp.querySelector(".wh-counter");
 
       test.eq("3/4 - 6", counter.textContent);
@@ -100,10 +95,26 @@ test.registerTests(
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
-      textedit = textedit_comp.querySelector("input");
+      textedit = textedit_comp.querySelector("textarea");
       counter = textedit_comp.querySelector(".wh-counter");
 
       test.eq("0/6", counter.textContent);
     }
 
+
+  , "Required/HideRequiredIfDisabled"
+  , async function()
+    {
+      test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+
+      //required + disabled REMOVES the background color
+      test.fill(test.compByTitle("Enabled").querySelector("input"), false);
+      await test.wait("ui");
+      test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+
+      //Disabling HideRequiredIfDisabled re-enables the yellow background
+      test.fill(test.compByTitle("HideRequiredIfDisabled").querySelector("input"), false);
+      await test.wait("ui");
+      test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
+    }
   ]);

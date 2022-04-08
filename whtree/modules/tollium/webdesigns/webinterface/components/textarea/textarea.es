@@ -5,6 +5,7 @@ import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import Keyboard from 'dompack/extra/keyboard';
 import $todd from "@mod-tollium/web/ui/js/support";
+import './textarea.scss';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -32,6 +33,7 @@ export default class ObjTextArea extends ComponentBase
     if (data.maxlength >= 0 && !data.password) //Never accept a maxlength on passwords, as it's not obvious you typed too much characters
       this.maxlength = data.maxlength;
     this.minlength = data.minlength; // minlength is relevant for password requirements
+    this.hiderequiredifdisabled = !(data.hiderequiredifdisabled === false); //JS creators may not specify it (Eg exception dialog)
 
     // Build our DOM
     this.buildNode();
@@ -75,6 +77,9 @@ export default class ObjTextArea extends ComponentBase
     {
       this.required = value;
       this.node.classList.toggle("required", this.required);
+      this.inputnode.required = this.required;
+      if (this.counter)
+        this.counter.update({ required: this.required });
     }
   }
 
@@ -119,8 +124,13 @@ export default class ObjTextArea extends ComponentBase
     this.inputnode.selectionEnd=0;
     this.node.appendChild(this.inputnode);
 
+    if(this.hiderequiredifdisabled)
+      this.node.classList.add("textarea--hiderequiredifdisabled");
+
     if(this.showcounter)
-      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
+    {
+      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure, required: this.required });
+    }
   }
 
 /****************************************************************************************************************************

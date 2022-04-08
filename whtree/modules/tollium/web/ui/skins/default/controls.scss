@@ -70,13 +70,8 @@ ul.wh-menulist li.divider:after /*using an after rule so our divider doesn't cov
   height: 1px;
 }
 
-/* basic input, textarea, select */
-input[type='text'],
-input[type='email'],
-input[type='tel'],
-input[type='password'],
+/* basic input, select */
 select,
-textarea,
 .wh-spinner,
 .wh-datepicker,
 .wh-tagedit
@@ -87,19 +82,7 @@ textarea,
   position: relative;
   vertical-align: top;
   -webkit-appearance:none ;
-}
 
-
-input[type='text'],
-input[type='email'],
-input[type='tel'],
-input[type='password'],
-textarea,
-.wh-spinner,
-.wh-datepicker,
-.wh-tagedit,
-select
-{
   border: 1px solid #b3b3b3;
   border-radius: 2px;
   padding: 0 5px;
@@ -110,7 +93,6 @@ select
   background: $control-background-color;
 }
 
-textarea,
 select,
 .wh-spinner,
 .wh-datepicker
@@ -118,72 +100,33 @@ select,
   padding: 1px 5px;
 }
 
-input[type='text']:focus,
-input[type='email']:focus,
-input[type='tel']:focus,
-input[type='password']:focus,
 select:focus,
-textarea:focus,
 .wh-datepicker:focus,
 .wh-tagedit:focus
 {
   @include tollium-input-focused;
 }
 
-input[type='text'][required],
-input[type='email'][required],
-input[type='tel'][required],
-input[type='password'][required],
 select[required],
-textarea[required],
 .wh-spinner.required,
 .wh-datepicker.required,
-.required > input[type='text'],
-.required > input[type='password'],
-.required > textarea,
 .required > .wh-tagedit
 {
   @include tollium-input-required;
 }
 
-input[type='text'][disabled],
-input[type='email'][disabled],
-input[type='tel'][disabled],
-input[type='password'][disabled],
-textarea[readonly],
 select[disabled],
 .wh-spinner.disabled,
 .wh-datepicker.disabled,
-.disabled > input[type='text'],
-.disabled > input[type='password'],
-.disabled > textarea,
 .disabled > .wh-tagedit
 {
   @include tollium-input-disabled;
 }
 
-input[type='text'][readonly]:not(:focus),
-input[type='email'][readonly]:not(:focus),
-input[type='tel'][readonly]:not(:focus),
-input[type='password'][readonly]:not(:focus)
-{
-  text-overflow: ellipsis;
-}
-
-input[type='text'],
-input[type='email'],
-input[type='tel'],
-input[type='password'],
 .wh-datepicker,
 .wh-tagedit
 {
   height: $control-height;
-}
-
-input.withcounter
-{
-  padding-right: 50px;
-  min-width: 80px;
 }
 
 /* radio */

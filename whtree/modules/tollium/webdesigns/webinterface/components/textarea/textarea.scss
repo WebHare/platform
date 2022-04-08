@@ -1,0 +1,46 @@
+@import "~@mod-tollium/web/ui/css/settings.scss";
+@import "~@mod-tollium/web/ui/skins/default/mixins.scss";
+
+textarea
+{
+  resize: none;
+  min-width: 20px;
+  min-height: 23px;
+  position: relative;
+  vertical-align: top;
+  -webkit-appearance:none ;
+
+  border: 1px solid #b3b3b3;
+  border-radius: 2px;
+  padding: 0 5px;
+  color: #000000;
+  font-size: 12px;
+  line-height: 16px;
+  background: $control-background-color;
+  padding: 1px 5px;
+
+  &:focus
+  {
+    @include tollium-input-focused;
+  }
+
+  &[required]
+  {
+    @include tollium-input-required;
+  }
+
+  &[readonly]
+  {
+    @include tollium-input-disabled;
+  }
+
+  &[readonly]:not(:focus)
+  {
+    text-overflow: ellipsis;
+  }
+}
+
+t-textarea:not(.textarea--hiderequiredifdisabled) textarea[readonly]
+{
+  @include tollium-input-required-and-disabled;
+}

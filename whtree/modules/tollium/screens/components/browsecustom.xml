@@ -11,7 +11,7 @@
     </actions>
     <contents>
       <line>
-        <textedit name="titletext" enabled="false" />
+        <textedit name="titletext" enabled="false" hiderequiredifdisabled="false" />
         <button name="browsebutton" action="browse" title="" icon="tollium:actions/edit" />
         <button name="clearbutton" action="clear" title="" icon="tollium:actions/delete" />
       </line>
