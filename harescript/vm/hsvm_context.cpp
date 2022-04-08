@@ -2627,9 +2627,8 @@ void VirtualMachine::DoDeepOperation(DeepOperation::Type type, bool thisaccess)
 void VirtualMachine::DoRecordCellGet(int32_t id)
 {
         VarId arg1 = stackmachine.StackPointer() - 1;
-        if (stackmachine.GetType(arg1) != VariableTypes::Record)
-            throw VMRuntimeError (Error::CannotConvertType, HareScript::GetTypeName(stackmachine.GetType(arg1)), HareScript::GetTypeName(VariableTypes::Record));
 
+        // No type check needed, compiler enforces casting to RECORD
         ColumnNameId nameid = executionstate.library->GetLinkedLibrary().resolvedcolumnnames[id];
 
         if (stackmachine.RecordNull(arg1))
@@ -2638,7 +2637,6 @@ void VirtualMachine::DoRecordCellGet(int32_t id)
         bool found = stackmachine.RecordCellCopyByName(arg1, nameid, arg1);
         if (!found)
             stackmachine.RecordThrowCellNotFound(arg1, columnnamemapper.GetReverseMapping(nameid).stl_str());
-            //throw VMRuntimeError (Error::UnknownColumn, columnnamemapper.GetReverseMapping(nameid).stl_str());
 }
 
 void VirtualMachine::DoRecordCellSet(int32_t id, bool with_check, bool cancreate)
