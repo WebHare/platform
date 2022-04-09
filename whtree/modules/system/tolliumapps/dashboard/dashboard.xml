@@ -47,7 +47,8 @@
                 onselect="onmonitorpanelsselect"
                 selectcontextmenu="panelscontextmenu"
                 selectmode="single"
-                sortable="false">
+                sortable="false"
+                selectevent="synchronous">
             <column name="title" type="text" title="" tree="true" />
           </list>
           <panel name="statusbar" borders="top" spacers="left">
