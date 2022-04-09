@@ -1,9 +1,11 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -11,11 +13,17 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 
+PUBLIC RECORD ARRAY FUNCTION RunAsyncChecks()
+{
+  OpenPrimary();
+  RETURN RunChecks();
+}
+
 PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 <
   OBJECT wrd_systemmessages_snoozes;
-  RECORD versioninfo;
-  BOOLEAN developerbuild;
+  OBJECT errorpromise;
+  RECORD ARRAY currenterrors;
 
   MACRO Init()
   {
@@ -78,12 +86,30 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
                                   this->tolliumuser->FormatTimespan(numwebdays, numwebmsecs, "minutes"),
                                   this->tolliumuser->FormatDateTime(webserverboottime, "minutes", TRUE, FALSE));
 
+    this->RefreshErrors();
     ^results->Invalidate();
     ^snoozes->Invalidate();
   }
 
+  ASYNC MACRO RefreshErrors()
+  {
+    IF(ObjectExists(this->errorpromise))
+      RETURN;
+
+    ^results->empty := this->GetTid(".loadingerrors");
+    this->errorpromise := AsyncCallFunctionFromJob(Resolve("#RunAsyncChecks"));
+    this->currenterrors := AWAIT this->errorpromise;
+    this->errorpromise := DEFAULT OBJECT;
+
+    ^results->empty := this->GetTid(".noerrors");
+    ^results->Invalidate();
+  }
+
   RECORD ARRAY FUNCTION OnGetErrors()
   {
+    IF(ObjectExists(this->errorpromise))
+      RETURN RECORD[];
+
     RECORD ARRAY messages :=
          SELECT *
               , message :=      GetTid(msg)
@@ -92,7 +118,7 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
               , canjumpto :=    CellExists(checks, "JUMPTO") OR CellExists(checks, "FILENAME")
               , style :=        snoozed ? "snoozed" : ""
               , rowkey := messagetaghash
-           FROM RunChecks() AS checks;
+           FROM this->currenterrors AS checks;
 
     RETURN messages;
   }

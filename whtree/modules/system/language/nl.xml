@@ -1369,6 +1369,7 @@
         <text tid="general">Algemeen</text>
         <text tid="gototask">Ga naar</text>
         <text tid="infile">in bestand '<param p="1"/>'</text>
+        <text tid="loadingerrors">Controleer op fouten…</text>
         <text tid="message">Foutmelding</text>
         <text tid="messagetidatsnooze">Foutmelding</text>
         <text tid="multiplemessages">(meerdere foutmeldingen)</text>

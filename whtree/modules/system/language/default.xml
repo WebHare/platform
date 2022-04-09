@@ -1551,6 +1551,7 @@
         <text tid="general">General</text>
         <text tid="gototask">Go to</text>
         <text tid="infile">in file '<param p="1"/>'</text>
+        <text tid="loadingerrors">Checking for errors…</text>
         <text tid="message">Error message</text>
         <text tid="messagetidatsnooze">Error message</text>
         <text tid="multiplemessages">(multiple error messages)</text>
