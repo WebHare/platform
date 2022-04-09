@@ -540,9 +540,7 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
     RETURN CELL[ groups, panels ];
 
   STRING topgid := moddef->documentelement->GetAttribute("gid");
-  OBJECT ARRAY groupnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "monitorgroup")->GetCurrentElements() //FIXME only pronuntio does this, so remove soon
-                             CONCAT
-                             portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardgroup")->GetCurrentElements();
+  OBJECT ARRAY groupnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardgroup")->GetCurrentElements();
   FOREVERY(OBJECT grp FROM groupnodes)
   {
     INSERT [ name :=          QualifyName(modulename, grp->GetAttribute("name"))
@@ -552,16 +550,13 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
            ] INTO groups aT END;
   }
 
-  OBJECT ARRAY panelnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardpanel")->GetCurrentElements()
-                             CONCAT
-                             portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "monitorpanel")->GetCurrentElements();
+  OBJECT ARRAY panelnodes := portalnode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "dashboardpanel")->GetCurrentElements();
   FOREVERY(OBJECT panel FROM panelnodes)
   {
     RECORD rec :=
          [ grp :=             QualifyName(modulename, panel->GetAttribute("group"))
          , title :=           ParseXMLTidPtr(resourcename, topgid, panel, "title")
-         , screen :=          panel->localname = "dashboardpanel" ? MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
-                                                                   : QualifyName(modulename, panel->GetAttribute("screen"))
+         , screen :=          MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
          , name :=            QualifyName(modulename, panel->GetAttribute("name"))
          ];
 
