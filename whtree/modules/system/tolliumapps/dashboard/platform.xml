@@ -1,0 +1,107 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.platform" library="platform.whlib">
+
+  <screen name="platformpanel" allowresize="true" title="">
+    <actions>
+      <action name="gototask" onexecute="dogototask">
+        <enableon source="results" min="1" max="1" checkflags="canjumpto" />
+      </action>
+      <action name="editsnooze" tid="~edit">
+        <enableon source="results" min="1" onexecute="doeditmessagesnooze" />
+        <enableon source="snoozes" min="1" max="1" onexecute="doeditsnooze" />
+      </action>
+      <action name="deletesnooze" tid="~delete">
+        <enableon source="snoozes" min="1" onexecute="dodeletesnooze" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="snoozecontextmenu">
+        <item action="editsnooze" disablemode="hidden" />
+        <item action="deletesnooze" disablemode="hidden" />
+      </menu>
+      <menu name="contextmenu">
+        <item action="gototask" disablemode="hidden" />
+        <item action="editsnooze" disablemode="hidden" tid=".editsnooze" />
+      </menu>
+    </menus>
+
+    <body>
+      <tabs height="1pr">
+        <tab tid=".errors">
+          <grid height="1pr">
+            <cell width="1pr">
+              <list name="results"
+                    height="1pr"
+                    emptytid=".noerrors"
+                    flags="canjumpto"
+                    ongetrows="ongeterrors"
+                    openaction="gototask"
+                    selectcontextmenu="contextmenu"
+                    selectmode="multiple">
+                <column name="message" type="text" width="2pr" />
+                <style name="snoozed" textcolor="#CCCCCC" />
+              </list>
+            </cell>
+            <cell>
+              <button action="editsnooze" />
+            </cell>
+          </grid>
+        </tab>
+        <tab tid=".snoozes">
+          <grid height="1pr">
+            <cell width="1pr">
+              <list name="snoozes"
+                    height="1pr"
+                    ongetrows="ongetsnoozes"
+                    openaction="editsnooze"
+                    selectcontextmenu="snoozecontextmenu"
+                    selectmode="multiple">
+                <column name="message" type="text" />
+                <column name="displayname" type="text" />
+                <column name="until" type="datetime" precision="minutes" storeutc="true" />
+                <column name="comment" type="text" />
+              </list>
+            </cell>
+            <cell>
+              <button width="1pr" action="editsnooze" />
+              <button width="1pr" action="deletesnooze" />
+            </cell>
+          </grid>
+        </tab>
+      </tabs>
+      <hr />
+      <panel name="mainpanel" spacers="left bottom">
+        <heading tid=".general" />
+        <text name="txtServer" selectable="true" tid=".server" />
+        <text name="buildinfo" selectable="true" />
+        <text name="txtPlatform" selectable="true" tid=".platform" wordwrap="true" />
+        <text name="txtDateTime" selectable="true" tid=".datetime" />
+        <text name="txtUptime" selectable="true" tid=".uptime" />
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="editsnooze" width="100x">
+    <actions>
+      <action name="ok" onexecute="submit" tid="~ok" />
+      <action name="remove" onexecute="doremove" />
+    </actions>
+
+    <body>
+      <text name="messagetidatsnooze" width="1pr" wordwrap="true" />
+      <text name="snoozer" visible="false" />
+      <datetime name="created" type="datetime" precision="minutes" readonly="true" storeutc="true" visible="false" />
+      <datetime name="until" type="datetime" precision="minutes" required="true" storeutc="true" />
+      <textarea name="comment" width="1pr" height="8x" required="true" />
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button action="ok" />
+        <button name="removebutton" action="remove" tid=".remove" />
+        <button tid="~cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+</screens>

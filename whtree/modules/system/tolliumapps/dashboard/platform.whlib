@@ -1,0 +1,332 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+
+PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
+<
+  OBJECT wrd_systemmessages_snoozes;
+  RECORD versioninfo;
+  BOOLEAN developerbuild;
+
+  MACRO Init()
+  {
+    IF(ObjectExists(this->contexts->wrdschema))
+    {
+      this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
+
+      ^results->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
+      ^snoozes->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
+    }
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0; //no auto refresh
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    this->RefreshPlatformInfo();
+  }
+
+  MACRO RefreshPlatformInfo()
+  {
+    // get the system description
+    STRING systemdescr := GetSystemOsName();
+
+    IF (GetSystemNumProcessors() > 1)
+      systemdescr := systemdescr || "; " || GetSystemNumProcessors() || " CPUs";
+
+    // get the server uptime
+    DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
+    DATETIME webserverboottime := GetHostingProcessStartTime();
+    DATETIME now := GetCurrentDatetime();
+
+    INTEGER numdays := GetDayCount(now) - GetDayCount(boottime);
+    INTEGER numMsecs := GetMsecondCount(now) - GetMsecondCount(boottime);
+
+    INTEGER numwebdays := GetDayCount(now) - GetDayCount(webserverboottime);
+    INTEGER numwebMsecs := GetMsecondCount(now) - GetMsecondCount(webserverboottime);
+
+    ///////////////////////////////////////////////////////////////////////////////
+    //
+    // Setup the page
+    //
+
+    RECORD versioninfo := GetWHVersionInfo();
+    STRING restoreinfo := GetEnvironmentVariable("WEBHARE_ISRESTORED");
+    IF(restoreinfo != "")
+      restoreinfo := restoreinfo = "1" ? " / restored" : " (" || restoreinfo || ")";
+
+    ^txtServer->value      := versioninfo.versionname || " " || GetDTAPStage() || restoreinfo;
+    ^buildinfo->value      := versioninfo.built;
+    ^buildinfo->visible    := versioninfo.built != "";
+    ^txtPlatform->value    := systemdescr;
+    ^txtDateTime->value    := this->tolliumuser->FormatDateTime(now, "minutes", TRUE, FALSE);
+    ^txtUptime->value      := this->Gettid(".uptimedata",
+                                  this->tolliumuser->FormatTimespan(numdays, nummsecs, "minutes"),
+                                  this->tolliumuser->FormatDateTime(boottime, "minutes", TRUE, FALSE),
+                                  this->tolliumuser->FormatTimespan(numwebdays, numwebmsecs, "minutes"),
+                                  this->tolliumuser->FormatDateTime(webserverboottime, "minutes", TRUE, FALSE));
+
+    ^results->Invalidate();
+    ^snoozes->Invalidate();
+  }
+
+  RECORD ARRAY FUNCTION OnGetErrors()
+  {
+    RECORD ARRAY messages :=
+         SELECT *
+              , message :=      GetTid(msg)
+                                    || (CellExists(checks, "FILENAME") ? ` (${this->GetTid(".infile", filename)})` : "")
+                                    || (snoozed ? " (" || this->GetTid(".snoozed_until", this->tolliumuser->FormatDateTime(snooze_data.until, "minutes", TRUE, TRUE)) || ")": "")
+              , canjumpto :=    CellExists(checks, "JUMPTO") OR CellExists(checks, "FILENAME")
+              , style :=        snoozed ? "snoozed" : ""
+              , rowkey := messagetaghash
+           FROM RunChecks() AS checks;
+
+    RETURN messages;
+  }
+
+  RECORD ARRAY FUNCTION OnGetSnoozes()
+  {
+    IF(NOT ObjectExists(this->wrd_systemmessages_snoozes))
+      RETURN RECORD[];
+
+    RECORD ARRAY rows :=
+        SELECT *
+             , rowkey :=    wrd_id
+             , message :=   GetTid(messagetidatsnooze)
+          FROM this->wrd_systemmessages_snoozes->RunQuery(
+                  [ outputcolumns :=
+                        [ "WRD_ID"
+                        , "MESSAGETIDATSNOOZE"
+                        , "SNOOZER"
+                        , "UNTIL"
+                        , "COMMENT"
+                        ]
+                  ]);
+
+    rows := this->contexts->userapi->EnrichUsers("SNOOZER", rows, [ celltype := "entityid" ]);
+    RETURN rows;
+  }
+
+  MACRO DoGotoTask()
+  {
+    RECORD sel := ^results->selection[0];
+    IF (CellExists(sel, "JUMPTO") AND RecordExists(sel.jumpto))
+    {
+      RECORD jumpto := ^results->selection[0].jumpto;
+      STRING reusemode := CellExists(jumpto,'reusemode') ? jumpto.reusemode : "whennotbusy";
+      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
+    }
+    ELSE IF (CellExists(sel, "FILENAME"))
+    {
+      RECORD target := MakeReplacedRecord([ rowkey := 1, line := 0, col := 0, filename := "", func := "" ], sel);
+      OBJECT screen := this->LoadScreen("monitor/processlist.codeview",
+          [ rows :=   [ target ]
+          , value :=  target.rowkey
+          ]);
+      screen->RunModal();
+    }
+  }
+
+  MACRO DoEditMessageSnooze()
+  {
+    RECORD ARRAY sel := ^results->selection;
+    RECORD ARRAY data :=
+        SELECT messagetid :=    msg
+             , messagetag
+             , messagetaghash
+             , until :=         snoozed ? snooze_data.until : DEFAULT DATETIME
+             , comment :=       snoozed ? snooze_data.comment : ""
+          FROM sel;
+
+    this->RunScreen("#editsnooze", [ data := data, isdirectedit := FALSE ]);
+  }
+
+  MACRO DoEditSnooze()
+  {
+    RECORD data := this->wrd_systemmessages_snoozes->GetEntityFields(^snoozes->value[0],
+        [ "MESSAGETAGHASH"
+        ]);
+
+    this->RunScreen("#editsnooze", [ data := [ data ], isdirectedit := TRUE ]);
+  }
+
+  MACRO DoDeleteSnooze()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY (INTEGER id FROM ^snoozes->value)
+    {
+      this->wrd_systemmessages_snoozes->DeleteEntity(id);
+      LogAuditEvent("system:systemmessages",
+          [ id :=                 id
+          , type :=               "delete"
+          ]);
+    }
+    work->Finish();
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE EditSnooze EXTEND DashboardPanelBase
+< OBJECT wrd_systemmessages_snoozes;
+
+  RECORD ARRAY items;
+
+  MACRO Init(RECORD data)
+  {
+    this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
+    this->items :=
+        SELECT *
+          FROM data.data
+      ORDER BY messagetaghash;
+
+    RECORD ARRAY existing := this->GetExistingSnoozes();
+    IF (LENGTH(this->items) = 1 AND LENGTH(existing) = 1) // edit single existing snooze
+    {
+      RECORD userdata := this->contexts->userapi->EnrichUsers("userid", [ [ userid := existing[0].snoozer ] ]);
+
+      ^messagetidatsnooze->value := GetTid(existing[0].messagetidatsnooze);
+      ^until->value := existing[0].until;
+      ^comment->value := existing[0].comment;
+      ^snoozer->value := userdata.displayname;
+      ^created->value := existing[0].wrd_creationdate;
+      ^snoozer->visible := TRUE;
+      ^created->visible := TRUE;
+    }
+    ELSE
+    {
+      IF (data.isdirectedit)
+      {
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
+      // After 9:00 local time, place next at the next day
+      DATETIME next := AddTimeToDate(15 * 60 * 60 * 1000, UTCToLocal(GetCurrentDateTime(), "CET"));
+      next := GetRoundedDateTime(next, 86400 * 1000);
+
+      // Always at 10:00, on workdays
+      next := AddTimeToDate(10 * 60 * 60 * 1000, next);
+      IF (UnpackDateTime(next).dayofweek >= 6) // saturday or sunday
+        next := AddDaysToDate(8 - UnpackDateTime(next).dayofweek, next);
+      next := LocalToUTC(next, "CET");
+
+      ^until->value := next;
+      IF (LENGTH(this->items) = 1) // add new single snooze
+        ^messagetidatsnooze->value := GetTid(this->items[0].messagetid);
+      ELSE // add/override multple messages
+        ^messagetidatsnooze->value := this->GetTid(".multiplemessages");
+    }
+    ^remove->enabled := LENGTH(existing) > 0;
+  }
+
+  RECORD ARRAY FUNCTION GetExistingSnoozes()
+  {
+    RETURN
+      SELECT *
+        FROM this->wrd_systemmessages_snoozes->RunQuery(
+              [ outputcolumns :=
+                    [ "MESSAGETAGHASH"
+                    , "MESSAGETAG"
+                    , "WRD_ID"
+                    , "MESSAGETIDATSNOOZE"
+                    , "UNTIL"
+                    , "COMMENT"
+                    , "SNOOZER"
+                    , "WRD_CREATIONDATE"
+                    ]
+              ]) AS rec
+       WHERE RecordLowerBound(this->items, rec, [ "MESSAGETAGHASH" ]).found
+    ORDER BY messagetaghash;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (^until->value < GetCurrentDateTime())
+      work->AddError(this->GetTid(".untilinpast"));
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    RECORD ARRAY existing := this->GetExistingSnoozes();
+
+    FOREVERY (RECORD rec FROM this->items)
+    {
+      RECORD pos := RecordLowerBound(existing, rec, [ "MESSAGETAGHASH" ]);
+      IF (pos.found)
+      {
+        RECORD ex := existing[pos.position];
+        IF (LENGTH(this->items) = 1 OR ex.until <= ^until->value)
+        {
+          // Only update snooze when prolonging it, or editing only one message
+          this->wrd_systemmessages_snoozes->GetEntity(ex.wrd_id)->UpdateEntity(
+              [ snoozer :=            this->tolliumuser->entityid
+              , until :=              ^until->value
+              , messagetidatsnooze := ex.messagetidatsnooze
+              , comment :=            ^comment->value
+              ]);
+
+          LogAuditEvent("system:systemmessages",
+              [ id :=                 ex.wrd_id
+              , type :=               "update"
+              , until :=              ^until->value
+              , messagetidatsnooze := ex.MESSAGETIDATSNOOZE
+              , comment :=            ^comment->value
+              , messagetag :=         RecordExists(ex.messagetag) ? DecodeHSONBlob(ex.messagetag.data) : DEFAULT RECORD
+              ]);
+        }
+      }
+      ELSE
+      {
+        OBJECT obj := this->wrd_systemmessages_snoozes->CreateEntity(
+          [ snoozer :=            this->tolliumuser->entityid
+          , until :=              ^until->value
+          , messagetaghash :=     rec.messagetaghash
+          , messagetag :=         WrapBlob(EncodeHSONBlob(rec.messagetag), "messagetag.hson")
+          , messagetidatsnooze := rec.messagetid
+          , comment :=            ^comment->value
+          ]);
+
+        LogAuditEvent("system:systemmessages",
+            [ id :=                 obj->id
+            , type :=               "create"
+            , until :=              ^until->value
+            , messagetidatsnooze := rec.messagetid
+            , comment :=            ^comment->value
+            , messagetag :=         rec.messagetag
+            ]);
+      }
+    }
+    RETURN work->Finish();
+  }
+
+  MACRO DoRemove()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    FOREVERY (RECORD rec FROM this->GetExistingSnoozes())
+    {
+      LogAuditEvent("system:systemmessages",
+          [ id :=                 rec.wrd_id
+          , type :=               "delete"
+          ]);
+    }
+    this->wrd_systemmessages_snoozes->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM this->GetExistingSnoozes());
+    work->Finish();
+    this->tolliumresult := "remove";
+  }
+>;

@@ -1023,6 +1023,7 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="screen" type="xs:string" />
   </xs:complexType>
 
 

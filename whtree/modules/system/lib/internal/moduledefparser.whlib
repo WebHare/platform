@@ -547,6 +547,7 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
            , title :=         ParseXMLTidPtr(resourcename, topgid, grp, "title")
            , orderbefore :=   ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderbefore")))
            , orderafter  :=   ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderafter")))
+           , screen :=        MakeAbsoluteScreenReference(`mod::${modulename}/`, grp->GetAttribute("screen"))
            ] INTO groups aT END;
   }
 
