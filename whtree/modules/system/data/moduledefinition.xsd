@@ -526,6 +526,9 @@
       </xs:element>
       <xs:element name="task">
         <xs:complexType>
+          <xs:sequence>
+            <xs:element name="arg" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
           <xs:attribute name="script" type="xs:string" use="required" />
           <xs:attribute name="tag" type="Name" use="required" />
           <xs:attribute name="runatstartup" type="xs:boolean" />

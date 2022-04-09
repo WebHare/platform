@@ -19,7 +19,10 @@
     <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" />
     <runonce       tag="setuppwasite" script="tests/publisher/pwa/setuppwasite.whscr" when="poststart" />
     <runonce       tag="fixdevserver_20200110" script="scripts/runonce/fixdevserver.whscr" when="poststart" />
-    <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
+    <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks">
+      <arg>ARG1 SHOT</arg>
+      <arg>arg2</arg>
+    </task>
     <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
     <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
     <managedtask   type="applyruletask" library="lib/internal/tasks.whlib" objectname="applyruletask"/> <!-- used by actions.whscr -->

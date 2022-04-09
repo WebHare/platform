@@ -192,11 +192,19 @@ MACRO LaunchTask(RECORD task)
   INSERT task.script INTO cmdlineargs AT END;
 
   //HACK for quick paramter parsing
-  STRING params := Substitute(task.parameters,"\\ ","<<<<<ESCAPED_SPACE>>>>>");
-  IF (params != "")
+  IF(task.parameters LIKE " |params| *")
   {
-    FOREVERY(STRING param FROM Tokenize(params,' '))
-      INSERT DecodeJava(Substitute(param,"<<<<<ESCAPED_SPACE>>>>>","\\ ")) INTO cmdlineargs AT END;
+    cmdlineargs := cmdlineargs CONCAT DecodeHSON(Substring(task.parameters,10));
+  }
+  ELSE IF(task.parameters != "")
+  {
+    //HACK for quick parameter parsing - can go away once manually entered tasks are gone
+    STRING params := Substitute(task.parameters,"\\ ","<<<<<ESCAPED_SPACE>>>>>");
+    IF (params != "")
+    {
+      FOREVERY(STRING param FROM Tokenize(params,' '))
+        INSERT DecodeJava(Substitute(param,"<<<<<ESCAPED_SPACE>>>>>","\\ ")) INTO cmdlineargs AT END;
+    }
   }
 
   INTEGER pid := StartProcess( runscriptname
@@ -344,6 +352,8 @@ MACRO UpdateScheduler()
       INSERT CELL timeout := task.timeout INTO upd;
     IF(match.inapplicable != task.inapplicable)
       INSERT CELL inapplicable := task.inapplicable INTO upd;
+    IF(match.parameters != task.parameters)
+      INSERT CELL parameters := task.parameters INTO upd;
 
     IF(task.runat != "")
     {
