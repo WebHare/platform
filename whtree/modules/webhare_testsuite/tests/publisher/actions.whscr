@@ -516,12 +516,13 @@ MACRO SiteProfActionsTest()
   // Wait some time for the effects to pick up
   Sleep(1000);
 
-  betatask := SELECT lastrun, currentstart, nexttime FROM system_internal.tasks WHERE tag="webhare_testsuite.singleshottest";
+  betatask := SELECT error, lastrun, currentstart, nexttime FROM system_internal.tasks WHERE tag="webhare_testsuite.singleshottest";
   IF(betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME)
   {
     dumpvalue(betatask,'tree');
     dumpvalue(should_run_after,'tree');
   }
+  TestEq("", betatask.error);
   TestEq(FALSE, betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME);
 
   RECORD ARRAY applyruletasks := LookupManagedTasks("webhare_testsuite:applyruletask", [ createdafter := testfw->starttime ]);
