@@ -3,6 +3,8 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import Keyboard from 'dompack/extra/keyboard';
 
+import "./codeedit.scss";
+
 // ---------------------------------------------------------------------------
 //
 // Codeedit
