@@ -774,7 +774,7 @@ MACRO ImportXMLDatabaseArchive(BLOB archive, RECORD callbacks)
   IF (RecordExists(importxml_user_callbacks))
     ABORT("Recursive calls to ImportXMLDatabaseArchive are not supported");
 
-  importxml_archive := UnpackArchive(archive,".tar.gz");
+  importxml_archive := UnpackArchive(archive);
   RECORD xmlfile := SELECT * FROM importxml_archive WHERE path="hsxml" AND name="database.xml";
 
   IF (NOT RecordExists(xmlfile))

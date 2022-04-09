@@ -1580,7 +1580,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   /** Create a test website, and optionally unpack the selected archive
       Requires its caller to setup a transaction/work */
-  PUBLIC RECORD FUNCTION SetupTestWebsite(BLOB archive)
+  PUBLIC MACRO SetupTestWebsite(BLOB archive)
   {
     IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSupport() AND NOT GetPrimary()->IsWorkOpen()))
       ABORT("SetupTestWebsite requires a writable transaction (explicit or opened work)");
@@ -1597,8 +1597,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
     newsite->SetPrimaryOutput(this->GetTestOutputServer(), this->useseparateoutputport ? '/' : '/webhare-testsuite.output/');
 
-    RECORD ARRAY unpacked_files := UnpackArchive(archive, ".tar.gz");
-    RETURN ImportWHFSArchive(siteroot, archive, [ overwrite := FALSE ]);
+    IF(Length(archive) > 0)
+    {
+      RECORD ARRAY unpacked_files := UnpackArchive(archive);
+      ImportWHFSArchive(siteroot, archive, [ overwrite := FALSE ]);
+    }
   }
 
   /** Create a test website */
