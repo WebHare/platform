@@ -102,11 +102,6 @@
       </accesscheck>
     </application>
 
-    <application name="config" screen="tolliumapps/config/config.xml#main" group="system:setup" tid="portal.apps.config" icon="tollium:system/system" shortcut="ctrl+shift+c">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
-    </application>
     <application name="webservers" screen="tolliumapps/webservers/webservers.xml#main" group="system:setup" tid="portal.apps.webservers" icon="tollium:objects/rackserver">
       <accesscheck>
         <requireright right="system:webservermgmt" />
@@ -121,6 +116,7 @@
 
     <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
     <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
+    <dashboardpanel group="ap" name="modules" tid="tolliumapps.dashboard.modules.modulespanel" screen="tolliumapps/dashboard/modules.xml" />
     <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
     <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />

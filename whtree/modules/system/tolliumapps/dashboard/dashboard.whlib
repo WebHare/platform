@@ -232,5 +232,41 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     receiver->SendURL(`/?app=system:dashboard(${EncodeURL(^monitorpanels->value)})`);
   }
+
+  MACRO DoEditReg()
+  {
+    this->RunScreen("/screens/sysmgmt/registry.xml#editreg");
+  }
+
+  MACRO DoAdHocCache()
+  {
+    this->RunScreen("/screens/sysmgmt/adhoccache.xml#status");
+  }
+
+  MACRO DoRemoting()
+  {
+    this->RunScreen("/screens/sysmgmt/remoting.xml#main");
+  }
+
+  MACRO DoBackend()
+  {
+    this->RunScreen(Resolve("../config/settings.xml"));
+    //FIXME //this->RefreshPermissions(); //in case DTAP mode changed
+  }
+
+  MACRO DoWebdavData()
+  {
+    this->RunScreen("/screens/sysmgmt/webdav.xml#webdav_data");
+  }
+
+
+  MACRO DoScheduler()
+  {
+    this->RunScreen("/screens/scheduler.xml#");
+  }
+  MACRO DoMailRoutes()
+  {
+    this->RunScreen(Resolve("../config/mailrouting.xml#mailroutes"));
+  }
 >;
 

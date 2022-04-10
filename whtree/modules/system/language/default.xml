@@ -1341,43 +1341,6 @@
         <text tid="usealternativesmtpserver-dontsend">Black hole (block all email)</text>
         <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
       </textgroup>
-      <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="configuremodule">Configure</text>
-        <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
-        <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
-        <text tid="dontshowdeleted">Only show current modules</text>
-        <text tid="lastmodified">Last updated</text>
-        <text tid="name">Name</text>
-        <text tid="openwebsite">Open website</text>
-        <text tid="revision">Source revision</text>
-        <text tid="showdeleted">Show current and deleted modules</text>
-        <text tid="uncommittedchanges">(+ changes)</text>
-        <text tid="version">Version</text>
-        <text tid="versions">Versions</text>
-      </textgroup>
-      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="date">Date</text>
-        <text tid="hotfixes">Local changes</text>
-        <text tid="modifiedfiles">Modified files</text>
-        <text tid="moduleinfo">Module info</text>
-        <text tid="path">Path</text>
-        <text tid="server">Server</text>
-        <text tid="source">Source</text>
-        <text tid="sourcerepositoryurl">Repository URL</text>
-        <text tid="sourcerepositoryuuid">Repository UUID</text>
-        <text tid="sourcerevision">Source revision</text>
-        <text tid="status">Status</text>
-        <text tid="userfullname">User</text>
-      </textgroup>
-      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
-        <text tid="archived">Archived</text>
-        <text tid="hotfixes">Show hotfixes</text>
-        <text tid="modified">(modified)</text>
-        <text tid="obsoletiondate">Obsoleted</text>
-        <text tid="revision">Source revision</text>
-        <text tid="uploaddate">Installed</text>
-        <text tid="version">Version</text>
-      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Keep access log</text>
         <text tid="accountname">Account name</text>
@@ -1495,6 +1458,7 @@
         <text tid="clearcaches">Clear caches</text>
         <text tid="confirmsoftreset">Are you sure you want to perform a soft reset?</text>
         <text tid="lastupdate">Last update</text>
+        <text tid="mailroutes">Email routing</text>
         <text tid="main">Dashboard</text>
         <text tid="openinseparatetab">Open panel in separate tab</text>
         <text tid="refreshbutton">Refresh now</text>
@@ -1522,6 +1486,7 @@
           <text tid="filter">Filter</text>
           <text tid="flush">Retry all mail</text>
           <text tid="forward">Forward</text>
+          <text tid="mailroutes">Email routing</text>
           <text tid="nextattempt">Next attempt</text>
           <text tid="receiver">Receiver</text>
           <text tid="requeue">Resend mail</text>
@@ -1539,6 +1504,44 @@
           <text tid="route">Route</text>
           <text tid="sender">Sender</text>
           <text tid="serverip">SMTP server ip</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="modules">   <!-- tolliumapps.dashboard.modules -->
+        <text tid="configuremodule">Configure</text>
+        <text tid="deletemodule">Are you sure you want to delete module '<param p="1"/>'?</text>
+        <text tid="deletemodulefailed">The deletion of module '<param p="1"/>' has failed.</text>
+        <text tid="dontshowdeleted">Only show current modules</text>
+        <text tid="lastmodified">Last updated</text>
+        <text tid="modulespanel">Modules</text>
+        <text tid="name">Name</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="revision">Source revision</text>
+        <text tid="showdeleted">Show current and deleted modules</text>
+        <text tid="uncommittedchanges">(+ changes)</text>
+        <text tid="version">Version</text>
+        <text tid="versions">Versions</text>
+        <textgroup gid="moduleinfo">   <!-- tolliumapps.dashboard.modules.moduleinfo -->
+          <text tid="date">Date</text>
+          <text tid="hotfixes">Local changes</text>
+          <text tid="modifiedfiles">Modified files</text>
+          <text tid="moduleinfo">Module info</text>
+          <text tid="path">Path</text>
+          <text tid="server">Server</text>
+          <text tid="source">Source</text>
+          <text tid="sourcerepositoryurl">Repository URL</text>
+          <text tid="sourcerepositoryuuid">Repository UUID</text>
+          <text tid="sourcerevision">Source revision</text>
+          <text tid="status">Status</text>
+          <text tid="userfullname">User</text>
+        </textgroup>
+        <textgroup gid="moduleversions">   <!-- tolliumapps.dashboard.modules.moduleversions -->
+          <text tid="archived">Archived</text>
+          <text tid="hotfixes">Show hotfixes</text>
+          <text tid="modified">(modified)</text>
+          <text tid="obsoletiondate">Obsoleted</text>
+          <text tid="revision">Source revision</text>
+          <text tid="uploaddate">Installed</text>
+          <text tid="version">Version</text>
         </textgroup>
       </textgroup>
       <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->

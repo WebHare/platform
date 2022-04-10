@@ -19,6 +19,7 @@
       <action name="result" onexecute="doresult">
         <enableon source="mailqueue" min="1" max="1" checkflags="hasresult" />
       </action>
+      <action name="mailroutes" onexecute="domailroutes" tid="tolliumapps.dashboard.dashboard.mailroutes" />
     </actions>
 
     <menus>
@@ -77,6 +78,8 @@
             <button width="1pr" action="viewmessage" />
             <button width="1pr" action="result" />
             <button name="deletebutton" width="1pr" action="delete" tid="~delete" />
+            <spacer height="1gr" />
+            <button name="mailroutesbutton" width="1pr" action="mailroutes" tid="tolliumapps.dashboard.dashboard.mailroutes" />
           </cell>
         </row>
       </grid>

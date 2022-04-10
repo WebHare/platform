@@ -1159,43 +1159,6 @@
         <text tid="usealternativesmtpserver-dontsend">Zwart gat (blokkeert de uitgaande mail)</text>
         <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
       </textgroup>
-      <textgroup gid="main">   <!-- tolliumapps.config.main -->
-        <text tid="configuremodule">Configureren</text>
-        <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
-        <text tid="dontshowdeleted">Toon alleen huidige modules</text>
-        <text tid="lastmodified">Laatste update</text>
-        <text tid="name">Naam</text>
-        <text tid="openwebsite">Open website</text>
-        <text tid="revision">Bronrevisie</text>
-        <text tid="showdeleted">Toon huidige en verwijderde modules</text>
-        <text tid="uncommittedchanges">(+ wijzigingen)</text>
-        <text tid="version">Versie</text>
-        <text tid="versions">Versies</text>
-      </textgroup>
-      <textgroup gid="moduleinfo">   <!-- tolliumapps.config.moduleinfo -->
-        <text tid="date">Datum</text>
-        <text tid="hotfixes">Lokale wijzigingen</text>
-        <text tid="modifiedfiles">Gewijzigde bestanden</text>
-        <text tid="moduleinfo">Module informatie</text>
-        <text tid="path">Pad</text>
-        <text tid="server">Server</text>
-        <text tid="source">Bron</text>
-        <text tid="sourcerepositoryurl">Repository URL</text>
-        <text tid="sourcerepositoryuuid">Repository UUID</text>
-        <text tid="sourcerevision">Bronrevisie</text>
-        <text tid="status">Status</text>
-        <text tid="userfullname">Gebruiker</text>
-      </textgroup>
-      <textgroup gid="moduleversions">   <!-- tolliumapps.config.moduleversions -->
-        <text tid="archived">Gearchiveerd</text>
-        <text tid="hotfixes">Toon hotfixes</text>
-        <text tid="modified">(gewijzigd)</text>
-        <text tid="obsoletiondate">Overbodig vanaf</text>
-        <text tid="revision">Bronrevisie</text>
-        <text tid="uploaddate">Geïnstalleerd</text>
-        <text tid="version">Versie</text>
-      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Bewaar toegangslog</text>
         <text tid="accountname">Accountname</text>
@@ -1313,6 +1276,7 @@
         <text tid="clearcaches">Leeg caches</text>
         <text tid="confirmsoftreset">Weet je zeker dat je een soft reset wilt uitvoeren?</text>
         <text tid="lastupdate">Laatst bijgewerkt</text>
+        <text tid="mailroutes">E-mailinstellingen</text>
         <text tid="main">Dashboard</text>
         <text tid="openinseparatetab">Open paneel in aparte tab</text>
         <text tid="refreshbutton">Nu verversen</text>
@@ -1340,6 +1304,7 @@
           <text tid="filter">Filter</text>
           <text tid="flush">Alles opnieuw proberen</text>
           <text tid="forward">Doorsturen</text>
+          <text tid="mailroutes">E-mailinstellingen</text>
           <text tid="nextattempt">Volgende poging</text>
           <text tid="receiver">Ontvanger</text>
           <text tid="requeue">Mail opnieuw versturen</text>
@@ -1357,6 +1322,44 @@
           <text tid="route">Route</text>
           <text tid="sender">Verstuurder</text>
           <text tid="serverip">SMTP server ip</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="modules">   <!-- tolliumapps.dashboard.modules -->
+        <text tid="configuremodule">Configureren</text>
+        <text tid="deletemodule">Weet je zeker dat je module '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletemodulefailed">Het verwijderen van module '<param p="1"/>' is mislukt.</text>
+        <text tid="dontshowdeleted">Toon alleen huidige modules</text>
+        <text tid="lastmodified">Laatste update</text>
+        <text tid="modulespanel">Modules</text>
+        <text tid="name">Naam</text>
+        <text tid="openwebsite">Open website</text>
+        <text tid="revision">Bronrevisie</text>
+        <text tid="showdeleted">Toon huidige en verwijderde modules</text>
+        <text tid="uncommittedchanges">(+ wijzigingen)</text>
+        <text tid="version">Versie</text>
+        <text tid="versions">Versies</text>
+        <textgroup gid="moduleinfo">   <!-- tolliumapps.dashboard.modules.moduleinfo -->
+          <text tid="date">Datum</text>
+          <text tid="hotfixes">Lokale wijzigingen</text>
+          <text tid="modifiedfiles">Gewijzigde bestanden</text>
+          <text tid="moduleinfo">Module informatie</text>
+          <text tid="path">Pad</text>
+          <text tid="server">Server</text>
+          <text tid="source">Bron</text>
+          <text tid="sourcerepositoryurl">Repository URL</text>
+          <text tid="sourcerepositoryuuid">Repository UUID</text>
+          <text tid="sourcerevision">Bronrevisie</text>
+          <text tid="status">Status</text>
+          <text tid="userfullname">Gebruiker</text>
+        </textgroup>
+        <textgroup gid="moduleversions">   <!-- tolliumapps.dashboard.modules.moduleversions -->
+          <text tid="archived">Gearchiveerd</text>
+          <text tid="hotfixes">Toon hotfixes</text>
+          <text tid="modified">(gewijzigd)</text>
+          <text tid="obsoletiondate">Overbodig vanaf</text>
+          <text tid="revision">Bronrevisie</text>
+          <text tid="uploaddate">Geïnstalleerd</text>
+          <text tid="version">Versie</text>
         </textgroup>
       </textgroup>
       <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->
