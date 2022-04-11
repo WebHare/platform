@@ -53,6 +53,28 @@ MACRO AddUser(STRING ARRAY params)
   GetPrimary()->CommitWork();
 }
 
+MACRO GetUser(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "username", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh users getuser <username>\n");
+    TerminateScriptWithError("");
+  }
+
+  OBJECT userapi := GetPrimaryWebhareUserApi();
+  RECORD user := userapi->LookupUserByLogin(subargs.username);
+  IF(NOT RecordExists(user))
+    TerminateScriptWithError(`No user with login '${subargs.username}' exists`);
+
+  Print(`authobjecti: ${user.authobjectid}\n`);
+  Print(`wrd_id: ${user.entityid}\n`);
+  Print(`wrd_guid: ${user.guid}\n`);
+}
+
 MACRO Main()
 {
   RECORD ARRAY options := [ [ name := "command", type := "param", required := TRUE ]
@@ -67,6 +89,10 @@ MACRO Main()
     CASE "adduser"
     {
       AddUser(cmdargs.params);
+    }
+    CASE "getuser"
+    {
+      GetUser(cmdargs.params);
     }
     DEFAULT
     {

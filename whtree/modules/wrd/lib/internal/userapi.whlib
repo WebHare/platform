@@ -235,7 +235,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   /** Looks up a user based on the login name
       @param loginname Login name
       @return Lookup result, DEFAULT RECORD if not found
-      @cell return.wrd_id entityid id of the user
+      @cell(integer) return.authobjectid WRD entity id of the user
+      @cell(integer) return.entityid WRD entity id of the user
       @cell return.guid GUID of the user
       @cell return.password Hashed password of the user
       @cell return.authenticationsettings Authentication settings of the user
