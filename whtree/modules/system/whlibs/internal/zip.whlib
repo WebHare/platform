@@ -1081,18 +1081,18 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
       }
       DEFAULT
       {
-        THROW NEW Exception(`Unzipported ZIP compression method ${localheader.compmethod}`);
+        THROW NEW Exception(`Unzipported ZIP compression method ${localheader.compmethod} for file ${EncodeJSON(fullpath)}`);
       }
     }
 
     IF (LENGTH64(retval) != localheader.uncompsize)
-      THROW NEW Exception(`Error decompressing data`);
+      THROW NEW Exception(`Error decompressing data for file ${EncodeJSON(fullpath)}`);
 
     IF (options.checkcrc AND localheader.uncompsize != 0)
     {
       STRING crc32 := GetHashForBlob(retval, "CRC32");
       IF (localheader.crc32 != crc32)
-        THROW NEW Exception(`CRC32 mismatch when decompressing file from ZIP archive`);
+        THROW NEW Exception(`CRC32 mismatch when decompressing file from ZIP archive for file ${EncodeJSON(fullpath)}`);
     }
 
     RETURN retval;

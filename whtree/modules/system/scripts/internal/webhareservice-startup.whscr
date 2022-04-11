@@ -76,7 +76,7 @@ IF(RecordExists(shrinkwrapfile))
   {
     IF(showinfo)
       Print("Extracting the shrinkwrap file (last modified " || FormatISO8601Datetime(shrinkwrapfile.modified) || ")\n");
-    FOREVERY(RECORD entry FROM UnpackArchive(shrinkwrapfile.data, ""))
+    FOREVERY(RECORD entry FROM UnpackArchive(shrinkwrapfile.data))
     {
       STRING dir := basepath || entry.path;
 

@@ -385,7 +385,7 @@ MACRO ArchiveTest()
 
     BLOB archive := MakeBlobFromArchive(newarchive);
 
-    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    RECORD ARRAY results := UnpackArchive(archive);
     results := SELECT * FROM results ORDER BY path, name;
 
     TestEq( [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
@@ -411,7 +411,7 @@ MACRO ArchiveTest()
     BLOB archive := newarchive->MakeBlob();
     newarchive->Close();
 
-    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    RECORD ARRAY results := UnpackArchive(archive);
     results := SELECT * FROM results ORDER BY path, name;
 
     TestEqual(4, [ [ path := "", name := "file1", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ]
@@ -626,7 +626,7 @@ MACRO ArchiveEncodingTest()
 
     BLOB archive := newarchive->MakeBlob();
     newarchive->Close();
-    RECORD ARRAY results := UnpackArchive(archive,".zip");
+    RECORD ARRAY results := UnpackArchive(archive);
     TestEqual(3, [ [ path := "", name := "t\u20ACst", modtime := MakeDate(2002,1,1), data := StringToBlob("File nummer 1") ] ]
               ,results);
   }

@@ -228,7 +228,7 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
                    , orgmanifestdata := DEFAULT RECORD
                    ];
 
-  RECORD ARRAY importdata := UnpackArchive(modulefile, "");
+  RECORD ARRAY importdata := UnpackArchive(modulefile);
   RECORD mdef := SELECT * FROM importdata WHERE name LIKE "moduledefinition.xml" ORDER BY Length(path);
   STRING importmodulename := RecordExists(mdef) ? mdef.path : "";
   retval.importmodulename  := importmodulename;

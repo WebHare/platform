@@ -882,27 +882,23 @@ PUBLIC BLOB FUNCTION MakeBlobFromArchive(INTEGER archiveid) __ATTRIBUTES__(DEPRE
 
 
 /** @short Unpacks an archive
-    @long Unpacks an archive of the formats @italic .tar.gz or @italic .zip. Make sure that the archive is of the BLOB type.
-          Disk files can be transformed to BLOBs with the function MakeBlobFromDiskFile.
-
-          If you want to add a file or folder to an archive after you have finished the archive with MakeBlobFromArchive, you need
-          to unpack the existing archive and create a new archive with the new files and folders.
+    @long Unpacks an archive of the formats @italic .tar.gz or @italic .zip.
     @param data Blob with the archive
-    @param extension Optional, obsolete.
     @return Record array describing all files in the archive. Contains:
     @cell return.path Path to the file (not including last slash) : string
     @cell return.name Filename : string
     @cell return.modtime Time of last modification: datetime (timezones can't be determined for ZIP files)
     @cell return.data Contents of this file : blob
-    @see  MakeBlobFromDiskFile CreateArchive
+    @see  CreateNewArchive OpenExistingArchive
 */
-PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data, STRING extension DEFAULTSTO "" )
+PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data)
 {
   RECORD ARRAY results;
+  OBJECT arch;
 
   TRY
   {
-    OBJECT arch := NEW Archive(data, "", -1);
+    arch := NEW Archive(data, "", -1);
     FOREVERY (RECORD rec FROM arch->entries)
     {
       INSERT
@@ -912,13 +908,13 @@ PUBLIC RECORD ARRAY FUNCTION UnpackArchive(BLOB data, STRING extension DEFAULTST
            , data :=    rec.type = 0 ? arch->GetFile(rec.fullpath) : DEFAULT BLOB
            ] INTO results AT END;
     }
-    arch->Close();
+    RETURN results;
   }
-  CATCH (OBJECT e)
+  FINALLY
   {
-    RETURN DEFAULT RECORD ARRAY;
+    IF(ObjectExists(arch))
+      arch->Close();
   }
-  RETURN results;
 }
 
 /** Create an archive object
