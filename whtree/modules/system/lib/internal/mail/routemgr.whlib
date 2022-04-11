@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 RECORD FUNCTION GetCacheableMailRoutes()
 {
   OBJECT configschema := OpenWRDSchema("system:config");
-  STRING filter := ReadRegistryKey("system.services.smtp.mailrulefilter") ?? "*";
                     // See system config wrdschema for the various data structures
   RETURN [ value := [ mailroutes := configschema->^mailroute->RunQuery([ outputcolumns := [ "*" ]])
                     , mailsenders := configschema->^mailsender->RunQuery([ outputcolumns := [ "*" ]])

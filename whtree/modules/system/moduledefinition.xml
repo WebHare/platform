@@ -2059,28 +2059,25 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="smtp"> <!-- system.services.smtp -->
           <string name="mailfrom" description="Default FROM address" />
           <boolean name="usemailfromfornonwhitelisted" description="Use default FROM for non-whitelisted senders" />
-          <string name="mailrulefilter" description="Set a tag-based filter for mailrules to use (mocked during tests)" />
+          <string name="defaultmailroute" description="SMTP URL for the defailt mail route "/>
+          <integer name="mailretention" description="How long to keep sent mails (in days), needed to associate bounces" initialval="7" />
+          <integer name="maxsize" description="Maximum message size in bytes" initialval="10000000" />
+
+          <obsoletekey name="mailrulefilter" />
           <obsoletekey name="resendinterval" />
           <obsoletekey name="connecttimeout" />
           <obsoletekey name="transactiontimeout" />
           <obsoletekey name="smtptimeout" />
-
-          <string name="defaultmailroute" description="SMTP URL for the defailt mail route "/>
-
-          <!-- ADDME: Merge these into SMTP tables -->
-          <string name="hostname" description="SMTP server hostname" />
-          <integer name="port" description="SMTP server port" initialval="25" />
+          <obsoletekey name="hostname" />
+          <obsoletekey name="port" />
           <obsoletekey name="lastconnected" />
           <obsoletekey name="errormessage" />
           <obsoletekey name="lasterror" />
-          <boolean name="outgoingredirect" description="Redirect all outgoing mail?" />
-          <string name="outgoingmailaddress" description="Redirect all outgoing mail to the specified email adress" />
-          <boolean name="outgoingaddressrewrite" description="Include the original outgoing mail address in the '+' part" />
-          <string name="authusername" description="SMTP authorization username" />
-          <string name="authpassword" description="SMTP authorization password" />
-          <integer name="mailretention" description="How long to keep sent mails (in days), needed to associate bounces" initialval="7" />
-          <integer name="maxsize" description="Maximum message size in bytes" initialval="10000000" />
-          <!-- ... -->
+          <obsoletekey name="outgoingredirect" />
+          <obsoletekey name="outgoingmailaddress" />
+          <obsoletekey name="outgoingaddressrewrite" />
+          <obsoletekey name="authusername" />
+          <obsoletekey name="authpassword" />
         </node>
         <node name="adhoccache">
           <integer name="maxentries" description="Maximum number of entries in the adhoc cache" initialval="1024" />

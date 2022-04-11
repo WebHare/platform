@@ -1596,8 +1596,6 @@ PUBLIC MACRO RunStaticProtectedResetSession()
 
 PUBLIC MACRO SetupTestWhitelists()
 {
-  testfw->MockRegistryKey("system.services.smtp.mailrulefilter", "webhare_testsuite:*");
-
   testfw->BeginWork();
   OBJECT systemconfigschema := OpenWRDSchema("system:config");
   systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION1", mask := "*@sender.beta.webhare.net" ]);
