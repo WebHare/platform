@@ -24,6 +24,7 @@ RECORD FUNCTION GetCacheableMailRoutes()
                          CONCAT configschema->^mailsender->GetEventMasks()
                          CONCAT configschema->^mailrecipient->GetEventMasks()
                          CONCAT configschema->^mailcorrection->GetEventMasks()
+                         CONCAT GetRegistryKeyEventMasks([ "system.services.smtp.defaultmailroute", "system.services.smtp.usemailfromfornonwhitelisted" ])
          ];
 }
 
@@ -48,7 +49,7 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   RECORD routedata := GetMailroutes();
   RECORD ARRAY mailroutes;
 
-  //some tests inject routes with ordering < -999 which need to be above everthing
+  //some tests inject routes with ordering < -999 which need to be above everything
   mailroutes := SELECT *
                      , DELETE wrd_id
                      , DELETE wrd_ordering
