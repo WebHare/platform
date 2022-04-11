@@ -1599,62 +1599,42 @@ PUBLIC MACRO SetupTestWhitelists()
   testfw->MockRegistryKey("system.services.smtp.mailrulefilter", "webhare_testsuite:*");
 
   testfw->BeginWork();
-  INSERT [ tag         := "webhare_testsuite:validation-1"
-         , mask        := "*@sender.beta.webhare.net"
-         , ruletype   := 1
-         ] INTO system.mailqueue_route;
-  INSERT [ tag         := "webhare_testsuite:validation-2"
-         , mask        := "*whitelist*@*.beta.webhare.net"
-         , ruletype   := 1
-         ] INTO system.mailqueue_route;
-  INSERT [ tag         := "webhare_testsuite:validation-3"
-         , mask        := "*@receiver.beta.webhare.net"
-         , ruletype    := 2
-         ] INTO system.mailqueue_route;
-  INSERT [ tag         := "webhare_testsuite:validation-4"
-         , mask        := "*whitelist*@*.beta.webhare.net"
-         , ruletype    := 2
-         ] INTO system.mailqueue_route;
+  OBJECT systemconfigschema := OpenWRDSchema("system:config");
+  systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION1", mask := "*@sender.beta.webhare.net" ]);
+  systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION2", mask := "*whitelist*@*.beta.webhare.net" ]);
+  systemconfigschema->^mailrecipient->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION3", mask := "*@receiver.beta.webhare.net" ]);
+  systemconfigschema->^mailrecipient->CreateEntity(CELL[ wrd_tag := "TESTFW_VALIDATION4", mask := "*whitelist*@*.beta.webhare.net" ]);
 
-  INSERT [ tag         := "webhare_testsuite:correction-1"
-         , outgoingmailaddress := "*@exact.beta.webhare.net"
-         , mask        := "*@exatc.beta.webhare.net *@bijna.beta.webhare.net"
-         , suggestionfuzz := 2
-         , ruletype    := 3
-         , ordering    := 0
-         ] INTO system.mailqueue_route;
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_CORRECTION1"
+                                                        , rewriteto := "*@exact.beta.webhare.net"
+                                                        , masks := [[ mask := "*@exatc.beta.webhare.net" ], [ mask := "*@bijna.beta.webhare.net" ]]
+                                                        , suggestionfuzz := 2
+                                                        ]);
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_CORRECTION2"
+                                                        , rewriteto := "*@fuzzy.beta.webhare.net"
+                                                        , suggestionfuzz := 2
+                                                        ]);
 
-  INSERT [ tag         := "webhare_testsuite:correction-2"
-         , outgoingmailaddress := "*@fuzzy.beta.webhare.net"
-         , suggestionfuzz := 2
-         , ruletype    := 3
-         , ordering    := 0
-         ] INTO system.mailqueue_route;
+  //Note - reverse order on purpose! ensure that we reorder our matching by wrd_ordering
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_CORRECTION3"
+                                                        , rewriteto := "*@foxmail.beta.webhare.net"
+                                                        , suggestionfuzz := 2
+                                                        , wrd_ordering := 2
+                                                        ]);
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_CORRECTION4"
+                                                        , rewriteto := "*@hotmail.beta.webhare.net"
+                                                        , suggestionfuzz := 1
+                                                        , wrd_ordering := 1
+                                                        ]);
 
-  //Note - reverse order on purpose! ensure that we reorder our matching by ordering
-  INSERT [ tag         := "webhare_testsuite:correction-3"
-         , outgoingmailaddress := "*@foxmail.beta.webhare.net"
-         , suggestionfuzz := 2
-         , ruletype    := 3
-         , ordering    := 2
-         ] INTO system.mailqueue_route;
-
-  INSERT [ tag         := "webhare_testsuite:correction-4"
-         , outgoingmailaddress := "*@hotmail.beta.webhare.net"
-         , suggestionfuzz := 1
-         , ruletype    := 3
-         , ordering    := 1
-         ] INTO system.mailqueue_route;
-
-  INSERT [ tag         := "webhare_testsuite:block-1"
-         , mask        := "*@blocked.beta.webhare.net"
-         , ruletype    := 4
-         ] INTO system.mailqueue_route;
-
-  INSERT [ tag         := "webhare_testsuite:block-2"
-         , mask        := "pietje@beta.webhare.net"
-         , ruletype    := 4
-         ] INTO system.mailqueue_route;
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BLOCK1"
+                                                        , masks := [[ mask := "*@blocked.beta.webhare.net" ]]
+                                                        , block := TRUE
+                                                        ]);
+  systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BLOCK2"
+                                                        , masks := [[ mask := "pietje@beta.webhare.net" ]]
+                                                        , block := TRUE
+                                                        ]);
 
   testfw->CommitWork();
 

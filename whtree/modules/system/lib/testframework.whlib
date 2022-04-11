@@ -1045,20 +1045,31 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     }
 
     // Remove mailroutes
-    DELETE FROM system.mailqueue_route WHERE tag LIKE "webhare_testsuite:*"
-                                             OR outgoingmailaddress LIKE "*.beta.webhare.net" //ui-generated rules
-                                             OR mask LIKE "*.beta.webhare.net";
+    OBJECT systemconfigschema := OpenWRDSchema("system:config");
+    this->CleanupWRDSchema(systemconfigschema, [[ type := "MAILROUTE", tagmasks := [ "TESTFW_*" ] ]
+                                               ,[ type := "MAILSENDER", tagmasks := [ "TESTFW_*" ] ]
+                                               ,[ type := "MAILRECIPIENT", tagmasks := [ "TESTFW_*" ] ]
+                                               ,[ type := "MAILCORRECTION", tagmasks := [ "TESTFW_*" ] ]
+                                               ]);
 
     IF(this->mailwhitelists)
     {
       //whitelist sender
-      INSERT [ tag := "webhare_testsuite:whitelist-beta-senders", ordering := -50, mask := "*@*beta.webhare.net", ruletype := 1 ] INTO system.mailqueue_route;
+      systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAWEBHARENT", mask := "*@*beta.webhare.net" ]);
       //whitelist receiver
-      INSERT [ tag := "webhare_testsuite:whitelist-beta-receivers", ordering := -50, mask := "*@*beta.webhare.net", ruletype := 2 ] INTO system.mailqueue_route;
+      systemconfigschema->^mailrecipient->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAWEBHARENT", mask := "*@*beta.webhare.net" ]);
+      //rewrite a domain we don't like
+      systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAFIXDOMAIN"
+                                                            , masks := [[ mask := "*@fixdomai.webhare.net" ]]
+                                                            , wrd_ordering := -50
+                                                            , rewriteto := "*@fixdomain.beta.webhare.net"
+                                                            ]);
       //block a domain we don't like
-      INSERT [ tag := "webhare_testsuite:whitelist-beta-fixdomain", ordering := -50, mask := "*@fixdomai.beta.webhare.net", ruletype := 3, outgoingmailaddress := "*@fixdomain.beta.webhare.net" ] INTO system.mailqueue_route;
-      //block a domain we don't like
-      INSERT [ tag := "webhare_testsuite:whitelist-beta-block", ordering := -50, mask := "*@block.beta.webhare.net", ruletype := 4 ] INTO system.mailqueue_route;
+      systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BETABLOCK"
+                                                            , masks := [[ mask := "*@block.webhare.net" ]]
+                                                            , wrd_ordering := -50
+                                                            , block := TRUE
+                                                            ]);
     }
 
     GetPrimary()->CommitWork();

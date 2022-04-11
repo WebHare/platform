@@ -23,6 +23,7 @@
 
     <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
 
+    <runonce tag="migratemailrules" script="scripts/runonce/migratemailrules.whscr" when="poststart" />
 
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
@@ -521,71 +522,6 @@ True if this is an allow rule
 
         </d:documentation>
       </d:varchar>
-    </d:table>
-
-    <d:table name="mailqueue_route" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
-          Primary key
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="tag" maxlength="256">
-        <d:documentation>
-          Tag, for scripts to find and manage specific routes
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="sendermask" maxlength="4096">
-        <d:documentation>
-          Space separated list of sender masks to which the rule applies (only relevant for type=0)
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="originmask" maxlength="256">
-        <d:documentation>
-          Wildcard mask to match against the mail origin (former X-WebHare-Origin header)
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="mask" maxlength="4096">
-        <d:documentation>
-          Space separated list of receivers masks to which the rule applies
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="serverurl" maxlength="512">
-        <d:documentation>
-          smtp:// url for outgoing server. If empty, use the services.smtp.defaultmailroute
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="ordering">
-        <d:documentation>
-          Priority for this rule, lower numbered rules execute first
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="outgoingmailaddress" maxlength="128">
-        <d:documentation>
-          Override the outgoing mail address ('to' address)
-          (redirect mails which match this rule to the specified address)
-        </d:documentation>
-      </d:varchar>
-      <d:boolean name="outgoingaddressrewrite">
-        <d:documentation>
-          Include the original receiver ('to:') mail address in the '+' part
-        </d:documentation>
-      </d:boolean>
-      <d:varchar name="description" maxlength="4096">
-        <d:documentation>
-          Notes on the route.
-          Use this to state why this rule is used, for what project.
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="ruletype">
-        <d:documentation>
-          0=mailroute, 1=sender whitelist, 2=receiver whitelist, 3=destination suggestion, 4=destination block
-        </d:documentation>
-      </d:integer>
-      <d:integer name="suggestionfuzz">
-        <d:documentation>
-          Fuzz factor for destination suggestions
-        </d:documentation>
-      </d:integer>
     </d:table>
 
     <d:table name="mimetypes" primarykey="id">

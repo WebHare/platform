@@ -1,4 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
          gid="tolliumapps.config.mailrouting"
          library="mailrouting.whlib">
 
@@ -49,58 +50,57 @@
           <textedit name="snsendpoint" width="1pr" enabled="false" />
           <hr />
           <heading tid=".mailroutes" />
-          <listedit name="routes"
-                    height="1pr"
-                    emptytid=".routesempty"
-                    eventmasks="system:internal/mailroutechange"
-                    onchangeorder="onchangeorder"
-                    ongetrows="ongetroutes"
-                    onrowdelete="ondeletemailroute"
-                    onrowedit="oneditmailroute">
-            <column name="description" type="text" width="2pr" tid="~description" />
-            <column name="sendermaskcomma" type="text" width="2pr" hintname="sendermaskhint" tid=".sendermask" />  <!-- sender (from) masks -->
-            <column name="maskcomma" type="text" width="2pr" hintname="maskhint" tid=".mask" />  <!-- receivers (to) masks -->
-            <column name="outgoingmailaddress" type="text" width="2pr" />  <!-- redirect all mails to: -->
-            <column name="altserver" type="text" width="2pr" />
-          </listedit>
+          <wrd:entitiesedit name="routes"
+                            height="1pr"
+                            deletemode="close"
+                            emptytid=".routesempty"
+                            entityeditscreen="#editmailroute"
+                            onmaprows="onmaproutes"
+                            orderable="true"
+                            wrdtype="mailroute">
+            <column name="wrd_title" type="text" width="2pr" tid="~description" />
+            <column name="sendermasks" type="text" width="2pr" tid=".sendermask" />
+            <column name="recipientmasks" type="text" width="2pr" tid=".mask" />
+            <column name="rewritemailaddress" type="text" width="2pr" tid=".outgoingmailaddress" />
+            <column name="serverurl" type="text" width="2pr" tid=".altserver" />
+          </wrd:entitiesedit>
         </tab>
         <tab name="senderstab">
-          <listedit name="senders"
-                    height="1pr"
-                    emptytid=".sendersempty"
-                    eventmasks="system:internal/mailroutechange"
-                    ongetrows="ongetsenders"
-                    onrowdelete="ondeletesender"
-                    onrowedit="oneditsender">
+          <wrd:entitiesedit name="senders"
+                            height="1pr"
+                            deletemode="close"
+                            emptytid=".sendersempty"
+                            entityeditscreen="#editmask"
+                            wrdtype="mailsender">
             <column name="mask" type="text" width="1pr" tid=".mask" />
-            <column name="description" type="text" width="2pr" tid="~description" />
-          </listedit>
+            <column name="wrd_title" type="text" width="2pr" tid="~description" />
+          </wrd:entitiesedit>
         </tab>
         <tab name="receiverstab">
-          <listedit name="receivers"
-                    height="1pr"
-                    emptytid=".receiversempty"
-                    eventmasks="system:internal/mailroutechange"
-                    ongetrows="ongetreceivers"
-                    onrowdelete="ondeletereceiver"
-                    onrowedit="oneditreceiver">
+          <wrd:entitiesedit name="receivers"
+                            height="1pr"
+                            deletemode="close"
+                            emptytid=".receiversempty"
+                            entityeditscreen="#editmask"
+                            wrdtype="mailrecipient">
             <column name="mask" type="text" width="1pr" tid=".mask" />
-            <column name="description" type="text" width="2pr" tid="~description" />
-          </listedit>
+            <column name="wrd_title" type="text" width="2pr" tid="~description" />
+          </wrd:entitiesedit>
         </tab>
         <tab name="emailcorrectionstab">
-          <listedit name="emailcorrections"
-                    height="1pr"
-                    emptytid=".correctionsempty"
-                    eventmasks="system:internal/mailroutechange"
-                    onchangeorder="onchangeorder"
-                    ongetrows="ongetcorrections"
-                    onrowdelete="ondeletecorrection"
-                    onrowedit="oneditcorrection">
-            <column name="description" type="text" width="2pr" tid="~description" />
-            <column name="maskcomma" type="text" width="2pr" hintname="maskhint" tid=".mask" />  <!-- receivers (to) masks -->
+          <wrd:entitiesedit name="emailcorrections"
+                            height="1pr"
+                            deletemode="close"
+                            emptytid=".correctionsempty"
+                            entityeditscreen="#editcorrection"
+                            onmaprows="onmapcorrections"
+                            orderable="true"
+                            requestcolumns="masks wrd_title block rewriteto"
+                            wrdtype="mailcorrection">
+            <column name="wrd_title" type="text" width="2pr" tid="~description" />
+            <column name="masks" type="text" width="2pr" tid=".mask" />  <!-- receivers (to) masks -->
             <column name="target" type="text" width="2pr" />  <!-- redirect all mails to: -->
-          </listedit>
+          </wrd:entitiesedit>
         </tab>
       </tabs>
     </body>
@@ -112,35 +112,41 @@
     </actions>
 
     <compositions>
+      <wrd:entity name="entity" wrdtype="MAILROUTE" />
       <radiogroup name="usealternativesmtpserver" onchange="gotsmtpserverchange" />
+      <virtualcell composition="entity" cellname="serverurl" onget="getserverurl" onset="setserverurl" />
+      <virtualcell composition="entity"
+                   cellname="rewritemailaddress"
+                   onget="getrewritemailaddress"
+                   onset="setrewritemailaddress" />
     </compositions>
 
     <body>
-      <textedit name="description" width="1pr" required="true" tid="~description" />
-      <textedit name="tag" width="1pr" tid="~tag" />
-      <textedit name="originmask" width="1pr" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" required="true" tid="~description" />
+      <textedit composition="entity" cellname="wrd_tag" width="1pr" tid="~tag" />
+      <textedit composition="entity" cellname="originmask" width="1pr" />
       <heading tid=".masks_from" />
-      <arrayedit name="masks_from"
+      <arrayedit composition="entity"
+                 cellname="sendermasks"
                  height="1pr"
                  minwidth="50x"
                  minheight="3x"
                  columnheaders="false"
                  errorlabeltid=".masks_from"
                  minrows="1"
-                 onrowedit="doeditmailrouterule_from">
-        <!-- ADDME: oncelledit="oncelledit" -->
+                 roweditscreen="#editmaskrow">
         <column name="mask" type="text" width="1pr" />
       </arrayedit>
       <heading tid=".masks_to" />
-      <arrayedit name="masks_to"
+      <arrayedit composition="entity"
+                 cellname="recipientmasks"
                  height="1pr"
                  minwidth="50x"
                  minheight="3x"
                  columnheaders="false"
                  errorlabeltid=".masks_to"
                  minrows="1"
-                 onrowedit="doeditmailrouterule_to">
-        <!-- ADDME: oncelledit="oncelledit" -->
+                 roweditscreen="#editmaskrow">
         <column name="mask" type="text" width="1pr" />
       </arrayedit>
       <heading tid=".outgoing" />
@@ -164,7 +170,7 @@
       <lines layout="left">
         <select name="outgoingredirect" type="radio" implicitenablecomponents="false" rowkeytype="boolean" title="">
           <option rowkey="false" />
-          <option rowkey="true" enablecomponents="outgoingmailaddress outgoingaddressrewrite">
+          <option rowkey="true" enablecomponents="outgoingmailaddress entity.includeoriginaladdress">
             <textedit name="outgoingmailaddress"
                       width="1pr"
                       errorlabeltid=".outgoingmailaddress"
@@ -173,7 +179,7 @@
                       validationchecks="email-maysendto" />
           </option>
         </select>
-        <checkbox name="outgoingaddressrewrite" labeltid=".outgoingaddressrewrite" title="" />
+        <checkbox composition="entity" cellname="includeoriginaladdress" labeltid=".outgoingaddressrewrite" title="" />
       </lines>
     </body>
   </screen>
@@ -188,37 +194,46 @@
     </body>
   </screen>
 
-  <screen name="editmask" footerbuttons="ok cancel">
+  <screen name="editmask" footerbuttons="ok cancel" implementation="wrd:entityedit">
     <compositions>
-      <record name="row" />
+      <wrd:entity name="entity" />
     </compositions>
 
     <body>
-      <textedit composition="row" cellname="mask" name="mask" width="1pr" required="true" />
-      <textedit composition="row" cellname="description" name="description" width="1pr" tid="~description" />
+      <textedit composition="entity" cellname="mask" width="1pr" required="true" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" tid="~description" />
     </body>
   </screen>
 
   <screen name="editcorrection" footerbuttons="ok cancel">
+    <compositions>
+      <wrd:entity name="entity" wrdtype="MAILCORRECTION" />
+    </compositions>
+
     <body>
       <heading tid=".masks" />
-      <arrayedit name="masks"
+      <arrayedit composition="entity"
+                 cellname="masks"
                  height="1pr"
                  minwidth="50x"
                  minheight="3x"
                  columnheaders="false"
                  errorlabeltid=".masks"
                  roweditscreen="#editmaskrow">
-        <!-- ADDME: oncelledit="oncelledit" -->
         <column name="mask" type="text" width="1pr" />
       </arrayedit>
-      <select name="correctiontype" type="radio">
-        <option rowkey="rewrite" enablecomponents="rewriteto suggestionfuzz" />
-        <option rowkey="block" />
+      <select composition="entity"
+              cellname="block"
+              name="correctiontype"
+              type="radio"
+              rowkeytype="boolean"
+              tid=".correctiontype">
+        <option rowkey="false" enablecomponents="entity.rewriteto entity.suggestionfuzz" tid=".correctiontype-rewrite" />
+        <option rowkey="true" tid=".correctiontype-block" />
       </select>
-      <textedit name="rewriteto" required="true" />
-      <textedit name="suggestionfuzz" valuetype="integer" />
-      <textedit name="description" width="1pr" tid="~description" />
+      <textedit composition="entity" cellname="rewriteto" required="true" />
+      <textedit composition="entity" cellname="suggestionfuzz" valuetype="integer" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" tid="~description" />
     </body>
   </screen>
 

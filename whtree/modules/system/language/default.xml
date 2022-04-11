@@ -1317,14 +1317,14 @@
         <text tid="outgoingredirect-false">Send to the mail recipient (To:)</text>
         <text tid="outgoingredirect-true">Redirect all emails to</text>
         <text tid="port">Port</text>
-        <text tid="receiversempty">All receiver addresses are permitted</text>
+        <text tid="receiversempty">All receiver addresses are blocked</text>
         <text tid="receiverstab">Receivers</text>
         <text tid="redirect">Send emails</text>
         <text tid="rewriteto">Rewrite to</text>
         <text tid="routesempty">All mail will be sent using the default mail server.</text>
         <text tid="routestab">Routes</text>
         <text tid="sendermask">Sender (From:)</text>
-        <text tid="sendersempty">All sender addresses are permitted</text>
+        <text tid="sendersempty">All sender addresses are blocked</text>
         <text tid="senderstab">Senders</text>
         <text tid="serverurl">SMTP server</text>
         <text tid="smtp_test_error">Testing the mailserver gave the following error:<br/><param p="1"/></text>

@@ -3,6 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/mime.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testfw/emails.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -211,7 +213,7 @@ PUBLIC OBJECT FUNCTION GetSMTPReceiver(STRING host, INTEGER port, RECORD options
   RETURN NEW SMTPReceiver(jobrec.job);
 }
 
-PUBLIC OBJECT FUNCTION SetupTestSMTPReceiver(STRING receivermask, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC OBJECT FUNCTION SetupTestSMTPReceiver(STRING recipientmask, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ bouncehandling := "SES"
                              , directbouncemasks := STRING[]
@@ -221,8 +223,14 @@ PUBLIC OBJECT FUNCTION SetupTestSMTPReceiver(STRING receivermask, RECORD options
   OBJECT mailserverobject := GetSMTPReceiver("127.0.0.1", mailserverport, options);
 
   GetPrimary()->BeginWork();
-  INSERT INTO system_internal.mailqueue_route(tag, sendermask, serverurl, mask, ordering, description)
-         VALUES("webhare_testsuite:testsmtpreceiver", "*", "smtp://127.0.0.1:" || mailserverport, receivermask,-9999, "Created by SetupTestSMTPReceiver");
+  OpenWRDSchema("system:config")->^mailroute->CreateEntity(
+    [ wrd_tag := "TESTFW_TESTSMTPRECEIVER_" || mailserverport
+    , sendermasks := [[ mask := "*" ]]
+    , recipientmasks := [[ mask := recipientmask ]]
+    , wrd_ordering := -9999
+    , wrd_title := "Created by SetupTestSMTPReceiver"
+    , serverurl := `smtp://127.0.0.1:${mailserverport}`
+    ]);
   GetPrimary()->CommitWork();
 
   RETURN mailserverobject;

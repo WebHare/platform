@@ -166,21 +166,6 @@ PUBLIC SCHEMA
     > tasks
   , TABLE
     < INTEGER "id" NULL := 0
-    , STRING "tag"
-    , STRING "mask"
-    , STRING "sendermask"
-    , STRING "serverurl"
-    , INTEGER "ordering"
-    , STRING "outgoingmailaddress"
-    , BOOLEAN "outgoingaddressrewrite"
-    , STRING "description"
-    , STRING "originmask"
-    , INTEGER "ruletype"
-    , INTEGER "suggestionfuzz"
-    ; KEY id
-    > mailqueue_route
-  , TABLE
-    < INTEGER "id" NULL := 0
     , STRING "foldername"
     , STRING "diskfolder"
     , BOOLEAN "forcelowercase"

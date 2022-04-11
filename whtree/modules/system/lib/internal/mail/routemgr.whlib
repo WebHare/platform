@@ -3,75 +3,62 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 
 RECORD FUNCTION GetCacheableMailRoutes()
 {
+  OBJECT configschema := OpenWRDSchema("system:config");
   STRING filter := ReadRegistryKey("system.services.smtp.mailrulefilter") ?? "*";
-  RETURN [ value := [ routes := (SELECT * FROM system.mailqueue_route WHERE ToUppercase(tag) LIKE Touppercase(filter) ORDER BY ordering, id)
+                    // See system config wrdschema for the various data structures
+  RETURN [ value := [ mailroutes := configschema->^mailroute->RunQuery([ outputcolumns := [ "*" ]])
+                    , mailsenders := configschema->^mailsender->RunQuery([ outputcolumns := [ "*" ]])
+                    , mailrecipients := configschema->^mailrecipient->RunQuery([ outputcolumns := [ "*" ]])
+                    , mailcorrections := configschema->^mailcorrection->RunQuery([ outputcolumns := [ "*" ]])
                     , defaultserver := ReadRegistryKey("system.services.smtp.defaultmailroute")
                     , usemailfromfornonwhitelisted := ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted")
                     ]
          , ttl := 60 * 1000 * 1000
-         , eventmasks := [ "system:internal/mailroutechange"
-                         , "system:registry.system.services.smtp"
-                         ]
+         , eventmasks := configschema->^mailroute->GetEventMasks()
+                         CONCAT configschema->^mailsender->GetEventMasks()
+                         CONCAT configschema->^mailrecipient->GetEventMasks()
+                         CONCAT configschema->^mailcorrection->GetEventMasks()
+                         CONCAT GetRegistryKeyEventMasks([ "system.services.smtp.defaultmailroute", "system.services.smtp.usemailfromfornonwhitelisted" ])
          ];
 }
 
-/** Returns the list of mail routes, ordered on ordering, id
-    @return E-mail routes
-    @cell(integer) return.id Route ID
-    @cell(string) return.mask Space-separated list of receiver address LIKE-masks
-    @cell(integer) return.ordering Ordering of this route
-    @cell(string) return.sendermask Space-separated list of sender address LIKE-masks
-    @cell(string) return.originmask Space-separated list of orgin LIKE-masks
-    @cell(string) return.serverurl Server URL
-    @cell(string) return.outgoingmailaddress Outgoing e-mail address to use
-    @cell(boolean) return.outgoingaddressrewrite If TRUE, rewrite the receiver
-      address into the outgoingemailaddress (using '+' after the mailbox name)
-    @cell(integer) return.ruletype Rule type
-      - 0: smtp route
-      - 1: sender whitelist
-      - 2: receiver whitelist
-      - 3: E-mail suggestion (for correcting invalid addresses)
-      - 4: E-mail blocks (for denying specific addresses)
-    @cell(integer) return.suggestionfuzz Fuzz factor for destination suggestions
-*/
 RECORD FUNCTION GetMailRoutes()
 {
   RETURN GetAdhocCached([ type := "mailroutes" ], PTR GetCacheableMailRoutes);
 }
 
-CONSTANT RECORD base_anymailroute := [ mask := "*"
-                                     , sendermask := "*"
+CONSTANT RECORD base_anymailroute := [ recipientmasks := [[ mask := "*" ]]
+                                     , sendermasks := [[ mask := "*" ]]
                                      , originmask := "*"
                                      , serverurl := ""
-                                     , outgoingmailaddress := ""
-                                     , outgoingaddressrewrite := FALSE
-                                     , ruletype := 0
+                                     , rewritemailaddress := ""
+                                     , includeoriginaladdress := FALSE
                                      ];
 
 /** Returns the list of e-mail SMTP routes, ordered on ordering, id
     @return E-mail routes @includecelldef #GetMailRoutes.return
-    @cell(integer) return.ruletype Always 0
 */
 RECORD ARRAY FUNCTION GetSMTPRoutes()
 {
   RECORD routedata := GetMailroutes();
   RECORD ARRAY mailroutes;
 
-  //some tests inject routes with ordering < -999 which need to be above everthing (TODO match them by their wrd_tag, not their ordering)
+  //some tests inject routes with ordering < -999 which need to be above everything
   mailroutes := SELECT *
-                     , DELETE id
-                     , DELETE ordering
-                  FROM routedata.routes
-                 WHERE ruletype = 0 AND ordering < -999
-              ORDER BY ordering, id;
+                     , DELETE wrd_id
+                     , DELETE wrd_ordering
+                  FROM routedata.mailroutes
+                 WHERE wrd_ordering < -999
+              ORDER BY wrd_ordering, wrd_id;
 
   INSERT CELL[ ...base_anymailroute
-             , mask := "*@beta.webhare.net *@*.beta.webhare.net"
+             , recipientmasks := [[ mask := "*@beta.webhare.net" ], [ mask := "*@*.beta.webhare.net" ]]
              , serverurl := "infinitedelay"
              ] INTO mailroutes AT END;
 
@@ -79,52 +66,49 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
                 CONCAT
                 SELECT *
                      , serverurl := serverurl ?? routedata.defaultserver
-                     , DELETE id
-                     , DELETE ordering
-                  FROM routedata.routes
-                 WHERE ruletype = 0 AND ordering >= -999
-              ORDER BY ordering, id;
+                     , DELETE wrd_id
+                     , DELETE wrd_ordering
+                  FROM routedata.mailroutes
+                 WHERE wrd_ordering >= -999
+              ORDER BY wrd_ordering, wrd_id;
 
   IF(routedata.defaultserver != "")
     INSERT CELL[ ...base_anymailroute
                , serverurl := routedata.defaultserver
-               , ordering := 9999999
                ] INTO mailroutes AT END;
 
   RETURN mailroutes;
 }
 
-INTEGER FUNCTION IsAllowedEmail(STRING email, INTEGER checkruletype)
+BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, RECORD ARRAY masks)
 {
-  RECORD mailroutes := GetMailroutes();
+  IF(RecordExists(SELECT FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask)))
+    RETURN TRUE;
 
-  RECORD ARRAY whitelist := SELECT mask FROM mailroutes.routes WHERE ruletype = VAR checkruletype;
-  IF(Length(whitelist) = 0)
-    RETURN 1;
-
-  IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
-    RETURN 1;
-
-  IF(checkruletype = 1 AND mailroutes.usemailfromfornonwhitelisted) //every sender is acceptable..
-    RETURN 2; //rewrite
-
-  IF(email LIKE "*+*@*")
+  IF(lookfor LIKE "*+*@*") //plus address ? check if the address without the plus is whitelisted
   {
-    email := Tokenize(email,'+')[0] || '@' || Tokenize(email,'@')[1];
-    IF(RecordExists(SELECT FROM whitelist WHERE IsInLikeUC(email, whitelist.mask)))
-      RETURN 1;
+    lookfor := Tokenize(lookfor,'+')[0] || '@' || Tokenize(lookfor,'@')[1];
+    IF(RecordExists(SELECT FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask)))
+      RETURN TRUE;
   }
-  RETURN 0;
+  RETURN FALSE;
 }
 
 PUBLIC INTEGER FUNCTION IsAllowedEmailSender(STRING email)
 {
-  RETURN IsAllowedEmail(email, 1);
+  RECORD mailroutes := GetMailroutes();
+  IF(IsInLikeUC(email, mailroutes.mailsenders))
+    RETURN 1; //permitted
+
+  IF(mailroutes.usemailfromfornonwhitelisted) //every sender is acceptable..
+    RETURN 2; //rewrite
+
+  RETURN 0;
 }
 
 PUBLIC BOOLEAN FUNCTION IsAllowedEmailReceiver(STRING email)
 {
-  RETURN IsAllowedEmail(email, 2) = 1;
+  RETURN IsInLikeUC(email, GetMailroutes().mailrecipients);
 }
 
 /** Returns the relevant mailroute for a sender, receiver and origin
@@ -136,36 +120,12 @@ PUBLIC BOOLEAN FUNCTION IsAllowedEmailReceiver(STRING email)
 PUBLIC RECORD FUNCTION GetMailroute(STRING sender, STRING receiver, STRING origin DEFAULTSTO "")
 {
   RETURN SELECT *
-           FROM GetSMTPRoutes() AS mailroutes
-          WHERE IsInLikeUC(sender, mailroutes.sendermask)
-                AND IsInLikeUC(receiver, mailroutes.mask)
+           FROM GetSMTPRoutes()
+          WHERE IsInLikeUC(sender, COLUMN sendermasks)
+                AND IsInLikeUC(receiver, COLUMN recipientmasks)
                 AND (originmask="" OR ToUppercase(VAR origin) LIKE ToUppercase(originmask));
 }
-PUBLIC RECORD ARRAY FUNCTION GetMailSuggestionList()
-{
-  RETURN SELECT mask, outgoingmailaddress, suggestionfuzz, isblock := ruletype = 4
-           FROM GetSMTPRoutes().routes
-          WHERE ruletype IN [3,4]
-       ORDER BY ordering;
-}
-BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, STRING list)
-{
-  FOREVERY(STRING tok FROM Tokenize(list,' '))
-    IF(Touppercase(lookfor) LIKE ToUppercase(tok))
-      RETURN TRUE;
 
-  INTEGER pluspos := SearchSubstring(lookfor,'+');
-  INTEGER atpos := SearchSubstring(lookfor,'@');
-  IF(pluspos > 0 AND pluspos < atpos) //try matching without the '+...@' part
-  {
-    lookfor := Left(lookfor,pluspos) || Substring(lookfor,atpos);
-
-    FOREVERY(STRING tok FROM Tokenize(list,' '))
-      IF(Touppercase(lookfor) LIKE ToUppercase(tok))
-        RETURN TRUE;
-  }
-  RETURN FALSE;
-}
 
 /** @short Suggest improvement to given suggestion
     @topic witty/api
@@ -178,7 +138,7 @@ BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, STRING list)
     @cell(boolean) return.blocked If true, do not accept this email address at all */
 PUBLIC RECORD FUNCTION GetEmailAutocorrection(STRING email)
 {
-  RECORD ARRAY correctionrules := SELECT * FROM GetMailroutes().routes WHERE ruletype IN [3,4];
+  RECORD ARRAY correctionrules := SELECT * FROM GetMailroutes().mailcorrections ORDER BY wrd_ordering, wrd_id;
   IF(Length(correctionrules) = 0)
     RETURN DEFAULT RECORD;
 
@@ -188,33 +148,33 @@ PUBLIC RECORD FUNCTION GetEmailAutocorrection(STRING email)
 
   FOREVERY(RECORD rule FROM correctionrules)
   {
-    IF(rule.ruletype = 3 AND Left(rule.outgoingmailaddress,2)="*@")
+    IF(NOT rule.block AND Left(rule.rewriteto,2)="*@")
     {
-      IF(IsInLikeUC(email, rule.mask))
+      IF(IsInLikeUC(email, rule.masks))
       {
-        RETURN [ suggestion := toks[0] || Substring(rule.outgoingmailaddress,1)
+        RETURN [ suggestion := toks[0] || Substring(rule.rewriteto,1)
                , force := TRUE
                , blocked := FALSE
                ];
       }
 
       STRING domain := ToUppercase(toks[1]);
-      STRING matchdomain := ToUppercase(Substring(rule.outgoingmailaddress,2));
+      STRING matchdomain := ToUppercase(Substring(rule.rewriteto,2));
       IF(rule.suggestionfuzz > 0 AND domain != matchdomain)
       {
         INTEGER distance := CalculateLevenshteinDistance(domain, matchdomain);
         IF(distance <= rule.suggestionfuzz)
         {
-          RETURN [ suggestion := toks[0] || Substring(rule.outgoingmailaddress,1)
+          RETURN [ suggestion := toks[0] || Substring(rule.rewriteto,1)
                  , force := FALSE
                  , blocked := FALSE
                  ];
         }
       }
     }
-    ELSE IF(rule.ruletype = 4)
+    ELSE IF(rule.block)
     {
-      IF(IsInLikeUC(email, rule.mask))
+      IF(IsInLikeUC(email, rule.masks))
       {
         RETURN [ suggestion := ""
                , force := TRUE
