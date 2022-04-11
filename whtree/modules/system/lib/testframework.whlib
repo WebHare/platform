@@ -1060,13 +1060,13 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       systemconfigschema->^mailrecipient->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAWEBHARENT", mask := "*@*beta.webhare.net" ]);
       //rewrite a domain we don't like
       systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAFIXDOMAIN"
-                                                            , masks := [[ mask := "*@fixdomai.webhare.net" ]]
+                                                            , masks := [[ mask := "*@fixdomai.beta.webhare.net" ]]
                                                             , wrd_ordering := -50
                                                             , rewriteto := "*@fixdomain.beta.webhare.net"
                                                             ]);
       //block a domain we don't like
       systemconfigschema->^mailcorrection->CreateEntity(CELL[ wrd_tag := "TESTFW_BETABLOCK"
-                                                            , masks := [[ mask := "*@block.webhare.net" ]]
+                                                            , masks := [[ mask := "*@block.beta.webhare.net" ]]
                                                             , wrd_ordering := -50
                                                             , block := TRUE
                                                             ]);
