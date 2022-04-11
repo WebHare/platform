@@ -1,4 +1,11 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+TestEq(["ARG1 SHOT","arg2"], GetConsoleArguments());
+
 /* nothing to do or see */
 Print(anytostring(getcurrentdatetime(),'tree'));

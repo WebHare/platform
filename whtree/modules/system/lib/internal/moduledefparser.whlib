@@ -830,6 +830,10 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                 IF(subchild->HasAttribute("runtime") OR subchild->HasAttribute("runinterval"))
                   this->AddWarning(subchild,"runtime= and runinterval= have been deprecated. you should switch to a runat= cronmask. See also https://www.webhare.dev/reference/modules/services-tasks#scheduled-tasks");
 
+                STRING ARRAY parameters;
+                FOREVERY(OBJECT arg FROM subchild->ListChildren(subchild->namespaceuri,"arg"))
+                  INSERT arg->textcontent INTO parameters AT END;
+
                 STRING script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath, "scripts/"), [ warnversion := 42600 ]);
                 IF(script = "")
                   CONTINUE; //ignore, executetasks would fail on an empty script
@@ -847,6 +851,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                                , runtz := subchild->GetAttribute("runtz")
                                , line := subchild->linenum
                                , inapplicable := inapplicable
+                               //TODO safer encoding but that's easier once manually entered tasks are gone
+                               , parameters := Length(parameters) > 0 ? " |params| " || EncodeHSON(parameters) : ""
                                ];
 
                 INSERT task INTO this->moduledef.tasks AT END;
