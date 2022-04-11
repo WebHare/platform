@@ -222,7 +222,10 @@ MACRO WHServiceStatePromise(STRING waitfor, MACRO PTR onresolve, MACRO PTR onrej
 {
   RECORD data := PollWHServiceState(waitfor);
   IF(RecordExists(data))
+  {
     onresolve(data);
+    RETURN;
+  }
 
   //ADDME listen events
   RegisterTimedCallback(AddTimeToDate(250, GetCurrentDateTime()), PTR WHServiceStatePromise(waitfor, onresolve, onreject));
