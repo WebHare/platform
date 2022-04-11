@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -13,7 +12,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
-LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
@@ -202,7 +200,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     RECORD contentfile := selectedfile;
     INTEGER targetfiletype := selectedfile.type;
 
-    IF(selectedfile.type IN [ 19, 20 ]) //19: internallink, 20: contentlink
+    IF(selectedfile.type IN [ whconstant_whfstype_internallink, whconstant_whfstype_contentlink ])
     {
       // Find internal or content link target
       RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
@@ -214,14 +212,15 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
         // Show link target
         RECORD site := SELECT name FROM system.sites WHERE id = target.parentsite;
-        STRING message := selectedfile.type = 19 ? (target.indexurl = "" ? GetTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
-                                                                         : GetTid("publisher:tolliumcomponents.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
-                                                 : GetTid("publisher:tolliumcomponents.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
+        STRING message := selectedfile.type = whconstant_whfstype_internallink
+                             ? (target.indexurl = "" ? GetTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
+                                                     : GetTid("publisher:tolliumcomponents.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
+                             : GetTid("publisher:tolliumcomponents.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
         INSERT [ level := 0
                , message := message
                ] INTO this->previewmessages AT END;
 
-        IF (selectedfile.type = 19) //19: internal link
+        IF (selectedfile.type = whconstant_whfstype_internallink)
         {
           IF (GetErrorFromPublished(target.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(target.published)) // Ignore 'locked site' errors
           {
@@ -259,7 +258,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                ] INTO this->previewmessages AT END;
       }
     }
-    ELSE IF(selectedfile.type = 18)
+    ELSE IF(selectedfile.type = whconstant_whfstype_externallink)
     {
       // Show external link target
       INSERT [ level := 0
@@ -351,7 +350,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       //We need to know if we can expect HTML if we show the file's URL. So we look at the target's type (and for internal & contentlink, we'll look at the final file)
       RECORD fileinfo := DescribeContentTypeById(targetfiletype, [ isfolder := selectedfile.isfolder, mockifmissing := TRUE ]);
-      IF(fileinfo.needstemplate OR fileinfo.id = 35) //dynamic folder contents
+      IF(fileinfo.needstemplate OR fileinfo.id = whconstant_whfstype_dynamicfoldercontents) //dynamic folder contents
       {
         this->currenturl := selectedfile.link;
       }
