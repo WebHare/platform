@@ -957,44 +957,9 @@
         </xs:element>
       </xs:choice>
       <xs:element name="dashboardgroup" minOccurs="0" maxOccurs="unbounded" type="DashboardGroup" />
-      <xs:element name="monitorgroup" minOccurs="0" maxOccurs="unbounded">
-        <xs:annotation>
-          <xs:documentation>
-            Add a group for monitoring panels
-          </xs:documentation>
-        </xs:annotation>
-        <xs:complexType>
-          <xs:attribute name="gid" type="SimpleGid" use="optional" />
-          <xs:attribute name="name" type="Name" use="required" />
-          <xs:attribute name="tid" type="SimpleTid" />
-          <xs:attribute name="title" type="xs:string" />
-          <xs:attribute name="icon" type="sc:ImageSrc">
-            <xs:annotation>
-              <xs:documentation>
-                The icon displayed for this group
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="orderafter" type="sc:OptionallyQualifiedWildcardedNameList">
-            <xs:annotation>
-              <xs:documentation>
-                List of monitor groups (space separated wildcard masks) after which this group should be ordered
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="orderbefore" type="sc:OptionallyQualifiedWildcardedNameList">
-            <xs:annotation>
-              <xs:documentation>
-                List of monitor groups (space separated wildcard masks) before which this group should be ordered
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-        </xs:complexType>
-      </xs:element>
 
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element name="dashboardpanel" type="DashboardPanel" />
-        <xs:element name="monitorpanel" type="DashboardPanel" />
       </xs:choice>
 
       <xs:element name="notification" minOccurs="0" maxOccurs="unbounded">
@@ -1058,6 +1023,7 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="screen" type="xs:string" />
   </xs:complexType>
 
 

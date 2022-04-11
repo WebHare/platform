@@ -1490,39 +1490,15 @@
         </textgroup>
       </textgroup>
       <textgroup gid="dashboard">   <!-- tolliumapps.dashboard.dashboard -->
-        <text tid="buildinfo">Build</text>
         <text tid="cachescleared">All WebHare's internal caches have been cleared.</text>
         <text tid="clearcaches">Clear caches</text>
-        <text tid="comment">Comment</text>
         <text tid="confirmsoftreset">Are you sure you want to perform a soft reset?</text>
-        <text tid="created">Created</text>
-        <text tid="datetime">Date &amp; time</text>
-        <text tid="displayname">User</text>
-        <text tid="editsnooze">Edit snooze</text>
-        <text tid="errors">Error messages</text>
-        <text tid="general">General</text>
-        <text tid="gototask">Go to</text>
-        <text tid="infile">in file '<param p="1"/>'</text>
         <text tid="lastupdate">Last update</text>
         <text tid="main">Dashboard</text>
-        <text tid="message">Error message</text>
-        <text tid="messagetidatsnooze">Error message</text>
-        <text tid="multiplemessages">(multiple error messages)</text>
-        <text tid="noerrors">There are no known issues</text>
         <text tid="openinseparatetab">Open panel in separate tab</text>
-        <text tid="platform">Platform</text>
         <text tid="refreshbutton">Refresh now</text>
-        <text tid="remove">Remove</text>
-        <text tid="server">Server version</text>
-        <text tid="snoozed_until">snoozed until <param p="1"/></text>
-        <text tid="snoozer">Snoozer</text>
-        <text tid="snoozes">Snoozes</text>
         <text tid="softreset">Soft reset</text>
         <text tid="togglerefreshbutton">Auto refresh</text>
-        <text tid="until">Until</text>
-        <text tid="untilinpast">Until date must be in the future.</text>
-        <text tid="uptime">Uptime</text>
-        <text tid="uptimedata"><param p="1"/> (started <param p="2"/>), webserver uptime: <param p="3"/> (started <param p="4"/>)</text>
       </textgroup>
       <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->
         <text tid="css">CSS</text>
@@ -1563,6 +1539,33 @@
           <text tid="sender">Sender</text>
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->
+        <text tid="buildinfo">Build</text>
+        <text tid="comment">Comment</text>
+        <text tid="created">Created</text>
+        <text tid="datetime">Date &amp; time</text>
+        <text tid="displayname">User</text>
+        <text tid="editsnooze">Edit snooze</text>
+        <text tid="errors">Error messages</text>
+        <text tid="general">General</text>
+        <text tid="gototask">Go to</text>
+        <text tid="infile">in file '<param p="1"/>'</text>
+        <text tid="loadingerrors">Checking for errors…</text>
+        <text tid="message">Error message</text>
+        <text tid="messagetidatsnooze">Error message</text>
+        <text tid="multiplemessages">(multiple error messages)</text>
+        <text tid="noerrors">There are no known issues</text>
+        <text tid="platform">Platform</text>
+        <text tid="remove">Remove</text>
+        <text tid="server">Server version</text>
+        <text tid="snoozed_until">snoozed until <param p="1"/></text>
+        <text tid="snoozer">Snoozer</text>
+        <text tid="snoozes">Snoozes</text>
+        <text tid="until">Until</text>
+        <text tid="untilinpast">Until date must be in the future.</text>
+        <text tid="uptime">Uptime</text>
+        <text tid="uptimedata"><param p="1"/> (started <param p="2"/>), webserver uptime: <param p="3"/> (started <param p="4"/>)</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->
         <text tid="apprunnerdown">The service manager is unavailable</text>

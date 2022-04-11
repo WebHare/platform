@@ -120,7 +120,7 @@
       </accesscheck>
     </application>
 
-    <dashboardgroup name="ap" tid="monitor.groups.ap" orderbefore="*"/>
+    <dashboardgroup name="ap" tid="monitor.groups.ap" orderbefore="*" screen="tolliumapps/dashboard/platform.xml" />
     <dashboardgroup name="tasks" tid="monitor.groups.tasks" orderbefore="dev other"/>
     <dashboardgroup name="dev" tid="monitor.groups.dev" orderafter="ap other" />
     <dashboardgroup name="database" tid="monitor.groups.database" orderafter="ap"/>
