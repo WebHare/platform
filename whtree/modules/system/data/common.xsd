@@ -716,7 +716,6 @@
     <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList" />
     <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList" />
 
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="interceptfunction" type="xs:string" use="required" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
