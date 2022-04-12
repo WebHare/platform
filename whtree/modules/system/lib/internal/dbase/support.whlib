@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 

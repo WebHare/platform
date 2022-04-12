@@ -22,7 +22,7 @@ FOREVERY(RECORD schemarec FROM trans->GetSchemaListing())
       CONTINUE;
 
     FOREVERY(RECORD columnrec FROM trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
-      IF(columnrec.data_type in ["BLOB","webhare_internal.webhare_blob"]) //WHDB or PSQL blob types
+      IF(columnrec.data_type = "webhare_internal.webhare_blob")
         INSERT CELL [ table_schema := schemarec.schema_name
                     , tablerec.table_name
                     , columnrec.column_name

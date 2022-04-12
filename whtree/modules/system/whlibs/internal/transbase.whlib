@@ -448,7 +448,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   PUBLIC PROPERTY id(pvt_sqllib_transid, -);
 
 
-  /** Type of this transaction (STRING, for example 'whdb', 'postgresql', 'odbc', 'ldap', 'wrd')
+  /** Type of this transaction (STRING, for example 'postgresql', 'odbc', 'ldap', 'wrd')
   */
   PUBLIC PROPERTY type(GetType, -);
 

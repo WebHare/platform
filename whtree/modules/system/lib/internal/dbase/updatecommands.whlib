@@ -3,7 +3,6 @@
 LOADLIB "wh::internal/transbase.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
-LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
 
 STRING FUNCTION XMLComment(STRING input)
 {
@@ -155,67 +154,37 @@ RECORD ARRAY FUNCTION ValidateIndices(RECORD ARRAY indices)
 
 PUBLIC MACRO ClearAllSchemaCaches()
 {
-  ClearAllWHDBSchemaCaches();
   ClearAllPostgreSQLSchemaCaches();
 }
 
 PUBLIC RECORD FUNCTION GenerateIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
 {
   schemaspecs := ValidateSchemaSpecs(schemaspecs);
-  SWITCH (trans->type)
-  {
-    CASE "whdb"       { RETURN GenerateWHDBIndependentSQLCommands(schemaspecs, trans); }
-    CASE "postgresql" { RETURN GeneratePostgreSQLIndependentSQLCommands(schemaspecs, trans); }
-    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
-  }
+  RETURN GeneratePostgreSQLIndependentSQLCommands(schemaspecs, trans);
 }
 
 PUBLIC RECORD FUNCTION GeneratePostupdateSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
 {
   schemaspecs := ValidateSchemaSpecs(schemaspecs);
-  SWITCH (trans->type)
-  {
-    CASE "whdb"       { RETURN GenerateWHDBPostupdateSQLCommands(schemaspecs, trans); }
-    CASE "postgresql" { RETURN GeneratePostgreSQLPostupdateSQLCommands(schemaspecs, trans); }
-    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
-  }
+  RETURN GeneratePostgreSQLPostupdateSQLCommands(schemaspecs, trans);
 }
 
 PUBLIC RECORD FUNCTION GenerateDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
 {
   schemaspecs := ValidateSchemaSpecs(schemaspecs);
-  SWITCH (trans->type)
-  {
-    CASE "whdb"       { RETURN GenerateWHDBDependentSQLCommands(schemaspecs, trans); }
-    CASE "postgresql" { RETURN GeneratePostgreSQLDependentSQLCommands(schemaspecs, trans); }
-    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
-  }
+  RETURN GeneratePostgreSQLDependentSQLCommands(schemaspecs, trans);
 }
 
 PUBLIC RECORD FUNCTION GetSchemaModuleDefinition(OBJECT trans, STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ withimplicitindices := FALSE ], options);
-
-  SWITCH (trans->type)
-  {
-    CASE "whdb"       { RETURN GetWHDBDatabaseSchemaDef(schemaname); }
-    CASE "postgresql" { RETURN GetPostgreSQLDatabaseSchemaDef(trans, schemaname, options); }
-    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
-  }
+  RETURN GetPostgreSQLDatabaseSchemaDef(trans, schemaname, options);
 }
 
 PUBLIC STRING FUNCTION GetSchemaModuleDef(OBJECT trans, STRING schemaname)
 {
-  SWITCH (trans->type)
-  {
-    CASE "whdb"       { RETURN GetWHDBSchemaModuleDef(schemaname); }
-    CASE "postgresql"
-    {
-      RECORD schemadef := GetPostgreSQLDatabaseSchemaDef(trans, schemaname);
-      RETURN RecordExists(schemadef) ? GenerateDatabaseSchemaXMLFromSchemaDef(schemadef) : "";
-    }
-    DEFAULT           { THROW NEW Exception(`Unknown database type ${trans->type}`); }
-  }
+  RECORD schemadef := GetPostgreSQLDatabaseSchemaDef(trans, schemaname);
+  RETURN RecordExists(schemadef) ? GenerateDatabaseSchemaXMLFromSchemaDef(schemadef) : "";
 }
 
 PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)

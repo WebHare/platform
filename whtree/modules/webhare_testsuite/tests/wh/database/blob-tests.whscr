@@ -1,7 +1,6 @@
 <?wh // Testscript
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

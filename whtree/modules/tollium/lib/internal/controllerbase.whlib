@@ -24,7 +24,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";

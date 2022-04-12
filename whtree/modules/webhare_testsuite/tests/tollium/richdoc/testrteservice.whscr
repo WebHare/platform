@@ -2,7 +2,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 

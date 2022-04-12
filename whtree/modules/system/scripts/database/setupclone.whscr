@@ -7,7 +7,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -103,13 +102,7 @@ IF (NOT ObjectExists(trans))
 IF (NOT IsRestoredWebHare())
   ABORT("This script can only be run on restored installations");
 
-PRINT("Database is online, waiting for indices to be built\n");
-trans->BeginWork();
-__SendWHDBCommand(trans->id, "SET CLIENT TIMEOUT TO 3600"); // default is 5 mins, too short.
-__SendWHDBCommand(trans->id, "WAIT INDEX");
-trans->RollbackWork();
-
-PRINT("Indices have been build, preparing restored installation\n");
+PRINT("Database is online, preparing restored installation\n");
 
 INTEGER newport80 := args.port = "" ? Random(10000,15555) : ToInteger(args.port, -1);
 INTEGER newport443 := newport80+1;

@@ -1,7 +1,6 @@
 <?wh // Library for a client script
 
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "mod::webhare_testsuite/lib/db/test_funcs.whlib" EXPORT RecordArraysEqual;
 
 STRING ARRAY commandline := GetConsoleArguments();
@@ -90,9 +89,4 @@ PUBLIC MACRO TestEqualRecords(RECORD expect, RECORD got)
 PUBLIC MACRO DebugMsg(STRING comment)
 {
   PRINT(comment || "\n");
-}
-
-PUBLIC INTEGER FUNCTION OpenTransaction(STRING user, STRING passwd, STRING clientname)
-{
-  RETURN __avoiddepwarning_StartWHDBTransaction([user:=user, passwd:=passwd, auto:=false, clientname:=clientname]);
 }

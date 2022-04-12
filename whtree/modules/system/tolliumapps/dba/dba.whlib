@@ -5,7 +5,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::internal/tabledefs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -72,8 +71,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/webharedb.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
-    this->AddDatabases(enumerator());
+    this->AddDatabases([[ title := GetTid("system:tolliumapps.dba.webharedb.database")
+                        , gettrans := PTR GetPrimary()
+                        , rowkey := "webharedb"
+                       ]]);
     this->RefreshDatabaseSchemas();
   }
 
@@ -134,6 +135,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC BOOLEAN FUNCTION OnDatabasesCellEdit(RECORD row, STRING columnname, STRING newvalue)
   {
+    RETURN FALSE;
+    /* needs PG update, but this CERTAINLY shouldn't happen without any confirmation!
     IF(NOT row.isschema)
       RETURN FALSE;
 
@@ -142,6 +145,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     __SendWHDBCommand(GetPrimaryWebhareTransaction(), 'ALTER SCHEMA "' || row.schema_name || '" RENAME TO "' || EncodeJava(newvalue) || '"');
     RETURN work->Finish();
     this->InvalidateAll();
+    */
   }
 
   PUBLIC MACRO DoImportSchema()

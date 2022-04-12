@@ -1,55 +1,6 @@
 ﻿<?wh
-LOADLIB "wh::dbase/whdb.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 
 PUBLIC TABLE <INTEGER id > beta_table0;
-
-INTEGER FUNCTION GetWHDBRoleId(INTEGER transid, STRING rolename)
-{
-  RETURN GetWHDBTransaction(transid)->GetRoleId(rolename);
-}
-
-PUBLIC MACRO InsertTable0Record()
-{
-  INTEGER test_fp_trans := OpenTestTrans();
-  dumpvalue((SELECT * FROM beta_table0),'boxed');
-  INSERT DEFAULT RECORD INTO beta_table0;
-  dumpvalue((SELECT * FROM beta_table0),'boxed');
-  TestCommitSuccess(test_fp_trans);
-}
-
-PUBLIC MACRO TestCommitSuccess(INTEGER transid)
-{
-  RECORD ARRAY errors := CommitWHDBTransaction(transid);
-  IF(Length(errors)>0)
-  {
-    FOREVERY(RECORD err FROM errors)
-    {
-      PRINT(err.message||"\n");
-    }
-    ABORT("Unexpected commit errors");
-  }
-}
-
-PUBLIC INTEGER FUNCTION OpenTestTrans()
-{
-  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
-  SetPrimaryWebharetransaction(tr);
-  beta_table0 := BindTransactionToTable(tr,"beta_dbtests.table0");
-  RETURN tr;
-}
-
-
-PUBLIC INTEGER FUNCTION OpenTestTransUser(STRING username)
-{
-  INTEGER trans := OpenTestTrans();
-  INTEGER roleid := GetWHDBRoleId(trans, "definition_schema.tests_" || username);
-
-  INTEGER ARRAY roles;
-  IF(roleid!=0)
-    roles := [roleid];
-  RETURN trans;
-}
 
 /** @short Compare two record arrays for equality
     @param recs1 Record array to compare
@@ -124,16 +75,4 @@ PUBLIC BOOLEAN FUNCTION RecordsEqual(RECORD a, RECORD b)
     }
   }
   RETURN TRUE;
-}
-
-PUBLIC STRING FUNCTION CreateUser(INTEGER transid, STRING name)
-{
-  SendWHDBCommand(transid,"CREATE USER TESTS_" || name);
-  RETURN "TESTS_" || name;
-}
-
-PUBLIC MACRO DropUser(INTEGER transid, STRING name)
-{
-  IF (RecordExists(SELECT * FROM information_schema.users WHERE user_name = "TESTS_" || name))
-    SendWHDBCommand(transid,"DROP USER TESTS_" || name);
 }

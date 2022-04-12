@@ -59,7 +59,7 @@ if [ -z "$WEBHARE_DATAROOT" ] ; then
 fi
 
 if [ -f $WEBHARE_DATAROOT/dbase/translog.whdb ]; then
-  echo "The dbserver is no longer suppported by WebHare 4.36 and up. Downgrade and convert first!"
+  echo "The dbserver is no longer suppported by WebHare 5.0 and up. Downgrade and convert first!"
   exit 1
 fi
 

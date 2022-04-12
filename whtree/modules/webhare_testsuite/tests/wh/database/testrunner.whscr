@@ -2,7 +2,6 @@
 /** @short dbase test runner  */
 
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
@@ -124,30 +123,7 @@ BOOLEAN FUNCTION ProcessInput(INTEGER clientid)
                       ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
                   clients[clientid].status := "R";
           }
-    CASE ">UPCOMINGHANG"
-          {
-                  IF (clients[clientid].status != "R")
-                      ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");
-                  clients[clientid].status := "H";
-                  IF (linerest != "")
-                  {
-                    INTEGER waiting := 0;
-                    INTEGER maxtimes := 28;
-                    INTEGER sleeptime := 50;
-                    WHILE (maxtimes > 0)
-                    {
-                      waiting := SELECT AS INTEGER waitsfor FROM SendWHDBCommand(trans->id, "SHOW TRANSACTIONS") WHERE client = linerest;
-                      IF (waiting != 0)
-                        BREAK;
-                      Sleep(sleeptime);
-                      sleeptime := sleeptime + 50;
-                      maxtimes := maxtimes - 1;
-                    }
-                    IF (waiting = 0)
-                      ABORT("Waited too long (20secs) for transaction to go into wait");
-                  }
-          }
-    CASE ">SECTIONEND"
+   CASE ">SECTIONEND"
           {
                   IF (clients[clientid].status != "R" AND clients[clientid].status != "H")
                       ABORT("Client " || clientid || " was in wrong state ("||clients[clientid].status||")");

@@ -1,8 +1,51 @@
 <?wh
 
-//LOADLIB "wh::dbase/postgresql.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
+STRING FUNCTION GetHarescriptType(STRING dbase_type)
+{
+  IF(dbase_type LIKE "varchar(*") //postgresql 'varchar(nnn)'
+    RETURN "STRING";
 
+  SWITCH(dbase_type)
+  {
+    //postgresql types
+    CASE "_text","name","text"
+    {
+      RETURN "STRING";
+    }
+    CASE "numeric"
+    {
+      RETURN "MONEY";
+    }
+    CASE "float4","_float4"
+    {
+      RETURN "FLOAT";
+    }
+    CASE "oid", "int2", "int4"
+    {
+      RETURN "INTEGER";
+    }
+    CASE "int8"
+    {
+      RETURN "INTEGER64";
+    }
+    CASE "timestamp"
+    {
+      RETURN "DATETIME";
+    }
+    CASE "webhare_internal.webhare_blob"
+    {
+      RETURN "BLOB";
+    }
+    CASE "bool"
+    {
+      RETURN "BOOLEAN";
+    }
+    DEFAULT
+    {
+      RETURN "STRING";
+    }
+  }
+}
 
 STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, RECORD ARRAY columns, STRING indent)
 {
@@ -50,7 +93,7 @@ STRING FUNCTION GetDefStmt(OBJECT trans, STRING table_schema, RECORD tabledef, R
     IF(#col>0)
       hs_tabledef := hs_tabledef || "\n" || indent || ", ";
 
-    STRING hstype := __whdb_GetHarescriptType(col.data_type);
+    STRING hstype := GetHarescriptType(col.data_type);
     hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
     IF (CellExists(col, "rename"))
       hs_tabledef := hs_tabledef || ` AS "${EncodeJava(col.rename)}"`;

@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::internal/tabledefs.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
@@ -65,48 +64,18 @@ MACRO GetSchemaAndTableDecls()
   //For tables in the PUBLIC schema, both the name itself and a PUBLIC_ tabledef are provided.
   DELETE FROM used_names ALL;
 
-  RECORD ARRAY result;
-
-  RECORD ARRAY schemas;
-  RECORD ARRAY allcolumns;
-/*  IF (GetPrimary()->type = "WHDB")
-  {
-    allcolumns :=
-        SELECT name := column_name
-             , columntype := data_type
-             , tableid := table_id
-          FROM information_schema.columns
-         WHERE data_type!="";
-
-    schemas :=
-        SELECT object_id := object_id
-             , name := schema_name
-             , tables :=
-                   SELECT object_id :=    t.object_id
-                        , schemaid :=     t.table_schema_id
-                        , name :=         t.table_name
-  //                      , altlocalname := tables.table_schema = "PUBLIC" ? HareScriptizeName(table_name) : (tables.table_schema="PUBLISHER" AND tables.table_name="FILES" ? "FILES" : (tables.table_schema="PUBLISHER" AND tables.table_name="FOLDERS" ? "FOLDERS" : ""))
-                        , columns := (SELECT * FROM allcolumns WHERE allcolumns.tableid = t.object_id)
-                     FROM information_schema.tables AS t
-                    WHERE table_schema_id = f_schema.object_id
-          FROM information_schema.all_schemata AS f_schema;
-  }
-  ELSE*/
-  {
-    schemas :=
-        SELECT s.schema_name
-             , tables :=
-                   SELECT t.table_name
-                        , t.primary_key_name
-                        , columns :=
-                                SELECT data_type
-                                     , column_name
-                                  FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
-                     FROM GetPrimary()->GetTableListing(s.schema_name) AS t
-          FROM GetPrimary()->GetSchemaListing() AS s
-         WHERE ToUppercase(schema_name) != "PUBLIC";
-  }
-
+  RECORD ARRAY schemas :=
+      SELECT s.schema_name
+           , tables :=
+                 SELECT t.table_name
+                      , t.primary_key_name
+                      , columns :=
+                              SELECT data_type
+                                   , column_name
+                                FROM GetPrimary()->GetColumnListing(s.schema_name, t.table_name)
+                   FROM GetPrimary()->GetTableListing(s.schema_name) AS t
+        FROM GetPrimary()->GetSchemaListing() AS s
+       WHERE ToUppercase(schema_name) != "PUBLIC";
 
   FOREVERY (RECORD f_schema FROM schemas)
   {
@@ -128,7 +97,7 @@ MACRO GetSchemaAndTableDecls()
 BLOB FUNCTION GetScript(STRING line, BOOLEAN withrecordshow, STRING ARRAY loadlibs)
 {
   INTEGER blobid := CreateStream();
-  PrintTo(blobid, "<?wh LOADLIB 'wh::dbase/whdb.whlib'; LOADLIB 'wh::dbase/postgresql.whlib'; LOADLIB 'mod::system/lib/database.whlib';LOADLIB 'wh::datetime.whlib';LOADLIB 'wh::money.whlib';LOADLIB 'wh::float.whlib';LOADLIB 'wh::crypto.whlib';LOADLIB 'wh::files.whlib';LOADLIB 'wh::internet/tcpip.whlib';LOADLIB 'wh::os.whlib';LOADLIB 'mod::publisher/lib/publisher.whlib'; LOADLIB 'mod::tollium/lib/gettid.whlib';LOADLIB 'mod::system/lib/services.whlib';");
+  PrintTo(blobid, "<?wh LOADLIB 'wh::dbase/postgresql.whlib'; LOADLIB 'mod::system/lib/database.whlib';LOADLIB 'wh::datetime.whlib';LOADLIB 'wh::money.whlib';LOADLIB 'wh::float.whlib';LOADLIB 'wh::crypto.whlib';LOADLIB 'wh::files.whlib';LOADLIB 'wh::internet/tcpip.whlib';LOADLIB 'wh::os.whlib';LOADLIB 'mod::publisher/lib/publisher.whlib'; LOADLIB 'mod::tollium/lib/gettid.whlib';LOADLIB 'mod::system/lib/services.whlib';");
   FOREVERY (STRING ll FROM loadlibs)
     PrintTo(blobid, "LOADLIB '" || EncodeJava(ll) || "';");
 
@@ -294,27 +263,6 @@ Lines not beginning with these commands will be executed as normal HareScript co
     CASE "EXIT","QUIT"
     {
       TerminateScript();
-    }
-    CASE "CREATE","DROP","ALTER","SHOW","WAIT", "GRANT", "REVOKE", "MOVE", "SET", "REFRESH_METADATA"
-    {
-      IF(autocommit)
-        GetPrimary()->BeginWork();
-
-      IF (Length(all_decls)=0) //must still read tabledefs
-        GetSchemaAndTableDecls();
-
-      RECORD ARRAY results := __SendWHDBCommand(GetPrimary()->id,line);
-      IF(Length(results)>0)
-        PrintRecordArrayTo(0,results,showmode);
-
-      IF(autocommit)
-        GetPrimary()->CommitWork();
-
-      IF (word != "SHOW")
-      {
-        all_decls := DEFAULT RECORD ARRAY; //ensure re-read after metadata change
-        all_tables := DEFAULT RECORD ARRAY; //ensure re-read after metadata change
-      }
     }
     CASE "REPEAT"
     {

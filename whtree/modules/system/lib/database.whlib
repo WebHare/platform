@@ -11,7 +11,6 @@ LOADLIB "wh::dbase/transaction.whlib" EXPORT
     SetPrimaryWebhareTransaction,
     SetupPrimaryTransactionBinder,
     DatabaseException;
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
