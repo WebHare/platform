@@ -6,9 +6,6 @@ Siteprofile changes:
   <apply>
     <to type="all"/>
 
-    <!-- Required for forms: enable rendering API -->
-    <formintegration />
-
     <!-- Optional: enable all users to create (standard) forms -->
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/formwebtool" />
   </apply>

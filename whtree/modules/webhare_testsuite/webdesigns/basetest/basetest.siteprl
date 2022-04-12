@@ -28,9 +28,6 @@
     <!-- Disable the legacy site settings -->
     <disablelegacysitesettings notemplateprofile="true" />
 
-    <!-- Enable forms -->
-    <formintegration />
-
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
     <mswordconversion webharecss="false">
