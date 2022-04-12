@@ -29,11 +29,6 @@
     <!-- Disable the legacy site settings -->
     <disablelegacysitesettings notemplateprofile="true" />
 
-    <!-- Enable formsapi
-         To enable (google) recaptcha, add: usecaptcha="1"
-    -->
-    <formintegration />
-
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
 

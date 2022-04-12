@@ -551,11 +551,8 @@ PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
 
   STRING regkey, wrdschema;
   RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-  IF(RecordExists(config))
-  {
-    regkey := config.addressvalidationkey ?? regkey;
-    wrdschema := config.addressvalidationschema ?? wrdschema;
-  }
+  regkey := config.addressvalidationkey ?? regkey;
+  wrdschema := config.addressvalidationschema ?? wrdschema;
 
   IF(regkey != "") //regkey takes priority so you can override locally
   {

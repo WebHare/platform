@@ -674,7 +674,7 @@ PUBLIC STATIC OBJECTTYPE MailResultsEditor EXTEND MailHandlerEditor
 RECORD FUNCTION CreateMergeFieldsContext(OBJECT mailcomposer, OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
 {
   RECORD integrationsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-  RECORD rtdtype := GetRTDType(RecordExists(integrationsettings) AND integrationsettings.mailrtdtype != "" ? integrationsettings.mailrtdtype : "http://www.webhare.net/xmlns/publisher/defaultmailrtdtype");
+  RECORD rtdtype := GetRTDType(integrationsettings.mailrtdtype);
   IF (NOT RecordExists(rtdtype))
     RETURN DEFAULT RECORD;
 

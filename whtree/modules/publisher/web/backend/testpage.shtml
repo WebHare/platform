@@ -27,9 +27,6 @@ PUBLIC STATIC OBJECTTYPE DynamicPage EXTEND DynamicPageBase
     BOOLEAN infotexts := GetWebVariable("infotexts")="1";
 
     OBJECT formsintegrationplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-    IF(NOT ObjectExists(formsintegrationplugin))
-      THROW NEW Exception('Please setup the formintegration plugin first - the siteprofile needs a <formintegration /> node');
-
     this->webdesign->pagetitle := "Forms test | " || this->webdesign->pagetitle;
     this->webdesign->isstandardcontentpage := TRUE;
 

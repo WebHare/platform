@@ -29,15 +29,7 @@ PUBLIC RECORD FUNCTION ParseIntercept(OBJECT addwarningcontext, STRING resourcen
 
   STRING modulename := GetModuleNameFromResourcePath(resourcename);
   STRING interceptfunction;
-  IF(subchild->HasAttribute("library"))
-  {
-    addwarningcontext->AddWarning(subchild,"library= has been deprecated, we recommend adding the relative path to interceptfunction (supported in 4.17 and up)");
-    interceptfunction := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("interceptfunction");
-  }
-  ELSE
-  {
-    interceptfunction := MakeAbsoluteResourcePath(resourcename, subchild->GetAttribute("interceptfunction"));
-  }
+  interceptfunction := MakeAbsoluteResourcePath(resourcename, subchild->GetAttribute("interceptfunction"));
 
   RECORD intercept :=
       [ module        := modulename
