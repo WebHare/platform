@@ -803,7 +803,7 @@ PUBLIC OBJECTTYPE ExceptionScreen EXTEND TolliumScreenBase
     IF(Length(e->trace)>0)
     {
       FOREVERY (RECORD pos FROM e->trace)
-        IF(pos.filename NOT LIKE 'module::tollium*')
+        IF(pos.filename NOT LIKE 'mod::tollium/lib/*')
         {
           errtext := "At " || pos.filename || " " || pos.line || ":" || pos.col || "\n";
           BREAK;

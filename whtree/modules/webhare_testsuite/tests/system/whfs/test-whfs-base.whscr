@@ -254,7 +254,7 @@ MACRO PublishOnOffTest()
   imgfile->UpdateMetadata([publish:=FALSE]);
   TestEq(FALSE, imgfile->publish);
 
-  OBJECT templatefile := firstfolder->CreateFile( [ name := "blabla.tpl", data := StringToBlob("<?wh LOADLIB 'module::publisher/template-v2.whlib';")]);
+  OBJECT templatefile := firstfolder->CreateFile( [ name := "blabla.tpl", data := StringToBlob("<?wh LOADLIB 'mod::publisher/lib/template-v2.whlib';")]);
   TestEq(28,templatefile->type);
   TestEq(FALSE, templatefile->publish);
   templatefile->UpdateMetadata([publish:=TRUE]);

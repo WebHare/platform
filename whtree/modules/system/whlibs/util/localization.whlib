@@ -13,7 +13,7 @@ This library offers new versions of these functions:
   GetLanguageDatetimeStrings (wh::datetime.whlib)        => GetLocalizedDatetimeStrings
   FormatMoney (wh::money.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
   FormatFloat (wh::float.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
-  GetCountryList (module::wrd/worldinfo/worldinfo.whlib) => GetCountryList
+  GetCountryList (mod::wrd/lib/worldinfo/worldinfo.whlib)=> GetCountryList
   ToUppercase (wh::system.whlib)                         => LocalizedToUppercase
   ToLowercase (wh::system.whlib)                         => LocalizedToLowercase
   NormalizeText (wh::util/langspecific.whlib)            => LocalizedNormalizeText

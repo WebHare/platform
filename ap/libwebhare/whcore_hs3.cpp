@@ -930,7 +930,7 @@ void ThrowNoShtmlException(HSVM *hsvm)
 {
         // Call the ThrowDomException helper function in HareScript
         HSVM_OpenFunctionCall(hsvm, 0);
-        HSVM_CallFunction(hsvm, "module::system/internal/webserver/support.whlib", "THROWNOSHTMLEXCEPTION", 0, 0, 0);
+        HSVM_CallFunction(hsvm, "mod::system/lib/internal/webserver/support.whlib", "THROWNOSHTMLEXCEPTION", 0, 0, 0);
         HSVM_CloseFunctionCall(hsvm);
 }
 

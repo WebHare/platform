@@ -416,8 +416,8 @@ RECORD ARRAY FUNCTION InitExpect(FUNCTION PTR call DEFAULTSTO DEFAULT FUNCTION P
     PRINT("Init expect\n");
     RECORD ARRAY trace := GetTolliumStackTrace();
     WHILE (LENGTH(trace) > 2
-          AND trace[0].filename = "module::tollium/testframework.whlib"
-          AND trace[1].filename = "module::tollium/testframework.whlib")
+          AND trace[0].filename = "mod::tollium/lib/testframework.whlib"
+          AND trace[1].filename = "mod::tollium/lib/testframework.whlib")
       DELETE FROM trace AT 0;
     DumpStackTrace(trace);
   }

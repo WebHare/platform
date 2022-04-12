@@ -1,9 +1,9 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="module::tollium/components/time.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="mod::tollium/lib/components/time.whlib">
 
   <fragment name="tolliumtime">
     <contents>
       <line>
-        <datetime name="dt" title="" type="time" storeutc="false" />
+        <datetime name="dt" type="time" storeutc="false" title="" />
       </line>
     </contents>
   </fragment>

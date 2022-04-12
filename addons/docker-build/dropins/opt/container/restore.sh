@@ -115,7 +115,7 @@ fi
 
 echo "Prepare restored installation for use"
 mkdir -p /opt/whdata/tmp/
-if ! wh run modulescript::system/database/setupclone.whscr --mutexmgr $SETUPOPTS; then
+if ! wh run mod::system/scripts/database/setupclone.whscr --mutexmgr $SETUPOPTS; then
   echo "Failed to prepare the restored installation"
   exit 1
 fi

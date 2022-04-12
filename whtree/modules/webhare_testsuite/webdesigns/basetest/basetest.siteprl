@@ -63,7 +63,7 @@
     <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
     <prebuiltpage type="dynamic"
                   tag="requiresysoptest"
-                  webpageobjectname="module::webhare_testsuite/internal/testsite.whlib#TestRequireSysopPage" />
+                  webpageobjectname="mod::webhare_testsuite/lib/internal/testsite.whlib#TestRequireSysopPage" />
     <prebuiltpage type="static" tag="listtest" webpageobjectname="pages/listtest/listtest.whlib#ListTestPage" />
     <prebuiltpage type="dynamic" tag="wrdauthtest" webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthtestPage" />
     <prebuiltpage type="static"

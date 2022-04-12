@@ -60,7 +60,7 @@
       <accesscheck/>
     </application>
 
-    <application name="testsiteversioning" library="module::webhare_testsuite/publisher/versioningapp.whlib" startmacro="StartVersioningApp" icon="tollium:applications/versioning">
+    <application name="testsiteversioning" library="mod::webhare_testsuite/lib/publisher/versioningapp.whlib" startmacro="StartVersioningApp" icon="tollium:applications/versioning">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>

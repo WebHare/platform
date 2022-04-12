@@ -14,7 +14,7 @@ MACRO TestAppServer()
 
   OBJECT process := CreateProcess(
         config.installationroot || "bin/appserver",
-        [ "--listenport", "2133", "module::webhare_testsuite/system/appservertest.whscr" ],
+        [ "--listenport", "2133", "mod::webhare_testsuite/lib/system/appservertest.whscr" ],
         FALSE,
         TRUE,
         TRUE,

@@ -489,7 +489,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
   {
-    EmbedWittyComponent("module::tollium/todd/internal/webpage.witty:main", this->rundata);
+    EmbedWittyComponent("mod::tollium/lib/todd/internal/webpage.witty:main", this->rundata);
   }
 
   STRING ARRAY FUNCTION ParseInAppPath(STRING apppath)

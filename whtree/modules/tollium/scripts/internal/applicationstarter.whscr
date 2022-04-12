@@ -133,7 +133,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
   STRING ARRAY FUNCTION ReloadDebuggerConfig()
   {
-    this->debugconfig := CallFunctionFromJob("module::system/configure.whlib", "GetDebuggerConfig");
+    this->debugconfig := CallFunctionFromJob("mod::system/lib/configure.whlib#GetDebuggerConfig");
     RETURN this->debugconfig.eventmasks;
   }
 

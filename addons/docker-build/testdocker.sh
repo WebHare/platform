@@ -603,7 +603,7 @@ fi
 
 if [ -n "$GENERATEXMLTESTS" ] && [ -z "$FATALERROR" ]; then
   echo "`date` Generate XML tests"
-  $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::webhare_testsuite/tests/createxmldomtestscripts.whscr
+  $SUDO docker exec $TESTENV_CONTAINER1 wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
 fi
 
 echo "`date` --- container1 servicemanager log ---"
@@ -679,7 +679,7 @@ if [ -n "$TESTFW_TWOHARES" ]; then
 fi
 
 if [ -n "$COVERAGE" ]; then
-  $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::system/debug/analyze_coverage.whscr
+  $SUDO docker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
   $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
   echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
 fi

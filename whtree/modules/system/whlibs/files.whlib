@@ -256,13 +256,8 @@ PUBLIC BLOB FUNCTION GetDiskResource(STRING path, RECORD options DEFAULTSTO DEFA
 }
 
 /** @short Open a HareScript resource file as a blob
-           This allows getting data from
-           - any file using moduledata::
-           - files within site::, but ONLY if they are of a filetype deemed as safe
-
-           If the file cannot be found OR you are not allowed to get the file you'll get an 'No such HareScript resource' exception.
-    @param path Path to the file to open.
-    @return A blob with the file
+    @param path Path to resource to open (eg wh::... or whres::...)
+    @return A blob with the file. If the file cannot be found OR you are not allowed to get the file you'll get an 'No such HareScript resource' exception.
 */
 PUBLIC BLOB FUNCTION GetHarescriptResource(STRING path)
 {

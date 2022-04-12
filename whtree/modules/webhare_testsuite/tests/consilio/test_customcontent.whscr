@@ -70,13 +70,13 @@ MACRO TestCustomContent()
 
   indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
   contentsource := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
       , maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]);
 
   TestThrows(PTR AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
       , maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]));

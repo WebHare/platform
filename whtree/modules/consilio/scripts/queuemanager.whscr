@@ -35,7 +35,7 @@ OBJECTTYPE Worker
   //
 
   /** @short The worker script file
-      @long A HareScript file path which can be fed to runscript, e.g. "modulescript::modulename/script.whscr".
+      @long A HareScript file path which can be fed to runscript, e.g. "mod::modulename/scripts/script.whscr".
   */
   STRING script;
 

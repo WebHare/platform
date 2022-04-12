@@ -15,7 +15,7 @@ PUBLIC INTEGER FUNCTION ParseWitty(STRING data, STRING encoding);
 //Parse a file in the HareScript filesystem as a template
 PUBLIC INTEGER FUNCTION ParseWittyLibrary(STRING name, STRING encoding);
 ```
-The _data_ parameter of the first two functions should speak for themselves, but the third function is a special version that takes a _library_ as a parameter, such as _site_::_site/folder/file.witty_ or _module::mymodule/file.witty_. This allows you to store Witty templates in the database or on disk, without having to bother with transactions or access rights.
+The _data_ parameter of the first two functions should speak for themselves, but the third function is a special version that takes a _library_ as a parameter, such as mod::mymodule/file.witty_. This allows you to store Witty templates in the database or on disk, without having to bother with transactions or access rights.
 
 As a security precaution, the Witty engine checks the type of the file you are trying to load through _ParseWittyLibrary_. If the file is stored in the database (eg, a site:: path), it must have a Witty template file type (publisher file type #26). If the file is stored on disk, it must have a &quot;.witty&quot; extension.
 
@@ -75,7 +75,7 @@ The Witty Run/Call functions return a record which describes any errors that may
 You can also use the AbortOnWittyRunError function to wrap RunWitty calls as an easy way to trigger error handling. For example:
 ```harescript
 //Parse a library (we assume this first step already succeeded)
-INTEGER witty_handle := ParseWittyLibrary(&quot;module::test/mylib.whlib&quot;, &quot;HTML&quot;);
+INTEGER witty_handle := ParseWittyLibrary(&quot;mod::test/lib/mylib.whlib&quot;, &quot;HTML&quot;);
 
 //Witty data record
 RECORD witty_data := [...];

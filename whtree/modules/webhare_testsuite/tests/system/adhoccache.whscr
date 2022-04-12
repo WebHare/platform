@@ -99,7 +99,7 @@ MACRO AdHocCacheTest()
   */
   OBJECT ARRAY requests;
   FOR (INTEGER i := 0; i < 50; i := i + 1)
-    INSERT AsyncCallFunctionFromJob("module::webhare_testsuite/system/adhoccache_basic.whlib", "LockedSlowCache") INTO requests AT END;
+    INSERT AsyncCallFunctionFromJob("mod::webhare_testsuite/lib/system/adhoccache_basic.whlib", "LockedSlowCache") INTO requests AT END;
 
   RECORD ARRAY slowdata := RECORD ARRAY(WaitForPromise(CreatePromiseAll(requests)));
   TestEQ(RepeatElement([ v := 1 ], LENGTH(requests)), slowdata);
@@ -133,9 +133,9 @@ MACRO RecompileInvalidationTest()
 {
   STRING whlib_data :=
       "<?wh\n" ||
-      "LOADLIB 'module::system/cache.whlib';\n" ||
-      "LOADLIB 'module::system/webserver.whlib';\n" ||
-      "LOADLIB 'module::system/webserver/errors.whlib';\n" ||
+      "LOADLIB 'mod::system/lib/cache.whlib';\n" ||
+      "LOADLIB 'mod::system/lib/webserver.whlib';\n" ||
+      "LOADLIB 'mod::system/lib/webserver/errors.whlib';\n" ||
       "PUBLIC INTEGER FUNCTION GetCachedData() { RETURN GetAdhocCached([ type := 1 ], PTR GetData); }\n" ||
       "RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := ToInteger(GetWebVariable('value'), -1) ]; }\n" ||
       "PRINT(ToString(GetCachedData()));\n";

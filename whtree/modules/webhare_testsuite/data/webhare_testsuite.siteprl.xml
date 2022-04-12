@@ -8,7 +8,7 @@
 
   <widgettype namespace="http://www.webhare.net/xmlns/beta/embedblock1"
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
-              renderobjectname="module::webhare_testsuite/screens/components/embedtest.whlib#embedblock1_renderer">
+              renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#embedblock1_renderer">
     <members>
       <member name="id" type="string" />
       <member name="styletitle" type="string" />
@@ -18,7 +18,7 @@
 
   <widgettype namespace="http://www.webhare.net/xmlns/beta/embedblock2"
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
-              renderobjectname="module::webhare_testsuite/screens/components/embedtest.whlib#embedblock2_renderer">
+              renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#embedblock2_renderer">
     <members>
       <member name="id2" type="string" />
       <member name="styletitle" type="string" />
@@ -29,7 +29,7 @@
               editextension="mod::webhare_testsuite/screens/components/embedtest.xml#embedinlineblock1_comp"
               embedtype="inline"
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
-              renderobjectname="module::webhare_testsuite/screens/components/embedtest.whlib#EmbedInlineBlock1Renderer">
+              renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedInlineBlock1Renderer">
     <members>
       <member name="id" type="string" />
       <member name="styletitle" type="string" />
@@ -53,18 +53,18 @@
             extensions=".shtml"
             ispublishable="true"
             title="TestsuiteDynFile">
-    <dynamicexecution startmacro="module::webhare_testsuite/publisher/dynamicexecute.whlib#FileEntry" />
+    <dynamicexecution startmacro="mod::webhare_testsuite/lib/publisher/dynamicexecute.whlib#FileEntry" />
   </filetype>
 
   <foldertype namespace="http://www.webhare.net/xmlns/beta/dynfolder" title="TestsuiteDynFolder">
     <members>
       <string name="test" />
     </members>
-    <dynamicexecution startmacro="module::webhare_testsuite/publisher/dynamicexecute.whlib#FolderEntry" />
+    <dynamicexecution startmacro="mod::webhare_testsuite/lib/publisher/dynamicexecute.whlib#FolderEntry" />
   </foldertype>
 
   <foldertype namespace="http://www.webhare.net/xmlns/beta/dynfolder2" title="TestsuiteDynFolder2">
-    <dynamicexecution startmacro="module::webhare_testsuite/publisher/dynamicexecute.whlib#FolderEntry" />
+    <dynamicexecution startmacro="mod::webhare_testsuite/lib/publisher/dynamicexecute.whlib#FolderEntry" />
   </foldertype>
 
   <apply>
@@ -164,7 +164,7 @@
 
   <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder"
               title="webdesign-dynfolder (webhare_testsuite)">
-    <dynamicexecution webpageobjectname="module::webhare_testsuite/publisher/testsitedesign.whlib#WebPage" />
+    <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#WebPage" />
   </foldertype>
 
   <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter"

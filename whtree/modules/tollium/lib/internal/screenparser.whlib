@@ -579,7 +579,7 @@ STATIC OBJECTTYPE PageParser
         objtype := curpageparser->ResolveObjType(fragmentdata.fragmentref, fragmentdata.fragment);
 
       IF (objtype="") //although we set a component for <includefragment> (to prevent it from becoming transparent) this won't affect true components using fragments
-        objtype := "module::tollium/screenbase.whlib#TolliumFragmentBase";
+        objtype := "mod::tollium/lib/screenbase.whlib#TolliumFragmentBase";
     }
 
     // Handle contentpanels

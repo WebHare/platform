@@ -507,7 +507,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
     IF (NOT IsDefaultValue(membervalue))
     {
-      // See module::system/internal/fsctypes.whlib for list of type ids
+      // See mod::system/lib/internal/fsctypes.whlib for list of type ids
       SWITCH (memberrec.type)
       {
         CASE 1 // Single choice (default value: STRING)
