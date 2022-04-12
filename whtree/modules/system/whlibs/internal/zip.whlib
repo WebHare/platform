@@ -11,7 +11,13 @@ CONSTANT INTEGER max_uint16_t := 65535;
 CONSTANT INTEGER64 max_uint32_t := 4294967295i64;
 
 
-CONSTANT INTEGER zip_generalpurposeflags_languageencoding := 1 BITLSHIFT 11; // If set, name and comment are encoded in UTF-8
+/** If set, the CRC and uncompressed size are put in a data descriptor record (but are
+    set correctly in the central directory header)
+*/
+CONSTANT INTEGER zip_generalpurposeflags_withdatadescriptor := 1 BITLSHIFT 3;
+
+/// If set, name and comment are encoded in UTF-8
+CONSTANT INTEGER zip_generalpurposeflags_languageencoding := 1 BITLSHIFT 11;
 
 /** Use ZIP64 size extensions when the uncompressed size is equal or larger than this value, so we're
     sure the compressed size < 4GB. Smaller than 4GB because the compressed size can be bigger than
@@ -955,6 +961,8 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
             , size :=             header.uncompsize
             , header.name
             , header.reloffset
+            , header.compsize
+            , header.crc32
             ];
 
         IF ((header.bitflags BITAND zip_generalpurposeflags_languageencoding) = 0 OR NOT IsValidUTF8(header.name))
@@ -973,6 +981,8 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
             }
             CASE zip_structs.zip64_extrafields_zip64_extendedinformation.fieldtype
             {
+              IF (CelLExists(field, "compsize"))
+                rawentry.compsize := field.compsize;
               IF (CelLExists(field, "uncompsize"))
                 rawentry.size := field.uncompsize;
               IF (CelLExists(field, "reloffset"))
@@ -1051,6 +1061,7 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
     }
 
     // We're using the local file header for the size/compmethod info
+    RECORD rawentry := this->_rawentries[pos.position];
     RECORD localheader := ReadLocalFileHeader(this->file, this->_rawentries[pos.position].reloffset);
     FOREVERY (RECORD field FROM localheader.extrafields)
     {
@@ -1065,6 +1076,14 @@ PUBLIC STATIC OBJECTTYPE ZIPArchiveReader
         }
       }
     }
+
+    /* If bit 3 of the general purpose flag is set, the fields crc-32, compressed
+       size and uncompressed size field is set to zero in the local header and
+       the correct value is put in the data descriptor and in the central
+       directory. We'll use the central directory value here.
+    */
+    IF ((localheader.bitflags BITAND zip_generalpurposeflags_withdatadescriptor) != 0)
+      localheader := CELL[ ...localheader, rawentry.compsize, rawentry.crc32, uncompsize := rawentry.size ];
 
     BLOB compresseddata := MakeSlicedBlob(this->archive, GetFilePointer(this->file), localheader.compsize);
 
