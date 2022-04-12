@@ -10,143 +10,6 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
-
-/*
-2008 - HTML dump of Harescript variables originally written by Mark
-2014 - Harescript variable describing in a format which can be serialized by Mark (for private app logmanager)
-2015 mid - Moved into Tollium internal (hsvalue_introspection.whlib)
-2016 feb - hyperlinks, OBJECTTYPES metadata
-
-
-ADDME
-
-Missing detection:
-    - GetIntExtLinkDescription the additional part of the internal link
-    - STATIC OBJECTTYPE
-    - deprecated OBJECTTYPE's ?
-    - detect Harescript namespaces (for example: site::)
-    - describe "XML" nodes/documents
-    - implement describing bound variables in a FUNCTION PTR created using MakeFunctionPtr()
-    - detect field with name "WRD_ID" of type INTEGER (or INTEGER64 ?) -> link to WRD application
-
-Features
-    - only have one copy of an OBJECT instance in the DOM,
-      but have clickable placeholders which show the instance in that location
-
-    - a <list> version?
-      GOOD - can sort on name, vartype, objecttype, access to Harescript
-      BAD  - no syntax highlighting
-
-Efficiency:
-    - TypeidArray check in WalkUnpack not nessecary?? (not externally used)
-    - would using a stream be more efficient than using string concatination? (or witty?)
-
-Useability:
-    - repeat name of RECORD ARRAY in each RECORD (but faded out so it won't take away your attention)
-
-
-
-
-- Detected
-    - http://, https:// and //
-    - IntExtLinks
-
-ADDME:
-  - offer a Tollium contextmenu for hsvalue dumps when within Tollium
-
-ADDME:
-
-- 'interpreted' (RECORD) to meta (RECORD ARRAY) (can have multiple described OBJECTTYPE's ?)
-  - think about cases where we will get multiple times the same information
-
-
-
-FIXME:
-- check: RECORDs unpacked even if maxtreedepth reached
-- try to show objects at the highest level instead of the first occurence
-- support for dates beyond 9999 (not encoded by HSON)
-
-
-How we describe Harescripts vars:
-
-- we store a 'description' of all data within a RECORD which looks like this:
-
-      [ type     := "SPC_HSVAR_DESCRIPTION"
-      , content  := content
-      , objects  := RECORD ARRAY
-      , settings := [ //maxtreedepth      := this->pvt_maxtreedepth
-                      limitbloblength   := this->pvt_limitbloblength
-                    , limitstringlength := this->pvt_limitstringlength
-                    , hidemembers       := this->pvt_hidemembers
-                    , hide_objecttypes  := ...
-                    ]
-      ]
-
-
-- We try to describe all types which can't be serialised using EncodeHSON into a RECORD with a cell "hstype".
-  These are the RECORD's which are generated:
-
-    - BLOB
-      - described in a RECORD:
-          [ hstype := "BLOB"
-          , length :=          // the original length of the blob
-          , value  :=          // the value of the BLOB as STRING (cut off at the length specified in settings.limitblocklength)
-          ]
-
-    - OBJECT's
-      - the reference is described in a RECORD:
-          [ hstype := "OBJECT"
-          , id     := ....         // -1 = DEFAULT OBJECT, >-1 = the internal objectid it had
-          , weak   := TRUE/FALSE   // WEAKOBJECT (TRUE) or OBJECT (FALSE)
-          ]
-
-      - the OBJECT itself is described in a RECORD, which is stored in hsvarrecord.objects:
-        (it is stored separately because there may be multiple references, including circular references, to the object)
-          [ hstype        := "OBJECT"
-          , membershidden := FALSE/TRUE       // if TRUE, the vars and privatevars aren't stored
-          , vars          := DEFAULT RECORD
-          , privatevars   := DEFAULT STRING ARRAY
-          , typenames     := DEFAULT STRING ARRAY
-          , id            := __INTERNAL_GETOBJECTID(value)
-          , interpreted   := [ ... ]  // for known OBJECT TYPES we stored data in a standardized manner, so saved description work even when the internal/private fields in the OBJECTTYPE's have changed
-          ];
-
-    - PROPERTY
-      - the reference is described in a RECORD:
-        [ hstype := "PROPERTY" ]
-
-    - FUNCTION PTR's
-      - the reference is described in a RECORD:
-        [ hstype := "PTR", ...... ]
-
-    - FUNCION PTR ARRAY / OBJECT ARRAY / WEAKOBJECT ARRAY / VARIANT ARRAY
-      - described:
-        [ hstypeid := ...
-        , items    := [ [ value := ... ]
-                      , [ value := ... ]
-                      ]
-        ]
-
-
-
-
-Caveat's:
-
-- PROPERTY(this->...., this->....)
-  Harescript makes functions for getter's/setter's which point to another variable (or property?).
-  We might want to clean up or not show these functions??
-  FIXME2: We don't get the correct variable/property the getter/setter points to,
-          but an on-the-fly created getter/setter function??
-  (for example PROPERTY test(this->something, -);
-   will internally work as something like:
-   PROPERTY test(objecttypename#get#propertyname, -);
-   STRING FUNCTION objecttypename#get#propertyname() { RETURN this->something; }
-
-*/
-
-
-
-// was TolliumDebugging
 PUBLIC STATIC OBJECTTYPE IntrospectionSettings
 < // ---------------------------------------------------------------------------
   //
@@ -164,8 +27,6 @@ PUBLIC STATIC OBJECTTYPE IntrospectionSettings
   BOOLEAN pvt_hideseenobjects;
 
   BOOLEAN pvt_onlyuiobjects;
-
-  //STRING ARRAY pvt_hidemembers;
 
   STRING ARRAY pvt_hideobjecttypes;
 
@@ -188,9 +49,6 @@ PUBLIC STATIC OBJECTTYPE IntrospectionSettings
 
   /// Whether to hide already seen objects
   PUBLIC PROPERTY hideseenobjects(pvt_hideseenobjects, pvt_hideseenobjects);
-
-  /// List of members not to show.
-  //PUBLIC PROPERTY hidemembers(pvt_hidemembers, pvt_hidemembers);
 
   PUBLIC PROPERTY hidemembersforobjecttypes(pvt_hidemembersforobjecttypes, pvt_hidemembersforobjecttypes);
 
@@ -216,41 +74,13 @@ PUBLIC STATIC OBJECTTYPE IntrospectionSettings
     this->pvt_limitstringlength := 2000;
     this->pvt_hideseenobjects := TRUE; // only show each object once
 
-// FIXME: not used anymore, reimplement...
-/*
-    this->pvt_hidemembers :=
-        [ 'PVT_OWNER'
-        , 'PVT_PARENT'
-        , 'RESOURCEMGR'
-
-        , "PVT_SUPERCOMPONENT"
-        , "OWNER"
-        , "PARENT"
-        ];
-*/
     this->pvt_hideobjecttypes :=
         [ "PVT_OWNER", "PVT_PARENT", "RESOURCEMGR"
-        //, "TOLLIUMCOMPONENTBASE"
-        //, "WHFSOBJECT"
-        //, "WHFSFOLDER"
         ];
 
     this->pvt_hidemembersforobjecttypes :=
         [ "WHFSFOLDER" ];
   }
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Property getters/setters
-  //
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public interface
-  //
-
 >;
 
 
@@ -346,56 +176,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
 
     SWITCH(valuetype)
     {
-      //CASE TypeId(BOOLEAN)
-      //CASE TypeId(INTEGER)   { varcontent := name || " = " || value; }
-      //CASE TypeId(INTEGER64) { varcontent := name || " = " || value; }
-
-      //CASE TypeId(STRING)
-
-      //CASE TypeId(MONEY)     { varcontent := name || " = " || FormatMoney(value,2,'.','',false); }
-      //CASE TypeId(FLOAT)     { varcontent := name || " = " || FormatFloat(value,4); }
-      //CASE TypeId(DATETIME)  { varcontent := name || " = " || FormatDateTime('%a, %#d %B %Y %H:%M',value); }
-
-/*
-Work in progress:
-(disable )
-      CASE TypeId(STRING)
-      {
-        //IF(ToLowerCase(inguid) LIKE "wrd:????????????????????????????????")
-        IF (Left(value, 5) = "wrd:")
-        {
-          // Based on MakeGuidToWRDIdMapping()
-          // from wrd/include/internal/wrdschema.whlib
-          STRING parsedguid := SubString(value, 5);
-
-          // Since we don't know the context (which schema is used)
-          // we might encountering multiple entities with this GUID.
-          // (which are probably copies of the same schema)
-          INTEGER ARRAY wrdids :=
-              SELECT AS INTEGER ARRAY id
-                FROM wrd.entities
-               WHERE guid = parsedguid;
-
-          RECORD ARRAY matches :=
-              ToRecordArray(wrdids, "wrd_id");
-/ *
-                                      [
-                                      ] := wrdids
-                                  , id   := id
-                                  , wrdtype := wrdtype
-                                  , title := title
-* /
-
-          RETURN [ hstype := "STRING-WRDGUID"
-                 , interpreted := [ type := "WRDENTITY"
-                                  , matches := matches
-                                  ]
-                 ];
-        }
-        ELSE
-          RETURN value;
-      }
-*/
 
       CASE TypeId(VARIANT) // this should never happen?
       {
@@ -438,25 +218,7 @@ Work in progress:
         OBJECT normalobject := OBJECT(value);
         RETURN this->GetObjectDescription(name, normalobject, level + 1, TRUE);
       }
-/*
-      CASE TypeID(TABLE)
-      {
-        // ADDME
-      }
 
-      CASE TypeID(SCHEMA)
-      {
-        // ADDME
-      }
-
-      // Reference to another VM
-      CASE TypeID(VMRef) //0x41
-      {
-        varcontent := '';
-      }
-
-      // ADDME: TableArray (0x95)
-*/
       DEFAULT
       {
         IF (IsTypeidArray(valuetype))
@@ -499,18 +261,6 @@ Work in progress:
     INSERT CELL hstype := "PTR" INTO fptrRecord;
 
     RETURN fptrRecord;
-
-    /*
-    // FIXME: or just dump the fptrRecord ???
-    RETURN
-        [ type         := "PTR"
-        , functionname := fptrRecord."function"
-        , returntype   := getTypeName( fptrRecord."RETURNTYPE" )
-        , paramslist   := paramslist
-        , library      := fptrRecord.library
-        //, fulldump     := fptrRecord
-        ];
-    */
   }
 
   /**   @short Make a list of all items in an array
@@ -518,7 +268,7 @@ Work in progress:
         @param level Current level (depth) of recursion
         @return String with a list of all items in the array
   */
-  RECORD FUNCTION GetArrayDescription(VARIANT thearray, INTEGER level) //, STRING parentname)
+  RECORD FUNCTION GetArrayDescription(VARIANT thearray, INTEGER level)
   {
     IF (Length(thearray) = 0)
       RETURN [ description := thearray ];
@@ -625,19 +375,7 @@ Work in progress:
       RETURN reference;
     }
 
-    /* Hide a few objects which we don't often need and which make a mess of the tree
-       Totally hide.. Otherwise we will allready parse the objects and in the part
-       which the user wants to see they will get '(already displayed)' behind every object.
-    */
-/*
-    IF (name IN this->debug->hidemembers)
-    {
-      // in the 'names of object members to hide' list
-      INSERT CELL cutoff := "TRUE" INTO objectdescription;
-      INSERT objectdescription INTO this->seenobjects_recs AT END;
-      RETURN reference;
-    }
-*/
+
 
     // Don't store content information if this OBJECT is derived from one of the OBJECTTYPES in our blacklist
     IF (level > 1 AND ArraysIntersect(objectdescription.typenames, this->debug->hide_objecttypes))
@@ -657,7 +395,6 @@ Work in progress:
       DELETE FROM this->seenobjects_recs WHERE id = objectdescription.id;
     }
 
-    // OBJECT's from module "WRD"
     IF (this->gathermetadata)
     {
       IF ("WRDSCHEMA" in objectdescription.typenames)
@@ -680,9 +417,6 @@ Work in progress:
       }
       IF ("WRDENTITY" in objectdescription.typenames)
       {
-        //PUBLIC PROPERTY wrdtype(pvt_wrdtype, -);
-        //PUBLIC PROPERTY wrdschema(GetWRDSchema,-);
-        //PUBLIC PROPERTY guid(GetGuid,-);
         INSERT CELL interpreted :=
             [ type := "WRDENTITY"
             , id   := value->id
@@ -715,7 +449,7 @@ Work in progress:
             , webroot := value->webroot
             ] INTO objectdescription;
       }
-      IF ("WHFSTYPE" in objectdescription.typenames) // defined in module::system/internal/whfs/contenttypes.whlib
+      IF ("WHFSTYPE" in objectdescription.typenames) // defined in mod::system/lib/internal/whfs/contenttypes.whlib
       {
         INSERT CELL interpreted :=
             [ type := "WHFSTYPE"
@@ -816,18 +550,6 @@ Work in progress:
   */
   RECORD FUNCTION GetIntExtLinkDescription(RECORD value)
   {
-    //IF (level > this->debug->maxtreedepth)
-    //  RETURN [ hstype := "CUTOFF" ]; // too deep, delete from here
-/*
-    RECORD description :=
-             [ hstype := "intextlink"
-             , value  := this->GetRecordDescription(value, 0) // to be safe we handle this as a normal RECORD
-
-             // to store info so we can at a later stage or on another server see what this intextlink linked to
-             // interpreted.
-             , interpreted := DEFAULT RECORD
-             ];
-*/
     IF (value.externallink != "")
     {
       RETURN [ hstype := "intextlink"
@@ -1015,12 +737,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
             varcontent := name || " = '<a href=\"" || value || "\">" || EncodeHTML(value) || "</a>'";
           ELSE IF (Left(value, 2) = "//")
             varcontent := name || " = '<a href=\"http://" || value || "\">" || EncodeHTML(value) || "</a>'";
-
-          //ELSE IF ()
-          // ADDME: check for module::, moduledata::, modulescript::, site::, whfsref??
-          // ADDME: can we done something with moduleroot:: too??
-          // ADDME: /.uc/ ... if .jpg / .png allow display?
-          // ADDME: detect WRD GUID's:   wrd:90E99CE04A6A822F5145628F04C2285D
           ELSE
             varcontent := name || " = '" || EncodeHTML(value) || "'";
         }
@@ -1143,78 +859,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
     CASE TypeId(OBJECT)
       {
-/*
-        // we can't break out a CASE, so create a loop to break out from.
-        // this simplifies the code greatly by not having to have huge IF statements.
-        FOREVERY(BOOLEAN ready FROM [true])
-        {
-        IF (level > 1)
-          expanded := FALSE;
-
-        IF (NOT ObjectExists(value))
-        {
-          varinfo := '<strong>' || name || "</strong> = DEFAULT OBJECT";
-        }
-        ELSE
-        {
-          STRING typename := GetObjectTypeName(value);                           // get only the last extend
-          STRING dummy;
-        //STRING typename := Detokenize(GetObjectExtendNames(datading),'>');      // get all extends
-
-          STRING ARRAY objnames := GetObjectExtendNames(value);
-
-          INSERT value INTO this->seenobjects AT END;
-
-          varinfo := '<strong>' || name || "</strong> EXTENDS " || typename;
-
-          / * Hide a few objects which we don't often need and which make a mess of the tree
-             Totally hide.. Otherwise we will allready parse the objects and in the part
-             which the user wants to see they will get '(already displayed)' behind every object. * /
-          IF (name IN this->debug->hidemembers)
-          {
-            varinfo := varinfo || " (children hidden)";
-            BREAK;
-          }
-
-          IF(    this->debug->hideseenobjects
-             AND level>1
-             AND value IN this->seenobjects)
-          {
-            varinfo := varinfo || " (already displayed)";
-          }
-          ELSE
-          {
-            IF ('XMLDOCUMENT' IN objnames) // also covers XMLSchema
-            {
-              varcontent := '<br />GetDocumentBlob() = ' || EncodeHTML(BlobToString(value->GetDocumentBlob(TRUE) ,this->debug->limitbloblength));
-              BREAK;
-            }
-
-            IF ('XMLELEMENT' IN objnames)
-            {
-              varcontent := '<br />outerxml = ' || EncodeHTML(value->outerxml);
-              BREAK;
-            }
-
-            // character data (textnode)
-            IF ('XMLCHARACTERDATA' IN objnames) // XmlCDATASection>XmlText>XmlCharacterData, XmlComment>XmlCharacterData
-            {
-              varcontent := '<br />nodevalue = ' || EncodeHTML(value->nodevalue);
-              BREAK;
-            }
-
-            // empty objects are allready check for earlyer so we can
-            // assume the object has 1 or more children
-            hasChildren := TRUE;
-
-            RECORD ARRAY unpacked := UnpackRecord(__INTERNAL_DebugCopyObjectToRecord(value));
-            varcontent := Length(unpacked) || ' properties:'
-                 || this->WalkUnpacked(unpacked, level+1, value);
-          }
-
-        }
-        } // FOREVERY
-*/
       }
 
     // Reference to another VM
@@ -1352,8 +996,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
           }
           ELSE
           {
-            //hasChildren := TRUE;
-            //expanded    := FALSE; // we rarely need details about function pointers
             INTEGER returnType   := fptrRecord."RETURNTYPE";
             STRING returnTypeStr := GetTypeName(returnType);
 
@@ -1361,12 +1003,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
             FOREVERY(RECORD parameter FROM RECORD ARRAY(fptrRecord.parameters)) // Cast to RECORD ARRAY in case we got a VARIANT ARRAY (why do some old datadumps have VARIANT ARRAY's ??)
             {
               IF (NOT CellExists(parameter, "type"))
-              {
-                // FIXME: why does this happen and how to fix it??
-                //        This happens with PTR EmbedWittyComponent("componentnamehere", wittydata)
                 INSERT "UNKNOWN" INTO paramslist AT END;
-                //THROW NEW Exception(AnyToString(fptrRecord,"tree"));
-              }
               ELSE
                 INSERT GetTypeName(parameter.type) INTO paramslist AT END;
             }
@@ -1410,7 +1047,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
             // whe'll get a RECORD for FUNCION PTR's (because we translated it) or STRING
             VARIANT getter := GetCell(containerobjectrec.vars, value.getter);
             varcontent := "<b>getter:</b><br />" || this->DumpType(value.getter, getter, level + 1, value.getter IN containerobjectrec.privatevars, -1, containerobjectrec) || "\n";
-//  STRING FUNCTION DumpType(STRING name, VARIANT value, INTEGER level, BOOLEAN isprivate, INTEGER arrindex, RECORD containerobject DEFAULTSTO DEFAULT RECORD)
           }
 
           IF (value.setter != "")
@@ -1473,30 +1109,8 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
                                      FROM ToRecordArray(objectrec.typenames, "value") AS row
                                     ORDER BY #row DESC;
 
-
-
-
-          //STRING varinfo := '<strong>' || name || "</strong> EXTENDS " || typename;
           varinfo := name || " <span class=\"objtypes\">(" || DeTokenize(typenames, ", ") || ")</span>";//objectrec.typenames[end-1];
 
-
-          /* Hide a few objects which we don't often need and which make a mess of the tree
-             Totally hide.. Otherwise we will allready parse the objects and in the part
-             which the user wants to see they will get '(already displayed)' behind every object. */
-/*
-          IF (name IN this->debug->hidemembers)
-          {
-            varinfo := varinfo || " (children hidden)";
-            haschildren := FALSE;
-
-            RETURN [ varinfo := varinfo
-                   , varcontent := varcontent
-                   , typename := typename
-                   , haschildren := haschildren
-                   , expanded := FALSE
-                   ];
-          }
-*/
 
           IF (CellExists(objectrec, "interpreted"))
           {
@@ -1506,22 +1120,11 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
             IF (meta.type = "WRDSCHEMA") //("WRDSCHEMA" in typenames)
             {
-              // FIXME: add JS which resolve the webhare:// link to a normal link if we are used outside <hsvalue> or LogManager
-              // FIXME: how to handle the case in which the WRDSchema has been renamed? (first find by id, then by name??)
-        /*
-              varcontent := "<div class='interpreted'>\
-                                id: # " || meta.id || "<br/>\
-                                name: " || meta.name || "<br/>\
-                                <a href=\"webhare://wrd/" || meta.name || "\">View in WRD</a>\
-                             </div>\
-                            ";
-        */
               varcontent := '<div class="interpreted">\
                                 <div class="humandescription">WRD schema "' || meta.name || '" (#' || meta.id || ')</div>\
                                 <a href="webhare://wrd/" || meta.name || ">View in WRD</a>\
                              </div>\
                             ';
-              //varinfo := name || " <a href=\"wrd://" || meta.name || "\" class=\"objtypes\">(" || DeTokenize(typenames, ", ") || ")</a>";//objectrec.typenames[end-1];
             }
             ELSE IF (meta.type = "WRDENTITY")
             {
@@ -1531,16 +1134,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
                                 Type: <a href="webhare://wrd/' || meta.schemaname || '/' || meta.typetag || '">View type (by schemanem/typetag)</a>\
                              </div>\
                             ';
-/*
-      INSERT CELL interpreted :=
-          [ type := "WRDENTITY"
-          , id   := value->id
-          , name := value->name
-          , wrdtype := value->wrdtype->name
-          , wrdschema := value->wrdschema->name
-          , guid := value->guid
-          ] INTO objectdescription;
-*/
             }
             // OBJECT's from module "system"
             ELSE IF (meta.type = "SITEOBJECT")
@@ -1562,31 +1155,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
                                 <a href=\"webhare://whfs/" || meta.whfspath || "\">View in Publisher (by whfspath)</a>\
                              </div>\
                             ";
-/*
-              INSERT CELL interpreted :=
-                  [ type := "WHFSOBJECT"
-                  , id   := value->id // value->schemarec.id
-                  , name := value->name // value->schemarec.name
-                  , title := value->title
-                  , url := value->url
-                  , whfspath := value->whfspath
-                  , fullpath := value->fullpath
-                  ] INTO objectdescription;
-*/
             }
-/*
-      IF ("WHFSTYPE" in objectdescription.typenames) // defined in module::system/internal/whfs/contenttypes.whlib
-      {
-        INSERT CELL interpreted :=
-            [ type := "WHFSTYPE"
-            , id   := value->id // value->typedef.id
-            , namespace := value->namespace // value->typedef.name
-            //, defaultinstance := value->defaultinstance
-            //, title :=  // FIXME: required more work to get...
-            ] INTO objectdescription;
-
-      }
-*/
           }
 
 
@@ -1596,7 +1165,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
             //        (no deep nesting, circulair references, etc)
             varinfo := varinfo || " (already displayed)";
             varcontent := varcontent || '<div class="content">(members hidden because the object is already displayed)</div>';
-            //haschildren := FALSE;
 
             RETURN [ varinfo := varinfo
                    , varcontent := varcontent
@@ -1614,7 +1182,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
           IF (CellExists(objectrec, "membershidden") AND objectrec.membershidden)
           {
             varcontent := varcontent || " (members not stored)";
-            //haschildren := ;
 
             RETURN [ varinfo := varinfo
                    , varcontent := varcontent
@@ -1632,12 +1199,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
           RECORD ARRAY unpacked := UnpackRecord(objectrec.vars);
           varcontent := varcontent || '<div class="content">' || Length(unpacked) || ' properties:';
-/*
-        RETURN '<li class="isarray ' || (expanded ? 'open' : 'closed')
-            || '"><div class="header' || (isprivate ? ' private' : '')
-            || '" onclick="toggleMe(this);" '|| jscommand ||'>' || infohdr || '\
-*/
-
           RECORD ARRAY group1; // misc types
           RECORD ARRAY group2; // ARRAY's and OBJECT's
 
@@ -1803,9 +1364,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
       // unpacked function pointer or record
       FOREVERY(RECORD recordfield FROM unpacked)
       {
-IF (CellExists(recordfield, "hstype") AND recordfield.hstype = "PROPERTY")
-  ABORT(unpacked);
-
         //varcontent := varcontent || this->DumpType( recordfield.name, recordfield.value, level, false, -1 ) || "\n";
         STRING content := this->DumpType(recordfield.name, recordfield.value, level, FALSE, -1);
         IF (TypeID(recordfield.value) = TypeID(OBJECT) OR TypeID(recordfield.value) = TypeID(RECORD) OR IsTypeIdArray(TypeID(recordfield.value)))

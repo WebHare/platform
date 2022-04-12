@@ -15,8 +15,6 @@ PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY value(this->valueholder.val, SetValue);
 
-  //PUBLIC PROPERTY settings(this->serializer->debug, this->serializer->debug);
-
   PUBLIC PROPERTY showprivate(this->dumper->showprivate, this->dumper->showprivate);
   PUBLIC PROPERTY forceshowraw(this->dumper->forceshowraw, this->dumper->forceshowraw);
   PUBLIC PROPERTY expandlevel(this->dumper->expandlevel, this->dumper->expandlevel);
@@ -70,36 +68,6 @@ PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
       // Open the publisher by WHFS ID, URL or WHFSPATH
       this->tolliumcontroller->SendApplicationMessage("publisher:app", [ selectobject := urlrec.urlpath ], DEFAULT RECORD, FALSE);
     }
-    // ADDME: implement opening of URL (urlopenaction)
-    //ELSE
-    //ABORT (url);
-      //this->frame->OpenBrowserWindow(url, "_blank");
-      //this->frame->OpenBrowserWindow("/webhare/?app=" || thismodulename || "(" || EncodeURL(data.screen) || ")","_blank");
-
     RETURN TRUE;
   }
-
-/*
-  MACRO DoOpenProperties()
-  {
-    RECORD sel := this->whfsobjects->selection;
-
-    OBJECT dlg := CreateWHFSObjectPropsDialog(this, sel.id);
-
-    // check whether creation of the properties dialog has failed
-    // (for example due to an error in a propertyeditor in a siteprofile)
-    IF (NOT ObjectExists(dlg))
-      RETURN; // FALSE;
-
-    //RETURN dlg->RunModal() = "ok";
-    dlg->RunModal();
-  }
-
-  MACRO DoInspect()
-  {
-    RECORD sel := this->whfsobjects->selection;
-    OBJECT dlg := CreateWHFSObjectInspectDialog(this, sel.id);
-    dlg->RunModal();
-  }
-*/
 >;
