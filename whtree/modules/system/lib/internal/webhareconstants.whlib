@@ -89,6 +89,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_contentlink := 20;
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/shtmlfile
 PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/dynamicfoldercontents
+PUBLIC CONSTANT INTEGER whconstant_whfstype_dynamicfoldercontents := 35;
+
 /// fs_history.type recycle action
 PUBLIC CONSTANT INTEGER whconstant_historytype_recycle := 0;
 
