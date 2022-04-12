@@ -74,11 +74,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->AddDatabaseProvider(GetDatabaseType());
     this->RefreshDatabaseSchemas();
-    //IF(Length(data.params)>0 AND data.params[0]="odbc")
-    //{
-    //  this->AddDatabaseProvider("odbc");
-    //}
-
   }
 
   MACRo RefreshDatabaseSchemas()
@@ -117,11 +112,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     SWITCH(type)
     {
-      CASE "odbc"
-      {
-        MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/odbc.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
-        this->AddDatabases(enumerator());
-      }
       CASE "whdb", "postgresql"
       {
         MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/webharedb.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
