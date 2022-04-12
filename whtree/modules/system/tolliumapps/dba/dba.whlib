@@ -72,7 +72,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->AddDatabaseProvider(GetDatabaseType());
+    MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/webharedb.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
+    this->AddDatabases(enumerator());
     this->RefreshDatabaseSchemas();
   }
 
@@ -106,18 +107,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     //FIXME nicer output, but what to do with a mix of errors and commands?
     REFLECT(CELL[result, sqlcommands]);
 
-  }
-
-  MACRO AddDatabaseProvider(STRING type) //we dynamically load only requested database types, to not get stuck on DLL load errors
-  {
-    SWITCH(type)
-    {
-      CASE "whdb", "postgresql"
-      {
-        MACRO PTR enumerator := MakeFunctionPtr("mod::system/tolliumapps/dba/webharedb.whlib#EnumerateDatabaseTypes", TypeID(RECORD ARRAY), DEFAULT INTEGER ARRAY);
-        this->AddDatabases(enumerator());
-      }
-    }
   }
 
   MACRO AddDatabases(RECORD ARRAY dbs)

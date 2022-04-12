@@ -18,7 +18,7 @@ LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseWritable, IsDatabaseOnline;
 LOADLIB "wh::internal/transservices.whlib";
 
-LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;
+LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException;
 LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
@@ -403,47 +403,6 @@ PUBLIC MACRO __SetEffectiveUser(OBJECT userobj)
   effectiveuser := userobj;
 }
 
-///@private
-PUBLIC OBJECT FUNCTION OpenWebhareTransaction(STRING user, STRING password) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary and BeginWork/CommitWork")
-{
-  RETURN StartWebhareTransaction([ user := user, passwd := password, auto := FALSE ]);
-}
-
-///@private
-PUBLIC OBJECT FUNCTION OpenWebhareAutoTransaction(STRING user, STRING password) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary")
-{
-  RETURN StartWebhareTransaction([ user := user, passwd := password, auto := TRUE ]);
-}
-
-///@private
-PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary")
-{
-  RECORD whinfo := __SYSTEM_WHCOREPARAMETERS();
-
-  STRING dbtype := GetDatabaseType();
-  OBJECT transobject;
-  SWITCH (dbtype)
-  {
-    CASE "whdb"
-    {
-      INTEGER transid := __avoiddepwarning_StartWHDBTransaction(data);
-      IF (transid != 0)
-        transobject := GetTransactionObjectById(transid);
-    }
-    CASE "postgresql"
-    {
-      IF (NOT CellExists(data, "BLOBHANDLER"))
-        INSERT CELL blobhandler := GetDefaultPostgreSQLBlobHandler() INTO data;
-      transobject := __StartWHPostgreSQLTransaction(data);
-    }
-    DEFAULT
-    {
-      THROW NEW Exception(`Unknown database type '${dbtype}'`);
-    }
-  }
-  RETURN transobject;
-}
-
 PUBLIC OBJECT FUNCTION __INTERNAL_GetSystemSchemaBinding()
 {
   RETURN __system_binding_trans;
@@ -457,9 +416,6 @@ PUBLIC OBJECT FUNCTION __INTERNAL_GetSystemSchemaBinding()
 PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
 {
   options := ValidateOptions( [ clientname := ""
-                              , recoverymode := FALSE
-                              , clustermode := FALSE
-                              , fallbacktorecoverymode := FALSE
                               , waituntil := DEFAULT DATETIME
                               ], options);
 
@@ -467,14 +423,9 @@ PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
     THROW NEW Exception("A primary transaction has already been opened");
 
   RECORD transopts :=
-      [ user := options.clustermode
-                    ? "~cluster"
-                    : options.recoverymode
-                          ? "~recovery"
-                          : "~webhare"
-      , passwd := ""
-      , auto := TRUE
+      [ auto := TRUE
       , isprimary := TRUE
+      , blobhandler := GetDefaultPostgreSQLBlobHandler()
       ];
 
   IF(options.clientname != "")
@@ -483,12 +434,7 @@ PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
   OBJECT trans;
   WHILE(TRUE)
   {
-    trans := StartWebhareTransaction(transopts);
-    IF (NOT ObjectExists(trans) AND options.fallbacktorecoverymode AND NOT options.recoverymode)
-    {
-      transopts.user := "~recovery";
-      trans := StartWebhareTransaction(transopts);
-    }
+    trans := __StartWHPostgreSQLTransaction(transopts);
     IF (ObjectExists(trans))
       BREAK;
 

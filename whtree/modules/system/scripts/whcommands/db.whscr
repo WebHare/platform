@@ -27,12 +27,9 @@ MACRO ShowSyntax(STRING error)
   PRINT("  sequences [ --reset ]      List/reset sequences\n");
   PRINT("  setserver                  Get/set read-write status (readwrite / readonly)\n");
   PRINT("  transactions [ --raw ]     Show transaction list\n");
+  PRINT("  cancel <pid>               Cancel the specified transaction (graceful)\n");
+  PRINT("  kill <pid>                 Kill the specified transaction\n");
 
-  IF (GetDatabaseType() = "postgresql")
-  {
-    PRINT("  cancel <pid>               Cancel the specified transaction (graceful)\n");
-    PRINT("  kill <pid>                 Kill the specified transaction\n");
-  }
   TerminateScriptWithError("");
 }
 
@@ -56,13 +53,6 @@ SWITCH (args.command)
     IF (NOT RecordExists(subargs))
       ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
-
-    IF (GetDatabaseType() = "whdb")
-    {
-      trans->BeginWork();
-      PRINT(AnyToString(__SendWHDBCommand(trans->id,'show transactions'),'boxed'));
-      RETURN;
-    }
 
     RECORD ARRAY transactions := trans->__ExecSQL("select * FROM pg_stat_activity");
     IF (args.raw)
@@ -90,12 +80,6 @@ SWITCH (args.command)
     IF (NOT RecordExists(subargs))
       ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
-
-    IF (GetDatabaseType() = "whdb")
-    {
-      PRINT(`Not supported for database type whdb\n`);
-      RETURN;
-    }
 
     IF(subargs.raw)
     {
@@ -180,12 +164,6 @@ SWITCH (args.command)
       ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
 
-    IF (GetDatabaseType() = "whdb")
-    {
-      PRINT(`Not supported for database type whdb\n`);
-      RETURN;
-    }
-
     RECORD ARRAY sequences :=
         SELECT TEMPORARY seqdata := RECORD(GetPrimary()->__ExecSQL(`SELECT * FROM ${PostgreSQLEscapeIdentifier(n.nspname)}.${PostgreSQLEscapeIdentifier(c.relname)}`))
              , fullname :=      `${PostgreSQLEscapeIdentifier(n.nspname)}.${PostgreSQLEscapeIdentifier(c.relname)}`
@@ -214,8 +192,6 @@ SWITCH (args.command)
   CASE "cancel", "kill"
   {
     OBJECT trans := OpenPrimary();
-    IF (GetDatabaseType() != "postgresql")
-       TerminateScriptWithError(`Not implemented for database type ${GetDatabaseType()}`);
 
     RECORD subargs := ParseArguments(args.args, RECORD
         [ [ name := "pid", type := "param" ]

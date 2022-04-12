@@ -44,27 +44,16 @@ PUBLIC RECORD FUNCTION __FindFirstGapInSet(INTEGER ARRAY ids, INTEGER expectfirs
 /** Are two blobs the same in the database */
 PUBLIC BOOLEAN FUNCTION IsSameBlobInDatabase(BLOB a, BLOB b)
 {
-  IF(GetDatabaseType() = "whdb")
-  {
-    INTEGER orgblobid := __GetWHDBBlobInternalId(a);
-    RETURN orgblobid != 0 AND __GetWHDBBlobInternalId(b) = orgblobid;
-  }
-  ELSE
-  {
-    IF(GetPrimaryWebhareTransaction() = 0)
-      RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
+  IF(GetPrimaryWebhareTransaction() = 0)
+    RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
 
-    STRING orgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), a);
-    RETURN orgblobid = __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
-  }
+  STRING orgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), a);
+  RETURN orgblobid = __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
 }
 
 /** Is this blob in the database ? (zero-copy to reupload) */
 PUBLIC BOOLEAN FUNCTION IsBlobRegisteredInDatabase(BLOB inblob)
 {
-  IF(GetDatabaseType() = "whdb")
-    RETURN __GetWHDBBlobInternalId(inblob) != 0;
-
   IF(GetPrimaryWebhareTransaction() = 0)
     RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
 

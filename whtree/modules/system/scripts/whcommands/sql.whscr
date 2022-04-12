@@ -363,7 +363,7 @@ BOOLEAN FUNCTION Connect(BOOLEAN logcommands)
   OBJECT trans;
   TRY
   {
-    trans := OpenPrimary( [ fallbacktorecoverymode := TRUE ]);
+    trans := OpenPrimary();
   }
   CATCH(OBJECT e)
   {

@@ -888,9 +888,7 @@ MACRO ImportRecords(INTEGER trans, RECORD ARRAY importspecification, STRING tabl
     }
   }
 
-  OBJECT inserter;
-  IF (GetDatabaseType() != "whdb")
-    inserter := GetDynamicInserter(GetTransactionObjectById(trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
+  OBJECT inserter := GetDynamicInserter(GetTransactionObjectById(trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
 
   FOREVERY(RECORD newrec FROM toimport)
   {
@@ -1504,9 +1502,7 @@ PUBLIC OBJECTTYPE DatabaseImExport
     //import prep
     RECORD tabledescription := SELECT * FROM importspecification WHERE input_table = tablerec.input_table;
 
-    OBJECT inserter;
-    IF (GetDatabaseType() != "whdb")
-      inserter := GetDynamicInserter(GetTransactionObjectById(this->trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
+    OBJECT inserter := GetDynamicInserter(GetTransactionObjectById(this->trans), tabledescription.output_table, [ cols := SELECT AS STRING ARRAY name FROM tabledescription.cols ]);
 
     RECORD ARRAY outrows := SELECT AS RECORD ARRAY tab FROM dynquery->Execute();
     FOREVERY(RECORD row FROM outrows)

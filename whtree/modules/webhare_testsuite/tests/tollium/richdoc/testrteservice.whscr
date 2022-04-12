@@ -32,10 +32,7 @@ MACRO RegisterBlobInWebhareDB(BLOB data)
   OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile(CELL[ name := "__webhare_testsuite_blobregistering", data ]);
   testfw->RollbackWork();
 
-  IF (GetDatabaseType() = "whdb")
-    TestEQ(TRUE, GetWHDBBlobInternalId(data) != 0);
-  ELSE
-    TestEQ(TRUE, __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data) != "");
+  TestEQ(TRUE, __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data) != "");
 }
 
 MACRO RTECreation()

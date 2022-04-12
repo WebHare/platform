@@ -62,46 +62,43 @@ MACRO TestWriteAccess()
   CATCH (OBJECT e)
     RollbackOpenWork(e);
 
-  IF (GetDatabaseType() != "whdb")
+  // Insert file with invalid name
+  TRY
   {
-    // Insert file with invalid name
-    TRY
-    {
-      testfw->BeginWork();
-      INSERT CELL
-         [ parent :=            site->id
-         , name :=              " invalid name"
-         , creationdate :=      now
-         , modificationdate :=  now
-         , isfolder :=          FALSE
-         ] INTO system.fs_objects;
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            site->id
+       , name :=              " invalid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          FALSE
+       ] INTO system.fs_objects;
 
-      TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
-    }
-    CATCH (OBJECT e)
-      RollbackOpenWork(e);
-
-    // Update file with invalid name
-    TRY
-    {
-      testfw->BeginWork();
-      INSERT CELL
-         [ parent :=            site->id
-         , name :=              "valid name"
-         , creationdate :=      now
-         , modificationdate :=  now
-         , isfolder :=          FALSE
-         ] INTO system.fs_objects;
-
-      UPDATE system.fs_objects
-         SET name := " invalid name"
-       WHERE parent = site->id AND name = "valid name";
-
-      TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
-    }
-    CATCH (OBJECT e)
-      RollbackOpenWork(e);
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
   }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Update file with invalid name
+  TRY
+  {
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            site->id
+       , name :=              "valid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          FALSE
+       ] INTO system.fs_objects;
+
+    UPDATE system.fs_objects
+       SET name := " invalid name"
+     WHERE parent = site->id AND name = "valid name";
+
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
 
   // Test valid names with non-ascii stuff
   testfw->BeginWork();

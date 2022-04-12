@@ -10,7 +10,7 @@ MACRO __WHDBDCDelete(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
 MACRO __WHDBDCClose(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
 MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-OBJECT trans := OpenPrimary([fallbacktorecoverymode := TRUE]);
+OBJECT trans := OpenPrimary();
 
 RECORD ARRAY tables;
 FOREVERY(RECORD s FROM trans->GetSchemaListing())

@@ -15,8 +15,6 @@ INTEGER current_section := 0;
 OBJECT trans;
 
 trans := OpenPrimary();
-IF (GetDatabaseType() = "whdb")
-  trans->BeginWork(); // Need a transaction for WHDB 'show transactions'
 
 
 // Show client status

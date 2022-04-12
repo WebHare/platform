@@ -123,7 +123,7 @@ IF(cols=0)
 
 SetOutputBuffering(TRUE);
 
-OBJECT primary := OpenPrimary([fallbacktorecoverymode := TRUE]);
+OBJECT primary := OpenPrimary();
 
 my_information_schema := BindTransactionToSchema(primary->id, "information_schema");
 

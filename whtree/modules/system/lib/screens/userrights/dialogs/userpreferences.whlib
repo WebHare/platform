@@ -101,7 +101,7 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     RECORD unitinfo;
     IF(NOT ObjectExists(this->userobj->wrdentity))
     {
-      // This means we're logged in as an override user in recovery mode; let's tell the user and exit:
+      // This means we're logged in as an override user; let's tell the user and exit:
       this->RunSimpleScreen("info", this->GetTid(".noprefsforoverride"));
       this->TolliumCloseScreen();
       this->TolliumExecuteCancel();

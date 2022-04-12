@@ -33,7 +33,7 @@ SCHEMA
 
 //Validate tables
 RECORD ARRAY alltables;
-OBJECT trans := OpenPrimary([ recoverymode := TRUE ]);
+OBJECT trans := OpenPrimary();
 trans->BeginWork();
 
 definition_schema := BindTransactionToSchema(trans->id, "DEFINITION_SCHEMA");

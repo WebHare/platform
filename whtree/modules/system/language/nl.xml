@@ -2144,7 +2144,7 @@
       <text tid="lastip">Laatste IP-adres</text>
       <text tid="lastlogin">Laatste aanmelddatum</text>
       <text tid="none">Geen</text>
-      <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker in recovery modus te bewerken.</text>
+      <text tid="noprefsforoverride">Het is niet mogelijk de voorkeuren voor de override gebruiker te bewerken.</text>
       <text tid="notificationsandwarnings">Meldingen</text>
       <text tid="password">Wachtwoord</text>
       <text tid="passwordabouttoexpire">Je wachtwoord verloopt <ifparam p="1" value="0">vandaag<else/><ifparam p="1" value="1">over 1 dag<else/>over <param p="1"/> dagen</ifparam></ifparam>, verander deze a.u.b.</text>

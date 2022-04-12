@@ -83,8 +83,7 @@ FOR (INTEGER i := 1; i < 20; i := i + 1)
 {
   TRY
   {
-    // Fallback to recoverymode, otherwise index regeneration will prevent connecting
-    trans := OpenPrimary([ fallbacktorecoverymode := TRUE ]);
+    trans := OpenPrimary();
     BREAK;
   }
   CATCH (OBJECT e)
