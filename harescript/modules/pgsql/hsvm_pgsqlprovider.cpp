@@ -1374,10 +1374,23 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                         // If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
                                         if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
-                                                std::string resourcepath = "direct::" + driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
-                                                if (!HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str()))
+                                                std::string blobpath = driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
+                                                if(driver.assumeblobsexist)
                                                 {
-                                                        PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
+                                                        HSVM_MakeBlobFromDiskPath(*vm, id_set, blobpath.c_str(), bloblength);
+                                                        have_blob = true;
+                                                        PQ_PRINT(" assume blob " << blobid << " at " << blobpath);
+                                                }
+                                                else
+                                                {
+                                                        std::string resourcepath = "direct::" + blobpath;
+                                                        have_blob = HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str()) == 0;
+                                                        if(have_blob)
+                                                                PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
+                                                }
+
+                                                if(have_blob)
+                                                {
 
                                                         auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
                                                         context->driver = &driver;
@@ -1597,6 +1610,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
 , commandlog(0)
 , command_timeout_secs(default_command_timeout_secs)
 {
+        assumeblobsexist = Blex::GetEnvironVariable("WEBHARE_PGSQL_ASSUMEBLOBSEXIST") == "1";
         description.supports_block_cursors = false;
         description.supports_single = true; // unused!!
         description.supports_data_modify = true;

@@ -995,7 +995,81 @@ int TempFileWriter(void *opaque_ptr, int numbytes, void const *data, int /*allow
         return 0;
 }
 
-/* Webhare filesystem blob */
+/* WebHare disk blob */
+class DiskBlob : public BlobBase
+{
+    private:
+        std::string path;
+
+        class MyOpenedBlob: public OpenedBlobBase< DiskBlob >
+        {
+            private:
+                std::unique_ptr< Blex::FileStream > stream;
+
+            public:
+                MyOpenedBlob(DiskBlob &blob);
+                ~MyOpenedBlob();
+
+                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
+        };
+
+    public:
+        /** Constructor */
+        DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength);
+        ~DiskBlob();
+
+        std::unique_ptr< OpenedBlob > OpenBlob();
+        Blex::FileOffset GetCacheableLength();
+        Blex::DateTime GetModTime();
+        std::string GetDescription();
+};
+
+DiskBlob::DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength)
+: BlobBase(vm, filelength)
+, path(_path)
+{
+}
+
+DiskBlob::~DiskBlob()
+{
+}
+
+DiskBlob::MyOpenedBlob::MyOpenedBlob(DiskBlob &blob)
+: OpenedBlobBase< DiskBlob >(blob)
+{
+        stream.reset(Blex::FileStream::OpenRead(blob.path));
+}
+
+DiskBlob::MyOpenedBlob::~MyOpenedBlob()
+{
+}
+
+std::size_t DiskBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
+{
+        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
+}
+
+std::unique_ptr< OpenedBlob > DiskBlob::OpenBlob()
+{
+        return std::make_unique< MyOpenedBlob >(*this);
+}
+
+Blex::DateTime DiskBlob::GetModTime()
+{
+        return Blex::DateTime::Invalid();
+}
+
+Blex::FileOffset DiskBlob::GetCacheableLength()
+{
+        throw std::runtime_error("DiskBlob::GetCacheableLength should never be invoked");
+}
+
+std::string DiskBlob::GetDescription()
+{
+        return "DiskBlob (" + path + ")";
+}
+
+/* WebHare filesystem blob */
 class FileSystemBlob : public BlobBase
 {
     private:
@@ -1239,6 +1313,22 @@ int HSVM_RedirectJobOutputTo(struct HSVM *vm, int newoutput)
         return 0;
 }
 
+
+void HSVM_MakeBlobFromDiskPath(HSVM *vm, HSVM_VariableId storeid, const char *filepath, long long int filesize)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        if (filesize == 0)
+        {
+                //Leave this option open for 'get file size on demand, but still save us "some" time'
+                HSVM_ReportCustomError(vm, "HSVM_MakeBlobFromDiskPath cannot create 0-sized blobs");
+                return;
+        }
+
+        STACKMACHINE.SetBlob(storeid, BlobRefPtr(new DiskBlob(&VM, filepath, filesize)));
+
+        END_CATCH_VMEXCEPTIONS
+}
 
 int HSVM_MakeBlobFromFilesystem(HSVM *vm, HSVM_VariableId storeid, const char *filepath)
 {

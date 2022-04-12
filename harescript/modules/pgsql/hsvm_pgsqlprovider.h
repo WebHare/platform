@@ -124,6 +124,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         int GetBackendPid();
 
+        bool assumeblobsexist;
         bool isworkopen;
         int32_t webhare_blob_oid;
         int32_t webhare_blobarray_oid;

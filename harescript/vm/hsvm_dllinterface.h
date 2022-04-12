@@ -854,6 +854,13 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
     @param id Id of the variable that will receive the new blob*/
  HSVM_PUBLIC void HSVM_MakeBlobFromMemory(struct HSVM *vm, HSVM_VariableId id,  size_t numbytes, void const *buffer) ;
 
+/** Create a blob file from a data file on disk, blindly assuming it exists
+    @param vm Virtual machine
+    @param storeid Variable in which the Blob should be stored
+    @param filepath Path to the file on disk
+    @parma filesize Disk file size */
+ HSVM_PUBLIC void HSVM_MakeBlobFromDiskPath(struct HSVM *vm, HSVM_VariableId storeid, const char *filepath, long long int filesize);
+
 /** Create a blob file from a data file in the WebHare file system
     @param vm Virtual machine
     @param storeid Variable in which the Blob should be stored
