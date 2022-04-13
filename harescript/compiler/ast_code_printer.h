@@ -110,7 +110,7 @@ class AstCodePrinter : public AST::NodeVisitor<void, Empty>
         virtual void V_UnaryOperator(AST::UnaryOperator *unaryoperator, Empty);
         virtual void V_Variable(AST::Variable *variable, Empty);
         virtual void V_Yield(AST::Yield *yield, Empty);
-};  // End of class AstDotPrinter
+};  // End of class AstCodePrinter
 
 } // end of namespace HareScript
 } // end of namespace Compiler

@@ -302,7 +302,7 @@ PCH_HEADERS+=blex/blexlib.h
 LIBBLEX_FILES= $(call GetSrcFiles,blex/*.cpp)
 
 ifeq ($(BLEXTEST),)
-	BLEXTESTS=$(call GetSrcFiles,blex/tests/test*.cpp)
+	BLEXTESTS=$(call GetSrcFiles,blex/tests/test*.cpp) $(call GetSrcFiles,blex/tests/indexdumping.cpp)
 	RUNTEST=runtest
 else
 	BLEXTESTS=blex/tests/test$(BLEXTEST).cpp

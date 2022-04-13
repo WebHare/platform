@@ -165,7 +165,7 @@ PUBLIC BOOLEAN FUNCTION DeleteDiskWildcardsRecursive(STRING path)
 /** @short Create a stream
     @long Start the creation of a blob, which can be filled using PrintTo and closed using MakeBlobFromStream
     @return Stream ID to write the data to
-    @see PrintTo,SendBlobTo,MakeBlobFromStream */
+    @see PrintTo,%SendBlobTo,MakeBlobFromStream */
 PUBLIC INTEGER FUNCTION CreateStream()
 {
   INTEGER retval := __HS_CreateStream();
@@ -182,13 +182,13 @@ PUBLIC INTEGER64 FUNCTION GetStreamLength(INTEGER streamid) __ATTRIBUTES__(EXTER
 /** @short Get the offset of the stream so far
     @param streamid File ID, as returned by CreateStream
     @return The offset of the file pointer within the stream
-    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,SetStreamOffset */
+    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,SetStreamPointer */
 PUBLIC INTEGER64 FUNCTION GetStreamPointer(INTEGER streamid) __ATTRIBUTES__(EXTERNAL);
 
 /** @short Get the length of the stream so far
     @param streamid File ID, as returned by CreateStream
     @param newoffset New stream offset. Cannot be negative.
-    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,GetStreamOffset */
+    @see PrintTo,system.whlib#SendBlobTo,MakeBlobFromStream,GetStreamLength,GetStreamPointer */
 PUBLIC MACRO SetStreamPointer(INTEGER streamid, INTEGER64 newoffset) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short Open an existing file on disk as a blob
@@ -204,7 +204,11 @@ PUBLIC BLOB FUNCTION MakeBlobFromDiskFile(STRING path) __ATTRIBUTES__(DEPRECATED
   CATCH RETURN DEFAULT BLOB;
 }
 
-/** @short Resolve a possible relative path to an absolute path */
+/** @short Resolve a possible relative path to an absolute path
+    @param path Path to resolve
+    @return Path resolved relative to current path
+    @see GetCurrentPath
+*/
 PUBLIC STRING FUNCTION ResolveToAbsolutePath(STRING path)
 {
   IF(NOT IsPathAbsolute(path))
@@ -217,7 +221,12 @@ PUBLIC STRING FUNCTION ResolveToAbsolutePath(STRING path)
   RETURN __CollapsePath(path);
 }
 
-/** @short Resolve an absolte path to a relative path (with respect to a basepath) */
+/** @short Resolve an absolute path to a relative path (with respect to a basepath)
+    @param basepath Base path
+    @param targetpath Path to resolve
+    @return Path resolved relative to base path
+    @see GetCurrentPath
+*/
 PUBLIC STRING FUNCTION ResolveToRelativePath(STRING basepath, STRING targetpath)
 {
   basepath := GetDirectoryFromPath(basepath);
@@ -342,7 +351,6 @@ PUBLIC BOOLEAN FUNCTION CreateDiskFileFromBlob(STRING path, BOOLEAN failifexists
           and moved over the original to ensure an atomic replace
     @param path Path to the file to create.
     @param data Blob to write
-    @param options
     @cell(boolean) options.overwrite Overwrite if the file already exists? If TRUE, the function will overwrite the existing file. Defaultsto FALSE
     @cell(boolean) options.publicfile If the file is created, should it be publicly readable? Defaults to TRUE
     @cell(boolean) options.inplace Create/overwrite the file in place. Normally, a temporary file is generated first
@@ -427,7 +435,7 @@ PUBLIC MACRO StoreDiskFile(STRING path, BLOB data, RECORD options DEFAULTSTO DEF
     @long Get the size of a file on disk. For blobs, you can also use LENGTH on the BLOB itself.
     @param filehandle ID of file, as returned by OpenBlobAsFile, OpenDiskFile or CreateDiskFile
     @return The size of the file in bytes
-    @see OpenBlobAsFile, OpenDiskFile, SetDiskFileLength, Length */
+    @see OpenBlobAsFile, OpenDiskFile, SetDiskFileLength, %Length */
 PUBLIC INTEGER64 FUNCTION GetFilelength(INTEGER filehandle) __ATTRIBUTES__(EXTERNAL);
 
 
@@ -662,7 +670,10 @@ PUBLIC BLOB FUNCTION StringToBlob(STRING data)
   RETURN MakeBlobFromStream(newblobstream);
 }
 
-/** @short Get the output of a function call as a blob */
+/** @short Get the output of a function call as a blob
+    @param toinvoke Call to invoke
+    @return Printed output as blob
+*/
 PUBLIC BLOB FUNCTION GetPrintedAsBlob(MACRO PTR toinvoke)
 {
   INTEGER str := CreateStream();
@@ -697,7 +708,7 @@ PUBLIC BLOB FUNCTION MakeSlicedBlob(BLOB parentblob, INTEGER64 startoffset, INTE
     @long A composed blob allows you to create a blob by concatenation of (parts) of other blobs. This blob is not a copy,
          but a reference to data in a parent blobs (any action that invalidates any of the parent blobs, such as closing connections to an
          external database, would also invalidate a composed blob).
-    @param parts
+    @param parts Parts of the new blob
     @cell(blob) parts.data Blob to use for this part
     @cell(integer64) parts.start Start offset inside the blob of this part (optional)
     @cell(integer64) parts.length Length of this part (optional)
@@ -723,6 +734,7 @@ PUBLIC STRING FUNCTION GenerateTemporaryPathname() __ATTRIBUTES__ (EXTERNAL);
 
 /** @short Generate a temporary filepath, with a specific base path as prefix
     @long This function generates a temporary filepath, with a specific base path as prefix. The returned name should be opened with a 'create, exclusive' flag to protect against race conditions
+    @param basepath Base path for the temporary filepath
     @return A temporary path with the base path as prefix */
 PUBLIC STRING FUNCTION GenerateTemporaryPathnameFromBasepath(STRING basepath) __ATTRIBUTES__ (EXTERNAL);
 
@@ -755,7 +767,10 @@ PUBLIC BOOLEAN FUNCTION IsPathAbsolute(STRING path) __ATTRIBUTES__(EXTERNAL, CON
 */
 PUBLIC STRING FUNCTION GetLastOSError() __ATTRIBUTES__(EXTERNAL);
 
-/** @short Get the proper or usual extension for the file's mimetype */
+/** @short Get the proper or usual extension for the file's mimetype
+    @param mimetype Mimetype
+    @return Extension (incliding the ".", eg ".jpg"), empty if no extension has been defined for this mimetype.
+*/
 PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
 {
   SWITCH(mimetype)
@@ -816,7 +831,6 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
 /** @short Scan a blob and explain its contents.
     @param toscan Blob to scan
     @param filename Filename associated with the blob, if known. This may help detection of some file formats
-    @param options
     @cell(boolean) options.extractdominantcolor If TRUE, extract the dominant color from images
     @cell(boolean) options.generatehash If TRUE, calculate the hash of the data
     @cell(string) options.mimetype Force the mimetype to the requested type

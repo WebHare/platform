@@ -1590,15 +1590,15 @@ PUBLIC OBJECT ARRAY FUNCTION EvaluateSelectors(OBJECT doc, OBJECT scope, STRING 
     @param doc Document
     @param scope Scope (set to DEFAULT OBJECT if no explicit scope is present)
     @param selectors CSS selectors
-    @cell selector.selector CSS selector text
+    @cell selectors.selector CSS selector data
     @param mode @includecelldef #EvaluateSelectorRecursive.mode
     @return List of matching nodes and their matching selectors
-    @cell(record array) return.matches
-    @cell(object) return.matches.node
+    @cell(record array) return.matches List of matches, in document order
+    @cell(object) return.matches.node Matching node
     @cell(record array) return.matches.selectors Matching selectors (not in original order!)
-    @cell(record array) return.errors
-    @cell(record) return.errors.selector
-    @cell(object) return.errors.error
+    @cell(record array) return.errors List of selectors with errors
+    @cell(record) return.errors.selector Selector data
+    @cell(object) return.errors.error Error message
 */
 PUBLIC RECORD FUNCTION EvaluateMultipleSelectors(OBJECT doc, OBJECT scope, RECORD ARRAY selectors, STRING mode)
 {

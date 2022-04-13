@@ -1016,7 +1016,7 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
   IF(Length(crontoks) != 5)
     THROW NEW Exception("Invalid cron mask - doesn't consist of 5 components");
 
-  //Round up to next second. And we can decide to never return the exact same time, so always add 1 minute
+  //Round up to next minute. And we can decide to never return the exact same time, so always add 1 minute
   now := GetRoundedDatetime(AddTimeToDate(60000,now),60000);
 
   //Update minutes
@@ -1077,7 +1077,7 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
   THROW NEW Exception("Invalid cron mask - no date matches that criteria");
 }
 
-/** Calculate oh which day a specific yearly holiday will fall
+/** Calculate on which day a specific yearly holiday will fall
     @param year Year
     @param holiday The holiday, one of easter, ascensionday, pentecost, christmas, newyear, newyearseve, nl-kingsday
     @return Requested holiday
