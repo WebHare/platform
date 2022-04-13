@@ -386,8 +386,8 @@ parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
 parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
-AP_DEPLOYABLES_SERVERS = dbserver webserver appserver consilio whmanager
-AP_DEPLOYABLES_UTILS = backup runscript whcompile webhare dumprawtable # oleexplode  consiliotool
+AP_DEPLOYABLES_SERVERS = webserver appserver consilio whmanager
+AP_DEPLOYABLES_UTILS = runscript whcompile webhare # oleexplode  consiliotool
 AP_CONSILIO_TESTS = consiliotest
 ap_DEPLOYABLES_WHAP = \
 	$(AP_libwebhare) \
@@ -397,12 +397,11 @@ ap_DEPLOYABLES_WHAP = \
 ap_DEPLOYABLES = $(ap_DEPLOYABLES_WHAP)
 AP_libwebhare = lib/libblex_webhare$(DLL_SUFFIX)
 
-dumprawtable_EXTRALINKFILES = $(addprefix ,ap/dbserver/dbase_diskio.o ap/dbserver/dbase_trans.o ap/dbserver/dbase_blobmgr.o)
 consiliotool_EXTRALINKFILES = $(filter-out $(call GetObjFiles,ap/consilio/consilio_*.cpp),$(call GetObjFiles,ap/consilio/*.cpp))
 
 PCH_HEADERS+=ap/libwebhare/allincludes.h
 
-ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests dbserver libwebhare utils webserver whmanager
+ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests libwebhare utils webserver whmanager
 
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
@@ -827,7 +826,7 @@ endif # end darwin check
 #
 
 #ADDME autogenerate lists below
-BIN_ALIASES = consilio webserver dbserver dumprawtable webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
+BIN_ALIASES = consilio webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile appserver hsrun
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
 
 showtargets:

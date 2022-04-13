@@ -3227,11 +3227,11 @@ STATIC OBJECTTYPE WRDDBArrayValue EXTEND WRDDBValue
   {
     DATETIME now := GetCurrentDateTime();
 
-    INTEGER ARRAY parent_settings;
+    INTEGER64 ARRAY parent_settings;
     RECORD ARRAY rows;
     FOR (INTEGER i := settings_start; i <settings_limit; i := i + 1)
     {
-      INTEGER settingid := entity_settings[i].id;
+      INTEGER64 settingid := entity_settings[i].id;
       INSERT settingid INTO parent_settings AT END;
 
       RECORD ARRAY enrichrow :=
@@ -4594,7 +4594,7 @@ VARIANT FUNCTION ApplySubSelect(VARIANT value, RECORD field)
       IF(#sub=0 AND field.accessor EXTENDSFROM WRDDBARRAYVALUE)
         retval := DEFAULT RECORD ARRAY;
       ELSE IF(ToUppercase(sub)="IMAGEID")
-        retval := DEFAULT INTEGER ARRAY;
+        retval := INTEGER64[];
       ELSE
         retval := DEFAULT STRING ARRAY;
 
@@ -4605,7 +4605,7 @@ VARIANT FUNCTION ApplySubSelect(VARIANT value, RECORD field)
         IF(CellExists(row, sub))
           subval := GetCell(row, sub);
         ELSE IF(ToUppercase(sub)="IMAGEID" AND NOT RecordExists(row)) //FIXME should only work on actual images
-          subval:= 0;
+          subval := 0i64;
         ELSE
           subval := "";
 
@@ -4620,7 +4620,7 @@ VARIANT FUNCTION ApplySubSelect(VARIANT value, RECORD field)
       IF(CellExists(value, sub))
         value := GetCell(value, sub);
       ELSE IF(ToUppercase(sub)="IMAGEID" AND NOT RecordExists(value)) //FIXME should only work on actual images
-        value := 0;
+        value := 0i64;
       ELSE
         value := "";
   }

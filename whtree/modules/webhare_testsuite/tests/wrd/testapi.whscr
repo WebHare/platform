@@ -309,9 +309,10 @@ MACRO ImageCache()
                                                      ]
                                         ]);
   TestEq(TRUE, entity.imageid != 0);
-  TestEQ(INTEGER[entity.imageid], wrdperson->RunQuery( [ outputcolumn := "TEST_IMAGE.IMAGEID", filters := [[ field := "WRD_ID", value := entityid1 ]] ]));
+  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
+  TestEQ(INTEGER64[entity.imageid], wrdperson->RunQuery( [ outputcolumn := "TEST_IMAGE.IMAGEID", filters := [[ field := "WRD_ID", value := entityid1 ]] ]));
 
-  INTEGER entityid1_imageid := entity.imageid;
+  INTEGER64 entityid1_imageid := entity.imageid;
   TestEq(0, Length(entity.arrayimages));
 
   entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID", test_array := "TEST_ARRAY" ]
@@ -320,9 +321,10 @@ MACRO ImageCache()
                                  ]);
 
   TestEq(TRUE, entity.imageid = 0);
+  TestEq("INTEGER64", GetTypeName(TypeID(entity.imageid)));
   TestEq(2, Length(entity.arrayimages));
   TestEq(TRUE, entity.arrayimages[0]!=0);
-  TestEq(0, entity.arrayimages[1]);
+  TestEq(0i64, entity.arrayimages[1]);
 
   testfw->CommitWork();
 
@@ -2561,8 +2563,8 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
            WHERE entity IN [ testperson_3 ] AND attribute IN [ INTEGER(arrayue_int_id), arraysubue_int_id ]), "boxed"));
 */
   testperson_3_obj->UpdateEntity([ UE_ARRAY := [ [ UE_INT := 1 ] ] ]);
-  INTEGER basesetting_1 :=
-      SELECT AS INTEGER id
+  INTEGER64 basesetting_1 :=
+      SELECT AS INTEGER64 id
         FROM wrd.entity_settings
        WHERE attribute = arrayue_int_id
          AND entity = testperson_3_obj->id;
@@ -2575,7 +2577,7 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
   TestEq(
       [ [ entity :=         testperson_3
         , rawdata :=        ""
-        , parentsetting :=  0
+        , parentsetting :=  0i64
         , ordering :=       1
         ]
       , [ entity :=         testperson_3
@@ -2595,14 +2597,14 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
             FROM wrd.entity_settings
            WHERE entity IN [ testperson_3 ] AND attribute IN [ INTEGER(arrayue_int_id), arraysubue_int_id ]), "boxed"));
 */
-  INTEGER basesetting_2_1 :=
-      SELECT AS INTEGER id
+  INTEGER64 basesetting_2_1 :=
+      SELECT AS INTEGER64 id
         FROM wrd.entity_settings
        WHERE attribute = arrayue_int_id
          AND entity = testperson_3_obj->id
          AND ordering = 1;
-  INTEGER basesetting_2_2 :=
-      SELECT AS INTEGER id
+  INTEGER64 basesetting_2_2 :=
+      SELECT AS INTEGER64 id
         FROM wrd.entity_settings
        WHERE attribute = arrayue_int_id
          AND entity = testperson_3_obj->id
@@ -2617,12 +2619,12 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
   TestEq(
       [ [ entity :=         testperson_3
         , rawdata :=        ""
-        , parentsetting :=  0
+        , parentsetting :=  0i64
         , ordering :=       1
         ]
       , [ entity :=         testperson_3
         , rawdata :=        ""
-        , parentsetting :=  0
+        , parentsetting :=  0i64
         , ordering :=       2
         ]
       , [ entity :=         testperson_3

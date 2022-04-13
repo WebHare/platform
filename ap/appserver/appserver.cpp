@@ -4,7 +4,6 @@
 #include <blex/logfile.h>
 #include <blex/utils.h>
 #include <ap/libwebhare/wh_filesystem.h>
-#include <ap/libwebhare/webharedbprovider.h>
 #include <ap/libwebhare/whcore_hs3.h>
 #include <iostream>
 
@@ -693,7 +692,6 @@ void AppServer::StartManagementScript()
         vmgroup.reset(group, false);
 
         HSVM *hsvm = group->CreateVirtualMachine();
-        HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(hsvm, "appserver management");
         HSVM_SetOutputCallback(hsvm, 0, &WHCore::StandardErrorWriter);
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
 

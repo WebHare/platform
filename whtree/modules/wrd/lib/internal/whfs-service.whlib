@@ -88,7 +88,7 @@ PUBLIC BOOLEAN FUNCTION IsInstanceEqualToInstanceInWHFS(INTEGER fsobject, RECORD
   RETURN NOT RecordExists(instancetype->FilterInstanceDataUpdates(fsobject, [ instance := instance ]));
 }
 
-PUBLIC RECORD FUNCTION RetrieveRTDInWHFS(INTEGER wrd_settingid, OBJECT whfsmapper)
+PUBLIC RECORD FUNCTION RetrieveRTDInWHFS(INTEGER64 wrd_settingid, OBJECT whfsmapper)
 {
   INTEGER myfsobject := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = wrd_settingid;
   IF(myfsobject=0)
@@ -98,7 +98,7 @@ PUBLIC RECORD FUNCTION RetrieveRTDInWHFS(INTEGER wrd_settingid, OBJECT whfsmappe
   RETURN rtdtype->__ExportInstanceData(myfsobject, whfsmapper, FALSE).data;
 }
 
-PUBLIC RECORD FUNCTION RetrieveInstanceInWHFS(INTEGER wrd_settingid, OBJECT whfsmapper)
+PUBLIC RECORD FUNCTION RetrieveInstanceInWHFS(INTEGER64 wrd_settingid, OBJECT whfsmapper)
 {
   INTEGER myfsobject := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = wrd_settingid;
   IF(myfsobject=0)

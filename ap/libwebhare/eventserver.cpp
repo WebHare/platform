@@ -3,6 +3,7 @@
 #include <ap/libwebhare/allincludes.h>
 
 #include <blex/logfile.h>
+#include <blex/utils.h>
 #include <ap/libwebhare/webscon.h>
 #include "eventserver.h"
 

@@ -13,8 +13,6 @@
   </meta>
 
   <servicemanager>
-    <runonce tag="cleanupblit" script="scripts/runonce/cleanupblit.whscr" when="poststart" />
-
     <task runat="53  3 * * *"  runtz="maintenance" tag="maintenance_task" script="scripts/tasks/executemaintenance.whscr" description="Publisher maintenance task"/>
     <task runat="33  3 * * *"  runtz="maintenance" tag="cleanup_webtool_results" script="scripts/tasks/cleanupwebtoolresults.whscr" description="Cleanup outdated Webtools form results"/>
     <task runat="17  2 * * *"  runtz="maintenance" tag="archiveoutput" script="scripts/tasks/archiveoutput.whscr" description="Move folders not associated with a site to the archive"/>

@@ -16,6 +16,57 @@
 #include <blex/socket.h>
 #include <blex/pipestream.h>
 
+namespace WHMRequestOpcode
+{
+enum Type
+{
+        SendEvent =             101,
+        RegisterPort =          102,
+        UnregisterPort =        103,
+        ConnectLink =           104,
+        OpenLinkResult =        105,
+        DisconnectLink =        106,
+        SendMessageOverLink =   107,
+        RegisterProcess =       108,
+        GetProcessList =        109,
+        ConfigureLogs =         110,
+        Log =                   111,
+        Disconnect =            112,
+        FlushLog =              113,
+        SetSystemConfig =       114,
+        _max =                  114
+};
+
+std::string GetName(uint8_t code);
+
+}
+
+
+namespace WHMResponseOpcode
+{
+enum Type
+{
+        Answer =                0,     ///< Normal response to a request
+        AnswerException,                ///< Exception has triggered!
+        Reset,                          ///< Reset response code (after this code, connection can be reused)
+        IncomingEvent =         101,
+        RegisterPortResult =    102,
+        OpenLink =              103,
+        ConnectLinkResult =     104,
+        LinkClosed =            105,
+        IncomingMessage =       106,
+        RegisterProcessResult = 107,
+        GetProcessListResult =  108,
+        UnregisterPortResult =  109,
+        ConfigureLogsResult =   110,
+        FlushLogResult =        111,
+        SystemConfig =          112
+};
+
+std::string GetName(uint8_t code);
+
+}
+
 namespace Database //FIXME For legacy reasons, should be WHCore ?
 {
 
@@ -78,49 +129,6 @@ class BLEXLIB_PUBLIC Exception : public std::runtime_error
         std::string clientname;
 };
 
-namespace RequestOpcode
-{
-/// Opcodes for requests to the database
-enum Type
-{
-        TransactionStart = 0,           ///< Start a new transaction
-        TransactionExplicitOpen,        ///< Explicitly open an auto-transaction
-        TransactionCommitRollbackClose, ///< Commit/rollback and/or close a transaction
-        ResultSetAdvance,               ///< Advance the cursor to the next block (auto-close on no more data)
-        ResultSetLock,                  ///< Lock a row in the current block
-        ResultSetUnlock,                ///< Unlocks a row in the current block
-        ResultSetUpdate,                ///< Updates a locked row in the current block (releases lock)
-        ResultSetDelete,                ///< Deletes a locked row in the current block (releases lock)
-        ResultSetFase2,                 ///< Get fase2 data for selected rows in current block (may auto-close if requested)
-        ResultSetGetInfo,               ///< Get info about a resultset
-        ResultSetClose,                 ///< Closes the resultset (may close temp-transaction of auto-transaction when it is the last remaining resultset)
-        RecordInsert,                   ///< Inserts a new record
-        ScanStart,                      ///< Start a scan
-        MetadataGet,                    ///< Retrieve the current metadata
-        AutonumberGet,                  ///< Allocate a new autonumber for a specific table
-        BlobUpload,                     ///< Upload a blob
-        BlobRead,                       ///< Reads part of a blob. Another part will be sent immediately after this.
-        BlobMarkPersistent,             ///< Indicates that certain blob ids will be used by the client, and may NOT be freed.
-        BlobDismiss,                    ///< Indicates that certain blob ids won't be used anymore by the client, and may be freed.
-        SQLCommand,                     ///< Execute an SQL command on the server
-        ResetConnection,                ///< Reset the connection for reuse (free all resources)
-        BeginConnection,                ///< RPC reserved for initial handshake
-        _max                            ///< This must be the last opcode!
-};
-std::string BLEXLIB_PUBLIC GetName(uint8_t type);
-} /// End of namespace DBRequestOpcode
-
-namespace ResponseOpcode
-{
-enum Type
-{
-        Answer,                         ///< Normal response to a request
-        AnswerException,                ///< Exception has triggered!
-        Reset,                          ///< Reset response code (after this code, connection can be reused)
-        _max
-};
-std::string GetName(Type type);
-} // End of namespace DBAnswerOpcode
 
 /** IOBuffers are used for frontend/backend communication */
 class BLEXLIB_PUBLIC IOBuffer
@@ -234,7 +242,7 @@ class BLEXLIB_PUBLIC IOBuffer
         /** Finish the buffer for transmission by setting up the length bytes
             properly (should only be used by I/O code filling this buffer) */
         void FinishForReplying(bool exception)
-        { Blex::putu32lsb(&iobuffer.front(),iobuffer.size() | ((exception?ResponseOpcode::AnswerException:ResponseOpcode::Answer)<<24)); }
+        { Blex::putu32lsb(&iobuffer.front(),iobuffer.size() | ((exception ? WHMResponseOpcode::AnswerException : WHMResponseOpcode::Answer)<<24)); }
 
         uint8_t GetOpcode() const
         { return Blex::getu8(GetRawBegin()+3); }
@@ -245,7 +253,7 @@ class BLEXLIB_PUBLIC IOBuffer
 
         /** Does this RPC contain an exception? */
         bool IsException() const
-        { return GetOpcode()==ResponseOpcode::AnswerException; }
+        { return GetOpcode()==WHMResponseOpcode::AnswerException; }
 
         /** Finish the buffer for transmission by setting up the length bytes
             properly (should only be used by I/O code filling this buffer) */
@@ -277,12 +285,6 @@ class TCPConnection
 
         /** Unregister ourselves with the TCP Frontend class, and destroy ourselves */
         ~TCPConnection();
-
-        /** Try to complete a connection reset */
-        bool CompleteConnectionReset();
-
-        /** Has this transaction already failed */
-        bool HasFailed();
 
         /** Send a packet on the connection. Implementation must be thread-safe!
             @param buf IO buffer containing the packet to send
@@ -343,8 +345,6 @@ class TCPConnection
         ///Socket - FIXME private!
         Blex::Socket sock;
     private:
-        friend class TCPFrontend;
-
         struct AData
         {
                 AData(): abort(false) {}

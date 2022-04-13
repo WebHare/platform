@@ -153,7 +153,7 @@ MACRO RTECreation()
                           , aref := siteroot->id
                           , stringdata := "ANewWidget"
                           , img := DEFAULT RECORD
-                          , whfssettingid := 0
+                          , whfssettingid := 0i64
                           , whfsfileid := 0
                           ];
   RECORD newinstance := editable->CreateWidget(newwidgetdata);

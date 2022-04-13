@@ -1,12 +1,10 @@
 #include <ap/libwebhare/allincludes.h>
 
-//#include <ap/libwebhare/dbase_client.h>
 #include <blex/path.h>
 #include "shtml.h"
 #include "server_init.h"
 #include "../libwebhare/webserve.h"
 #include "../libwebhare/webscon.h"
-//#include "../libwebhare/whcore_hs3.h"
 #include <harescript/vm/hsvm_context.h>
 #include <harescript/vm/hsvm_dllinterface_blex.h>
 

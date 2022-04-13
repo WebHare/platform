@@ -14,8 +14,6 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-//FIXME how to avoid this?
-MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /* FIXME
    Experimental XML and WHDB import/export code. After stabilizing the API, it should move to wh::..xml.whlib  and wh:..whdb.whlib */
@@ -865,7 +863,7 @@ MACRO TableImporter(INTEGER trans, RECORD tabledescription, RECORD newrec, OBJEC
   IF (ObjectExists(inserter))
     inserter->InsertRecords([ newrec ]);
   ELSE
-    __WHDBDCInsert(trans, tabledescription.output_table, newrec);
+     THROW NEW Exception(`Inserter unavailable`); //FIXME When is this hit?
 }
 
 MACRO ImportRecords(INTEGER trans, RECORD ARRAY importspecification, STRING tablename, RECORD ARRAY toimport)
@@ -913,7 +911,7 @@ MACRO ImportRecords(INTEGER trans, RECORD ARRAY importspecification, STRING tabl
     IF (ObjectExists(inserter))
       inserter->InsertRecords([ newrec ]);
     ELSE
-      __WHDBDCInsert(trans, tabledescription.output_table, newrec);
+       THROW NEW Exception(`Inserter unavailable`); //FIXME When is this hit?
   }
 }
 

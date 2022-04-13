@@ -807,7 +807,7 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
   INTEGER ARRAY linkcheckedchangedattrs;
 
-  INTEGER ARRAY linkcheckedsettings;
+  INTEGER64 ARRAY linkcheckedsettings;
 
   RECORD ARRAY auto_changesets;
 
@@ -979,7 +979,7 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
     INSERT attrid INTO this->linkcheckedchangedattrs AT END;
   }
 
-  PUBLIC MACRO AddLinkCheckedSettings(INTEGER ARRAY settingids)
+  PUBLIC MACRO AddLinkCheckedSettings(INTEGER64 ARRAY settingids)
   {
     this->linkcheckedsettings := this->linkcheckedsettings CONCAT settingids;
   }

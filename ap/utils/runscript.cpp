@@ -10,7 +10,6 @@
 #include <ap/libwebhare/whcore.h>
 #include <ap/libwebhare/whcore_hs3.h>
 #include <ap/libwebhare/wh_filesystem.h>
-#include <ap/libwebhare/webharedbprovider.h>
 #include <iostream>
 #include <signal.h>
 
@@ -274,7 +273,6 @@ int UTF8Main(std::vector<std::string> const &args)
                 // Store ptr to jobmgr for the signal handler
                 SignalJobMgrInteration signalintegration(jobmgr.get());
 
-                HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(hsvm, "runscript " + org_scriptname);
                 Blex::SetInterruptHandler(std::bind(HandleInterrupt, vmgroup, std::placeholders::_1), true);
                 vmgroup->SetupConsole(hsvm, options.ParamList("scriptargs"));
                 any_error = !HSVM_LoadScript(hsvm, scriptname.c_str());

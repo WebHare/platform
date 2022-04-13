@@ -379,7 +379,6 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   // Variables
   //
 
-  PUBLIC BOOLEAN __is_whdb; //temporary flag to detect straight WHDB transactions
 
   /** Number of pushed works
   */

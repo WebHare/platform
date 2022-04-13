@@ -209,7 +209,7 @@ PUBLIC RECORD FUNCTION __ValidateRichDocumentLike(RECORD inrichdoc, BOOLEAN isrt
 
   //check for whfstype and add any missing whfssettingid/whfsfileid, widget users expect these
   UPDATE inrichdoc.instances SET data := ValidateOptions([ whfstype := ""
-                                                         , whfssettingid := 0
+                                                         , whfssettingid := 0i64
                                                          , whfsfileid := 0
                                                          ], data, [ required := [ "whfstype" ]
                                                                   , title := `instances[${#instances}].data`

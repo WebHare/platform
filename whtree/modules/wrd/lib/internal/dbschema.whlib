@@ -88,7 +88,7 @@ PUBLIC SCHEMA
     ; KEY id
     > entities
   , TABLE
-    < INTEGER "id" NULL := 0
+    < INTEGER64 "id" NULL := 0
     , INTEGER "entity" NULL := 0
     , INTEGER "attribute" NULL := 0
     , INTEGER "setting" NULL := 0
@@ -96,12 +96,12 @@ PUBLIC SCHEMA
     , STRING "unique_rawdata"
     , INTEGER "ordering"
     , BLOB "blobdata"
-    , INTEGER "parentsetting" NULL := 0
+    , INTEGER64 "parentsetting" NULL := 0
     ; KEY id
     > entity_settings
 
   , TABLE
-    < INTEGER "id" NULL := 0
+    < INTEGER64 "id" NULL := 0
     , INTEGER "fsobject" NULL := 0
     , INTEGER "linktype"
     ; KEY id

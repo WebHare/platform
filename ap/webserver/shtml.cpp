@@ -3,14 +3,12 @@
 #include "shtml.h"
 #include "server_init.h"
 
-#include <ap/libwebhare/dbase_client.h>
 #include <blex/path.h>
 #include "../libwebhare/webscon.h"
 #include "../libwebhare/webserve.h"
 #include "session_users.h"
 #include <ap/libwebhare/whcore.h>
 #include <ap/libwebhare/whcore_hs3.h>
-#include <ap/libwebhare/webharedbprovider.h>
 #include <iostream>
 #include <sstream>
 #include <blex/logfile.h>
@@ -400,8 +398,6 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         shtmlcontext->webcon_async_itf = webcon_async_itf;
 
         SHTML_PRINT("VM group " << group << " has VM " << app->hsvm << " and SRHID " << app->sessionid << " on conn " << webcon);
-        HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(app->hsvm,
-                                                                   webcon->GetRequestParser().GetReceivedUrl() + " from " + webcon->GetRequest().remoteaddress.ToString());
 
         // Set the output callbacks
         HSVM_SetOutputBuffering(app->hsvm, true);
@@ -606,8 +602,6 @@ void Shtml::ExecuteAccessScript(WebServer::Connection *webcon, std::string const
 
         HSVM_SetOutputBuffering(app->hsvm, true);
         HSVM_SetOutputCallback(app->hsvm, app->hsvm, ShtmlOutputFunc);
-
-        HareScript::SQLLib::WHDB::SetWHDBProviderDefaultClientName(app->hsvm, "authscript " + scriptpath + " for " + webcon->GetRequest().remoteaddress.ToString());
 
         WHCore::ScriptGroupContextData *scriptgroupcontext=static_cast<WHCore::ScriptGroupContextData*>(HSVM_GetGroupContext(app->hsvm, WHCore::ScriptGroupContextId,true));
         ShtmlContextData *shtmlcontext = new ShtmlContextData(this);

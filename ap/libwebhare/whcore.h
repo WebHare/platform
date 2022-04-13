@@ -2,7 +2,6 @@
 #define blex_webhare_shared_whcore
 
 #include "whrpc.h"
-#include "dbase_client.h"
 #include <blex/getopt.h>
 #include <blex/crypto.h>
 #include <blex/mapvector.h>
@@ -29,49 +28,6 @@ enum Class
         ClassIdle
 };
 } //end namespace CompilationPriority
-
-namespace WHMRequestOpcode
-{
-enum Type
-{
-        SendEvent =             101,
-        RegisterPort =          102,
-        UnregisterPort =        103,
-        ConnectLink =           104,
-        OpenLinkResult =        105,
-        DisconnectLink =        106,
-        SendMessageOverLink =   107,
-        RegisterProcess =       108,
-        GetProcessList =        109,
-        ConfigureLogs =         110,
-        Log =                   111,
-        Disconnect =            112,
-        FlushLog =              113,
-        SetSystemConfig =       114,
-        _max =                  114
-};
-}
-
-
-namespace WHMResponseOpcode
-{
-enum Type
-{
-        Answer =                0,
-        IncomingEvent =         101,
-        RegisterPortResult =    102,
-        OpenLink =              103,
-        ConnectLinkResult =     104,
-        LinkClosed =            105,
-        IncomingMessage =       106,
-        RegisterProcessResult = 107,
-        GetProcessListResult =  108,
-        UnregisterPortResult =  109,
-        ConfigureLogsResult =   110,
-        FlushLogResult =        111,
-        SystemConfig =          112
-};
-}
 
 namespace WHCore
 {
@@ -318,8 +274,6 @@ class BLEXLIB_PUBLIC Connection
 
         ~Connection();
 
-        std::string GetConfigKey(Database::TransFrontend &trans, std::string const &name);
-
         /** Get the client name */
         std::string const &GetClientName() const
         { return clientname; }
@@ -371,11 +325,6 @@ class BLEXLIB_PUBLIC Connection
         Blex::SocketAddress GetDbaseAddr() const
         {
                 return dbaseaddr;
-        }
-
-        Database::TCPFrontend& GetDbase() const
-        {
-                return *dbaseptr;
         }
 
         Blex::SocketAddress const & GetCompilerLocation() const
@@ -442,8 +391,6 @@ class BLEXLIB_PUBLIC Connection
     private:
         ///Client name
         std::string const clientname;
-        ///Database connecting to the WebHare database
-        std::unique_ptr<Database::TCPFrontend> dbaseptr;
         ///Where is webhare
         std::string installationroot;
         ///And where is the database server

@@ -21,7 +21,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
     @param scalemethod Image processing method
     @return URL for the file
 */
-PUBLIC STRING FUNCTION GetCachedWRDImageURL(STRING baseurl, INTEGER imageid, RECORD scalemethod)
+PUBLIC STRING FUNCTION GetCachedWRDImageURL(STRING baseurl, INTEGER64 imageid, RECORD scalemethod)
 {
   RETURN GetUnifiedCacheURL(baseurl, 1, 3, imageid, scalemethod);
 }

@@ -41,7 +41,5 @@ PUBLIC OBJECTTYPE WebhareDBException EXTEND Exception
 */
 PUBLIC STRING FUNCTION GetDatabaseType()
 {
-  IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
-    RETURN "postgresql";
-  RETURN "whdb";
+  RETURN "postgresql";
 }

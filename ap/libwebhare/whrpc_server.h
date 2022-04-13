@@ -4,8 +4,6 @@
 #include <blex/threads.h>
 #include <blex/dispat.h>
 #include "whrpc.h"
-//#include "../libwebhare/dbase.h"
-//#include "dbase_types.h"
 
 namespace Database
 {

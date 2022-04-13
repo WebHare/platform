@@ -33,7 +33,6 @@ TESTFAIL=0
 FATALERROR=
 ARTIFACTS=
 NOPULL=0
-TESTPOSTGRESQL=
 LOCALDEPS=
 
 while true; do
@@ -106,12 +105,6 @@ while true; do
   elif [ "$1" == "-m" ]; then
     ISMODULETEST=1
     shift
-  elif [ "$1" == "--dbserver" ]; then
-    TESTPOSTGRESQL=0
-    shift
-  elif [ "$1" == "--postgres" ] || [ "$1" == "--postgresql" ] ; then
-    TESTPOSTGRESQL=1
-    shift
   elif [ "$1" == "--twohares" ] ; then
     TESTFW_TWOHARES=1
     shift
@@ -129,14 +122,6 @@ while true; do
     break
   fi
 done
-
-if [ -z "$TESTPOSTGRESQL" ] && [ "$WEBHARE_INITIALDB" == "postgresql" ] || [ "${CI_COMMIT_REF_NAME:0:11}" == "edge/pgsql-" ] || [ "${CI_COMMIT_REF_NAME:0:14}" == "feature/pgsql-" ] ; then
-  TESTPOSTGRESQL=1
-fi
-
-if [ "$TESTPOSTGRESQL" == "1" ]; then
-  DOCKERARGS="$DOCKERARGS -e WEBHARE_INITIALDB=postgresql"
-fi
 
 if [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then

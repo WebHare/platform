@@ -3,19 +3,6 @@
 This document attemps to give an outline of the current WebHare startup process.
 It may go out of date fast, so always check the code too
 
-## Using PostgreSQL
-Database selection, first of:
-1. If the postgresql data dir exists, WebHare will select the PostgreSQL database server
-2. If the dbase dir exists, WebHare will select dbserver
-3. If `WEBHARE_INITIALDB` is set to `postgresql`, WebHare will select PostgreSQL
-4. WebHare will select dbserver
-
-To initialize with postgresql (make sure you don't have a dbase directory yet!)
-
-```bash
-WEBHARE_INITIALDB=postgresql wh console
-```
-
 ## Service bootstrap
 The steps taken to get WebHare running, and at what point various startup scripts
 are invoked

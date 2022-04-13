@@ -20,13 +20,7 @@ FOR(INTEGER i := 0; i < 5000; i := i + 1)
 
 STRING FUNCTION GetBlobId(BLOB storedblob)
 {
-  IF (GetDatabaseType() = "whdb")
-  {
-    INTEGER id := GetWHDBBlobInternalId(storedblob);
-    RETURN id = 0 ? "" : ToString(id);
-  }
-  ELSE
-    RETURN __GetPostgreSQLBlobRegistrationId(test_fp_trans->id, storedblob);
+  RETURN __GetPostgreSQLBlobRegistrationId(test_fp_trans->id, storedblob);
 }
 
 //--------------------------------------------------------------------------------

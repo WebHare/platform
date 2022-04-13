@@ -5,6 +5,7 @@
 #include "whcore.h"
 #include <blex/path.h>
 #include <blex/pipestream.h>
+#include <blex/utils.h>
 
 /*ADDME: Unused?
 const unsigned CacheTime = 2;   // Time between re-checks in seconds

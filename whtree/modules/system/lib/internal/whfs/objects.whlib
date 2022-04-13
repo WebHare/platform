@@ -2372,7 +2372,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
         ELSE
           updateobj := destfolder->CreateFile(newmetadata);
       }
-      INTEGER ARRAY set_instantiations;
+      INTEGER64 ARRAY set_instantiations;
 
       // Set type instances
       FOREVERY(RECORD inst FROM src.instances)
@@ -2384,7 +2384,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
       IF(NOT copyrec.create)
       {
         //Delete existing but unreferenced instances on dest object
-        INTEGER ARRAY killinstances := SELECT AS INTEGER ARRAY fs_instances.id
+        INTEGER64 ARRAY killinstances := SELECT AS INTEGER64 ARRAY fs_instances.id
                                           FROM system.fs_instances, system.fs_types
                                          WHERE fs_instances.fs_type = fs_types.id
                                                AND fs_instances.fs_object = copyrec.destid

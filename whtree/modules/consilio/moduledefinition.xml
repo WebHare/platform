@@ -10,8 +10,6 @@
   </meta>
 
   <servicemanager>
-    <runonce tag="fixindexnames" script="scripts/runonce/fixindexnames.whscr" when="afterschemacreation" />
-    <runonce tag="setcontentsourcefsobjects" script="scripts/runonce/setcontentsourcefsobjects.whscr" when="poststart" />
     <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
     <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->

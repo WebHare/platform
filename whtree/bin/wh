@@ -58,24 +58,12 @@ if [ -z "$WEBHARE_DATAROOT" ] ; then
   __WEBHARE_DATAROOT_AUTOSET=1
 fi
 
-# Discover which database we'll be using
-if [ "$WEBHARE_INITIALDB" == "postgres" -o "$WEBHARE_INITIALDB" == "postgresql" -o "$(uname).$(uname -m)" == "Darwin.arm64" ]; then  #support postgres as alias
-  WEBHARE_INITIALDB=postgresql
-elif [ "$WEBHARE_INITIALDB" == "dbserver" -o "$WEBHARE_INITIALDB" == "" ]; then
-  WEBHARE_INITIALDB=dbserver
-else
-  die "Invalid WEBHARE_INITIALDB setting: $WEBHARE_INITIALDB"
+if [ -f $WEBHARE_DATAROOT/dbase/translog.whdb ]; then
+  echo "The dbserver is no longer suppported by WebHare 4.36 and up. Downgrade and convert first!"
+  exit 1
 fi
 
-if [ -f $WEBHARE_DATAROOT/postgresql/db/postgresql.conf ] || ( [ ! -f $WEBHARE_DATAROOT/dbase/translog.whdb -a "$WEBHARE_INITIALDB" == "postgresql" ] ); then
-  export __WEBHARE_DBASE="postgresql" # __ var because external users should not set it! they should set WEBHARE_INITIALDB
-  if [ -z "$WEBHARE_DBASENAME" ]; then
-    export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
-  fi
-else
-  export __WEBHARE_DBASE="dbserver"
-  export WEBHARE_DBASENAME=""
-fi
+export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
 
 # Source settings.sh from the dataroot for non-docker installations
 if [ -z "$WEBHARE_IN_DOCKER" -a -f "$WEBHARE_DATAROOT"/settings.sh ]; then
@@ -353,7 +341,6 @@ export WEBHARE_BASEPORT="$WEBHARE_BASEPORT"
 export WEBHARE_DISPLAYBUILDINFO="$WEBHARE_DISPLAYBUILDINFO"
 export WEBHARE_ISRESTORED="$WEBHARE_ISRESTORED"
 export WEBHARE_TEMP="$WEBHARE_TEMP"
-export __WEBHARE_DBASE="$__WEBHARE_DBASE"
 export WEBHARE_DBASENAME="$WEBHARE_DBASENAME"
 export WEBHARE_DBASE_READONLY="$WEBHARE_DBASE_READONLY"
 export WEBHARE_VERSION="$WEBHARE_VERSION"
@@ -734,8 +721,6 @@ case $INSTR in
     echo ""
     echo "Data root:     $WEBHARE_DATAROOT"
     echo "Database data: $STORAGEPATH"
-    echo "Database recs: $RECORDSTORAGEPATH"
-    echo "Database idx:  $INDEXSTORAGEPATH"
     echo ""
     set|grep ^WEBHARE_
     ;;

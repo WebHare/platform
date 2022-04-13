@@ -4,8 +4,72 @@
 #include <iomanip>
 #include "whrpc.h"
 
+namespace WHMRequestOpcode
+{
+std::string GetName(uint8_t code)
+{
+        switch (code)
+        {
+        case WHMRequestOpcode::SendEvent:               return "SendEvent";
+        case WHMRequestOpcode::RegisterPort:            return "RegisterPort";
+        case WHMRequestOpcode::UnregisterPort:          return "UnregisterPort";
+        case WHMRequestOpcode::ConnectLink:             return "ConnectLink";
+        case WHMRequestOpcode::DisconnectLink:          return "DisconnectLink";
+        case WHMRequestOpcode::SendMessageOverLink:     return "SendMessageOverLink";
+        case WHMRequestOpcode::OpenLinkResult:          return "OpenLinkResult";
+        case WHMRequestOpcode::RegisterProcess:         return "RegisterProcess";
+        case WHMRequestOpcode::GetProcessList:          return "GetProcessList";
+        case WHMRequestOpcode::ConfigureLogs:           return "ConfigureLogs";
+        case WHMRequestOpcode::Log:                     return "Log";
+        case WHMRequestOpcode::Disconnect:              return "Disconnect";
+        case WHMRequestOpcode::SetSystemConfig:         return "SetSystemConfig";
+        default:
+            return "Unknown request opcode";
+        }
+}
+}
+
+
+namespace WHMResponseOpcode
+{
+std::string GetName(uint8_t code)
+{
+        switch (code)
+        {
+        case WHMResponseOpcode::Answer:                 return "Answer";
+        case WHMResponseOpcode::IncomingEvent:          return "IncomingEvent";
+        case WHMResponseOpcode::RegisterPortResult:     return "RegisterPortResult";
+        case WHMResponseOpcode::OpenLink:               return "OpenLink";
+        case WHMResponseOpcode::ConnectLinkResult:      return "ConnectLinkResult";
+        case WHMResponseOpcode::LinkClosed:             return "LinkClosed";
+        case WHMResponseOpcode::IncomingMessage:        return "IncomingMessage";
+        case WHMResponseOpcode::RegisterProcessResult:  return "RegisterProcessResult";
+        case WHMResponseOpcode::GetProcessListResult:   return "GetProcessListResult";
+        case WHMResponseOpcode::ConfigureLogsResult:    return "ConfigureLogsResult";
+        case WHMResponseOpcode::FlushLogResult:         return "FlushLogResult";
+        case WHMResponseOpcode::SystemConfig:           return "SystemConfig";
+        default:
+            return "Unknown response opcode";
+        }
+}
+}
+
+
 namespace Database
 {
+
+Exception::Exception (ErrorCodes errorcode, const std::string& what_arg, const std::string& what_table, const std::string& what_column, const std::string& what_client)
+: std::runtime_error(what_arg)
+, errorcode(errorcode)
+, tablename(what_table)
+, columnname(what_column)
+, clientname(what_client)
+{
+}
+
+Exception::~Exception() throw()
+{
+}
 
 void IOBuffer::InvalidRPCData()
 {
@@ -108,11 +172,6 @@ unsigned TCPConnection::GetFirstBufferLength(Blex::PodVector< uint8_t > *data)
                 throw Exception(ErrorProtocol, "Received broken buffer length from database: " + Blex::AnyToString(lensofar));
         }
         return lensofar;
-}
-
-bool TCPConnection::HasFailed()
-{
-        return rpcfailed;
 }
 
 void TCPConnection::TrySendOutgoing(LockedAData::WriteRef &lock)
@@ -221,7 +280,7 @@ void TCPConnection::PopPacket(LockedAData::WriteRef &lock, IOBuffer *iobuf)
         iobuf->GetInternalIOBuffer()->assign(&lock->incoming[0],&lock->incoming[msglen]);
         lock->incoming.erase(lock->incoming.begin(), lock->incoming.begin() + msglen);
 
-        IOCLIENTDEBUGPRINT("TCP conn " << this << ": Received packet " << ResponseOpcode::GetName((ResponseOpcode::Type)iobuf->GetOpcode()) << ", len: " << iobuf->GetRawLength());
+        IOCLIENTDEBUGPRINT("TCP conn " << this << ": Received packet " << WHResponseOpcode::GetName((WHResponseOpcode::Type)iobuf->GetOpcode()) << ", len: " << iobuf->GetRawLength());
 
         iobuf->ResetReadPointer();
         if (iobuf->IsException())
@@ -411,30 +470,5 @@ bool TCPConnection::HasOutgoingData()
         LockedAData::ReadRef lock(adata);
         return !lock->outgoing.empty();
 }
-
-//FIXME Move to dbase
-bool TCPConnection::CompleteConnectionReset()
-{
-        //Clear any 'old' messages - we did a ResetConnection when pushing the connection which should have responded
-        Blex::DateTime timeout = Blex::DateTime::Now() + Blex::DateTime::Seconds(3);
-        IOBuffer temp; //ADDME: Scratch buffer would be nice
-        while (true)
-        {
-                try
-                {
-                        ReceivePacket(&temp, timeout);
-                        if(temp.GetOpcode() == ResponseOpcode::Reset)
-                            return true;
-                        DEBUGPRINT("PopCachedConn - dropped packet " << ResponseOpcode::GetName((ResponseOpcode::Type)temp.GetOpcode()) << " while waiting for Reset");
-                }
-                catch(Database::Exception &e)
-                {
-                        if(e.errorcode == ErrorDisconnect || e.errorcode == ErrorTimeout) //ADDME: Deze combi komt meerdere keren voor, samenvoegen als state flag van de connectie zelf misschien ofzo?
-                           break;
-                }
-        }
-        return false;
-}
-
 
 } //end namespace Database

@@ -98,7 +98,7 @@ MACRO VerifyAutoCreateTestFile(OBJECT testfile, BOOLEAN after)
                   , data :=
                          [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance1"
                          , str1 := "str3"
-                         , whfssettingid := 0
+                         , whfssettingid := 0i64
                          , whfsfileid := 0
                          ]
                   ];
@@ -110,8 +110,8 @@ MACRO VerifyAutoCreateTestFile(OBJECT testfile, BOOLEAN after)
                  , data :=
                         [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance3"
                         , str3 := "str3"
-                        , whfssettingid := 0
-                         , whfsfileid := 0
+                        , whfssettingid := 0i64
+                        , whfsfileid := 0
                         ]
                  ];
 
@@ -236,7 +236,7 @@ MACRO AutoCreateTypes()
   deletedtestfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/autocreate/instance2", [ str2 := "str2" ]);
   deletedtestfile->RecycleSelf();
 
-  INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY id FROM system.fs_instances WHERE fs_object = testfile->id;
+  INTEGER64 ARRAY instanceids := SELECT AS INTEGER64 ARRAY id FROM system.fs_instances WHERE fs_object = testfile->id;
 
   VerifyAutoCreateTestFile(testfile, FALSE);
 

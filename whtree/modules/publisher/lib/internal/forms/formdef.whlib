@@ -656,7 +656,7 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
     IF(CellExists(data,"instances"))
     {
       //ensure even manual imports have whfsfileid and whfssettingid set for every instance
-      this->instances := SELECT AS RECORD ARRAY CELL[ instanceid, data := [ whfssettingid := 0, whfsfileid := 0, ...instances.data] ] FROM data.instances;
+      this->instances := SELECT AS RECORD ARRAY CELL[ instanceid, data := [ whfssettingid := 0i64, whfsfileid := 0, ...instances.data] ] FROM data.instances;
     }
     IF(CellExists(data,"links"))
     {

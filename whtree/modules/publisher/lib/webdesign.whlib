@@ -1511,7 +1511,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       THROW NEW Exception(`No rtdtype setup for ${this->pvt_targetapplytester->DescribeTarget()}`);
 
     RECORD data := sharedblock.data;
-    INSERT CELL whfssettingid := 0
+    INSERT CELL whfssettingid := 0i64
               , whfsfileid := sharedblock.id
               , whfstype := sharedblock.type_ns
            INTO data;
@@ -1542,7 +1542,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     }
 
     IF(NOT CellExists(widgetdata,'whfssettingid'))
-      INSERT CELL whfssettingid := 0 INTO widgetdata;
+      INSERT CELL whfssettingid := 0i64 INTO widgetdata;
     IF(NOT CellExists(widgetdata,'whfsfileid'))
       INSERT CELL whfsfileid := 0 INTO widgetdata;
 

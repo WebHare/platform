@@ -271,19 +271,19 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_members
   , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "fs_instance" NULL := 0
+    < INTEGER64 "id" NULL := 0
+    , INTEGER64 "fs_instance" NULL := 0
     , INTEGER "fs_member" NULL := 0
     , STRING "setting"
     , BLOB "blobdata"
     , INTEGER "fs_object" NULL := 0
-    , INTEGER "parent" NULL := 0
+    , INTEGER64 "parent" NULL := 0
     , INTEGER "instancetype" NULL := 0
     , INTEGER "ordering"
     ; KEY id
     > fs_settings
   , TABLE
-    < INTEGER "id" NULL := 0
+    < INTEGER64 "id" NULL := 0
     , INTEGER "fs_type" NULL := 0
     , INTEGER "fs_object" NULL := 0
     ; KEY id
