@@ -805,7 +805,7 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
                       , priority := ^priority->value
                       , indexmanager := ^indexmanager->value
                       , type := ^type->value
-                      , indexname := ^indexname->visible ? ^indexname->value : ""
+                      , indexname := ^indexname->value
                       ];
 
     INTEGER newcatalogid;
