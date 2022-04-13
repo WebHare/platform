@@ -183,7 +183,7 @@ ERRORDEF(161, NoPassthroughOutsideBind,  "Passthrough parameters (like #1) can o
 ERRORDEF(162, IllegalBindExpression,     "A PTR-expression must end with a function, a object function member or a call to one of these (optionally with passthrough parameters).")
 ERRORDEF(163, MustBeOneTable,            "Only one table allowed in Deletes and Updates.")
 ERRORDEF(164, DatabaseException,         "Database exception '%0'.")
-ERRORDEF(165, UnknownFilePrefix,         "Unknown library namespace '%0'.")
+ERRORDEF(165, UnknownFilePrefix,         "Unknown library namespace '%0' for library '%1'.")
 ERRORDEF(166, RebindingDefaultPtr,       "A function pointer in a PTR-expression cannot have the default function pointer value.")
 ERRORDEF(167, IllegalLog,                "Unknown log referenced.")
 ERRORDEF(168, ExpectedReal,              "Expected a floating-point value.")

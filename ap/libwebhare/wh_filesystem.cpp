@@ -587,7 +587,7 @@ Type GetPrefix(std::string const &liburi)
         else if (prefix == Blex::StringPair::FromStringConstant("test"))
             return FSTest;
 
-        throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str());
+        throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str(), liburi);
 }
 
 const char * GetPrefixString(Type type)
@@ -724,7 +724,7 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 default:
                     {
                             std::string::iterator it = std::find(loader.begin(), loader.end(), ':');
-                            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it));
+                            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, std::string(loader.begin(), it), loader);
                     }
                 }
 
