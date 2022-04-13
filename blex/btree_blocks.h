@@ -217,7 +217,7 @@ class BLEXLIB_PUBLIC IndexBlockEntry
 
         friend class IndexBlockIterator;
 };
-std::ostream& operator <<(std::ostream &out, const IndexBlockEntry &e);
+BLEXLIB_PUBLIC std::ostream& operator <<(std::ostream &out, const IndexBlockEntry &e);
 
 class IndexBlockIterator;
 
@@ -305,7 +305,7 @@ class BLEXLIB_PUBLIC IndexBlockEntryContainer : public IndexBlockEntry
 
 */
 
-class IndexBlock
+class BLEXLIB_PUBLIC IndexBlock
 {
     public:
         typedef IndexBlockIterator iterator;

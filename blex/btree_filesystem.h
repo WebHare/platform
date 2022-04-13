@@ -316,7 +316,7 @@ class BLEXLIB_PUBLIC DBIndexFileSystem
 
     const-ness is not transitive. A const SmartBlockPtr still allows access
     to its contained block */
-class SmartBlockPtr
+class BLEXLIB_PUBLIC SmartBlockPtr
 {
         public:
         /** Construct an unused SmartBlockPtr
@@ -357,7 +357,7 @@ class SmartBlockPtr
 class BLEXLIB_PUBLIC BtreeIndex
 {
     public: // ADDME: publication to make tree analysis possible
-        class ReadSession;
+        class BLEXLIB_PUBLIC ReadSession;
         class WriteSession;
         friend class ReadSession;
         // WriteSession may also touch index's private parts, is more trusted than evil world.
@@ -517,7 +517,7 @@ class BLEXLIB_PUBLIC BtreeIndex
 
     public:
         /** ReadSession - all functions only used for reading from the index are placed here */
-        class ReadSession
+        class BLEXLIB_PUBLIC ReadSession
         {
             public:
                 /// Read session on the file-system
