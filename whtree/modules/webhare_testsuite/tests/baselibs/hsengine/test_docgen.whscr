@@ -874,6 +874,7 @@ MACRO LibdumpTest()
 {
   OpenTest("DocgenTest::LibdumpTest");
   TestEq(DEFAULT RECORD, DescribeCompiledLibrary("wh::bestaatniet.whlib"));
+  TestEq(DEFAULT RECORD, DescribeCompiledLibrary("namespace::bestaatniet.whlib"));
 
   //DumpValue(__HS_LIBDUMP("test::testdata_docgen_lib.whlib"),"tree");
   RECORD dump := DescribeCompiledLibrary("test::testdata_docgen_lib.whlib");
