@@ -39,7 +39,7 @@
 
   <tabsextension name="extensionwithcode"
                  implementation="lib"
-                 lib="module::webhare_testsuite/screens/tests/tabextensions.whlib">
+                 lib="mod::webhare_testsuite/lib/screens/tests/tabextensions.whlib">
     <insert position="thefirsttab" where="atend">
       <p:intextlink name="intextlink" />
     </insert>

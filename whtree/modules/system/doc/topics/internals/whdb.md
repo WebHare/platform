@@ -43,9 +43,9 @@ Here's the procedure - at your own risk!
 # Start the database in recovery mode
 /opt/webhare/bin/dbserver --listen 127.0.0.1:13679 --dbasefolder /opt/whdata/dbase --recoverymode
 # Run the recovery script mode
-wh run modulescript::system/database/checkdefinitionschema.whscr
+wh run mod::system/scripts/database/checkdefinitionschema.whscr
 # Apply any fixes suggested by the recoverty script
-wh run modulescript::system/database/checkdefinitionschema.whscr --fix
+wh run mod::system/scripts/database/checkdefinitionschema.whscr --fix
 
 # Now, CTRL+C the database server and start WebHare normally
 ```

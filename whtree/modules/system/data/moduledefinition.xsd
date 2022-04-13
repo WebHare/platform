@@ -2513,7 +2513,7 @@
           </xs:attribute>
           <xs:attribute name="objectname" use="required">
             <xs:annotation>
-              <xs:documentation>Object containing the check code, relative to the module definition. Must derive from CustomCheckBase in module::system/configure.whlib</xs:documentation>
+              <xs:documentation>Object containing the check code, relative to the module definition. Must derive from CustomCheckBase in mod::system/lib/configure.whlib</xs:documentation>
             </xs:annotation>
           </xs:attribute>
         </xs:complexType>

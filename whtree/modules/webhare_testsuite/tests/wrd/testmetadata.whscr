@@ -610,7 +610,7 @@ MACRO TestMerge()
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
   <!-- dupe imports should not be an issue -->
-  <import definitionfile="moduledata::wrd/wrdschemas/authschema.xml" /> <!-- direct, old path -->
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" /> <!-- direct -->
   <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" /> <!-- indirectly includes authschema through new path -->
 </schemadefinition>`;
 

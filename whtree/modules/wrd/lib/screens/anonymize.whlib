@@ -80,7 +80,7 @@ PUBLIC STATIC OBJECTTYPE Anonymize EXTEND TolliumScreenBase
 
     OBJECT task := CreateProgressDialog(
         this,
-        "module::wrd/screens/anonymize.whlib",
+        "mod::wrd/lib/screens/anonymize.whlib",
         "AnonymizeBGTask",
         [ wrdschema := this->contexts->wrdschema->tag
         ]);

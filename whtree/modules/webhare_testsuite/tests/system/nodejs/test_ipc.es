@@ -46,12 +46,12 @@ describe("Connect to bridge", function()
   });
   it("should test a simple invoke", async function()
   {
-    let result = await bridge.invoke("module::webhare_testsuite/webservicetest.whlib", "ITakeNoParams");
+    let result = await bridge.invoke("mod::webhare_testsuite/lib/webservicetest.whlib", "ITakeNoParams");
     assert.strictEqual(42,result);
   });
   it("should not mind being closed", async function()
   {
     bridge.close();
-    await assertAsyncThrown(x=>bridge.invoke("module::webhare_testsuite/webservicetest.whlib", "ITakeNoParams"), "bridge is closed so function should throw");
+    await assertAsyncThrown(x=>bridge.invoke("mod::webhare_testsuite/lib/webservicetest.whlib", "ITakeNoParams"), "bridge is closed so function should throw");
   });
 });

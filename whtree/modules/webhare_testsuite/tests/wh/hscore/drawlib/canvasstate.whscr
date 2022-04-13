@@ -20,7 +20,7 @@ MACRO CanvasMarshallingTest()
 {
   OBJECT canvas := CreateEmptyCanvas(400, 600, ColorWhite);
 
-  RECORD jobrec := CreateJob("module::webhare_testsuite/drawlib/marshallingtest.whlib");
+  RECORD jobrec := CreateJob("mod::webhare_testsuite/lib/drawlib/marshallingtest.whlib");
 
   jobrec.job->Start();
 

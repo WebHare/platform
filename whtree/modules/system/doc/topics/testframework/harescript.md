@@ -7,7 +7,7 @@ easy development of further tests
 
 ## Skeleton for a new test
 ```harescript
-LOADLIB "module::system/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 
 MACRO TestXX()
 {

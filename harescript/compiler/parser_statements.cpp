@@ -1298,7 +1298,7 @@ void Parser::P_CompilerStatement(bool only_report)
                                 else
                                 {
                                         coder->GetRoot()->scriptproperty_systemredirect = true;
-                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "module::system/internal/webserver/systemredirect.whlib", !only_report, true);
+                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "mod::system/lib/internal/webserver/systemredirect.whlib", !only_report, true);
                                         loadlibs.push_back(res.second);
                                 }
                                 return;

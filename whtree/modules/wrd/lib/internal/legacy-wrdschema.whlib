@@ -154,7 +154,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
   {
     IF(NOT this->usermgmt)
       THROW NEW Exception("Requesting the user api of schema '" || this->name || "' which is not configured for user management");
-    RETURN MakeObject("module::wrd/internal/userapi.whlib","WHUserApi",this);
+    RETURN MakeObject("mod::wrd/lib/internal/userapi.whlib#WHUserApi",this);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAllTypes()

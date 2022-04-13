@@ -55,7 +55,7 @@ class Debugger
         {
                 JobData();
 
-                enum PauseReason // Keep synced with module::system/internal/debugger/connector.whlib
+                enum PauseReason // Keep synced with mod::system/lib/internal/debugger/connector.whlib
                 {
                 None =          0,
                 Request =       1,

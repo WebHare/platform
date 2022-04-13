@@ -251,7 +251,7 @@ PUBLIC STATIC OBJECTTYPE ImportSchema EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT screen := CreateProgressDialog(this,
-                                          "module::wrd/internal/tollium-bgtasks.whlib",
+                                          "mod::wrd/lib/internal/tollium-bgtasks.whlib",
                                           "ImportArchive",
                                           [ data := this->infile.data
                                           , userid := this->tolliumuser->authobjectid //FIXME is this safe to transfer this way?  should send auth object
@@ -340,7 +340,7 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
           , syncoptions.includetypes
           ];
       OBJECT screen := CreateProgressDialog(this,
-                                            "module::wrd/internal/tollium-bgtasks.whlib",
+                                            "mod::wrd/lib/internal/tollium-bgtasks.whlib",
                                             "SyncSchema",
                                             syncdata);
 

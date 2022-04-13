@@ -49,7 +49,7 @@ MACRO RunCleanupTest()
 
   INTEGER indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
   INTEGER contentsource_1 := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
       , maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]);
@@ -69,7 +69,7 @@ MACRO RunCleanupTest()
   DELETE FROM consilio.contentsources WHERE id = contentsource_1;
 
   INTEGER contentsource_2 := AddCustomContentSourceToCatalog(testfw->GetCatalogName_1(), "BETA_CUSTOMSOURCE",
-      [ contentsourceobject :=  "module::webhare_testsuite/consilio/dbindex.whlib#DBContent"
+      [ contentsourceobject :=  "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent"
       , maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]);

@@ -680,7 +680,7 @@ void AppServer::AsyncErrorReport(std::string const &id, HareScript::VMGroup *vmg
             DisplayStackLocation(scriptenv->GetFileSystem(), &HareScript::GetVirtualMachine(hsvm)->GetContextKeeper(),*itr);
 
         std::map< std::string, std::string > params;
-        params["script"] = Blex::AnyToJSON(id.empty() ? std::string("modulescript::system/internal/appserver/manager.whscr") : script);
+        params["script"] = Blex::AnyToJSON(id.empty() ? std::string("mod::system/scripts/internal/appserver/manager.whscr") : script);
         params["contextinfo"] = Blex::AnyToJSON(jobmgr->GetGroupErrorContextInfo(vmgroup));
         LogHarescriptError(*webhare, "appserver", jobmgr->GetGroupId(vmgroup), jobmgr->GetGroupExternalSessionData(vmgroup), errorhandler, params);
 }
@@ -698,7 +698,7 @@ void AppServer::StartManagementScript()
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
 
         // FIXME: set current script name (setcurrentfile on errorhandler)
-        if (!HSVM_LoadScript(hsvm, "modulescript::system/internal/appserver/manager.whscr"))
+        if (!HSVM_LoadScript(hsvm, "mod::system/scripts/internal/appserver/manager.whscr"))
         {
                 Blex::ErrStream() << "Errors loading appserver management script, terminating appserver\n";
                 AsyncErrorReport("", group);

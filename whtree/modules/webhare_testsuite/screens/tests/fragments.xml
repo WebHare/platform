@@ -79,7 +79,7 @@
     </body>
   </screen>
 
-  <fragment name="loadfragment" lib="module::webhare_testsuite/screens/tests/fragments.whlib">
+  <fragment name="loadfragment" lib="mod::webhare_testsuite/lib/screens/tests/fragments.whlib">
     <contents>
       <box name="box">
         <p:intextlink width="1pr" name="intextlink" required="true" />

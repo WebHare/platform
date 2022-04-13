@@ -41,7 +41,7 @@
   <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatefoldertest" />
 
   <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/autocreatedynexectest" kind="datafile">
-    <dynamicexecution webpageobjectname="module::webhare_testsuite/publisher/testsitedesign.whlib#WebPage" />
+    <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#WebPage" />
   </filetype>
 
 </siteprofile>

@@ -27,7 +27,7 @@ MACRO TestThesaurus()
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus");
   Print(`consilio:testfw_thesaurus => ${testcatalog->indexname}\n`); //having indexnames makes log analysis easier
 
-  OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "module::webhare_testsuite/consilio/dbindex.whlib#DBContent",
+  OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ maxgroupobjects :=      1000
       , discardsummaries :=     TRUE
       ]);

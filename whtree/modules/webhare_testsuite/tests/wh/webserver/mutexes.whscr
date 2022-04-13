@@ -50,8 +50,8 @@ MACRO RunscriptMutexes()
 
 MACRO RunscriptInterlockingMutexes()
 {
-  OBJECT job_a := CreateJob("module::webhare_testsuite/system/mutexes.whlib").job;
-  OBJECT job_b := CreateJob("module::webhare_testsuite/system/mutexes.whlib").job;
+  OBJECT job_a := CreateJob("mod::webhare_testsuite/lib/system/mutexes.whlib").job;
+  OBJECT job_b := CreateJob("mod::webhare_testsuite/lib/system/mutexes.whlib").job;
 
   job_a->Start();
   job_b->Start();

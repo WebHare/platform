@@ -32,7 +32,7 @@ editor or when cropping the image using the image cache.
 
 In addition, the reference point can be used when displaying a cropped header
 photo on a site while keeping a certain point in view (this is used in WS2016
-for example). If you use the `WrapCachedImage` from `module::system/cache.whlib`,
+for example). If you use the `WrapCachedImage` from `mod::system/lib/cache.whlib`,
 you get a record with `link`, `width` and `height` values, and a
 `refpoint_backgroundposition` value. In witty you can then specify:
 

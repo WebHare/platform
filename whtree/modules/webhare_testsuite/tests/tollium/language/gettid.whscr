@@ -62,7 +62,7 @@ MACRO SetupTestModule_LanguageFiles()
 {
   testfw->SetupTestModule();
 
-  OBJECT srcwitty := LoadWittyLibrary("module::webhare_testsuite/system/testmodule.witty", "TEXT");
+  OBJECT srcwitty := LoadWittyLibrary("mod::webhare_testsuite/lib/system/testmodule.witty", "TEXT");
   StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/default.xml", srcwitty->RunComponentToBlob("language_default", RECORD[]), [ overwrite := TRUE ]);
   StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/nl.xml", srcwitty->RunComponentToBlob("language_nl", RECORD[]), [ overwrite := TRUE ]);
   StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xx.xml", srcwitty->RunComponentToBlob("language_xx", RECORD[]), [ overwrite := TRUE ]);

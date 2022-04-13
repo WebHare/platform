@@ -89,13 +89,13 @@ To simplify the task of defining and binding tables every time you need them, it
 - Setting up a function which binds all tables to a specified transaction.
 - Automatically binding the tables to the primary transaction, if available.
 
-The following code is an excerpt of the Publisher database library _module::publisher/database.whlib_, which demonstrates the all the above actions. Not all actually existing tables and columns have been listed in this excerpt:
+The following code is an excerpt of the Publisher database library _mod::publisher/lib/database.whlib_, which demonstrates the all the above actions. Not all actually existing tables and columns have been listed in this excerpt:
 
 ```harescript
 <?wh
 
 //GetPrimaryWebHareTransaction()
-LOADLIB "module::system/database.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 
 // Creating the table definitions
 PUBLIC TABLE <INTEGER "id", INTEGER "parent", STRING "name"> FOLDERS;

@@ -655,7 +655,7 @@ PUBLIC STATIC OBJECTTYPE RestAPIDefinitionFile EXTEND XMLValidatorBase
     FOREVERY (RECORD endpoint FROM parsed.endpoints)
       FOREVERY (RECORD method FROM endpoint.methods)
       {
-        STRING message := CallFunctionFromJob("module::system/internal/remoting/restapisupport.whlib", "CheckSignature", method);
+        STRING message := CallFunctionFromJob("mod::system/lib/internal/remoting/restapisupport.whlib", "CheckSignature", method);
         IF (message != "")
           this->AddErrorForLine(method.source.line, message);
       }
