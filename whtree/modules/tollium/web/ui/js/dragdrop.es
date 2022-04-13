@@ -278,7 +278,8 @@ class CurrentDragData
 
 function getEventItemsTypeHash(event)
 {
-  return Array.from(event.dataTransfer.types).sort().join("\t");
+  // The downloadurl type is set when initializing the drag event, but it won't be present in the drop event.
+  return Array.from(event.dataTransfer.types).filter(t => t != "downloadurl").sort().join("\t");
 }
 
 export function getDragData(event)
