@@ -36,11 +36,6 @@ PUBLIC MACRO SectionStart(INTEGER id)
   PRINT (">RUNNING " || id || "\n");
 }
 
-PUBLIC MACRO UpcomingHang(STRING trans_name)
-{
-  PRINT(">UPCOMINGHANG " || current_section || " " || trans_name || "\n");
-}
-
 PUBLIC MACRO SectionEnd(INTEGER id)
 {
   if (id != current_section)
