@@ -2327,7 +2327,7 @@
       <text tid="lastip">Last IP-address</text>
       <text tid="lastlogin">Last login</text>
       <text tid="none">None</text>
-      <text tid="noprefsforoverride">You cannot manage the preferences for the override user in recovery mode.</text>
+      <text tid="noprefsforoverride">You cannot manage the preferences for the override user.</text>
       <text tid="notificationsandwarnings">Notifications</text>
       <text tid="password">Password</text>
       <text tid="passwordabouttoexpire">Your password will expire <ifparam p="1" value="0">today<else/><ifparam p="1" value="1">in 1 day<else/>in <param p="1"/> days</ifparam></ifparam>, please change it.</text>

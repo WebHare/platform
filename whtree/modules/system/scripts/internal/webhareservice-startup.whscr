@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::os.whlib";
@@ -55,13 +54,6 @@ IF(showinfo)
 DATETIME start := GetCurrentDatetime();
 SetWHServiceState("startup", [ start := start ]);
 
-IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
-{
-  GetPrimary()->BeginWork();
-  __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to on"); //allows stacktracing if the startup process gets stuck
-  GetPrimary()->CommitWOrk();
-}
-
 /* Unpack important stuff that shipped with us */
 RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
 IF(RecordExists(shrinkwrapfile))
@@ -108,13 +100,6 @@ IF(RecordExists(shrinkwrapfile))
 
 __disable_compilable_lockmgr := TRUE;
 RunRestartReset(showinfo, FALSE);
-
-IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
-{
-  GetPrimary()->BeginWork();
-  __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to off");
-  GetPrimary()->CommitWOrk();
-}
 
 FOREVERY(STRING err FROM GetModuleDependencyIssues())
   Print(err||"\n");

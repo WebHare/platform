@@ -7,7 +7,6 @@
                  bootstrap
                  events
                  webhare-connect
-                 whdb
                  classnames
                  ">
   <section name="webharedb" title="WebHare Database access" />

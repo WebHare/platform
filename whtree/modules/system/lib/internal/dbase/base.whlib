@@ -32,14 +32,3 @@ PUBLIC OBJECTTYPE WebhareDBException EXTEND Exception
     RETURN this->type="nosuch";
   }
 >;
-
-/** Returns the database type of the WebHare database
-    @return Database type, one of "wbdb", "postgresql".
-    @topic database/webharedb
-    @public
-    @loadlib mod::system/lib/database.whlib
-*/
-PUBLIC STRING FUNCTION GetDatabaseType()
-{
-  RETURN "postgresql";
-}
